@@ -30,7 +30,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -296,7 +296,7 @@ Private Sub ReorderTrades( _
 '   trade keeps every input.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -350,7 +350,7 @@ Private Function ResultsRows() As Variant
 '   last used row, columns A to RS_NCOLS; Empty when there are none.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

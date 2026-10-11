@@ -54,7 +54,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -306,7 +306,7 @@ Public Function ResultsStatusText( _
 '   must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

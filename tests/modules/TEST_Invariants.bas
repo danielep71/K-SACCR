@@ -42,7 +42,7 @@ Attribute VB_Name = "TEST_Invariants"
 '   CRE52.57 and CRR Art. 280a (IR bucket formula).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -111,7 +111,7 @@ Public Sub RunInvariantTests()
 '   the workbook and reports the run as failed.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
@@ -171,7 +171,7 @@ Public Sub RunInvariantTests()
     'formula, whose cross terms have correlations below 1 [CRE52.57].
         TEST_CaseRunner.BeginCase "invariants-demo-ir-sum-of-absolutes", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), PRM_VALUE_COL, False
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), ParamsValueCol(), False
         TEST_CaseRunner.RunCase
         detail = IrOffsetGap(original, SheetRows(SH_RESULTS, RS_NCOLS))
         RecordRelation "ir-add-on-not-lower", detail
@@ -1083,7 +1083,7 @@ Private Function NettingSetInput( _
 '   then ends as failed.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1122,7 +1122,7 @@ Private Function ParamsRow( _
 '   failed.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1134,7 +1134,7 @@ Private Function ParamsRow( _
 '------------------------------------------------------------------------------
 ' FIND
 '------------------------------------------------------------------------------
-        r = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, key)
+        r = FindHeaderRow(GetSheet(SH_PARAMS), ParamsCodeCol(), key)
         If r = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_Invariants.ParamsRow", _
                       "'" & key & "' not found in column C of Params."
@@ -1160,7 +1160,7 @@ Private Function SheetRows( _
 '   The values; Empty when the sheet has no data rows.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1215,7 +1215,7 @@ Private Function RowLabel( _
 '   The ID in the first column of a Results row.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
         RowLabel = SafeStr(outputRows(r, 1))
@@ -1278,7 +1278,7 @@ Private Function MatchingRow( _
 '   The row; 0 when absent.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

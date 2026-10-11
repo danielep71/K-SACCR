@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -59,9 +59,10 @@ Attribute VB_Name = "CORE_Config"
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
     'Every sheet has two narrow margin columns (A:B) and two margin rows
-    '(1:2). Every input and output table starts in column C, with its
-    'headers on row 6 and data from row 7. Column numbers in this module
-    '(NS_, TR_, RS_, PRM_ and the others) count from the first table
+    '(1:2). Every input and output table except Params starts in column C,
+    'with its headers on row 6 and data from row 7; Params is located
+    'through workbook names (see PARAMS SHEET). Column numbers in this
+    'module (NS_, TR_, RS_ and the others) count from the first table
     'column; CORE_Util.TableCell and TableRange add COL_OFFSET. The run
     'summary is written to cell C4 of the Results sheet.
         Public Const COL_OFFSET       As Long = 2         'Margin columns left of every table
@@ -72,12 +73,19 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' PARAMS SHEET
 '------------------------------------------------------------------------------
-    'Each parameter is a row with its code in table column 1 (sheet column
-    'C) and its value in table column 3 (sheet column E). A workbook name equal to the code takes precedence (see
-    'CORE_Util.GetParam). BD = business days; SD = supervisory duration;
+    'The Params sheet is located through workbook names, not fixed rows
+    'and columns, so its layout can change: NM_PRM_CODE and NM_PRM_VALUE
+    'name the "Code" and "Value" header cells of the parameter rows, and
+    'the top-left cells of NM_SF_TABLE and NM_FX_TABLE are the header cells
+    'of the two lookup tables (CORE_Util.ParamsCodeCol and the related
+    'functions). Each parameter is a row with its code under "Code" and its
+    'value under "Value"; a workbook name equal to the code takes precedence
+    '(CORE_Util.GetParam). BD = business days; SD = supervisory duration;
     'SF = supervisory factor; CO = commodity.
-        Public Const PRM_CODE_COL     As Long = 1                          'Table column of the code
-        Public Const PRM_VALUE_COL    As Long = 3                          'Table column of the value
+        Public Const NM_PRM_CODE      As String = "Params_Code"            'Header cell "Code"
+        Public Const NM_PRM_VALUE     As String = "Params_Value"           'Header cell "Value"
+        Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
+        Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
@@ -136,9 +144,8 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
 '------------------------------------------------------------------------------
-    'Header text, searched for in the first table column of Params, that
-    'marks the start of each lookup table. The table runs down to the first
-    'blank cell.
+    'Header text of the first column of each lookup table, at the top-left
+    'cell of its workbook name. The table runs down to the first blank key.
         Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
         Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
 
@@ -200,7 +207,8 @@ Attribute VB_Name = "CORE_Config"
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
     'case and surrounding spaces) means a column was inserted, deleted or
-    'moved, and the run stops (#35).
+    'moved, and the run stops (#35). The Params, factor and FX headers are
+    'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
             "Client clearing role (N/CM/CLIENT)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
@@ -212,7 +220,8 @@ Attribute VB_Name = "CORE_Config"
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
             "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
             "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|"
-        Public Const PRM_HEADERS As String = "Code||Value"
+        Public Const PRM_CODE_HEADER As String = "Code"
+        Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
         Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"
