@@ -842,7 +842,7 @@ Public Function TableHeaderRow( _
         End Select
         Set c = NamedCell(headerName)
         If Not c Is Nothing Then
-            If c.Worksheet.Name = sheetName And c.Column = COL_OFFSET + 1 Then
+            If StrComp(c.Worksheet.Name, sheetName, vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
                 TableHeaderRow = c.Row
             End If
         End If
