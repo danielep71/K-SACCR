@@ -49,7 +49,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -610,19 +610,20 @@ Public Sub SetParameter( _
 ' PURPOSE
 '   Give one Params value for the current case, from a fixture's
 '   "parameters" object, for example DaysPerYear 360 so that a published
-'   maturity of 0.75 years can be entered as a date. Restored like
-'   PatchCell.
+'   maturity of 0.75 years can be entered as a date, or IRBucketOffset
+'   FALSE. Restored like PatchCell.
 '
 ' INPUTS
 '   code: a PRM_ code in column A of Params.
-'   valueText: the number as text with a "." decimal point.
+'   valueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
+'   the number as text with a "." decimal point.
 '
 ' ERROR POLICY
 '   Raises ERR_TEST_SETUP when the code is not on Params; the suite then
 '   ends as failed.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
@@ -639,7 +640,14 @@ Public Sub SetParameter( _
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.SetParameter", _
                       "'" & code & "' not found in column A of Params."
         End If
-        PatchCell SH_PARAMS, r, PRM_VALUE_COL, Val(valueText)
+        Select Case valueText
+            Case "Y"
+                PatchCell SH_PARAMS, r, PRM_VALUE_COL, True
+            Case "N"
+                PatchCell SH_PARAMS, r, PRM_VALUE_COL, False
+            Case Else
+                PatchCell SH_PARAMS, r, PRM_VALUE_COL, Val(valueText)
+        End Select
 
 End Sub
 

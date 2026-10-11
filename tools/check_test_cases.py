@@ -67,6 +67,7 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
 # Params codes a fixture may set for its own run -> kind of the value.
 PARAMETERS: dict[str, str] = {
     "DaysPerYear": "positive",
+    "IRBucketOffset": "bool",
 }
 ENUMS = {
     "asset_class": set(ASSET_CLASSES),

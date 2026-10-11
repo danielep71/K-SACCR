@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Value test for the Basel sum of absolute IR bucket values (#39):
+  `illustrative-ir-sum-of-absolutes` runs the CRE99 Example 1 inputs under BCBS
+  with `IRBucketOffset` = FALSE and expects an IR add-on of 625,153.16 USD and
+  an EAD of 959,214.42 USD, from a hand calculation (illustrative). Fixtures
+  accept `IRBucketOffset` in `parameters`, and `TEST_CaseRunner.SetParameter`
+  writes Y and N as TRUE and FALSE. `TEST_Cases` has 20 cases and 39 checks.
+
 - `docs/methodology/sources/` holds copies of the regulatory texts the
   methodology was checked against: the SA-CCR articles of the consolidated CRR
   (26.06.2026), Delegated Regulation 2021/931 as amended (25.05.2025), Basel

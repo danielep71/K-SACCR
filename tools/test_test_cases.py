@@ -96,6 +96,10 @@ class TestCaseValidatorTests(unittest.TestCase):
     def test_parameters(self) -> None:
         self.fixture["parameters"] = {"DaysPerYear": 360}
         self.assertEqual(self.findings(), [])
+        self.fixture["parameters"] = {"DaysPerYear": 360, "IRBucketOffset": False}
+        self.assertEqual(self.findings(), [])
+        self.fixture["parameters"] = {"IRBucketOffset": "FALSE"}
+        self.assertFinding("parameters.IRBucketOffset", self.findings())
         self.fixture["parameters"] = {"Alpha": 1, "DaysPerYear": 0}
         findings = self.findings()
         self.assertFinding("unknown parameter 'Alpha'", findings)
