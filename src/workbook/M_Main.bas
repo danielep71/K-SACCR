@@ -54,7 +54,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-10
 '
 ' AUTHOR
 '   Daniele Penza
@@ -283,7 +283,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results A3 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$A:$N, Trades!$A:$W,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$A:$O, Trades!$A:$W,
 '                        Params!$A:$H)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -306,7 +306,7 @@ Public Function ResultsStatusText( _
 '   must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-10
 '==============================================================================
 '
 

@@ -7,7 +7,7 @@
     {
       "quantity": "exposure_value",
       "rule": "CRE52.2",
-      "value": 376592788.3471456,
+      "value": 40774849.34860364,
       "unit": "EUR",
       "tolerance": {
         "absolute": 1e-09,
@@ -16,13 +16,27 @@
       "reference": {
         "class": "illustrative",
         "source": "BCBS",
-        "locator": "CRE52.2; EBA Q&A 2022_6354 (rejected)",
-        "derivation": "Prototype TestCatalogue T16 (Posted VM: Basel cap keeps VM in C -> margined EAD (~377); CRE52.2; EBA Q&A 2022_6354 (rejected); engineering scenario - not authoritative; workbook reference BCBS-VMCAP, EAD). Catalogue note: Basel cap ~602 > margined ~377. Value from an independent Python implementation that is not in the repository; illustrative until an independent derivation is committed and reviewed.",
+        "locator": "CRE52.2, CRE52.10",
+        "derivation": "Prototype TestCatalogue T16, revised in #39: the Basel cap uses the collateral of the same netting set without a margin agreement, NICA only (CRE52.2, CRE52.10), so posted VM leaves the cap and the cap binds as under CRR (T17). Hand calculation: V = -1.1bn, C on the cap basis = 0, RC = 0; IR add-on = 0.5% x 5,845m x SD, SD = (1 - exp(-0.05 x 3650/365)) / 0.05 for a swap ending 2036-09-27, = 229,982,829.40; multiplier = 0.05 + 0.95 x exp(-1.1bn / (2 x 0.95 x 229,982,829.40)) = 0.12664; EAD = 1.4 x 0.12664 x 229,982,829.40 = 40,774,849.35, below the margined EAD of 376,592,788.35. Engineering scenario, not authoritative.",
         "derived_by": "Daniele Penza",
         "reviewed_by": null,
-        "date": "2026-10-06"
+        "date": "2026-10-10"
       },
       "catalogue": "T16"
+    },
+    {
+      "quantity": "cap_applied",
+      "rule": "CRE52.2",
+      "text": "Y",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.2, CRE52.10",
+        "derivation": "Cap applied flag of the T16 scenario: the cap on the NICA basis, 40,774,849.35, is below the margined EAD, 376,592,788.35. Engineering scenario, not authoritative.",
+        "derived_by": "Daniele Penza",
+        "reviewed_by": null,
+        "date": "2026-10-10"
+      }
     }
   ]
 }

@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-10
 '
 ' AUTHOR
 '   Daniele Penza
@@ -113,6 +113,19 @@ Attribute VB_Name = "CORE_Config"
         Public Const RG_CRR    As String = "CRR"     'EU Capital Requirements Regulation
 
 '------------------------------------------------------------------------------
+' NETTING-SET CODES
+'------------------------------------------------------------------------------
+    'Client-clearing role of the bank; blank is N.
+        Public Const CL_NONE     As String = "N"         'Not a client-clearing netting set
+        Public Const CL_CM       As String = "CM"        'Clearing member facing its client
+        Public Const CL_CLIENT   As String = "CLIENT"    'Client facing its clearing member
+    'Margin-agreement structure; blank is one agreement, or none, covering
+    'this netting set only. Both codes are declared so that the netting set
+    'is rejected: the engine does not model them.
+        Public Const MS_MIXED    As String = "MIXED"     'Several agreements, or margined and unmargined trades
+        Public Const MS_SHARED   As String = "SHARED"    'One agreement over several netting sets
+
+'------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
 '------------------------------------------------------------------------------
     'Header text, searched for in column A of Params, that marks the start of
@@ -127,7 +140,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_ID         As Long = 1     'Netting-set ID
         Public Const NS_CPTY       As Long = 2     'Counterparty
         Public Const NS_MARGINED   As Long = 3     'Margined (Y/N)
-        Public Const NS_CLEARED    As Long = 4     'Centrally cleared (Y/N)
+        Public Const NS_CLEARED    As Long = 4     'Client-clearing role: N, CM or CLIENT
         Public Const NS_FREQ       As Long = 5     'Remargining frequency, business days
         Public Const NS_LARGE      As Long = 6     'Over 5,000 trades or illiquid collateral (Y/N)
         Public Const NS_DISPUTE    As Long = 7     'Margin disputes (Y/N)
@@ -138,7 +151,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_MTA        As Long = 12    'Minimum transfer amount
         Public Const NS_ALPHA      As Long = 13    'Alpha override
         Public Const NS_REGIME     As Long = 14    'Regime override; blank uses Params
-        Public Const NS_NCOLS      As Long = 14    'Number of input columns
+        Public Const NS_STRUCT     As Long = 15    'Margin-agreement structure: blank, MIXED or SHARED
+        Public Const NS_NCOLS      As Long = 15    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -179,10 +193,11 @@ Attribute VB_Name = "CORE_Config"
     'case and surrounding spaces) means a column was inserted, deleted or
     'moved, and the run stops (#35).
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Centrally cleared (Y/N)|Remargin frequency N (BD)|" & _
+            "Client clearing role (N/CM/CLIENT)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
-            "Alpha override|Regime override (blank = Params)"
+            "Alpha override|Regime override (blank = Params)|" & _
+            "Margin agreements (blank/MIXED/SHARED)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _

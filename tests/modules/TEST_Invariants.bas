@@ -38,11 +38,11 @@ Attribute VB_Name = "TEST_Invariants"
 ' REFERENCE
 '   CRE52.1 and CRR Art. 274(2) (EAD), CRE52.10 to 52.20 and CRR Art. 275
 '   (RC), CRE52.23 and CRR Art. 278(3) (multiplier), CRE52.24 (aggregate
-'   add-on), CRE52.2 and CRR Art. 274(2) (cap of a margined netting set),
+'   add-on), CRE52.2 and CRR Art. 274(3) (cap of a margined netting set),
 '   CRE52.57 and CRR Art. 280a (IR bucket formula).
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-10
 '
 ' AUTHOR
 '   Daniele Penza
@@ -629,7 +629,7 @@ Private Function CapGap( _
 ' PURPOSE
 '   Check the cap of a margined netting set: its unmargined-basis figures
 '   follow the RC and multiplier formulas with C replaced by the cap-basis
-'   collateral, which is NICA under CRR and C under BCBS; the cap is
+'   collateral, which is NICA in both regimes; the cap is
 '   alpha * (RC + multiplier * unmargined add-on); the reported EAD is the
 '   lower of the margined EAD and the cap; the flag is Y exactly when the
 '   cap is lower. An unmargined netting set shows n/a and no cap.
@@ -638,10 +638,10 @@ Private Function CapGap( _
 '   The first violation; "" when none.
 '
 ' REFERENCE
-'   CRE52.2; CRR Art. 274(2) and (3); EBA Q&A 2023_6962.
+'   CRE52.2, CRE52.10; CRR Art. 274(2) and (3); EBA Q&A 2023_6962.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-10
 '==============================================================================
 '
 
@@ -672,11 +672,7 @@ Private Function CapGap( _
                         Exit Function
                     End If
                 Else
-                    If SafeStr(outputRows(r, COL_REGIME)) = "CRR" Then
-                        cCap = NettingSetInput(id, NS_NICA)
-                    Else
-                        cCap = ToDbl(outputRows(r, COL_C))
-                    End If
+                    cCap = NettingSetInput(id, NS_NICA)
                     rcCap = Max2(ToDbl(outputRows(r, COL_V)) - cCap, 0#)
                     addOnCap = ToDbl(outputRows(r, COL_ADDON_CAP))
                     multCap = ToDbl(outputRows(r, COL_MULT_CAP))

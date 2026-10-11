@@ -3,7 +3,7 @@
   "kind": "saccr-fixture",
   "id": "illustrative-posted-vm-cap",
   "synthetic": true,
-  "description": "Margined netting set that has posted variation margin: the unmargined cap binds under CRR but not under BCBS.",
+  "description": "Margined netting set that has posted variation margin: the unmargined cap, on NICA only, binds under CRR and BCBS.",
   "category": "regime",
   "calculation_currency": "EUR",
   "valuation_date": "2026-09-30",
@@ -11,7 +11,7 @@
   "netting_set": {
     "id": "VMCAP",
     "margined": true,
-    "cleared": false,
+    "clearing_role": "none",
     "remargin_period_business_days": 1,
     "large_or_illiquid": false,
     "margin_disputes": false,

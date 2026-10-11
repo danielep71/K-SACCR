@@ -49,7 +49,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-10
 '
 ' AUTHOR
 '   Daniele Penza
@@ -375,7 +375,7 @@ End Sub
 Public Sub AddNettingSet( _
     ByVal nettingSetId As String, _
     ByVal marginedFlag As String, _
-    ByVal clearedFlag As String, _
+    ByVal roleCode As String, _
     ByVal remarginDays As String, _
     ByVal largeFlag As String, _
     ByVal disputesFlag As String, _
@@ -391,14 +391,15 @@ Public Sub AddNettingSet( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write the fixture's netting set to the first NettingSets row, with the
-'   case's regime as its override.
+'   case's regime as its override. The margin-agreement structure is left
+'   blank: one agreement, or none, covering this netting set only.
 '
 ' INPUTS
-'   The fixture fields as text: Y or N for flags, numbers with a "."
-'   decimal point, empty for null.
+'   The fixture fields as text: Y or N for flags, N, CM or CLIENT for the
+'   clearing role, numbers with a "." decimal point, empty for null.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-10
 '==============================================================================
 '
 
@@ -414,7 +415,7 @@ Public Sub AddNettingSet( _
         rowValues(1, NS_ID) = nettingSetId
         rowValues(1, NS_CPTY) = "Test case " & mCase
         rowValues(1, NS_MARGINED) = marginedFlag
-        rowValues(1, NS_CLEARED) = clearedFlag
+        rowValues(1, NS_CLEARED) = roleCode
         rowValues(1, NS_FREQ) = NumberOrBlank(remarginDays)
         rowValues(1, NS_LARGE) = largeFlag
         rowValues(1, NS_DISPUTE) = disputesFlag

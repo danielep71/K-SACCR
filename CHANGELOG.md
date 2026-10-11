@@ -280,6 +280,25 @@ Use only the categories needed by a release.
   `tests/modules/`, so one synchronization updates every engine and test
   module of the development workbook.
 
+- Netting-set terms by regime (#39). The cap of a margined netting set now uses
+  C = NICA in both regimes; the BCBS cap used VM + NICA, which CRE52.2 and
+  CRE52.10 do not support (T16 becomes 40.77m, cap applied, as under CRR). VM
+  held on an unmargined netting set is rejected; VM posted on one is a one-way
+  agreement, kept in C under BCBS and rejected under CRR, where the set must be
+  margined. NettingSets column D is now the client clearing role, N, CM or
+  CLIENT: the 5-day MPOR floor applies to CM in both regimes and to CLIENT
+  under CRR only. A new column O, Margin agreements, declares MIXED or SHARED
+  structures, which are rejected. The MPOR after disputes, 2 x (F + N - 1),
+  and of a large or illiquid set, 20 + N - 1, are kept and recorded as
+  decisions. Fixtures use `clearing_role` instead of `cleared`; the Results
+  status formula watches NettingSets A:O. `TEST_InputValidation` has 53 cases
+  and 60 checks; `TEST_Cases` has 37 checks.
+  Upgrading a workbook built from the earlier template: the synchronizer
+  changes code only, and a run stops at the header check until NettingSets D4
+  reads `Client clearing role (N/CM/CLIENT)`, O4 reads
+  `Margin agreements (blank/MIXED/SHARED)` and Results A3 watches
+  `NettingSets!$A:$O`, as in the new template; or rebuild from the template.
+
 - CRR scope checked against the CRR text (#33). With `IRBucketOffset` set to
   FALSE, a CRR netting set with interest-rate trades is now `INVALID` and its
   EAD withheld, because Article 280a(3) has only the formula with offsets

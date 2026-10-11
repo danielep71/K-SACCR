@@ -47,7 +47,7 @@ counterparties, collateral agreements or portfolio extracts.
   "netting_set": {
     "id": "NS1",
     "margined": false,
-    "cleared": false,
+    "clearing_role": "none",
     "remargin_period_business_days": null,
     "large_or_illiquid": false,
     "margin_disputes": false,
@@ -98,7 +98,8 @@ counterparties, collateral agreements or portfolio extracts.
 | Netting-set field | Type | Meaning |
 | --- | --- | --- |
 | `id` | text | Netting-set ID |
-| `margined`, `cleared`, `large_or_illiquid`, `margin_disputes` | Boolean | As on the NettingSets sheet |
+| `margined`, `large_or_illiquid`, `margin_disputes` | Boolean | As on the NettingSets sheet |
+| `clearing_role` | `none`, `clearing_member` or `client` | Client clearing role on the NettingSets sheet: N, CM or CLIENT |
 | `remargin_period_business_days` | number or `null` | Remargining period of a margined set |
 | `mpor_override_business_days` | number or `null` | MPOR override; `null` for none |
 | `variation_margin_net_amount`, `independent_collateral_net_amount` | amount | Net VM and NICA, held minus posted |

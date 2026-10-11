@@ -37,7 +37,7 @@ Public Sub RunCaseTests()
 '   Run the 19 expected files in file-name order, then restore the workbook.
 '==============================================================================
 '
-        TEST_CaseRunner.BeginSuite 19, 36
+        TEST_CaseRunner.BeginSuite 19, 37
         On Error GoTo Failed
         Case01
         Case02
@@ -276,7 +276,8 @@ Private Sub Case17()
         TEST_CaseRunner.AddNettingSet "VMCAP", "Y", "N", "1", "N", "N", "", "-1300000000", "0", "0", "0", ""
         TEST_CaseRunner.AddTrade "VMC-1", "IR", "", "EUR", "Linear", "Short", "", "Standard", "", "5845000000", "-1100000000", "", "2036-09-27", "2036-09-27", "", "", "", "", "", ""
         TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T16", "", "exposure_value", "376592788.3471456", "0.000000001", "0.000000001", "illustrative"
+        TEST_CaseRunner.ExpectNumber "T16", "", "exposure_value", "40774849.34860364", "0.000000001", "0.000000001", "illustrative"
+        TEST_CaseRunner.ExpectText "cap_applied", "", "cap_applied", "Y", "illustrative"
 End Sub
 
 

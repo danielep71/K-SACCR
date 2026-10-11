@@ -11,7 +11,7 @@ import check_test_cases as cases
 
 ROOT = Path(__file__).resolve().parents[1]
 NETTING_SET = {
-    "id": "NS1", "margined": False, "cleared": False, "remargin_period_business_days": None,
+    "id": "NS1", "margined": False, "clearing_role": "none", "remargin_period_business_days": None,
     "large_or_illiquid": False, "margin_disputes": False, "mpor_override_business_days": None,
     "variation_margin_net_amount": 0, "independent_collateral_net_amount": 0,
     "threshold_amount": 0, "minimum_transfer_amount": 0, "alpha_factor": None,

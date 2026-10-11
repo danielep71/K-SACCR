@@ -11,7 +11,7 @@
   "netting_set": {
     "id": "EX5",
     "margined": true,
-    "cleared": false,
+    "clearing_role": "none",
     "remargin_period_business_days": 5,
     "large_or_illiquid": false,
     "margin_disputes": false,

@@ -30,7 +30,7 @@ CATALOGUE = re.compile(r"^T[0-9]{2}$")
 NETTING_SET_FIELDS: dict[str, tuple[str, bool]] = {
     "id": ("text", False),
     "margined": ("bool", False),
-    "cleared": ("bool", False),
+    "clearing_role": ("clearing_role", False),
     "remargin_period_business_days": ("business_days", True),
     "large_or_illiquid": ("bool", False),
     "margin_disputes": ("bool", False),
@@ -74,6 +74,7 @@ ENUMS = {
     "direction": {"long", "short"},
     "option_type": {"call", "put"},
     "nature": {"standard", "basis", "volatility"},
+    "clearing_role": {"none", "clearing_member", "client"},
 }
 
 NETTING_SET_QUANTITIES = {

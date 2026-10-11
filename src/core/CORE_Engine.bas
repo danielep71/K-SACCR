@@ -75,7 +75,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-10
 '
 ' AUTHOR
 '   Daniele Penza
@@ -97,7 +97,7 @@ Attribute VB_Name = "CORE_Engine"
         ID                As String     'Netting-set ID, upper case
         Counterparty      As String     'Counterparty name
         Margined          As Boolean    'Subject to a margin agreement
-        Cleared           As Boolean    'Centrally cleared
+        ClearingRole      As String     'Client-clearing role: N, CM or CLIENT
         RemarginBD        As Double     'Remargining frequency, business days, at least 1
         LargeOrIlliquid   As Boolean    'Over 5,000 trades or illiquid collateral
         Disputes          As Boolean    'Margin disputes; doubles the MPOR
@@ -1453,11 +1453,14 @@ Private Function LoadNettingSets() As Boolean
 '   arrays. A duplicate ID is an error and the later row is ignored.
 '
 ' REFERENCE
-'   MPOR floors CRE52.50 to CRE52.52; the cleared floor follows CRE54 and is
-'   configurable on Params.
+'   MPOR floors CRE52.50 to CRE52.52 and CRR Art. 285(2) to (5); the
+'   client-clearing floor CRE54.12 and CRR Art. 279c(1), configurable on
+'   Params. VM on an unmargined set CRE52.2, CRE52.10 and CRR Art. 272(7),
+'   (7a). Margin-agreement structures CRE52.74, CRE52.75 and CRR Art.
+'   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-10
 '==============================================================================
 '
 
@@ -1526,7 +1529,8 @@ Private Function LoadNettingSets() As Boolean
                 .ID = id
                 .Counterparty = SafeStr(data(i, NS_CPTY))
                 .Margined = NsFlag(data(i, NS_MARGINED), False, "Margined", id, rowNum, nsErrors)
-                .Cleared = NsFlag(data(i, NS_CLEARED), False, "Centrally cleared", id, rowNum, nsErrors)
+                .ClearingRole = NsCode(data(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
+                                       "Client clearing role", id, rowNum, nsErrors)
                 .RemarginBD = NsNumber(data(i, NS_FREQ), 1#, "Remargin frequency", id, rowNum, nsErrors)
                 If .RemarginBD < 1# Then
                     .RemarginBD = 1#
@@ -1555,10 +1559,42 @@ Private Function LoadNettingSets() As Boolean
                 End If
                 .Regime = rg
                 .IsCRR = (rg = RG_CRR)
-                If Not .Margined And Abs(.VM) > 0# Then
-                    LogMsg SEV_WARN, SH_NS, id, "VM entered on an unmargined netting set - treated as collateral C. " & _
-                           "Under CRR collateral of an unmargined set belongs in NICA.", rowNum
+
+    'VM on an unmargined netting set. VM received means the counterparty
+    'posts VM, so the set is margined [CRE52.2; CRR Art. 272(7)]. VM
+    'posted is the one-way agreement in favour of the counterparty: under
+    'BCBS the set is unmargined and C includes that VM with a negative sign
+    '[CRE52.2, CRE52.10 footnote 2]; under CRR a one-way agreement is a
+    'margin agreement [Art. 272(7a), 275(2)], so the set must be margined.
+                If Not .Margined And .VM > 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "VM received on an unmargined netting set: a counterparty " & _
+                           "that posts VM makes the netting set margined - set Margined = Y.", rowNum
+                ElseIf Not .Margined And .VM < 0# Then
+                    If .IsCRR Then
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "VM posted on an unmargined CRR netting set: under CRR " & _
+                               "a one-way margin agreement is a margin agreement (Art. 272(7a)) - set Margined = Y.", rowNum
+                    Else
+                        LogMsg SEV_INFO, SH_NS, id, "VM posted under a one-way margin agreement: unmargined " & _
+                               "netting set, posted VM included in C with a negative sign (CRE52.10).", rowNum
+                    End If
                 End If
+
+    'Margin-agreement structures the engine does not model are declared, so
+    'that the netting set is rejected rather than calculated as one with a
+    'single agreement of its own.
+                Select Case NsCode(data(i, NS_STRUCT), "", MS_MIXED & "|" & MS_SHARED, _
+                                   "Margin agreements", id, rowNum, nsErrors)
+                    Case MS_MIXED
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "Several margin agreements, or margined and unmargined " & _
+                               "trades, in one netting set are not supported (CRE52.74; CRR Art. 274(4)).", rowNum
+                    Case MS_SHARED
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "One margin agreement over several netting sets is not " & _
+                               "supported (CRE52.75; CRR Art. 275(3), 278(2)).", rowNum
+                End Select
                 .V = 0#
                 .Trades = 0
                 .Rejected = 0
@@ -1567,17 +1603,30 @@ Private Function LoadNettingSets() As Boolean
                 .MPOR = 0#
                 .MFMargined = 0#
 
-    'Effective MPOR of a margined netting set: the floor (cleared or
-    'bilateral, raised for large or illiquid sets) plus the remargining
+    'Effective MPOR of a margined netting set: the floor (client clearing
+    'or bilateral, raised for large or illiquid sets) plus the remargining
     'period minus one day, doubled for disputes. The override, read and
     'validated above for every set, is accepted only if it is not below
-    'that.
+    'that. The client-clearing floor applies to the clearing member facing
+    'its client [CRE54.12; CRR Art. 279c(1)], and under CRR also to the
+    'client facing its clearing member; under BCBS the client keeps the
+    'bilateral floor [CRE54.8, CRE54.14].
                 If .Margined Then
-                    If .Cleared Then
-                        floorBD = pMPORClr
-                    Else
-                        floorBD = pMPORBil
-                    End If
+                    Select Case .ClearingRole
+                        Case CL_CM
+                            floorBD = pMPORClr
+                        Case CL_CLIENT
+                            If .IsCRR Then
+                                floorBD = pMPORClr
+                            Else
+                                floorBD = pMPORBil
+                                LogMsg SEV_INFO, SH_NS, id, "Client facing its clearing member under BCBS: " & _
+                                       "bilateral MPOR floor; the client-clearing floor is for the clearing " & _
+                                       "member (CRE54.12).", rowNum
+                            End If
+                        Case Else
+                            floorBD = pMPORBil
+                    End Select
                     If .LargeOrIlliquid Then
                         floorBD = Max2(floorBD, pMPORLarge)
                     End If
@@ -1657,6 +1706,58 @@ Private Function NsFlag( _
             LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be Y or N (found " & DescribeValue(v) & ").", rowNum
         End If
         NsFlag = result
+
+End Function
+
+
+Private Function NsCode( _
+    ByVal v As Variant, _
+    ByVal dflt As String, _
+    ByVal allowed As String, _
+    ByVal fieldName As String, _
+    ByVal nsId As String, _
+    ByVal rowNum As Long, _
+    ByRef nsErrors As Long) _
+    As String
+'
+'==============================================================================
+'                                    NsCode
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a coded field of a netting set strictly: blank takes the default;
+'   a value that is not one of the allowed codes, or an Excel error value,
+'   is logged and counted as an input error (#35).
+'
+' INPUTS
+'   allowed: the accepted codes, upper case, separated by "|".
+'
+' RETURNS
+'   The code in upper case, or the default.
+'
+' UPDATED
+'   2026-10-10
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim code   As String    'Value read, upper case
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        code = UTxt(v)
+        If IsError(v) Or (Len(code) > 0 And InStr(1, "|" & allowed & "|", "|" & code & "|") = 0) Then
+            nsErrors = nsErrors + 1
+            LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be " & Replace(allowed, "|", ", ") & _
+                   " or blank (found " & DescribeValue(v) & ").", rowNum
+            NsCode = dflt
+        ElseIf Len(code) = 0 Then
+            NsCode = dflt
+        Else
+            NsCode = code
+        End If
 
 End Function
 
@@ -2829,11 +2930,11 @@ Private Sub ComputeNettingSets( _
 '
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
-'   CRR Art. 275(1); multiplier CRE52.23; collateral for the CRR cap per EBA
-'   Q&A 2023_6962.
+'   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
+'   CRE52.10 and EBA Q&A 2023_6962.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-10
 '==============================================================================
 '
 
@@ -2907,10 +3008,11 @@ Private Sub ComputeNettingSets( _
                 Next a
 
     'Unmargined basis: the EAD of an unmargined netting set, or the cap of
-    'a margined one. Under CRR the cap of a margined set uses NICA only
-    '[Art. 274(3), 275(1); EBA Q&A 2023_6962]; otherwise C, in which posted
-    'VM is negative [CRE52.2].
-                If .Margined And .IsCRR Then
+    'a margined one. The cap of a margined set uses NICA only, the
+    'collateral of the same set without a margin agreement [CRE52.2,
+    'CRE52.10; CRR Art. 274(3), 275(1); EBA Q&A 2023_6962]. An unmargined
+    'set uses C: NICA, plus VM posted under a one-way agreement under BCBS.
+                If .Margined Then
                     cCap = .NICA
                 Else
                     cCap = C
