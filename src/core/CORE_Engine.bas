@@ -1774,9 +1774,10 @@ Private Function LoadNettingSets() As Boolean
 
     'Plain fields. A blank field takes its default; a value that cannot be
     'read is an error that makes the netting set INVALID (#35), and so is a
-    'negative threshold, MTA or remargining frequency, or an alpha or MPOR
-    'override at or below zero (#147). A remargining frequency from 0 to
-    'below 1 business day is raised to 1 with a warning.
+    'negative threshold or MTA, a remargining frequency that is not a whole
+    'number of business days from 0 to 10000, an alpha override at or below
+    'zero, or an MPOR override that is not a whole number above zero
+    '(#147). A remargining frequency of 0 is raised to 1 with a warning.
                 nsErrors = 0
                 .ID = id
                 .Counterparty = SafeStr(data(i, NS_CPTY))
@@ -1784,10 +1785,10 @@ Private Function LoadNettingSets() As Boolean
                 .ClearingRole = NsCode(data(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
                                        "Client clearing role", id, rowNum, nsErrors)
                 .RemarginBD = NsNumber(data(i, NS_FREQ), 1#, "Remargin frequency", id, rowNum, nsErrors)
-                If .RemarginBD < 0# Then
+                If .RemarginBD < 0# Or .RemarginBD > 10000# Or .RemarginBD <> Int(.RemarginBD) Then
                     nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "Remargin frequency must not be negative (found " & _
-                           CStr(.RemarginBD) & ").", rowNum
+                    LogMsg SEV_ERROR, SH_NS, id, "Remargin frequency must be a whole number of business days " & _
+                           "from 0 to 10000 (found " & CStr(.RemarginBD) & ").", rowNum
                     .RemarginBD = 1#
                 ElseIf .RemarginBD < 1# Then
                     LogMsg SEV_WARN, SH_NS, id, "Remargin frequency " & CStr(.RemarginBD) & _
@@ -1869,10 +1870,10 @@ Private Function LoadNettingSets() As Boolean
                 .Trades = 0
                 .Rejected = 0
                 ovr = NsNumber(data(i, NS_MPOR), 0#, "MPOR override", id, rowNum, nsErrors)
-                If IsNum(data(i, NS_MPOR)) And ovr <= 0# Then
+                If IsNum(data(i, NS_MPOR)) And (ovr <= 0# Or ovr <> Int(ovr)) Then
                     nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "MPOR override must be greater than zero (found " & _
-                           CStr(ovr) & ") - leave it blank for none.", rowNum
+                    LogMsg SEV_ERROR, SH_NS, id, "MPOR override must be a whole number of business days " & _
+                           "greater than zero (found " & CStr(ovr) & ") - leave it blank for none.", rowNum
                 End If
                 .InputErrors = nsErrors
                 .MPOR = 0#
