@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check exported VBA source, Git storage and CHANGELOG structure without Office."""
+"""Check exported VBA source, its synchronization, Git storage and CHANGELOG structure without Office."""
 from __future__ import annotations
 
 import re
@@ -30,6 +30,16 @@ RELEASE_SUFFIX = re.compile(r" - (\d{4}-\d{2}-\d{2})")
 # no VBA project and no document properties: author, title, timestamps (#58).
 WORKBOOK_SUFFIXES = {".xlsx", ".xlsm", ".xlsb", ".xltx", ".xltm"}
 FORBIDDEN_PART = re.compile(r"(^|/)vbaProject\.bin$|^docProps/", re.I)
+# The synchronizer imports the VBA source of the directories in its
+# $sourceRoots list into the development workbook; a component outside them
+# would never reach the workbook. Document modules in src/workbook/ update
+# the code of existing sheets, so each needs its sheet in the template.
+SYNC_SCRIPT = "tools/Sync-SACCR-VBA.ps1"
+SYNC_ROOTS = re.compile(r"\$sourceRoots\s*=\s*@\((.*?)\)\s*$", re.S | re.M)
+SYNC_ROOT = re.compile(r'Join-Path\s+\$repoFullPath\s+"([^"]+)"')
+TEMPLATE = "src/workbook/SACCR_Template.xlsx"
+DOCUMENT_HOME = "src/workbook/"
+CODE_NAME = re.compile(r'<(?:sheetPr|workbookPr)\b[^>]*\bcodeName="([^"]+)"')
 
 
 def index_eol(root: Path) -> dict[str, tuple[str, str]]:
@@ -111,6 +121,41 @@ def check_workbook(root: Path, path: str) -> list[str]:
     return findings
 
 
+def check_sync_script(root: Path, tracked: set[str], components: list[str]) -> list[str]:
+    """Every VBA component must lie in a directory the synchronizer reads."""
+    if SYNC_SCRIPT not in tracked:
+        return []
+    block = SYNC_ROOTS.search((root / SYNC_SCRIPT).read_text(encoding="utf-8"))
+    if not block:
+        return [f"{SYNC_SCRIPT}: $sourceRoots list not found"]
+    roots = [entry.replace("\\", "/").strip("/") + "/" for entry in SYNC_ROOT.findall(block.group(1))]
+    findings = [f"{SYNC_SCRIPT}: source directory {r} does not exist" for r in roots
+                if not (root / r).is_dir()]
+    findings.extend(f"{p}: not synchronized; add its directory to $sourceRoots in {SYNC_SCRIPT}"
+                    for p in components if not p.startswith(tuple(roots)))
+    return findings
+
+
+def check_document_modules(root: Path, tracked: set[str], components: list[str]) -> list[str]:
+    """Document modules and the template's sheets must correspond one to one."""
+    if TEMPLATE not in tracked:
+        return []
+    try:
+        with zipfile.ZipFile(root / TEMPLATE) as package:
+            names = {match for part in package.namelist()
+                     if part == "xl/workbook.xml" or part.startswith("xl/worksheets/sheet")
+                     for match in CODE_NAME.findall(package.read(part).decode("utf-8", errors="replace"))}
+    except (OSError, zipfile.BadZipFile):
+        return []    # check_workbook reports an unreadable template
+    modules = {Path(p).stem for p in components
+               if p.startswith(DOCUMENT_HOME) and p.lower().endswith(".cls")}
+    findings = [f"{DOCUMENT_HOME}{name}.cls: no sheet or workbook with this CodeName in {TEMPLATE}"
+                for name in sorted(modules - names)]
+    findings.extend(f"{TEMPLATE}: CodeName {name} has no document module {DOCUMENT_HOME}{name}.cls"
+                    for name in sorted(names - modules))
+    return findings
+
+
 def valid_date(text: str) -> bool:
     try:
         date.fromisoformat(text)
@@ -184,6 +229,8 @@ def run_check(root: Path) -> dict[str, Any]:
         findings.extend(check_component(root, path, tracked, names))
     for path in sorted(p for p in tracked if Path(p).suffix.lower() in WORKBOOK_SUFFIXES):
         findings.extend(check_workbook(root, path))
+    findings.extend(check_sync_script(root, tracked, components))
+    findings.extend(check_document_modules(root, tracked, components))
     findings.extend(check_changelog(root))
     findings.extend(check_version(root))
     return {"schema_version": 1, "status": "fail" if findings else "pass",
