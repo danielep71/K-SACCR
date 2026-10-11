@@ -284,6 +284,12 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The README sheet of the template has its final layout, as edited by the
+  owner in Excel, with its buttons in row 3. Every font of the template names
+  Aptos on the style instead of following the workbook theme, so a sheet
+  copied into another workbook keeps Aptos. The README note on the cap basis
+  points to Results columns Z-AC, where the layout change moved them.
+
 - Sheet layout: every sheet of the template has two margin columns (A:B,
   width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt, 16 pt
   font), and every font, including the theme fonts and the sheet buttons, is
