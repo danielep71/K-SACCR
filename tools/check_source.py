@@ -166,7 +166,9 @@ def sync_roots(text: str) -> tuple[list[str], list[str]]:
     start = next((n for n, line in enumerate(lines) if SYNC_START.match(line)), None)
     if start is None:
         return [], ["$sourceRoots list not found"]
-    roots, problems, in_block = [], [], False
+    roots: list[str] = []
+    problems: list[str] = []
+    in_block = False
     for line in lines[start + 1:]:
         code, in_block = strip_comment(line, in_block)
         code = code.strip()
