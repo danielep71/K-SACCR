@@ -615,13 +615,13 @@ Public Sub SetParameter( _
 '   FALSE. Restored like PatchCell.
 '
 ' INPUTS
-'   code: a PRM_ code in the code column of Params.
+'   code: a PRM_ code, whose workbook name locates the value cell.
 '   valueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
 '   the number as text with a "." decimal point.
 '
 ' ERROR POLICY
-'   Raises ERR_TEST_SETUP when the code is not on Params; the suite then
-'   ends as failed.
+'   Raises ERR_TEST_SETUP when the parameter has no workbook name; the
+'   suite then ends as failed.
 '
 ' UPDATED
 '   2026-10-11
@@ -631,23 +631,19 @@ Public Sub SetParameter( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Params row of the code; 0 when absent
+    Dim c   As Range    'Value cell of the parameter
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        r = FindHeaderRow(GetSheet(SH_PARAMS), ParamsCodeCol(), code)
-        If r = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.SetParameter", _
-                      "'" & code & "' not found in column C of Params."
-        End If
+        Set c = ParamCell(code)
         Select Case valueText
             Case "Y"
-                PatchCell SH_PARAMS, r, ParamsValueCol(), True
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, True
             Case "N"
-                PatchCell SH_PARAMS, r, ParamsValueCol(), False
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, False
             Case Else
-                PatchCell SH_PARAMS, r, ParamsValueCol(), Val(valueText)
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, Val(valueText)
         End Select
 
 End Sub
@@ -1250,10 +1246,10 @@ Private Sub UnitFxRate( _
 ' PATCH
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r = FindHeaderRow(ws, ParamsCodeCol(), currencyCode)
+        r = FindHeaderRow(ws, NamedTableCol(NM_FX_TABLE), currencyCode)
         If r > 0 Then
-            If ToDbl(TableCell(ws, r, ParamsValueCol()).Value) <> 1# Then
-                PatchCell SH_PARAMS, r, ParamsValueCol(), 1#
+            If ToDbl(TableCell(ws, r, NamedTableCol(NM_FX_TABLE) + 2).Value) <> 1# Then
+                PatchCell SH_PARAMS, r, NamedTableCol(NM_FX_TABLE) + 2, 1#
             End If
         End If
 
@@ -1518,39 +1514,20 @@ Private Function ParamCell( _
 '                                  ParamCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the cell the engine reads a parameter from, the same way as
-'   CORE_Util.GetParam: the workbook name first, then the Params table.
+'   Return the cell the engine reads a parameter from, as CORE_Util.GetParam
+'   does: the top-left cell of the workbook name equal to its code.
 '
 ' ERROR POLICY
-'   Raises when the parameter is in neither place.
+'   Raises ERR_TEST_SETUP when the name is missing or broken.
 '
 ' UPDATED
 '   2026-10-11
 '==============================================================================
 '
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim r          As Range   'Range of the workbook name, if any
-    Dim paramRow   As Long    'Row of the code on Params
-
-'------------------------------------------------------------------------------
-' FIND
-'------------------------------------------------------------------------------
-        On Error Resume Next
-        Set r = ThisWorkbook.Names(code).RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        If Not r Is Nothing Then
-            Set ParamCell = r.Cells(1, 1)
-            Exit Function
+        Set ParamCell = NamedCell(code)
+        If ParamCell Is Nothing Then
+            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " has no workbook name."
         End If
-        paramRow = FindHeaderRow(GetSheet(SH_PARAMS), ParamsCodeCol(), code)
-        If paramRow = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " not found."
-        End If
-        Set ParamCell = TableCell(GetSheet(SH_PARAMS), paramRow, ParamsValueCol())
 
 End Function
 

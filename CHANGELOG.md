@@ -290,8 +290,10 @@ Use only the categories needed by a release.
   and `FX_Table` the headers of the two lookup tables. The engine and the
   tests read Params only through these names, so its rows and columns can
   move; a missing or broken name stops the run (`CORE_Util.ParamsCodeCol`,
-  `ParamsValueCol`, `ParamsHeaderRow`, `NamedCell`). `TEST_InputValidation`
-  has 55 cases and 63 checks.
+  `ParamsValueCol`, `ParamsHeaderRow`, `NamedCell`). Each of the 20
+  parameters is read only through its workbook name, which is now required:
+  a missing or broken one stops the run, where the engine used to fall back
+  to the Code column. `TEST_InputValidation` has 55 cases and 63 checks.
 - README names the engine v1.0.0 instead of the prototype's v1.1.0, and its
   note on the cap basis points to Results columns Z-AC. Every font of the
   template names Aptos on the style instead of following the workbook theme,

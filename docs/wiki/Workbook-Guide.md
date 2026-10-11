@@ -21,7 +21,9 @@ run summary in C4, the Results status in C5, the column headers on row 6 and
 the data from row 7. README and Params have their own layout. Params is read
 through the workbook names `Params_Code` and `Params_Value` (the "Code" and
 "Value" header cells) and `SF_Table` and `FX_Table` (from their header
-cells), so its rows and columns can move; the names move with the cells.
+cells), and each parameter through the workbook name equal to its code, so
+its rows and columns can move; the names move with the cells, and a missing
+name stops the run.
 Every font is Aptos, named on each style rather than taken from the workbook
 theme, so a sheet copied into another workbook keeps it. The VBA reads and writes the tables through `CORE_Util.TableCell`
 and `TableRange`, which add the margin columns, so a column number in

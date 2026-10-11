@@ -729,10 +729,10 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' PARAMETERS
 '------------------------------------------------------------------------------
-    'A parameter listed twice with the same value is harmless and warned
-    'about; with different values it is ambiguous. A workbook name equal to
-    'the code takes precedence over the Params row (CORE_Util.GetParam); a
-    'broken one would silently fall back to the row.
+    'Every parameter is read through the workbook name equal to its code
+    '(CORE_Util.GetParam), so a missing or broken name stops the run. A
+    'code listed twice on Params with the same value is harmless and warned
+    'about; with different values it is ambiguous.
         codes = ParameterCodes()
         codeCol = ParamsCodeCol()
         valueCol = ParamsValueCol()
@@ -742,10 +742,11 @@ Private Function ValidateSchema() As Boolean
             values = TableRange(ws, 1, valueCol, lastR, valueCol).Value
         End If
         For i = LBound(codes) To UBound(codes)
-            If BrokenName(codes(i)) Then
+            If NamedCell(CStr(codes(i))) Is Nothing Then
                 ok = False
                 LogMsg SEV_ERROR, SH_PARAMS, codes(i), "Workbook name '" & codes(i) & _
-                       "' no longer refers to a cell (#REF!)."
+                       "' is missing or no longer refers to a cell (#REF!); every parameter is read " & _
+                       "through its name."
             End If
             firstRow = 0
             For r = 1 To lastR

@@ -24,7 +24,7 @@ Attribute VB_Name = "CORE_Util"
 '
 ' ERROR POLICY
 '   Conversions never raise: an error value, blank or unusable input returns
-'   the documented default. KeyIndex, GetParam and BrokenName contain the
+'   the documented default. KeyIndex and NamedCell contain the
 '   expected lookup errors and report "not found" instead. Every other
 '   error, for example a missing worksheet, propagates to the caller.
 '
@@ -1220,19 +1220,15 @@ Public Function GetParam( _
 '                                   GetParam
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read one parameter value.
+'   Read one parameter value through the workbook name equal to its code.
 '
 ' INPUTS
 '   code: a PRM_ code from CORE_Config, for example "Alpha".
 '
 ' RETURNS
-'   The value of the workbook name equal to code, if one exists; otherwise
-'   value column of the Params row whose code column holds code; otherwise
-'   Empty.
-'
-' ERROR POLICY
-'   A missing workbook name is expected and contained. A missing Params
-'   sheet raises to the caller.
+'   The value of the name's top-left cell; Empty when the name is missing
+'   or broken, which CORE_Engine.ValidateSchema reports before any
+'   parameter is read.
 '
 ' UPDATED
 '   2026-10-11
@@ -1242,32 +1238,14 @@ Public Function GetParam( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r    As Range        'Range of the workbook name, if it exists
-    Dim ws   As Worksheet    'Params sheet
-    Dim i    As Long         'Row of the code on Params; 0 when absent
+    Dim c   As Range    'The name's top-left cell
 
 '------------------------------------------------------------------------------
-' TRY THE WORKBOOK NAME
+' READ
 '------------------------------------------------------------------------------
-    'Names(code) raises when no such name exists; r then stays Nothing.
-        On Error Resume Next
-        Set r = ThisWorkbook.Names(code).RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        If Not r Is Nothing Then
-            GetParam = r.Cells(1, 1).Value
-            Exit Function
-        End If
-
-'------------------------------------------------------------------------------
-' FALL BACK TO THE PARAMS TABLE
-'------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        i = FindHeaderRow(ws, ParamsCodeCol(), code)
-        If i > 0 And ParamsHeaderRow() > 0 Then
-            GetParam = TableCell(ws, i, ParamsValueCol()).Value
-        Else
-            GetParam = Empty
+        Set c = NamedCell(code)
+        If Not c Is Nothing Then
+            GetParam = c.Value
         End If
 
 End Function
@@ -1314,59 +1292,6 @@ Public Function TextHash( _
             h = h - Int(h / HASH_MODULUS) * HASH_MODULUS
         Next i
         TextHash = Right$("0000000" & Hex$(CLng(h)), 8)
-
-End Function
-
-
-Public Function BrokenName( _
-    ByVal code As String) _
-    As Boolean
-'
-'==============================================================================
-'                                  BrokenName
-'------------------------------------------------------------------------------
-' PURPOSE
-'   Tell whether a workbook name exists but no longer refers to a range,
-'   for example after its cell was deleted (#REF!). GetParam would then
-'   fall back to the Params table without saying so (#35).
-'
-' INPUTS
-'   code: a PRM_ code from CORE_Config.
-'
-' RETURNS
-'   True when the name exists and does not refer to a range; False when it
-'   refers to a range or does not exist.
-'
-' ERROR POLICY
-'   Contains the two expected lookup errors: no such name, and a name that
-'   does not refer to a range.
-'
-' UPDATED
-'   2026-10-07
-'==============================================================================
-'
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim wbName   As Name     'The workbook name, Nothing when absent
-    Dim target   As Range    'The range it refers to, Nothing when broken
-
-'------------------------------------------------------------------------------
-' LOOK UP
-'------------------------------------------------------------------------------
-        On Error Resume Next
-        Set wbName = ThisWorkbook.Names(code)
-        Err.Clear
-        On Error GoTo 0
-        If wbName Is Nothing Then
-            Exit Function
-        End If
-        On Error Resume Next
-        Set target = wbName.RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        BrokenName = (target Is Nothing)
 
 End Function
 
