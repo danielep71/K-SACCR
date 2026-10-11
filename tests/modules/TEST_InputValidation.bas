@@ -8,7 +8,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   trade rows with data but no ID, duplicate trade and netting-set IDs, a
 '   missing MtM, an unreadable date, netting-set fields that cannot be
 '   read, an Excel error value (#N/A) in a trade, netting set or parameter,
-'   a moved or renamed column, a broken parameter name, a parameter,
+'   a moved or renamed column, a broken parameter or layout name, a parameter,
 '   supervisory factor or currency listed twice with different values, and
 '   a factor or rate the table loader would not read because of a blank
 '   row or key; and, for aggregation (#37), a credit reference given two
@@ -66,8 +66,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 55                'Cases in a complete run
-        Private Const CHECKS      As Long = 63                'Checks in a complete run
+        Private Const CASES       As Long = 57                'Cases in a complete run
+        Private Const CHECKS      As Long = 65                'Checks in a complete run
 
 
 '
@@ -176,12 +176,12 @@ Public Sub RunInputValidationTests()
     'Sheet layout: a header that differs means a column moved.
         StartCase "layout-trades-header-renamed", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_TRADES, HEADER_ROW, TR_NOTIONAL, "Nominal"
+        TEST_CaseRunner.PatchCell SH_TRADES, TableHeaderRow(SH_TRADES), TR_NOTIONAL, "Nominal"
         ExpectStop "Header must be 'Notional'"
 
         StartCase "layout-netting-sets-column-shifted", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_NS, HEADER_ROW, NS_NICA, "Threshold TH"
+        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold TH"
         ExpectStop "Header must be 'NICA'"
 
         StartCase "layout-params-value-header-renamed", "N"
@@ -199,6 +199,18 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchName NM_PRM_CODE, "=#REF!"
         ExpectStop "'" & NM_PRM_CODE & "' is missing or no longer refers to a cell"
+
+    'NettingSets and Trades are located through the workbook name of their
+    'first header cell; a broken one stops the run.
+        StartCase "layout-trades-name-broken", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchName NM_TR_HEADER, "=#REF!"
+        ExpectStop "'" & NM_TR_HEADER & "' is missing or no longer refers"
+
+        StartCase "layout-netting-sets-name-broken", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchName NM_NS_HEADER, "=#REF!"
+        ExpectStop "'" & NM_NS_HEADER & "' is missing or no longer refers"
 
     'Duplicates: the same values are accepted, different values stop the run.
         StartCase "params-duplicate-different-value", "N"

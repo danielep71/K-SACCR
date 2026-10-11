@@ -715,11 +715,12 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' COLUMN HEADERS
 '------------------------------------------------------------------------------
-    'Params is located through its workbook names: a missing or broken
-    'name stops the run, and the headers are checked where the names point.
+    'The input sheets are located through workbook names: a missing or
+    'broken name stops the run, and the headers are checked where the names
+    'point.
         Set ws = GetSheet(SH_PARAMS)
-        ok = HeadersMatch(GetSheet(SH_NS), HEADER_ROW, NS_HEADERS) And ok
-        ok = HeadersMatch(GetSheet(SH_TRADES), HEADER_ROW, TR_HEADERS) And ok
+        ok = InputHeadersMatch(SH_NS, NM_NS_HEADER, NS_HEADERS) And ok
+        ok = InputHeadersMatch(SH_TRADES, NM_TR_HEADER, TR_HEADERS) And ok
         layoutOk = ParamsLayoutValid(ws)
         ok = layoutOk And ok
         If Not layoutOk Then
@@ -898,6 +899,53 @@ Private Function ParamsLayoutValid( _
         ok = HeadersMatch(ws, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And ok
         ok = HeadersMatch(ws, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And ok
         ParamsLayoutValid = ok
+
+End Function
+
+
+Private Function InputHeadersMatch( _
+    ByVal sheetName As String, _
+    ByVal headerName As String, _
+    ByVal expectedHeaders As String) _
+    As Boolean
+'
+'==============================================================================
+'                              InputHeadersMatch
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Locate an input sheet's header row through the workbook name of its
+'   first header cell and compare the headers there (HeadersMatch).
+'
+' INPUTS
+'   sheetName: SH_NS or SH_TRADES.
+'   headerName: NM_NS_HEADER or NM_TR_HEADER.
+'   expectedHeaders: NS_HEADERS or TR_HEADERS.
+'
+' RETURNS
+'   True when the name locates the header row and every header matches;
+'   False, with an error logged, otherwise.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'Header row; 0 when the name cannot locate it
+
+'------------------------------------------------------------------------------
+' LOCATE AND COMPARE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r = 0 Then
+            LogMsg SEV_ERROR, sheetName, headerName, "Workbook name '" & headerName & _
+                   "' is missing or no longer refers to the first header cell, in column C, of " & _
+                   sheetName & " - rebuild the workbook from the template."
+            Exit Function
+        End If
+        InputHeadersMatch = HeadersMatch(GetSheet(sheetName), r, expectedHeaders)
 
 End Function
 
@@ -1583,6 +1631,7 @@ Private Function LoadNettingSets() As Boolean
 '------------------------------------------------------------------------------
     Dim ws        As Worksheet    'NettingSets sheet
     Dim lastR     As Long         'Last row with a netting-set ID
+    Dim topRow    As Long         'First data row, below the headers
     Dim n         As Long         'Number of rows to read
     Dim i         As Long         'Row within data
     Dim rowNum    As Long         'Sheet row of data row i
@@ -1598,13 +1647,14 @@ Private Function LoadNettingSets() As Boolean
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_NS)
-        lastR = LastDataRowAny(ws, FIRST_DATA_ROW, NS_NCOLS, 0)
-        If lastR < FIRST_DATA_ROW Then
+        topRow = TableFirstRow(SH_NS)
+        lastR = LastDataRowAny(ws, topRow, NS_NCOLS, 0)
+        If lastR < topRow Then
             LogMsg SEV_ERROR, SH_NS, "", "No netting sets defined."
             Exit Function
         End If
-        n = lastR - FIRST_DATA_ROW + 1
-        data = TableRange(ws, FIRST_DATA_ROW, 1, lastR, NS_NCOLS).Value
+        n = lastR - topRow + 1
+        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -1614,7 +1664,7 @@ Private Function LoadNettingSets() As Boolean
     'makes the first set with that ID INVALID: which row's terms apply to
     'its trades is ambiguous, so its EAD is withheld.
         For i = 1 To n
-            rowNum = FIRST_DATA_ROW + i - 1
+            rowNum = topRow + i - 1
             id = UTxt(data(i, NS_ID))
             If Len(id) = 0 Then
                 If RowHasData(data, i, NS_NCOLS, 0) Then
@@ -2075,6 +2125,7 @@ Private Sub ProcessTrades( _
     Dim ws            As Worksheet    'Trades sheet
     Dim wsOut         As Worksheet    'TradeCalc sheet
     Dim lastR         As Long         'Last row with a trade ID
+    Dim topRow        As Long         'First data row, below the headers
     Dim n             As Long         'Number of rows to read
     Dim i             As Long         'Row within data
     Dim rowNum        As Long         'Sheet row of data row i
@@ -2161,16 +2212,17 @@ Private Sub ProcessTrades( _
     'With no trades there is nothing to calculate; the old TradeCalc rows
     'are cleared so they cannot be mistaken for results.
         Set ws = GetSheet(SH_TRADES)
-        lastR = LastDataRowAny(ws, FIRST_DATA_ROW, TR_NCOLS, TR_COMMENT)
-        If lastR < FIRST_DATA_ROW Then
+        topRow = TableFirstRow(SH_TRADES)
+        lastR = LastDataRowAny(ws, topRow, TR_NCOLS, TR_COMMENT)
+        If lastR < topRow Then
             LogMsg SEV_ERROR, SH_TRADES, "", "No trades found."
             If writeOutputs Then
                 ClearOutputBlock GetSheet(SH_TRADECALC), FIRST_DATA_ROW, TC_NCOLS
             End If
             Exit Sub
         End If
-        n = lastR - FIRST_DATA_ROW + 1
-        data = TableRange(ws, FIRST_DATA_ROW, 1, lastR, TR_NCOLS).Value
+        n = lastR - topRow + 1
+        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value
         ReDim outArr(1 To n, 1 To TC_NCOLS)
         nOut = 0
 
@@ -2183,7 +2235,7 @@ Private Sub ProcessTrades( _
     'previous trade into the output row.
         Set seenIds = New Collection
         For i = 1 To n
-            rowNum = FIRST_DATA_ROW + i - 1
+            rowNum = topRow + i - 1
             tid = SafeStr(data(i, TR_ID))
             If Len(tid) = 0 Then
                 If RowHasData(data, i, TR_NCOLS, TR_COMMENT) Then
@@ -3340,8 +3392,8 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        parts(1) = BlockText(GetSheet(SH_NS), FIRST_DATA_ROW, NS_NCOLS)
-        parts(2) = BlockText(GetSheet(SH_TRADES), FIRST_DATA_ROW, TR_COMMENT - 1)
+        parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
         parts(3) = BlockText(GetSheet(SH_PARAMS), 1, PARAMS_COLS)
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
 
@@ -3381,6 +3433,9 @@ Private Function BlockText( _
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
+        If firstRow < 1 Then
+            Exit Function
+        End If
         lastR = UsedLastRow(ws)
         If lastR < firstRow Then
             Exit Function

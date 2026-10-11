@@ -309,6 +309,20 @@ Use only the categories needed by a release.
   values, so a repeated netting-set ID, supervisory-factor key or FX
   currency is also shown in red by conditional formatting, however it was
   entered.
+- NettingSets and Trades are located through workbook names, as Params is:
+  `NettingSets_Header` and `Trades_Header` name the first header cell of each
+  table (in column C), and the data start on the next row, so their rows can
+  move (`CORE_Util.TableHeaderRow`, `TableFirstRow`). A missing or broken name
+  stops the run. The test runner writes, clears and restores the input rows
+  through the same names. Trades takes the owner's final layout: title band
+  in B1:B2, description in C3, a hint row on row 4, headers on row 5 and data
+  from row 6; the Run SA-CCR, Validate inputs and Clear outputs buttons sit on
+  row 3 to the right of the description. Every Trades input column has data
+  validation with an input message (rows 6 to 5001), following the engine's
+  trade checks, and repeated Trade IDs are shown in red.
+  `TEST_InputValidation` has 57 cases and 65 checks.
+  Upgrading a workbook built from an earlier template: add the two names, or
+  rebuild from the template.
 - README, Params and NettingSets carry the owner's final layout; NettingSets
   has its title band in B1:B2 and the description in C3. Column headers are
   now compared ignoring case, spaces and line breaks, so the NettingSets

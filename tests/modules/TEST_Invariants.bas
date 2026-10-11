@@ -1285,7 +1285,7 @@ Private Function NettingSetInput( _
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_NS)
         r = FindHeaderRow(ws, NS_ID, nettingSetId)
-        If r < FIRST_DATA_ROW Then
+        If r < TableFirstRow(SH_NS) Then
             Err.Raise ERR_TEST_SETUP, "TEST_Invariants.NettingSetInput", _
                       nettingSetId & " not found on " & SH_NS & "."
         End If

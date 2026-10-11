@@ -338,7 +338,7 @@ Public Sub BeginCase( _
         mRegime = regimeCode
         mCurrency = calculationCurrency
         mNettingSetId = ""
-        mNextTradeRow = FIRST_DATA_ROW
+        mNextTradeRow = InputTop(SH_TRADES)
         ClearBlock GetSheet(SH_NS), NS_NCOLS
         ClearBlock GetSheet(SH_TRADES), TR_NCOLS
         mAsOfCell.Value = IsoDate(valuationDate)
@@ -427,7 +427,7 @@ Public Sub AddNettingSet( _
         rowValues(1, NS_MTA) = NumberOrBlank(mtaAmount)
         rowValues(1, NS_ALPHA) = NumberOrBlank(alphaFactor)
         rowValues(1, NS_REGIME) = mRegime
-        WriteRow GetSheet(SH_NS), FIRST_DATA_ROW, NS_NCOLS, rowValues
+        WriteRow GetSheet(SH_NS), InputTop(SH_NS), NS_NCOLS, rowValues
 
 End Sub
 
@@ -532,7 +532,7 @@ Public Sub SetInputCell( _
 '   2026-10-11
 '==============================================================================
 '
-        TableCell(GetSheet(sheetName), FIRST_DATA_ROW + dataRow - 1, col).Value = newValue
+        TableCell(GetSheet(sheetName), InputTop(sheetName) + dataRow - 1, col).Value = newValue
 
 End Sub
 
@@ -1407,18 +1407,20 @@ Private Sub SaveBlock( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long    'Last used row
+    Dim lastR    As Long    'Last used row
+    Dim topRow   As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' SAVE
 '------------------------------------------------------------------------------
         blockAddress = ""
         formulas = Empty
+        topRow = InputTop(ws.Name)
         lastR = UsedLastRow(ws)
-        If lastR < FIRST_DATA_ROW Then
+        If lastR < topRow Then
             Exit Sub
         End If
-        With TableRange(ws, FIRST_DATA_ROW, 1, lastR, nCols)
+        With TableRange(ws, topRow, 1, lastR, nCols)
             blockAddress = .Address
             formulas = .Formula
         End With
@@ -1472,17 +1474,48 @@ Private Sub ClearBlock( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long    'Last used row
+    Dim lastR    As Long    'Last used row
+    Dim topRow   As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
+        topRow = InputTop(ws.Name)
         lastR = UsedLastRow(ws)
-        If lastR >= FIRST_DATA_ROW Then
-            TableRange(ws, FIRST_DATA_ROW, 1, lastR, nCols).ClearContents
+        If lastR >= topRow Then
+            TableRange(ws, topRow, 1, lastR, nCols).ClearContents
         End If
 
 End Sub
+
+
+Private Function InputTop( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                   InputTop
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the first data row of an input sheet, located through the
+'   workbook name of its first header cell (CORE_Util.TableFirstRow).
+'
+' ERROR POLICY
+'   Raises ERR_TEST_SETUP when the name cannot locate it; the suite then
+'   ends as failed.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        InputTop = TableFirstRow(sheetName)
+        If InputTop = 0 Then
+            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.InputTop", _
+                      "The header of " & sheetName & " cannot be located through its workbook name - " & _
+                      "rebuild the workbook from the template."
+        End If
+
+End Function
 
 
 Private Sub WriteRow( _

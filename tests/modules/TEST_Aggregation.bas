@@ -312,17 +312,19 @@ Private Sub ReorderTrades( _
     Dim r        As Long         'Row of dst
     Dim from     As Long         'Row of src that goes to r
     Dim c        As Long         'Column
+    Dim topRow   As Long         'First data row
 
 '------------------------------------------------------------------------------
 ' REORDER
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_TRADES)
+        topRow = TableFirstRow(SH_TRADES)
         lastR = UsedLastRow(ws)
-        n = lastR - FIRST_DATA_ROW + 1
+        n = lastR - topRow + 1
         If n < 2 Then
             Exit Sub
         End If
-        Set block = TableRange(ws, FIRST_DATA_ROW, 1, lastR, TR_NCOLS)
+        Set block = TableRange(ws, topRow, 1, lastR, TR_NCOLS)
         src = block.Formula
         dst = block.Formula
         For r = 1 To n

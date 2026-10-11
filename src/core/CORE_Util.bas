@@ -800,6 +800,91 @@ Public Function NamedRow( _
 End Function
 
 
+Public Function TableHeaderRow( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                TableHeaderRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the header row of a sheet's table. NettingSets and Trades are
+'   located through the workbook name of their first header cell
+'   (NM_NS_HEADER, NM_TR_HEADER), which must be in column C of that sheet;
+'   every other sheet has its headers on HEADER_ROW.
+'
+' RETURNS
+'   The row; 0 when an input sheet's name is missing, broken, on another
+'   sheet or not in column C.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim headerName   As String    'Workbook name of the header cell
+    Dim c            As Range     'The named cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Select Case sheetName
+            Case SH_NS
+                headerName = NM_NS_HEADER
+            Case SH_TRADES
+                headerName = NM_TR_HEADER
+            Case Else
+                TableHeaderRow = HEADER_ROW
+                Exit Function
+        End Select
+        Set c = NamedCell(headerName)
+        If Not c Is Nothing Then
+            If c.Worksheet.Name = sheetName And c.Column = COL_OFFSET + 1 Then
+                TableHeaderRow = c.Row
+            End If
+        End If
+
+End Function
+
+
+Public Function TableFirstRow( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                TableFirstRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the first data row of a sheet's table: the row below its
+'   headers (TableHeaderRow).
+'
+' RETURNS
+'   The row; 0 when the header row cannot be located.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'Header row
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r > 0 Then
+            TableFirstRow = r + 1
+        End If
+
+End Function
+
+
 Public Function NamedTableCol( _
     ByVal nameText As String) _
     As Long
