@@ -97,6 +97,20 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Every run is classified as `REGULATORY` or `WHAT-IF` (#41). The engine
+  compares the numeric parameters on Params, every row of the
+  supervisory-factor table and each netting set's alpha override with the
+  regulatory parameter set `CRE52-CRR-2026-10-09` built into it (the values
+  in the methodology, checked against CRE52.72, the consolidated CRR and
+  `CRR-RTS` Article 5). When all are equal the run summary, the message box
+  and the result line (`run_class=`) name the set; any difference makes the
+  run `WHAT-IF`, says so in the same three places, and lists each difference
+  on Checks as a warning starting "What-if:". `DaysPerYear` and
+  `IRBucketOffset` are conventions and do not change the class. A
+  reporting-currency FX rate other than 1 now stops the run instead of
+  giving a warning. `TEST_InputValidation` has 77 cases and 96 checks. The
+  demo's climatic netting set no longer says "SF to confirm": the 18% factor
+  was checked against Art. 280e(5).
 - A margined netting set of more than 5,000 trades whose large or illiquid flag
   is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
   count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the

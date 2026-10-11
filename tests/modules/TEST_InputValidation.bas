@@ -34,7 +34,11 @@ Attribute VB_Name = "TEST_InputValidation"
 '   factor, a negative threshold or MTA, a remargining frequency or MPOR
 '   override that is not a whole number of business days in range, and an
 '   alpha override at or below zero; a remargining frequency of 0 is
-'   raised to daily with a warning.
+'   raised to daily with a warning. A run with the regulatory parameter
+'   set is REGULATORY, and one with a different alpha, a zero factor or an
+'   alpha override is WHAT-IF with the difference on Checks (#41); a
+'   DaysPerYear of 360 keeps it regulatory; a reporting-currency FX rate
+'   other than 1 stops the run.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -74,8 +78,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 71                'Cases in a complete run
-        Private Const CHECKS      As Long = 81                'Checks in a complete run
+        Private Const CASES       As Long = 77                'Cases in a complete run
+        Private Const CHECKS      As Long = 96                'Checks in a complete run
 
 
 '
@@ -506,6 +510,51 @@ Public Sub RunInputValidationTests()
         ExpectMPOR 10
         TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "daily remargining (1 BD) used", "illustrative"
 
+    'Regulatory or what-if run (#41): a run whose parameters, factor table
+    'and alpha overrides equal the regulatory set is REGULATORY and names
+    'the set in the run summary; any difference makes it WHAT-IF and is
+    'listed on Checks. DaysPerYear is a convention. The reporting
+    'currency's FX rate must be 1.
+        StartCase "run-class-regulatory", "N"
+        AddSwap "T1"
+        ExpectStatus "VALID"
+        ExpectRunClass RUN_REGULATORY
+        TEST_CaseRunner.ExpectTrue "run-summary", _
+                                   InStr(SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value), REF_SET_ID) > 0, _
+                                   "run summary does not name " & REF_SET_ID, "illustrative"
+
+        StartCase "run-class-days-per-year-convention", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYSYEAR), ParamsValueCol(), 360#
+        ExpectStatus "VALID"
+        ExpectRunClass RUN_REGULATORY
+
+        StartCase "run-class-what-if-alpha", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), 1.5
+        ExpectStatus "VALID"
+        ExpectRunClass RUN_WHATIF
+        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: " & PRM_ALPHA & " is", "illustrative"
+
+        StartCase "run-class-what-if-zero-factor", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EQ_INDEX"), TableCol(NM_SF_TABLE, 4), 0#
+        ExpectStatus "VALID"
+        ExpectRunClass RUN_WHATIF
+        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: factor row EQ_INDEX differs", "illustrative"
+
+        StartCase "run-class-what-if-alpha-override", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_ALPHA, 1.2
+        AddSwap "T1"
+        ExpectStatus "VALID"
+        ExpectRunClass RUN_WHATIF
+        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: alpha override", "illustrative"
+
+        StartCase "fx-reporting-currency-rate-not-one", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EUR"), TableCol(NM_FX_TABLE, 3), 0.9
+        ExpectStop "Rate of the reporting currency must be 1"
+
         TEST_CaseRunner.EndSuite ""
         Exit Sub
 
@@ -608,6 +657,25 @@ Private Sub AddSwap( _
 '
         TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
                             "10000", "30", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+
+End Sub
+
+
+Private Sub ExpectRunClass( _
+    ByVal expected As String)
+'
+'==============================================================================
+'                                ExpectRunClass
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check the class of the case's run: RUN_REGULATORY or RUN_WHATIF (#41).
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        TEST_CaseRunner.ExpectTrue "run-class", CORE_Engine.RunClass = expected, _
+                                   "run class " & CORE_Engine.RunClass & ", expected " & expected, "illustrative"
 
 End Sub
 

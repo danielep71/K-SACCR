@@ -748,7 +748,8 @@ Private Function ReportOutcome( _
                     msg = "SA-CCR run completed." & vbCrLf & vbCrLf & _
                           "Trades used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
                           "Total EAD: " & Format$(CORE_Engine.TotalEAD, "#,##0") & vbCrLf & _
-                          "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount
+                          "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
+                          vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
                         msg = msg & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
                               " netting set(s) with rejected trades or invalid inputs."
@@ -765,7 +766,7 @@ Private Function ReportOutcome( _
             Case OP_VALIDATE
                 ShowChecksSheet
                 msg = "Validation finished: " & CORE_Engine.ErrorCount & " error(s), " & _
-                      CORE_Engine.WarningCount & " warning(s)."
+                      CORE_Engine.WarningCount & " warning(s)." & vbCrLf & RunClassLine()
                 style = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
             Case OP_CLEAR
                 msg = ""
@@ -786,7 +787,8 @@ Private Function ReportOutcome( _
                      "; trades_read=" & CStr(CORE_Engine.TradesRead) & _
                      "; incomplete=" & CStr(CORE_Engine.IncompleteCount) & _
                      "; total_ead=" & Trim$(Str$(CORE_Engine.TotalEAD)) & _
-                     "; inputs=" & CORE_Engine.RunInputs
+                     "; inputs=" & CORE_Engine.RunInputs & _
+                     "; run_class=" & CORE_Engine.RunClass
         End If
         result = result & "; cleanup=" & IIf(Len(cleanupDetails) = 0, "PASS", "FAIL")
 
@@ -915,6 +917,31 @@ Private Sub ReportFailure( _
         MsgBox msg, vbCritical, "SA-CCR"
 
 End Sub
+
+
+Private Function RunClassLine() As String
+'
+'==============================================================================
+'                                 RunClassLine
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One line for the message box saying whether the run used the
+'   regulatory parameter set or is a what-if run (#41); "" when the run was
+'   not classified.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Select Case CORE_Engine.RunClass
+            Case RUN_REGULATORY
+                RunClassLine = "Parameters: regulatory set " & REF_SET_ID
+            Case RUN_WHATIF
+                RunClassLine = "WHAT-IF RUN: " & CORE_Engine.ParameterDeviations & _
+                               " parameter(s) differ from the regulatory set (listed on Checks)."
+        End Select
+
+End Function
 
 
 Private Function OperationName( _
