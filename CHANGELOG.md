@@ -136,11 +136,16 @@ Use only the categories needed by a release.
   add-ons, RC and the multiplier follow their formulas, PFE is the
   multiplier times the add-on, EAD = alpha * (RC + PFE), a margined netting
   set's EAD is the lower of the margined EAD and the unmargined cap, withheld
-  netting sets show no figures and the TOTAL row adds up. It also checks that
-  a second run gives identical outputs, that the IR sum of absolute bucket
-  values is never below the bucket formula, and that a zero add-on is
-  calculated without failing. The checks compare outputs with each other and
-  are reported as illustrative.
+  netting sets show no figures, and the TOTAL row holds the sum over the
+  `VALID` netting sets of V, C, RC, each asset-class add-on, the aggregate
+  add-on, PFE and EAD, and nothing else (#104). It also checks that a second
+  run gives identical outputs, that with the IR sum of absolute bucket values
+  a CRR netting set with interest-rate trades becomes `INVALID` while every
+  other netting set stays `VALID` with no lower IR add-on (#103), and
+  that a zero add-on is calculated without failing. Two further checks
+  corrupt copies of the outputs and pass only if the TOTAL and IR relations
+  then fail and name the corrupted column or netting set. The checks compare
+  outputs with each other and are reported as illustrative.
 - An interest-rate add-on flowchart in `docs/assets/`
   (`SACCR_IR_AddOn_flow.svg` and a 2080 px PNG). It traces the steps from trade
   selection to the aggregate add-on, including the maturity factor, basis and
