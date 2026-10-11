@@ -271,6 +271,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- `tools/Sync-SACCR-VBA.ps1` also imports the test modules from
+  `tests/modules/`, so one synchronization updates every engine and test
+  module of the development workbook.
+
 - CRR scope checked against the CRR text (#33). With `IRBucketOffset` set to
   FALSE, a CRR netting set with interest-rate trades is now `INVALID` and its
   EAD withheld, because Article 280a(3) has only the formula with offsets

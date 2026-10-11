@@ -48,7 +48,8 @@ PowerShell remains available for direct use from the repository root:
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
 
-The script reads `src/core/`, `src/modules/` and `src/workbook/`. Standard
+The script reads `src/core/`, `src/modules/`, `src/workbook/` and
+`tests/modules/`, so the workbook holds the test suites as well. Standard
 modules are replaced from source; `ThisWorkbook` and worksheet document modules
 keep their workbook objects and only their code text is replaced. It disables
 Excel events, macro execution, external-link updates and automatic calculation
