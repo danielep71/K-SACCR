@@ -285,7 +285,8 @@ Use only the categories needed by a release.
 ### Changed
 
 - The README sheet of the template has its final layout, as edited by the
-  owner in Excel, with its buttons in row 3. Every font of the template names
+  owner in Excel, with its buttons in row 3, a 120% zoom and section headers
+  at 14 pt; it names the engine v1.0.0 instead of the prototype's v1.1.0. Every font of the template names
   Aptos on the style instead of following the workbook theme, so a sheet
   copied into another workbook keeps Aptos. The README note on the cap basis
   points to Results columns Z-AC, where the layout change moved them.
