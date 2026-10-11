@@ -304,7 +304,11 @@ Use only the categories needed by a release.
   Y/N flags, the clearing role, whole business days for the remargin
   frequency and the MPOR override, numbers for VM and NICA, TH and MTA not
   negative, alpha above zero, the regime and the margin-agreement
-  structure.
+  structure. The Trades NettingSetID drop-down now explains itself and warns
+  when an ID is not on NettingSets. Validation does not apply to pasted
+  values, so a repeated netting-set ID, supervisory-factor key or FX
+  currency is also shown in red by conditional formatting, however it was
+  entered.
 - README, Params and NettingSets carry the owner's final layout; NettingSets
   has its title band in B1:B2 and the description in C3. Column headers are
   now compared ignoring case, spaces and line breaks, so the NettingSets
