@@ -271,6 +271,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- `tools/Sync-SACCR-VBA.ps1` also imports the test modules from
+  `tests/modules/`, so one synchronization updates every engine and test
+  module of the development workbook.
+
 - Netting-set terms by regime (#39). The cap of a margined netting set now uses
   C = NICA in both regimes; the BCBS cap used VM + NICA, which CRE52.2 and
   CRE52.10 do not support (T16 becomes 40.77m, cap applied, as under CRR). VM
