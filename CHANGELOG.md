@@ -289,6 +289,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Every parameter value on Params (E6 to E25) has data validation with an
+  input message giving its meaning, regulatory value and reference, and a
+  Stop alert with the accepted range: dates 2000 to 2100, a three-letter
+  currency, alpha above zero, a multiplier floor below 100%, day counts,
+  maturity and MPOR floors in business days, factors, IR correlations
+  that form a valid correlation matrix, TRUE/FALSE, CRR/BCBS and the
+  lambda thresholds. Validation stops typed values only; the engine's own
+  checks still apply to pasted values.
 - Params is located through workbook names instead of fixed rows and
   columns: `Params_Code` and `Params_Value` name the "Code" and "Value"
   header cells of the parameter rows, and the top-left cells of `SF_Table`
