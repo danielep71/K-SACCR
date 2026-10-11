@@ -428,6 +428,20 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The engine checks the ranges that the data validation on Params and
+  NettingSets states, so a pasted or VBA-written value can no longer bypass
+  them (#147). A multiplier floor outside 0 to below 1 (a floor of 1 divided
+  by zero), day counts, maturity and MPOR floors and lambda thresholds
+  outside their ranges, factor multipliers out of range, IR bucket
+  correlations outside 0 to 1 or not forming a valid correlation matrix
+  (the IR effective notional was silently 0), and supervisory factors,
+  correlations or volatilities out of range in the factor table stop the
+  run with an error naming the parameter or key. A negative threshold, MTA
+  or remargining frequency, and an alpha or MPOR override of zero or less,
+  make the netting set `INVALID` instead of being used or silently replaced;
+  a remargining frequency from 0 to below 1 day is raised to daily with a
+  warning. `TEST_InputValidation` has 69 cases and 79 checks.
+
 - EBA Q&A 2023_6962 is cited by its source ID `EBA-QA-2023_6962` in the
   expected files, the VBA comments and the methodology (#129); the source of
   the posted-VM records stays `CRR`, whose Art. 274(3) is the rule, and the

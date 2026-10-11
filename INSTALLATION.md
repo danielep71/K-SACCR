@@ -337,10 +337,17 @@ netting set and checks its replacement cost, and checks the MPOR of each
 clearing role and of disputes and a large netting set with weekly
 remargining, and the warning for a margined netting set of more than 5,000
 trades whose large or illiquid flag is N, and checks that a broken Params,
-NettingSets or Trades layout name stops the run. Every patched cell and name is restored. It needs a workbook
+NettingSets or Trades layout name stops the run. It writes values outside the
+ranges of the data validation, which validation would not stop because VBA
+writes them: a multiplier floor of 1, correlations above 1 or that do not form
+a correlation matrix, an MPOR floor of 0, a fractional business-day count and
+a negative supervisory factor stop the run; a negative threshold, MTA or
+remargining frequency and an alpha or MPOR override of zero or less make the
+netting set `INVALID`; a remargining frequency of 0 is raised to daily with a
+warning. Every patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=57; checks=65; failures=0; restore=PASS`.
+`RESULT=PASS; cases=69; checks=79; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
