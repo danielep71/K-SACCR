@@ -116,6 +116,43 @@ class SourceGateTests(unittest.TestCase):
         self.write("src/workbook/T.xlsx", "not a zip")
         self.assertTrue(any("not a readable workbook package" in f for f in self.findings()))
 
+    def write_sync(self, *directories: str) -> None:
+        entries = ",\r\n".join(f'        (Join-Path $repoFullPath "{d}")' for d in directories)
+        self.write("tools/Sync-SACCR-VBA.ps1", f"$sourceRoots = @(\r\n{entries}\r\n    )\r\n")
+
+    def test_component_outside_sync_roots_is_rejected(self) -> None:
+        self.write_sync("src\\modules")
+        self.write("src/modules/SACCR_Test.bas", MODULE)
+        self.write("tests/modules/TEST_Test.bas", MODULE.replace("SACCR_Test", "TEST_Test"))
+        self.assertEqual(self.findings(), ["tests/modules/TEST_Test.bas: not synchronized; add its "
+                                           "directory to $sourceRoots in tools/Sync-SACCR-VBA.ps1"])
+        self.write_sync("src\\modules", "tests\\modules")
+        self.assertEqual(self.findings(), [])
+
+    def test_missing_sync_root_is_rejected(self) -> None:
+        self.write_sync("src\\modules", "src\\core")
+        self.write("src/modules/SACCR_Test.bas", MODULE)
+        self.assertEqual(self.findings(),
+                         ["tools/Sync-SACCR-VBA.ps1: source directory src/core/ does not exist"])
+
+    def test_document_modules_match_template_sheets(self) -> None:
+        self.write_workbook("src/workbook/SACCR_Template.xlsx", {
+            "[Content_Types].xml": "<Types/>",
+            "_rels/.rels": '<Relationships Target="xl/workbook.xml"/>',
+            "xl/workbook.xml": '<workbook><workbookPr codeName="ThisWorkbook"/></workbook>',
+            "xl/worksheets/sheet1.xml": '<worksheet><sheetPr codeName="shInputs"/></worksheet>'})
+        document = 'VERSION 1.0 CLASS\r\nAttribute VB_Name = "{0}"\r\nOption Explicit\r\n'
+        self.write("src/workbook/ThisWorkbook.cls", document.format("ThisWorkbook"))
+        self.write("src/workbook/shOutputs.cls", document.format("shOutputs"))
+        found = self.findings()
+        self.assertIn("src/workbook/shOutputs.cls: no sheet or workbook with this CodeName in "
+                      "src/workbook/SACCR_Template.xlsx", found)
+        self.assertIn("src/workbook/SACCR_Template.xlsx: CodeName shInputs has no document module "
+                      "src/workbook/shInputs.cls", found)
+        (self.root / "src/workbook/shOutputs.cls").unlink()
+        self.write("src/workbook/shInputs.cls", document.format("shInputs"))
+        self.assertEqual(self.findings(), [])
+
     def test_module_names_carry_their_role_prefix(self) -> None:
         for path, name in (("src/core/Engine.bas", "Engine"), ("src/modules/Formulas.bas", "Formulas"),
                            ("tests/modules/Harness.bas", "Harness")):
