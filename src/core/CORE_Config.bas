@@ -206,15 +206,15 @@ Attribute VB_Name = "CORE_Config"
     'Header text of every column the engine reads, in column order and
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
-    'case and surrounding spaces) means a column was inserted, deleted or
+    'case, spaces and line breaks) means a column was inserted, deleted or
     'moved, and the run stops (#35). The Params, factor and FX headers are
     'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Client clearing role (N/CM/CLIENT)|Remargin frequency N (BD)|" & _
+            "Client clearing role (N / CM / CLIENT)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
-            "Margin agreements (blank/MIXED/SHARED)"
+            "Margin agreements (blank / MIXED / SHARED)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _

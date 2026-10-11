@@ -289,6 +289,31 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Every parameter value on Params (E6 to E25) has data validation with an
+  input message giving its meaning, regulatory value and reference, and a
+  Stop alert with the accepted range: dates 2000 to 2100, a three-letter
+  currency, alpha above zero, a multiplier floor below 100%, day counts,
+  maturity and MPOR floors in business days, factors, IR correlations
+  that form a valid correlation matrix, TRUE/FALSE, CRR/BCBS and the
+  lambda thresholds. The supervisory-factor table validates unique keys,
+  asset class, factor, correlation, option volatility, commodity hedging
+  set and regimes; the FX table validates unique three-letter currencies
+  and positive rates, with 1 for the reporting currency. Validation stops
+  typed values only; the engine's own checks still apply to pasted values.
+  NettingSets (rows 7 to 206) has the same kind of validation: unique IDs,
+  Y/N flags, the clearing role, whole business days for the remargin
+  frequency and the MPOR override, numbers for VM and NICA, TH and MTA not
+  negative, alpha above zero, the regime and the margin-agreement
+  structure. The Trades NettingSetID drop-down now explains itself and warns
+  when an ID is not on NettingSets. Validation does not apply to pasted
+  values, so a repeated netting-set ID, supervisory-factor key or FX
+  currency is also shown in red by conditional formatting, however it was
+  entered.
+- README, Params and NettingSets carry the owner's final layout; NettingSets
+  has its title band in B1:B2 and the description in C3. Column headers are
+  now compared ignoring case, spaces and line breaks, so the NettingSets
+  headers `Client clearing role (N / CM / CLIENT)` and
+  `Margin agreements (blank / MIXED / SHARED)` match.
 - Params is located through workbook names instead of fixed rows and
   columns: `Params_Code` and `Params_Value` name the "Code" and "Value"
   header cells of the parameter rows, and the top-left cells of `SF_Table`

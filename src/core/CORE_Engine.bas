@@ -913,8 +913,10 @@ Private Function HeadersMatch( _
 '                                 HeadersMatch
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Compare a header row with the expected headers, ignoring case and
-'   surrounding spaces, and log an error for each header that differs.
+'   Compare a header row with the expected headers, ignoring case, spaces
+'   and line breaks, so that a header reworded only in its spacing or
+'   wrapped onto two lines still matches, and log an error for each header
+'   that differs.
 '
 ' INPUTS
 '   ws, rowNum: the sheet and its header row.
@@ -945,7 +947,7 @@ Private Function HeadersMatch( _
         For c = 0 To UBound(headers)
             If Len(headers(c)) > 0 Then
                 found = TableCell(ws, rowNum, firstCol + c).Value
-                If StrComp(SafeStr(found), headers(c), vbTextCompare) <> 0 Then
+                If StrComp(HeaderKey(SafeStr(found)), HeaderKey(CStr(headers(c))), vbTextCompare) <> 0 Then
                     HeadersMatch = False
                     LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, firstCol + c).Address(False, False), _
                            "Header must be '" & headers(c) & "' (found " & DescribeValue(found) & _
@@ -953,6 +955,30 @@ Private Function HeadersMatch( _
                 End If
             End If
         Next c
+
+End Function
+
+
+Private Function HeaderKey( _
+    ByVal headerText As String) _
+    As String
+'
+'==============================================================================
+'                                  HeaderKey
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Strip spaces, non-breaking spaces, tabs and line breaks from a header,
+'   for HeadersMatch.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        headerText = Replace(headerText, " ", "")
+        headerText = Replace(headerText, Chr$(160), "")
+        headerText = Replace(headerText, vbTab, "")
+        headerText = Replace(headerText, vbCr, "")
+        HeaderKey = Replace(headerText, vbLf, "")
 
 End Function
 
