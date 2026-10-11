@@ -97,6 +97,19 @@ Use only the categories needed by a release.
 
 ### Added
 
+- A margined netting set of more than 5,000 trades whose large or illiquid flag
+  is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
+  count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the
+  workbook does not see. `TEST_CaseRunner.ExpectChecksLine` checks such a line;
+  `TEST_InputValidation` has 54 cases and 62 checks.
+
+- Value test for the Basel sum of absolute IR bucket values (#39):
+  `illustrative-ir-sum-of-absolutes` runs the CRE99 Example 1 inputs under BCBS
+  with `IRBucketOffset` = FALSE and expects an IR add-on of 625,153.16 USD and
+  an EAD of 959,214.42 USD, from a hand calculation (illustrative). Fixtures
+  accept `IRBucketOffset` in `parameters`, and `TEST_CaseRunner.SetParameter`
+  writes Y and N as TRUE and FALSE. `TEST_Cases` has 20 cases and 39 checks.
+
 - `docs/methodology/sources/` holds copies of the regulatory texts the
   methodology was checked against: the SA-CCR articles of the consolidated CRR
   (26.06.2026), Delegated Regulation 2021/931 as amended (25.05.2025), Basel

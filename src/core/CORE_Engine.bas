@@ -75,7 +75,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -2931,10 +2931,11 @@ Private Sub ComputeNettingSets( _
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
 '   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
-'   CRE52.10 and EBA Q&A 2023_6962.
+'   CRE52.10 and EBA Q&A 2023_6962; trade-count warning CRE52.51(1) and
+'   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '==============================================================================
 '
 
@@ -2973,6 +2974,19 @@ Private Sub ComputeNettingSets( _
         ReDim outArr(1 To mNSCount + 1, 1 To RS_NCOLS)
         nOut = 0
         For k = 1 To mNSCount
+
+    'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
+    'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+    'The workbook sees only today's count, so it warns when the declared
+    'flag may be wrong instead of setting it.
+            With mNS(k)
+                If .Margined And Not .LargeOrIlliquid And .Trades + .Rejected > LARGE_NS_TRADES Then
+                    LogMsg SEV_WARN, SH_NS, .ID, "Netting set has " & (.Trades + .Rejected) & _
+                           " trades, more than " & LARGE_NS_TRADES & ": if it had more than " & _
+                           LARGE_NS_TRADES & " during the previous quarter, set the large or illiquid " & _
+                           "flag to Y (20-day MPOR floor)."
+                End If
+            End With
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _

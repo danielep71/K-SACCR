@@ -293,7 +293,7 @@ its `parameters`, which are restored after the case. At the end the inputs and
 parameters are written back, the engine is run once more and Excel settings
 are restored. A passing run prints one `CASE=` line per expected file, the
 results per reference class, and
-`RESULT=PASS; cases=19; checks=37; failures=0; restore=PASS`. Illustrative
+`RESULT=PASS; cases=20; checks=39; failures=0; restore=PASS`. Illustrative
 results are counted separately and validate nothing.
 
 To see the failure path of any suite run through `TEST_CaseRunner`, arm the
@@ -308,7 +308,7 @@ tolerance plus one, so the comparison must reject it. It prints
 `MODE=INJECTED_FAILURE` and an `INJECTED=` line naming the check, then one
 `FAILURE=` line for it; for `TEST_Cases` that is T01, so the summary shows
 `PUBLISHED: passed=13; failed=1` and
-`RESULT=FAIL; cases=19; checks=37; failures=1; restore=PASS`. The injection
+`RESULT=FAIL; cases=20; checks=39; failures=1; restore=PASS`. The injection
 applies to that one suite only. A suite with no numeric check, such as
 `TEST_InputValidation`, fails with a message saying so.
 
@@ -335,10 +335,11 @@ role or margin-agreement code that is not N, CM, CLIENT, MIXED or SHARED, and
 the MIXED and SHARED structures; it accepts VM posted on an unmargined BCBS
 netting set and checks its replacement cost, and checks the MPOR of each
 clearing role and of disputes and a large netting set with weekly
-remargining. Every patched cell and name is restored. It needs a workbook
+remargining, and the warning for a margined netting set of more than 5,000
+trades whose large or illiquid flag is N. Every patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=53; checks=60; failures=0; restore=PASS`.
+`RESULT=PASS; cases=54; checks=62; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
