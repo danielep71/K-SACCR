@@ -9,10 +9,15 @@ Attribute VB_Name = "TEST_Invariants"
 '   stays between the floor and 1, and is 1 when V - C >= 0; PFE is the
 '   multiplier times the aggregate add-on; a margined netting set's EAD is
 '   the lower of the margined EAD and the unmargined cap; withheld netting
-'   sets show no figures; the TOTAL row adds up. It also checks that a
+'   sets show no figures; the TOTAL row holds, for each of V, C, RC, the
+'   six asset-class add-ons, the aggregate add-on, PFE and EAD, the sum
+'   over the VALID netting sets, and nothing else. It also checks that a
 '   second run gives identical outputs, that the IR sum of absolute bucket
-'   values is never below the bucket formula, and that a netting set with
-'   a zero add-on is calculated without a division failure.
+'   values is never below the bucket formula for any netting set VALID in
+'   the first run, and that a netting set with a zero add-on is calculated
+'   without a division failure. Two checks corrupt copies of the outputs
+'   and confirm that the TOTAL and IR relations then fail and name the
+'   corrupted column or netting set (#103, #104).
 '
 ' PUBLIC SURFACE
 '   RunInvariantTests is the entry point. Option Private Module keeps it
@@ -60,7 +65,7 @@ Attribute VB_Name = "TEST_Invariants"
     'Suite size and tolerance.
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of the built case
         Private Const CASES       As Long = 4                 'Cases in a complete run
-        Private Const CHECKS      As Long = 21                'Checks in a complete run
+        Private Const CHECKS      As Long = 23                'Checks in a complete run
         Private Const REL_TOL     As Double = 0.000000001     'Relative tolerance, on max(1, |expected|)
 
     'Results columns, as written by CORE_Engine.
@@ -122,6 +127,7 @@ Public Sub RunInvariantTests()
     Dim tradeRows    As Variant    'TradeCalc rows of the first demo run
     Dim hedgeRows    As Variant    'HedgingSets rows of the first demo run
     Dim bucketRows   As Variant    'Buckets rows of the first demo run
+    Dim absRows      As Variant    'Results rows with the sum of absolute bucket values
     Dim detail       As String     'First violation; "" when none
 
 '------------------------------------------------------------------------------
@@ -148,6 +154,7 @@ Public Sub RunInvariantTests()
         RecordRelation "unmargined-cap", CapGap(original)
         RecordRelation "withheld", WithheldGap(original)
         RecordRelation "total", TotalGap(original)
+        RecordRelation "total-catches-corruption", TotalCorruptionGap(original)
 
 '------------------------------------------------------------------------------
 ' REPEATABILITY
@@ -173,12 +180,14 @@ Public Sub RunInvariantTests()
         TEST_CaseRunner.LoadSavedInputs
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), ParamsValueCol(), False
         TEST_CaseRunner.RunCase
-        detail = IrOffsetGap(original, SheetRows(SH_RESULTS, RS_NCOLS))
+        absRows = SheetRows(SH_RESULTS, RS_NCOLS)
+        detail = IrOffsetGap(original, absRows)
         RecordRelation "ir-add-on-not-lower", detail
         TEST_CaseRunner.ExpectTrue "ir-add-on-higher", Len(detail) = 0 And _
-                                   IrHigherCount(original, SheetRows(SH_RESULTS, RS_NCOLS)) > 0, _
+                                   IrHigherCount(original, absRows) > 0, _
                                    "no netting set has a higher IR add-on without the bucket formula", _
                                    "illustrative"
+        RecordRelation "ir-catches-invalid-set", IrInvalidSetGap(original, absRows)
 
 '------------------------------------------------------------------------------
 ' ZERO ADD-ON
@@ -761,25 +770,27 @@ Private Function TotalGap( _
 '                                   TotalGap
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that the TOTAL row is the last row and holds the sums of RC,
-'   PFE and EAD over the VALID netting sets.
+'   Check that the TOTAL row is the last row, that each column the engine
+'   totals (V, C, RC, the six asset-class add-ons, the aggregate add-on,
+'   PFE and EAD) holds the sum over the VALID netting sets, and that every
+'   other column of the row is blank. Withheld netting sets show no
+'   figures (WithheldGap), so they add nothing.
 '
 ' RETURNS
-'   The first violation; "" when none.
+'   The first violation, naming the column as "(column n)"; "" when none.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r        As Long      'Results row
-    Dim last     As Long      'The TOTAL row
-    Dim sumRc    As Double    'Sum of RC
-    Dim sumPfe   As Double    'Sum of PFE
-    Dim sumEad   As Double    'Sum of EAD
+    Dim r                    As Long      'Results row
+    Dim col                  As Long      'Results column
+    Dim last                 As Long      'The TOTAL row
+    Dim sums(1 To RS_NCOLS)  As Double    'Sum of each totalled column over the VALID rows
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -795,18 +806,100 @@ Private Function TotalGap( _
         End If
         For r = 1 To last - 1
             If IsValidRow(outputRows, r) Then
-                sumRc = sumRc + ToDbl(outputRows(r, COL_RC))
-                sumPfe = sumPfe + ToDbl(outputRows(r, COL_PFE))
-                sumEad = sumEad + ToDbl(outputRows(r, COL_EAD))
+                For col = COL_V To COL_EAD
+                    If Len(TotalColumnName(col)) > 0 Then
+                        sums(col) = sums(col) + ToDbl(outputRows(r, col))
+                    End If
+                Next col
             End If
         Next r
-        If Not Near(ToDbl(outputRows(last, COL_RC)), sumRc) Then
-            TotalGap = "TOTAL RC " & ToDbl(outputRows(last, COL_RC)) & ", sum " & sumRc
-        ElseIf Not Near(ToDbl(outputRows(last, COL_PFE)), sumPfe) Then
-            TotalGap = "TOTAL PFE " & ToDbl(outputRows(last, COL_PFE)) & ", sum " & sumPfe
-        ElseIf Not Near(ToDbl(outputRows(last, COL_EAD)), sumEad) Then
-            TotalGap = "TOTAL EAD " & ToDbl(outputRows(last, COL_EAD)) & ", sum " & sumEad
+        For col = 2 To RS_NCOLS
+            If Len(TotalColumnName(col)) > 0 Then
+                If Not IsNum(outputRows(last, col)) Then
+                    TotalGap = "TOTAL " & TotalColumnName(col) & " (column " & col & ") is not a number: " & _
+                               SafeStr(outputRows(last, col))
+                    Exit Function
+                End If
+                If Not Near(ToDbl(outputRows(last, col)), sums(col)) Then
+                    TotalGap = "TOTAL " & TotalColumnName(col) & " (column " & col & ") " & _
+                               ToDbl(outputRows(last, col)) & ", sum of VALID rows " & sums(col)
+                    Exit Function
+                End If
+            ElseIf Not IsEmpty(outputRows(last, col)) Then
+                TotalGap = "TOTAL (column " & col & ") holds " & SafeStr(outputRows(last, col)) & _
+                           " where it should be blank"
+                Exit Function
+            End If
+        Next col
+
+End Function
+
+
+Private Function TotalCorruptionGap( _
+    ByVal outputRows As Variant) _
+    As String
+'
+'==============================================================================
+'                              TotalCorruptionGap
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show that TotalGap catches a wrong TOTAL row (#104). On a copy of the
+'   Results rows, each totalled column of the TOTAL row is in turn moved
+'   away from its sum and then blanked, and each other column is filled
+'   with 1. TotalGap must fail every time and name the corrupted column.
+'
+' RETURNS
+'   The first corruption TotalGap missed or attributed to another column;
+'   "" when it caught them all.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim col       As Long       'Results column being corrupted
+    Dim last      As Long       'The TOTAL row
+    Dim shown     As Double     'TOTAL figure before the corruption
+    Dim pass      As Long       '1 moves the figure, 2 blanks it
+    Dim mutated   As Variant    'Copy of the rows with one cell corrupted
+    Dim detail    As String     'TotalGap on the corrupted copy
+
+'------------------------------------------------------------------------------
+' CORRUPT EACH COLUMN
+'------------------------------------------------------------------------------
+        detail = TotalGap(outputRows)
+        If Len(detail) > 0 Then
+            TotalCorruptionGap = "TOTAL fails before any corruption: " & detail
+            Exit Function
         End If
+        last = RowCount(outputRows)
+        For col = 2 To RS_NCOLS
+            For pass = 1 To 2
+                mutated = outputRows
+                If Len(TotalColumnName(col)) = 0 Then
+                    mutated(last, col) = 1#
+                ElseIf pass = 1 Then
+                    shown = ToDbl(outputRows(last, col))
+                    mutated(last, col) = shown + 1# + Abs(shown) * 0.001
+                Else
+                    mutated(last, col) = Empty
+                End If
+                detail = TotalGap(mutated)
+                If InStr(detail, "(column " & col & ")") = 0 Then
+                    TotalCorruptionGap = "TOTAL (column " & col & ") " & _
+                                         IIf(IsEmpty(mutated(last, col)), "blanked", _
+                                             "set to " & SafeStr(mutated(last, col))) & ": " & _
+                                         IIf(Len(detail) = 0, "not caught", "reported as " & detail)
+                    Exit Function
+                End If
+                If Len(TotalColumnName(col)) = 0 Then
+                    Exit For
+                End If
+            Next pass
+        Next col
 
 End Function
 
@@ -888,15 +981,16 @@ Private Function IrOffsetGap( _
 '                                 IrOffsetGap
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that for every netting set VALID in both runs, the IR add-on
-'   with the sum of absolute bucket values is not below the IR add-on
-'   with the bucket formula.
+'   Check that every netting set VALID with the bucket formula is also
+'   VALID with the sum of absolute bucket values, and that its IR add-on
+'   is then not lower (#103). A set that is missing or withheld in the
+'   second run fails, so another set's higher add-on cannot hide it.
 '
 ' RETURNS
 '   The first violation; "" when none.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
@@ -918,14 +1012,18 @@ Private Function IrOffsetGap( _
                     IrOffsetGap = RowLabel(bucketFormulaRows, r) & " missing from the second run"
                     Exit Function
                 End If
-                If IsValidRow(sumOfAbsoluteRows, q) Then
-                    withOff = ToDbl(bucketFormulaRows(r, COL_IR_ADDON))
-                    withoutOff = ToDbl(sumOfAbsoluteRows(q, COL_IR_ADDON))
-                    If withoutOff < withOff And Not Near(withoutOff, withOff) Then
-                        IrOffsetGap = RowLabel(bucketFormulaRows, r) & " IR add-on " & withoutOff & _
-                                      " without the bucket formula, " & withOff & " with it"
-                        Exit Function
-                    End If
+                If Not IsValidRow(sumOfAbsoluteRows, q) Then
+                    IrOffsetGap = RowLabel(bucketFormulaRows, r) & " is " & _
+                                  SafeStr(sumOfAbsoluteRows(q, RS_STATUS_COL)) & _
+                                  " in the second run, VALID in the first"
+                    Exit Function
+                End If
+                withOff = ToDbl(bucketFormulaRows(r, COL_IR_ADDON))
+                withoutOff = ToDbl(sumOfAbsoluteRows(q, COL_IR_ADDON))
+                If withoutOff < withOff And Not Near(withoutOff, withOff) Then
+                    IrOffsetGap = RowLabel(bucketFormulaRows, r) & " IR add-on " & withoutOff & _
+                                  " without the bucket formula, " & withOff & " with it"
+                    Exit Function
                 End If
             End If
         Next r
@@ -973,6 +1071,68 @@ Private Function IrHigherCount( _
                 End If
             End If
         Next r
+
+End Function
+
+
+Private Function IrInvalidSetGap( _
+    ByVal bucketFormulaRows As Variant, _
+    ByVal sumOfAbsoluteRows As Variant) _
+    As String
+'
+'==============================================================================
+'                               IrInvalidSetGap
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show that IrOffsetGap catches a netting set that becomes invalid
+'   (#103). On a copy of the second run, the first VALID netting set whose
+'   withdrawal still leaves another set with a higher IR add-on is marked
+'   INVALID, with its figures blanked as the engine withholds them.
+'   IrOffsetGap must then fail and name that netting set.
+'
+' RETURNS
+'   The violation; "" when IrOffsetGap caught it.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r         As Long       'Row of bucketFormulaRows
+    Dim q         As Long       'Matching row of the second run
+    Dim col       As Long       'Results column blanked
+    Dim mutated   As Variant    'Copy of the second run with one set withheld
+    Dim setId     As String     'Netting set made INVALID
+    Dim detail    As String     'IrOffsetGap on the corrupted copy
+
+'------------------------------------------------------------------------------
+' WITHHOLD ONE NETTING SET
+'------------------------------------------------------------------------------
+        For r = 1 To RowCount(bucketFormulaRows)
+            If IsValidRow(bucketFormulaRows, r) Then
+                setId = RowLabel(bucketFormulaRows, r)
+                q = MatchingRow(sumOfAbsoluteRows, setId)
+                If q > 0 Then
+                    mutated = sumOfAbsoluteRows
+                    For col = 6 To COL_MULT_CAP
+                        mutated(q, col) = Empty
+                    Next col
+                    mutated(q, RS_STATUS_COL) = "INVALID"
+                    If IrHigherCount(bucketFormulaRows, mutated) > 0 Then
+                        detail = IrOffsetGap(bucketFormulaRows, mutated)
+                        If InStr(detail, setId & " is INVALID") = 0 Then
+                            IrInvalidSetGap = setId & " made INVALID in the second run: " & _
+                                              IIf(Len(detail) = 0, "not caught", "reported as " & detail)
+                        End If
+                        Exit Function
+                    End If
+                End If
+            End If
+        Next r
+        IrInvalidSetGap = "no VALID netting set can be withheld while another keeps a higher IR add-on"
 
 End Function
 
@@ -1296,6 +1456,43 @@ Private Function MatchingRow( _
                 Exit Function
             End If
         Next r
+
+End Function
+
+
+Private Function TotalColumnName( _
+    ByVal col As Long) _
+    As String
+'
+'==============================================================================
+'                               TotalColumnName
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Name a Results column the engine sums into the TOTAL row: V, C, RC,
+'   the six asset-class add-ons, the aggregate add-on, PFE and EAD, as
+'   CORE_Engine.ComputeNettingSets writes them.
+'
+' RETURNS
+'   The name; "" for a column the TOTAL row leaves blank.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Select Case col
+            Case COL_V:           TotalColumnName = "V"
+            Case COL_C:           TotalColumnName = "C"
+            Case COL_RC:          TotalColumnName = "RC"
+            Case COL_IR_ADDON:    TotalColumnName = "IR add-on"
+            Case 11:              TotalColumnName = "FX add-on"
+            Case 12:              TotalColumnName = "CR add-on"
+            Case 13:              TotalColumnName = "EQ add-on"
+            Case 14:              TotalColumnName = "CO add-on"
+            Case COL_OT_ADDON:    TotalColumnName = "OT add-on"
+            Case COL_AGGREGATE:   TotalColumnName = "aggregate add-on"
+            Case COL_PFE:         TotalColumnName = "PFE"
+            Case COL_EAD:         TotalColumnName = "EAD"
+        End Select
 
 End Function
 
