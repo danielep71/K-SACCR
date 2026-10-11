@@ -140,7 +140,8 @@ Use only the categories needed by a release.
   `VALID` netting sets of V, C, RC, each asset-class add-on, the aggregate
   add-on, PFE and EAD, and nothing else (#104). It also checks that a second
   run gives identical outputs, that with the IR sum of absolute bucket values
-  every netting set stays `VALID` and none has a lower IR add-on (#103), and
+  a CRR netting set with interest-rate trades becomes `INVALID` while every
+  other netting set stays `VALID` with no lower IR add-on (#103), and
   that a zero add-on is calculated without failing. Two further checks
   corrupt copies of the outputs and pass only if the TOTAL and IR relations
   then fail and name the corrupted column or netting set. The checks compare

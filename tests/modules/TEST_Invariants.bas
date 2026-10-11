@@ -12,10 +12,11 @@ Attribute VB_Name = "TEST_Invariants"
 '   sets show no figures; the TOTAL row holds, for each of V, C, RC, the
 '   six asset-class add-ons, the aggregate add-on, PFE and EAD, the sum
 '   over the VALID netting sets, and nothing else. It also checks that a
-'   second run gives identical outputs, that the IR sum of absolute bucket
-'   values is never below the bucket formula for any netting set VALID in
-'   the first run, and that a netting set with a zero add-on is calculated
-'   without a division failure. Two checks corrupt copies of the outputs
+'   second run gives identical outputs; that with the IR sum of absolute
+'   bucket values a CRR netting set with interest-rate trades becomes
+'   INVALID, while every other netting set VALID before stays VALID and
+'   has an IR add-on not below the bucket formula; and that a netting set
+'   with a zero add-on is calculated without a division failure. Two checks corrupt copies of the outputs
 '   and confirm that the TOTAL and IR relations then fail and name the
 '   corrupted column or netting set (#103, #104).
 '
@@ -44,7 +45,8 @@ Attribute VB_Name = "TEST_Invariants"
 '   CRE52.1 and CRR Art. 274(2) (EAD), CRE52.10 to 52.20 and CRR Art. 275
 '   (RC), CRE52.23 and CRR Art. 278(3) (multiplier), CRE52.24 (aggregate
 '   add-on), CRE52.2 and CRR Art. 274(3) (cap of a margined netting set),
-'   CRE52.57 and CRR Art. 280a (IR bucket formula).
+'   CRE52.57 and CRR Art. 280a(3) (IR bucket formula, the only one the
+'   CRR allows).
 '
 ' UPDATED
 '   2026-10-11
@@ -175,19 +177,21 @@ Public Sub RunInvariantTests()
 ' IR BUCKET OFFSET
 '------------------------------------------------------------------------------
     'The sum of absolute bucket values can never be below the bucket
-    'formula, whose cross terms have correlations below 1 [CRE52.57].
+    'formula, whose cross terms have correlations below 1 [CRE52.57]. The
+    'CRR allows only the formula [Art. 280a(3)], so a CRR netting set with
+    'interest-rate trades must become INVALID.
         TEST_CaseRunner.BeginCase "invariants-demo-ir-sum-of-absolutes", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), ParamsValueCol(), False
         TEST_CaseRunner.RunCase
         absRows = SheetRows(SH_RESULTS, RS_NCOLS)
-        detail = IrOffsetGap(original, absRows)
+        detail = IrOffsetGap(original, absRows, hedgeRows)
         RecordRelation "ir-add-on-not-lower", detail
         TEST_CaseRunner.ExpectTrue "ir-add-on-higher", Len(detail) = 0 And _
                                    IrHigherCount(original, absRows) > 0, _
                                    "no netting set has a higher IR add-on without the bucket formula", _
                                    "illustrative"
-        RecordRelation "ir-catches-invalid-set", IrInvalidSetGap(original, absRows)
+        RecordRelation "ir-catches-invalid-set", IrInvalidSetGap(original, absRows, hedgeRows)
 
 '------------------------------------------------------------------------------
 ' ZERO ADD-ON
@@ -974,17 +978,25 @@ End Function
 
 Private Function IrOffsetGap( _
     ByVal bucketFormulaRows As Variant, _
-    ByVal sumOfAbsoluteRows As Variant) _
+    ByVal sumOfAbsoluteRows As Variant, _
+    ByVal hedgeRows As Variant) _
     As String
 '
 '==============================================================================
 '                                 IrOffsetGap
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that every netting set VALID with the bucket formula is also
-'   VALID with the sum of absolute bucket values, and that its IR add-on
-'   is then not lower (#103). A set that is missing or withheld in the
-'   second run fails, so another set's higher add-on cannot hide it.
+'   For every netting set VALID with the bucket formula, check the run
+'   with the sum of absolute bucket values (#103). A CRR netting set with
+'   an IR hedging set must be INVALID there, since the CRR allows only the
+'   formula [Art. 280a(3)]. Every other set must stay VALID with an IR
+'   add-on not lower. A set that is missing, or withheld when it should
+'   not be, fails, so another set's higher add-on cannot hide it.
+'
+' INPUTS
+'   bucketFormulaRows: Results rows with the bucket formula.
+'   sumOfAbsoluteRows: Results rows with the sum of absolute values.
+'   hedgeRows: HedgingSets rows with the bucket formula.
 '
 ' RETURNS
 '   The first violation; "" when none.
@@ -1001,29 +1013,38 @@ Private Function IrOffsetGap( _
     Dim q            As Long      'Matching row of sumOfAbsoluteRows
     Dim withOff      As Double    'IR add-on with the bucket formula
     Dim withoutOff   As Double    'IR add-on with the sum of absolutes
+    Dim setId        As String    'Netting set
+    Dim status       As String    'Its status in the second run
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
         For r = 1 To RowCount(bucketFormulaRows)
             If IsValidRow(bucketFormulaRows, r) Then
-                q = MatchingRow(sumOfAbsoluteRows, RowLabel(bucketFormulaRows, r))
+                setId = RowLabel(bucketFormulaRows, r)
+                q = MatchingRow(sumOfAbsoluteRows, setId)
                 If q = 0 Then
-                    IrOffsetGap = RowLabel(bucketFormulaRows, r) & " missing from the second run"
+                    IrOffsetGap = setId & " missing from the second run"
                     Exit Function
                 End If
-                If Not IsValidRow(sumOfAbsoluteRows, q) Then
-                    IrOffsetGap = RowLabel(bucketFormulaRows, r) & " is " & _
-                                  SafeStr(sumOfAbsoluteRows(q, RS_STATUS_COL)) & _
-                                  " in the second run, VALID in the first"
+                status = SafeStr(sumOfAbsoluteRows(q, RS_STATUS_COL))
+                If SafeStr(bucketFormulaRows(r, COL_REGIME)) = "CRR" And HasIrHedgingSet(hedgeRows, setId) Then
+                    If Left$(status, 7) <> "INVALID" Then
+                        IrOffsetGap = setId & " (CRR, interest-rate trades) is " & status & _
+                                      " with the sum of absolutes, which Art. 280a(3) does not allow"
+                        Exit Function
+                    End If
+                ElseIf Not IsValidRow(sumOfAbsoluteRows, q) Then
+                    IrOffsetGap = setId & " is " & status & " in the second run, VALID in the first"
                     Exit Function
-                End If
-                withOff = ToDbl(bucketFormulaRows(r, COL_IR_ADDON))
-                withoutOff = ToDbl(sumOfAbsoluteRows(q, COL_IR_ADDON))
-                If withoutOff < withOff And Not Near(withoutOff, withOff) Then
-                    IrOffsetGap = RowLabel(bucketFormulaRows, r) & " IR add-on " & withoutOff & _
-                                  " without the bucket formula, " & withOff & " with it"
-                    Exit Function
+                Else
+                    withOff = ToDbl(bucketFormulaRows(r, COL_IR_ADDON))
+                    withoutOff = ToDbl(sumOfAbsoluteRows(q, COL_IR_ADDON))
+                    If withoutOff < withOff And Not Near(withoutOff, withOff) Then
+                        IrOffsetGap = setId & " IR add-on " & withoutOff & " without the bucket formula, " & _
+                                      withOff & " with it"
+                        Exit Function
+                    End If
                 End If
             End If
         Next r
@@ -1077,7 +1098,8 @@ End Function
 
 Private Function IrInvalidSetGap( _
     ByVal bucketFormulaRows As Variant, _
-    ByVal sumOfAbsoluteRows As Variant) _
+    ByVal sumOfAbsoluteRows As Variant, _
+    ByVal hedgeRows As Variant) _
     As String
 '
 '==============================================================================
@@ -1085,10 +1107,10 @@ Private Function IrInvalidSetGap( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Show that IrOffsetGap catches a netting set that becomes invalid
-'   (#103). On a copy of the second run, the first VALID netting set whose
-'   withdrawal still leaves another set with a higher IR add-on is marked
-'   INVALID, with its figures blanked as the engine withholds them.
-'   IrOffsetGap must then fail and name that netting set.
+'   (#103). On a copy of the second run, the first netting set VALID in
+'   both runs whose withdrawal still leaves another set with a higher IR
+'   add-on is marked INVALID, with its figures blanked as the engine
+'   withholds them. IrOffsetGap must then fail and name that netting set.
 '
 ' RETURNS
 '   The violation; "" when IrOffsetGap caught it.
@@ -1116,13 +1138,18 @@ Private Function IrInvalidSetGap( _
                 setId = RowLabel(bucketFormulaRows, r)
                 q = MatchingRow(sumOfAbsoluteRows, setId)
                 If q > 0 Then
+                    If Not IsValidRow(sumOfAbsoluteRows, q) Then
+                        q = 0
+                    End If
+                End If
+                If q > 0 Then
                     mutated = sumOfAbsoluteRows
                     For col = 6 To COL_MULT_CAP
                         mutated(q, col) = Empty
                     Next col
                     mutated(q, RS_STATUS_COL) = "INVALID"
                     If IrHigherCount(bucketFormulaRows, mutated) > 0 Then
-                        detail = IrOffsetGap(bucketFormulaRows, mutated)
+                        detail = IrOffsetGap(bucketFormulaRows, mutated, hedgeRows)
                         If InStr(detail, setId & " is INVALID") = 0 Then
                             IrInvalidSetGap = setId & " made INVALID in the second run: " & _
                                               IIf(Len(detail) = 0, "not caught", "reported as " & detail)
@@ -1453,6 +1480,41 @@ Private Function MatchingRow( _
         For r = 1 To RowCount(outputRows)
             If RowLabel(outputRows, r) = rowKey Then
                 MatchingRow = r
+                Exit Function
+            End If
+        Next r
+
+End Function
+
+
+Private Function HasIrHedgingSet( _
+    ByVal hedgeRows As Variant, _
+    ByVal nettingSetId As String) _
+    As Boolean
+'
+'==============================================================================
+'                               HasIrHedgingSet
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a netting set has an interest-rate hedging set on
+'   HedgingSets (column 1 netting set, column 2 asset class).
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'HedgingSets row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        For r = 1 To RowCount(hedgeRows)
+            If SafeStr(hedgeRows(r, 1)) = nettingSetId And SafeStr(hedgeRows(r, 2)) = ACCode(AC_IR) Then
+                HasIrHedgingSet = True
                 Exit Function
             End If
         Next r

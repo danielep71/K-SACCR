@@ -370,9 +370,10 @@ EAD, the sum over the `VALID` netting sets, and nothing in its other columns.
 It first checks that the portfolio has unmargined and margined,
 CRR and BCBS netting sets, a cap that applies and one that does not, and a
 multiplier below 1. A second run must write identical Results, TradeCalc,
-HedgingSets and Buckets. With `IRBucketOffset` set to FALSE every netting set
-`VALID` before must stay `VALID`, no IR add-on may fall, and at least one must
-rise. Two checks then corrupt copies of the outputs, each TOTAL column in turn
+HedgingSets and Buckets. With `IRBucketOffset` set to FALSE a CRR netting set
+with interest-rate trades must become `INVALID` (Art. 280a(3) allows only the
+formula with offsets); every other netting set `VALID` before must stay
+`VALID`, no IR add-on may fall, and at least one must rise. Two checks then corrupt copies of the outputs, each TOTAL column in turn
 and one netting set made invalid in the second run, and pass only if the
 relations fail and name what was corrupted. Two opposite swaps, which give a zero
 add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
