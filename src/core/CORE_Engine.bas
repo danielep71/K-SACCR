@@ -18,9 +18,13 @@ Attribute VB_Name = "CORE_Engine"
 ' REGIME LAYER
 '   The regime is set on Params (CRR by default) and can be overridden per
 '   netting set.
-'   BCBS: the cap uses C = VM + NICA, with posted VM negative.    [CRE52.2]
-'   CRR:  the cap follows Art. 274(3), with RC per Art. 275(1) and C = NICA
-'         only, excluding VM posted or received (EBA Q&A 2023_6962).
+'   Both: the cap uses C = NICA only, the collateral of the same netting
+'         set without a margin agreement.  [CRE52.2, CRE52.10; Art. 274(3),
+'         275(1); EBA-QA-2023_6962]
+'   BCBS: VM posted under a one-way agreement is part of C of an unmargined
+'         netting set.                       [CRE52.10 footnote 2]
+'   CRR:  such a netting set is margined and is rejected as unmargined.
+'                                            [Art. 272(7a)]
 '   CRR:  the other-risks class OT, supervisory factor 8%.       [Art. 280f]
 '   CRR:  lambda for interest-rate and commodity options per Delegated
 '         Regulation (EU) 2021/931 Art. 5.
@@ -2931,7 +2935,7 @@ Private Sub ComputeNettingSets( _
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
 '   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
-'   CRE52.10 and EBA Q&A 2023_6962; trade-count warning CRE52.51(1) and
+'   CRE52.10 and EBA-QA-2023_6962; trade-count warning CRE52.51(1) and
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
@@ -3024,7 +3028,7 @@ Private Sub ComputeNettingSets( _
     'Unmargined basis: the EAD of an unmargined netting set, or the cap of
     'a margined one. The cap of a margined set uses NICA only, the
     'collateral of the same set without a margin agreement [CRE52.2,
-    'CRE52.10; CRR Art. 274(3), 275(1); EBA Q&A 2023_6962]. An unmargined
+    'CRE52.10; CRR Art. 274(3), 275(1); EBA-QA-2023_6962]. An unmargined
     'set uses C: NICA, plus VM posted under a one-way agreement under BCBS.
                 If .Margined Then
                     cCap = .NICA

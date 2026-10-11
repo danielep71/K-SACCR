@@ -354,6 +354,15 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- EBA Q&A 2023_6962 is cited by its source ID `EBA-QA-2023_6962` in the
+  expected files, the VBA comments and the methodology (#129); the source of
+  the posted-VM records stays `CRR`, whose Art. 274(3) is the rule, and the
+  values and classes are unchanged. The engine header no longer says the Basel
+  cap uses VM + NICA. The T17 note names EBA Q&A 2022_6354 as the source of the
+  scenario: a question the EBA rejected on 26/07/2022 without an answer.
+  `check_test_cases.py` now reads source IDs containing an underscore and fails
+  when a registered EBA Q&A is cited in prose.
+
 - The synchronizer coverage check of `tools/check_source.py` no longer passes
   when it cannot do its job: a commented-out `$sourceRoots` entry is not
   counted, an entry in any other form than `(Join-Path $repoFullPath "...")`
