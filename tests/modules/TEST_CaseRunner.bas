@@ -50,7 +50,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -529,7 +529,7 @@ Public Sub SetInputCell( _
 '   newValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
         TableCell(GetSheet(sheetName), FIRST_DATA_ROW + dataRow - 1, col).Value = newValue
@@ -557,7 +557,7 @@ Public Sub PatchCell( _
 '   newValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -624,7 +624,7 @@ Public Sub SetParameter( _
 '   ends as failed.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -636,18 +636,18 @@ Public Sub SetParameter( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        r = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, code)
+        r = FindHeaderRow(GetSheet(SH_PARAMS), ParamsCodeCol(), code)
         If r = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.SetParameter", _
                       "'" & code & "' not found in column C of Params."
         End If
         Select Case valueText
             Case "Y"
-                PatchCell SH_PARAMS, r, PRM_VALUE_COL, True
+                PatchCell SH_PARAMS, r, ParamsValueCol(), True
             Case "N"
-                PatchCell SH_PARAMS, r, PRM_VALUE_COL, False
+                PatchCell SH_PARAMS, r, ParamsValueCol(), False
             Case Else
-                PatchCell SH_PARAMS, r, PRM_VALUE_COL, Val(valueText)
+                PatchCell SH_PARAMS, r, ParamsValueCol(), Val(valueText)
         End Select
 
 End Sub
@@ -840,7 +840,7 @@ Public Function OutputNumber( _
 '   the calling suite then fails.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -994,7 +994,7 @@ Private Function ReadOutput( _
 '   was missing.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1191,7 +1191,7 @@ Private Function ChecksHasLine( _
 '   message contains messagePart, ignoring case.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1236,7 +1236,7 @@ Private Sub UnitFxRate( _
 '   currencyCode: three-letter code, as in the first column of the FX table.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1250,10 +1250,10 @@ Private Sub UnitFxRate( _
 ' PATCH
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r = FindHeaderRow(ws, PRM_CODE_COL, currencyCode)
+        r = FindHeaderRow(ws, ParamsCodeCol(), currencyCode)
         If r > 0 Then
-            If ToDbl(TableCell(ws, r, PRM_VALUE_COL).Value) <> 1# Then
-                PatchCell SH_PARAMS, r, PRM_VALUE_COL, 1#
+            If ToDbl(TableCell(ws, r, ParamsValueCol()).Value) <> 1# Then
+                PatchCell SH_PARAMS, r, ParamsValueCol(), 1#
             End If
         End If
 
@@ -1404,7 +1404,7 @@ Private Sub SaveBlock( _
 '   formulas: the block's formulas.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1469,7 +1469,7 @@ Private Sub ClearBlock( _
 '   Clear the values of an input block; formats and validation stay.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1502,7 +1502,7 @@ Private Sub WriteRow( _
 '   Write one input row from a (1 To 1, 1 To nCols) array.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
         TableRange(ws, rowNum, 1, rowNum, nCols).Value = values
@@ -1525,7 +1525,7 @@ Private Function ParamCell( _
 '   Raises when the parameter is in neither place.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1546,11 +1546,11 @@ Private Function ParamCell( _
             Set ParamCell = r.Cells(1, 1)
             Exit Function
         End If
-        paramRow = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, code)
+        paramRow = FindHeaderRow(GetSheet(SH_PARAMS), ParamsCodeCol(), code)
         If paramRow = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " not found."
         End If
-        Set ParamCell = TableCell(GetSheet(SH_PARAMS), paramRow, PRM_VALUE_COL)
+        Set ParamCell = TableCell(GetSheet(SH_PARAMS), paramRow, ParamsValueCol())
 
 End Function
 

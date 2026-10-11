@@ -79,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -681,7 +681,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -690,9 +690,12 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
     Dim ws         As Worksheet    'Params sheet
     Dim ok         As Boolean      'No problem found so far
-    Dim r0         As Long         'Header row of a Params table
+    Dim layoutOk   As Boolean      'Params names and headers are valid
+    Dim codeCol    As Long         'Table column of the parameter codes
+    Dim valueCol   As Long         'Table column of the parameter values
     Dim lastR      As Long         'Last used row of Params
-    Dim grid       As Variant      'Params columns A to C, rows 1 to lastR
+    Dim grid       As Variant      'Parameter codes, rows 1 to lastR
+    Dim values     As Variant      'Parameter values, rows 1 to lastR
     Dim codes      As Variant      'Every parameter code
     Dim i          As Long         'Index into codes
     Dim r          As Long         'Params row being compared
@@ -712,18 +715,15 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' COLUMN HEADERS
 '------------------------------------------------------------------------------
-    'A missing factor or FX table header is reported by its loader.
+    'Params is located through its workbook names: a missing or broken
+    'name stops the run, and the headers are checked where the names point.
         Set ws = GetSheet(SH_PARAMS)
         ok = HeadersMatch(GetSheet(SH_NS), HEADER_ROW, NS_HEADERS) And ok
         ok = HeadersMatch(GetSheet(SH_TRADES), HEADER_ROW, TR_HEADERS) And ok
-        ok = HeadersMatch(ws, HEADER_ROW, PRM_HEADERS) And ok
-        r0 = FindHeaderRow(ws, 1, HDR_SF)
-        If r0 > 0 Then
-            ok = HeadersMatch(ws, r0, SF_HEADERS) And ok
-        End If
-        r0 = FindHeaderRow(ws, 1, HDR_FX)
-        If r0 > 0 Then
-            ok = HeadersMatch(ws, r0, FX_HEADERS) And ok
+        layoutOk = ParamsLayoutValid(ws)
+        ok = layoutOk And ok
+        If Not layoutOk Then
+            Exit Function
         End If
 
 '------------------------------------------------------------------------------
@@ -734,9 +734,12 @@ Private Function ValidateSchema() As Boolean
     'the code takes precedence over the Params row (CORE_Util.GetParam); a
     'broken one would silently fall back to the row.
         codes = ParameterCodes()
+        codeCol = ParamsCodeCol()
+        valueCol = ParamsValueCol()
         lastR = UsedLastRow(ws)
         If lastR >= 1 Then
-            grid = TableRange(ws, 1, 1, lastR, PRM_VALUE_COL).Value
+            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value
+            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value
         End If
         For i = LBound(codes) To UBound(codes)
             If BrokenName(codes(i)) Then
@@ -746,10 +749,10 @@ Private Function ValidateSchema() As Boolean
             End If
             firstRow = 0
             For r = 1 To lastR
-                If StrComp(SafeStr(grid(r, PRM_CODE_COL)), codes(i), vbTextCompare) = 0 Then
+                If StrComp(SafeStr(grid(r, 1)), codes(i), vbTextCompare) = 0 Then
                     If firstRow = 0 Then
                         firstRow = r
-                    ElseIf SameValue(grid(firstRow, PRM_VALUE_COL), grid(r, PRM_VALUE_COL)) Then
+                    ElseIf SameValue(values(firstRow, 1), values(r, 1)) Then
                         LogMsg SEV_WARN, SH_PARAMS, codes(i), "Parameter listed twice with the same value (rows " & _
                                firstRow & " and " & r & ").", r
                     Else
@@ -831,10 +834,78 @@ Private Function SheetPresent( _
 End Function
 
 
+Private Function ParamsLayoutValid( _
+    ByVal ws As Worksheet) _
+    As Boolean
+'
+'==============================================================================
+'                              ParamsLayoutValid
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check the workbook names that locate the Params layout: each must exist
+'   and point to Params, the "Code" and "Value" headers must be on one row,
+'   and the headers found there and at the factor and FX tables must be the
+'   expected ones. An error is logged for each problem.
+'
+' RETURNS
+'   True when Params can be read through its names.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim layoutNames   As Variant    'The layout names
+    Dim i             As Long       'Index into layoutNames
+    Dim c             As Range      'Top-left cell of a name
+    Dim ok            As Boolean    'No problem found so far
+
+'------------------------------------------------------------------------------
+' NAMES
+'------------------------------------------------------------------------------
+        ok = True
+        layoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(layoutNames) To UBound(layoutNames)
+            Set c = NamedCell(CStr(layoutNames(i)))
+            If c Is Nothing Then
+                ok = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+                       "' is missing or no longer refers to a cell - rebuild the workbook from the template."
+            ElseIf c.Worksheet.Name <> ws.Name Then
+                ok = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+                       "' must refer to a cell on " & SH_PARAMS & "."
+            End If
+        Next i
+        If Not ok Then
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' HEADERS
+'------------------------------------------------------------------------------
+        If NamedRow(NM_PRM_CODE) <> NamedRow(NM_PRM_VALUE) Then
+            ok = False
+            LogMsg SEV_ERROR, SH_PARAMS, NM_PRM_VALUE, "Workbook names '" & NM_PRM_CODE & "' and '" & _
+                   NM_PRM_VALUE & "' must be on the same row."
+        End If
+        ok = HeadersMatch(ws, NamedRow(NM_PRM_CODE), PRM_CODE_HEADER, ParamsCodeCol()) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_PRM_VALUE), PRM_VALUE_HEADER, ParamsValueCol()) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And ok
+        ParamsLayoutValid = ok
+
+End Function
+
+
 Private Function HeadersMatch( _
     ByVal ws As Worksheet, _
     ByVal rowNum As Long, _
-    ByVal expectedHeaders As String) _
+    ByVal expectedHeaders As String, _
+    Optional ByVal firstCol As Long = 1) _
     As Boolean
 '
 '==============================================================================
@@ -846,14 +917,15 @@ Private Function HeadersMatch( _
 '
 ' INPUTS
 '   ws, rowNum: the sheet and its header row.
-'   expectedHeaders: one of the _HEADERS constants in CORE_Config, starting in
-'   the first table column; an empty entry is not checked.
+'   expectedHeaders: one of the _HEADERS constants in CORE_Config; an empty
+'   entry is not checked.
+'   firstCol: the table column of the first header, 1 by default.
 '
 ' RETURNS
 '   True when every checked header matches.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -871,10 +943,10 @@ Private Function HeadersMatch( _
         headers = Split(expectedHeaders, "|")
         For c = 0 To UBound(headers)
             If Len(headers(c)) > 0 Then
-                found = TableCell(ws, rowNum, c + 1).Value
+                found = TableCell(ws, rowNum, firstCol + c).Value
                 If StrComp(SafeStr(found), headers(c), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, c + 1).Address(False, False), _
+                    LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, firstCol + c).Address(False, False), _
                            "Header must be '" & headers(c) & "' (found " & DescribeValue(found) & _
                            ") - a column was inserted, deleted or moved, or the header renamed.", rowNum
                 End If
@@ -1096,7 +1168,7 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1106,6 +1178,7 @@ Private Function LoadSFTable() As Boolean
     Dim ws       As Worksheet      'Params sheet
     Dim r        As Long           'Row being read
     Dim r0       As Long           'Header row of the table
+    Dim c0       As Long           'Table column of the keys
     Dim k        As String         'Key of the row, upper case
     Dim bad      As Boolean        'Some row is unusable or conflicts
     Dim rowBad   As Boolean        'This row has a value that is not a number
@@ -1118,9 +1191,11 @@ Private Function LoadSFTable() As Boolean
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r0 = FindHeaderRow(ws, 1, HDR_SF)
+        r0 = NamedRow(NM_SF_TABLE)
+        c0 = NamedTableCol(NM_SF_TABLE)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (header '" & HDR_SF & "' in column C)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (workbook name '" & _
+                   NM_SF_TABLE & "')."
             Exit Function
         End If
 
@@ -1130,16 +1205,16 @@ Private Function LoadSFTable() As Boolean
     'Columns: 1 key, 2 asset class, 3 category, 4 factor, 5 correlation,
     '6 option volatility, 7 commodity hedging set, 8 regimes.
         r = r0 + 1
-        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
-            k = UTxt(TableCell(ws, r, 1).Value)
+        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
+            k = UTxt(TableCell(ws, r, c0).Value)
             entry.Key = k
-            entry.AssetClass = UTxt(TableCell(ws, r, 2).Value)
-            entry.Category = UTxt(TableCell(ws, r, 3).Value)
-            rowBad = Not TryDbl(TableCell(ws, r, 4).Value, 0#, entry.SF)
-            rowBad = Not TryDbl(TableCell(ws, r, 5).Value, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(TableCell(ws, r, 6).Value, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(TableCell(ws, r, 7).Value)
-            entry.Regimes = UTxt(TableCell(ws, r, 8).Value)
+            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value)
+            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value, 0#, entry.SF)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value, 0#, entry.Corr) Or rowBad
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value, 0#, entry.Vol) Or rowBad
+            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value)
+            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value)
             If entry.Regimes = "BOTH" Then
                 entry.Regimes = ""
             End If
@@ -1178,11 +1253,11 @@ Private Function LoadSFTable() As Boolean
     'factor would be dropped silently, so it is an error. The search stops
     'at the FX table when that follows.
         lastR = UsedLastRow(ws)
-        fxRow = FindHeaderRow(ws, 1, HDR_FX)
+        fxRow = NamedRow(NM_FX_TABLE)
         If fxRow > r Then
             lastR = fxRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, 4, "Supervisory factor") Then
+        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 3, "Supervisory factor") Then
             bad = True
         End If
 
@@ -1248,7 +1323,7 @@ Private Function LoadFXTable() As Boolean
 '   its rate is not 1.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1258,6 +1333,7 @@ Private Function LoadFXTable() As Boolean
     Dim ws     As Worksheet    'Params sheet
     Dim r      As Long         'Row being read
     Dim r0     As Long         'Header row of the table
+    Dim c0     As Long         'Table column of the currencies
     Dim k      As String       'Currency code, upper case
     Dim rate   As Double       'Rate of the row; -1 when missing
     Dim idx    As Long         'Position of an earlier row with the currency; 0 if none
@@ -1269,9 +1345,10 @@ Private Function LoadFXTable() As Boolean
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r0 = FindHeaderRow(ws, 1, HDR_FX)
+        r0 = NamedRow(NM_FX_TABLE)
+        c0 = NamedTableCol(NM_FX_TABLE)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (header '" & HDR_FX & "' in column C)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (workbook name '" & NM_FX_TABLE & "')."
             Exit Function
         End If
 
@@ -1281,9 +1358,9 @@ Private Function LoadFXTable() As Boolean
     'A currency seen before: the same rate is harmless, a different rate is
     'ambiguous and stops the run.
         r = r0 + 1
-        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
-            k = UTxt(TableCell(ws, r, 1).Value)
-            rate = ToDbl(TableCell(ws, r, 3).Value, -1#)
+        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
+            k = UTxt(TableCell(ws, r, c0).Value)
+            rate = ToDbl(TableCell(ws, r, c0 + 2).Value, -1#)
             idx = KeyIndex(mFXIndex, k)
             If rate <= 0# Then
                 LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
@@ -1310,11 +1387,11 @@ Private Function LoadFXTable() As Boolean
     'dropped silently. The search stops at the factor table when that
     'follows.
         lastR = UsedLastRow(ws)
-        sfRow = FindHeaderRow(ws, 1, HDR_SF)
+        sfRow = NamedRow(NM_SF_TABLE)
         If sfRow > r Then
             lastR = sfRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, 3, "FX") Then
+        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 2, "FX") Then
             bad = True
         End If
         If bad Then
@@ -1343,6 +1420,7 @@ Private Function ValuesAfterEnd( _
     ByVal ws As Worksheet, _
     ByVal endRow As Long, _
     ByVal lastR As Long, _
+    ByVal keyCol As Long, _
     ByVal valueCol As Long, _
     ByVal tableName As String) _
     As Boolean
@@ -1359,15 +1437,18 @@ Private Function ValuesAfterEnd( _
 '   ws: Params sheet.
 '   endRow: the row with the blank key that ended the table.
 '   lastR: last row to search.
-'   valueCol: the column that always holds a number in a table row:
-'   4 (factor) or 3 (rate).
+'   keyCol: the table column of the table's keys.
+'   valueCol: the table column that always holds a number in a table row:
+'   the factor or the rate.
+'   A row whose Params code cell holds a parameter code is a parameter row,
+'   not a table row, and is skipped.
 '   tableName: for the messages.
 '
 ' RETURNS
 '   True when such a row was found.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1375,14 +1456,16 @@ Private Function ValuesAfterEnd( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim r     As Long      'Row being checked
-    Dim k     As String    'Key in table column 1, upper case
+    Dim k     As String    'Key in the key column, upper case
+    Dim pc    As Long      'Table column of the parameter codes
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
+        pc = ParamsCodeCol()
         For r = endRow To lastR
-            k = UTxt(TableCell(ws, r, 1).Value)
-            If IsNum(TableCell(ws, r, valueCol).Value) And Not (valueCol = PRM_VALUE_COL And IsParameterCode(k)) Then
+            k = UTxt(TableCell(ws, r, keyCol).Value)
+            If IsNum(TableCell(ws, r, valueCol).Value) And Not IsParameterCode(UTxt(TableCell(ws, r, pc).Value)) Then
                 ValuesAfterEnd = True
                 If Len(k) = 0 Then
                     LogMsg SEV_ERROR, SH_PARAMS, "", tableName & " row has a value but no key - not read.", r
@@ -1464,7 +1547,7 @@ Private Function LoadNettingSets() As Boolean
 '   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1954,7 +2037,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -2939,7 +3022,7 @@ Private Sub ComputeNettingSets( _
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -3253,7 +3336,7 @@ Private Function BlockText( _
 '   used range that grew without new values does not change the text.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -3442,7 +3525,7 @@ Private Function TryClearOutput( _
 ' ERROR POLICY
 '   Contains this cleanup failure; the original run error remains primary.
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
     Dim errNumber As Long         'Cleanup error, captured before formatting
     Dim errSource As String       'Cleanup error source
@@ -3642,7 +3725,7 @@ Private Function WriteChecks( _
 '   Contains any error and reports it through the result, never silently.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -3719,7 +3802,7 @@ Private Sub WriteRunInfo( _
 '   Best effort: errors are ignored, because the summary is informative only.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

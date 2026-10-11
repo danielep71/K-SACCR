@@ -43,7 +43,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -351,7 +351,7 @@ Private Sub CaseChecksUnwritable()
 '   writable again (#36).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -437,7 +437,7 @@ Private Sub CaseOutputWriteFailure()
 '   why, Excel is restored, and the next run works (#36).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -503,7 +503,7 @@ Private Sub CaseOutputCleanupFailure()
 ' ERROR POLICY
 '   Always reset the fault seam; the normal recovery run clears retained data.
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
     Dim result As String       'Silent result
     Dim errNumber As Long      'Raised primary error
@@ -565,7 +565,7 @@ Private Sub CaseProtectedOutput( _
 ' ERROR POLICY
 '   Undo only protection owned by this case, including on unexpected errors.
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
     Dim result As String              'Run result
     Dim errNumber As Long             'Reported run error
@@ -732,7 +732,7 @@ Private Sub CaseStaleResults()
 '   status is checked both through ResultsStatus and in the cell.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -798,7 +798,7 @@ Private Sub CheckStatusCell( _
 '   after Excel has recalculated what changed.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -860,7 +860,7 @@ Private Function ChecksMention( _
 '   case.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

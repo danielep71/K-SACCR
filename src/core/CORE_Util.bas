@@ -37,7 +37,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -723,10 +723,167 @@ Public Function TableCell( _
 '   col: the table column, 1 for the first.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
         Set TableCell = ws.Cells(rowNum, col + COL_OFFSET)
+
+End Function
+
+
+Public Function NamedCell( _
+    ByVal nameText As String) _
+    As Range
+'
+'==============================================================================
+'                                  NamedCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the top-left cell of a workbook name, or Nothing when the name
+'   is missing or no longer refers to a cell.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim target   As Range    'The name's range
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+    'Names(nameText) raises when no such name exists; target then stays
+    'Nothing.
+        On Error Resume Next
+        Set target = ThisWorkbook.Names(nameText).RefersToRange
+        Err.Clear
+        On Error GoTo 0
+        If Not target Is Nothing Then
+            Set NamedCell = target.Cells(1, 1)
+        End If
+
+End Function
+
+
+Public Function NamedRow( _
+    ByVal nameText As String) _
+    As Long
+'
+'==============================================================================
+'                                   NamedRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the sheet row of a workbook name's top-left cell; 0 when the
+'   name is missing or broken.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim c   As Range    'The name's top-left cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Set c = NamedCell(nameText)
+        If Not c Is Nothing Then
+            NamedRow = c.Row
+        End If
+
+End Function
+
+
+Public Function NamedTableCol( _
+    ByVal nameText As String) _
+    As Long
+'
+'==============================================================================
+'                                NamedTableCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of a workbook name's top-left cell, counted as
+'   TableCell counts table columns, so that the column can be passed to
+'   TableCell and TableRange. Check NamedRow first: a missing name gives 0
+'   here too.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim c   As Range    'The name's top-left cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Set c = NamedCell(nameText)
+        If Not c Is Nothing Then
+            NamedTableCol = c.Column - COL_OFFSET
+        End If
+
+End Function
+
+
+Public Function ParamsHeaderRow() As Long
+'
+'==============================================================================
+'                               ParamsHeaderRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the header row of the parameter rows on Params, from the workbook
+'   name NM_PRM_CODE; 0 when the name is missing or broken.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsHeaderRow = NamedRow(NM_PRM_CODE)
+
+End Function
+
+
+Public Function ParamsCodeCol() As Long
+'
+'==============================================================================
+'                                ParamsCodeCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of the parameter codes on Params, as a table column
+'   for TableCell, from the workbook name NM_PRM_CODE.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsCodeCol = NamedTableCol(NM_PRM_CODE)
+
+End Function
+
+
+Public Function ParamsValueCol() As Long
+'
+'==============================================================================
+'                                ParamsValueCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of the parameter values on Params, as a table column
+'   for TableCell, from the workbook name NM_PRM_VALUE.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsValueCol = NamedTableCol(NM_PRM_VALUE)
 
 End Function
 
@@ -747,7 +904,7 @@ Public Function TableRange( _
 '   TableCell counts them.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
         Set TableRange = ws.Range(TableCell(ws, firstRow, firstCol), TableCell(ws, lastRow, lastCol))
@@ -810,7 +967,7 @@ Private Function ColumnValues( _
 '   row firstRow + r - 1.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -863,7 +1020,7 @@ Public Function LastDataRow( _
 '   result is the same in hidden or automated sessions.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -920,7 +1077,7 @@ Public Function LastDataRowAny( _
 '   Row number of the last such row; firstRow - 1 when there is none.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1025,7 +1182,7 @@ Public Function FindHeaderRow( _
 '   Row number of the first match from the top; 0 when not found.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1078,7 +1235,7 @@ Public Function GetParam( _
 '   sheet raises to the caller.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1106,9 +1263,9 @@ Public Function GetParam( _
 ' FALL BACK TO THE PARAMS TABLE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        i = FindHeaderRow(ws, PRM_CODE_COL, code)
-        If i > 0 Then
-            GetParam = TableCell(ws, i, PRM_VALUE_COL).Value
+        i = FindHeaderRow(ws, ParamsCodeCol(), code)
+        If i > 0 And ParamsHeaderRow() > 0 Then
+            GetParam = TableCell(ws, i, ParamsValueCol()).Value
         Else
             GetParam = Empty
         End If
@@ -1234,7 +1391,7 @@ Public Sub ClearOutputBlock( _
 '   Changes the cleared cells only. Number formats are left in place.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1281,7 +1438,7 @@ Public Sub WriteBlock( _
 '   nCols: number of columns to write.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1318,7 +1475,7 @@ Public Sub FormatColumns( _
 '            An empty entry leaves that column unchanged.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-11
 '==============================================================================
 '
 

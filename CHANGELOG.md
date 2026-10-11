@@ -284,12 +284,18 @@ Use only the categories needed by a release.
 
 ### Changed
 
-- The README sheet of the template has its final layout, as edited by the
-  owner in Excel, with its buttons in row 3, a 120% zoom and section headers
-  at 14 pt; it names the engine v1.0.0 instead of the prototype's v1.1.0. Every font of the template names
-  Aptos on the style instead of following the workbook theme, so a sheet
-  copied into another workbook keeps Aptos. The README note on the cap basis
-  points to Results columns Z-AC, where the layout change moved them.
+- Params is located through workbook names instead of fixed rows and
+  columns: `Params_Code` and `Params_Value` name the "Code" and "Value"
+  header cells of the parameter rows, and the top-left cells of `SF_Table`
+  and `FX_Table` the headers of the two lookup tables. The engine and the
+  tests read Params only through these names, so its rows and columns can
+  move; a missing or broken name stops the run (`CORE_Util.ParamsCodeCol`,
+  `ParamsValueCol`, `ParamsHeaderRow`, `NamedCell`). `TEST_InputValidation`
+  has 55 cases and 63 checks.
+- README names the engine v1.0.0 instead of the prototype's v1.1.0, and its
+  note on the cap basis points to Results columns Z-AC. Every font of the
+  template names Aptos on the style instead of following the workbook theme,
+  so a sheet copied into another workbook keeps Aptos.
 
 - Sheet layout: every sheet of the template has two margin columns (A:B,
   width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt, 16 pt
