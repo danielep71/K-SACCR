@@ -354,6 +354,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The synchronizer coverage check of `tools/check_source.py` no longer passes
+  when it cannot do its job: a commented-out `$sourceRoots` entry is not
+  counted, an entry in any other form than `(Join-Path $repoFullPath "...")`
+  fails (#136), and a missing `tools/Sync-SACCR-VBA.ps1` or
+  `src/workbook/SACCR_Template.xlsx` fails instead of skipping the check
+  (#137).
+
 - Methodology traceability: the MPOR row names the 5-business-day floor for
   client clearing next to the 10-day bilateral floor; the dispute row says the
   engine's doubling of F + N - 1 follows CRE52.50–.51 and exceeds the CRR text

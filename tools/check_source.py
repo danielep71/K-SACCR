@@ -33,10 +33,13 @@ FORBIDDEN_PART = re.compile(r"(^|/)vbaProject\.bin$|^docProps/", re.I)
 # The synchronizer imports the VBA source of the directories in its
 # $sourceRoots list into the development workbook; a component outside them
 # would never reach the workbook. Document modules in src/workbook/ update
-# the code of existing sheets, so each needs its sheet in the template.
+# the code of existing sheets, so each needs its sheet in the template. Both
+# files are required: without them the checks below could not run (#137).
 SYNC_SCRIPT = "tools/Sync-SACCR-VBA.ps1"
-SYNC_ROOTS = re.compile(r"\$sourceRoots\s*=\s*@\((.*?)\)\s*$", re.S | re.M)
-SYNC_ROOT = re.compile(r'Join-Path\s+\$repoFullPath\s+"([^"]+)"')
+SYNC_START = re.compile(r"^\s*\$sourceRoots\s*=\s*@\(\s*$")
+# The one entry form the list may hold; anything else is reported, so that
+# a commented-out or unusual entry is never counted as synchronized (#136).
+SYNC_ENTRY = re.compile(r'\(Join-Path\s+\$repoFullPath\s+"([^"]+)"\),?')
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 DOCUMENT_HOME = "src/workbook/"
 CODE_NAME = re.compile(r'<(?:sheetPr|workbookPr)\b[^>]*\bcodeName="([^"]+)"')
@@ -121,16 +124,73 @@ def check_workbook(root: Path, path: str) -> list[str]:
     return findings
 
 
+def required_file(root: Path, tracked: set[str], path: str) -> list[str]:
+    """A file the source checks depend on must be tracked and present."""
+    if path not in tracked:
+        return [f"{path}: required file is not tracked"]
+    if not (root / path).is_file():
+        return [f"{path}: tracked but missing from the working tree"]
+    return []
+
+
+def strip_comment(line: str, in_block: bool) -> tuple[str, bool]:
+    """Remove PowerShell comments from one line: # to the end of the line and
+    <# ... #> blocks, which may span lines; a # inside quotes is text."""
+    code, quote, i = [], "", 0
+    while i < len(line):
+        if in_block:
+            if line.startswith("#>", i):
+                in_block, i = False, i + 2
+            else:
+                i += 1
+            continue
+        char = line[i]
+        if quote:
+            quote = "" if char == quote else quote
+        elif char in "\"'":
+            quote = char
+        elif line.startswith("<#", i):
+            in_block, i = True, i + 2
+            continue
+        elif char == "#":
+            break
+        code.append(char)
+        i += 1
+    return "".join(code), in_block
+
+
+def sync_roots(text: str) -> tuple[list[str], list[str]]:
+    """Read the active entries of $sourceRoots: the directories, with "/"
+    separators and a trailing "/", and the problems found."""
+    lines = text.splitlines()
+    start = next((n for n, line in enumerate(lines) if SYNC_START.match(line)), None)
+    if start is None:
+        return [], ["$sourceRoots list not found"]
+    roots, problems, in_block = [], [], False
+    for line in lines[start + 1:]:
+        code, in_block = strip_comment(line, in_block)
+        code = code.strip()
+        if not code:
+            continue
+        if code == ")":
+            return roots, problems
+        entry = SYNC_ENTRY.fullmatch(code)
+        if entry:
+            roots.append(entry.group(1).replace("\\", "/").strip("/") + "/")
+        else:
+            problems.append(f"unsupported $sourceRoots entry: {code}")
+    return roots, problems + ["$sourceRoots list is not closed"]
+
+
 def check_sync_script(root: Path, tracked: set[str], components: list[str]) -> list[str]:
     """Every VBA component must lie in a directory the synchronizer reads."""
-    if SYNC_SCRIPT not in tracked:
-        return []
-    block = SYNC_ROOTS.search((root / SYNC_SCRIPT).read_text(encoding="utf-8"))
-    if not block:
-        return [f"{SYNC_SCRIPT}: $sourceRoots list not found"]
-    roots = [entry.replace("\\", "/").strip("/") + "/" for entry in SYNC_ROOT.findall(block.group(1))]
-    findings = [f"{SYNC_SCRIPT}: source directory {r} does not exist" for r in roots
-                if not (root / r).is_dir()]
+    missing = required_file(root, tracked, SYNC_SCRIPT)
+    if missing:
+        return missing
+    roots, problems = sync_roots((root / SYNC_SCRIPT).read_text(encoding="utf-8"))
+    findings = [f"{SYNC_SCRIPT}: {problem}" for problem in problems]
+    findings.extend(f"{SYNC_SCRIPT}: source directory {r} does not exist" for r in roots
+                    if not (root / r).is_dir())
     findings.extend(f"{p}: not synchronized; add its directory to $sourceRoots in {SYNC_SCRIPT}"
                     for p in components if not p.startswith(tuple(roots)))
     return findings
@@ -138,8 +198,9 @@ def check_sync_script(root: Path, tracked: set[str], components: list[str]) -> l
 
 def check_document_modules(root: Path, tracked: set[str], components: list[str]) -> list[str]:
     """Document modules and the template's sheets must correspond one to one."""
-    if TEMPLATE not in tracked:
-        return []
+    missing = required_file(root, tracked, TEMPLATE)
+    if missing:
+        return missing
     try:
         with zipfile.ZipFile(root / TEMPLATE) as package:
             names = {match for part in package.namelist()
