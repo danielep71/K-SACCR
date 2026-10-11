@@ -3,10 +3,12 @@
 Synchronize repository VBA source into an existing local SACCR .xlsm workbook.
 
 .DESCRIPTION
-Updates VBA code only. Standard modules are replaced from source. ThisWorkbook
-and worksheet document modules keep their workbook objects and only their code
-text is replaced. The script does not write cells, formulas, names, formatting,
-tables, worksheets, or workbook structure.
+Updates VBA code only, from src\core, src\modules, src\workbook and
+tests\modules, so the workbook holds every engine and test module. Standard
+modules are replaced from source. ThisWorkbook and worksheet document modules
+keep their workbook objects and only their code text is replaced. The script
+does not write cells, formulas, names, formatting, tables, worksheets, or
+workbook structure.
 
 .REQUIREMENTS
 - Windows desktop Excel.
@@ -256,7 +258,8 @@ try {
     $sourceRoots = @(
         (Join-Path $repoFullPath "src\core"),
         (Join-Path $repoFullPath "src\modules"),
-        (Join-Path $repoFullPath "src\workbook")
+        (Join-Path $repoFullPath "src\workbook"),
+        (Join-Path $repoFullPath "tests\modules")
     )
 
     foreach ($root in $sourceRoots) {
