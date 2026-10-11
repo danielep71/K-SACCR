@@ -335,10 +335,11 @@ role or margin-agreement code that is not N, CM, CLIENT, MIXED or SHARED, and
 the MIXED and SHARED structures; it accepts VM posted on an unmargined BCBS
 netting set and checks its replacement cost, and checks the MPOR of each
 clearing role and of disputes and a large netting set with weekly
-remargining. Every patched cell and name is restored. It needs a workbook
+remargining, and the warning for a margined netting set of more than 5,000
+trades whose large or illiquid flag is N. Every patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=53; checks=60; failures=0; restore=PASS`.
+`RESULT=PASS; cases=54; checks=62; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

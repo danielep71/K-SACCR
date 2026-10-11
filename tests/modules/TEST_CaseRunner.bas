@@ -14,7 +14,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   AddNettingSet,
 '   AddTrade, SetInputCell, PatchCell, PatchName, RunCase,
 '   RunCaseExpectingStop,
-'   OutputNumber, ExpectNumber, ExpectText, ExpectTrue and EndSuite, for
+'   OutputNumber, ExpectNumber, ExpectText, ExpectTrue, ExpectChecksLine and
+'   EndSuite, for
 '   TEST_Cases, TEST_InputValidation, TEST_Aggregation and TEST_Invariants.
 '   Option Private Module keeps them out of the external workbook automation
 '   API.
@@ -728,7 +729,7 @@ Public Sub RunCaseExpectingStop( _
         If completed Then
             Record label, referenceClass, False, "run completed; expected it to stop"
         Else
-            Record label, referenceClass, ChecksHasError(messagePart), _
+            Record label, referenceClass, ChecksHasLine(SEV_ERROR, messagePart), _
                    "run stopped, but no ERROR on Checks contains """ & messagePart & """"
         End If
         Exit Sub
@@ -895,6 +896,31 @@ Public Sub ExpectTrue( _
 '==============================================================================
 '
         Record label, referenceClass, passed, detail
+
+End Sub
+
+
+Public Sub ExpectChecksLine( _
+    ByVal label As String, _
+    ByVal severity As String, _
+    ByVal messagePart As String, _
+    ByVal referenceClass As String)
+'
+'==============================================================================
+'                               ExpectChecksLine
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After RunCase, check that the Checks sheet has a line of the given
+'   severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
+'   messagePart, ignoring case: for a warning that does not change the
+'   netting set's status.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Record label, referenceClass, ChecksHasLine(severity, messagePart), _
+               "Checks has no " & severity & " line containing '" & messagePart & "'"
 
 End Sub
 
@@ -1152,19 +1178,20 @@ Private Sub Record( _
 End Sub
 
 
-Private Function ChecksHasError( _
+Private Function ChecksHasLine( _
+    ByVal severity As String, _
     ByVal messagePart As String) _
     As Boolean
 '
 '==============================================================================
-'                                ChecksHasError
+'                                ChecksHasLine
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether the Checks sheet has an ERROR line whose message contains
-'   messagePart, ignoring case.
+'   Tell whether the Checks sheet has a line of the given severity whose
+'   message contains messagePart, ignoring case.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1182,9 +1209,9 @@ Private Function ChecksHasError( _
         Set ws = GetSheet(SH_CHECKS)
         lastR = UsedLastRow(ws)
         For r = FIRST_DATA_ROW To lastR
-            If SafeStr(ws.Cells(r, 1).Value) = SEV_ERROR Then
+            If SafeStr(ws.Cells(r, 1).Value) = severity Then
                 If InStr(1, SafeStr(ws.Cells(r, 5).Value), messagePart, vbTextCompare) > 0 Then
-                    ChecksHasError = True
+                    ChecksHasLine = True
                     Exit Function
                 End If
             End If

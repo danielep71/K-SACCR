@@ -24,7 +24,9 @@ Attribute VB_Name = "TEST_InputValidation"
 '   netting set and VM posted on an unmargined BCBS netting set must still
 '   be accepted. The same section checks the MPOR of each clearing role and
 '   regime, and with disputes or a large netting set and weekly
-'   remargining, against the rules recorded in the methodology.
+'   remargining, against the rules recorded in the methodology, and the
+'   warning for a margined netting set of more than 5,000 trades whose
+'   large or illiquid flag is N.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -48,7 +50,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -64,8 +66,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 53                'Cases in a complete run
-        Private Const CHECKS      As Long = 60                'Checks in a complete run
+        Private Const CASES       As Long = 54                'Cases in a complete run
+        Private Const CHECKS      As Long = 62                'Checks in a complete run
 
 
 '
@@ -85,7 +87,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -93,6 +95,7 @@ Public Sub RunInputValidationTests()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim r   As Long    'Params row a table case patches
+    Dim i   As Long    'Trade number in the large netting set
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -379,6 +382,16 @@ Public Sub RunInputValidationTests()
 
         StartMarginedCase "netting-set-mpor-large-weekly-bcbs", "BCBS", "N", "5", "Y", "N"
         ExpectMPOR 24
+
+    'A margined netting set over 5,000 trades whose large or illiquid flag
+    'is N stays VALID with a warning: the 20-day floor depends on the count
+    'in the previous quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+        StartMarginedCase "netting-set-over-5000-trades", "CRR", "N", "1", "N", "N"
+        For i = 2 To LARGE_NS_TRADES + 1
+            AddSwap "T" & i
+        Next i
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "more than " & LARGE_NS_TRADES, "illustrative"
 
     'Margin-agreement structures the engine does not model (#39) are
     'declared and rejected [CRE52.74, CRE52.75; CRR Art. 274(4), 275(3)].

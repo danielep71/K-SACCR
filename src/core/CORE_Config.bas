@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -124,6 +124,9 @@ Attribute VB_Name = "CORE_Config"
     'is rejected: the engine does not model them.
         Public Const MS_MIXED    As String = "MIXED"     'Several agreements, or margined and unmargined trades
         Public Const MS_SHARED   As String = "SHARED"    'One agreement over several netting sets
+    'Trades in a netting set above which the 20-day MPOR floor applies in the
+    'following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+        Public Const LARGE_NS_TRADES As Long = 5000
 
 '------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
