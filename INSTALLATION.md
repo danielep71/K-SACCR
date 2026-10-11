@@ -341,13 +341,14 @@ NettingSets or Trades layout name stops the run. It writes values outside the
 ranges of the data validation, which validation would not stop because VBA
 writes them: a multiplier floor of 1, correlations above 1 or that do not form
 a correlation matrix, an MPOR floor of 0, a fractional business-day count and
-a negative supervisory factor stop the run; a negative threshold, MTA or
-remargining frequency and an alpha or MPOR override of zero or less make the
-netting set `INVALID`; a remargining frequency of 0 is raised to daily with a
+a negative supervisory factor stop the run; a negative threshold or MTA, a
+remargining frequency or MPOR override that is not a whole number of business
+days in range, and an alpha override of zero or less make the netting set
+`INVALID`; a remargining frequency of 0 is raised to daily with a
 warning. Every patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=69; checks=79; failures=0; restore=PASS`.
+`RESULT=PASS; cases=71; checks=81; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

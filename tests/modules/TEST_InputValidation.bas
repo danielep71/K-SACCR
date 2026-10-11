@@ -31,9 +31,10 @@ Attribute VB_Name = "TEST_InputValidation"
 '   them, must also be rejected: a multiplier floor of 1, a correlation
 '   above 1, correlations that do not form a correlation matrix, an MPOR
 '   floor of 0, a fractional business-day count, a negative supervisory
-'   factor, and a negative threshold, MTA or remargining frequency or an
-'   alpha or MPOR override at or below zero; a remargining frequency of 0
-'   is raised to daily with a warning.
+'   factor, a negative threshold or MTA, a remargining frequency or MPOR
+'   override that is not a whole number of business days in range, and an
+'   alpha override at or below zero; a remargining frequency of 0 is
+'   raised to daily with a warning.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -73,8 +74,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 69                'Cases in a complete run
-        Private Const CHECKS      As Long = 79                'Checks in a complete run
+        Private Const CASES       As Long = 71                'Cases in a complete run
+        Private Const CHECKS      As Long = 81                'Checks in a complete run
 
 
 '
@@ -492,6 +493,13 @@ Public Sub RunInputValidationTests()
         ExpectStatus "INVALID: 1 input error(s)"
 
         StartMarginedCase "netting-set-remargin-negative", "CRR", "N", "-1", "N", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-remargin-not-whole", "CRR", "N", "1.5", "N", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-mpor-override-not-whole", "CRR", "N", "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 10.5
         ExpectStatus "INVALID: 1 input error(s)"
 
         StartMarginedCase "netting-set-remargin-zero", "CRR", "N", "0", "N", "N"
