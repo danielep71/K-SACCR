@@ -315,11 +315,12 @@ Use only the categories needed by a release.
   move (`CORE_Util.TableHeaderRow`, `TableFirstRow`). A missing or broken name
   stops the run. The test runner writes, clears and restores the input rows
   through the same names. Trades takes the owner's final layout: title band
-  in B1:B2, description in C3, a hint row on row 4, headers on row 5 and data
-  from row 6; the Run SA-CCR, Validate inputs and Clear outputs buttons sit on
-  row 3 to the right of the description. Every Trades input column has data
-  validation with an input message (rows 6 to 5001), following the engine's
-  trade checks, and repeated Trade IDs are shown in red.
+  in B1:B2, headers on row 4 and data from row 5; the Run SA-CCR, Validate
+  inputs and Clear outputs buttons sit on row 3 (H3:L3), and README no longer
+  has buttons. Every Trades input column has data validation with an input
+  message (rows 5 to 5000), following the engine's trade checks, and repeated
+  Trade IDs are shown in red. README and Basel_vs_CRR take the owner's final
+  layout too.
   `TEST_InputValidation` has 57 cases and 65 checks.
   Upgrading a workbook built from an earlier template: add the two names, or
   rebuild from the template.
