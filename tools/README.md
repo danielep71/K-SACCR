@@ -65,6 +65,11 @@ template's sheets (by CodeName) do not match one to one. A new source
 directory must be added to `$sourceRoots`; a new worksheet needs both its sheet
 in the template and its document module.
 
+Because it changes code only, a change to a sheet layout (a column or header)
+does not reach an existing workbook. The engine's header check then stops the
+run with the expected header; the CHANGELOG entry of such a change says which
+cells to update, or the workbook is rebuilt from the template.
+
 The synchronizer rejects known retired repository modules before changing any
 VBA component. Rebuild such a workbook from the current template and source;
 it does not migrate old module names or delete unrelated user components.

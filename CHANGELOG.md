@@ -293,6 +293,11 @@ Use only the categories needed by a release.
   decisions. Fixtures use `clearing_role` instead of `cleared`; the Results
   status formula watches NettingSets A:O. `TEST_InputValidation` has 53 cases
   and 60 checks; `TEST_Cases` has 37 checks.
+  Upgrading a workbook built from the earlier template: the synchronizer
+  changes code only, and a run stops at the header check until NettingSets D4
+  reads `Client clearing role (N/CM/CLIENT)`, O4 reads
+  `Margin agreements (blank/MIXED/SHARED)` and Results A3 watches
+  `NettingSets!$A:$O`, as in the new template; or rebuild from the template.
 
 - CRR scope checked against the CRR text (#33). With `IRBucketOffset` set to
   FALSE, a CRR netting set with interest-rate trades is now `INVALID` and its
