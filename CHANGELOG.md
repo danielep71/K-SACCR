@@ -271,6 +271,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- `tools/check_source.py` checks that `Sync-SACCR-VBA.ps1` reaches every VBA
+  component: each must lie in a directory of its `$sourceRoots`, each listed
+  directory must exist, and the document modules in `src/workbook/` must match
+  the template's sheets by CodeName.
+
 - `tools/Sync-SACCR-VBA.ps1` also imports the test modules from
   `tests/modules/`, so one synchronization updates every engine and test
   module of the development workbook.
