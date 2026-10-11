@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -58,21 +58,26 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
-    'Every input and output table has its headers on row 4 and data from
-    'row 5. The run summary is written to cell A2 of the Results sheet.
-        Public Const HEADER_ROW       As Long = 4         'Row holding the column headers
-        Public Const FIRST_DATA_ROW   As Long = 5         'First row of data below the headers
-        Public Const RUNINFO_CELL     As String = "A2"    'Cell receiving the run summary line
+    'Every sheet has two narrow margin columns (A:B) and two margin rows
+    '(1:2). Every input and output table starts in column C, with its
+    'headers on row 6 and data from row 7. Column numbers in this module
+    '(NS_, TR_, RS_, PRM_ and the others) count from the first table
+    'column; CORE_Util.TableCell and TableRange add COL_OFFSET. The run
+    'summary is written to cell C4 of the Results sheet.
+        Public Const COL_OFFSET       As Long = 2         'Margin columns left of every table
+        Public Const HEADER_ROW       As Long = 6         'Row holding the column headers
+        Public Const FIRST_DATA_ROW   As Long = 7         'First row of data below the headers
+        Public Const RUNINFO_CELL     As String = "C4"    'Cell receiving the run summary line
 
 '------------------------------------------------------------------------------
 ' PARAMS SHEET
 '------------------------------------------------------------------------------
-    'Each parameter is a row with its code in column A and its value in
-    'column C. A workbook name equal to the code takes precedence (see
+    'Each parameter is a row with its code in table column 1 (sheet column
+    'C) and its value in table column 3 (sheet column E). A workbook name equal to the code takes precedence (see
     'CORE_Util.GetParam). BD = business days; SD = supervisory duration;
     'SF = supervisory factor; CO = commodity.
-        Public Const PRM_CODE_COL     As Long = 1                          'Column of the code
-        Public Const PRM_VALUE_COL    As Long = 3                          'Column of the value
+        Public Const PRM_CODE_COL     As Long = 1                          'Table column of the code
+        Public Const PRM_VALUE_COL    As Long = 3                          'Table column of the value
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
@@ -103,7 +108,7 @@ Attribute VB_Name = "CORE_Config"
     'status formula on Results, which refers to it, recalculates when a run
     'changes it.
         Public Const RUN_INPUTS_NAME       As String = "SACCR_RunInputs"    'Empty when no results exist
-        Public Const RESULTS_STATUS_CELL   As String = "A3"                 'Results: status formula
+        Public Const RESULTS_STATUS_CELL   As String = "C5"                 'Results: status formula
 
 '------------------------------------------------------------------------------
 ' REGIMES
@@ -131,8 +136,9 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
 '------------------------------------------------------------------------------
-    'Header text, searched for in column A of Params, that marks the start of
-    'each lookup table. The table runs down to the first blank cell.
+    'Header text, searched for in the first table column of Params, that
+    'marks the start of each lookup table. The table runs down to the first
+    'blank cell.
         Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
         Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
 

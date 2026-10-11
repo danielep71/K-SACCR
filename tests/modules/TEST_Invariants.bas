@@ -42,7 +42,7 @@ Attribute VB_Name = "TEST_Invariants"
 '   CRE52.57 and CRR Art. 280a (IR bucket formula).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1083,7 +1083,7 @@ Private Function NettingSetInput( _
 '   then ends as failed.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1102,7 +1102,7 @@ Private Function NettingSetInput( _
             Err.Raise ERR_TEST_SETUP, "TEST_Invariants.NettingSetInput", _
                       nettingSetId & " not found on " & SH_NS & "."
         End If
-        NettingSetInput = ToDbl(ws.Cells(r, col).Value)
+        NettingSetInput = ToDbl(TableCell(ws, r, col).Value)
 
 End Function
 
@@ -1115,14 +1115,14 @@ Private Function ParamsRow( _
 '                                  ParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Find the Params row whose column A holds a parameter code.
+'   Find the Params row whose code column holds a parameter code.
 '
 ' ERROR POLICY
 '   Raises ERR_TEST_SETUP when the code is absent; the suite then ends as
 '   failed.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1137,7 +1137,7 @@ Private Function ParamsRow( _
         r = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, key)
         If r = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_Invariants.ParamsRow", _
-                      "'" & key & "' not found in column A of Params."
+                      "'" & key & "' not found in column C of Params."
         End If
         ParamsRow = r
 
@@ -1160,7 +1160,7 @@ Private Function SheetRows( _
 '   The values; Empty when the sheet has no data rows.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1176,7 +1176,7 @@ Private Function SheetRows( _
         Set ws = GetSheet(sheetName)
         lastR = UsedLastRow(ws)
         If lastR >= FIRST_DATA_ROW Then
-            SheetRows = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, columnCount)).Value
+            SheetRows = TableRange(ws, FIRST_DATA_ROW, 1, lastR, columnCount).Value
         End If
 
 End Function
@@ -1212,10 +1212,10 @@ Private Function RowLabel( _
 '                                    RowLabel
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The ID in column A of a Results row.
+'   The ID in the first column of a Results row.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
         RowLabel = SafeStr(outputRows(r, 1))
@@ -1272,13 +1272,13 @@ Private Function MatchingRow( _
 '                                 MatchingRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Find the row of a block whose column A holds rowKey.
+'   Find the row of a block whose first column holds rowKey.
 '
 ' RETURNS
 '   The row; 0 when absent.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
 

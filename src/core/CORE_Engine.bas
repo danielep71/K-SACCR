@@ -79,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -681,7 +681,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -736,7 +736,7 @@ Private Function ValidateSchema() As Boolean
         codes = ParameterCodes()
         lastR = UsedLastRow(ws)
         If lastR >= 1 Then
-            grid = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, PRM_VALUE_COL)).Value
+            grid = TableRange(ws, 1, 1, lastR, PRM_VALUE_COL).Value
         End If
         For i = LBound(codes) To UBound(codes)
             If BrokenName(codes(i)) Then
@@ -847,20 +847,20 @@ Private Function HeadersMatch( _
 ' INPUTS
 '   ws, rowNum: the sheet and its header row.
 '   expectedHeaders: one of the _HEADERS constants in CORE_Config, starting in
-'   column A; an empty entry is not checked.
+'   the first table column; an empty entry is not checked.
 '
 ' RETURNS
 '   True when every checked header matches.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headers   As Variant    'Expected headers, from index 0 for column A
+    Dim headers   As Variant    'Expected headers, from index 0 for table column 1
     Dim c         As Long       'Index into headers
     Dim found     As Variant    'Header cell value
 
@@ -871,10 +871,10 @@ Private Function HeadersMatch( _
         headers = Split(expectedHeaders, "|")
         For c = 0 To UBound(headers)
             If Len(headers(c)) > 0 Then
-                found = ws.Cells(rowNum, c + 1).Value
+                found = TableCell(ws, rowNum, c + 1).Value
                 If StrComp(SafeStr(found), headers(c), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg SEV_ERROR, ws.Name, ws.Cells(rowNum, c + 1).Address(False, False), _
+                    LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, c + 1).Address(False, False), _
                            "Header must be '" & headers(c) & "' (found " & DescribeValue(found) & _
                            ") - a column was inserted, deleted or moved, or the header renamed.", rowNum
                 End If
@@ -1096,7 +1096,7 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1120,7 +1120,7 @@ Private Function LoadSFTable() As Boolean
         Set ws = GetSheet(SH_PARAMS)
         r0 = FindHeaderRow(ws, 1, HDR_SF)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (header '" & HDR_SF & "' in column A)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (header '" & HDR_SF & "' in column C)."
             Exit Function
         End If
 
@@ -1130,16 +1130,16 @@ Private Function LoadSFTable() As Boolean
     'Columns: 1 key, 2 asset class, 3 category, 4 factor, 5 correlation,
     '6 option volatility, 7 commodity hedging set, 8 regimes.
         r = r0 + 1
-        Do While Not IsBlankCell(ws.Cells(r, 1).Value)
-            k = UTxt(ws.Cells(r, 1).Value)
+        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
+            k = UTxt(TableCell(ws, r, 1).Value)
             entry.Key = k
-            entry.AssetClass = UTxt(ws.Cells(r, 2).Value)
-            entry.Category = UTxt(ws.Cells(r, 3).Value)
-            rowBad = Not TryDbl(ws.Cells(r, 4).Value, 0#, entry.SF)
-            rowBad = Not TryDbl(ws.Cells(r, 5).Value, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(ws.Cells(r, 6).Value, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(ws.Cells(r, 7).Value)
-            entry.Regimes = UTxt(ws.Cells(r, 8).Value)
+            entry.AssetClass = UTxt(TableCell(ws, r, 2).Value)
+            entry.Category = UTxt(TableCell(ws, r, 3).Value)
+            rowBad = Not TryDbl(TableCell(ws, r, 4).Value, 0#, entry.SF)
+            rowBad = Not TryDbl(TableCell(ws, r, 5).Value, 0#, entry.Corr) Or rowBad
+            rowBad = Not TryDbl(TableCell(ws, r, 6).Value, 0#, entry.Vol) Or rowBad
+            entry.Group = UTxt(TableCell(ws, r, 7).Value)
+            entry.Regimes = UTxt(TableCell(ws, r, 8).Value)
             If entry.Regimes = "BOTH" Then
                 entry.Regimes = ""
             End If
@@ -1248,7 +1248,7 @@ Private Function LoadFXTable() As Boolean
 '   its rate is not 1.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1271,7 +1271,7 @@ Private Function LoadFXTable() As Boolean
         Set ws = GetSheet(SH_PARAMS)
         r0 = FindHeaderRow(ws, 1, HDR_FX)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (header '" & HDR_FX & "' in column A)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (header '" & HDR_FX & "' in column C)."
             Exit Function
         End If
 
@@ -1281,9 +1281,9 @@ Private Function LoadFXTable() As Boolean
     'A currency seen before: the same rate is harmless, a different rate is
     'ambiguous and stops the run.
         r = r0 + 1
-        Do While Not IsBlankCell(ws.Cells(r, 1).Value)
-            k = UTxt(ws.Cells(r, 1).Value)
-            rate = ToDbl(ws.Cells(r, 3).Value, -1#)
+        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
+            k = UTxt(TableCell(ws, r, 1).Value)
+            rate = ToDbl(TableCell(ws, r, 3).Value, -1#)
             idx = KeyIndex(mFXIndex, k)
             If rate <= 0# Then
                 LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
@@ -1367,7 +1367,7 @@ Private Function ValuesAfterEnd( _
 '   True when such a row was found.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1375,14 +1375,14 @@ Private Function ValuesAfterEnd( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim r     As Long      'Row being checked
-    Dim k     As String    'Key in column A, upper case
+    Dim k     As String    'Key in table column 1, upper case
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
         For r = endRow To lastR
-            k = UTxt(ws.Cells(r, 1).Value)
-            If IsNum(ws.Cells(r, valueCol).Value) And Not (valueCol = PRM_VALUE_COL And IsParameterCode(k)) Then
+            k = UTxt(TableCell(ws, r, 1).Value)
+            If IsNum(TableCell(ws, r, valueCol).Value) And Not (valueCol = PRM_VALUE_COL And IsParameterCode(k)) Then
                 ValuesAfterEnd = True
                 If Len(k) = 0 Then
                     LogMsg SEV_ERROR, SH_PARAMS, "", tableName & " row has a value but no key - not read.", r
@@ -1464,7 +1464,7 @@ Private Function LoadNettingSets() As Boolean
 '   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1494,7 +1494,7 @@ Private Function LoadNettingSets() As Boolean
             Exit Function
         End If
         n = lastR - FIRST_DATA_ROW + 1
-        data = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, NS_NCOLS)).Value
+        data = TableRange(ws, FIRST_DATA_ROW, 1, lastR, NS_NCOLS).Value
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -1954,7 +1954,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '==============================================================================
 '
 
@@ -2060,7 +2060,7 @@ Private Sub ProcessTrades( _
             Exit Sub
         End If
         n = lastR - FIRST_DATA_ROW + 1
-        data = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, TR_NCOLS)).Value
+        data = TableRange(ws, FIRST_DATA_ROW, 1, lastR, TR_NCOLS).Value
         ReDim outArr(1 To n, 1 To TC_NCOLS)
         nOut = 0
 
@@ -2939,7 +2939,7 @@ Private Sub ComputeNettingSets( _
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -3127,7 +3127,7 @@ NextNS:
                 WriteBlock ws, FIRST_DATA_ROW, outArr, nOut, RS_NCOLS
                 FormatColumns ws, FIRST_DATA_ROW, nOut, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                ws.Range(ws.Cells(FIRST_DATA_ROW + nOut - 1, 1), ws.Cells(FIRST_DATA_ROW + nOut - 1, RS_NCOLS)).Font.Bold = True
+                TableRange(ws, FIRST_DATA_ROW + nOut - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
@@ -3253,7 +3253,7 @@ Private Function BlockText( _
 '   used range that grew without new values does not change the text.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -3275,7 +3275,7 @@ Private Function BlockText( _
         If lastR < firstRow Then
             Exit Function
         End If
-        data = ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols)).Value2
+        data = TableRange(ws, firstRow, 1, lastR, nCols).Value2
         For r = UBound(data, 1) To 1 Step -1
             If RowHasData(data, r, nCols, 0) Then
                 nRows = r
@@ -3434,14 +3434,15 @@ Private Function TryClearOutput( _
 ' PURPOSE
 '   Clear one output and capture its failure before any other operation.
 ' INPUTS
-'   sheetName, nCols: output sheet and table width, starting at column A.
+'   sheetName, nCols: output sheet and table width, from the first table
+'   column.
 ' RETURNS
 '   True only when this output was cleared. Appends any failure to
 '   failureDetails, preserving details from earlier sheets.
 ' ERROR POLICY
 '   Contains this cleanup failure; the original run error remains primary.
 ' UPDATED
-'   2026-10-08
+'   2026-10-12
 '==============================================================================
     Dim errNumber As Long         'Cleanup error, captured before formatting
     Dim errSource As String       'Cleanup error source
@@ -3641,7 +3642,7 @@ Private Function WriteChecks( _
 '   Contains any error and reports it through the result, never silently.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -3678,7 +3679,7 @@ Private Function WriteChecks( _
         WriteBlock ws, FIRST_DATA_ROW, arr, mLogCount, CK_NCOLS
         For i = 1 To mLogCount
             If arr(i, 1) = SEV_ERROR Then
-                ws.Cells(FIRST_DATA_ROW + i - 1, 1).Font.Bold = True
+                TableCell(ws, FIRST_DATA_ROW + i - 1, 1).Font.Bold = True
             End If
         Next i
         WriteChecks = True
@@ -3703,7 +3704,8 @@ Private Sub WriteRunInfo( _
 '                                 WriteRunInfo
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a one-line run summary to cell A2 of the Results sheet.
+'   Write a one-line run summary to cell C4 (RUNINFO_CELL) of the Results
+'   sheet.
 '
 ' INPUTS
 '   secs: run duration in seconds.
@@ -3717,7 +3719,7 @@ Private Sub WriteRunInfo( _
 '   Best effort: errors are ignored, because the summary is informative only.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 

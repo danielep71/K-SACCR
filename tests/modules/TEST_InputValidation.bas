@@ -50,7 +50,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -543,7 +543,7 @@ Private Function ParamsRow( _
 '                                  ParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the Params row whose column A holds key: a parameter code, a
+'   Return the Params row whose code column holds key: a parameter code, a
 '   supervisory-factor key or a currency.
 '
 ' ERROR POLICY
@@ -551,7 +551,7 @@ Private Function ParamsRow( _
 '   template fails the suite instead of patching the wrong row.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -565,7 +565,7 @@ Private Function ParamsRow( _
 '------------------------------------------------------------------------------
         r = FindHeaderRow(GetSheet(SH_PARAMS), 1, key)
         If r = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & key & "' not found in column A of Params."
+            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & key & "' not found in column C of Params."
         End If
         ParamsRow = r
 
@@ -581,13 +581,13 @@ Private Function ParamsValue( _
 '                                 ParamsValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return a value from the Params row whose column A holds key.
+'   Return a value from the Params row whose code column holds key.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
-        ParamsValue = GetSheet(SH_PARAMS).Cells(ParamsRow(key), col).Value
+        ParamsValue = TableCell(GetSheet(SH_PARAMS), ParamsRow(key), col).Value
 
 End Function
 
@@ -609,7 +609,7 @@ Private Sub AddParamRow( _
 '   template fails the suite instead of overwriting a row.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -622,8 +622,8 @@ Private Sub AddParamRow( _
 ' WRITE
 '------------------------------------------------------------------------------
         r = ParamsRow(PRM_LAMCO) + 1
-        If Not IsBlankCell(GetSheet(SH_PARAMS).Cells(r, PRM_CODE_COL).Value) Or _
-           Not IsBlankCell(GetSheet(SH_PARAMS).Cells(r, PRM_VALUE_COL).Value) Then
+        If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, PRM_CODE_COL).Value) Or _
+           Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, PRM_VALUE_COL).Value) Then
             Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & r & " is not blank."
         End If
         TEST_CaseRunner.PatchCell SH_PARAMS, r, PRM_CODE_COL, code
