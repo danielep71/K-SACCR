@@ -258,10 +258,10 @@ with its error number/source/description, the original error remains primary,
 and a subsequent unprotected run succeeds. Another case injects a known primary
 write failure and two cleanup failures with a different number and source,
 proving secondary errors do not replace the original. A protected Results sheet may retain
-its old table and A2 summary: the raised error (and Checks, when writable) must
+its old table and C4 summary: the raised error (and Checks, when writable) must
 say cleanup is incomplete. `ResultsStatus() = "NONE"` means no valid completed
 run fingerprint, not proof that all output cells are empty. The tests preserve
-A3, retaining the formula-based status implemented in PR #89 without a cleanup
+C5, retaining the formula-based status implemented in PR #89 without a cleanup
 write to that cell.
 
 Run:
@@ -377,9 +377,9 @@ For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; cleanup=PASS`
 and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results A2. `M_Main.ResultsStatus()` returns `CURRENT` when the
+run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there are no results. Results A3 shows the same
+changed since, and `NONE` when there are no results. Results C5 shows the same
 status through the formula `=ResultsStatusText(...)`, which Excel recalculates
 when an input changes, and turns red when it reads `OUT OF DATE`. A formula,
 unlike a macro writing to the sheet, leaves Excel's Undo history intact. With

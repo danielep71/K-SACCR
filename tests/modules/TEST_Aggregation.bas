@@ -30,7 +30,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -296,7 +296,7 @@ Private Sub ReorderTrades( _
 '   trade keeps every input.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -322,7 +322,7 @@ Private Sub ReorderTrades( _
         If n < 2 Then
             Exit Sub
         End If
-        Set block = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, TR_NCOLS))
+        Set block = TableRange(ws, FIRST_DATA_ROW, 1, lastR, TR_NCOLS)
         src = block.Formula
         dst = block.Formula
         For r = 1 To n
@@ -350,7 +350,7 @@ Private Function ResultsRows() As Variant
 '   last used row, columns A to RS_NCOLS; Empty when there are none.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -366,7 +366,7 @@ Private Function ResultsRows() As Variant
         Set ws = GetSheet(SH_RESULTS)
         lastR = UsedLastRow(ws)
         If lastR >= FIRST_DATA_ROW Then
-            ResultsRows = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, RS_NCOLS)).Value
+            ResultsRows = TableRange(ws, FIRST_DATA_ROW, 1, lastR, RS_NCOLS).Value
         End If
 
 End Function

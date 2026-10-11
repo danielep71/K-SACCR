@@ -37,7 +37,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -704,6 +704,57 @@ Public Function GetSheet( _
 End Function
 
 
+Public Function TableCell( _
+    ByVal ws As Worksheet, _
+    ByVal rowNum As Long, _
+    ByVal col As Long) _
+    As Range
+'
+'==============================================================================
+'                                  TableCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the cell in a sheet row at a table column: column numbers count
+'   from the first table column, right of the COL_OFFSET margin columns.
+'
+' INPUTS
+'   ws: the worksheet.
+'   rowNum: the sheet row.
+'   col: the table column, 1 for the first.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        Set TableCell = ws.Cells(rowNum, col + COL_OFFSET)
+
+End Function
+
+
+Public Function TableRange( _
+    ByVal ws As Worksheet, _
+    ByVal firstRow As Long, _
+    ByVal firstCol As Long, _
+    ByVal lastRow As Long, _
+    ByVal lastCol As Long) _
+    As Range
+'
+'==============================================================================
+'                                  TableRange
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the block between two sheet rows and two table columns, as
+'   TableCell counts them.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        Set TableRange = ws.Range(TableCell(ws, firstRow, firstCol), TableCell(ws, lastRow, lastCol))
+
+End Function
+
+
 Public Function UsedLastRow( _
     ByVal ws As Worksheet) _
     As Long
@@ -752,14 +803,14 @@ Private Function ColumnValues( _
 ' INPUTS
 '   ws: the worksheet to read.
 '   firstRow, lastRow: rows to read, firstRow <= lastRow.
-'   colIdx: column number.
+'   colIdx: table column number.
 '
 ' RETURNS
 '   A 1-based array (1 To rows, 1 To 1). Element (r, 1) holds the value of
 '   row firstRow + r - 1.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -774,7 +825,7 @@ Private Function ColumnValues( _
 '------------------------------------------------------------------------------
     'Range.Value returns a scalar, not an array, for a single cell. Wrap it
     'so callers can always index v(r, 1).
-        v = ws.Range(ws.Cells(firstRow, colIdx), ws.Cells(lastRow, colIdx)).Value
+        v = TableRange(ws, firstRow, colIdx, lastRow, colIdx).Value
         If IsArray(v) Then
             ColumnValues = v
         Else
@@ -801,7 +852,7 @@ Public Function LastDataRow( _
 ' INPUTS
 '   ws: the worksheet to scan.
 '   firstRow: first row of the data area.
-'   colIdx: column number to test.
+'   colIdx: table column number to test.
 '
 ' RETURNS
 '   Row number of the last non-blank cell; firstRow - 1 when the column is
@@ -812,7 +863,7 @@ Public Function LastDataRow( _
 '   result is the same in hidden or automated sessions.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -861,7 +912,7 @@ Public Function LastDataRowAny( _
 ' INPUTS
 '   ws: the worksheet to scan.
 '   firstRow: first row of the data area.
-'   nCols: number of columns from column A.
+'   nCols: number of columns from the first table column.
 '   ignoreCol: a column that does not count as data, such as a free-text
 '      comment; 0 for none.
 '
@@ -869,7 +920,7 @@ Public Function LastDataRowAny( _
 '   Row number of the last such row; firstRow - 1 when there is none.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -889,7 +940,7 @@ Public Function LastDataRowAny( _
         If lastR < firstRow Then
             Exit Function
         End If
-        v = ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols)).Value
+        v = TableRange(ws, firstRow, 1, lastR, nCols).Value
         If Not IsArray(v) Then
             If Not IsBlankCell(v) Then
                 LastDataRowAny = firstRow
@@ -967,14 +1018,14 @@ Public Function FindHeaderRow( _
 '
 ' INPUTS
 '   ws: the worksheet to search.
-'   colIdx: column number to search.
+'   colIdx: table column number to search.
 '   header: text to find; compared case-insensitively after trimming.
 '
 ' RETURNS
 '   Row number of the first match from the top; 0 when not found.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1019,14 +1070,15 @@ Public Function GetParam( _
 '
 ' RETURNS
 '   The value of the workbook name equal to code, if one exists; otherwise
-'   column C of the Params row whose column A holds code; otherwise Empty.
+'   value column of the Params row whose code column holds code; otherwise
+'   Empty.
 '
 ' ERROR POLICY
 '   A missing workbook name is expected and contained. A missing Params
 '   sheet raises to the caller.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1056,7 +1108,7 @@ Public Function GetParam( _
         Set ws = GetSheet(SH_PARAMS)
         i = FindHeaderRow(ws, PRM_CODE_COL, code)
         If i > 0 Then
-            GetParam = ws.Cells(i, PRM_VALUE_COL).Value
+            GetParam = TableCell(ws, i, PRM_VALUE_COL).Value
         Else
             GetParam = Empty
         End If
@@ -1176,13 +1228,13 @@ Public Sub ClearOutputBlock( _
 ' INPUTS
 '   ws: the output worksheet.
 '   firstRow: first data row to clear.
-'   nCols: number of columns from column A.
+'   nCols: number of columns from the first table column.
 '
 ' STATE OWNERSHIP
 '   Changes the cleared cells only. Number formats are left in place.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1198,7 +1250,7 @@ Public Sub ClearOutputBlock( _
         If lastR < firstRow Then
             Exit Sub
         End If
-        With ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols))
+        With TableRange(ws, firstRow, 1, lastR, nCols)
             .ClearContents
             .Font.Bold = False
             .Interior.ColorIndex = xlNone
@@ -1222,13 +1274,14 @@ Public Sub WriteBlock( _
 '
 ' INPUTS
 '   ws: the output worksheet.
-'   firstRow: row receiving arr(1, *); the block starts in column A.
+'   firstRow: row receiving arr(1, *); the block starts in the first table
+'   column.
 '   arr: 1-based 2-D array; it may have more rows than nRows.
 '   nRows: number of rows to write; nothing is written when it is 0.
 '   nCols: number of columns to write.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1239,7 +1292,7 @@ Public Sub WriteBlock( _
         If nRows <= 0 Then
             Exit Sub
         End If
-        ws.Range(ws.Cells(firstRow, 1), ws.Cells(firstRow + nRows - 1, nCols)).Value = arr
+        TableRange(ws, firstRow, 1, firstRow + nRows - 1, nCols).Value = arr
 
 End Sub
 
@@ -1260,11 +1313,12 @@ Public Sub FormatColumns( _
 '   ws: the output worksheet.
 '   firstRow: first row of the block.
 '   nRows: number of rows; nothing is formatted when it is 0.
-'   formats: one number format per column from column A, separated by "|".
+'   formats: one number format per table column from the first, separated
+'            by "|".
 '            An empty entry leaves that column unchanged.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1283,7 +1337,7 @@ Public Sub FormatColumns( _
         parts = Split(formats, "|")
         For c = 0 To UBound(parts)
             If Len(parts(c)) > 0 Then
-                ws.Range(ws.Cells(firstRow, c + 1), ws.Cells(firstRow + nRows - 1, c + 1)).NumberFormat = parts(c)
+                TableRange(ws, firstRow, c + 1, firstRow + nRows - 1, c + 1).NumberFormat = parts(c)
             End If
         Next c
 

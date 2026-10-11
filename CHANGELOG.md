@@ -284,6 +284,20 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Sheet layout: every sheet of the template has two margin columns (A:B,
+  width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt, 16 pt
+  font), and every font, including the theme fonts and the sheet buttons, is
+  Aptos. Tables now start in column C, with headers on row 6 and data from
+  row 7; the Results run summary is in C4 and the status formula in C5,
+  which watches NettingSets `$C:$Q`, Trades `$C:$Y` and Params `$C:$J`.
+  Formulas, workbook names, data validation, conditional formatting, merged
+  cells, filters, frozen panes and the buttons moved with the cells. The VBA
+  addresses tables through `CORE_Util.TableCell` and `TableRange` with
+  `CORE_Config.COL_OFFSET` = 2; `HEADER_ROW` is 6 and `FIRST_DATA_ROW` 7.
+  A workbook built from the earlier template must be rebuilt from this one:
+  the synchronizer changes code only, and the new code stops at the header
+  check of an old layout.
+
 - `tools/check_source.py` checks that `Sync-SACCR-VBA.ps1` reaches every VBA
   component: each must lie in a directory of its `$sourceRoots`, each listed
   directory must exist, and the document modules in `src/workbook/` must match

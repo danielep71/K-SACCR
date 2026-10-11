@@ -16,7 +16,7 @@ Attribute VB_Name = "M_Main"
 '   ResultsStatus: whether the results on the sheets match the current
 '   inputs (CURRENT, STALE or NONE).
 '   ResultsStatusText: the same as text, for the status formula in Results
-'   A3; Excel recalculates it when an input changes, without a macro
+'   C5; Excel recalculates it when an input changes, without a macro
 '   writing to the workbook, so Undo keeps working.
 '   The sheet buttons call the first three by name. These macros are not
 '   listed in docs/PUBLIC_API.txt.
@@ -54,7 +54,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -282,9 +282,9 @@ Public Function ResultsStatusText( _
 '                              ResultsStatusText
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Worksheet function for the status cell in Results A3 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$A:$O, Trades!$A:$W,
-'                        Params!$A:$H)
+'   Worksheet function for the status cell in Results C5 (#36):
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$Y,
+'                        Params!$C:$J)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
 '   Excel recalculate the cell. A formula never clears Excel's undo
@@ -306,7 +306,7 @@ Public Function ResultsStatusText( _
 '   must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-12
 '==============================================================================
 '
 
