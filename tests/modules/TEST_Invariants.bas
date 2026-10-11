@@ -42,7 +42,7 @@ Attribute VB_Name = "TEST_Invariants"
 '   CRE52.57 and CRR Art. 280a (IR bucket formula).
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -638,10 +638,10 @@ Private Function CapGap( _
 '   The first violation; "" when none.
 '
 ' REFERENCE
-'   CRE52.2, CRE52.10; CRR Art. 274(2) and (3); EBA Q&A 2023_6962.
+'   CRE52.2, CRE52.10; CRR Art. 274(2) and (3); EBA-QA-2023_6962.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-11
 '==============================================================================
 '
 
