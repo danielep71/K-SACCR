@@ -24,7 +24,7 @@ Attribute VB_Name = "CORE_Util"
 '
 ' ERROR POLICY
 '   Conversions never raise: an error value, blank or unusable input returns
-'   the documented default. KeyIndex, GetParam and BrokenName contain the
+'   the documented default. KeyIndex and NamedCell contain the
 '   expected lookup errors and report "not found" instead. Every other
 '   error, for example a missing worksheet, propagates to the caller.
 '
@@ -37,7 +37,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -704,6 +704,299 @@ Public Function GetSheet( _
 End Function
 
 
+Public Function TableCell( _
+    ByVal ws As Worksheet, _
+    ByVal rowNum As Long, _
+    ByVal col As Long) _
+    As Range
+'
+'==============================================================================
+'                                  TableCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the cell in a sheet row at a table column: column numbers count
+'   from the first table column, right of the COL_OFFSET margin columns.
+'
+' INPUTS
+'   ws: the worksheet.
+'   rowNum: the sheet row.
+'   col: the table column, 1 for the first.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Set TableCell = ws.Cells(rowNum, col + COL_OFFSET)
+
+End Function
+
+
+Public Function NamedCell( _
+    ByVal nameText As String) _
+    As Range
+'
+'==============================================================================
+'                                  NamedCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the top-left cell of a workbook name, or Nothing when the name
+'   is missing or no longer refers to a cell.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim target   As Range    'The name's range
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+    'Names(nameText) raises when no such name exists; target then stays
+    'Nothing.
+        On Error Resume Next
+        Set target = ThisWorkbook.Names(nameText).RefersToRange
+        Err.Clear
+        On Error GoTo 0
+        If Not target Is Nothing Then
+            Set NamedCell = target.Cells(1, 1)
+        End If
+
+End Function
+
+
+Public Function NamedRow( _
+    ByVal nameText As String) _
+    As Long
+'
+'==============================================================================
+'                                   NamedRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the sheet row of a workbook name's top-left cell; 0 when the
+'   name is missing or broken.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim c   As Range    'The name's top-left cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Set c = NamedCell(nameText)
+        If Not c Is Nothing Then
+            NamedRow = c.Row
+        End If
+
+End Function
+
+
+Public Function TableHeaderRow( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                TableHeaderRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the header row of a sheet's table. NettingSets and Trades are
+'   located through the workbook name of their first header cell
+'   (NM_NS_HEADER, NM_TR_HEADER), which must be in column C of that sheet;
+'   every other sheet has its headers on HEADER_ROW.
+'
+' RETURNS
+'   The row; 0 when an input sheet's name is missing, broken, on another
+'   sheet or not in column C.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim headerName   As String    'Workbook name of the header cell
+    Dim c            As Range     'The named cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Select Case sheetName
+            Case SH_NS
+                headerName = NM_NS_HEADER
+            Case SH_TRADES
+                headerName = NM_TR_HEADER
+            Case Else
+                TableHeaderRow = HEADER_ROW
+                Exit Function
+        End Select
+        Set c = NamedCell(headerName)
+        If Not c Is Nothing Then
+            If StrComp(c.Worksheet.Name, sheetName, vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
+                TableHeaderRow = c.Row
+            End If
+        End If
+
+End Function
+
+
+Public Function TableFirstRow( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                TableFirstRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the first data row of a sheet's table: the row below its
+'   headers (TableHeaderRow).
+'
+' RETURNS
+'   The row; 0 when the header row cannot be located.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'Header row
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r > 0 Then
+            TableFirstRow = r + 1
+        End If
+
+End Function
+
+
+Public Function NamedTableCol( _
+    ByVal nameText As String) _
+    As Long
+'
+'==============================================================================
+'                                NamedTableCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of a workbook name's top-left cell, counted as
+'   TableCell counts table columns, so that the column can be passed to
+'   TableCell and TableRange. Check NamedRow first: a missing name gives 0
+'   here too.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim c   As Range    'The name's top-left cell
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        Set c = NamedCell(nameText)
+        If Not c Is Nothing Then
+            NamedTableCol = c.Column - COL_OFFSET
+        End If
+
+End Function
+
+
+Public Function ParamsHeaderRow() As Long
+'
+'==============================================================================
+'                               ParamsHeaderRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the header row of the parameter rows on Params, from the workbook
+'   name NM_PRM_CODE; 0 when the name is missing or broken.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsHeaderRow = NamedRow(NM_PRM_CODE)
+
+End Function
+
+
+Public Function ParamsCodeCol() As Long
+'
+'==============================================================================
+'                                ParamsCodeCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of the parameter codes on Params, as a table column
+'   for TableCell, from the workbook name NM_PRM_CODE.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsCodeCol = NamedTableCol(NM_PRM_CODE)
+
+End Function
+
+
+Public Function ParamsValueCol() As Long
+'
+'==============================================================================
+'                                ParamsValueCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the column of the parameter values on Params, as a table column
+'   for TableCell, from the workbook name NM_PRM_VALUE.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        ParamsValueCol = NamedTableCol(NM_PRM_VALUE)
+
+End Function
+
+
+Public Function TableRange( _
+    ByVal ws As Worksheet, _
+    ByVal firstRow As Long, _
+    ByVal firstCol As Long, _
+    ByVal lastRow As Long, _
+    ByVal lastCol As Long) _
+    As Range
+'
+'==============================================================================
+'                                  TableRange
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the block between two sheet rows and two table columns, as
+'   TableCell counts them.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Set TableRange = ws.Range(TableCell(ws, firstRow, firstCol), TableCell(ws, lastRow, lastCol))
+
+End Function
+
+
 Public Function UsedLastRow( _
     ByVal ws As Worksheet) _
     As Long
@@ -752,14 +1045,14 @@ Private Function ColumnValues( _
 ' INPUTS
 '   ws: the worksheet to read.
 '   firstRow, lastRow: rows to read, firstRow <= lastRow.
-'   colIdx: column number.
+'   colIdx: table column number.
 '
 ' RETURNS
 '   A 1-based array (1 To rows, 1 To 1). Element (r, 1) holds the value of
 '   row firstRow + r - 1.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -774,7 +1067,7 @@ Private Function ColumnValues( _
 '------------------------------------------------------------------------------
     'Range.Value returns a scalar, not an array, for a single cell. Wrap it
     'so callers can always index v(r, 1).
-        v = ws.Range(ws.Cells(firstRow, colIdx), ws.Cells(lastRow, colIdx)).Value
+        v = TableRange(ws, firstRow, colIdx, lastRow, colIdx).Value
         If IsArray(v) Then
             ColumnValues = v
         Else
@@ -801,7 +1094,7 @@ Public Function LastDataRow( _
 ' INPUTS
 '   ws: the worksheet to scan.
 '   firstRow: first row of the data area.
-'   colIdx: column number to test.
+'   colIdx: table column number to test.
 '
 ' RETURNS
 '   Row number of the last non-blank cell; firstRow - 1 when the column is
@@ -812,7 +1105,7 @@ Public Function LastDataRow( _
 '   result is the same in hidden or automated sessions.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -861,7 +1154,7 @@ Public Function LastDataRowAny( _
 ' INPUTS
 '   ws: the worksheet to scan.
 '   firstRow: first row of the data area.
-'   nCols: number of columns from column A.
+'   nCols: number of columns from the first table column.
 '   ignoreCol: a column that does not count as data, such as a free-text
 '      comment; 0 for none.
 '
@@ -869,7 +1162,7 @@ Public Function LastDataRowAny( _
 '   Row number of the last such row; firstRow - 1 when there is none.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -889,7 +1182,7 @@ Public Function LastDataRowAny( _
         If lastR < firstRow Then
             Exit Function
         End If
-        v = ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols)).Value
+        v = TableRange(ws, firstRow, 1, lastR, nCols).Value
         If Not IsArray(v) Then
             If Not IsBlankCell(v) Then
                 LastDataRowAny = firstRow
@@ -967,14 +1260,14 @@ Public Function FindHeaderRow( _
 '
 ' INPUTS
 '   ws: the worksheet to search.
-'   colIdx: column number to search.
+'   colIdx: table column number to search.
 '   header: text to find; compared case-insensitively after trimming.
 '
 ' RETURNS
 '   Row number of the first match from the top; 0 when not found.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1012,53 +1305,32 @@ Public Function GetParam( _
 '                                   GetParam
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read one parameter value.
+'   Read one parameter value through the workbook name equal to its code.
 '
 ' INPUTS
 '   code: a PRM_ code from CORE_Config, for example "Alpha".
 '
 ' RETURNS
-'   The value of the workbook name equal to code, if one exists; otherwise
-'   column C of the Params row whose column A holds code; otherwise Empty.
-'
-' ERROR POLICY
-'   A missing workbook name is expected and contained. A missing Params
-'   sheet raises to the caller.
+'   The value of the name's top-left cell; Empty when the name is missing
+'   or broken, which CORE_Engine.ValidateSchema reports before any
+'   parameter is read.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r    As Range        'Range of the workbook name, if it exists
-    Dim ws   As Worksheet    'Params sheet
-    Dim i    As Long         'Row of the code on Params; 0 when absent
+    Dim c   As Range    'The name's top-left cell
 
 '------------------------------------------------------------------------------
-' TRY THE WORKBOOK NAME
+' READ
 '------------------------------------------------------------------------------
-    'Names(code) raises when no such name exists; r then stays Nothing.
-        On Error Resume Next
-        Set r = ThisWorkbook.Names(code).RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        If Not r Is Nothing Then
-            GetParam = r.Cells(1, 1).Value
-            Exit Function
-        End If
-
-'------------------------------------------------------------------------------
-' FALL BACK TO THE PARAMS TABLE
-'------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        i = FindHeaderRow(ws, PRM_CODE_COL, code)
-        If i > 0 Then
-            GetParam = ws.Cells(i, PRM_VALUE_COL).Value
-        Else
-            GetParam = Empty
+        Set c = NamedCell(code)
+        If Not c Is Nothing Then
+            GetParam = c.Value
         End If
 
 End Function
@@ -1109,59 +1381,6 @@ Public Function TextHash( _
 End Function
 
 
-Public Function BrokenName( _
-    ByVal code As String) _
-    As Boolean
-'
-'==============================================================================
-'                                  BrokenName
-'------------------------------------------------------------------------------
-' PURPOSE
-'   Tell whether a workbook name exists but no longer refers to a range,
-'   for example after its cell was deleted (#REF!). GetParam would then
-'   fall back to the Params table without saying so (#35).
-'
-' INPUTS
-'   code: a PRM_ code from CORE_Config.
-'
-' RETURNS
-'   True when the name exists and does not refer to a range; False when it
-'   refers to a range or does not exist.
-'
-' ERROR POLICY
-'   Contains the two expected lookup errors: no such name, and a name that
-'   does not refer to a range.
-'
-' UPDATED
-'   2026-10-07
-'==============================================================================
-'
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim wbName   As Name     'The workbook name, Nothing when absent
-    Dim target   As Range    'The range it refers to, Nothing when broken
-
-'------------------------------------------------------------------------------
-' LOOK UP
-'------------------------------------------------------------------------------
-        On Error Resume Next
-        Set wbName = ThisWorkbook.Names(code)
-        Err.Clear
-        On Error GoTo 0
-        If wbName Is Nothing Then
-            Exit Function
-        End If
-        On Error Resume Next
-        Set target = wbName.RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        BrokenName = (target Is Nothing)
-
-End Function
-
-
 Public Sub ClearOutputBlock( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
@@ -1176,13 +1395,13 @@ Public Sub ClearOutputBlock( _
 ' INPUTS
 '   ws: the output worksheet.
 '   firstRow: first data row to clear.
-'   nCols: number of columns from column A.
+'   nCols: number of columns from the first table column.
 '
 ' STATE OWNERSHIP
 '   Changes the cleared cells only. Number formats are left in place.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1198,7 +1417,7 @@ Public Sub ClearOutputBlock( _
         If lastR < firstRow Then
             Exit Sub
         End If
-        With ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols))
+        With TableRange(ws, firstRow, 1, lastR, nCols)
             .ClearContents
             .Font.Bold = False
             .Interior.ColorIndex = xlNone
@@ -1222,13 +1441,14 @@ Public Sub WriteBlock( _
 '
 ' INPUTS
 '   ws: the output worksheet.
-'   firstRow: row receiving arr(1, *); the block starts in column A.
+'   firstRow: row receiving arr(1, *); the block starts in the first table
+'   column.
 '   arr: 1-based 2-D array; it may have more rows than nRows.
 '   nRows: number of rows to write; nothing is written when it is 0.
 '   nCols: number of columns to write.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1239,7 +1459,7 @@ Public Sub WriteBlock( _
         If nRows <= 0 Then
             Exit Sub
         End If
-        ws.Range(ws.Cells(firstRow, 1), ws.Cells(firstRow + nRows - 1, nCols)).Value = arr
+        TableRange(ws, firstRow, 1, firstRow + nRows - 1, nCols).Value = arr
 
 End Sub
 
@@ -1260,11 +1480,12 @@ Public Sub FormatColumns( _
 '   ws: the output worksheet.
 '   firstRow: first row of the block.
 '   nRows: number of rows; nothing is formatted when it is 0.
-'   formats: one number format per column from column A, separated by "|".
+'   formats: one number format per table column from the first, separated
+'            by "|".
 '            An empty entry leaves that column unchanged.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1283,7 +1504,7 @@ Public Sub FormatColumns( _
         parts = Split(formats, "|")
         For c = 0 To UBound(parts)
             If Len(parts(c)) > 0 Then
-                ws.Range(ws.Cells(firstRow, c + 1), ws.Cells(firstRow + nRows - 1, c + 1)).NumberFormat = parts(c)
+                TableRange(ws, firstRow, c + 1, firstRow + nRows - 1, c + 1).NumberFormat = parts(c)
             End If
         Next c
 

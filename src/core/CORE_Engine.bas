@@ -18,9 +18,13 @@ Attribute VB_Name = "CORE_Engine"
 ' REGIME LAYER
 '   The regime is set on Params (CRR by default) and can be overridden per
 '   netting set.
-'   BCBS: the cap uses C = VM + NICA, with posted VM negative.    [CRE52.2]
-'   CRR:  the cap follows Art. 274(3), with RC per Art. 275(1) and C = NICA
-'         only, excluding VM posted or received (EBA Q&A 2023_6962).
+'   Both: the cap uses C = NICA only, the collateral of the same netting
+'         set without a margin agreement.  [CRE52.2, CRE52.10; Art. 274(3),
+'         275(1); EBA-QA-2023_6962]
+'   BCBS: VM posted under a one-way agreement is part of C of an unmargined
+'         netting set.                       [CRE52.10 footnote 2]
+'   CRR:  such a netting set is margined and is rejected as unmargined.
+'                                            [Art. 272(7a)]
 '   CRR:  the other-risks class OT, supervisory factor 8%.       [Art. 280f]
 '   CRR:  lambda for interest-rate and commodity options per Delegated
 '         Regulation (EU) 2021/931 Art. 5.
@@ -75,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -97,7 +101,7 @@ Attribute VB_Name = "CORE_Engine"
         ID                As String     'Netting-set ID, upper case
         Counterparty      As String     'Counterparty name
         Margined          As Boolean    'Subject to a margin agreement
-        Cleared           As Boolean    'Centrally cleared
+        ClearingRole      As String     'Client-clearing role: N, CM or CLIENT
         RemarginBD        As Double     'Remargining frequency, business days, at least 1
         LargeOrIlliquid   As Boolean    'Over 5,000 trades or illiquid collateral
         Disputes          As Boolean    'Margin disputes; doubles the MPOR
@@ -677,7 +681,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -686,9 +690,12 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
     Dim ws         As Worksheet    'Params sheet
     Dim ok         As Boolean      'No problem found so far
-    Dim r0         As Long         'Header row of a Params table
+    Dim layoutOk   As Boolean      'Params names and headers are valid
+    Dim codeCol    As Long         'Table column of the parameter codes
+    Dim valueCol   As Long         'Table column of the parameter values
     Dim lastR      As Long         'Last used row of Params
-    Dim grid       As Variant      'Params columns A to C, rows 1 to lastR
+    Dim grid       As Variant      'Parameter codes, rows 1 to lastR
+    Dim values     As Variant      'Parameter values, rows 1 to lastR
     Dim codes      As Variant      'Every parameter code
     Dim i          As Long         'Index into codes
     Dim r          As Long         'Params row being compared
@@ -708,44 +715,46 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' COLUMN HEADERS
 '------------------------------------------------------------------------------
-    'A missing factor or FX table header is reported by its loader.
+    'The input sheets are located through workbook names: a missing or
+    'broken name stops the run, and the headers are checked where the names
+    'point.
         Set ws = GetSheet(SH_PARAMS)
-        ok = HeadersMatch(GetSheet(SH_NS), HEADER_ROW, NS_HEADERS) And ok
-        ok = HeadersMatch(GetSheet(SH_TRADES), HEADER_ROW, TR_HEADERS) And ok
-        ok = HeadersMatch(ws, HEADER_ROW, PRM_HEADERS) And ok
-        r0 = FindHeaderRow(ws, 1, HDR_SF)
-        If r0 > 0 Then
-            ok = HeadersMatch(ws, r0, SF_HEADERS) And ok
-        End If
-        r0 = FindHeaderRow(ws, 1, HDR_FX)
-        If r0 > 0 Then
-            ok = HeadersMatch(ws, r0, FX_HEADERS) And ok
+        ok = InputHeadersMatch(SH_NS, NM_NS_HEADER, NS_HEADERS) And ok
+        ok = InputHeadersMatch(SH_TRADES, NM_TR_HEADER, TR_HEADERS) And ok
+        layoutOk = ParamsLayoutValid(ws)
+        ok = layoutOk And ok
+        If Not layoutOk Then
+            Exit Function
         End If
 
 '------------------------------------------------------------------------------
 ' PARAMETERS
 '------------------------------------------------------------------------------
-    'A parameter listed twice with the same value is harmless and warned
-    'about; with different values it is ambiguous. A workbook name equal to
-    'the code takes precedence over the Params row (CORE_Util.GetParam); a
-    'broken one would silently fall back to the row.
+    'Every parameter is read through the workbook name equal to its code
+    '(CORE_Util.GetParam), so a missing or broken name stops the run. A
+    'code listed twice on Params with the same value is harmless and warned
+    'about; with different values it is ambiguous.
         codes = ParameterCodes()
+        codeCol = ParamsCodeCol()
+        valueCol = ParamsValueCol()
         lastR = UsedLastRow(ws)
         If lastR >= 1 Then
-            grid = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, PRM_VALUE_COL)).Value
+            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value
+            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value
         End If
         For i = LBound(codes) To UBound(codes)
-            If BrokenName(codes(i)) Then
+            If NamedCell(CStr(codes(i))) Is Nothing Then
                 ok = False
                 LogMsg SEV_ERROR, SH_PARAMS, codes(i), "Workbook name '" & codes(i) & _
-                       "' no longer refers to a cell (#REF!)."
+                       "' is missing or no longer refers to a cell (#REF!); every parameter is read " & _
+                       "through its name."
             End If
             firstRow = 0
             For r = 1 To lastR
-                If StrComp(SafeStr(grid(r, PRM_CODE_COL)), codes(i), vbTextCompare) = 0 Then
+                If StrComp(SafeStr(grid(r, 1)), codes(i), vbTextCompare) = 0 Then
                     If firstRow = 0 Then
                         firstRow = r
-                    ElseIf SameValue(grid(firstRow, PRM_VALUE_COL), grid(r, PRM_VALUE_COL)) Then
+                    ElseIf SameValue(values(firstRow, 1), values(r, 1)) Then
                         LogMsg SEV_WARN, SH_PARAMS, codes(i), "Parameter listed twice with the same value (rows " & _
                                firstRow & " and " & r & ").", r
                     Else
@@ -827,36 +836,154 @@ Private Function SheetPresent( _
 End Function
 
 
-Private Function HeadersMatch( _
-    ByVal ws As Worksheet, _
-    ByVal rowNum As Long, _
-    ByVal expectedHeaders As String) _
+Private Function ParamsLayoutValid( _
+    ByVal ws As Worksheet) _
     As Boolean
 '
 '==============================================================================
-'                                 HeadersMatch
+'                              ParamsLayoutValid
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Compare a header row with the expected headers, ignoring case and
-'   surrounding spaces, and log an error for each header that differs.
-'
-' INPUTS
-'   ws, rowNum: the sheet and its header row.
-'   expectedHeaders: one of the _HEADERS constants in CORE_Config, starting in
-'   column A; an empty entry is not checked.
+'   Check the workbook names that locate the Params layout: each must exist
+'   and point to Params, the "Code" and "Value" headers must be on one row,
+'   and the headers found there and at the factor and FX tables must be the
+'   expected ones. An error is logged for each problem.
 '
 ' RETURNS
-'   True when every checked header matches.
+'   True when Params can be read through its names.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headers   As Variant    'Expected headers, from index 0 for column A
+    Dim layoutNames   As Variant    'The layout names
+    Dim i             As Long       'Index into layoutNames
+    Dim c             As Range      'Top-left cell of a name
+    Dim ok            As Boolean    'No problem found so far
+
+'------------------------------------------------------------------------------
+' NAMES
+'------------------------------------------------------------------------------
+        ok = True
+        layoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(layoutNames) To UBound(layoutNames)
+            Set c = NamedCell(CStr(layoutNames(i)))
+            If c Is Nothing Then
+                ok = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+                       "' is missing or no longer refers to a cell - rebuild the workbook from the template."
+            ElseIf c.Worksheet.Name <> ws.Name Then
+                ok = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+                       "' must refer to a cell on " & SH_PARAMS & "."
+            End If
+        Next i
+        If Not ok Then
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' HEADERS
+'------------------------------------------------------------------------------
+        If NamedRow(NM_PRM_CODE) <> NamedRow(NM_PRM_VALUE) Then
+            ok = False
+            LogMsg SEV_ERROR, SH_PARAMS, NM_PRM_VALUE, "Workbook names '" & NM_PRM_CODE & "' and '" & _
+                   NM_PRM_VALUE & "' must be on the same row."
+        End If
+        ok = HeadersMatch(ws, NamedRow(NM_PRM_CODE), PRM_CODE_HEADER, ParamsCodeCol()) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_PRM_VALUE), PRM_VALUE_HEADER, ParamsValueCol()) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And ok
+        ok = HeadersMatch(ws, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And ok
+        ParamsLayoutValid = ok
+
+End Function
+
+
+Private Function InputHeadersMatch( _
+    ByVal sheetName As String, _
+    ByVal headerName As String, _
+    ByVal expectedHeaders As String) _
+    As Boolean
+'
+'==============================================================================
+'                              InputHeadersMatch
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Locate an input sheet's header row through the workbook name of its
+'   first header cell and compare the headers there (HeadersMatch).
+'
+' INPUTS
+'   sheetName: SH_NS or SH_TRADES.
+'   headerName: NM_NS_HEADER or NM_TR_HEADER.
+'   expectedHeaders: NS_HEADERS or TR_HEADERS.
+'
+' RETURNS
+'   True when the name locates the header row and every header matches;
+'   False, with an error logged, otherwise.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'Header row; 0 when the name cannot locate it
+
+'------------------------------------------------------------------------------
+' LOCATE AND COMPARE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r = 0 Then
+            LogMsg SEV_ERROR, sheetName, headerName, "Workbook name '" & headerName & _
+                   "' is missing or no longer refers to the first header cell, in column C, of " & _
+                   sheetName & " - rebuild the workbook from the template."
+            Exit Function
+        End If
+        InputHeadersMatch = HeadersMatch(GetSheet(sheetName), r, expectedHeaders)
+
+End Function
+
+
+Private Function HeadersMatch( _
+    ByVal ws As Worksheet, _
+    ByVal rowNum As Long, _
+    ByVal expectedHeaders As String, _
+    Optional ByVal firstCol As Long = 1) _
+    As Boolean
+'
+'==============================================================================
+'                                 HeadersMatch
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compare a header row with the expected headers, ignoring case, spaces
+'   and line breaks, so that a header reworded only in its spacing or
+'   wrapped onto two lines still matches, and log an error for each header
+'   that differs.
+'
+' INPUTS
+'   ws, rowNum: the sheet and its header row.
+'   expectedHeaders: one of the _HEADERS constants in CORE_Config; an empty
+'   entry is not checked.
+'   firstCol: the table column of the first header, 1 by default.
+'
+' RETURNS
+'   True when every checked header matches.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim headers   As Variant    'Expected headers, from index 0 for table column 1
     Dim c         As Long       'Index into headers
     Dim found     As Variant    'Header cell value
 
@@ -867,15 +994,39 @@ Private Function HeadersMatch( _
         headers = Split(expectedHeaders, "|")
         For c = 0 To UBound(headers)
             If Len(headers(c)) > 0 Then
-                found = ws.Cells(rowNum, c + 1).Value
-                If StrComp(SafeStr(found), headers(c), vbTextCompare) <> 0 Then
+                found = TableCell(ws, rowNum, firstCol + c).Value
+                If StrComp(HeaderKey(SafeStr(found)), HeaderKey(CStr(headers(c))), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg SEV_ERROR, ws.Name, ws.Cells(rowNum, c + 1).Address(False, False), _
+                    LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, firstCol + c).Address(False, False), _
                            "Header must be '" & headers(c) & "' (found " & DescribeValue(found) & _
                            ") - a column was inserted, deleted or moved, or the header renamed.", rowNum
                 End If
             End If
         Next c
+
+End Function
+
+
+Private Function HeaderKey( _
+    ByVal headerText As String) _
+    As String
+'
+'==============================================================================
+'                                  HeaderKey
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Strip spaces, non-breaking spaces, tabs and line breaks from a header,
+'   for HeadersMatch.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        headerText = Replace(headerText, " ", "")
+        headerText = Replace(headerText, Chr$(160), "")
+        headerText = Replace(headerText, vbTab, "")
+        headerText = Replace(headerText, vbCr, "")
+        HeaderKey = Replace(headerText, vbLf, "")
 
 End Function
 
@@ -1092,7 +1243,7 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1102,6 +1253,7 @@ Private Function LoadSFTable() As Boolean
     Dim ws       As Worksheet      'Params sheet
     Dim r        As Long           'Row being read
     Dim r0       As Long           'Header row of the table
+    Dim c0       As Long           'Table column of the keys
     Dim k        As String         'Key of the row, upper case
     Dim bad      As Boolean        'Some row is unusable or conflicts
     Dim rowBad   As Boolean        'This row has a value that is not a number
@@ -1114,9 +1266,11 @@ Private Function LoadSFTable() As Boolean
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r0 = FindHeaderRow(ws, 1, HDR_SF)
+        r0 = NamedRow(NM_SF_TABLE)
+        c0 = NamedTableCol(NM_SF_TABLE)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (header '" & HDR_SF & "' in column A)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (workbook name '" & _
+                   NM_SF_TABLE & "')."
             Exit Function
         End If
 
@@ -1126,16 +1280,16 @@ Private Function LoadSFTable() As Boolean
     'Columns: 1 key, 2 asset class, 3 category, 4 factor, 5 correlation,
     '6 option volatility, 7 commodity hedging set, 8 regimes.
         r = r0 + 1
-        Do While Not IsBlankCell(ws.Cells(r, 1).Value)
-            k = UTxt(ws.Cells(r, 1).Value)
+        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
+            k = UTxt(TableCell(ws, r, c0).Value)
             entry.Key = k
-            entry.AssetClass = UTxt(ws.Cells(r, 2).Value)
-            entry.Category = UTxt(ws.Cells(r, 3).Value)
-            rowBad = Not TryDbl(ws.Cells(r, 4).Value, 0#, entry.SF)
-            rowBad = Not TryDbl(ws.Cells(r, 5).Value, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(ws.Cells(r, 6).Value, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(ws.Cells(r, 7).Value)
-            entry.Regimes = UTxt(ws.Cells(r, 8).Value)
+            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value)
+            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value, 0#, entry.SF)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value, 0#, entry.Corr) Or rowBad
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value, 0#, entry.Vol) Or rowBad
+            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value)
+            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value)
             If entry.Regimes = "BOTH" Then
                 entry.Regimes = ""
             End If
@@ -1174,11 +1328,11 @@ Private Function LoadSFTable() As Boolean
     'factor would be dropped silently, so it is an error. The search stops
     'at the FX table when that follows.
         lastR = UsedLastRow(ws)
-        fxRow = FindHeaderRow(ws, 1, HDR_FX)
+        fxRow = NamedRow(NM_FX_TABLE)
         If fxRow > r Then
             lastR = fxRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, 4, "Supervisory factor") Then
+        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 3, "Supervisory factor") Then
             bad = True
         End If
 
@@ -1244,7 +1398,7 @@ Private Function LoadFXTable() As Boolean
 '   its rate is not 1.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1254,6 +1408,7 @@ Private Function LoadFXTable() As Boolean
     Dim ws     As Worksheet    'Params sheet
     Dim r      As Long         'Row being read
     Dim r0     As Long         'Header row of the table
+    Dim c0     As Long         'Table column of the currencies
     Dim k      As String       'Currency code, upper case
     Dim rate   As Double       'Rate of the row; -1 when missing
     Dim idx    As Long         'Position of an earlier row with the currency; 0 if none
@@ -1265,9 +1420,10 @@ Private Function LoadFXTable() As Boolean
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r0 = FindHeaderRow(ws, 1, HDR_FX)
+        r0 = NamedRow(NM_FX_TABLE)
+        c0 = NamedTableCol(NM_FX_TABLE)
         If r0 = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (header '" & HDR_FX & "' in column A)."
+            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (workbook name '" & NM_FX_TABLE & "')."
             Exit Function
         End If
 
@@ -1277,9 +1433,9 @@ Private Function LoadFXTable() As Boolean
     'A currency seen before: the same rate is harmless, a different rate is
     'ambiguous and stops the run.
         r = r0 + 1
-        Do While Not IsBlankCell(ws.Cells(r, 1).Value)
-            k = UTxt(ws.Cells(r, 1).Value)
-            rate = ToDbl(ws.Cells(r, 3).Value, -1#)
+        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
+            k = UTxt(TableCell(ws, r, c0).Value)
+            rate = ToDbl(TableCell(ws, r, c0 + 2).Value, -1#)
             idx = KeyIndex(mFXIndex, k)
             If rate <= 0# Then
                 LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
@@ -1306,11 +1462,11 @@ Private Function LoadFXTable() As Boolean
     'dropped silently. The search stops at the factor table when that
     'follows.
         lastR = UsedLastRow(ws)
-        sfRow = FindHeaderRow(ws, 1, HDR_SF)
+        sfRow = NamedRow(NM_SF_TABLE)
         If sfRow > r Then
             lastR = sfRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, 3, "FX") Then
+        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 2, "FX") Then
             bad = True
         End If
         If bad Then
@@ -1339,6 +1495,7 @@ Private Function ValuesAfterEnd( _
     ByVal ws As Worksheet, _
     ByVal endRow As Long, _
     ByVal lastR As Long, _
+    ByVal keyCol As Long, _
     ByVal valueCol As Long, _
     ByVal tableName As String) _
     As Boolean
@@ -1355,15 +1512,18 @@ Private Function ValuesAfterEnd( _
 '   ws: Params sheet.
 '   endRow: the row with the blank key that ended the table.
 '   lastR: last row to search.
-'   valueCol: the column that always holds a number in a table row:
-'   4 (factor) or 3 (rate).
+'   keyCol: the table column of the table's keys.
+'   valueCol: the table column that always holds a number in a table row:
+'   the factor or the rate.
+'   A row whose Params code cell holds a parameter code is a parameter row,
+'   not a table row, and is skipped.
 '   tableName: for the messages.
 '
 ' RETURNS
 '   True when such a row was found.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1371,14 +1531,16 @@ Private Function ValuesAfterEnd( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim r     As Long      'Row being checked
-    Dim k     As String    'Key in column A, upper case
+    Dim k     As String    'Key in the key column, upper case
+    Dim pc    As Long      'Table column of the parameter codes
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
+        pc = ParamsCodeCol()
         For r = endRow To lastR
-            k = UTxt(ws.Cells(r, 1).Value)
-            If IsNum(ws.Cells(r, valueCol).Value) And Not (valueCol = PRM_VALUE_COL And IsParameterCode(k)) Then
+            k = UTxt(TableCell(ws, r, keyCol).Value)
+            If IsNum(TableCell(ws, r, valueCol).Value) And Not IsParameterCode(UTxt(TableCell(ws, r, pc).Value)) Then
                 ValuesAfterEnd = True
                 If Len(k) = 0 Then
                     LogMsg SEV_ERROR, SH_PARAMS, "", tableName & " row has a value but no key - not read.", r
@@ -1453,11 +1615,14 @@ Private Function LoadNettingSets() As Boolean
 '   arrays. A duplicate ID is an error and the later row is ignored.
 '
 ' REFERENCE
-'   MPOR floors CRE52.50 to CRE52.52; the cleared floor follows CRE54 and is
-'   configurable on Params.
+'   MPOR floors CRE52.50 to CRE52.52 and CRR Art. 285(2) to (5); the
+'   client-clearing floor CRE54.12 and CRR Art. 279c(1), configurable on
+'   Params. VM on an unmargined set CRE52.2, CRE52.10 and CRR Art. 272(7),
+'   (7a). Margin-agreement structures CRE52.74, CRE52.75 and CRR Art.
+'   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1466,6 +1631,7 @@ Private Function LoadNettingSets() As Boolean
 '------------------------------------------------------------------------------
     Dim ws        As Worksheet    'NettingSets sheet
     Dim lastR     As Long         'Last row with a netting-set ID
+    Dim topRow    As Long         'First data row, below the headers
     Dim n         As Long         'Number of rows to read
     Dim i         As Long         'Row within data
     Dim rowNum    As Long         'Sheet row of data row i
@@ -1481,13 +1647,14 @@ Private Function LoadNettingSets() As Boolean
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_NS)
-        lastR = LastDataRowAny(ws, FIRST_DATA_ROW, NS_NCOLS, 0)
-        If lastR < FIRST_DATA_ROW Then
+        topRow = TableFirstRow(SH_NS)
+        lastR = LastDataRowAny(ws, topRow, NS_NCOLS, 0)
+        If lastR < topRow Then
             LogMsg SEV_ERROR, SH_NS, "", "No netting sets defined."
             Exit Function
         End If
-        n = lastR - FIRST_DATA_ROW + 1
-        data = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, NS_NCOLS)).Value
+        n = lastR - topRow + 1
+        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -1497,7 +1664,7 @@ Private Function LoadNettingSets() As Boolean
     'makes the first set with that ID INVALID: which row's terms apply to
     'its trades is ambiguous, so its EAD is withheld.
         For i = 1 To n
-            rowNum = FIRST_DATA_ROW + i - 1
+            rowNum = topRow + i - 1
             id = UTxt(data(i, NS_ID))
             If Len(id) = 0 Then
                 If RowHasData(data, i, NS_NCOLS, 0) Then
@@ -1526,7 +1693,8 @@ Private Function LoadNettingSets() As Boolean
                 .ID = id
                 .Counterparty = SafeStr(data(i, NS_CPTY))
                 .Margined = NsFlag(data(i, NS_MARGINED), False, "Margined", id, rowNum, nsErrors)
-                .Cleared = NsFlag(data(i, NS_CLEARED), False, "Centrally cleared", id, rowNum, nsErrors)
+                .ClearingRole = NsCode(data(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
+                                       "Client clearing role", id, rowNum, nsErrors)
                 .RemarginBD = NsNumber(data(i, NS_FREQ), 1#, "Remargin frequency", id, rowNum, nsErrors)
                 If .RemarginBD < 1# Then
                     .RemarginBD = 1#
@@ -1555,10 +1723,42 @@ Private Function LoadNettingSets() As Boolean
                 End If
                 .Regime = rg
                 .IsCRR = (rg = RG_CRR)
-                If Not .Margined And Abs(.VM) > 0# Then
-                    LogMsg SEV_WARN, SH_NS, id, "VM entered on an unmargined netting set - treated as collateral C. " & _
-                           "Under CRR collateral of an unmargined set belongs in NICA.", rowNum
+
+    'VM on an unmargined netting set. VM received means the counterparty
+    'posts VM, so the set is margined [CRE52.2; CRR Art. 272(7)]. VM
+    'posted is the one-way agreement in favour of the counterparty: under
+    'BCBS the set is unmargined and C includes that VM with a negative sign
+    '[CRE52.2, CRE52.10 footnote 2]; under CRR a one-way agreement is a
+    'margin agreement [Art. 272(7a), 275(2)], so the set must be margined.
+                If Not .Margined And .VM > 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "VM received on an unmargined netting set: a counterparty " & _
+                           "that posts VM makes the netting set margined - set Margined = Y.", rowNum
+                ElseIf Not .Margined And .VM < 0# Then
+                    If .IsCRR Then
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "VM posted on an unmargined CRR netting set: under CRR " & _
+                               "a one-way margin agreement is a margin agreement (Art. 272(7a)) - set Margined = Y.", rowNum
+                    Else
+                        LogMsg SEV_INFO, SH_NS, id, "VM posted under a one-way margin agreement: unmargined " & _
+                               "netting set, posted VM included in C with a negative sign (CRE52.10).", rowNum
+                    End If
                 End If
+
+    'Margin-agreement structures the engine does not model are declared, so
+    'that the netting set is rejected rather than calculated as one with a
+    'single agreement of its own.
+                Select Case NsCode(data(i, NS_STRUCT), "", MS_MIXED & "|" & MS_SHARED, _
+                                   "Margin agreements", id, rowNum, nsErrors)
+                    Case MS_MIXED
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "Several margin agreements, or margined and unmargined " & _
+                               "trades, in one netting set are not supported (CRE52.74; CRR Art. 274(4)).", rowNum
+                    Case MS_SHARED
+                        nsErrors = nsErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, id, "One margin agreement over several netting sets is not " & _
+                               "supported (CRE52.75; CRR Art. 275(3), 278(2)).", rowNum
+                End Select
                 .V = 0#
                 .Trades = 0
                 .Rejected = 0
@@ -1567,17 +1767,30 @@ Private Function LoadNettingSets() As Boolean
                 .MPOR = 0#
                 .MFMargined = 0#
 
-    'Effective MPOR of a margined netting set: the floor (cleared or
-    'bilateral, raised for large or illiquid sets) plus the remargining
+    'Effective MPOR of a margined netting set: the floor (client clearing
+    'or bilateral, raised for large or illiquid sets) plus the remargining
     'period minus one day, doubled for disputes. The override, read and
     'validated above for every set, is accepted only if it is not below
-    'that.
+    'that. The client-clearing floor applies to the clearing member facing
+    'its client [CRE54.12; CRR Art. 279c(1)], and under CRR also to the
+    'client facing its clearing member; under BCBS the client keeps the
+    'bilateral floor [CRE54.8, CRE54.14].
                 If .Margined Then
-                    If .Cleared Then
-                        floorBD = pMPORClr
-                    Else
-                        floorBD = pMPORBil
-                    End If
+                    Select Case .ClearingRole
+                        Case CL_CM
+                            floorBD = pMPORClr
+                        Case CL_CLIENT
+                            If .IsCRR Then
+                                floorBD = pMPORClr
+                            Else
+                                floorBD = pMPORBil
+                                LogMsg SEV_INFO, SH_NS, id, "Client facing its clearing member under BCBS: " & _
+                                       "bilateral MPOR floor; the client-clearing floor is for the clearing " & _
+                                       "member (CRE54.12).", rowNum
+                            End If
+                        Case Else
+                            floorBD = pMPORBil
+                    End Select
                     If .LargeOrIlliquid Then
                         floorBD = Max2(floorBD, pMPORLarge)
                     End If
@@ -1657,6 +1870,58 @@ Private Function NsFlag( _
             LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be Y or N (found " & DescribeValue(v) & ").", rowNum
         End If
         NsFlag = result
+
+End Function
+
+
+Private Function NsCode( _
+    ByVal v As Variant, _
+    ByVal dflt As String, _
+    ByVal allowed As String, _
+    ByVal fieldName As String, _
+    ByVal nsId As String, _
+    ByVal rowNum As Long, _
+    ByRef nsErrors As Long) _
+    As String
+'
+'==============================================================================
+'                                    NsCode
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a coded field of a netting set strictly: blank takes the default;
+'   a value that is not one of the allowed codes, or an Excel error value,
+'   is logged and counted as an input error (#35).
+'
+' INPUTS
+'   allowed: the accepted codes, upper case, separated by "|".
+'
+' RETURNS
+'   The code in upper case, or the default.
+'
+' UPDATED
+'   2026-10-10
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim code   As String    'Value read, upper case
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        code = UTxt(v)
+        If IsError(v) Or (Len(code) > 0 And InStr(1, "|" & allowed & "|", "|" & code & "|") = 0) Then
+            nsErrors = nsErrors + 1
+            LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be " & Replace(allowed, "|", ", ") & _
+                   " or blank (found " & DescribeValue(v) & ").", rowNum
+            NsCode = dflt
+        ElseIf Len(code) = 0 Then
+            NsCode = dflt
+        Else
+            NsCode = code
+        End If
 
 End Function
 
@@ -1849,7 +2114,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1860,6 +2125,7 @@ Private Sub ProcessTrades( _
     Dim ws            As Worksheet    'Trades sheet
     Dim wsOut         As Worksheet    'TradeCalc sheet
     Dim lastR         As Long         'Last row with a trade ID
+    Dim topRow        As Long         'First data row, below the headers
     Dim n             As Long         'Number of rows to read
     Dim i             As Long         'Row within data
     Dim rowNum        As Long         'Sheet row of data row i
@@ -1946,16 +2212,17 @@ Private Sub ProcessTrades( _
     'With no trades there is nothing to calculate; the old TradeCalc rows
     'are cleared so they cannot be mistaken for results.
         Set ws = GetSheet(SH_TRADES)
-        lastR = LastDataRowAny(ws, FIRST_DATA_ROW, TR_NCOLS, TR_COMMENT)
-        If lastR < FIRST_DATA_ROW Then
+        topRow = TableFirstRow(SH_TRADES)
+        lastR = LastDataRowAny(ws, topRow, TR_NCOLS, TR_COMMENT)
+        If lastR < topRow Then
             LogMsg SEV_ERROR, SH_TRADES, "", "No trades found."
             If writeOutputs Then
                 ClearOutputBlock GetSheet(SH_TRADECALC), FIRST_DATA_ROW, TC_NCOLS
             End If
             Exit Sub
         End If
-        n = lastR - FIRST_DATA_ROW + 1
-        data = ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, TR_NCOLS)).Value
+        n = lastR - topRow + 1
+        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value
         ReDim outArr(1 To n, 1 To TC_NCOLS)
         nOut = 0
 
@@ -1968,7 +2235,7 @@ Private Sub ProcessTrades( _
     'previous trade into the output row.
         Set seenIds = New Collection
         For i = 1 To n
-            rowNum = FIRST_DATA_ROW + i - 1
+            rowNum = topRow + i - 1
             tid = SafeStr(data(i, TR_ID))
             If Len(tid) = 0 Then
                 If RowHasData(data, i, TR_NCOLS, TR_COMMENT) Then
@@ -2829,11 +3096,12 @@ Private Sub ComputeNettingSets( _
 '
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
-'   CRR Art. 275(1); multiplier CRE52.23; collateral for the CRR cap per EBA
-'   Q&A 2023_6962.
+'   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
+'   CRE52.10 and EBA-QA-2023_6962; trade-count warning CRE52.51(1) and
+'   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -2872,6 +3140,19 @@ Private Sub ComputeNettingSets( _
         ReDim outArr(1 To mNSCount + 1, 1 To RS_NCOLS)
         nOut = 0
         For k = 1 To mNSCount
+
+    'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
+    'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+    'The workbook sees only today's count, so it warns when the declared
+    'flag may be wrong instead of setting it.
+            With mNS(k)
+                If .Margined And Not .LargeOrIlliquid And .Trades + .Rejected > LARGE_NS_TRADES Then
+                    LogMsg SEV_WARN, SH_NS, .ID, "Netting set has " & (.Trades + .Rejected) & _
+                           " trades, more than " & LARGE_NS_TRADES & ": if it had more than " & _
+                           LARGE_NS_TRADES & " during the previous quarter, set the large or illiquid " & _
+                           "flag to Y (20-day MPOR floor)."
+                End If
+            End With
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
@@ -2907,10 +3188,11 @@ Private Sub ComputeNettingSets( _
                 Next a
 
     'Unmargined basis: the EAD of an unmargined netting set, or the cap of
-    'a margined one. Under CRR the cap of a margined set uses NICA only
-    '[Art. 274(3), 275(1); EBA Q&A 2023_6962]; otherwise C, in which posted
-    'VM is negative [CRE52.2].
-                If .Margined And .IsCRR Then
+    'a margined one. The cap of a margined set uses NICA only, the
+    'collateral of the same set without a margin agreement [CRE52.2,
+    'CRE52.10; CRR Art. 274(3), 275(1); EBA-QA-2023_6962]. An unmargined
+    'set uses C: NICA, plus VM posted under a one-way agreement under BCBS.
+                If .Margined Then
                     cCap = .NICA
                 Else
                     cCap = C
@@ -3007,7 +3289,7 @@ NextNS:
                 WriteBlock ws, FIRST_DATA_ROW, outArr, nOut, RS_NCOLS
                 FormatColumns ws, FIRST_DATA_ROW, nOut, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                ws.Range(ws.Cells(FIRST_DATA_ROW + nOut - 1, 1), ws.Cells(FIRST_DATA_ROW + nOut - 1, RS_NCOLS)).Font.Bold = True
+                TableRange(ws, FIRST_DATA_ROW + nOut - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
@@ -3110,8 +3392,8 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        parts(1) = BlockText(GetSheet(SH_NS), FIRST_DATA_ROW, NS_NCOLS)
-        parts(2) = BlockText(GetSheet(SH_TRADES), FIRST_DATA_ROW, TR_COMMENT - 1)
+        parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
         parts(3) = BlockText(GetSheet(SH_PARAMS), 1, PARAMS_COLS)
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
 
@@ -3133,7 +3415,7 @@ Private Function BlockText( _
 '   used range that grew without new values does not change the text.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -3151,11 +3433,14 @@ Private Function BlockText( _
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
+        If firstRow < 1 Then
+            Exit Function
+        End If
         lastR = UsedLastRow(ws)
         If lastR < firstRow Then
             Exit Function
         End If
-        data = ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastR, nCols)).Value2
+        data = TableRange(ws, firstRow, 1, lastR, nCols).Value2
         For r = UBound(data, 1) To 1 Step -1
             If RowHasData(data, r, nCols, 0) Then
                 nRows = r
@@ -3314,14 +3599,15 @@ Private Function TryClearOutput( _
 ' PURPOSE
 '   Clear one output and capture its failure before any other operation.
 ' INPUTS
-'   sheetName, nCols: output sheet and table width, starting at column A.
+'   sheetName, nCols: output sheet and table width, from the first table
+'   column.
 ' RETURNS
 '   True only when this output was cleared. Appends any failure to
 '   failureDetails, preserving details from earlier sheets.
 ' ERROR POLICY
 '   Contains this cleanup failure; the original run error remains primary.
 ' UPDATED
-'   2026-10-08
+'   2026-10-11
 '==============================================================================
     Dim errNumber As Long         'Cleanup error, captured before formatting
     Dim errSource As String       'Cleanup error source
@@ -3521,7 +3807,7 @@ Private Function WriteChecks( _
 '   Contains any error and reports it through the result, never silently.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -3558,7 +3844,7 @@ Private Function WriteChecks( _
         WriteBlock ws, FIRST_DATA_ROW, arr, mLogCount, CK_NCOLS
         For i = 1 To mLogCount
             If arr(i, 1) = SEV_ERROR Then
-                ws.Cells(FIRST_DATA_ROW + i - 1, 1).Font.Bold = True
+                TableCell(ws, FIRST_DATA_ROW + i - 1, 1).Font.Bold = True
             End If
         Next i
         WriteChecks = True
@@ -3583,7 +3869,8 @@ Private Sub WriteRunInfo( _
 '                                 WriteRunInfo
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a one-line run summary to cell A2 of the Results sheet.
+'   Write a one-line run summary to cell C4 (RUNINFO_CELL) of the Results
+'   sheet.
 '
 ' INPUTS
 '   secs: run duration in seconds.
@@ -3597,7 +3884,7 @@ Private Sub WriteRunInfo( _
 '   Best effort: errors are ignored, because the summary is informative only.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 

@@ -8,7 +8,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   trade rows with data but no ID, duplicate trade and netting-set IDs, a
 '   missing MtM, an unreadable date, netting-set fields that cannot be
 '   read, an Excel error value (#N/A) in a trade, netting set or parameter,
-'   a moved or renamed column, a broken parameter name, a parameter,
+'   a moved or renamed column, a broken parameter or layout name, a parameter,
 '   supervisory factor or currency listed twice with different values, and
 '   a factor or rate the table loader would not read because of a blank
 '   row or key; and, for aggregation (#37), a credit reference given two
@@ -16,9 +16,17 @@ Attribute VB_Name = "TEST_InputValidation"
 '   a reserved character in a reference, and an interest-rate risk factor
 '   that is not a currency; and, for the CRR scope (#33), the sum of
 '   absolute IR bucket values in a CRR netting set and an IR risk factor
-'   with a suffix other than -INFL. A blank optional field, a duplicate
-'   with the same values, an inflation risk factor such as EUR-INFL and
-'   the sum of absolutes in a BCBS netting set must still be accepted.
+'   with a suffix other than -INFL; and, for the netting-set terms (#39),
+'   VM on an unmargined netting set, a clearing role or margin-agreement
+'   structure that is not a code, and the structures the engine does not
+'   model. A blank optional field, a duplicate with the same values, an
+'   inflation risk factor such as EUR-INFL, the sum of absolutes in a BCBS
+'   netting set and VM posted on an unmargined BCBS netting set must still
+'   be accepted. The same section checks the MPOR of each clearing role and
+'   regime, and with disputes or a large netting set and weekly
+'   remargining, against the rules recorded in the methodology, and the
+'   warning for a margined netting set of more than 5,000 trades whose
+'   large or illiquid flag is N.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -42,7 +50,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -58,8 +66,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 39                'Cases in a complete run
-        Private Const CHECKS      As Long = 39                'Checks in a complete run
+        Private Const CASES       As Long = 57                'Cases in a complete run
+        Private Const CHECKS      As Long = 65                'Checks in a complete run
 
 
 '
@@ -79,7 +87,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -87,6 +95,7 @@ Public Sub RunInputValidationTests()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim r   As Long    'Params row a table case patches
+    Dim i   As Long    'Trade number in the large netting set
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -161,29 +170,47 @@ Public Sub RunInputValidationTests()
 
         StartCase "params-error-value", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), PRM_VALUE_COL, CVErr(xlErrNA)
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), CVErr(xlErrNA)
         ExpectStop "Parameter must be a number"
 
     'Sheet layout: a header that differs means a column moved.
         StartCase "layout-trades-header-renamed", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_TRADES, HEADER_ROW, TR_NOTIONAL, "Nominal"
+        TEST_CaseRunner.PatchCell SH_TRADES, TableHeaderRow(SH_TRADES), TR_NOTIONAL, "Nominal"
         ExpectStop "Header must be 'Notional'"
 
         StartCase "layout-netting-sets-column-shifted", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_NS, HEADER_ROW, NS_NICA, "Threshold TH"
+        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold TH"
         ExpectStop "Header must be 'NICA'"
 
         StartCase "layout-params-value-header-renamed", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, HEADER_ROW, PRM_VALUE_COL, "Amount"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsHeaderRow(), ParamsValueCol(), "Amount"
         ExpectStop "Header must be 'Value'"
 
         StartCase "layout-broken-parameter-name", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchName PRM_ALPHA, "=#REF!"
         ExpectStop "no longer refers to a cell"
+
+    'Params is located through workbook names; a broken one stops the run.
+        StartCase "layout-params-name-broken", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchName NM_PRM_CODE, "=#REF!"
+        ExpectStop "'" & NM_PRM_CODE & "' is missing or no longer refers to a cell"
+
+    'NettingSets and Trades are located through the workbook name of their
+    'first header cell; a broken one stops the run.
+        StartCase "layout-trades-name-broken", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchName NM_TR_HEADER, "=#REF!"
+        ExpectStop "'" & NM_TR_HEADER & "' is missing or no longer refers"
+
+        StartCase "layout-netting-sets-name-broken", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchName NM_NS_HEADER, "=#REF!"
+        ExpectStop "'" & NM_NS_HEADER & "' is missing or no longer refers"
 
     'Duplicates: the same values are accepted, different values stop the run.
         StartCase "params-duplicate-different-value", "N"
@@ -193,24 +220,24 @@ Public Sub RunInputValidationTests()
 
         StartCase "params-alpha-zero", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), PRM_VALUE_COL, 0#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), 0#
         ExpectStop "Alpha must be greater than zero"
 
         StartCase "params-alpha-negative", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), PRM_VALUE_COL, -1#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), -1#
         ExpectStop "Alpha must be greater than zero"
 
         StartCase "params-duplicate-below-fx", "N"
         AddSwap "T1"
         r = UsedLastRow(GetSheet(SH_PARAMS)) + 2
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, PRM_CODE_COL, PRM_ALPHA
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, PRM_VALUE_COL, ParamsValue(PRM_ALPHA, PRM_VALUE_COL)
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsCodeCol(), PRM_ALPHA
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsValueCol(), ParamsValue(PRM_ALPHA, ParamsValueCol())
         ExpectStatus "VALID"
 
         StartCase "params-duplicate-same-value", "N"
         AddSwap "T1"
-        AddParamRow PRM_ALPHA, ParamsValue(PRM_ALPHA, PRM_VALUE_COL)
+        AddParamRow PRM_ALPHA, ParamsValue(PRM_ALPHA, ParamsValueCol())
         ExpectStatus "VALID"
 
     'CO_OTHER becomes a second CO_METALS row: it differs in category and
@@ -218,51 +245,51 @@ Public Sub RunInputValidationTests()
         StartCase "factor-table-duplicate-different-values", "N"
         AddSwap "T1"
         r = ParamsRow("CO_OTHER")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 1, "CO_METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 1), "CO_METALS"
         ExpectStop "Supervisory factor key listed twice with different values"
 
         StartCase "factor-table-duplicate-same-values", "N"
         AddSwap "T1"
         r = ParamsRow("CO_OTHER")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 1, "CO_METALS"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 3, "METALS"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 7, "METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 1), "CO_METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 3), "METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 7), "METALS"
         ExpectStatus "VALID"
 
     'CHF becomes a second USD row, at CHF's rate or at USD's.
         StartCase "fx-table-duplicate-different-rates", "N"
         AddSwap "T1"
         r = ParamsRow("CHF")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 1, "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 1), "USD"
         ExpectStop "Currency listed twice with different rates"
 
         StartCase "fx-table-duplicate-same-rate", "N"
         AddSwap "T1"
         r = ParamsRow("CHF")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 1, "USD"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, 3, ParamsValue("USD", 3)
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 1), "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 3), ParamsValue("USD", TableCol(NM_FX_TABLE, 3))
         ExpectStatus "VALID"
 
     'Gaps: a table ends at its first blank key, so a row below a blank row,
     'or a value without a key, would not be read.
         StartCase "factor-table-blank-row-inside", "N"
         AddSwap "T1"
-        ClearParamsRow ParamsRow("CO_OTHER"), 8
+        ClearParamsRow ParamsRow("CO_OTHER"), TableCol(NM_SF_TABLE, 1), 8
         ExpectStop "below a blank row"
 
         StartCase "factor-table-value-without-key", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("OT"), 1, Empty
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("OT"), TableCol(NM_SF_TABLE, 1), Empty
         ExpectStop "has a value but no key"
 
         StartCase "fx-table-blank-row-inside", "N"
         AddSwap "T1"
-        ClearParamsRow ParamsRow("JPY"), 3
+        ClearParamsRow ParamsRow("JPY"), TableCol(NM_FX_TABLE, 1), 3
         ExpectStop "below a blank row"
 
         StartCase "fx-table-rate-without-currency", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("CHF"), 1, Empty
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("CHF"), TableCol(NM_FX_TABLE, 1), Empty
         ExpectStop "has a value but no key"
 
     'Aggregation (#37): one reference, one sub-class, whatever the order.
@@ -295,13 +322,13 @@ Public Sub RunInputValidationTests()
     'sum of absolute bucket values [CRE52.57(5)].
         StartCase "params-ir-sum-of-absolutes-crr", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), PRM_VALUE_COL, False
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), ParamsValueCol(), False
         ExpectStatus "INVALID: 1 input error(s)"
 
         StartCase "params-ir-sum-of-absolutes-bcbs", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), PRM_VALUE_COL, False
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_IRFULL), ParamsValueCol(), False
         ExpectStatus "VALID"
 
     'Inflation is interest rate, entered as a currency code with -INFL
@@ -315,6 +342,91 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.AddTrade "T1", "IR", "", "EUR-CPI", "Linear", "Long", "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+    'Collateral (#39). VM received means the counterparty posts VM, so the
+    'set is margined [CRE52.2; CRR Art. 272(7)]. VM posted on an
+    'unmargined set is a one-way agreement: BCBS includes it in C with a
+    'negative sign [CRE52.10 footnote 2], so RC = 30 - (-1000); under CRR
+    'the set is margined [Art. 272(7a)].
+        StartCase "netting-set-unmargined-vm-received", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_VM, 1000#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-unmargined-vm-received-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_VM, 1000#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-unmargined-vm-posted-crr", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_VM, -1000#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-unmargined-vm-posted-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_VM, -1000#
+        AddSwap "T1"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "rc", "", "replacement_cost", "1030", "0.000001", "0", "illustrative"
+
+    'Client clearing role (#39): the 5-day floor for the clearing member in
+    'both regimes [CRE54.12; CRR Art. 279c(1)], for the client only under
+    'CRR; the BCBS client keeps the 10-day floor [CRE54.8, CRE54.14].
+        StartCase "netting-set-clearing-role-not-a-code", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, "Y"
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
+        ExpectMPOR 5
+
+        StartMarginedCase "netting-set-clearing-member-bcbs", "BCBS", "CM", "1", "N", "N"
+        ExpectMPOR 5
+
+        StartMarginedCase "netting-set-clearing-client-crr", "CRR", "CLIENT", "1", "N", "N"
+        ExpectMPOR 5
+
+        StartMarginedCase "netting-set-clearing-client-bcbs", "BCBS", "CLIENT", "1", "N", "N"
+        ExpectMPOR 10
+
+    'MPOR rules recorded in #39: disputes double F + N - 1, which is the
+    'BCBS rule [CRE52.50-.51] and above the CRR minimum [Art. 285(4)-(5)];
+    'a large or illiquid set takes 20 + N - 1 [Art. 285(3), (5)], also
+    'under BCBS [CRE52.51].
+        StartMarginedCase "netting-set-mpor-disputes-weekly", "CRR", "N", "5", "N", "Y"
+        ExpectMPOR 28
+
+        StartMarginedCase "netting-set-mpor-large-weekly-bcbs", "BCBS", "N", "5", "Y", "N"
+        ExpectMPOR 24
+
+    'A margined netting set over 5,000 trades whose large or illiquid flag
+    'is N stays VALID with a warning: the 20-day floor depends on the count
+    'in the previous quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+        StartMarginedCase "netting-set-over-5000-trades", "CRR", "N", "1", "N", "N"
+        For i = 2 To LARGE_NS_TRADES + 1
+            AddSwap "T" & i
+        Next i
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "more than " & LARGE_NS_TRADES, "illustrative"
+
+    'Margin-agreement structures the engine does not model (#39) are
+    'declared and rejected [CRE52.74, CRE52.75; CRR Art. 274(4), 275(3)].
+        StartCase "netting-set-margin-agreements-mixed", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_STRUCT, "MIXED"
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-margin-agreements-shared", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_STRUCT, "SHARED"
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-margin-agreements-not-a-code", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_STRUCT, "TWO"
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub
@@ -351,6 +463,54 @@ Private Sub StartCase( _
         TEST_CaseRunner.BeginCase "input-" & caseId, "CRR", VALUATION, "EUR"
         TEST_CaseRunner.AddNettingSet "NS1", flagValue, flagValue, "", flagValue, flagValue, "", _
                                  "0", "0", "0", "0", ""
+
+End Sub
+
+
+Private Sub StartMarginedCase( _
+    ByVal caseId As String, _
+    ByVal regimeCode As String, _
+    ByVal roleCode As String, _
+    ByVal remarginDays As String, _
+    ByVal largeFlag As String, _
+    ByVal disputesFlag As String)
+'
+'==============================================================================
+'                              StartMarginedCase
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Start a case with one margined netting set NS1, without collateral,
+'   threshold or MTA, in the given regime, and add a swap.
+'
+' UPDATED
+'   2026-10-10
+'==============================================================================
+'
+        TEST_CaseRunner.BeginCase "input-" & caseId, regimeCode, VALUATION, "EUR"
+        TEST_CaseRunner.AddNettingSet "NS1", "Y", roleCode, remarginDays, largeFlag, disputesFlag, "", _
+                                 "0", "0", "0", "0", ""
+        AddSwap "T1"
+
+End Sub
+
+
+Private Sub ExpectMPOR( _
+    ByVal expectedDays As Long)
+'
+'==============================================================================
+'                                  ExpectMPOR
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run the case and check that the netting set is VALID with the expected
+'   MPOR in business days.
+'
+' UPDATED
+'   2026-10-10
+'==============================================================================
+'
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "mpor", "", "margin_period_of_risk", CStr(expectedDays), "0", "0", _
+                                     "illustrative"
 
 End Sub
 
@@ -401,29 +561,38 @@ Private Function ParamsRow( _
 '                                  ParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the Params row whose column A holds key: a parameter code, a
-'   supervisory-factor key or a currency.
+'   Return the Params row that holds key: a parameter code in the code
+'   column, a supervisory-factor key or a currency in its table's first
+'   column, as the workbook names locate them.
 '
 ' ERROR POLICY
 '   Raises ERR_TEST_SETUP when the key is not on Params, so that a changed
 '   template fails the suite instead of patching the wrong row.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Row found; 0 when absent
+    Dim r      As Long       'Row found; 0 when absent
+    Dim cols   As Variant    'Columns searched, as table columns
+    Dim i      As Long       'Index into cols
 
 '------------------------------------------------------------------------------
 ' FIND
 '------------------------------------------------------------------------------
-        r = FindHeaderRow(GetSheet(SH_PARAMS), 1, key)
+        cols = Array(ParamsCodeCol(), TableCol(NM_SF_TABLE, 1), TableCol(NM_FX_TABLE, 1))
+        For i = LBound(cols) To UBound(cols)
+            r = FindHeaderRow(GetSheet(SH_PARAMS), CLng(cols(i)), key)
+            If r > 0 Then
+                Exit For
+            End If
+        Next i
         If r = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & key & "' not found in column A of Params."
+            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & key & "' not found on Params."
         End If
         ParamsRow = r
 
@@ -439,13 +608,14 @@ Private Function ParamsValue( _
 '                                 ParamsValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return a value from the Params row whose column A holds key.
+'   Return a value from the Params row that holds key (see ParamsRow), at
+'   table column col.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
-        ParamsValue = GetSheet(SH_PARAMS).Cells(ParamsRow(key), col).Value
+        ParamsValue = TableCell(GetSheet(SH_PARAMS), ParamsRow(key), col).Value
 
 End Function
 
@@ -467,7 +637,7 @@ Private Sub AddParamRow( _
 '   template fails the suite instead of overwriting a row.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -480,29 +650,31 @@ Private Sub AddParamRow( _
 ' WRITE
 '------------------------------------------------------------------------------
         r = ParamsRow(PRM_LAMCO) + 1
-        If Not IsBlankCell(GetSheet(SH_PARAMS).Cells(r, PRM_CODE_COL).Value) Or _
-           Not IsBlankCell(GetSheet(SH_PARAMS).Cells(r, PRM_VALUE_COL).Value) Then
+        If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, ParamsCodeCol()).Value) Or _
+           Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, ParamsValueCol()).Value) Then
             Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & r & " is not blank."
         End If
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, PRM_CODE_COL, code
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, PRM_VALUE_COL, newValue
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsCodeCol(), code
+        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsValueCol(), newValue
 
 End Sub
 
 
 Private Sub ClearParamsRow( _
     ByVal rowNum As Long, _
+    ByVal firstCol As Long, _
     ByVal nCols As Long)
 '
 '==============================================================================
 '                                ClearParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Blank columns A to nCols of one Params row, as if a blank row had been
-'   inserted in a table there. Restored with the case's other patches.
+'   Blank nCols table columns from firstCol of one Params row, as if a blank
+'   row had been inserted in a table there. Restored with the case's other
+'   patches.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -514,11 +686,32 @@ Private Sub ClearParamsRow( _
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        For c = 1 To nCols
+        For c = firstCol To firstCol + nCols - 1
             TEST_CaseRunner.PatchCell SH_PARAMS, rowNum, c, Empty
         Next c
 
 End Sub
+
+
+Private Function TableCol( _
+    ByVal nameText As String, _
+    ByVal k As Long) _
+    As Long
+'
+'==============================================================================
+'                                   TableCol
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the table column of column k of a Params lookup table, counted
+'   from the top-left cell of its workbook name (1 for the keys).
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        TableCol = NamedTableCol(nameText) + k - 1
+
+End Function
 
 
 Private Sub AddCredit( _

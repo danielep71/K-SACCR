@@ -16,11 +16,11 @@ pull request's whole range.
 | --- | --- |
 | `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`) and the case-module generator (`test_generate_case_tests.py`) |
 | `check_committed_whitespace-fixtures` | Self-test of the whitespace gate |
-| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; every component lies in a directory `Sync-SACCR-VBA.ps1` synchronizes, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
+| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
-| `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs. It does not run any case |
+| `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose, in the expected files, the VBA source and the methodology. It does not run any case |
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
 | `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
 | `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
@@ -58,12 +58,20 @@ creates a timestamped safety backup unless `-NoBackup` is supplied. As requested
 by the owner, it deletes this temporary backup after a successful save and
 retains it on failure. It is not a persistent rollback archive.
 
-`check_source.py` keeps the synchronizer complete: it fails when a VBA
-component lies outside the directories in `$sourceRoots`, when one of those
-directories is missing, and when a document module in `src/workbook/` and the
-template's sheets (by CodeName) do not match one to one. A new source
+`check_source.py` keeps the synchronizer complete: it fails when the
+synchronizer or the template is not tracked or missing, when a VBA component
+lies outside the directories in `$sourceRoots`, when one of those directories
+is missing, and when a document module in `src/workbook/` and the template's
+sheets (by CodeName) do not match one to one. It reads only the active
+entries of `$sourceRoots`, one `(Join-Path $repoFullPath "...")` per line:
+commented-out entries do not count, and any other entry fails the check. A new source
 directory must be added to `$sourceRoots`; a new worksheet needs both its sheet
 in the template and its document module.
+
+Because it changes code only, a change to a sheet layout (a column or header)
+does not reach an existing workbook. The engine's header check then stops the
+run with the expected header; the CHANGELOG entry of such a change says which
+cells to update, or the workbook is rebuilt from the template.
 
 The synchronizer rejects known retired repository modules before changing any
 VBA component. Rebuild such a workbook from the current template and source;

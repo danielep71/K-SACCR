@@ -43,7 +43,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -351,7 +351,7 @@ Private Sub CaseChecksUnwritable()
 '   writable again (#36).
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -378,7 +378,7 @@ Private Sub CaseChecksUnwritable()
         On Error GoTo Unexpected
         GetSheet(SH_CHECKS).Unprotect
         Check errNumber = ERR_CHECKS_WRITE, "expected the Checks write error, got " & errNumber & ": " & errText
-        Check IsBlankCell(results.Cells(FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
+        Check IsBlankCell(TableCell(results, FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
         Check InStr(1, SafeStr(results.Range(RUNINFO_CELL).Value), "Checks sheet could not be written", _
                     vbTextCompare) > 0, "run summary does not say why: " & SafeStr(results.Range(RUNINFO_CELL).Value)
         CheckState xlCalculationAutomatic, False, False
@@ -433,11 +433,11 @@ Private Sub CaseOutputWriteFailure()
 ' PURPOSE
 '   An error after TradeCalc, Results and Buckets have been written, and
 '   before HedgingSets, is raised unchanged; the output sheets are cleared
-'   so that no table of the stopped run is left, Checks and Results A2 say
+'   so that no table of the stopped run is left, Checks and Results C4 say
 '   why, Excel is restored, and the next run works (#36).
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -448,7 +448,7 @@ Private Sub CaseOutputWriteFailure()
     Dim errNumber   As Long      'Error raised by the failed run
     Dim errSource   As String    'Original error source
     Dim errText     As String    'Its description
-    Dim summary     As String    'Results A2 after the failed run
+    Dim summary     As String    'Results C4 after the failed run
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -467,9 +467,9 @@ Private Sub CaseOutputWriteFailure()
         Check errNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & errNumber & ": " & errText
         Check errSource = "CORE_Engine.Calculate", "injected error source was replaced: " & errSource
         Check errText = "Injected output failure.", "injected error description was replaced: " & errText
-        Check IsBlankCell(GetSheet(SH_TRADECALC).Cells(FIRST_DATA_ROW, 1).Value), "TradeCalc rows were not withdrawn"
-        Check IsBlankCell(GetSheet(SH_RESULTS).Cells(FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
-        Check IsBlankCell(GetSheet(SH_BUCKETS).Cells(FIRST_DATA_ROW, 1).Value), "Buckets rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 1).Value), "TradeCalc rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), FIRST_DATA_ROW, 1).Value), "Buckets rows were not withdrawn"
         summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
         Check InStr(1, summary, "results withdrawn", vbTextCompare) > 0, "run summary does not say why: " & summary
         Check ChecksMention("Injected output failure"), "Checks does not show the error"
@@ -503,7 +503,7 @@ Private Sub CaseOutputCleanupFailure()
 ' ERROR POLICY
 '   Always reset the fault seam; the normal recovery run clears retained data.
 ' UPDATED
-'   2026-10-08
+'   2026-10-11
 '==============================================================================
     Dim result As String       'Silent result
     Dim errNumber As Long      'Raised primary error
@@ -528,9 +528,9 @@ Private Sub CaseOutputCleanupFailure()
         Check InStr(errText, "source=CORE_Engine.TryClearOutput]: Injected output cleanup failure.") > 0, _
               "cleanup source/description lost"
         Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "incomplete cleanup reported as withdrawn"
-        Check Not IsBlankCell(GetSheet(SH_RESULTS).Cells(FIRST_DATA_ROW, 1).Value), "expected retained partial Results"
-        Check IsBlankCell(GetSheet(SH_BUCKETS).Cells(FIRST_DATA_ROW, 1).Value), "Buckets skipped after first cleanup failure"
-        Check IsBlankCell(GetSheet(SH_HEDGING).Cells(FIRST_DATA_ROW, 1).Value), "HedgingSets not cleared"
+        Check Not IsBlankCell(TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, 1).Value), "expected retained partial Results"
+        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), FIRST_DATA_ROW, 1).Value), "Buckets skipped after first cleanup failure"
+        Check IsBlankCell(TableCell(GetSheet(SH_HEDGING), FIRST_DATA_ROW, 1).Value), "HedgingSets not cleared"
         Check ChecksMention("Injected output failure."), "Checks lost primary failure"
         Check ChecksMention("Injected output cleanup failure."), "Checks lost cleanup failure"
         Check M_Main.ResultsStatus() = "NONE", "failed run left valid results"
@@ -565,7 +565,7 @@ Private Sub CaseProtectedOutput( _
 ' ERROR POLICY
 '   Undo only protection owned by this case, including on unexpected errors.
 ' UPDATED
-'   2026-10-08
+'   2026-10-11
 '==============================================================================
     Dim result As String              'Run result
     Dim errNumber As Long             'Reported run error
@@ -585,7 +585,7 @@ Private Sub CaseProtectedOutput( _
     Dim widths As Variant             'Corresponding output table widths
     Dim i As Long                     'Output index
     Dim oldSummary As String          'Successful summary before protection
-    Dim statusFormula As Variant      'A3 formula/text must not be overwritten
+    Dim statusFormula As Variant      'C5 formula/text must not be overwritten
     Dim caseName As String            'Distinct regression identifier
         On Error GoTo Unexpected
         caseName = "run.protected-output." & protectedSheet
@@ -608,9 +608,9 @@ Private Sub CaseProtectedOutput( _
         result = M_Main.RunSACCR_Silent()
         Check Left$(result, 9) = "RESULT=OK", "setup run: " & result
         oldSummary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
-        statusFormula = GetSheet(SH_RESULTS).Range("A3").Formula
+        statusFormula = GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula
         For i = 0 To 3
-            GetSheet(CStr(sheetNames(i))).Cells(FIRST_DATA_ROW, 1).Value = "OLD-OUTPUT"
+            TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value = "OLD-OUTPUT"
             lastRows(i) = UsedLastRow(GetSheet(CStr(sheetNames(i))))
             If CStr(sheetNames(i)) = protectedSheet Or CStr(sheetNames(i)) = secondSheet Then
                 GetSheet(CStr(sheetNames(i))).Protect
@@ -649,14 +649,14 @@ Private Sub CaseProtectedOutput( _
         Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "reported withdrawal despite retained outputs"
         For i = 0 To 3
             If ownsProtection(i) Then
-                Check SafeStr(GetSheet(CStr(sheetNames(i))).Cells(FIRST_DATA_ROW, 1).Value) = "OLD-OUTPUT", _
+                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value) = "OLD-OUTPUT", _
                       CStr(sheetNames(i)) & " protected sentinel unexpectedly changed"
                 Check InStr(1, errText, detail(i), vbBinaryCompare) > 0, "missing cleanup detail: " & detail(i)
                 If Not protectChecks Then Check ChecksMention(detail(i)), "Checks lacks detail: " & detail(i)
             Else
                 Check Application.CountA(GetSheet(CStr(sheetNames(i))).Range( _
-                      GetSheet(CStr(sheetNames(i))).Cells(FIRST_DATA_ROW, 1), _
-                      GetSheet(CStr(sheetNames(i))).Cells(lastRows(i), CLng(widths(i))))) = 0, _
+                      TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1), _
+                      TableCell(GetSheet(CStr(sheetNames(i))), lastRows(i), CLng(widths(i))))) = 0, _
                       CStr(sheetNames(i)) & " retained output cells"
             End If
         Next i
@@ -673,7 +673,7 @@ Private Sub CaseProtectedOutput( _
         Else
             Check ChecksMention("output cleanup incomplete"), "Checks did not report incomplete cleanup"
         End If
-        Check GetSheet(SH_RESULTS).Range("A3").Formula = statusFormula, "cleanup overwrote the status formula"
+        Check GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula = statusFormula, "cleanup overwrote the status formula"
         Check M_Main.ResultsStatus() = "NONE", "failed run retained a current fingerprint"
         Check Len(CORE_Engine.RunInputs) = 0, "failed run retained in-memory run inputs"
         CheckState xlCalculationAutomatic, False, False
@@ -692,7 +692,7 @@ Private Sub CaseProtectedOutput( _
         Check M_Main.ResultsStatus() = "CURRENT", "recovery did not publish a valid fingerprint"
         Check Not ChecksMention("output cleanup incomplete"), "recovery retained obsolete failure diagnostics"
         For i = 0 To 3
-            Check SafeStr(GetSheet(CStr(sheetNames(i))).Cells(FIRST_DATA_ROW, 1).Value) <> "OLD-OUTPUT", _
+            Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value) <> "OLD-OUTPUT", _
                   CStr(sheetNames(i)) & " retained the old sentinel after recovery"
         Next i
         CheckState xlCalculationAutomatic, False, False
@@ -727,12 +727,12 @@ Private Sub CaseStaleResults()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   After a run the results are CURRENT; an edited input makes them STALE
-'   and the status formula in Results A3 says OUT OF DATE; undoing the edit
+'   and the status formula in Results C5 says OUT OF DATE; undoing the edit
 '   makes them CURRENT again; Clear outputs makes them NONE (#36). Each
 '   status is checked both through ResultsStatus and in the cell.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -755,7 +755,7 @@ Private Sub CaseStaleResults()
         CheckStatusCell "Results current", "after a run"
 
     'Edit one input, as a user would: the formula recalculates by itself.
-        Set mtmCell = GetSheet(SH_TRADES).Cells(FIRST_DATA_ROW, TR_MTM)
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
         saved = mtmCell.Formula
         mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
         Check M_Main.ResultsStatus() = "STALE", "after an edit: " & M_Main.ResultsStatus()
@@ -794,18 +794,18 @@ Private Sub CheckStatusCell( _
 '                               CheckStatusCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that the status formula in Results A3 starts with expectedStart,
+'   Check that the status formula in Results C5 starts with expectedStart,
 '   after Excel has recalculated what changed.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim shown   As String    'Text in Results A3
+    Dim shown   As String    'Text in Results C5
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -813,7 +813,7 @@ Private Sub CheckStatusCell( _
         Application.Calculate
         shown = SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
         Check Left$(shown, Len(expectedStart)) = expectedStart, _
-              "Results A3 " & moment & ": expected """ & expectedStart & "..."", found """ & shown & """"
+              "Results C5 " & moment & ": expected """ & expectedStart & "..."", found """ & shown & """"
 
 End Sub
 
@@ -860,7 +860,7 @@ Private Function ChecksMention( _
 '   case.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -876,7 +876,7 @@ Private Function ChecksMention( _
     'Checks column 5 holds the message.
         Set ws = GetSheet(SH_CHECKS)
         For r = FIRST_DATA_ROW To UsedLastRow(ws)
-            If InStr(1, SafeStr(ws.Cells(r, 5).Value), fragment, vbTextCompare) > 0 Then
+            If InStr(1, SafeStr(TableCell(ws, r, 5).Value), fragment, vbTextCompare) > 0 Then
                 ChecksMention = True
                 Exit Function
             End If

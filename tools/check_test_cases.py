@@ -25,12 +25,17 @@ CURRENCY = re.compile(r"^[A-Z]{3}$")
 RULE = re.compile(r"^(?:CRR(?:-RTS)?\.[0-9]+[a-z]?(?:\.[0-9]+)*|CRE52(?:\.[0-9]+)?)$")
 ERROR_NAME = re.compile(r"^SACCR_ERROR_[A-Z0-9_]+$")
 CATALOGUE = re.compile(r"^T[0-9]{2}$")
+# A registered EBA Q&A is cited by its source ID, not in prose (#129). The
+# scan covers the expected files, the VBA source and the methodology.
+QA_SOURCE_ID = re.compile(r"^EBA-QA-([0-9]{4}_[0-9]+)$")
+CITATION_FILES = ("tests/expected/*.json", "src/**/*.bas", "src/**/*.cls", "tests/modules/*.bas",
+                  "docs/methodology/README.md", "docs/methodology/TEST_CASES.md")
 
 # Field name -> (kind, nullable). The kind follows the unit suffix of the name.
 NETTING_SET_FIELDS: dict[str, tuple[str, bool]] = {
     "id": ("text", False),
     "margined": ("bool", False),
-    "cleared": ("bool", False),
+    "clearing_role": ("clearing_role", False),
     "remargin_period_business_days": ("business_days", True),
     "large_or_illiquid": ("bool", False),
     "margin_disputes": ("bool", False),
@@ -67,6 +72,7 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
 # Params codes a fixture may set for its own run -> kind of the value.
 PARAMETERS: dict[str, str] = {
     "DaysPerYear": "positive",
+    "IRBucketOffset": "bool",
 }
 ENUMS = {
     "asset_class": set(ASSET_CLASSES),
@@ -74,6 +80,7 @@ ENUMS = {
     "direction": {"long", "short"},
     "option_type": {"call", "put"},
     "nature": {"standard", "basis", "volatility"},
+    "clearing_role": {"none", "clearing_member", "client"},
 }
 
 NETTING_SET_QUANTITIES = {
@@ -316,7 +323,24 @@ def read_register(root: Path) -> set[str]:
     text = (root / REGISTER).read_text(encoding="utf-8")
     section = text.split('<a id="source-register"></a>', 1)[-1].split("\n## ", 2)
     table = section[1] if len(section) > 1 else ""
-    return set(re.findall(r"^\| `([A-Z0-9-]+)` \|", table, re.M))
+    return set(re.findall(r"^\| `([A-Z0-9_-]+)` \|", table, re.M))
+
+
+def check_citations(root: Path, register: set[str]) -> list[str]:
+    """Flag a registered EBA Q&A cited in prose instead of by its source ID."""
+    numbers = {m.group(1): sid for sid in sorted(register) if (m := QA_SOURCE_ID.match(sid))}
+    if not numbers:
+        return []
+    prose = re.compile(r"EBA Q&A (" + "|".join(map(re.escape, numbers)) + r")(?![0-9])")
+    findings = []
+    for pattern in CITATION_FILES:
+        for path in sorted(root.glob(pattern)):
+            text = path.read_bytes().decode("utf-8", errors="replace")
+            for number, line in enumerate(text.splitlines(), 1):
+                for match in prose.finditer(line):
+                    findings.append(f"{path.relative_to(root).as_posix()}:{number}: cite EBA Q&A "
+                                    f"{match.group(1)} by its source ID {numbers[match.group(1)]}")
+    return findings
 
 
 def check_cases(case_outputs: dict[str, list[dict[str, Any]]], fixtures: set[str]) -> list[str]:
@@ -359,6 +383,7 @@ def run_check(root: Path) -> dict[str, Any]:
             findings += more
             case_outputs.setdefault(path.stem.rpartition(".")[0], []).extend(outputs)
     findings += check_cases(case_outputs, set(fixtures))
+    findings += check_citations(root, register)
     outputs = [o for group in case_outputs.values() for o in group]
     counts = {kind: sum(1 for o in outputs if isinstance(o.get("reference"), dict)
                         and o["reference"].get("class") == kind) for kind in sorted(CLASSES)}

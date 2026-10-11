@@ -47,7 +47,7 @@ counterparties, collateral agreements or portfolio extracts.
   "netting_set": {
     "id": "NS1",
     "margined": false,
-    "cleared": false,
+    "clearing_role": "none",
     "remargin_period_business_days": null,
     "large_or_illiquid": false,
     "margin_disputes": false,
@@ -92,13 +92,14 @@ counterparties, collateral agreements or portfolio extracts.
 | Units | In `netting_set` and `trades`, a field's suffix states its unit: `_amount` in `calculation_currency`, unscaled; `_date` as ISO `YYYY-MM-DD`; `_years` in years; `_business_days` in business days; `_rate` and `_factor` as decimals; `underlying_price`, `strike_price` and `lambda_price` share the underlying's unit, a decimal rate for an interest-rate option and a price otherwise. A quantity there never lacks a unit suffix. Envelope fields such as `schema_version` are metadata, not quantities |
 | Currencies | Every amount is in `calculation_currency`; amounts in other currencies are converted before they enter a fixture ([decision 6](README.md#assumptions-and-scope)). `risk_factor` names what the trade is exposed to: the interest-rate currency, the FX pair, the credit or equity reference, or the commodity |
 | Signs | Market values are from the bank's side: positive is an asset. `variation_margin_net_amount` and `independent_collateral_net_amount` are held minus posted. `notional_amount` is unsigned; `direction` gives the sign |
-| Parameters | A fixture runs with the default parameters of the workbook template's Params sheet (for example 365 days and 250 business days a year). `parameters` lists the Params values the case runs with instead, by code; `{}` for none. Only `DaysPerYear` (positive) is accepted so far, so that a published maturity such as 0.75 years can be entered as dates; a case that needs another parameter adds it to the format first |
+| Parameters | A fixture runs with the default parameters of the workbook template's Params sheet (for example 365 days and 250 business days a year). `parameters` lists the Params values the case runs with instead, by code; `{}` for none. Accepted: `DaysPerYear` (positive), so that a published maturity such as 0.75 years can be entered as dates, and `IRBucketOffset` (Boolean), so that a BCBS case can use the sum of absolute bucket values; a case that needs another parameter adds it to the format first |
 | Fields | Every field below is present in every fixture; `null` means not applicable or the default. `tools/check_test_cases.py` rejects an unknown, missing or mistyped field |
 
 | Netting-set field | Type | Meaning |
 | --- | --- | --- |
 | `id` | text | Netting-set ID |
-| `margined`, `cleared`, `large_or_illiquid`, `margin_disputes` | Boolean | As on the NettingSets sheet |
+| `margined`, `large_or_illiquid`, `margin_disputes` | Boolean | As on the NettingSets sheet |
+| `clearing_role` | `none`, `clearing_member` or `client` | Client clearing role on the NettingSets sheet: N, CM or CLIENT |
 | `remargin_period_business_days` | number or `null` | Remargining period of a margined set |
 | `mpor_override_business_days` | number or `null` | MPOR override; `null` for none |
 | `variation_margin_net_amount`, `independent_collateral_net_amount` | amount | Net VM and NICA, held minus posted |

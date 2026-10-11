@@ -97,6 +97,19 @@ Use only the categories needed by a release.
 
 ### Added
 
+- A margined netting set of more than 5,000 trades whose large or illiquid flag
+  is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
+  count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the
+  workbook does not see. `TEST_CaseRunner.ExpectChecksLine` checks such a line;
+  `TEST_InputValidation` has 54 cases and 62 checks.
+
+- Value test for the Basel sum of absolute IR bucket values (#39):
+  `illustrative-ir-sum-of-absolutes` runs the CRE99 Example 1 inputs under BCBS
+  with `IRBucketOffset` = FALSE and expects an IR add-on of 625,153.16 USD and
+  an EAD of 959,214.42 USD, from a hand calculation (illustrative). Fixtures
+  accept `IRBucketOffset` in `parameters`, and `TEST_CaseRunner.SetParameter`
+  writes Y and N as TRUE and FALSE. `TEST_Cases` has 20 cases and 39 checks.
+
 - `docs/methodology/sources/` holds copies of the regulatory texts the
   methodology was checked against: the SA-CCR articles of the consolidated CRR
   (26.06.2026), Delegated Regulation 2021/931 as amended (25.05.2025), Basel
@@ -123,11 +136,16 @@ Use only the categories needed by a release.
   add-ons, RC and the multiplier follow their formulas, PFE is the
   multiplier times the add-on, EAD = alpha * (RC + PFE), a margined netting
   set's EAD is the lower of the margined EAD and the unmargined cap, withheld
-  netting sets show no figures and the TOTAL row adds up. It also checks that
-  a second run gives identical outputs, that the IR sum of absolute bucket
-  values is never below the bucket formula, and that a zero add-on is
-  calculated without failing. The checks compare outputs with each other and
-  are reported as illustrative.
+  netting sets show no figures, and the TOTAL row holds the sum over the
+  `VALID` netting sets of V, C, RC, each asset-class add-on, the aggregate
+  add-on, PFE and EAD, and nothing else (#104). It also checks that a second
+  run gives identical outputs, that with the IR sum of absolute bucket values
+  a CRR netting set with interest-rate trades becomes `INVALID` while every
+  other netting set stays `VALID` with no lower IR add-on (#103), and
+  that a zero add-on is calculated without failing. Two further checks
+  corrupt copies of the outputs and pass only if the TOTAL and IR relations
+  then fail and name the corrupted column or netting set. The checks compare
+  outputs with each other and are reported as illustrative.
 - An interest-rate add-on flowchart in `docs/assets/`
   (`SACCR_IR_AddOn_flow.svg` and a 2080 px PNG). It traces the steps from trade
   selection to the aggregate add-on, including the maturity factor, basis and
@@ -271,6 +289,75 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Every parameter value on Params (E6 to E25) has data validation with an
+  input message giving its meaning, regulatory value and reference, and a
+  Stop alert with the accepted range: dates 2000 to 2100, a three-letter
+  currency, alpha above zero, a multiplier floor below 100%, day counts,
+  maturity and MPOR floors in business days, factors, IR correlations
+  that form a valid correlation matrix, TRUE/FALSE, CRR/BCBS and the
+  lambda thresholds. The supervisory-factor table validates unique keys,
+  asset class, factor, correlation, option volatility, commodity hedging
+  set and regimes; the FX table validates unique three-letter currencies
+  and positive rates, with 1 for the reporting currency. Validation stops
+  typed values only; the engine's own checks still apply to pasted values.
+  NettingSets (rows 7 to 206) has the same kind of validation: unique IDs,
+  Y/N flags, the clearing role, whole business days for the remargin
+  frequency and the MPOR override, numbers for VM and NICA, TH and MTA not
+  negative, alpha above zero, the regime and the margin-agreement
+  structure. The Trades NettingSetID drop-down now explains itself and warns
+  when an ID is not on NettingSets. Validation does not apply to pasted
+  values, so a repeated netting-set ID, supervisory-factor key or FX
+  currency is also shown in red by conditional formatting, however it was
+  entered.
+- NettingSets and Trades are located through workbook names, as Params is:
+  `NettingSets_Header` and `Trades_Header` name the first header cell of each
+  table (in column C), and the data start on the next row, so their rows can
+  move (`CORE_Util.TableHeaderRow`, `TableFirstRow`). A missing or broken name
+  stops the run. The test runner writes, clears and restores the input rows
+  through the same names. Trades takes the owner's final layout: title band
+  in B1:B2, headers on row 4 and data from row 5; the Run SA-CCR, Validate
+  inputs and Clear outputs buttons sit on row 3 (H3:L3), and README no longer
+  has buttons. Every Trades input column has data validation with an input
+  message (rows 5 to 5000), following the engine's trade checks, and repeated
+  Trade IDs are shown in red. README and Basel_vs_CRR take the owner's final
+  layout too.
+  `TEST_InputValidation` has 57 cases and 65 checks.
+  Upgrading a workbook built from an earlier template: add the two names, or
+  rebuild from the template.
+- README, Params and NettingSets carry the owner's final layout; NettingSets
+  has its title band in B1:B2 and the description in C3. Column headers are
+  now compared ignoring case, spaces and line breaks, so the NettingSets
+  headers `Client clearing role (N / CM / CLIENT)` and
+  `Margin agreements (blank / MIXED / SHARED)` match.
+- Params is located through workbook names instead of fixed rows and
+  columns: `Params_Code` and `Params_Value` name the "Code" and "Value"
+  header cells of the parameter rows, and the top-left cells of `SF_Table`
+  and `FX_Table` the headers of the two lookup tables. The engine and the
+  tests read Params only through these names, so its rows and columns can
+  move; a missing or broken name stops the run (`CORE_Util.ParamsCodeCol`,
+  `ParamsValueCol`, `ParamsHeaderRow`, `NamedCell`). Each of the 20
+  parameters is read only through its workbook name, which is now required:
+  a missing or broken one stops the run, where the engine used to fall back
+  to the Code column. `TEST_InputValidation` has 55 cases and 63 checks.
+- README names the engine v1.0.0 instead of the prototype's v1.1.0, and its
+  note on the cap basis points to Results columns Z-AC. Every font of the
+  template names Aptos on the style instead of following the workbook theme,
+  so a sheet copied into another workbook keeps Aptos.
+
+- Sheet layout: every sheet of the template has two margin columns (A:B,
+  width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt, 16 pt
+  font), and every font, including the theme fonts and the sheet buttons, is
+  Aptos. Tables now start in column C, with headers on row 6 and data from
+  row 7; the Results run summary is in C4 and the status formula in C5,
+  which watches NettingSets `$C:$Q`, Trades `$C:$Y` and Params `$C:$J`.
+  Formulas, workbook names, data validation, conditional formatting, merged
+  cells, filters, frozen panes and the buttons moved with the cells. The VBA
+  addresses tables through `CORE_Util.TableCell` and `TableRange` with
+  `CORE_Config.COL_OFFSET` = 2; `HEADER_ROW` is 6 and `FIRST_DATA_ROW` 7.
+  A workbook built from the earlier template must be rebuilt from this one:
+  the synchronizer changes code only, and the new code stops at the header
+  check of an old layout.
+
 - `tools/check_source.py` checks that `Sync-SACCR-VBA.ps1` reaches every VBA
   component: each must lie in a directory of its `$sourceRoots`, each listed
   directory must exist, and the document modules in `src/workbook/` must match
@@ -279,6 +366,25 @@ Use only the categories needed by a release.
 - `tools/Sync-SACCR-VBA.ps1` also imports the test modules from
   `tests/modules/`, so one synchronization updates every engine and test
   module of the development workbook.
+
+- Netting-set terms by regime (#39). The cap of a margined netting set now uses
+  C = NICA in both regimes; the BCBS cap used VM + NICA, which CRE52.2 and
+  CRE52.10 do not support (T16 becomes 40.77m, cap applied, as under CRR). VM
+  held on an unmargined netting set is rejected; VM posted on one is a one-way
+  agreement, kept in C under BCBS and rejected under CRR, where the set must be
+  margined. NettingSets column D is now the client clearing role, N, CM or
+  CLIENT: the 5-day MPOR floor applies to CM in both regimes and to CLIENT
+  under CRR only. A new column O, Margin agreements, declares MIXED or SHARED
+  structures, which are rejected. The MPOR after disputes, 2 x (F + N - 1),
+  and of a large or illiquid set, 20 + N - 1, are kept and recorded as
+  decisions. Fixtures use `clearing_role` instead of `cleared`; the Results
+  status formula watches NettingSets A:O. `TEST_InputValidation` has 53 cases
+  and 60 checks; `TEST_Cases` has 37 checks.
+  Upgrading a workbook built from the earlier template: the synchronizer
+  changes code only, and a run stops at the header check until NettingSets D4
+  reads `Client clearing role (N/CM/CLIENT)`, O4 reads
+  `Margin agreements (blank/MIXED/SHARED)` and Results A3 watches
+  `NettingSets!$A:$O`, as in the new template; or rebuild from the template.
 
 - CRR scope checked against the CRR text (#33). With `IRBucketOffset` set to
   FALSE, a CRR netting set with interest-rate trades is now `INVALID` and its
@@ -321,6 +427,22 @@ Use only the categories needed by a release.
   licenses.
 
 ### Fixed
+
+- EBA Q&A 2023_6962 is cited by its source ID `EBA-QA-2023_6962` in the
+  expected files, the VBA comments and the methodology (#129); the source of
+  the posted-VM records stays `CRR`, whose Art. 274(3) is the rule, and the
+  values and classes are unchanged. The engine header no longer says the Basel
+  cap uses VM + NICA. The T17 note names EBA Q&A 2022_6354 as the source of the
+  scenario: a question the EBA rejected on 26/07/2022 without an answer.
+  `check_test_cases.py` now reads source IDs containing an underscore and fails
+  when a registered EBA Q&A is cited in prose.
+
+- The synchronizer coverage check of `tools/check_source.py` no longer passes
+  when it cannot do its job: a commented-out `$sourceRoots` entry is not
+  counted, an entry in any other form than `(Join-Path $repoFullPath "...")`
+  fails (#136), and a missing `tools/Sync-SACCR-VBA.ps1` or
+  `src/workbook/SACCR_Template.xlsx` fails instead of skipping the check
+  (#137).
 
 - Methodology traceability: the MPOR row names the 5-business-day floor for
   client clearing next to the 10-day bilateral floor; the dispute row says the

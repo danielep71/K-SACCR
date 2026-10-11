@@ -258,10 +258,10 @@ with its error number/source/description, the original error remains primary,
 and a subsequent unprotected run succeeds. Another case injects a known primary
 write failure and two cleanup failures with a different number and source,
 proving secondary errors do not replace the original. A protected Results sheet may retain
-its old table and A2 summary: the raised error (and Checks, when writable) must
+its old table and C4 summary: the raised error (and Checks, when writable) must
 say cleanup is incomplete. `ResultsStatus() = "NONE"` means no valid completed
 run fingerprint, not proof that all output cells are empty. The tests preserve
-A3, retaining the formula-based status implemented in PR #89 without a cleanup
+C5, retaining the formula-based status implemented in PR #89 without a cleanup
 write to that cell.
 
 Run:
@@ -293,7 +293,7 @@ its `parameters`, which are restored after the case. At the end the inputs and
 parameters are written back, the engine is run once more and Excel settings
 are restored. A passing run prints one `CASE=` line per expected file, the
 results per reference class, and
-`RESULT=PASS; cases=19; checks=36; failures=0; restore=PASS`. Illustrative
+`RESULT=PASS; cases=20; checks=39; failures=0; restore=PASS`. Illustrative
 results are counted separately and validate nothing.
 
 To see the failure path of any suite run through `TEST_CaseRunner`, arm the
@@ -308,7 +308,7 @@ tolerance plus one, so the comparison must reject it. It prints
 `MODE=INJECTED_FAILURE` and an `INJECTED=` line naming the check, then one
 `FAILURE=` line for it; for `TEST_Cases` that is T01, so the summary shows
 `PUBLISHED: passed=13; failed=1` and
-`RESULT=FAIL; cases=19; checks=36; failures=1; restore=PASS`. The injection
+`RESULT=FAIL; cases=20; checks=39; failures=1; restore=PASS`. The injection
 applies to that one suite only. A suite with no numeric check, such as
 `TEST_InputValidation`, fails with a message saying so.
 
@@ -329,10 +329,18 @@ reference with a reserved character and an interest-rate risk factor that is
 not a currency. For the CRR scope it checks that the sum of absolute IR
 bucket values makes a CRR netting set `INVALID` but is accepted under BCBS, and
 that an inflation risk factor such as `EUR-INFL` is accepted while another
-suffix is rejected. Every patched cell and name is restored. It needs a workbook
+suffix is rejected. For the netting-set terms it rejects VM held on an
+unmargined netting set, VM posted on an unmargined CRR netting set, a clearing
+role or margin-agreement code that is not N, CM, CLIENT, MIXED or SHARED, and
+the MIXED and SHARED structures; it accepts VM posted on an unmargined BCBS
+netting set and checks its replacement cost, and checks the MPOR of each
+clearing role and of disputes and a large netting set with weekly
+remargining, and the warning for a margined netting set of more than 5,000
+trades whose large or illiquid flag is N, and checks that a broken Params,
+NettingSets or Trades layout name stops the run. Every patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=39; checks=39; failures=0; restore=PASS`.
+`RESULT=PASS; cases=57; checks=65; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -356,23 +364,29 @@ its formula, lies between the floor and 1 and is 1 when V - C is not
 negative; PFE is the multiplier times the aggregate add-on;
 EAD = alpha * (RC + PFE); and a margined netting set's EAD is the lower of the
 margined EAD and the unmargined cap, with the cap flag set exactly when the
-cap is lower. Withheld netting sets must show no figures and the TOTAL row
-must add up. It first checks that the portfolio has unmargined and margined,
+cap is lower. Withheld netting sets must show no figures. The TOTAL row must
+hold, for V, C, RC, each asset-class add-on, the aggregate add-on, PFE and
+EAD, the sum over the `VALID` netting sets, and nothing in its other columns.
+It first checks that the portfolio has unmargined and margined,
 CRR and BCBS netting sets, a cap that applies and one that does not, and a
 multiplier below 1. A second run must write identical Results, TradeCalc,
-HedgingSets and Buckets. With `IRBucketOffset` set to FALSE no IR add-on may
-fall, and at least one must rise. Two opposite swaps, which give a zero
+HedgingSets and Buckets. With `IRBucketOffset` set to FALSE a CRR netting set
+with interest-rate trades must become `INVALID` (Art. 280a(3) allows only the
+formula with offsets); every other netting set `VALID` before must stay
+`VALID`, no IR add-on may fall, and at least one must rise. Two checks then corrupt copies of the outputs, each TOTAL column in turn
+and one netting set made invalid in the second run, and pass only if the
+relations fail and name what was corrupted. Two opposite swaps, which give a zero
 add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `TEST_Invariants.RunInvariantTests`; it ends with
-`RESULT=PASS; cases=4; checks=21; failures=0; restore=PASS`.
+`RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; cleanup=PASS`
 and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results A2. `M_Main.ResultsStatus()` returns `CURRENT` when the
+run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there are no results. Results A3 shows the same
+changed since, and `NONE` when there are no results. Results C5 shows the same
 status through the formula `=ResultsStatusText(...)`, which Excel recalculates
 when an input changes, and turns red when it reads `OUT OF DATE`. A formula,
 unlike a macro writing to the sheet, leaves Excel's Undo history intact. With

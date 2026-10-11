@@ -22,6 +22,16 @@ class SourceGateTests(unittest.TestCase):
         self.git("init", "-q")
         shutil.copy(ROOT / ".gitattributes", self.root / ".gitattributes")
         self.write("CHANGELOG.md", CHANGELOG)
+        # The synchronizer and the template are required (#137): by default the
+        # synchronizer reads every documented VBA home and the template has no
+        # CodeNames, so neither adds findings of its own.
+        for home in check_source.VBA_HOMES:
+            (self.root / home).mkdir(parents=True, exist_ok=True)
+        self.write_sync(*(home.rstrip("/").replace("/", "\\") for home in check_source.VBA_HOMES))
+        self.write_workbook("src/workbook/SACCR_Template.xlsx", {
+            "[Content_Types].xml": "<Types/>",
+            "_rels/.rels": '<Relationships Target="xl/workbook.xml"/>',
+            "xl/workbook.xml": "<workbook/>"})
 
     def git(self, *args: str) -> str:
         return subprocess.run(["git", "-C", str(self.root), *args], check=True,
@@ -130,10 +140,44 @@ class SourceGateTests(unittest.TestCase):
         self.assertEqual(self.findings(), [])
 
     def test_missing_sync_root_is_rejected(self) -> None:
-        self.write_sync("src\\modules", "src\\core")
+        self.write_sync("src\\modules", "src\\nowhere")
         self.write("src/modules/SACCR_Test.bas", MODULE)
         self.assertEqual(self.findings(),
-                         ["tools/Sync-SACCR-VBA.ps1: source directory src/core/ does not exist"])
+                         ["tools/Sync-SACCR-VBA.ps1: source directory src/nowhere/ does not exist"])
+
+    def test_commented_sync_root_is_not_counted(self) -> None:
+        self.write("tests/modules/TEST_Test.bas", MODULE.replace("SACCR_Test", "TEST_Test"))
+        unsynchronized = ("tests/modules/TEST_Test.bas: not synchronized; add its directory to "
+                          "$sourceRoots in tools/Sync-SACCR-VBA.ps1")
+        for commented in ('        # (Join-Path $repoFullPath "tests\\modules")',
+                          '        <# (Join-Path $repoFullPath "tests\\modules")\r\n        #>'):
+            with self.subTest(entry=commented):
+                self.write("tools/Sync-SACCR-VBA.ps1",
+                           '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),'
+                           f"\r\n{commented}\r\n    )\r\n")
+                self.assertEqual(self.findings(), [unsynchronized])
+        self.write("tools/Sync-SACCR-VBA.ps1",
+                   '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "tests\\modules")  # unit tests'
+                   "\r\n    )\r\n")
+        self.assertEqual(self.findings(), [])
+
+    def test_unsupported_sync_entry_is_rejected(self) -> None:
+        self.write("tools/Sync-SACCR-VBA.ps1",
+                   '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),\r\n'
+                   "        (Get-Item $env:SOURCE)\r\n")
+        found = self.findings()
+        self.assertIn("tools/Sync-SACCR-VBA.ps1: unsupported $sourceRoots entry: (Get-Item $env:SOURCE)", found)
+        self.assertIn("tools/Sync-SACCR-VBA.ps1: $sourceRoots list is not closed", found)
+
+    def test_required_files_must_exist(self) -> None:
+        for path in ("tools/Sync-SACCR-VBA.ps1", "src/workbook/SACCR_Template.xlsx"):
+            with self.subTest(path=path):
+                self.findings()
+                (self.root / path).unlink()
+                self.assertIn(f"{path}: tracked but missing from the working tree",
+                              check_source.run_check(self.root)["findings"])
+                self.assertIn(f"{path}: required file is not tracked", self.findings())
+                self.setUp()
 
     def test_document_modules_match_template_sheets(self) -> None:
         self.write_workbook("src/workbook/SACCR_Template.xlsx", {

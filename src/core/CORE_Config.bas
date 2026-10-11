@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -58,21 +58,40 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
-    'Every input and output table has its headers on row 4 and data from
-    'row 5. The run summary is written to cell A2 of the Results sheet.
-        Public Const HEADER_ROW       As Long = 4         'Row holding the column headers
-        Public Const FIRST_DATA_ROW   As Long = 5         'First row of data below the headers
-        Public Const RUNINFO_CELL     As String = "A2"    'Cell receiving the run summary line
+    'Every sheet has two narrow margin columns (A:B) and two margin rows
+    '(1:2). Every table starts in column C. The output tables have their
+    'headers on row 6 and data from row 7. The input tables are located
+    'through workbook names, so their rows can move: NettingSets and Trades
+    'through the name of their first header cell (NM_NS_HEADER,
+    'NM_TR_HEADER), with data from the next row (CORE_Util.TableHeaderRow
+    'and TableFirstRow), and Params as described under PARAMS SHEET. Column
+    'numbers in this
+    'module (NS_, TR_, RS_ and the others) count from the first table
+    'column; CORE_Util.TableCell and TableRange add COL_OFFSET. The run
+    'summary is written to cell C4 of the Results sheet.
+        Public Const COL_OFFSET       As Long = 2         'Margin columns left of every table
+        Public Const HEADER_ROW       As Long = 6         'Row holding the column headers
+        Public Const FIRST_DATA_ROW   As Long = 7         'First row of data below the headers
+        Public Const RUNINFO_CELL     As String = "C4"    'Cell receiving the run summary line
+        Public Const NM_NS_HEADER     As String = "NettingSets_Header"    'NettingSets header cell "NettingSetID"
+        Public Const NM_TR_HEADER     As String = "Trades_Header"         'Trades header cell "TradeID"
 
 '------------------------------------------------------------------------------
 ' PARAMS SHEET
 '------------------------------------------------------------------------------
-    'Each parameter is a row with its code in column A and its value in
-    'column C. A workbook name equal to the code takes precedence (see
-    'CORE_Util.GetParam). BD = business days; SD = supervisory duration;
+    'The Params sheet is located through workbook names, not fixed rows
+    'and columns, so its layout can change: NM_PRM_CODE and NM_PRM_VALUE
+    'name the "Code" and "Value" header cells of the parameter rows, and
+    'the top-left cells of NM_SF_TABLE and NM_FX_TABLE are the header cells
+    'of the two lookup tables (CORE_Util.ParamsCodeCol and the related
+    'functions). Each parameter is a row with its code under "Code" and its
+    'value under "Value", read through the workbook name equal to its code
+    '(CORE_Util.GetParam). BD = business days; SD = supervisory duration;
     'SF = supervisory factor; CO = commodity.
-        Public Const PRM_CODE_COL     As Long = 1                          'Column of the code
-        Public Const PRM_VALUE_COL    As Long = 3                          'Column of the value
+        Public Const NM_PRM_CODE      As String = "Params_Code"            'Header cell "Code"
+        Public Const NM_PRM_VALUE     As String = "Params_Value"           'Header cell "Value"
+        Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
+        Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
@@ -103,7 +122,7 @@ Attribute VB_Name = "CORE_Config"
     'status formula on Results, which refers to it, recalculates when a run
     'changes it.
         Public Const RUN_INPUTS_NAME       As String = "SACCR_RunInputs"    'Empty when no results exist
-        Public Const RESULTS_STATUS_CELL   As String = "A3"                 'Results: status formula
+        Public Const RESULTS_STATUS_CELL   As String = "C5"                 'Results: status formula
 
 '------------------------------------------------------------------------------
 ' REGIMES
@@ -113,10 +132,26 @@ Attribute VB_Name = "CORE_Config"
         Public Const RG_CRR    As String = "CRR"     'EU Capital Requirements Regulation
 
 '------------------------------------------------------------------------------
+' NETTING-SET CODES
+'------------------------------------------------------------------------------
+    'Client-clearing role of the bank; blank is N.
+        Public Const CL_NONE     As String = "N"         'Not a client-clearing netting set
+        Public Const CL_CM       As String = "CM"        'Clearing member facing its client
+        Public Const CL_CLIENT   As String = "CLIENT"    'Client facing its clearing member
+    'Margin-agreement structure; blank is one agreement, or none, covering
+    'this netting set only. Both codes are declared so that the netting set
+    'is rejected: the engine does not model them.
+        Public Const MS_MIXED    As String = "MIXED"     'Several agreements, or margined and unmargined trades
+        Public Const MS_SHARED   As String = "SHARED"    'One agreement over several netting sets
+    'Trades in a netting set above which the 20-day MPOR floor applies in the
+    'following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
+        Public Const LARGE_NS_TRADES As Long = 5000
+
+'------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
 '------------------------------------------------------------------------------
-    'Header text, searched for in column A of Params, that marks the start of
-    'each lookup table. The table runs down to the first blank cell.
+    'Header text of the first column of each lookup table, at the top-left
+    'cell of its workbook name. The table runs down to the first blank key.
         Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
         Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
 
@@ -127,7 +162,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_ID         As Long = 1     'Netting-set ID
         Public Const NS_CPTY       As Long = 2     'Counterparty
         Public Const NS_MARGINED   As Long = 3     'Margined (Y/N)
-        Public Const NS_CLEARED    As Long = 4     'Centrally cleared (Y/N)
+        Public Const NS_CLEARED    As Long = 4     'Client-clearing role: N, CM or CLIENT
         Public Const NS_FREQ       As Long = 5     'Remargining frequency, business days
         Public Const NS_LARGE      As Long = 6     'Over 5,000 trades or illiquid collateral (Y/N)
         Public Const NS_DISPUTE    As Long = 7     'Margin disputes (Y/N)
@@ -138,7 +173,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_MTA        As Long = 12    'Minimum transfer amount
         Public Const NS_ALPHA      As Long = 13    'Alpha override
         Public Const NS_REGIME     As Long = 14    'Regime override; blank uses Params
-        Public Const NS_NCOLS      As Long = 14    'Number of input columns
+        Public Const NS_STRUCT     As Long = 15    'Margin-agreement structure: blank, MIXED or SHARED
+        Public Const NS_NCOLS      As Long = 15    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -176,19 +212,22 @@ Attribute VB_Name = "CORE_Config"
     'Header text of every column the engine reads, in column order and
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
-    'case and surrounding spaces) means a column was inserted, deleted or
-    'moved, and the run stops (#35).
+    'case, spaces and line breaks) means a column was inserted, deleted or
+    'moved, and the run stops (#35). The Params, factor and FX headers are
+    'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Centrally cleared (Y/N)|Remargin frequency N (BD)|" & _
+            "Client clearing role (N / CM / CLIENT)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
-            "Alpha override|Regime override (blank = Params)"
+            "Alpha override|Regime override (blank = Params)|" & _
+            "Margin agreements (blank / MIXED / SHARED)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
             "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
             "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|"
-        Public Const PRM_HEADERS As String = "Code||Value"
+        Public Const PRM_CODE_HEADER As String = "Code"
+        Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
         Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"

@@ -11,7 +11,7 @@ import check_test_cases as cases
 
 ROOT = Path(__file__).resolve().parents[1]
 NETTING_SET = {
-    "id": "NS1", "margined": False, "cleared": False, "remargin_period_business_days": None,
+    "id": "NS1", "margined": False, "clearing_role": "none", "remargin_period_business_days": None,
     "large_or_illiquid": False, "margin_disputes": False, "mpor_override_business_days": None,
     "variation_margin_net_amount": 0, "independent_collateral_net_amount": 0,
     "threshold_amount": 0, "minimum_transfer_amount": 0, "alpha_factor": None,
@@ -93,9 +93,24 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding("direction: invalid direction", findings)
         self.assertFinding("missing field 'threshold_amount'", findings)
 
+    def test_registered_qa_is_cited_by_source_id(self) -> None:
+        self.assertIn("EBA-QA-2023_6962", cases.read_register(self.root))
+        self.expected["outputs"][0]["reference"]["locator"] = "CRR Art. 274(3); EBA Q&A 2023_6962"
+        self.assertFinding("sample-case.bcbs.json:1: cite EBA Q&A 2023_6962 by its source ID "
+                           "EBA-QA-2023_6962", self.findings())
+        self.expected["outputs"][0]["reference"]["locator"] = "CRR Art. 274(3); EBA-QA-2023_6962"
+        self.assertEqual(self.findings(), [])
+        # An unregistered Q&A, such as the rejected 2022_6354, is provenance in prose.
+        self.expected["outputs"][0]["reference"]["locator"] = "scenario of EBA Q&A 2022_6354"
+        self.assertEqual(self.findings(), [])
+
     def test_parameters(self) -> None:
         self.fixture["parameters"] = {"DaysPerYear": 360}
         self.assertEqual(self.findings(), [])
+        self.fixture["parameters"] = {"DaysPerYear": 360, "IRBucketOffset": False}
+        self.assertEqual(self.findings(), [])
+        self.fixture["parameters"] = {"IRBucketOffset": "FALSE"}
+        self.assertFinding("parameters.IRBucketOffset", self.findings())
         self.fixture["parameters"] = {"Alpha": 1, "DaysPerYear": 0}
         findings = self.findings()
         self.assertFinding("unknown parameter 'Alpha'", findings)

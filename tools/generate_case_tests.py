@@ -25,6 +25,8 @@ ASSET_CLASS = {"interest_rate": "IR", "foreign_exchange": "FX", "credit": "CR", 
 WORDS = {"linear": "Linear", "option": "Option", "cdo": "CDO", "long": "Long", "short": "Short",
          "call": "Call", "put": "Put", "standard": "Standard", "basis": "Basis",
          "volatility": "Volatility"}
+# JSON clearing role -> the NettingSets code.
+CLEARING_ROLE = {"none": "N", "clearing_member": "CM", "client": "CLIENT"}
 
 HEADER = '''Attribute VB_Name = "TEST_Cases"
 '==============================================================================
@@ -87,7 +89,7 @@ def case_lines(name: str, fixture: dict[str, Any], expected: dict[str, Any]) -> 
              *("        TEST_CaseRunner.SetParameter " + args(code, value)
                for code, value in sorted(fixture["parameters"].items())),
              "        TEST_CaseRunner.AddNettingSet " + args(
-                 ns["id"], ns["margined"], ns["cleared"], ns["remargin_period_business_days"],
+                 ns["id"], ns["margined"], CLEARING_ROLE[ns["clearing_role"]], ns["remargin_period_business_days"],
                  ns["large_or_illiquid"], ns["margin_disputes"], ns["mpor_override_business_days"],
                  ns["variation_margin_net_amount"], ns["independent_collateral_net_amount"],
                  ns["threshold_amount"], ns["minimum_transfer_amount"], ns["alpha_factor"])]

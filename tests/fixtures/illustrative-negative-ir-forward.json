@@ -11,7 +11,7 @@
   "netting_set": {
     "id": "NEGIR",
     "margined": false,
-    "cleared": false,
+    "clearing_role": "none",
     "remargin_period_business_days": null,
     "large_or_illiquid": false,
     "margin_disputes": false,

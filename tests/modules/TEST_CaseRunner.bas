@@ -14,7 +14,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   AddNettingSet,
 '   AddTrade, SetInputCell, PatchCell, PatchName, RunCase,
 '   RunCaseExpectingStop,
-'   OutputNumber, ExpectNumber, ExpectText, ExpectTrue and EndSuite, for
+'   OutputNumber, ExpectNumber, ExpectText, ExpectTrue, ExpectChecksLine and
+'   EndSuite, for
 '   TEST_Cases, TEST_InputValidation, TEST_Aggregation and TEST_Invariants.
 '   Option Private Module keeps them out of the external workbook automation
 '   API.
@@ -49,7 +50,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '
 ' AUTHOR
 '   Daniele Penza
@@ -337,7 +338,7 @@ Public Sub BeginCase( _
         mRegime = regimeCode
         mCurrency = calculationCurrency
         mNettingSetId = ""
-        mNextTradeRow = FIRST_DATA_ROW
+        mNextTradeRow = InputTop(SH_TRADES)
         ClearBlock GetSheet(SH_NS), NS_NCOLS
         ClearBlock GetSheet(SH_TRADES), TR_NCOLS
         mAsOfCell.Value = IsoDate(valuationDate)
@@ -375,7 +376,7 @@ End Sub
 Public Sub AddNettingSet( _
     ByVal nettingSetId As String, _
     ByVal marginedFlag As String, _
-    ByVal clearedFlag As String, _
+    ByVal roleCode As String, _
     ByVal remarginDays As String, _
     ByVal largeFlag As String, _
     ByVal disputesFlag As String, _
@@ -391,14 +392,15 @@ Public Sub AddNettingSet( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write the fixture's netting set to the first NettingSets row, with the
-'   case's regime as its override.
+'   case's regime as its override. The margin-agreement structure is left
+'   blank: one agreement, or none, covering this netting set only.
 '
 ' INPUTS
-'   The fixture fields as text: Y or N for flags, numbers with a "."
-'   decimal point, empty for null.
+'   The fixture fields as text: Y or N for flags, N, CM or CLIENT for the
+'   clearing role, numbers with a "." decimal point, empty for null.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-10
 '==============================================================================
 '
 
@@ -414,7 +416,7 @@ Public Sub AddNettingSet( _
         rowValues(1, NS_ID) = nettingSetId
         rowValues(1, NS_CPTY) = "Test case " & mCase
         rowValues(1, NS_MARGINED) = marginedFlag
-        rowValues(1, NS_CLEARED) = clearedFlag
+        rowValues(1, NS_CLEARED) = roleCode
         rowValues(1, NS_FREQ) = NumberOrBlank(remarginDays)
         rowValues(1, NS_LARGE) = largeFlag
         rowValues(1, NS_DISPUTE) = disputesFlag
@@ -425,7 +427,7 @@ Public Sub AddNettingSet( _
         rowValues(1, NS_MTA) = NumberOrBlank(mtaAmount)
         rowValues(1, NS_ALPHA) = NumberOrBlank(alphaFactor)
         rowValues(1, NS_REGIME) = mRegime
-        WriteRow GetSheet(SH_NS), FIRST_DATA_ROW, NS_NCOLS, rowValues
+        WriteRow GetSheet(SH_NS), InputTop(SH_NS), NS_NCOLS, rowValues
 
 End Sub
 
@@ -523,14 +525,14 @@ Public Sub SetInputCell( _
 ' INPUTS
 '   sheetName: SH_NS or SH_TRADES.
 '   dataRow: 1 for the first data row.
-'   col: column number, for example TR_ID.
+'   col: table column number, for example TR_ID.
 '   newValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
-        GetSheet(sheetName).Cells(FIRST_DATA_ROW + dataRow - 1, col).Value = newValue
+        TableCell(GetSheet(sheetName), InputTop(sheetName) + dataRow - 1, col).Value = newValue
 
 End Sub
 
@@ -551,11 +553,11 @@ Public Sub PatchCell( _
 '
 ' INPUTS
 '   sheetName: a SH_ constant.
-'   rowNum, col: the cell's sheet row and column.
+'   rowNum, col: the cell's sheet row and table column.
 '   newValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -567,7 +569,7 @@ Public Sub PatchCell( _
 '------------------------------------------------------------------------------
 ' RECORD AND WRITE
 '------------------------------------------------------------------------------
-        Set target = GetSheet(sheetName).Cells(rowNum, col)
+        Set target = TableCell(GetSheet(sheetName), rowNum, col)
         RecordPatch sheetName, target.Address, target.Formula
         target.Value = newValue
 
@@ -609,36 +611,40 @@ Public Sub SetParameter( _
 ' PURPOSE
 '   Give one Params value for the current case, from a fixture's
 '   "parameters" object, for example DaysPerYear 360 so that a published
-'   maturity of 0.75 years can be entered as a date. Restored like
-'   PatchCell.
+'   maturity of 0.75 years can be entered as a date, or IRBucketOffset
+'   FALSE. Restored like PatchCell.
 '
 ' INPUTS
-'   code: a PRM_ code in column A of Params.
-'   valueText: the number as text with a "." decimal point.
+'   code: a PRM_ code, whose workbook name locates the value cell.
+'   valueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
+'   the number as text with a "." decimal point.
 '
 ' ERROR POLICY
-'   Raises ERR_TEST_SETUP when the code is not on Params; the suite then
-'   ends as failed.
+'   Raises ERR_TEST_SETUP when the parameter has no workbook name; the
+'   suite then ends as failed.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Params row of the code; 0 when absent
+    Dim c   As Range    'Value cell of the parameter
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        r = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, code)
-        If r = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.SetParameter", _
-                      "'" & code & "' not found in column A of Params."
-        End If
-        PatchCell SH_PARAMS, r, PRM_VALUE_COL, Val(valueText)
+        Set c = ParamCell(code)
+        Select Case valueText
+            Case "Y"
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, True
+            Case "N"
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, False
+            Case Else
+                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, Val(valueText)
+        End Select
 
 End Sub
 
@@ -719,7 +725,7 @@ Public Sub RunCaseExpectingStop( _
         If completed Then
             Record label, referenceClass, False, "run completed; expected it to stop"
         Else
-            Record label, referenceClass, ChecksHasError(messagePart), _
+            Record label, referenceClass, ChecksHasLine(SEV_ERROR, messagePart), _
                    "run stopped, but no ERROR on Checks contains """ & messagePart & """"
         End If
         Exit Sub
@@ -830,7 +836,7 @@ Public Function OutputNumber( _
 '   the calling suite then fails.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -852,7 +858,7 @@ Public Function OutputNumber( _
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.OutputNumber", _
                       quantity & " of " & nettingSetId & " not found on Results."
         End If
-        v = ws.Cells(r, col).Value
+        v = TableCell(ws, r, col).Value
         If Not IsNum(v) Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.OutputNumber", _
                       quantity & " of " & nettingSetId & " is not a number (" & SafeStr(v) & ")."
@@ -886,6 +892,31 @@ Public Sub ExpectTrue( _
 '==============================================================================
 '
         Record label, referenceClass, passed, detail
+
+End Sub
+
+
+Public Sub ExpectChecksLine( _
+    ByVal label As String, _
+    ByVal severity As String, _
+    ByVal messagePart As String, _
+    ByVal referenceClass As String)
+'
+'==============================================================================
+'                               ExpectChecksLine
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After RunCase, check that the Checks sheet has a line of the given
+'   severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
+'   messagePart, ignoring case: for a warning that does not change the
+'   netting set's status.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        Record label, referenceClass, ChecksHasLine(severity, messagePart), _
+               "Checks has no " & severity & " line containing '" & messagePart & "'"
 
 End Sub
 
@@ -959,7 +990,7 @@ Private Function ReadOutput( _
 '   was missing.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -991,7 +1022,7 @@ Private Function ReadOutput( _
             detail = rowId & " not found on " & ws.Name
             Exit Function
         End If
-        actual = ws.Cells(r, col).Value
+        actual = TableCell(ws, r, col).Value
         ReadOutput = True
 
 End Function
@@ -1143,19 +1174,20 @@ Private Sub Record( _
 End Sub
 
 
-Private Function ChecksHasError( _
+Private Function ChecksHasLine( _
+    ByVal severity As String, _
     ByVal messagePart As String) _
     As Boolean
 '
 '==============================================================================
-'                                ChecksHasError
+'                                ChecksHasLine
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether the Checks sheet has an ERROR line whose message contains
-'   messagePart, ignoring case.
+'   Tell whether the Checks sheet has a line of the given severity whose
+'   message contains messagePart, ignoring case.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1173,9 +1205,9 @@ Private Function ChecksHasError( _
         Set ws = GetSheet(SH_CHECKS)
         lastR = UsedLastRow(ws)
         For r = FIRST_DATA_ROW To lastR
-            If SafeStr(ws.Cells(r, 1).Value) = SEV_ERROR Then
-                If InStr(1, SafeStr(ws.Cells(r, 5).Value), messagePart, vbTextCompare) > 0 Then
-                    ChecksHasError = True
+            If SafeStr(TableCell(ws, r, 1).Value) = severity Then
+                If InStr(1, SafeStr(TableCell(ws, r, 5).Value), messagePart, vbTextCompare) > 0 Then
+                    ChecksHasLine = True
                     Exit Function
                 End If
             End If
@@ -1197,10 +1229,10 @@ Private Sub UnitFxRate( _
 '   currency at rate 1.
 '
 ' INPUTS
-'   currencyCode: three-letter code, as in column A of the FX table.
+'   currencyCode: three-letter code, as in the first column of the FX table.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1208,16 +1240,16 @@ Private Sub UnitFxRate( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ws   As Worksheet    'Params sheet
-    Dim r    As Long         'Row of the currency in column A; 0 when absent
+    Dim r    As Long         'Row of the currency in the table; 0 when absent
 
 '------------------------------------------------------------------------------
 ' PATCH
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_PARAMS)
-        r = FindHeaderRow(ws, PRM_CODE_COL, currencyCode)
+        r = FindHeaderRow(ws, NamedTableCol(NM_FX_TABLE), currencyCode)
         If r > 0 Then
-            If ToDbl(ws.Cells(r, PRM_VALUE_COL).Value) <> 1# Then
-                PatchCell SH_PARAMS, r, PRM_VALUE_COL, 1#
+            If ToDbl(TableCell(ws, r, NamedTableCol(NM_FX_TABLE) + 2).Value) <> 1# Then
+                PatchCell SH_PARAMS, r, NamedTableCol(NM_FX_TABLE) + 2, 1#
             End If
         End If
 
@@ -1368,25 +1400,27 @@ Private Sub SaveBlock( _
 '   formulas: the block's formulas.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long    'Last used row
+    Dim lastR    As Long    'Last used row
+    Dim topRow   As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' SAVE
 '------------------------------------------------------------------------------
         blockAddress = ""
         formulas = Empty
+        topRow = InputTop(ws.Name)
         lastR = UsedLastRow(ws)
-        If lastR < FIRST_DATA_ROW Then
+        If lastR < topRow Then
             Exit Sub
         End If
-        With ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, nCols))
+        With TableRange(ws, topRow, 1, lastR, nCols)
             blockAddress = .Address
             formulas = .Formula
         End With
@@ -1433,24 +1467,55 @@ Private Sub ClearBlock( _
 '   Clear the values of an input block; formats and validation stay.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long    'Last used row
+    Dim lastR    As Long    'Last used row
+    Dim topRow   As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
+        topRow = InputTop(ws.Name)
         lastR = UsedLastRow(ws)
-        If lastR >= FIRST_DATA_ROW Then
-            ws.Range(ws.Cells(FIRST_DATA_ROW, 1), ws.Cells(lastR, nCols)).ClearContents
+        If lastR >= topRow Then
+            TableRange(ws, topRow, 1, lastR, nCols).ClearContents
         End If
 
 End Sub
+
+
+Private Function InputTop( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                   InputTop
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the first data row of an input sheet, located through the
+'   workbook name of its first header cell (CORE_Util.TableFirstRow).
+'
+' ERROR POLICY
+'   Raises ERR_TEST_SETUP when the name cannot locate it; the suite then
+'   ends as failed.
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+        InputTop = TableFirstRow(sheetName)
+        If InputTop = 0 Then
+            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.InputTop", _
+                      "The header of " & sheetName & " cannot be located through its workbook name - " & _
+                      "rebuild the workbook from the template."
+        End If
+
+End Function
 
 
 Private Sub WriteRow( _
@@ -1466,10 +1531,10 @@ Private Sub WriteRow( _
 '   Write one input row from a (1 To 1, 1 To nCols) array.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
-        ws.Range(ws.Cells(rowNum, 1), ws.Cells(rowNum, nCols)).Value = values
+        TableRange(ws, rowNum, 1, rowNum, nCols).Value = values
 
 End Sub
 
@@ -1482,39 +1547,20 @@ Private Function ParamCell( _
 '                                  ParamCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the cell the engine reads a parameter from, the same way as
-'   CORE_Util.GetParam: the workbook name first, then the Params table.
+'   Return the cell the engine reads a parameter from, as CORE_Util.GetParam
+'   does: the top-left cell of the workbook name equal to its code.
 '
 ' ERROR POLICY
-'   Raises when the parameter is in neither place.
+'   Raises ERR_TEST_SETUP when the name is missing or broken.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim r          As Range   'Range of the workbook name, if any
-    Dim paramRow   As Long    'Row of the code on Params
-
-'------------------------------------------------------------------------------
-' FIND
-'------------------------------------------------------------------------------
-        On Error Resume Next
-        Set r = ThisWorkbook.Names(code).RefersToRange
-        Err.Clear
-        On Error GoTo 0
-        If Not r Is Nothing Then
-            Set ParamCell = r.Cells(1, 1)
-            Exit Function
+        Set ParamCell = NamedCell(code)
+        If ParamCell Is Nothing Then
+            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " has no workbook name."
         End If
-        paramRow = FindHeaderRow(GetSheet(SH_PARAMS), PRM_CODE_COL, code)
-        If paramRow = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " not found."
-        End If
-        Set ParamCell = GetSheet(SH_PARAMS).Cells(paramRow, PRM_VALUE_COL)
 
 End Function
 
