@@ -16,7 +16,7 @@ pull request's whole range.
 | --- | --- |
 | `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`) and the case-module generator (`test_generate_case_tests.py`) |
 | `check_committed_whitespace-fixtures` | Self-test of the whitespace gate |
-| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
+| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; every component lies in a directory `Sync-SACCR-VBA.ps1` synchronizes, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
@@ -57,6 +57,13 @@ while synchronizing, checks that the sheet names/CodeNames are unchanged, and
 creates a timestamped safety backup unless `-NoBackup` is supplied. As requested
 by the owner, it deletes this temporary backup after a successful save and
 retains it on failure. It is not a persistent rollback archive.
+
+`check_source.py` keeps the synchronizer complete: it fails when a VBA
+component lies outside the directories in `$sourceRoots`, when one of those
+directories is missing, and when a document module in `src/workbook/` and the
+template's sheets (by CodeName) do not match one to one. A new source
+directory must be added to `$sourceRoots`; a new worksheet needs both its sheet
+in the template and its document module.
 
 The synchronizer rejects known retired repository modules before changing any
 VBA component. Rebuild such a workbook from the current template and source;
