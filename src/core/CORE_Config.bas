@@ -59,9 +59,13 @@ Attribute VB_Name = "CORE_Config"
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
     'Every sheet has two narrow margin columns (A:B) and two margin rows
-    '(1:2). Every input and output table except Params starts in column C,
-    'with its headers on row 6 and data from row 7; Params is located
-    'through workbook names (see PARAMS SHEET). Column numbers in this
+    '(1:2). Every table starts in column C. The output tables have their
+    'headers on row 6 and data from row 7. The input tables are located
+    'through workbook names, so their rows can move: NettingSets and Trades
+    'through the name of their first header cell (NM_NS_HEADER,
+    'NM_TR_HEADER), with data from the next row (CORE_Util.TableHeaderRow
+    'and TableFirstRow), and Params as described under PARAMS SHEET. Column
+    'numbers in this
     'module (NS_, TR_, RS_ and the others) count from the first table
     'column; CORE_Util.TableCell and TableRange add COL_OFFSET. The run
     'summary is written to cell C4 of the Results sheet.
@@ -69,6 +73,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const HEADER_ROW       As Long = 6         'Row holding the column headers
         Public Const FIRST_DATA_ROW   As Long = 7         'First row of data below the headers
         Public Const RUNINFO_CELL     As String = "C4"    'Cell receiving the run summary line
+        Public Const NM_NS_HEADER     As String = "NettingSets_Header"    'NettingSets header cell "NettingSetID"
+        Public Const NM_TR_HEADER     As String = "Trades_Header"         'Trades header cell "TradeID"
 
 '------------------------------------------------------------------------------
 ' PARAMS SHEET
@@ -79,7 +85,7 @@ Attribute VB_Name = "CORE_Config"
     'the top-left cells of NM_SF_TABLE and NM_FX_TABLE are the header cells
     'of the two lookup tables (CORE_Util.ParamsCodeCol and the related
     'functions). Each parameter is a row with its code under "Code" and its
-    'value under "Value"; a workbook name equal to the code takes precedence
+    'value under "Value", read through the workbook name equal to its code
     '(CORE_Util.GetParam). BD = business days; SD = supervisory duration;
     'SF = supervisory factor; CO = commodity.
         Public Const NM_PRM_CODE      As String = "Params_Code"            'Header cell "Code"

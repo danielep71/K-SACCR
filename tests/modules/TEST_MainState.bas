@@ -755,7 +755,7 @@ Private Sub CaseStaleResults()
         CheckStatusCell "Results current", "after a run"
 
     'Edit one input, as a user would: the formula recalculates by itself.
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), FIRST_DATA_ROW, TR_MTM)
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
         saved = mtmCell.Formula
         mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
         Check M_Main.ResultsStatus() = "STALE", "after an edit: " & M_Main.ResultsStatus()
