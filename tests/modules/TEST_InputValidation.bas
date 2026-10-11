@@ -26,7 +26,14 @@ Attribute VB_Name = "TEST_InputValidation"
 '   regime, and with disputes or a large netting set and weekly
 '   remargining, against the rules recorded in the methodology, and the
 '   warning for a margined netting set of more than 5,000 trades whose
-'   large or illiquid flag is N.
+'   large or illiquid flag is N. Values outside the ranges of the data
+'   validation (#147), written by VBA so that validation does not stop
+'   them, must also be rejected: a multiplier floor of 1, a correlation
+'   above 1, correlations that do not form a correlation matrix, an MPOR
+'   floor of 0, a fractional business-day count, a negative supervisory
+'   factor, and a negative threshold, MTA or remargining frequency or an
+'   alpha or MPOR override at or below zero; a remargining frequency of 0
+'   is raised to daily with a warning.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -66,8 +73,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 57                'Cases in a complete run
-        Private Const CHECKS      As Long = 65                'Checks in a complete run
+        Private Const CASES       As Long = 69                'Cases in a complete run
+        Private Const CHECKS      As Long = 79                'Checks in a complete run
 
 
 '
@@ -227,6 +234,39 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), -1#
         ExpectStop "Alpha must be greater than zero"
+
+    'Ranges of the data validation, checked by the engine for values that
+    'bypass it (#147): a floor of 1 would divide by zero, correlations that
+    'are no correlation matrix would make the IR effective notional undefined.
+        StartCase "params-floor-one", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_FLOOR), ParamsValueCol(), 1#
+        ExpectStop PRM_FLOOR & " must be at least"
+
+        StartCase "params-correlation-above-one", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_RHO13), ParamsValueCol(), 1.5
+        ExpectStop PRM_RHO13 & " must be from"
+
+        StartCase "params-correlations-not-a-matrix", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_RHO12), ParamsValueCol(), 0.95
+        ExpectStop "do not form a valid correlation matrix"
+
+        StartCase "params-mpor-floor-zero", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_MPOR_BIL), ParamsValueCol(), 0#
+        ExpectStop PRM_MPOR_BIL & " must be a whole number"
+
+        StartCase "params-business-days-not-whole", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_BDYEAR), ParamsValueCol(), 250.5
+        ExpectStop PRM_BDYEAR & " must be a whole number"
+
+        StartCase "factor-table-negative-factor", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EQ_INDEX"), TableCol(NM_SF_TABLE, 4), -0.2
+        ExpectStop "Supervisory factor and correlation must be from 0 to 1"
 
         StartCase "params-duplicate-below-fx", "N"
         AddSwap "T1"
@@ -427,6 +467,36 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_STRUCT, "TWO"
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
+
+    'Netting-set terms outside their range (#147): negative TH, MTA or
+    'remargining frequency, and an alpha or MPOR override at or below zero,
+    'make the set INVALID; a frequency below 1 day is raised to 1 with a
+    'warning.
+        StartCase "netting-set-negative-threshold", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -100#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-negative-mta", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MTA, -100#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartCase "netting-set-alpha-override-zero", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_ALPHA, 0#
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-mpor-override-negative", "CRR", "N", "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, -5#
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-remargin-negative", "CRR", "N", "-1", "N", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-remargin-zero", "CRR", "N", "0", "N", "N"
+        ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "daily remargining (1 BD) used", "illustrative"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub

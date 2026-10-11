@@ -1066,6 +1066,59 @@ End Function
 '------------------------------------------------------------------------------
 '
 
+Private Sub ParamInRange( _
+    ByVal code As String, _
+    ByVal amount As Double, _
+    ByVal lowest As Double, _
+    ByVal highest As Double, _
+    ByVal highestAllowed As Boolean, _
+    ByVal wholeOnly As Boolean)
+'
+'==============================================================================
+'                                ParamInRange
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check a numeric parameter against its range: at least lowest, and at
+'   most highest (highestAllowed) or below it; a whole number when
+'   wholeOnly. The ranges are those of the data validation on Params.
+'
+' STATE OWNERSHIP
+'   Sets mParamError and logs an error naming the parameter when the value
+'   is outside the range, so that LoadParams stops the run (#147).
+'
+' UPDATED
+'   2026-10-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim inRange   As Boolean    'The value satisfies the range
+    Dim rule      As String     'The range, in words
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If highestAllowed Then
+            inRange = (amount >= lowest And amount <= highest)
+            rule = "from " & CStr(lowest) & " to " & CStr(highest)
+        Else
+            inRange = (amount >= lowest And amount < highest)
+            rule = "at least " & CStr(lowest) & " and below " & CStr(highest)
+        End If
+        If wholeOnly Then
+            inRange = inRange And (amount = Int(amount))
+            rule = "a whole number " & rule
+        End If
+        If Not inRange Then
+            mParamError = True
+            LogMsg SEV_ERROR, SH_PARAMS, code, code & " must be " & rule & " (found " & CStr(amount) & ")."
+        End If
+
+End Sub
+
+
 Private Function NumParam( _
     ByVal code As String, _
     ByVal dflt As Double) _
@@ -1129,14 +1182,16 @@ Private Function LoadParams() As Boolean
 ' RETURNS
 '   True when the parameters are usable. False, with an error logged, when
 '   the reporting date or currency is missing, the regime is not BCBS or
-'   CRR, or a day count is not positive.
+'   CRR, a numeric parameter is outside the range of its data validation
+'   (ParamInRange), or the IR bucket correlations do not form a valid
+'   correlation matrix (#147).
 '
 ' ERROR POLICY
 '   An unexpected error while reading is logged as an error and returns
 '   False.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-11
 '==============================================================================
 '
 
@@ -1198,16 +1253,40 @@ Private Function LoadParams() As Boolean
         End If
         pLamThrIR = NumParam(PRM_LAMIR, 0.001)
         pLamThrCO = NumParam(PRM_LAMCO, 0.1)
-        If mParamError Then
-            Exit Function
-        End If
 
 '------------------------------------------------------------------------------
-' DAY COUNTS
+' RANGES
 '------------------------------------------------------------------------------
-    'Both are divisors in every year fraction.
-        If pDaysYear <= 0# Or pBDYear <= 0# Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_DAYSYEAR, "Day-count parameters must be positive."
+    'The ranges of the data validation on Params, checked again here because
+    'validation does not stop pasted or VBA-written values (#147). A floor
+    'of 1 would divide by zero in the multiplier; correlations that do not
+    'form a correlation matrix would make the IR effective notional the
+    'square root of a negative number.
+        ParamInRange PRM_FLOOR, pFloor, 0#, 1#, False, False
+        ParamInRange PRM_DAYSYEAR, pDaysYear, 360#, 366#, True, False
+        ParamInRange PRM_BDYEAR, pBDYear, 200#, 366#, True, True
+        ParamInRange PRM_MINMAT, pMinMatBD, 0#, 250#, True, True
+        ParamInRange PRM_SDFLOOR, pSDFloorBD, 0#, 250#, True, True
+        ParamInRange PRM_MPOR_BIL, pMPORBil, 1#, 250#, True, True
+        ParamInRange PRM_MPOR_CLR, pMPORClr, 1#, 250#, True, True
+        ParamInRange PRM_MPOR_LARGE, pMPORLarge, 1#, 250#, True, True
+        ParamInRange PRM_BASIS, pBasisF, 0#, 1#, True, False
+        ParamInRange PRM_VOLF, pVolF, 0#, 10#, True, False
+        ParamInRange PRM_RHO12, pRho12, 0#, 1#, True, False
+        ParamInRange PRM_RHO23, pRho23, 0#, 1#, True, False
+        ParamInRange PRM_RHO13, pRho13, 0#, 1#, True, False
+        ParamInRange PRM_LAMIR, pLamThrIR, 0#, 0.1, True, False
+        ParamInRange PRM_LAMCO, pLamThrCO, 0#, 1#, True, False
+        If Not mParamError Then
+            If 1# - pRho12 * pRho12 - pRho23 * pRho23 - pRho13 * pRho13 _
+               + 2# * pRho12 * pRho23 * pRho13 < -0.000000000001 Then
+                mParamError = True
+                LogMsg SEV_ERROR, SH_PARAMS, PRM_RHO12, "The IR bucket correlations " & PRM_RHO12 & ", " & _
+                       PRM_RHO23 & " and " & PRM_RHO13 & " do not form a valid correlation matrix: " & _
+                       "the IR effective notional would be undefined (CRE52.57)."
+            End If
+        End If
+        If mParamError Then
             Exit Function
         End If
         LoadParams = True
@@ -1234,8 +1313,9 @@ Private Function LoadSFTable() As Boolean
 ' RETURNS
 '   True when at least one row was read. False, with an error logged, when
 '   the header is missing, the table is empty, a value is not a number, a
-'   key is listed twice with different values, or a row with a factor lies
-'   below the first blank key and would not be read (#35).
+'   factor or correlation is outside 0 to 1 or a volatility outside 0 to 5
+'   (#147), a key is listed twice with different values, or a row with a
+'   factor lies below the first blank key and would not be read (#35).
 '
 ' STATE OWNERSHIP
 '   Fills mSF, mSFCount and mSFIndex. A key listed twice with the same
@@ -1296,6 +1376,13 @@ Private Function LoadSFTable() As Boolean
             If rowBad Then
                 bad = True
                 LogMsg SEV_ERROR, SH_PARAMS, k, "Supervisory factor, correlation and volatility must be numbers.", r
+            ElseIf entry.SF < 0# Or entry.SF > 1# Or entry.Corr < 0# Or entry.Corr > 1# _
+                   Or entry.Vol < 0# Or entry.Vol > 5# Then
+                rowBad = True
+                bad = True
+                LogMsg SEV_ERROR, SH_PARAMS, k, "Supervisory factor and correlation must be from 0 to 1 and " & _
+                       "the option volatility from 0 to 5 (found " & CStr(entry.SF) & ", " & CStr(entry.Corr) & _
+                       ", " & CStr(entry.Vol) & ").", r
             End If
 
     'A key seen before: the same values are harmless, different values are
@@ -1686,9 +1773,10 @@ Private Function LoadNettingSets() As Boolean
             With mNS(mNSCount)
 
     'Plain fields. A blank field takes its default; a value that cannot be
-    'read is an error that makes the netting set INVALID (#35). The
-    'remargining frequency is at least 1 business day; a non-positive alpha
-    'takes the Params value.
+    'read is an error that makes the netting set INVALID (#35), and so is a
+    'negative threshold, MTA or remargining frequency, or an alpha or MPOR
+    'override at or below zero (#147). A remargining frequency from 0 to
+    'below 1 business day is raised to 1 with a warning.
                 nsErrors = 0
                 .ID = id
                 .Counterparty = SafeStr(data(i, NS_CPTY))
@@ -1696,7 +1784,14 @@ Private Function LoadNettingSets() As Boolean
                 .ClearingRole = NsCode(data(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
                                        "Client clearing role", id, rowNum, nsErrors)
                 .RemarginBD = NsNumber(data(i, NS_FREQ), 1#, "Remargin frequency", id, rowNum, nsErrors)
-                If .RemarginBD < 1# Then
+                If .RemarginBD < 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "Remargin frequency must not be negative (found " & _
+                           CStr(.RemarginBD) & ").", rowNum
+                    .RemarginBD = 1#
+                ElseIf .RemarginBD < 1# Then
+                    LogMsg SEV_WARN, SH_NS, id, "Remargin frequency " & CStr(.RemarginBD) & _
+                           " BD is below 1 - daily remargining (1 BD) used.", rowNum
                     .RemarginBD = 1#
                 End If
                 .LargeOrIlliquid = NsFlag(data(i, NS_LARGE), False, "Large or illiquid", id, rowNum, nsErrors)
@@ -1705,8 +1800,19 @@ Private Function LoadNettingSets() As Boolean
                 .NICA = NsNumber(data(i, NS_NICA), 0#, "NICA", id, rowNum, nsErrors)
                 .TH = NsNumber(data(i, NS_TH), 0#, "Threshold", id, rowNum, nsErrors)
                 .MTA = NsNumber(data(i, NS_MTA), 0#, "MTA", id, rowNum, nsErrors)
+                If .TH < 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "Threshold TH must not be negative (found " & CStr(.TH) & ").", rowNum
+                End If
+                If .MTA < 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "MTA must not be negative (found " & CStr(.MTA) & ").", rowNum
+                End If
                 .Alpha = NsNumber(data(i, NS_ALPHA), pAlpha, "Alpha override", id, rowNum, nsErrors)
                 If .Alpha <= 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "Alpha override must be greater than zero (found " & _
+                           CStr(.Alpha) & ") - leave it blank to use the Params alpha.", rowNum
                     .Alpha = pAlpha
                 End If
 
@@ -1763,6 +1869,11 @@ Private Function LoadNettingSets() As Boolean
                 .Trades = 0
                 .Rejected = 0
                 ovr = NsNumber(data(i, NS_MPOR), 0#, "MPOR override", id, rowNum, nsErrors)
+                If IsNum(data(i, NS_MPOR)) And ovr <= 0# Then
+                    nsErrors = nsErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, id, "MPOR override must be greater than zero (found " & _
+                           CStr(ovr) & ") - leave it blank for none.", rowNum
+                End If
                 .InputErrors = nsErrors
                 .MPOR = 0#
                 .MFMargined = 0#
