@@ -120,6 +120,55 @@ class TestCaseValidatorTests(unittest.TestCase):
         del self.fixture["parameters"]
         self.assertFinding("missing field 'parameters'", self.findings())
 
+    def test_days_per_year_has_the_engine_range(self) -> None:
+        # CORE_Engine.LoadParams: 360 to 366, not necessarily whole (#161).
+        accepted: tuple[object, ...] = (360, 365, 365.25, 366)
+        rejected: tuple[object, ...] = (359, 359.99, 366.01, 367, 0, -365, "365", True, None)
+        for value in accepted:
+            with self.subTest(value=value):
+                self.fixture["parameters"] = {"DaysPerYear": value}
+                self.assertEqual(self.findings(), [])
+        for value in rejected:
+            with self.subTest(value=value):
+                self.fixture["parameters"] = {"DaysPerYear": value}
+                self.assertFinding("parameters.DaysPerYear: invalid days_per_year", self.findings())
+
+    def test_remargin_period_is_whole_business_days_to_10000(self) -> None:
+        # CORE_Engine.LoadNettingSets: whole, 0 to 10000; 0 is raised to 1;
+        # null leaves the cell blank, which defaults to 1 (#147, #161).
+        field = "remargin_period_business_days"
+        accepted: tuple[object, ...] = (None, 0, 1, 5, 5.0, 10000)
+        rejected: tuple[object, ...] = (0.5, 1.5, -1, 10001, 1e6, "5", True, [5])
+        for value in accepted:
+            with self.subTest(value=value):
+                self.fixture["netting_set"][field] = value
+                self.assertEqual(self.findings(), [])
+        for value in rejected:
+            with self.subTest(value=value):
+                self.fixture["netting_set"][field] = value
+                self.assertFinding(f"netting_set.{field}: invalid remargin_business_days", self.findings())
+
+    def test_mpor_override_is_whole_business_days_above_zero(self) -> None:
+        # CORE_Engine.LoadNettingSets: whole and above 0, with no upper bound
+        # (the remargin ceiling does not apply); null, not 0, means none.
+        field = "mpor_override_business_days"
+        accepted: tuple[object, ...] = (None, 1, 10, 20.0, 10001)
+        rejected: tuple[object, ...] = (0, 0.5, 1.5, -10, "10", False)
+        for value in accepted:
+            with self.subTest(value=value):
+                self.fixture["netting_set"][field] = value
+                self.assertEqual(self.findings(), [])
+        for value in rejected:
+            with self.subTest(value=value):
+                self.fixture["netting_set"][field] = value
+                self.assertFinding(f"netting_set.{field}: invalid mpor_business_days", self.findings())
+
+    def test_business_days_reject_non_finite_values(self) -> None:
+        for kind in ("remargin_business_days", "mpor_business_days", "days_per_year"):
+            for value in (float("nan"), float("inf"), float("-inf")):
+                with self.subTest(kind=kind, value=value):
+                    self.assertTrue(cases.check_value("v", kind, value))
+
     def test_duplicate_trade_ids(self) -> None:
         self.fixture["trades"].append(copy.deepcopy(TRADE))
         self.assertFinding("duplicate trade id 'T1'", self.findings())
