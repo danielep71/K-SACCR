@@ -211,21 +211,3 @@ actionlint, update the version and its hash or checksum in
 request.
 Whether GitHub blocks merging on this check depends on the repository's
 branch rulesets.
-
-
-## Wiki publication
-
-All GitHub Wiki pages are source-controlled under `docs/wiki/`. The published
-Wiki is a derived artifact; do not maintain an independent copy through the
-GitHub Wiki editor.
-
-Run `python tools/check_wiki.py --root .` to validate the page catalogue,
-authority notices and generated sidebar. The normal `python tools/check.py`
-gate runs the same check and its offline tests.
-
-On Windows, double-click `tools/Publish-SACCR-Wiki.cmd`. It derives the Wiki
-remote from this repository's `origin`, uses a sibling local Wiki checkout,
-publishes the complete reviewed page set, writes `Wiki-Source.json`, pushes
-only when content changed and performs a fresh-clone read-back verification.
-
-See [`docs/WIKI_PUBLICATION.md`](../docs/WIKI_PUBLICATION.md).

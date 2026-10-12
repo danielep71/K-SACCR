@@ -28,8 +28,8 @@ netting, collateral and margining arrangements.
 **SA-CCR Benchmark** is an independent Excel/VBA toolkit designed to reproduce,
 test and reconcile SA-CCR calculations under the Basel Framework and EU CRR.
 
-See [SA-CCR Overview](docs/wiki/SA-CCR-Overview.md) for the regulatory concepts,
-calculation structure and validation approach.
+See the [project Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) for the regulatory concepts, calculation
+structure and validation approach.
 
 <a id="status"></a>
 
@@ -75,14 +75,13 @@ Requirements, the import procedure and troubleshooting are in
 
 | Document | Covers |
 | --- | --- |
-| [`docs/wiki/SA-CCR-Overview.md`](docs/wiki/SA-CCR-Overview.md) | SA-CCR overview, EAD structure, scope, Basel/CRR framing and validation approach |
+| [Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide, maintained in the Wiki repository |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import and validation record |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
 | [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record, procedure and validator |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, numerical test-case format |
-| [`docs/WIKI_PUBLICATION.md`](docs/WIKI_PUBLICATION.md) | Versioned Wiki sources, publication and drift verification |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator and traffic export |
 | [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
