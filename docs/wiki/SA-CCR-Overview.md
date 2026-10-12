@@ -110,10 +110,14 @@ Each asset class has its own aggregation logic, supervisory parameters and
 hedging-set rules. Interest-rate trades, for example, are aggregated by
 currency and maturity bucket, while FX trades are grouped by currency pair.
 
-A trade may require allocation to more than one risk category where the
-regulatory rules require decomposition. The treatment of such cases must be
-implemented carefully so that economic value is recognised once while the
-appropriate add-ons are calculated for each regulatory risk driver.
+A trade may require allocation to more than one risk category (CRR Art.
+277(3); CRE52.28), and an option combination is split into its options (CRR
+Art. 274(6); CRE52.42-43). The workbook takes such a trade as legs: rows
+sharing an Economic trade ID, each with its own risk attributes and add-on,
+of which exactly one, the MtM leg, carries the trade's market value. The
+engine rejects the trade when the value would be counted more than once, when
+its legs are in different netting sets, or when a linear product is split
+within one asset class.
 
 ## Margined and unmargined netting sets
 

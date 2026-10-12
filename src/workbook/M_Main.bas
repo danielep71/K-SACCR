@@ -283,7 +283,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$Y,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$AA,
 '                        Params!$C:$J)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -746,7 +746,9 @@ Private Function ReportOutcome( _
             Case OP_RUN
                 If ok Then
                     msg = "SA-CCR run completed." & vbCrLf & vbCrLf & _
-                          "Trades used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
+                          "Economic trades used: " & CORE_Engine.EconomicTradesUsed & " of " & _
+                          CORE_Engine.EconomicTradesRead & vbCrLf & _
+                          "Legs (rows) used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
                           "Total EAD: " & Format$(CORE_Engine.TotalEAD, "#,##0") & vbCrLf & _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
@@ -785,6 +787,8 @@ Private Function ReportOutcome( _
                      "; warnings=" & CStr(CORE_Engine.WarningCount) & _
                      "; trades_used=" & CStr(CORE_Engine.TradesUsed) & _
                      "; trades_read=" & CStr(CORE_Engine.TradesRead) & _
+                     "; economic_trades_used=" & CStr(CORE_Engine.EconomicTradesUsed) & _
+                     "; economic_trades_read=" & CStr(CORE_Engine.EconomicTradesRead) & _
                      "; incomplete=" & CStr(CORE_Engine.IncompleteCount) & _
                      "; total_ead=" & Trim$(Str$(CORE_Engine.TotalEAD)) & _
                      "; inputs=" & CORE_Engine.RunInputs & _

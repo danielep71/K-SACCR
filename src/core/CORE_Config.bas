@@ -208,8 +208,11 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
 '------------------------------------------------------------------------------
-    'Column number of each field on the Trades sheet.
-        Public Const TR_ID         As Long = 1     'Trade ID
+    'Column number of each field on the Trades sheet. Each row is a leg; its
+    'Trade ID is unique. Legs sharing an Economic trade ID form one economic
+    'trade whose MtM is carried by exactly one leg, the MtM leg; a blank
+    'Economic trade ID makes the row a whole trade on its own (#38).
+        Public Const TR_ID         As Long = 1     'Trade ID: the leg, unique
         Public Const TR_NS         As Long = 2     'Netting-set ID
         Public Const TR_AC         As Long = 3     'Asset class: IR, FX, CR, EQ, CO or OT
         Public Const TR_SUB        As Long = 4     'Sub-class, for example AAA or SINGLE
@@ -232,8 +235,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const TR_LAMBDA     As Long = 21    'Lambda shift
         Public Const TR_ATTACH     As Long = 22    'CDO attachment point A
         Public Const TR_DETACH     As Long = 23    'CDO detachment point D
-        Public Const TR_COMMENT    As Long = 24    'Free-text comment, not read
-        Public Const TR_NCOLS      As Long = 24    'Number of input columns
+        Public Const TR_ECON       As Long = 24    'Economic trade ID; blank: the row is a whole trade
+        Public Const TR_MTMLEG     As Long = 25    'MtM leg: Y on the one leg carrying the MtM, else N
+        Public Const TR_COMMENT    As Long = 26    'Free-text comment, not read
+        Public Const TR_NCOLS      As Long = 26    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' EXPECTED HEADERS
@@ -254,7 +259,8 @@ Attribute VB_Name = "CORE_Config"
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
             "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
-            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|"
+            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|" & _
+            "Economic trade ID|MtM leg (Y/N)|"
         Public Const PRM_CODE_HEADER As String = "Code"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _

@@ -115,8 +115,9 @@ Attribute VB_Name = "CORE_Engine"
         Regime            As String     'BCBS or CRR
         IsCRR             As Boolean    'Regime = CRR
         V                 As Double     'Sum of trade MtM
-        Trades            As Long       'Number of valid trades
-        Rejected          As Long       'Number of trades rejected by validation
+        Trades            As Long       'Number of valid trade legs
+        Rejected          As Long       'Number of trade legs rejected by validation
+        EconTrades        As Long       'Number of economic trades, each counted once (#38)
         InputErrors       As Long       'Invalid netting-set fields; EAD withheld when > 0
     End Type
 
@@ -221,6 +222,11 @@ Attribute VB_Name = "CORE_Engine"
         Private mParamError   As Boolean         'A parameter was present but not usable
         Private mRunInputs    As String          'Input fingerprint of this run; "" unless it completed
         Private mRunClass     As String          'RUN_REGULATORY or RUN_WHATIF; "" until classified
+        Private mEconRead     As Long            'Economic trades read: groups of legs (#38)
+        Private mEconUsed     As Long            'Economic trades whose legs were all used
+        Private mRowGroup()   As Long            'Economic trade of each Trades row; 0 for a row without ID
+        Private mGrpError()   As String          'Why each economic trade is rejected; "" when it is not
+        Private mGrpRejected() As Long           'Rejected legs of each economic trade
         Private mDeviations   As Long            'Parameters that differ from the regulatory set
 
 '------------------------------------------------------------------------------
@@ -504,13 +510,50 @@ Public Property Get IncompleteCount() As Long
 End Property
 
 
+Public Property Get EconomicTradesRead() As Long
+'
+'==============================================================================
+'                              EconomicTradesRead
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Number of economic trades read by the last run: legs sharing an
+'   Economic trade ID count once, a row without one counts as a trade of
+'   its own (#38). TradesRead counts the legs.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        EconomicTradesRead = mEconRead
+
+End Property
+
+
+Public Property Get EconomicTradesUsed() As Long
+'
+'==============================================================================
+'                              EconomicTradesUsed
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Number of economic trades of the last run whose legs were all used
+'   (#38). TradesUsed counts the legs.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        EconomicTradesUsed = mEconUsed
+
+End Property
+
+
 Public Property Get TradesRead() As Long
 '
 '==============================================================================
 '                                  TradesRead
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Number of trade rows with an ID read by the last run.
+'   Number of trade rows (legs) with an ID read by the last run.
 '
 ' UPDATED
 '   2026-10-06
@@ -618,6 +661,8 @@ Private Sub ResetState()
         mRunInputs = ""
         mRunClass = ""
         mDeviations = 0
+        mEconRead = 0
+        mEconUsed = 0
 
 '------------------------------------------------------------------------------
 ' RESET INDEXES AND ARRAYS
@@ -2146,6 +2191,7 @@ Private Function LoadNettingSets() As Boolean
                 .V = 0#
                 .Trades = 0
                 .Rejected = 0
+                .EconTrades = 0
                 ovr = NsNumber(data(i, NS_MPOR), 0#, "MPOR override", id, rowNum, nsErrors)
                 If IsNum(data(i, NS_MPOR)) And (ovr <= 0# Or ovr <> Int(ovr)) Then
                     nsErrors = nsErrors + 1
@@ -2477,6 +2523,220 @@ Private Sub AddWarn( _
 End Sub
 
 
+Private Sub CheckEconomicTrades( _
+    ByVal data As Variant, _
+    ByVal n As Long, _
+    ByVal topRow As Long)
+'
+'==============================================================================
+'                             CheckEconomicTrades
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Group the Trades rows into economic trades (#38) and find the groups
+'   that cannot be used. Each row is a leg with a unique Trade ID; legs
+'   sharing an Economic trade ID form one economic trade, and a row with a
+'   blank Economic trade ID is a whole trade on its own. An economic trade
+'   with legs is rejected, every leg with it, when:
+'   - not exactly one leg has MtM leg = Y, or a leg that is not the MtM leg
+'     has a MtM other than 0: the economic MtM must be counted once;
+'   - its legs are in different netting sets (and so possibly different
+'     regimes);
+'   - two of its legs are in the same asset class and not both options:
+'     only option structures may be split into options [CRE52 FAQ on
+'     decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs in
+'     different asset classes map one transaction to several risk
+'     categories [CRE52.28; CRR Art. 277(3)];
+'   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N.
+'
+' INPUTS
+'   data: the Trades block read by ProcessTrades, (row, column).
+'   n: rows in data.
+'   topRow: sheet row of data row 1, for the messages.
+'
+' STATE OWNERSHIP
+'   Fills mRowGroup, mGrpError and mGrpRejected (zeroed) and sets
+'   mEconRead; adds one economic trade per group to its netting set's
+'   EconTrades.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim groups      As Collection    'Group number by key: E|economic ID or L|trade ID
+    Dim classes     As Collection    'Per group and asset class: index into acLegs
+    Dim grpName()   As String        'Economic trade ID, or the Trade ID of a whole trade
+    Dim grpNS()     As String        'Netting set of the first leg
+    Dim grpLegs()   As Long          'Legs of the group
+    Dim grpMtmLegs() As Long         'Legs flagged Y
+    Dim grpGrouped() As Boolean      'The group has an Economic trade ID
+    Dim acLegs()    As Long          'Legs in one asset class of one group
+    Dim acLinear()  As Long          'Of those, legs that are not options
+    Dim acGroup()   As Long          'Group of each asset-class entry
+    Dim acName()    As String        'Asset class of each entry
+    Dim nAc         As Long          'Asset-class entries
+    Dim i           As Long          'Data row
+    Dim g           As Long          'Group number
+    Dim a           As Long          'Asset-class entry
+    Dim tid         As String        'Trade ID of the row
+    Dim econ        As String        'Economic trade ID of the row
+    Dim groupKey    As String        'Key of the row's group
+    Dim flag        As String        'MtM leg flag of the row
+    Dim nsIdx       As Long          'Netting set of a new group; 0 if unknown
+
+'------------------------------------------------------------------------------
+' GROUP THE LEGS
+'------------------------------------------------------------------------------
+        ReDim mRowGroup(0 To n)
+        ReDim mGrpError(0 To n)
+        ReDim mGrpRejected(0 To n)
+        ReDim grpName(0 To n)
+        ReDim grpNS(0 To n)
+        ReDim grpLegs(0 To n)
+        ReDim grpMtmLegs(0 To n)
+        ReDim grpGrouped(0 To n)
+        ReDim acLegs(1 To n + 1)
+        ReDim acLinear(1 To n + 1)
+        ReDim acGroup(1 To n + 1)
+        ReDim acName(1 To n + 1)
+        Set groups = New Collection
+        Set classes = New Collection
+        mEconRead = 0
+        nAc = 0
+        For i = 1 To n
+            tid = SafeStr(data(i, TR_ID))
+            If Len(tid) > 0 Then
+                econ = SafeStr(data(i, TR_ECON))
+                If Len(econ) = 0 Then
+                    groupKey = "L|" & UCase$(tid)
+                Else
+                    groupKey = "E|" & UCase$(econ)
+                End If
+                g = KeyIndex(groups, groupKey)
+                If g = 0 Then
+                    mEconRead = mEconRead + 1
+                    g = mEconRead
+                    KeyAdd groups, groupKey, g
+                    grpName(g) = IIf(Len(econ) = 0, tid, econ)
+                    grpGrouped(g) = (Len(econ) > 0)
+                    grpNS(g) = UTxt(data(i, TR_NS))
+                    nsIdx = KeyIndex(mNSIndex, grpNS(g))
+                    If nsIdx > 0 Then
+                        mNS(nsIdx).EconTrades = mNS(nsIdx).EconTrades + 1
+                    End If
+                ElseIf grpGrouped(g) And UTxt(data(i, TR_NS)) <> grpNS(g) Then
+                    AddGroupError g, "its legs are in different netting sets (" & grpNS(g) & ", " & _
+                                  UTxt(data(i, TR_NS)) & ")"
+                End If
+                mRowGroup(i) = g
+                grpLegs(g) = grpLegs(g) + 1
+                If IsError(data(i, TR_ECON)) Then
+                    AddGroupError g, "Economic trade ID must be text or blank (found an error value on row " & _
+                                  (topRow + i - 1) & ")"
+                End If
+
+    'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade).
+    'An error value is not read as blank.
+                flag = UTxt(data(i, TR_MTMLEG))
+                If IsError(data(i, TR_MTMLEG)) Then
+                    AddGroupError g, "MtM leg must be Y or N (found an error value on row " & _
+                                  (topRow + i - 1) & ")"
+                ElseIf flag = "Y" Then
+                    grpMtmLegs(g) = grpMtmLegs(g) + 1
+                ElseIf flag = "N" Then
+                    If Not grpGrouped(g) Then
+                        AddGroupError g, "a trade without an Economic trade ID carries its own MtM, so " & _
+                                      "MtM leg must be Y or blank"
+                    End If
+                ElseIf Len(flag) > 0 Then
+                    AddGroupError g, "MtM leg must be Y or N (found " & DescribeValue(data(i, TR_MTMLEG)) & _
+                                  " on row " & (topRow + i - 1) & ")"
+                End If
+
+    'Asset classes of the group's legs, for the decomposition rule.
+                a = KeyIndex(classes, g & "|" & UTxt(data(i, TR_AC)))
+                If a = 0 Then
+                    nAc = nAc + 1
+                    a = nAc
+                    KeyAdd classes, g & "|" & UTxt(data(i, TR_AC)), a
+                    acGroup(a) = g
+                    acName(a) = UTxt(data(i, TR_AC))
+                End If
+                acLegs(a) = acLegs(a) + 1
+                If UTxt(data(i, TR_INSTR)) <> "OPTION" Then
+                    acLinear(a) = acLinear(a) + 1
+                End If
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' CHECK EACH ECONOMIC TRADE
+'------------------------------------------------------------------------------
+    'The MtM is counted once: exactly one MtM leg, and 0 on every other leg.
+        For g = 1 To mEconRead
+            If grpGrouped(g) And grpMtmLegs(g) <> 1 Then
+                AddGroupError g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & grpMtmLegs(g)
+            End If
+        Next g
+        For i = 1 To n
+            g = mRowGroup(i)
+            If g > 0 Then
+                If grpGrouped(g) And UTxt(data(i, TR_MTMLEG)) <> "Y" And IsNum(data(i, TR_MTM)) Then
+                    If CDbl(data(i, TR_MTM)) <> 0# Then
+                        AddGroupError g, "leg " & SafeStr(data(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
+                                      "must be 0 (found " & DescribeValue(data(i, TR_MTM)) & ")"
+                    End If
+                End If
+            End If
+        Next i
+
+    'Legs in one asset class must all be options: a linear product is not
+    'split into legs of the same class. A Trade ID repeated without an
+    'Economic trade ID is not a group: ProcessTrades rejects the repeat.
+        For a = 1 To nAc
+            If grpGrouped(acGroup(a)) And acLegs(a) > 1 And acLinear(a) > 0 Then
+                AddGroupError acGroup(a), "it has " & acLegs(a) & " legs in asset class " & acName(a) & _
+                              " that are not all options: only an option structure may be split into " & _
+                              "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
+                              "one leg (CRR Art. 277(3))"
+            End If
+        Next a
+        For g = 1 To mEconRead
+            If Len(mGrpError(g)) > 0 Then
+                mGrpError(g) = "economic trade " & grpName(g) & ": " & mGrpError(g)
+            End If
+        Next g
+
+End Sub
+
+
+Private Sub AddGroupError( _
+    ByVal g As Long, _
+    ByVal reason As String)
+'
+'==============================================================================
+'                                AddGroupError
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a reason why economic trade g is rejected, once.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        If InStr(1, mGrpError(g), reason, vbBinaryCompare) = 0 Then
+            If Len(mGrpError(g)) > 0 Then
+                mGrpError(g) = mGrpError(g) & "; "
+            End If
+            mGrpError(g) = mGrpError(g) & reason
+        End If
+
+End Sub
+
+
 Private Sub ProcessTrades( _
     ByVal writeOutputs As Boolean)
 '
@@ -2622,6 +2882,7 @@ Private Sub ProcessTrades( _
     'and so is a repeated trade ID; either makes its netting set INCOMPLETE
     '(#35). Every per-trade value is reset so nothing leaks from the
     'previous trade into the output row.
+        CheckEconomicTrades data, n, topRow
         Set seenIds = New Collection
         For i = 1 To n
             rowNum = topRow + i - 1
@@ -2677,6 +2938,7 @@ Private Sub ProcessTrades( _
             nsId = UTxt(data(i, TR_NS))
             nsIdx = KeyIndex(mNSIndex, nsId)
             If nsIdx = 0 Then AddErr ok, msg, "unknown netting set '" & nsId & "'"
+            If Len(mGrpError(mRowGroup(i))) > 0 Then AddErr ok, msg, mGrpError(mRowGroup(i))
 
             acTxt = UTxt(data(i, TR_AC))
             ac = ACIndex(acTxt)
@@ -2988,6 +3250,7 @@ Private Sub ProcessTrades( _
 
             If Not ok Then LogMsg SEV_ERROR, SH_TRADES, tid, "Trade excluded: " & msg, rowNum
             If Not ok And nsIdx > 0 Then mNS(nsIdx).Rejected = mNS(nsIdx).Rejected + 1
+            If Not ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
             If Len(warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, tid, warn, rowNum
 
     '--- TradeCalc row ------------------------------------------------------------
@@ -3032,6 +3295,11 @@ Private Sub ProcessTrades( _
                 outArr(nOut, 25) = msg
             End If
 NextTrade:
+        Next i
+        For i = 1 To mEconRead
+            If mGrpRejected(i) = 0 Then
+                mEconUsed = mEconUsed + 1
+            End If
         Next i
 
 '------------------------------------------------------------------------------
@@ -3535,8 +3803,8 @@ Private Sub ComputeNettingSets( _
     'The workbook sees only today's count, so it warns when the declared
     'flag may be wrong instead of setting it.
             With mNS(k)
-                If .Margined And Not .LargeOrIlliquid And .Trades + .Rejected > LARGE_NS_TRADES Then
-                    LogMsg SEV_WARN, SH_NS, .ID, "Netting set has " & (.Trades + .Rejected) & _
+                If .Margined And Not .LargeOrIlliquid And .EconTrades > LARGE_NS_TRADES Then
+                    LogMsg SEV_WARN, SH_NS, .ID, "Netting set has " & .EconTrades & _
                            " trades, more than " & LARGE_NS_TRADES & ": if it had more than " & _
                            LARGE_NS_TRADES & " during the previous quarter, set the large or illiquid " & _
                            "flag to Y (20-day MPOR floor)."
@@ -4299,7 +4567,8 @@ Private Sub WriteRunInfo( _
             txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                   " | reporting date " & Format$(CDate(pAsOf), "yyyy-mm-dd") & _
                   " | ccy " & pRepCcy & _
-                  " | trades used " & mTradesUsed & " of " & mTradesRead & _
+                  " | economic trades used " & mEconUsed & " of " & mEconRead & _
+                  ", legs " & mTradesUsed & " of " & mTradesRead & _
                   " | errors " & mErrCount & ", warnings " & mWarnCount & _
                   RunClassText() & _
                   " | inputs " & mRunInputs & _
