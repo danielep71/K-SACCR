@@ -182,9 +182,18 @@ class SourceGateTests(unittest.TestCase):
         # A complete active list after a block comment is accepted.
         self.write("tools/Sync-SACCR-VBA.ps1", "<# synchronizer\r\n   notes #>\r\n" + old)
         self.assertEqual(self.findings(), [])
-        # A quoted "<#" before the list does not open a comment.
-        self.write("tools/Sync-SACCR-VBA.ps1", '$label = "<# not a comment"\r\n' + old)
-        self.assertEqual(self.findings(), [])
+        # A quoted "<#" before the list does not open a comment, also in a
+        # string or here-string over several lines.
+        for before in ('$label = "<# not a comment"\r\n',
+                       '$label = "first line\r\n<# second line"\r\n',
+                       "$help = @'\r\n<# text\r\n'@\r\n",
+                       '$help = @"\r\n  <# text $x\r\n"@\r\n'):
+            with self.subTest(string=before[:16]):
+                self.write("tools/Sync-SACCR-VBA.ps1", before + old)
+                self.assertEqual(self.findings(), [])
+        # A declaration inside a here-string is text, not the active list.
+        self.write("tools/Sync-SACCR-VBA.ps1", "$doc = @'\r\n" + old + "'@\r\n" + active)
+        self.assertEqual(self.findings(), [unsynchronized])
 
     def test_unsupported_sync_entry_is_rejected(self) -> None:
         self.write("tools/Sync-SACCR-VBA.ps1",
