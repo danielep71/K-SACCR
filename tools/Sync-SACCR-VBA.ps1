@@ -36,7 +36,9 @@ of ThisWorkbook as it is, without asking.
 
 With -SourceDir, only the modules found in that folder are imported, for
 example modules downloaded for a test, without copying them into the
-repository. A file is taken when its VB_Name is a component of the
+repository. A file is identified only by the Attribute VB_Name it declares,
+never by its file name: a file without exactly one valid declaration is
+ignored. It is taken when that VB_Name is a component of the
 repository source, or when it is a standard module (.bas) whose name has a
 project prefix (CORE_, SACCR_, M_, TEST_), such as a test suite added by
 the pull request under test; it is listed apart as a new module. Other
@@ -119,6 +121,52 @@ function Get-VbaComponentName {
     return [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
 }
 
+function Get-DeclaredVbaName {
+    param([Parameter(Mandatory = $true)][string]$SourcePath)
+
+    # The identity a file declares, for files from -SourceDir (#160): exactly
+    # one Attribute VB_Name line holding a valid VBA name. The file name is
+    # never used instead, so a "CORE_Engine.bas" without the attribute cannot
+    # replace CORE_Engine. Returns the name and, when there is none, why.
+    $names = @{}
+    foreach ($line in [System.IO.File]::ReadLines($SourcePath)) {
+        if ($line -match '^\s*Attribute\s+VB_Name\s*=\s*"([^"]*)"\s*$') {
+            $names[$Matches[1]] = $true
+        }
+        elseif ($line -match '^\s*Attribute\s+VB_Name\b') {
+            return [pscustomobject]@{ Name = ""; Problem = "malformed Attribute VB_Name line" }
+        }
+    }
+
+    if ($names.Count -eq 0) {
+        return [pscustomobject]@{ Name = ""; Problem = "no Attribute VB_Name line; the file name is not used as its identity" }
+    }
+    if ($names.Count -gt 1) {
+        return [pscustomobject]@{ Name = ""; Problem = "several different Attribute VB_Name lines" }
+    }
+
+    $name = [string]@($names.Keys)[0]
+    if ($name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,30}$') {
+        return [pscustomobject]@{ Name = ""; Problem = "VB_Name '$name' is not a valid VBA name" }
+    }
+
+    return [pscustomobject]@{ Name = $name; Problem = "" }
+}
+
+function Get-VbaEncoding {
+    # Exported VBA is in the Windows ANSI code page, cp1252
+    # (docs/VBA_HOUSE_STYLE.md), so code text read for a document module is
+    # decoded as cp1252, not as UTF-8 (#159). Windows PowerShell has the code
+    # page built in; PowerShell 7 may need the code-page provider registered.
+    try {
+        return [System.Text.Encoding]::GetEncoding(1252)
+    }
+    catch {
+        [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
+        return [System.Text.Encoding]::GetEncoding(1252)
+    }
+}
+
 function Test-DocumentSource {
     param([Parameter(Mandatory = $true)][string]$SourcePath)
 
@@ -140,7 +188,7 @@ function Test-DocumentSource {
 function Get-VbaCodeBody {
     param([Parameter(Mandatory = $true)][string]$SourcePath)
 
-    $lines = [System.IO.File]::ReadAllLines($SourcePath)
+    $lines = [System.IO.File]::ReadAllLines($SourcePath, (Get-VbaEncoding))
     if ($lines.Count -eq 0) { return "" }
 
     $lastAttribute = -1
@@ -191,7 +239,12 @@ function Select-FolderSources {
     )
 
     foreach ($file in $candidates) {
-        $name = Get-VbaComponentName -SourcePath $file.FullName
+        $declared = Get-DeclaredVbaName -SourcePath $file.FullName
+        if (-not [string]::IsNullOrEmpty($declared.Problem)) {
+            $ignored.Add("$($file.Name) ($($declared.Problem))")
+            continue
+        }
+        $name = $declared.Name
         $key = $name.ToLowerInvariant()
         if ($RepositoryNames.ContainsKey($key)) {
             $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()

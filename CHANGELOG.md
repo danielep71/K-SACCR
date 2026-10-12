@@ -505,6 +505,14 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
+  modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
+  or `é` in a comment or string of a document module could be replaced.
+- With `-SourceDir`, the synchronizer identifies a file only by the
+  `Attribute VB_Name` it declares (#160). A file without one took its name
+  from the file name, so a `CORE_Engine.bas` without the attribute could
+  replace `CORE_Engine`; such files, and files with a malformed, repeated or
+  invalid declaration, are now ignored with the reason.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive
