@@ -128,10 +128,12 @@ function Get-DeclaredVbaName {
     # one Attribute VB_Name line holding a valid VBA name. The file name is
     # never used instead, so a "CORE_Engine.bas" without the attribute cannot
     # replace CORE_Engine. Returns the name and, when there is none, why.
-    $names = @{}
+    # A list, not a set: a declaration repeated identically, or with another
+    # case, is a second declaration too.
+    $names = New-Object System.Collections.Generic.List[string]
     foreach ($line in [System.IO.File]::ReadLines($SourcePath)) {
         if ($line -match '^\s*Attribute\s+VB_Name\s*=\s*"([^"]*)"\s*$') {
-            $names[$Matches[1]] = $true
+            $names.Add($Matches[1])
         }
         elseif ($line -match '^\s*Attribute\s+VB_Name\b') {
             return [pscustomobject]@{ Name = ""; Problem = "malformed Attribute VB_Name line" }
@@ -142,10 +144,10 @@ function Get-DeclaredVbaName {
         return [pscustomobject]@{ Name = ""; Problem = "no Attribute VB_Name line; the file name is not used as its identity" }
     }
     if ($names.Count -gt 1) {
-        return [pscustomobject]@{ Name = ""; Problem = "several different Attribute VB_Name lines" }
+        return [pscustomobject]@{ Name = ""; Problem = "several Attribute VB_Name lines" }
     }
 
-    $name = [string]@($names.Keys)[0]
+    $name = $names[0]
     if ($name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,30}$') {
         return [pscustomobject]@{ Name = ""; Problem = "VB_Name '$name' is not a valid VBA name" }
     }

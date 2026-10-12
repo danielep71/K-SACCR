@@ -68,7 +68,7 @@ during a review, without copying them into the working tree, double-click
 In that mode only the modules found in the folder are imported; every other
 module in the workbook is left as it is. A file is identified only by the
 `Attribute VB_Name` it declares, never by its file name: a file with no such
-line, a malformed one, several different ones or a name that is not a valid
+line, a malformed one, several (even identical) ones or a name that is not a valid
 VBA name is listed as ignored with the reason. A file is taken when its
 `VB_Name` is a component of the repository source, with the same extension. A
 standard module (`.bas`) that the checkout does not have yet, such as a test

@@ -101,6 +101,8 @@ class SyncScriptTests(unittest.TestCase):
         self.write_module(folder, "CORE_Config.bas",
                           'Attribute VB_Name = "CORE_Config"\r\nAttribute VB_Name = "CORE_Util"\r\n')
         self.write_module(folder, "M_Main.bas", 'Attribute VB_Name = "M Main"\r\n')
+        self.write_module(folder, "CORE_Engine (2).bas",
+                          'Attribute VB_Name = "CORE_Engine"\r\nAttribute VB_Name = "core_engine"\r\n')
         self.write_module(folder, "Other.bas", 'Attribute VB_Name = "Other"\r\n')
         self.write_module(folder, "SACCR_Formulas.cls", 'Attribute VB_Name = "SACCR_Formulas"\r\n')
         result = self.select(folder)
@@ -109,7 +111,8 @@ class SyncScriptTests(unittest.TestCase):
         lines = "\n".join(result["lines"])
         for expected in ("CORE_Engine.bas (no Attribute VB_Name line; the file name is not used",
                          "CORE_Util.bas (malformed Attribute VB_Name line)",
-                         "CORE_Config.bas (several different Attribute VB_Name lines)",
+                         "CORE_Config.bas (several Attribute VB_Name lines)",
+                         "CORE_Engine (2).bas (several Attribute VB_Name lines)",
                          "M_Main.bas (VB_Name 'M Main' is not a valid VBA name)",
                          "Other.bas (VB_Name 'Other' is not a repository component)",
                          "SACCR_Formulas.cls ('SACCR_Formulas' is a .bas component in the repository)"):
