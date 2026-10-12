@@ -97,6 +97,27 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Economic trades entered as legs (#38). Trades has two new columns before
+  Comment: Economic trade ID (Z) and MtM leg (Y/N) (AA); Comment moves to AB.
+  Each row is a leg with a unique Trade ID; rows sharing an Economic trade ID
+  form one economic trade, and a blank ID keeps a row a whole trade, so
+  existing data is unchanged. Exactly one leg, flagged Y, carries the
+  economic trade's MtM and every other leg must hold 0, so the value enters
+  V once; notional and risk attributes stay per leg. The engine rejects every
+  leg of an economic trade with no or several MtM legs, a non-zero MtM on
+  another leg, legs in different netting sets (and so regimes), two legs in
+  one asset class that are not both options, or an invalid flag. Legs in
+  different asset classes map one transaction to several risk categories
+  (CRR Art. 277(3); CRE52.28); legs in one class are an option combination
+  split into its options (CRR Art. 274(6); CRE52.42(4), CRE52.43). Runs
+  report economic trades and legs separately in the run summary, the message
+  box and the result line (`economic_trades_used`, `economic_trades_read`),
+  and the 5,000-trade warning counts economic trades. The Basel_vs_CRR sheet
+  and the methodology describe the treatment. `TEST_InputValidation` has 86
+  cases and 115 checks. Upgrading a workbook built from an earlier template:
+  insert the two columns before Comment on Trades with these headers, and
+  change the Trades range of the Results C5 formula to `Trades!$C:$AA`, or
+  rebuild from the template.
 - Every run is classified as `REGULATORY` or `WHAT-IF` (#41). The engine
   compares the numeric parameters on Params, every row of the
   supervisory-factor table and each netting set's alpha override with the

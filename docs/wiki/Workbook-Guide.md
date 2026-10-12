@@ -24,6 +24,9 @@ The input sheets are located through workbook names, so their rows can move:
 NettingSets and Trades through `NettingSets_Header` and `Trades_Header`, the
 first header cell of each table, which must stay in column C, with data from
 the next row (today NettingSets headers on row 6, Trades headers on row 4).
+On Trades each row is a leg with a unique Trade ID; rows sharing an Economic
+trade ID (column Z) form one economic trade, and exactly one of them has MtM
+leg = Y (column AA) and carries its MtM (#38). Comment is column AB.
 Headers are compared ignoring case, spaces and line breaks, so rewording only
 their spacing does not stop a run. Params is read
 through the workbook names `Params_Code` and `Params_Value` (the "Code" and

@@ -349,11 +349,17 @@ warning. It checks that a run with the regulatory parameters is classified
 `REGULATORY` and names the set in the run summary, that a DaysPerYear of 360
 keeps it regulatory, that a different alpha, a zero supervisory factor or an
 alpha override makes it `WHAT-IF` with the difference listed on Checks, and
-that a reporting-currency FX rate other than 1 stops the run. Every patched
-cell and name is restored. It needs a workbook
+that a reporting-currency FX rate other than 1 stops the run. For economic
+trades entered as legs (#38) it checks a worked two-category example (an
+equity forward with an FX leg: RC 30, add-ons 3,200 and 400, EAD 5,082, and
+the economic-trade and leg counts), a call spread entered as two option legs,
+and the rejection of two MtM legs, a repeated MtM on a leg that is not the
+MtM leg, no MtM leg, legs in different netting sets, a swap split into two
+linear legs, a whole trade flagged N and a flag that is not Y or N. Every
+patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=77; checks=96; failures=0; restore=PASS`.
+`RESULT=PASS; cases=86; checks=115; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -394,7 +400,7 @@ add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
 and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
