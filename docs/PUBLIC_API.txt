@@ -5,20 +5,20 @@
 SACCR_Formulas	Function	SACCR_NormCDF
 # SIG	SACCR_Formulas	Function	SACCR_NormCDF	Public Function SACCR_NormCDF( ByVal x As Double) As Double
 SACCR_Formulas	Function	SACCR_SupervisoryDuration
-# SIG	SACCR_Formulas	Function	SACCR_SupervisoryDuration	Public Function SACCR_SupervisoryDuration( ByVal S As Double, ByVal E As Double, Optional ByVal FloorYears As Double = 0#) As Double
+# SIG	SACCR_Formulas	Function	SACCR_SupervisoryDuration	Public Function SACCR_SupervisoryDuration( ByVal S As Double, ByVal E As Double, Optional ByVal FloorYears As Double = 0#) As Variant
 SACCR_Formulas	Function	SACCR_MaturityFactor
-# SIG	SACCR_Formulas	Function	SACCR_MaturityFactor	Public Function SACCR_MaturityFactor( ByVal M As Double, Optional ByVal Margined As Boolean = False, Optional ByVal MPOR_BD As Double = 10#, Optional ByVal MinBD As Double = 10#, Optional ByVal BDPerYear As Double = 250#) As Double
+# SIG	SACCR_Formulas	Function	SACCR_MaturityFactor	Public Function SACCR_MaturityFactor( ByVal M As Double, Optional ByVal Margined As Boolean = False, Optional ByVal MPOR_BD As Double = 10#, Optional ByVal MinBD As Double = 10#, Optional ByVal BDPerYear As Double = 250#) As Variant
 SACCR_Formulas	Function	SACCR_OptionDelta
 # SIG	SACCR_Formulas	Function	SACCR_OptionDelta	Public Function SACCR_OptionDelta( ByVal P As Double, ByVal K As Double, ByVal T As Double, ByVal Vol As Double, ByVal IsCall As Boolean, ByVal IsBought As Boolean, Optional ByVal Lambda As Double = 0#) As Variant
 SACCR_Formulas	Function	SACCR_LambdaCRR
-# SIG	SACCR_Formulas	Function	SACCR_LambdaCRR	Public Function SACCR_LambdaCRR( ByVal P As Double, ByVal K As Double, ByVal IsInterestRate As Boolean, Optional ByVal Threshold As Variant) As Double
+# SIG	SACCR_Formulas	Function	SACCR_LambdaCRR	Public Function SACCR_LambdaCRR( ByVal P As Double, ByVal K As Double, ByVal IsInterestRate As Boolean, Optional ByVal Threshold As Variant) As Variant
 SACCR_Formulas	Function	SACCR_CDODelta
 # SIG	SACCR_Formulas	Function	SACCR_CDODelta	Public Function SACCR_CDODelta( ByVal A As Double, ByVal D As Double, ByVal IsLong As Boolean) As Variant
 SACCR_Formulas	Function	SACCR_IREffectiveNotional
-# SIG	SACCR_Formulas	Function	SACCR_IREffectiveNotional	Public Function SACCR_IREffectiveNotional( ByVal D1 As Double, ByVal D2 As Double, ByVal D3 As Double, Optional ByVal Rho12 As Double = 0.7, Optional ByVal Rho23 As Double = 0.7, Optional ByVal Rho13 As Double = 0.3) As Double
+# SIG	SACCR_Formulas	Function	SACCR_IREffectiveNotional	Public Function SACCR_IREffectiveNotional( ByVal D1 As Double, ByVal D2 As Double, ByVal D3 As Double, Optional ByVal Rho12 As Double = 0.7, Optional ByVal Rho23 As Double = 0.7, Optional ByVal Rho13 As Double = 0.3) As Variant
 SACCR_Formulas	Function	SACCR_Multiplier
-# SIG	SACCR_Formulas	Function	SACCR_Multiplier	Public Function SACCR_Multiplier( ByVal VminusC As Double, ByVal AddOn As Double, Optional ByVal FloorPct As Double = 0.05) As Double
+# SIG	SACCR_Formulas	Function	SACCR_Multiplier	Public Function SACCR_Multiplier( ByVal VminusC As Double, ByVal AddOn As Double, Optional ByVal FloorPct As Double = 0.05) As Variant
 SACCR_Formulas	Function	SACCR_ReplacementCost
-# SIG	SACCR_Formulas	Function	SACCR_ReplacementCost	Public Function SACCR_ReplacementCost( ByVal V As Double, ByVal C As Double, Optional ByVal Margined As Boolean = False, Optional ByVal TH As Double = 0#, Optional ByVal MTA As Double = 0#, Optional ByVal NICA As Double = 0#) As Double
+# SIG	SACCR_Formulas	Function	SACCR_ReplacementCost	Public Function SACCR_ReplacementCost( ByVal V As Double, ByVal C As Double, Optional ByVal Margined As Boolean = False, Optional ByVal TH As Double = 0#, Optional ByVal MTA As Double = 0#, Optional ByVal NICA As Double = 0#) As Variant
 SACCR_Formulas	Function	SACCR_FactorAggregation
 # SIG	SACCR_Formulas	Function	SACCR_FactorAggregation	Public Function SACCR_FactorAggregation( ByVal AddOns As Variant, ByVal Rhos As Variant) As Variant
