@@ -132,6 +132,35 @@ Attribute VB_Name = "CORE_Config"
         Public Const RG_CRR    As String = "CRR"     'EU Capital Requirements Regulation
 
 '------------------------------------------------------------------------------
+' REGULATORY PARAMETER SET
+'------------------------------------------------------------------------------
+    'The values a regulatory run uses (#41), as listed in the methodology:
+    'CRE52 with CRE52.72, and the consolidated CRR of 26.06.2026 with
+    'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
+    '2026-10-09. A run whose parameters, factor table and alpha overrides
+    'all equal this set is REGULATORY and names REF_SET_ID; any difference
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear and
+    'IRBucketOffset are conventions and do not change the class.
+        Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
+        Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
+        Public Const RUN_WHATIF       As String = "WHAT-IF"                 'Some parameter differs
+        Public Const REF_ALPHA        As Double = 1.4       'CRE52.1; CRR Art. 274(2)
+        Public Const REF_FLOOR        As Double = 0.05      'CRE52.23; CRR Art. 278(3)
+        Public Const REF_BDYEAR       As Double = 250       'CRE52.48; CRR Art. 279c(1)
+        Public Const REF_MINMAT       As Double = 10        'CRE52.48; CRR Art. 279c(1)(a)
+        Public Const REF_SDFLOOR      As Double = 10        'CRE52.34; CRR Art. 279b(1)(a)
+        Public Const REF_MPOR_BIL     As Double = 10        'CRE52.50; CRR Art. 285(2)(b)
+        Public Const REF_MPOR_CLR     As Double = 5         'CRE54.12; CRR Art. 279c(1)(b)
+        Public Const REF_MPOR_LARGE   As Double = 20        'CRE52.50; CRR Art. 285(3)
+        Public Const REF_BASIS        As Double = 0.5       'CRE52.46; CRR Art. 280
+        Public Const REF_VOLF         As Double = 5         'CRE52.47; CRR Art. 280
+        Public Const REF_RHO12        As Double = 0.7       'CRE52.57; CRR Art. 280a(3)
+        Public Const REF_RHO23        As Double = 0.7       'CRE52.57; CRR Art. 280a(3)
+        Public Const REF_RHO13        As Double = 0.3       'CRE52.57; CRR Art. 280a(3)
+        Public Const REF_LAMIR        As Double = 0.001     'CRR-RTS Art. 5(2)
+        Public Const REF_LAMCO        As Double = 0.1       'CRR-RTS Art. 5(2)
+
+'------------------------------------------------------------------------------
 ' NETTING-SET CODES
 '------------------------------------------------------------------------------
     'Client-clearing role of the bank; blank is N.
@@ -179,8 +208,11 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
 '------------------------------------------------------------------------------
-    'Column number of each field on the Trades sheet.
-        Public Const TR_ID         As Long = 1     'Trade ID
+    'Column number of each field on the Trades sheet. Each row is a leg; its
+    'Trade ID is unique. Legs sharing an Economic trade ID form one economic
+    'trade whose MtM is carried by exactly one leg, the MtM leg; a blank
+    'Economic trade ID makes the row a whole trade on its own (#38).
+        Public Const TR_ID         As Long = 1     'Trade ID: the leg, unique
         Public Const TR_NS         As Long = 2     'Netting-set ID
         Public Const TR_AC         As Long = 3     'Asset class: IR, FX, CR, EQ, CO or OT
         Public Const TR_SUB        As Long = 4     'Sub-class, for example AAA or SINGLE
@@ -203,8 +235,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const TR_LAMBDA     As Long = 21    'Lambda shift
         Public Const TR_ATTACH     As Long = 22    'CDO attachment point A
         Public Const TR_DETACH     As Long = 23    'CDO detachment point D
-        Public Const TR_COMMENT    As Long = 24    'Free-text comment, not read
-        Public Const TR_NCOLS      As Long = 24    'Number of input columns
+        Public Const TR_ECON       As Long = 24    'Economic trade ID; blank: the row is a whole trade
+        Public Const TR_MTMLEG     As Long = 25    'MtM leg: Y on the one leg carrying the MtM, else N
+        Public Const TR_COMMENT    As Long = 26    'Free-text comment, not read
+        Public Const TR_NCOLS      As Long = 26    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' EXPECTED HEADERS
@@ -225,7 +259,8 @@ Attribute VB_Name = "CORE_Config"
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
             "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
-            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|"
+            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|" & _
+            "Economic trade ID|MtM leg (Y/N)|"
         Public Const PRM_CODE_HEADER As String = "Code"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _

@@ -97,6 +97,49 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Economic trades entered as legs (#38). Trades has two new columns before
+  Comment: Economic trade ID (Z) and MtM leg (Y/N) (AA); Comment moves to AB.
+  Each row is a leg with a unique Trade ID; rows sharing an Economic trade ID
+  form one economic trade, and a blank ID keeps a row a whole trade, so
+  existing data is unchanged. Exactly one leg, flagged Y, carries the
+  economic trade's MtM and every other leg must hold 0, so the value enters
+  V once; notional and risk attributes stay per leg. The engine rejects every
+  leg of an economic trade with no or several MtM legs, a non-zero MtM on
+  another leg, legs in different netting sets (and so regimes), two legs in
+  one asset class that are not both options, or an invalid flag; an error
+  value such as #N/A in either new column is rejected, not read as blank. Legs in
+  different asset classes map one transaction to several risk categories
+  (CRR Art. 277(3); CRE52.28); legs in one class are an option combination
+  split into its options (CRR Art. 274(6); CRE52.42(4), CRE52.43). Runs
+  report economic trades and legs separately in the run summary, the message
+  box and the result line (`economic_trades_used`, `economic_trades_read`),
+  and the 5,000-trade warning counts economic trades. The Basel_vs_CRR sheet
+  and the methodology describe the treatment. `TEST_InputValidation` has 88
+  cases and 119 checks. Upgrading a workbook built from an earlier template:
+  insert the two columns before Comment on Trades with these headers, and
+  change the Trades range of the Results C5 formula to `Trades!$C:$AA`, or
+  rebuild from the template.
+- Every run is classified as `REGULATORY` or `WHAT-IF` (#41). The engine
+  compares the numeric parameters on Params, every row of the
+  supervisory-factor table and each netting set's alpha override with the
+  regulatory parameter set `CRE52-CRR-2026-10-09` built into it (the values
+  in the methodology, checked against CRE52.72, the consolidated CRR and
+  `CRR-RTS` Article 5). When all are equal the run summary, the message box
+  and the result line (`run_class=`) name the set; any difference makes the
+  run `WHAT-IF`, says so in the same three places, and lists each difference
+  on Checks as a warning starting "What-if:". `DaysPerYear` and
+  `IRBucketOffset` are conventions and do not change the class. A
+  reporting-currency FX rate other than 1 now stops the run instead of
+  giving a warning. `TEST_InputValidation` has 77 cases and 96 checks. The
+  demo's climatic netting set no longer says "SF to confirm": the 18% factor
+  was checked against Art. 280e(5).
+- `tools/Sync-SACCR-VBA-Downloads.cmd` and the `-SourceDir` option of
+  `Sync-SACCR-VBA.ps1` import into the development workbook only the
+  repository modules found in a folder, such as Downloads, without copying
+  them into the working tree. Files are matched by `VB_Name` (other files are
+  ignored, and the newest of several copies is taken), listed with their
+  dates for confirmation, converted to CRLF and imported; the rest of the
+  workbook's code is left as it is.
 - A margined netting set of more than 5,000 trades whose large or illiquid flag
   is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
   count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the
@@ -427,6 +470,22 @@ Use only the categories needed by a release.
   licenses.
 
 ### Fixed
+
+- The engine checks the ranges that the data validation on Params and
+  NettingSets states, so a pasted or VBA-written value can no longer bypass
+  them (#147). A multiplier floor outside 0 to below 1 (a floor of 1 divided
+  by zero), day counts, maturity and MPOR floors and lambda thresholds
+  outside their ranges, factor multipliers out of range, IR bucket
+  correlations outside 0 to 1 or not forming a valid correlation matrix
+  (the IR effective notional was silently 0), and supervisory factors,
+  correlations or volatilities out of range in the factor table stop the
+  run with an error naming the parameter or key. A negative threshold or
+  MTA, a remargining frequency that is not a whole number of business days
+  from 0 to 10,000, an MPOR override that is not a whole number above zero,
+  and an alpha override of zero or less make the netting set `INVALID`
+  instead of being used or silently replaced; a remargining frequency of 0
+  is raised to daily with a warning. `TEST_InputValidation` has 71 cases and
+  81 checks.
 
 - EBA Q&A 2023_6962 is cited by its source ID `EBA-QA-2023_6962` in the
   expected files, the VBA comments and the methodology (#129); the source of

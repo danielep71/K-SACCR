@@ -337,10 +337,29 @@ netting set and checks its replacement cost, and checks the MPOR of each
 clearing role and of disputes and a large netting set with weekly
 remargining, and the warning for a margined netting set of more than 5,000
 trades whose large or illiquid flag is N, and checks that a broken Params,
-NettingSets or Trades layout name stops the run. Every patched cell and name is restored. It needs a workbook
+NettingSets or Trades layout name stops the run. It writes values outside the
+ranges of the data validation, which validation would not stop because VBA
+writes them: a multiplier floor of 1, correlations above 1 or that do not form
+a correlation matrix, an MPOR floor of 0, a fractional business-day count and
+a negative supervisory factor stop the run; a negative threshold or MTA, a
+remargining frequency or MPOR override that is not a whole number of business
+days in range, and an alpha override of zero or less make the netting set
+`INVALID`; a remargining frequency of 0 is raised to daily with a
+warning. It checks that a run with the regulatory parameters is classified
+`REGULATORY` and names the set in the run summary, that a DaysPerYear of 360
+keeps it regulatory, that a different alpha, a zero supervisory factor or an
+alpha override makes it `WHAT-IF` with the difference listed on Checks, and
+that a reporting-currency FX rate other than 1 stops the run. For economic
+trades entered as legs (#38) it checks a worked two-category example (an
+equity forward with an FX leg: RC 30, add-ons 3,200 and 400, EAD 5,082, and
+the economic-trade and leg counts), a call spread entered as two option legs,
+and the rejection of two MtM legs, a repeated MtM on a leg that is not the
+MtM leg, no MtM leg, legs in different netting sets, a swap split into two
+linear legs, a whole trade flagged N and a flag that is not Y or N. Every
+patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=57; checks=65; failures=0; restore=PASS`.
+`RESULT=PASS; cases=88; checks=119; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -381,7 +400,7 @@ add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; cleanup=PASS`
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
 and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the

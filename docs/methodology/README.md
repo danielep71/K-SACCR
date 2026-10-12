@@ -100,7 +100,8 @@ is in the [traceability](#traceability) table.
 | Instruments | Digital options | Entered by the user under CRR; not supported under BCBS | CRR: the collar of a bought and a sold option at 0.95 K and 1.05 K, sized so that it reproduces the digital payoff outside the two strikes. BCBS also caps the digital's effective notional at its payoff divided by the supervisory factor, which the engine does not apply | CRR Art. 274(6); CRE52.42 |
 | Instruments | CDO tranches and nth-to-default credit derivatives | Supported | Instrument `CDO` with attachment and detachment; nth-to-default as A = (n - 1)/k, D = n/k | CRE52.41; CRR Art. 279a(1)(b) |
 | Instruments | Basis and volatility transactions | Supported | Nature `Basis` or `Volatility` with a hedging-set label | CRE52.46–.47; CRR Art. 277a(2), 280 |
-| Instruments | Transactions with several material risk drivers | Entered by the user | One row per risk-category leg, mapped by the user. The trade's market value must be counted once: entered on one row with 0 on the others, or split so that the rows add up to it. The engine adds every row's market value to V and does not check this (#38) | CRR Art. 277(3); `CRR-RTS` |
+| Instruments | Transactions with several material risk drivers | Supported with legs | One row (leg) per risk category, mapped by the user, all with the same Economic trade ID. Exactly one leg is the MtM leg (Y) and carries the trade's market value; every other leg must hold 0, so the value enters V once. Legs in different netting sets are rejected. The engine checks these rules and rejects every leg of a trade that breaks them; the mapping itself is the user's (#38) | CRR Art. 277(3) (mandatory); CRE52.28 (where the supervisor requires it); `CRR-RTS` |
+| Instruments | Option combinations: collars, spreads, straddles, caps as caplets | Supported with legs | One option leg per component, same Economic trade ID, MtM on the MtM leg. Legs in the same asset class must all be options: a linear product such as a swap may not be split (#38) | CRR Art. 274(6) (mandatory); CRE52.42(4), CRE52.43, CRE52 FAQ on decomposition |
 | Instruments | Sold options and sold credit protection | Supported, without the optional reductions | Calculated as ordinary trades; the zero EAD and premium cap are not applied, which gives a higher EAD | CRR Art. 274(5), (7); CRE52.1 FAQ1–2 |
 | Credit factors | Rated single names; quoted IG and SG indices | Supported | Sub-class AAA–CCC (BCBS) or CQS1–CQS6 (CRR); `IG_INDEX`, `SG_INDEX` | CRE52.72; CRR Art. 280c(5) |
 | Credit factors | Unrated single names; unlisted multi-name positions | Entered by the user | CQS3, CQS5 where Art. 128 applies, or the mapped step; for an unlisted multi-name position, the step of its weighted factor | CRR Art. 280c(5) |
@@ -112,7 +113,8 @@ is in the [traceability](#traceability) table.
 | Netting sets | Client clearing | Supported with a user declaration | Client clearing role CM applies the 5-business-day MPOR floor in both regimes, CLIENT under CRR only; a BCBS client keeps 10 days. Eligibility is the user's to check | CRE54.12, CRE54.14; CRR Art. 279c(1) |
 | Collateral | Haircuts, eligibility, segregated initial margin | Entered by the user | Amounts after haircuts; segregated collateral posted by the bank excluded from NICA | CRE52.11, .17; CRR Art. 276 |
 | Parameters | IR aggregation without offsets across buckets | Supported under BCBS only | `IRBucketOffset` = FALSE; a CRR netting set with IR trades is then INVALID | CRE52.57(5); CRR Art. 280a(3) |
-| Parameters | Alpha override per netting set | Supported for what-if runs | Alpha column on NettingSets; regulatory runs use 1.4 (#41) | CRE52.1; CRR Art. 274(2) |
+| Parameters | Alpha override per netting set | Supported for what-if runs | Alpha column on NettingSets; any value other than 1.4 makes the run WHAT-IF (#41) | CRE52.1; CRR Art. 274(2) |
+| Parameters | Regulatory or what-if run | Supported | Every run is classified: REGULATORY when the Params values, the factor table and the alpha overrides equal the regulatory parameter set below, WHAT-IF otherwise, with each difference listed on Checks (#41) | Parameter set `CRE52-CRR-2026-10-09` |
 | Currency and dates | Reporting currency and conversion | Supported | FX table on Params, rates supplied by the user | Decision 6 |
 | Currency and dates | Day count | Supported | 365 calendar days per year, 250 business days for floors and MPOR | Decision 5 |
 
@@ -195,6 +197,18 @@ CRE52.72 values, which equal the CRR values wherever both texts give one.
 | Credit, index IG, SG | 0.38%, 1.06%; correlation 80%; volatility 80% | BCBS | CRE52.72 | Params rows `CR_IG_INDEX`, `CR_SG_INDEX` |
 | Equity, single name; index | 32%, correlation 50%, volatility 120%; 20%, 80%, 75% | BCBS | CRE52.72 | Params rows `EQ_SINGLE`, `EQ_INDEX` |
 | Commodity: electricity; oil/gas, metals, agricultural, other | 40%; 18%; correlation 40%; volatility 150%; 70% | BCBS | CRE52.72 | Params `CO_` rows |
+
+These values are the regulatory parameter set `CRE52-CRR-2026-10-09`
+(`CORE_Config.REF_SET_ID`), built into the engine with the Basel and CRR
+factor rows of the template (#41). Every run compares the numeric parameters
+on Params, every factor-table row and each netting set's alpha override with
+it. When all are equal the run is `REGULATORY` and the run summary on Results
+C4, the message box and the result line (`run_class=REGULATORY`) name the
+set; any difference makes it `WHAT-IF`, and each difference is a warning
+starting "What-if:" on Checks. `DaysPerYear` (a day-count convention, 360 in
+CRE99 example 3) and `IRBucketOffset` (the bank's option under CRE52.57(5),
+rejected under CRR) do not change the class. The reporting currency's FX rate
+must be 1.
 
 How the points found in the CRR text are handled (#33):
 
@@ -286,8 +300,10 @@ sheet says so, the user enters such trades in a form the engine supports: severa
 (CRE52.74, `CRR.274.4`) and one margin agreement covering several netting sets
 (`CRR.275.3`, `CRR.278.2`), which the user declares so that the netting set is
 rejected; the special treatment of sold options and sold credit
-protection (`CRR.274.5`, `CRR.274.7`); decomposition of option combinations
-(`CRR.274.6`); automated mapping of risk drivers (`CRR.277.2`, `CRR.277.3`);
+protection (`CRR.274.5`, `CRR.274.7`); automatic decomposition of option
+combinations (`CRR.274.6`) and automated mapping of risk drivers
+(`CRR.277.2`, `CRR.277.3`), both of which the user enters as legs of one
+economic trade (#38);
 simplified SA-CCR (`CRR.281`) and the original exposure method (`CRR.282`).
 Collateral is an input after haircuts, and trade amounts are converted with
 the FX table on Params ([decision 6](#assumptions-and-scope)); neither is
