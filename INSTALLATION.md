@@ -345,10 +345,15 @@ a negative supervisory factor stop the run; a negative threshold or MTA, a
 remargining frequency or MPOR override that is not a whole number of business
 days in range, and an alpha override of zero or less make the netting set
 `INVALID`; a remargining frequency of 0 is raised to daily with a
-warning. Every patched cell and name is restored. It needs a workbook
+warning. It checks that a run with the regulatory parameters is classified
+`REGULATORY` and names the set in the run summary, that a DaysPerYear of 360
+keeps it regulatory, that a different alpha, a zero supervisory factor or an
+alpha override makes it `WHAT-IF` with the difference listed on Checks, and
+that a reporting-currency FX rate other than 1 stops the run. Every patched
+cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=71; checks=81; failures=0; restore=PASS`.
+`RESULT=PASS; cases=77; checks=96; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -389,7 +394,7 @@ add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; cleanup=PASS`
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
 and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the

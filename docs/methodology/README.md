@@ -112,7 +112,8 @@ is in the [traceability](#traceability) table.
 | Netting sets | Client clearing | Supported with a user declaration | Client clearing role CM applies the 5-business-day MPOR floor in both regimes, CLIENT under CRR only; a BCBS client keeps 10 days. Eligibility is the user's to check | CRE54.12, CRE54.14; CRR Art. 279c(1) |
 | Collateral | Haircuts, eligibility, segregated initial margin | Entered by the user | Amounts after haircuts; segregated collateral posted by the bank excluded from NICA | CRE52.11, .17; CRR Art. 276 |
 | Parameters | IR aggregation without offsets across buckets | Supported under BCBS only | `IRBucketOffset` = FALSE; a CRR netting set with IR trades is then INVALID | CRE52.57(5); CRR Art. 280a(3) |
-| Parameters | Alpha override per netting set | Supported for what-if runs | Alpha column on NettingSets; regulatory runs use 1.4 (#41) | CRE52.1; CRR Art. 274(2) |
+| Parameters | Alpha override per netting set | Supported for what-if runs | Alpha column on NettingSets; any value other than 1.4 makes the run WHAT-IF (#41) | CRE52.1; CRR Art. 274(2) |
+| Parameters | Regulatory or what-if run | Supported | Every run is classified: REGULATORY when the Params values, the factor table and the alpha overrides equal the regulatory parameter set below, WHAT-IF otherwise, with each difference listed on Checks (#41) | Parameter set `CRE52-CRR-2026-10-09` |
 | Currency and dates | Reporting currency and conversion | Supported | FX table on Params, rates supplied by the user | Decision 6 |
 | Currency and dates | Day count | Supported | 365 calendar days per year, 250 business days for floors and MPOR | Decision 5 |
 
@@ -195,6 +196,18 @@ CRE52.72 values, which equal the CRR values wherever both texts give one.
 | Credit, index IG, SG | 0.38%, 1.06%; correlation 80%; volatility 80% | BCBS | CRE52.72 | Params rows `CR_IG_INDEX`, `CR_SG_INDEX` |
 | Equity, single name; index | 32%, correlation 50%, volatility 120%; 20%, 80%, 75% | BCBS | CRE52.72 | Params rows `EQ_SINGLE`, `EQ_INDEX` |
 | Commodity: electricity; oil/gas, metals, agricultural, other | 40%; 18%; correlation 40%; volatility 150%; 70% | BCBS | CRE52.72 | Params `CO_` rows |
+
+These values are the regulatory parameter set `CRE52-CRR-2026-10-09`
+(`CORE_Config.REF_SET_ID`), built into the engine with the Basel and CRR
+factor rows of the template (#41). Every run compares the numeric parameters
+on Params, every factor-table row and each netting set's alpha override with
+it. When all are equal the run is `REGULATORY` and the run summary on Results
+C4, the message box and the result line (`run_class=REGULATORY`) name the
+set; any difference makes it `WHAT-IF`, and each difference is a warning
+starting "What-if:" on Checks. `DaysPerYear` (a day-count convention, 360 in
+CRE99 example 3) and `IRBucketOffset` (the bank's option under CRE52.57(5),
+rejected under CRR) do not change the class. The reporting currency's FX rate
+must be 1.
 
 How the points found in the CRR text are handled (#33):
 
