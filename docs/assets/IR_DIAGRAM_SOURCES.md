@@ -6,7 +6,6 @@ does not certify the engine or replace the methodology source-register decisions
 - **Supervisory duration:** Basel CRE52.34 floors SD at ten business days.
   CRR Article 279b(1)(a) also has this floor following the corrigendum to
   Regulation (EU) 2019/876, OJ L 398, 11 November 2021, item (14).
-  The bot's suggestion that the floor is Basel-only was therefore not adopted.
 - **Maturity factor:** CRE52.48 and CRR Article 279c(1)(a) use a ten-business-day
   maturity floor and a one-year cap for unmargined trades. `B` denotes business
   days in a year under the applicable convention; dates and SD are in years.

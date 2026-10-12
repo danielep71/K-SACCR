@@ -11,7 +11,7 @@
 
 <br>
 
-**Source-first · Synthetic data only · Static checks on every change · Excel-verified calculations**
+**Source-first · Synthetic data only · Static checks on every change · Calculations checked by Excel regression suites**
 
 </div>
 
@@ -35,23 +35,15 @@ structure and validation approach.
 
 ## 🧭 Status
 
-Repository setup, milestone **v0.0.1**, is complete; its accepted baseline is
-recorded in [issue #13](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/13). The
-prototype engine (CRR and Basel CRE52) has been imported as source; it is not
-yet validated under the repository's test-case policy. SACCR uses the **application** profile: the
-deliverable is a workbook built from the exported source, around a
-host-independent calculation core
-([repository structure](docs/REPOSITORY_STRUCTURE.md)). Setup established:
-
-- repository conventions, static checks and CI;
-- governance, issue metadata and labels;
-- the methodology basis, CRR with Basel CRE52 also supported, and the numerical
-  test-case format ([`docs/methodology/`](docs/methodology/README.md)); and
-- Excel evidence bound to a commit ([`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md))
-  and the first real Excel smoke test (#9).
-
-Nothing has been released. See the [changelog](CHANGELOG.md) for what has been
-added so far.
+Nothing has been released. Work takes place on `release/1.0.0`, and changes
+are listed under Unreleased in the [changelog](CHANGELOG.md). The engine
+computes EAD under EU CRR and Basel CRE52 and classifies each run as
+REGULATORY or WHAT-IF. It is checked in Excel by the regression suites in
+[`tests/modules/`](tests/README.md). Only the published CRE99 examples (T01 to
+T14) are references independent of this code; the other expected values are
+illustrative (#100). SACCR uses the **application** profile: the deliverable
+is a workbook built from the exported source, around a host-independent
+calculation core ([repository structure](docs/REPOSITORY_STRUCTURE.md)).
 
 ## 🌿 Development
 
@@ -83,7 +75,7 @@ Requirements, the import procedure and troubleshooting are in
 | [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record, procedure and validator |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, numerical test-case format |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
-| [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator and traffic export |
+| [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
 | [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
 | [`RELEASING.md`](RELEASING.md) | Integration into `main` and the release sequence |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |

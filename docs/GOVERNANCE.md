@@ -10,7 +10,7 @@ the scope of [issue #2](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/2
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.0.0` | Active integration branch for all development, opened from `main` at the v0.0.1 closeout. |
+| `release/1.0.0` | Active integration branch for all development, opened at the v0.0.1 closeout and recreated from `main` after each integration. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
 | Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
@@ -112,35 +112,34 @@ Each milestone closes through its own closeout issue; v0.0.1 closed in
 
 ## Current GitHub controls and limitations
 
-Observed for this private personal repository on 2026-10-06. During issue #2,
-the owner upgraded the account: GitHub's Licensing page now confirms
-**Current GitHub base plan: GitHub Pro**. The earlier Free-plan restriction is
-historical, not a current blocker. Availability and activation are distinct.
+Observed for this personal repository on 2026-10-06; it has since been made
+public. During issue #2, the owner upgraded the account: GitHub's Licensing
+page now confirms **Current GitHub base plan: GitHub Pro**. The earlier
+Free-plan restriction is historical, not a current blocker. Availability and
+activation are distinct.
 
 | Control | Observed state and working response |
 | --- | --- |
-| Repository visibility | Private. Preserve it; public visibility is not a workaround for missing features. |
-| Branch rulesets | Configured by the owner on 2026-10-06. `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. Release branches: pull request required, squash only, **Repository integrity** required; deletion is not restricted, so automatic head-branch deletion removes a release branch when it is merged into main. Settings → Rules is authoritative; keep following the review checklist for what rulesets cannot check. |
+| Repository visibility | Public. |
+| Branch rulesets | Configured by the owner on 2026-10-06. `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. Release branches: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion; repository admins may always bypass, which is what lets automatic head-branch deletion remove a release branch when it is merged into main. Settings → Rules is authoritative; keep following the review checklist for what rulesets cannot check. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. Added by the owner at the v0.0.1 closeout. |
 | Automatic head-branch deletion | Enabled by the owner on 2026-10-06. Merged PR branches are deleted automatically. |
 | Wiki | Enabled on 2026-10-06 and editable by collaborators only. Since 2026-10-12 maintained directly in the Wiki repository, self-contained and outside this repository's source and checks (owner decision). Authoritative documentation stays in versioned docs/. |
-| Advanced code/secret scanning | Not offered in the current repository security settings. Do not claim CodeQL, secret scanning or push protection are active. Review code and credentials manually; this is not equivalent automated coverage. |
+| Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
 | Dependency graph and Dependabot alerts | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. |
 | Low-impact development-dependency alert auto-dismissal | Disabled by explicit owner decision. Keep those alerts visible. |
 | Automatic Dependabot updates | Weekly update PRs for GitHub Actions, aimed at the active release branch, from `.github/dependabot.yml`; Dependabot reads it from `main`. Every update is reviewed and merged manually; see [tools/README.md](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
+| Automated review | Codex reviews every pull request automatically; its review conversations must be resolved before merge (ruleset), like any other finding; it does not replace the owner's review. |
 | Repository integrity CI | Runs on main/release pushes and PRs, read-only token and full-SHA action pins. Also lints the Python tooling (Ruff, strict mypy) and the workflows (actionlint). Reports are retained for 30 days. Static checks only; no Excel execution. |
-| Labels | Twenty-label catalogue with sync and read-only drift workflows. See LABELS.md for permissions and triggers. |
-| Traffic history | Daily export of GitHub's 14-day traffic data to the orphan `traffic-history` branch, from `.github/workflows/daily-traffic.yml`, with an alert issue on a spike or new referrer. Needs `TRAFFIC_TOKEN` in the `analytics` environment and runs only once the workflow is on main. Analytics only, never CI. |
+| Labels | Twenty-label catalogue with sync and read-only drift workflows. See [LABELS.md](LABELS.md) for permissions and triggers. |
+| Traffic history | Daily export of GitHub's 14-day traffic data to the orphan `traffic-history` branch, from `.github/workflows/daily-traffic.yml`, with an alert issue on a spike or new referrer. Needs `TRAFFIC_TOKEN` in the `analytics` environment and runs from main daily at 06:00 UTC. Analytics only, never CI. |
 
-GitHub Pro enables capabilities such as protected branches, required reviewers
-and Wiki in private personal repositories. It does not automatically configure
-those controls and must not be represented as enabling all advanced security
-products. The private repository's security settings still do not offer the
-advanced code/secret-scanning sections after the upgrade.
+The repository was private, under GitHub Pro, when these controls were first
+configured; it is now public.
 Reference: [GitHub plans](https://docs.github.com/en/get-started/learning-about-github/githubs-plans).
-Recheck feature availability before future configuration changes. The
-ruleset configuration and Wiki state above are the ones accepted at the v0.0.1
-closeout in issue #13.
+Recheck feature availability before future configuration changes. The ruleset
+configuration above is the one accepted at the v0.0.1 closeout in issue #13;
+the Wiki arrangement changed on 2026-10-12 (#170).
 
 ## Label workflows
 

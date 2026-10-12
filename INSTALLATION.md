@@ -30,22 +30,18 @@ and removal**. Contribution workflow is owned by
 
 ## 🧭 Current status
 
-Repository setup, milestone **v0.0.1**, is complete. There is **no SA-CCR
-release yet**: the VBA is the prototype engine imported from
-`SACCR_Calculator.xlsm`, plus the regression harness. The
-workbook is built from the macro-free template `src/workbook/SACCR_Template.xlsx`
-and the VBA in `src/` and `tests/`.
+There is **no SA-CCR release yet**; work is on `release/1.0.0`. The workbook
+is built from the macro-free template `src/workbook/SACCR_Template.xlsx` and
+the VBA in `src/` (engine, worksheet functions, sheet macros) and
+`tests/modules/` (regression harness and test suites).
 
 | Topic | Status |
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Regression harness | `tests/modules/TEST_Harness.bas`; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness, the case runner and five suites; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | None |
-
-The component list under [importing](#importing-vba-into-excel) grows as the
-SA-CCR engine is added.
 
 ## 🧰 Prerequisites
 
@@ -137,7 +133,6 @@ checks: they never compile VBA or run Excel.
 The layout and file conventions are defined in
 [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) and
 [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md#export-compatibility).
-The exact component list is added here with the first VBA source.
 
 ### Building a workbook from source
 
@@ -148,28 +143,41 @@ The exact component list is added here with the first VBA source.
    checkout, or in an ignored location such as `test-results/`. The template
    holds the 12 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
+
+   Instead of the manual import in steps 4 and 5, drag the saved workbook onto
+   `tools/Sync-SACCR-VBA.cmd`: it imports every module from `src/` and
+   `tests/modules/` and fills the document modules. It needs Excel's **Trust
+   access to the VBA project object model** setting; see
+   [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
    four default references listed under [supported hosts](#supported-hosts).
 4. Import with **File → Import File**, in this order:
    1. every file in `src/core/`;
-   2. every file in `src/classes/`;
+   2. every file in `src/classes/` (none at present);
    3. every file in `src/modules/`;
    4. every standard module (`.bas`) in `src/workbook/`, currently `M_Main`;
       the `.cls` document modules there are pasted, not imported (step 5);
-   5. every `.frm` in `src/forms/` (its `.frx` loads with it; never import a
-      `.frx`);
+   5. every `.frm` in `src/forms/` (none at present; its `.frx` loads with it;
+      never import a `.frx`);
    6. for a development workbook only: `tests/` and `examples/` modules.
 
-   Current components, in import order:
+   Current components, in import order. Within each folder the order is
+   alphabetical by file name, as `tools/Sync-SACCR-VBA.ps1` imports them:
 
    | # | File | Component | Role |
    | ---: | --- | --- | --- |
-   | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet layout and parameter constants |
-   | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; SA-CCR calculation run |
-   | 3 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; conversions and sheet helpers |
+   | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet layout constants, parameter codes and error numbers |
+   | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
+   | 3 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 4 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 5 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs` |
-   | 6 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness; development workbook only |
+   | 6 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 7 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
+   | 8 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 9 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 10 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 11 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 12 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs` and `ClearOutputs`, so
    they work once `M_Main` is imported.
@@ -177,8 +185,9 @@ The exact component list is added here with the first VBA source.
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
    below the `Attribute` lines, and paste it into the existing `ThisWorkbook` or
-   sheet module. Sheet code names must match the file names. The document
-   modules hold only `Option Explicit`.
+   sheet module. Sheet code names must match the file names (the FormulaTest
+   sheet keeps the code name `shTests`). The document modules hold only
+   `Option Explicit`.
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.
@@ -310,7 +319,7 @@ tolerance plus one, so the comparison must reject it. It prints
 `PUBLISHED: passed=13; failed=1` and
 `RESULT=FAIL; cases=20; checks=39; failures=1; restore=PASS`. The injection
 applies to that one suite only. A suite with no numeric check, such as
-`TEST_InputValidation`, fails with a message saying so.
+`TEST_Aggregation`, fails with a message saying so.
 
 ### Invalid-input tests
 
@@ -409,11 +418,11 @@ and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there are no results. Results C5 shows the same
-status through the formula `=ResultsStatusText(...)`, which Excel recalculates
-when an input changes, and turns red when it reads `OUT OF DATE`. A formula,
-unlike a macro writing to the sheet, leaves Excel's Undo history intact. With
-calculation set to manual, press F9 to refresh it.
+changed since, and `NONE` when there is no valid completed run. Results C5
+shows the same status through the formula `=ResultsStatusText(...)`, which
+Excel recalculates when an input changes, and turns red when it reads
+`OUT OF DATE`. A formula, unlike a macro writing to the sheet, leaves Excel's
+Undo history intact. With calculation set to manual, press F9 to refresh it.
 
 <a id="validation-record"></a>
 

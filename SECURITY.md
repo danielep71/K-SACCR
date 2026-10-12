@@ -61,8 +61,8 @@ insufficient.
 Do **not** disclose a suspected vulnerability in an issue, pull request, commit
 message, sample workbook, screenshot or release note.
 
-The repository is private, so GitHub private vulnerability reporting is not
-available. Report by email to **danielep71@gmail.com** with the subject
+GitHub private vulnerability reporting is not enabled for this repository.
+Report by email to **danielep71@gmail.com** with the subject
 **Private security report — SACCR**.
 
 Include only the information needed to assess the issue:
@@ -124,7 +124,8 @@ an issue, unless it creates concrete security impact.
 
 ### In scope
 
-- source in this repository, including exported VBA once it is added;
+- source in this repository, including the exported VBA and the workbook
+  template `src/workbook/SACCR_Template.xlsx`;
 - repository-owned validation tooling in [`tools/`](tools/README.md);
 - GitHub Actions workflows, their permissions and pinned actions; and
 - security or integrity behavior introduced by project code.
@@ -135,7 +136,9 @@ an issue, unless it creates concrete security impact.
   input sheets and writes its own output sheets, shows message boxes, and
   switches screen updating, events and calculation mode during a run. It uses
   no files, network, native code (`Declare`), `Shell` or `CreateObject`. The
-  harness only reads Excel settings.
+  harness only reads Excel settings. The other test suites write the input and
+  output sheets and switch calculation, events and screen updating, restoring
+  them afterwards, so run them in a development workbook.
 - **Automation.** Every workflow checkout that can run code under review sets
   `persist-credentials: false`, so that code never receives Git credentials.
   The one exception is the daily traffic export, whose job runs only on the
@@ -156,6 +159,12 @@ an issue, unless it creates concrete security impact.
   actionlint binary is checksum-verified. Dependabot proposes action updates for
   manual review. See [`tools/README.md`](tools/README.md#github-actions) and
   [`docs/LABELS.md`](docs/LABELS.md).
+- **Local tooling.** The VBA synchronizer `tools/Sync-SACCR-VBA.ps1` needs
+  Excel's **Trust access to the VBA project object model** setting. The `.cmd`
+  launchers run PowerShell with `-ExecutionPolicy Bypass`. With `-SourceDir`
+  the synchronizer imports modules from a folder such as Downloads, so use it
+  only with files obtained from this repository. See
+  [`tools/README.md`](tools/README.md#local-vba-synchronization).
 - **Artifacts.** No workbook, add-in or other binary is distributed. Office
   packages are ignored by Git unless an exact path is re-included.
 
@@ -191,8 +200,8 @@ Test fixtures and examples are synthetic. Excel files can contain sensitive
 material outside visible cells, including document properties, names, hidden
 sheets, VBA, cached values, queries, links and connections.
 
-GitHub secret scanning and code scanning are not available for this private
-repository, so these rules are enforced by review, not by automation.
+This document does not rely on GitHub secret scanning or code scanning; these
+rules are enforced by review.
 Repository secrets must use least privilege, remain unavailable to untrusted
 pull-request code and be rotated after suspected exposure.
 

@@ -27,13 +27,13 @@ Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 Suspected vulnerabilities must never be disclosed in an issue or pull request.
 
 > [!NOTE]
-> Repository setup, milestone **v0.0.1**, is complete. The SA-CCR engine does
-> not exist yet. Its regulatory basis (CRR baseline, Basel CRE52 also
-> supported) and numerical test-case format are in
-> [`docs/methodology/`](docs/methodology/README.md). The regression harness is `TEST_Harness.RunTests`
-> ([running the harness](INSTALLATION.md#running-the-harness)). The source layout is set in
-> [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md). Sections below
-> that refer to VBA describe the rules those changes must follow.
+> The SA-CCR engine is in `src/`: CRR baseline, Basel CRE52 also supported.
+> Its regulatory basis and the numerical test-case format are in
+> [`docs/methodology/`](docs/methodology/README.md). The regression harness is
+> `TEST_Harness.RunTests`; it and the other test suites are listed under
+> [running the harness](INSTALLATION.md#running-the-harness). The source
+> layout and its known deviations are in
+> [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md).
 
 ## 🌱 Ways to contribute
 
@@ -66,14 +66,16 @@ Pull requests follow [the PR template](.github/PULL_REQUEST_TEMPLATE.md).
    validation plan.
 5. Make the smallest coherent change; avoid unrelated formatting, generated
    output or opportunistic refactoring.
-6. Run `python tools/check.py` before every push. All gates must pass.
+6. Run `python tools/check.py` before every push. All gates must pass. Check
+   the committed candidate with `python tools/check.py --ci --base <base-sha>`.
 7. Update the affected documentation and add a user-facing entry under
    `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md).
 8. Review the complete diff, then open a pull request **against the release
    branch** with evidence and explicit limitations.
 9. Pull requests into the release branch are squash-merged once the
-   **Repository integrity** check is green and review findings are resolved.
-   Merged branches are deleted automatically.
+   **Repository integrity** check is green, review findings are resolved, and
+   every review conversation, including the automatic Codex review, is
+   resolved. Merged branches are deleted automatically.
 
 Nothing is committed directly to the release branch or to `main`. Integration
 of the release branch into `main` happens only on the owner's request; see
@@ -106,8 +108,9 @@ The repository-control files define how source is stored:
 - test data and examples are synthetic.
 
 `python tools/check.py` enforces the storage, naming, placement and
-`Option Explicit` rules, plus the VBA jump, conditional-compilation and
-public-API checks.
+`Option Explicit` rules, plus the committed-whitespace check, the VBA jump,
+conditional-compilation and public-API checks, the validation of the test-case
+files and the check that the generated `TEST_Cases.bas` is current.
 Where each component belongs, the dependency direction and the public-API
 boundary are defined in
 [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md); supported
@@ -210,7 +213,7 @@ A pull request answers five questions:
 - [ ] Unverified environments and skipped checks are stated plainly.
 - [ ] The final diff contains no unrelated formatting or local artifacts.
 
-The full review checklist is in
+The minimum review checklist is in
 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#ownership-authorization-and-review).
 Discussion stays technical and respectful under the
 [Code of Conduct](CODE_OF_CONDUCT.md).

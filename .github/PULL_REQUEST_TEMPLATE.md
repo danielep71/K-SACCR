@@ -51,7 +51,7 @@ Use a closing keyword only when this pull request meets the issue's complete acc
 
 - [ ] Calculation engine (`src/core`)
 - [ ] Public API (`src/modules`, `docs/PUBLIC_API.txt`)
-- [ ] Workbook or user interface (`src/workbook`, `src/forms`)
+- [ ] Workbook or user interface (`src/workbook`, the template `src/workbook/SACCR_Template.xlsx`, `src/forms`)
 - [ ] Tests, fixtures or expected values (`tests/`)
 - [ ] Tooling or CI (`tools/`, `.github/`)
 - [ ] No runtime surface: documentation or repository only
@@ -131,6 +131,7 @@ Evidence from another commit does not certify this one.
 | Debug → Compile VBAProject | <!-- PASS / FAIL / NOT RUN / N/A --> |
 | `TEST_Harness.RunTests` | <!-- RESULT= line, verbatim --> |
 | Cases / assertions / failures / cleanup | <!-- e.g. 4 / 6 / 0 / PASS --> |
+| Other suites (`RunMainStateTests`, `RunCaseTests`, `RunInputValidationTests`, `RunInvariantTests`, `RunAggregationTests`) | <!-- RESULT= lines, or N/A --> |
 | Specific scenario | <!-- what was exercised and the outcome --> |
 | Evidence bundle | <!-- validator result per docs/EXCEL_EVIDENCE.md, or N/A --> |
 
@@ -149,7 +150,7 @@ Record only environments actually used. One bitness never proves the other.
 - [ ] New or amended cases cover each corrected defect.
 - [ ] Boundary, invalid-input and cleanup paths are covered as applicable.
 - [ ] Harness counts and `.github/excel-evidence-policy.json` are updated together.
-- [ ] Expected values come from a `published` or `independent` reference, never from this code.
+- [ ] Every expected value carries a reference class per `docs/methodology/TEST_CASES.md`; only `published` and `independent` values count as validation, and none is produced by running this code.
 - [ ] No regression change needed: rationale below.
 
 ```text

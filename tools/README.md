@@ -15,7 +15,6 @@ pull request's whole range.
 | Gate | Checks |
 | --- | --- |
 | `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`) and the case-module generator (`test_generate_case_tests.py`) |
-| `check_committed_whitespace-fixtures` | Self-test of the whitespace gate |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -125,8 +124,8 @@ targets. It reports anything it cannot resolve (calls through `Object` or
 repository runs it as advisory only, because it needs a per-project manifest of
 VBA projects and its value grows with the number of modules.
 
-The imported prototype engine now spans three core modules, a facade and the
-workbook macros, so adopting it, advisory first, is due with the engine
+The engine spans three core modules, a facade, the workbook macros and seven
+test modules, so adopting it, advisory first, is due with the engine
 refactor. Until then the VBA compiler in Excel is the call-resolution check.
 
 ## GitHub Actions
@@ -186,8 +185,9 @@ views.
 It needs a fine-grained personal access token with `Administration: read` on
 this repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
 without it the run fails with a clear error. The badge files it writes under
-`data/badges/` work in a README only once the repository is public. This is
-analytics, not CI: it runs no repository code and must never be extended to.
+`data/badges/` are shields.io endpoint files that a README can use, since the
+repository is public. This is analytics, not CI: it runs no repository code
+and must never be extended to.
 
 ## Dependency updates
 
