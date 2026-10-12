@@ -36,10 +36,12 @@ of ThisWorkbook as it is, without asking.
 
 With -SourceDir, only the modules found in that folder are imported, for
 example modules downloaded for a test, without copying them into the
-repository. A file is taken only when its VB_Name is a component of the
-repository source, so other files in the folder are ignored; when several
-files carry the same VB_Name (for example "CORE_Engine (1).bas"), the newest
-is taken. The script lists the files and asks for confirmation unless -Force
+repository. A file is taken when its VB_Name is a component of the
+repository source, or when it is a standard module (.bas) whose name has a
+project prefix (CORE_, SACCR_, M_, TEST_), such as a test suite added by
+the pull request under test; it is listed apart as a new module. Other
+files in the folder are ignored. When several files carry the same VB_Name
+(for example "CORE_Engine (1).bas"), the newest is taken. The script lists the files and asks for confirmation unless -Force
 is given, converts their line endings to CRLF and imports them. Every other
 module in the workbook is left as it is.
 #>
@@ -94,6 +96,11 @@ $vbext_ct_Document = 100
 $xlCalculationManual = -4135
 $xlCalculationAutomatic = -4105
 $msoAutomationSecurityForceDisable = 3
+
+# With -SourceDir, a standard module the repository checkout does not have
+# is offered for import when its name has a project prefix; any other
+# unknown file is ignored.
+$NewModulePattern = '^(CORE|SACCR|M|TEST)_[A-Za-z0-9_]+$'
 
 function Resolve-FullPath {
     param([Parameter(Mandatory = $true)][string]$PathValue)
@@ -176,6 +183,7 @@ function Select-FolderSources {
     )
 
     $picked = @{}
+    $newNames = @{}
     $ignored = New-Object System.Collections.Generic.List[string]
     $candidates = @(
         Get-ChildItem -LiteralPath $FolderPath -File |
@@ -185,14 +193,20 @@ function Select-FolderSources {
     foreach ($file in $candidates) {
         $name = Get-VbaComponentName -SourcePath $file.FullName
         $key = $name.ToLowerInvariant()
-        if (-not $RepositoryNames.ContainsKey($key)) {
-            $ignored.Add("$($file.Name) (VB_Name '$name' is not a repository component)")
-            continue
+        if ($RepositoryNames.ContainsKey($key)) {
+            $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()
+            if ($file.Extension.ToLowerInvariant() -ne $repoExtension) {
+                $ignored.Add("$($file.Name) ('$name' is a $repoExtension component in the repository)")
+                continue
+            }
         }
-
-        $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()
-        if ($file.Extension.ToLowerInvariant() -ne $repoExtension) {
-            $ignored.Add("$($file.Name) ('$name' is a $repoExtension component in the repository)")
+        elseif ($file.Extension.ToLowerInvariant() -eq ".bas" -and $name -match $NewModulePattern) {
+            # A standard module the checkout does not have yet, for example a
+            # test suite added by the pull request under test: listed apart.
+            $newNames[$key] = $true
+        }
+        else {
+            $ignored.Add("$($file.Name) (VB_Name '$name' is not a repository component)")
             continue
         }
 
@@ -216,8 +230,17 @@ function Select-FolderSources {
 
     Write-Host "Modules to import from $FolderPath"
     foreach ($key in ($picked.Keys | Sort-Object)) {
+        if ($newNames.ContainsKey($key)) { continue }
         $file = $picked[$key]
         Write-Host ("  {0,-26} {1,-34} {2:yyyy-MM-dd HH:mm}" -f (Get-VbaComponentName -SourcePath $file.FullName), $file.Name, $file.LastWriteTime)
+    }
+    if ($newNames.Count -gt 0) {
+        Write-Host "New modules, not in the repository checkout (imported as new standard modules):"
+        foreach ($key in ($picked.Keys | Sort-Object)) {
+            if (-not $newNames.ContainsKey($key)) { continue }
+            $file = $picked[$key]
+            Write-Host ("  {0,-26} {1,-34} {2:yyyy-MM-dd HH:mm}" -f (Get-VbaComponentName -SourcePath $file.FullName), $file.Name, $file.LastWriteTime)
+        }
     }
     if ($ignored.Count -gt 0) {
         Write-Host "Ignored:"

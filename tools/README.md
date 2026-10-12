@@ -66,9 +66,12 @@ during a review, without copying them into the working tree, double-click
 ```
 
 In that mode only the modules found in the folder are imported; every other
-module in the workbook is left as it is. A file is taken only when its
-`VB_Name` is a component of the repository source, with the same extension,
-so other files in the folder are ignored. When several files carry the same
+module in the workbook is left as it is. A file is taken when its `VB_Name`
+is a component of the repository source, with the same extension. A
+standard module (`.bas`) that the checkout does not have yet, such as a test
+suite added by the pull request under test, is also taken when its name
+starts with `CORE_`, `SACCR_`, `M_` or `TEST_`; it is listed apart as a new
+module before the confirmation. Other files in the folder are ignored. When several files carry the same
 `VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
 is taken. The script lists the chosen files with their dates and the ignored
 ones, and asks for confirmation (`-Force` skips it; answering no exits with
