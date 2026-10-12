@@ -468,6 +468,14 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The numerical test-case validator applies the engine's input rules
+  (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
+  the remargining period and the MPOR override and any positive
+  `DaysPerYear`, so a fixture could pass and then be rejected in Excel. The
+  remargining period must now be a whole number from 0 to 10000, the MPOR
+  override a whole number above 0 (`null` for none), and `DaysPerYear` from
+  360 to 366. Existing fixtures and the generated `TEST_Cases` are
+  unchanged.
 - Results are reported as out of date after a Params edit also when the
   Params tables have moved (#152). The fingerprint read Params columns C:J
   at fixed positions, so once a column was inserted before the tables an
@@ -683,6 +691,10 @@ Use only the categories needed by a release.
   `docs/REPOSITORY_STRUCTURE.md`. No automated check compiles VBA or runs
   Excel.
 - Excel evidence is manual and covers one 64-bit host; 32-bit is untested.
+- Digital options are not supported under either regime (#120, planned for
+  v1.1.0). Option legs of one economic trade are calculated as an ordinary
+  option combination: neither the CRR payoff-sized collar nor the BCBS cap
+  of the effective notional is applied.
 
 ---
 

@@ -31,15 +31,17 @@ QA_SOURCE_ID = re.compile(r"^EBA-QA-([0-9]{4}_[0-9]+)$")
 CITATION_FILES = ("tests/expected/*.json", "src/**/*.bas", "src/**/*.cls", "tests/modules/*.bas",
                   "docs/methodology/README.md", "docs/methodology/TEST_CASES.md")
 
-# Field name -> (kind, nullable). The kind follows the unit suffix of the name.
+# Field name -> (kind, nullable). The kind follows the unit suffix of the name;
+# the two business-day fields have the engine's ranges for their column on
+# the NettingSets sheet (CORE_Engine.LoadNettingSets, #147, #161).
 NETTING_SET_FIELDS: dict[str, tuple[str, bool]] = {
     "id": ("text", False),
     "margined": ("bool", False),
     "clearing_role": ("clearing_role", False),
-    "remargin_period_business_days": ("business_days", True),
+    "remargin_period_business_days": ("remargin_business_days", True),
     "large_or_illiquid": ("bool", False),
     "margin_disputes": ("bool", False),
-    "mpor_override_business_days": ("business_days", True),
+    "mpor_override_business_days": ("mpor_business_days", True),
     "variation_margin_net_amount": ("number", False),
     "independent_collateral_net_amount": ("number", False),
     "threshold_amount": ("non_negative", False),
@@ -69,9 +71,10 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
     "detachment_rate": ("number", True),
     "description": ("text", True),
 }
-# Params codes a fixture may set for its own run -> kind of the value.
+# Params codes a fixture may set for its own run -> kind of the value, with
+# the engine's range for that parameter (CORE_Engine.LoadParams).
 PARAMETERS: dict[str, str] = {
-    "DaysPerYear": "positive",
+    "DaysPerYear": "days_per_year",
     "IRBucketOffset": "bool",
 }
 ENUMS = {
@@ -106,6 +109,12 @@ def is_number(value: object) -> bool:
         isinstance(value, float) and math.isfinite(value))
 
 
+def is_whole_number(value: object) -> bool:
+    if isinstance(value, float):
+        return math.isfinite(value) and value.is_integer()
+    return is_number(value)
+
+
 def reject_json_constant(value: str) -> None:
     raise ValueError(f"non-finite JSON constant {value}")
 
@@ -135,7 +144,11 @@ def check_value(where: str, kind: str, value: object) -> list[str]:
         "number": is_number,
         "non_negative": lambda v: is_number(v) and v >= 0,
         "positive": lambda v: is_number(v) and v > 0,
-        "business_days": lambda v: is_number(v) and v >= 0,
+        # Remargining: a whole number from 0 to 10000; the engine raises 0 to 1.
+        "remargin_business_days": lambda v: is_whole_number(v) and 0 <= v <= 10000,
+        # MPOR override: a whole number above 0; null, not 0, means none.
+        "mpor_business_days": lambda v: is_whole_number(v) and v >= 1,
+        "days_per_year": lambda v: is_number(v) and 360 <= v <= 366,
         "date": valid_date,
     }
     if kind in ENUMS:
