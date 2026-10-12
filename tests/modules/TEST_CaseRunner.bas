@@ -21,7 +21,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   API.
 '
 ' DEPENDENCIES
-'   CORE_Engine.Calculate; CORE_Util for sheet access; CORE_Config for the layout.
+'   CORE_Engine.Calculate; CORE_Util for sheet access; CORE_Config for the layout;
+'   TEST_Suite.Say for the log lines.
 '   The workbook must be built from the template, because the engine reads
 '   its input sheets and Params.
 '
@@ -216,8 +217,8 @@ Public Sub BeginSuite( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
-        Debug.Print "SACCR CASE TESTS"
-        Debug.Print "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
+        TEST_Suite.Say "SACCR CASE TESTS"
+        TEST_Suite.Say "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
 
 End Sub
 
@@ -257,7 +258,7 @@ Public Sub EndSuite( _
     'sheets match them again.
         If Len(abortReason) > 0 Then
             mFailureCount = mFailureCount + 1
-            Debug.Print "FAILURE=suite: " & abortReason
+            TEST_Suite.Say "FAILURE=suite: " & abortReason
         End If
         restored = True
         restored = RestoreStep("inputs", 1) And restored
@@ -273,20 +274,20 @@ Public Sub EndSuite( _
 '------------------------------------------------------------------------------
         If mInjectFailure And Len(mInjectedAt) = 0 Then
             mFailureCount = mFailureCount + 1
-            Debug.Print "FAILURE=suite: injected failure requested, but the suite ran no numeric check"
+            TEST_Suite.Say "FAILURE=suite: injected failure requested, but the suite ran no numeric check"
         End If
         mInjectFailure = False
         complete = (mCaseCount = mExpectedCases) And (mCheckCount = mExpectedChecks)
         If Not complete Then
             mFailureCount = mFailureCount + 1
-            Debug.Print "FAILURE=suite: expected " & mExpectedCases & " cases and " & mExpectedChecks & _
+            TEST_Suite.Say "FAILURE=suite: expected " & mExpectedCases & " cases and " & mExpectedChecks & _
                         " checks, ran " & mCaseCount & " and " & mCheckCount
         End If
-        Debug.Print "PUBLISHED: passed=" & mPassed(CLASS_PUBLISHED) & "; failed=" & mFailed(CLASS_PUBLISHED)
-        Debug.Print "INDEPENDENT: passed=" & mPassed(CLASS_INDEPENDENT) & "; failed=" & mFailed(CLASS_INDEPENDENT)
-        Debug.Print "ILLUSTRATIVE: passed=" & mPassed(CLASS_ILLUSTRATIVE) & "; failed=" & _
+        TEST_Suite.Say "PUBLISHED: passed=" & mPassed(CLASS_PUBLISHED) & "; failed=" & mFailed(CLASS_PUBLISHED)
+        TEST_Suite.Say "INDEPENDENT: passed=" & mPassed(CLASS_INDEPENDENT) & "; failed=" & mFailed(CLASS_INDEPENDENT)
+        TEST_Suite.Say "ILLUSTRATIVE: passed=" & mPassed(CLASS_ILLUSTRATIVE) & "; failed=" & _
                     mFailed(CLASS_ILLUSTRATIVE) & " (validates nothing)"
-        Debug.Print "RESULT=" & IIf(mFailureCount = 0 And restored And complete, "PASS", "FAIL") & _
+        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And restored And complete, "PASS", "FAIL") & _
                     "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
                     "; failures=" & mFailureCount & "; restore=" & IIf(restored, "PASS", "FAIL")
 
@@ -344,7 +345,7 @@ Public Sub BeginCase( _
         mAsOfCell.Value = IsoDate(valuationDate)
         mCcyCell.Value = calculationCurrency
         UnitFxRate calculationCurrency
-        Debug.Print "CASE=" & mCase
+        TEST_Suite.Say "CASE=" & mCase
 
 End Sub
 
@@ -672,7 +673,7 @@ Public Sub RunCase()
         On Error GoTo Failed
         If Not CORE_Engine.Calculate(True) Then
             mFailureCount = mFailureCount + 1
-            Debug.Print "FAILURE=" & mCase & ": engine run stopped; see the Checks sheet"
+            TEST_Suite.Say "FAILURE=" & mCase & ": engine run stopped; see the Checks sheet"
         End If
         Exit Sub
 
@@ -681,7 +682,7 @@ Public Sub RunCase()
 '------------------------------------------------------------------------------
 Failed:
         mFailureCount = mFailureCount + 1
-        Debug.Print "FAILURE=" & mCase & ": engine error " & Err.Number & ": " & Err.Description
+        TEST_Suite.Say "FAILURE=" & mCase & ": engine error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -796,7 +797,7 @@ Public Sub ExpectNumber( _
         If mInjectFailure And Len(mInjectedAt) = 0 Then
             expect = expect + 10# * bound + 1#
             mInjectedAt = mCase & " " & label
-            Debug.Print "INJECTED=" & mInjectedAt & ": expected value moved to " & Trim$(Str$(expect))
+            TEST_Suite.Say "INJECTED=" & mInjectedAt & ": expected value moved to " & Trim$(Str$(expect))
         End If
         If Not ReadOutput(tradeId, quantity, actual, detail) Then
             Record label, referenceClass, False, detail
@@ -1168,7 +1169,7 @@ Private Sub Record( _
         Else
             mFailed(cls) = mFailed(cls) + 1
             mFailureCount = mFailureCount + 1
-            Debug.Print "FAILURE=" & mCase & " " & label & " (" & referenceClass & "): " & detail
+            TEST_Suite.Say "FAILURE=" & mCase & " " & label & " (" & referenceClass & "): " & detail
         End If
 
 End Sub
@@ -1377,7 +1378,7 @@ Private Function RestoreStep( _
 ' REPORT FAILURE
 '------------------------------------------------------------------------------
 Failed:
-        Debug.Print "FAILURE=restore " & stepName & ": " & Err.Number & ": " & Err.Description
+        TEST_Suite.Say "FAILURE=restore " & stepName & ": " & Err.Number & ": " & Err.Description
 
 End Function
 

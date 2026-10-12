@@ -39,7 +39,7 @@ the VBA in `src/` (engine, worksheet functions, sheet macros) and
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness, the case runner and five suites; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness, the case runner, six suites and `TEST_Suite`, which runs them all; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | None |
 
@@ -146,7 +146,9 @@ The layout and file conventions are defined in
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto
    `tools/Sync-SACCR-VBA.cmd`: it imports every module from `src/` and
-   `tests/modules/` and fills the document modules. It needs Excel's **Trust
+   `tests/modules/` and asks whether to fill the worksheet and
+   `ThisWorkbook` document modules as well (they hold only `Option Explicit`,
+   so either answer works). It needs Excel's **Trust
    access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
@@ -174,10 +176,12 @@ The layout and file conventions are defined in
    | 6 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 7 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
    | 8 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 9 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 10 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 11 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 12 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 9 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 10 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 11 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 12 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 13 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 14 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs` and `ClearOutputs`, so
    they work once `M_Main` is imported.
@@ -213,6 +217,18 @@ match the file name.
 <a id="running-the-harness"></a>
 
 ## ▶️ Running the harness
+
+To run every suite at once, type `Test_RunAll` in the Immediate window
+(**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
+`TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation` and
+`TEST_Invariants` in turn and prints only a summary: one line per suite with
+its verdict, counts and duration, the failure lines of a suite that failed,
+and a final line such as
+`RESULT=PASS; suites=7; passed=7; failed=0; seconds=...`. An error raised by
+a suite counts as its failure and the next suite still runs. The summary is
+not Excel evidence: the evidence record needs the full log of
+`TEST_Harness.RunTests` run on its own. Each suite below can also be run
+alone, with its full log.
 
 After importing the components above and compiling, open the Immediate
 window (**Ctrl+G**) and run:
@@ -257,8 +273,11 @@ they found them, also when they were off, and that an operation failure and a
 cleanup failure are each raised and leave the workbook ready for the next run.
 It also protects the Checks sheet for one run, and makes one run fail after
 the first output sheets are written, and checks that each fails with its
-results withdrawn; and it edits one trade after a run and checks that the
-results are reported out of date until the edit is undone. Unlike the
+results withdrawn; and it edits one trade, and on Params a factor's Regimes
+field and its header, a parameter and an FX rate, after a run and checks that the results
+are reported out of date until the edit is undone, once with the template
+layout and once with a column inserted before the Params tables, which the
+case deletes again (#152). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -279,8 +298,28 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints eighteen `CASE=` lines and ends with
-`RESULT=PASS; cases=18; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty `CASE=` lines and ends with
+`RESULT=PASS; cases=20; checks=...; failures=0; caller_state=RESTORED`.
+
+### Worksheet function contract tests
+
+`tests/modules/TEST_Formulas.bas` calls the `SACCR_*` worksheet functions
+directly, without the engine or the worksheet's data validation, and checks
+their domain and error contract (#42): an input outside its documented domain
+gives `#NUM!`, `#VALUE!`, `#REF!` or the error passed in, never a runtime
+error or a misleading number; valid inputs at the boundaries keep their
+results; single values, one-element arrays, vectors in either orientation and
+2-D ranges are handled as documented. Its last case writes the same formulas
+on a temporary worksheet, which it deletes again, so use a development
+workbook. Run:
+
+```text
+TEST_Formulas.RunFormulaTests
+```
+
+A passing run prints nine `CASE=` lines and ends with
+`RESULT=PASS; cases=9; checks=82; failures=0` on 64-bit Excel (80 on
+32-bit, which has no `LongLong`).
 
 <a id="numerical-test-cases"></a>
 
@@ -418,10 +457,14 @@ and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there is no valid completed run. Results C5
-shows the same status through the formula `=ResultsStatusText(...)`, which
+changed since, and `NONE` when there is no valid completed run. Params is
+read through its workbook names, so an edit is found also after its tables
+have moved; descriptions, references and formatting do not count as edits.
+Results C5 shows the same status through the formula
+`=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
 Excel recalculates when an input changes, and turns red when it reads
-`OUT OF DATE`. A formula, unlike a macro writing to the sheet, leaves Excel's
+`OUT OF DATE`. It reads `Status unavailable:` with the reason when a Params
+workbook name is missing or broken. A formula, unlike a macro writing to the sheet, leaves Excel's
 Undo history intact. With calculation set to manual, press F9 to refresh it.
 
 <a id="validation-record"></a>

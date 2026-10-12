@@ -235,12 +235,15 @@ Keep non-passing bundles too until the finding is resolved.
 - A pass covers the harness on the recorded host only. It does not validate any
   SA-CCR number or any other Excel version.
 - Only `TEST_Harness.RunTests` is bound by the record. The other suites
-  (`TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
+  (`TEST_Formulas.RunFormulaTests`, `TEST_MainState.RunMainStateTests`,
+  `TEST_Cases.RunCaseTests`,
   `TEST_InputValidation.RunInputValidationTests`,
   `TEST_Invariants.RunInvariantTests` and
   `TEST_Aggregation.RunAggregationTests`) are imported, but their results are
   not part of the record; report them separately (see
-  [running the harness](../INSTALLATION.md#running-the-harness)).
+  [running the harness](../INSTALLATION.md#running-the-harness)). The
+  summary of `TEST_Suite.Test_RunAll` is not a harness log: record
+  `TEST_Harness.RunTests` run on its own.
 - Keep logs free of credentials, client data and unredacted screenshots; see
   [`SECURITY.md`](../SECURITY.md#data-and-secrets).
 

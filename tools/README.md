@@ -47,6 +47,15 @@ PowerShell remains available for direct use from the repository root:
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
 
+Before it opens the workbook, the script lists the worksheet and
+`ThisWorkbook` modules in the source and asks whether to replace their code
+as well. Answer N to keep the sheet code of the workbook, for example one
+built from a newer template; the standard modules are imported either way.
+`-IncludeSheets` or `-SkipSheets` gives the answer in advance. When N leaves
+nothing to import, the script exits with code 2 and the workbook is not
+changed. The repository's sheet modules hold only `Option Explicit` and
+comments, so skipping them changes no behaviour.
+
 To test modules received outside the repository, for example downloaded
 during a review, without copying them into the working tree, double-click
 `tools/Sync-SACCR-VBA-Downloads.cmd`. It asks for the folder (Enter for
@@ -57,9 +66,12 @@ during a review, without copying them into the working tree, double-click
 ```
 
 In that mode only the modules found in the folder are imported; every other
-module in the workbook is left as it is. A file is taken only when its
-`VB_Name` is a component of the repository source, with the same extension,
-so other files in the folder are ignored. When several files carry the same
+module in the workbook is left as it is. A file is taken when its `VB_Name`
+is a component of the repository source, with the same extension. A
+standard module (`.bas`) that the checkout does not have yet, such as a test
+suite added by the pull request under test, is also taken when its name
+starts with `CORE_`, `SACCR_`, `M_` or `TEST_`; it is listed apart as a new
+module before the confirmation. Other files in the folder are ignored. When several files carry the same
 `VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
 is taken. The script lists the chosen files with their dates and the ignored
 ones, and asks for confirmation (`-Force` skips it; answering no exits with

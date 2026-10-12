@@ -11,6 +11,11 @@ keep their workbook objects and only their code text is replaced. The script
 does not write cells, formulas, names, formatting, tables, worksheets, or
 workbook structure.
 
+Before the workbook is opened the script lists the worksheet and ThisWorkbook
+modules in the source and asks whether to replace their code as well. Answer
+N for a workbook built from a newer template, whose sheet code must stay as
+it is. -IncludeSheets or -SkipSheets gives the answer in advance.
+
 .REQUIREMENTS
 - Windows desktop Excel.
 - Excel > Options > Trust Center > Macro Settings >
@@ -23,12 +28,20 @@ workbook structure.
 .EXAMPLE
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
 
+.EXAMPLE
+.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SkipSheets
+
+Imports the standard modules only and leaves the code of every worksheet and
+of ThisWorkbook as it is, without asking.
+
 With -SourceDir, only the modules found in that folder are imported, for
 example modules downloaded for a test, without copying them into the
-repository. A file is taken only when its VB_Name is a component of the
-repository source, so other files in the folder are ignored; when several
-files carry the same VB_Name (for example "CORE_Engine (1).bas"), the newest
-is taken. The script lists the files and asks for confirmation unless -Force
+repository. A file is taken when its VB_Name is a component of the
+repository source, or when it is a standard module (.bas) whose name has a
+project prefix (CORE_, SACCR_, M_, TEST_), such as a test suite added by
+the pull request under test; it is listed apart as a new module. Other
+files in the folder are ignored. When several files carry the same VB_Name
+(for example "CORE_Engine (1).bas"), the newest is taken. The script lists the files and asks for confirmation unless -Force
 is given, converts their line endings to CRLF and imports them. Every other
 module in the workbook is left as it is.
 #>
@@ -52,7 +65,13 @@ param(
     [string]$SourceDir,
 
     [Parameter(Mandatory = $false)]
-    [switch]$Force
+    [switch]$Force,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$IncludeSheets,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipSheets
 )
 
 Set-StrictMode -Version Latest
@@ -78,6 +97,11 @@ $xlCalculationManual = -4135
 $xlCalculationAutomatic = -4105
 $msoAutomationSecurityForceDisable = 3
 
+# With -SourceDir, a standard module the repository checkout does not have
+# is offered for import when its name has a project prefix; any other
+# unknown file is ignored.
+$NewModulePattern = '^(CORE|SACCR|M|TEST)_[A-Za-z0-9_]+$'
+
 function Resolve-FullPath {
     param([Parameter(Mandatory = $true)][string]$PathValue)
     return [System.IO.Path]::GetFullPath((Resolve-Path -LiteralPath $PathValue).Path)
@@ -93,6 +117,24 @@ function Get-VbaComponentName {
     }
 
     return [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
+}
+
+function Test-DocumentSource {
+    param([Parameter(Mandatory = $true)][string]$SourcePath)
+
+    # A document module (ThisWorkbook, a worksheet or a chart sheet) is
+    # exported with VB_Base naming Excel's Workbook (00020819), Worksheet
+    # (00020820) or Chart (00020821) class, whatever its code name; an
+    # ordinary class module has no VB_Base. The names Sync-VbaSource
+    # recognizes (ThisWorkbook, sh*) also count, for a file without it.
+    if ([System.IO.Path]::GetExtension($SourcePath).ToLowerInvariant() -ne ".cls") { return $false }
+    foreach ($line in [System.IO.File]::ReadLines($SourcePath)) {
+        if ($line -match '^\s*Attribute\s+VB_Base\s*=\s*"0\{(00020819|00020820|00020821)-') {
+            return $true
+        }
+    }
+    $name = Get-VbaComponentName -SourcePath $SourcePath
+    return ($name -eq "ThisWorkbook" -or $name -like "sh*")
 }
 
 function Get-VbaCodeBody {
@@ -141,6 +183,7 @@ function Select-FolderSources {
     )
 
     $picked = @{}
+    $newNames = @{}
     $ignored = New-Object System.Collections.Generic.List[string]
     $candidates = @(
         Get-ChildItem -LiteralPath $FolderPath -File |
@@ -150,14 +193,20 @@ function Select-FolderSources {
     foreach ($file in $candidates) {
         $name = Get-VbaComponentName -SourcePath $file.FullName
         $key = $name.ToLowerInvariant()
-        if (-not $RepositoryNames.ContainsKey($key)) {
-            $ignored.Add("$($file.Name) (VB_Name '$name' is not a repository component)")
-            continue
+        if ($RepositoryNames.ContainsKey($key)) {
+            $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()
+            if ($file.Extension.ToLowerInvariant() -ne $repoExtension) {
+                $ignored.Add("$($file.Name) ('$name' is a $repoExtension component in the repository)")
+                continue
+            }
         }
-
-        $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()
-        if ($file.Extension.ToLowerInvariant() -ne $repoExtension) {
-            $ignored.Add("$($file.Name) ('$name' is a $repoExtension component in the repository)")
+        elseif ($file.Extension.ToLowerInvariant() -eq ".bas" -and $name -match $NewModulePattern) {
+            # A standard module the checkout does not have yet, for example a
+            # test suite added by the pull request under test: listed apart.
+            $newNames[$key] = $true
+        }
+        else {
+            $ignored.Add("$($file.Name) (VB_Name '$name' is not a repository component)")
             continue
         }
 
@@ -181,8 +230,17 @@ function Select-FolderSources {
 
     Write-Host "Modules to import from $FolderPath"
     foreach ($key in ($picked.Keys | Sort-Object)) {
+        if ($newNames.ContainsKey($key)) { continue }
         $file = $picked[$key]
         Write-Host ("  {0,-26} {1,-34} {2:yyyy-MM-dd HH:mm}" -f (Get-VbaComponentName -SourcePath $file.FullName), $file.Name, $file.LastWriteTime)
+    }
+    if ($newNames.Count -gt 0) {
+        Write-Host "New modules, not in the repository checkout (imported as new standard modules):"
+        foreach ($key in ($picked.Keys | Sort-Object)) {
+            if (-not $newNames.ContainsKey($key)) { continue }
+            $file = $picked[$key]
+            Write-Host ("  {0,-26} {1,-34} {2:yyyy-MM-dd HH:mm}" -f (Get-VbaComponentName -SourcePath $file.FullName), $file.Name, $file.LastWriteTime)
+        }
     }
     if ($ignored.Count -gt 0) {
         Write-Host "Ignored:"
@@ -419,6 +477,39 @@ try {
                 exit 2
             }
         }
+    }
+
+    # Worksheet and ThisWorkbook modules: their code is replaced only when the
+    # user agrees, so that a workbook built from a newer template can keep
+    # its own sheet code.
+    if ($IncludeSheets -and $SkipSheets) {
+        throw "Use -IncludeSheets or -SkipSheets, not both."
+    }
+
+    $documentFiles = @($sourceFiles | Where-Object { Test-DocumentSource -SourcePath $_.FullName })
+    if ($documentFiles.Count -gt 0) {
+        $importSheets = [bool]$IncludeSheets
+        if (-not $IncludeSheets -and -not $SkipSheets) {
+            Write-Host "Worksheet and ThisWorkbook modules in the source:"
+            foreach ($file in $documentFiles) {
+                Write-Host ("  {0}" -f (Get-VbaComponentName -SourcePath $file.FullName))
+            }
+            $answer = Read-Host "Replace the code of these $($documentFiles.Count) sheet module(s) as well? [Y/N]"
+            $importSheets = ($answer -match '^\s*(y|yes|s|si)\s*$')
+        }
+
+        if ($importSheets) {
+            Write-Host "Sheet modules: code replaced from the source."
+        }
+        else {
+            $sourceFiles = @($sourceFiles | Where-Object { -not (Test-DocumentSource -SourcePath $_.FullName) })
+            Write-Host "Sheet modules: skipped; the workbook keeps its own worksheet and ThisWorkbook code."
+            if ($sourceFiles.Count -eq 0) {
+                Write-Host "Nothing else to import: the workbook was not changed."
+                exit 2
+            }
+        }
+        Write-Host ""
     }
 
     if (-not $NoBackup) {

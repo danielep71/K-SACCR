@@ -79,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1675,6 +1675,37 @@ Private Function LoadFXTable() As Boolean
 End Function
 
 
+Private Function FormulaNumber( _
+    ByVal result As Variant, _
+    ByVal functionName As String) _
+    As Double
+'
+'==============================================================================
+'                                FormulaNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the result of a SACCR_Formulas function as a number. The engine
+'   checks its inputs before it calls these functions, so an error value
+'   means the two disagree on a domain (#42): the run stops with an error
+'   that names the function, not with a type mismatch.
+'
+' ERROR POLICY
+'   Raises ERR_FORMULA_DOMAIN when result is an error value; Calculate
+'   withdraws the results and reports it.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        If IsError(result) Then
+            Err.Raise ERR_FORMULA_DOMAIN, "CORE_Engine." & functionName, functionName & " returned " & _
+                      CStr(result) & " for inputs the engine had accepted (#42)."
+        End If
+        FormulaNumber = CDbl(result)
+
+End Function
+
+
 Private Function ValuesAfterEnd( _
     ByVal ws As Worksheet, _
     ByVal endRow As Long, _
@@ -2249,7 +2280,7 @@ Private Function LoadNettingSets() As Boolean
                         End If
                     End If
                     .MPOR = mpor
-                    .MFMargined = SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear)
+                    .MFMargined = FormulaNumber(SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 End If
             End With
             KeyAdd mNSIndex, id, mNSCount
@@ -3134,9 +3165,9 @@ Private Sub ProcessTrades( _
                             If mNS(nsIdx).IsCRR And (ac = AC_IR Or ac = AC_CO) Then
                                 'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
                                 If ac = AC_IR Then
-                                    lam = SACCR_LambdaCRR(P, K, True, pLamThrIR)
+                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, True, pLamThrIR), "SACCR_LambdaCRR")
                                 Else
-                                    lam = SACCR_LambdaCRR(P, K, False, pLamThrCO)
+                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, False, pLamThrCO), "SACCR_LambdaCRR")
                                 End If
                                 If IsNum(lamIn) Then
                                     If Abs(CDbl(lamIn) - lam) > 0.000000001 Then
@@ -3153,7 +3184,7 @@ Private Sub ProcessTrades( _
                                 AddErr ok, msg, "supervisory volatility missing for '" & sfKey & "'"
                             Else
                                 vDelta = SACCR_OptionDelta(P, K, T, mSF(sfIdx).Vol, (optTxt = "CALL"), isLong, lam)
-                                delta = CDbl(vDelta)
+                                delta = FormulaNumber(vDelta, "SACCR_OptionDelta")
                             End If
                         End If
                     Case "CDO"
@@ -3165,7 +3196,7 @@ Private Sub ProcessTrades( _
                             If attA < 0# Or detD > 1# Or attA >= detD Then
                                 AddErr ok, msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
                             Else
-                                delta = CDbl(SACCR_CDODelta(attA, detD, isLong))
+                                delta = FormulaNumber(SACCR_CDODelta(attA, detD, isLong), "SACCR_CDODelta")
                             End If
                         End If
                 End Select
@@ -3185,7 +3216,7 @@ Private Sub ProcessTrades( _
             If ok Then
                 Select Case ac
                     Case AC_IR
-                        sd = SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear)
+                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
                         If E < 1# Then
                             bucketNo = 1
@@ -3208,7 +3239,7 @@ Private Sub ProcessTrades( _
                         hsKey = "FX|" & rf & "|" & natTag
                         subKey = rf
                     Case AC_CR
-                        sd = SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear)
+                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
                         hsKey = "CR|" & natTag
                         subKey = rf
@@ -3238,7 +3269,7 @@ Private Sub ProcessTrades( _
             If ok Then
                 sfEff = mSF(sfIdx).SF * natFactor
                 corrEff = mSF(sfIdx).Corr
-                mfU = SACCR_MaturityFactor(M, False, 0#, pMinMatBD, pBDYear)
+                mfU = FormulaNumber(SACCR_MaturityFactor(M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 If mNS(nsIdx).Margined Then
                     mfM = mNS(nsIdx).MFMargined
                 Else
@@ -3641,8 +3672,10 @@ Private Sub ComputeHedgingSets()
                         End If
                     End If
                     If pIRFull Then
-                        mHS(h).ENU = SACCR_IREffectiveNotional(mHS(h).D1U, mHS(h).D2U, mHS(h).D3U, pRho12, pRho23, pRho13)
-                        mHS(h).ENM = SACCR_IREffectiveNotional(mHS(h).D1M, mHS(h).D2M, mHS(h).D3M, pRho12, pRho23, pRho13)
+                        mHS(h).ENU = FormulaNumber(SACCR_IREffectiveNotional(mHS(h).D1U, mHS(h).D2U, mHS(h).D3U, _
+                                     pRho12, pRho23, pRho13), "SACCR_IREffectiveNotional")
+                        mHS(h).ENM = FormulaNumber(SACCR_IREffectiveNotional(mHS(h).D1M, mHS(h).D2M, mHS(h).D3M, _
+                                     pRho12, pRho23, pRho13), "SACCR_IREffectiveNotional")
                     Else
                         mHS(h).ENU = Abs(mHS(h).D1U) + Abs(mHS(h).D2U) + Abs(mHS(h).D3U)
                         mHS(h).ENM = Abs(mHS(h).D1M) + Abs(mHS(h).D2M) + Abs(mHS(h).D3M)
@@ -3861,15 +3894,15 @@ Private Sub ComputeNettingSets( _
                 Else
                     cCap = C
                 End If
-                rcU = SACCR_ReplacementCost(.V, cCap, False)
-                mU = SACCR_Multiplier(.V - cCap, addU, pFloor)
+                rcU = FormulaNumber(SACCR_ReplacementCost(.V, cCap, False), "SACCR_ReplacementCost")
+                mU = FormulaNumber(SACCR_Multiplier(.V - cCap, addU, pFloor), "SACCR_Multiplier")
                 pfeU = mU * addU
                 eadU = .Alpha * (rcU + pfeU)
 
     'Margined basis, then the cap: the EAD is the lower of the two.
                 If .Margined Then
-                    rcM = SACCR_ReplacementCost(.V, C, True, .TH, .MTA, .NICA)
-                    mM = SACCR_Multiplier(.V - C, addM, pFloor)
+                    rcM = FormulaNumber(SACCR_ReplacementCost(.V, C, True, .TH, .MTA, .NICA), "SACCR_ReplacementCost")
+                    mM = FormulaNumber(SACCR_Multiplier(.V - C, addM, pFloor), "SACCR_Multiplier")
                     pfeM = mM * addM
                     eadM = .Alpha * (rcM + pfeM)
                     ead = Min2(eadM, eadU)
@@ -4035,22 +4068,27 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fingerprint everything a run reads: the NettingSets and Trades input
-'   rows (without the unread Comment column) and Params columns A to H,
-'   which hold the parameters and the factor and FX tables (#36).
+'   rows (without the unread Comment column) and the Params inputs,
+'   located through the workbook names wherever the layout has moved them
+'   (ParamsText) (#36, #152).
 '
 ' RETURNS
 '   An 8-digit hexadecimal fingerprint (CORE_Util.TextHash). Equal
 '   fingerprints mean the inputs are, all but certainly, unchanged.
 '
+' ERROR POLICY
+'   Raises ERR_PARAMS_LAYOUT when a Params name is missing, broken or not
+'   on Params: a fingerprint of fixed columns could miss an edit, so none
+'   is given.
+'
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Const PARAMS_COLS As Long = 8    'Params columns A to H
     Dim parts(1 To 3)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
@@ -4058,8 +4096,106 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
         parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
         parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
-        parts(3) = BlockText(GetSheet(SH_PARAMS), 1, PARAMS_COLS)
+        parts(3) = ParamsText()
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
+
+End Function
+
+
+Private Function ParamsText() As String
+'
+'==============================================================================
+'                                  ParamsText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the Params inputs of a run as one text, located through the
+'   workbook names as the run locates them: the value of each parameter's
+'   named cell, the "Code" and "Value" columns (ValidateSchema reads them
+'   for repeated codes), and the factor and FX tables from their header
+'   rows (ParamsLayoutValid checks the headers) to their last row with a
+'   value, or to the row above the other table when that follows
+'   (LoadSFTable, LoadFXTable). Other cells, such as descriptions and
+'   references, are left out.
+'
+' ERROR POLICY
+'   Raises ERR_PARAMS_LAYOUT when a name is missing or broken, or when one
+'   of the four layout names is not on Params.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws         As Worksheet    'Params sheet
+    Dim nameList   As Variant      'Layout names, then parameter codes
+    Dim i          As Long         'Index into nameList
+    Dim c          As Range        'A name's top-left cell
+    Dim pieces()   As String       'Parameters, then the blocks
+    Dim k          As Long         'Position in pieces
+    Dim sfRow      As Long         'Header row of the factor table
+    Dim fxRow      As Long         'Header row of the FX table
+    Dim sfLast     As Long         'Last row of the factor block; 0 = last used
+    Dim fxLast     As Long         'Last row of the FX block; 0 = last used
+
+'------------------------------------------------------------------------------
+' CHECK THE LAYOUT NAMES
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_PARAMS)
+        nameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(nameList) To UBound(nameList)
+            Set c = NamedCell(CStr(nameList(i)))
+            If c Is Nothing Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' is missing or no longer refers to a cell."
+            ElseIf c.Worksheet.Name <> ws.Name Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' must refer to a cell on " & SH_PARAMS & "."
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' PARAMETERS
+'------------------------------------------------------------------------------
+    'Code=value of each named cell, in the order of ParameterCodes.
+        nameList = ParameterCodes()
+        ReDim pieces(1 To UBound(nameList) - LBound(nameList) + 5)
+        For i = LBound(nameList) To UBound(nameList)
+            Set c = NamedCell(CStr(nameList(i)))
+            If c Is Nothing Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' is missing or no longer refers to a cell."
+            End If
+            k = k + 1
+            If IsError(c.Value2) Then
+                pieces(k) = nameList(i) & "=#ERR"
+            Else
+                pieces(k) = nameList(i) & "=" & CStr(c.Value2)
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' COLUMNS AND TABLES
+'------------------------------------------------------------------------------
+    'A table starts at its header row, whose headers ParamsLayoutValid
+    'checks, and stops above the other table when that follows it, as the
+    'loaders stop; otherwise at its last row with a value.
+        sfRow = NamedRow(NM_SF_TABLE)
+        fxRow = NamedRow(NM_FX_TABLE)
+        If fxRow > sfRow Then
+            sfLast = fxRow - 1
+        ElseIf sfRow > fxRow Then
+            fxLast = sfRow - 1
+        End If
+        pieces(k + 1) = BlockText(ws, 1, 1, ParamsCodeCol())
+        pieces(k + 2) = BlockText(ws, 1, 1, ParamsValueCol())
+        pieces(k + 3) = BlockText(ws, sfRow, UBound(Split(SF_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_SF_TABLE), sfLast)
+        pieces(k + 4) = BlockText(ws, fxRow, UBound(Split(FX_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_FX_TABLE), fxLast)
+        ParamsText = Join(pieces, Chr$(30))
 
 End Function
 
@@ -4067,7 +4203,9 @@ End Function
 Private Function BlockText( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
-    ByVal nCols As Long) _
+    ByVal nCols As Long, _
+    Optional ByVal firstCol As Long = 1, _
+    Optional ByVal lastRow As Long = 0) _
     As String
 '
 '==============================================================================
@@ -4078,16 +4216,21 @@ Private Function BlockText( _
 '   last row with a value. Blank rows below it are left out, so that a
 '   used range that grew without new values does not change the text.
 '
+' INPUTS
+'   firstCol: the block's first table column, as TableCell counts it.
+'   lastRow: the last row to read; 0 for the last used row.
+'
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR    As Long        'Last used row
-    Dim data     As Variant     'Cell values, Value2 (dates as serials)
+    Dim lastR    As Long        'Last row read
+    Dim block    As Variant     'Cell values, Value2 (dates as serials)
+    Dim data     As Variant     'The same as a 2-D array, also for one cell
     Dim nRows    As Long        'Rows up to the last with a value
     Dim pieces() As String      'One text per cell
     Dim r        As Long        'Row of data
@@ -4101,10 +4244,19 @@ Private Function BlockText( _
             Exit Function
         End If
         lastR = UsedLastRow(ws)
+        If lastRow > 0 And lastRow < lastR Then
+            lastR = lastRow
+        End If
         If lastR < firstRow Then
             Exit Function
         End If
-        data = TableRange(ws, firstRow, 1, lastR, nCols).Value2
+        block = TableRange(ws, firstRow, firstCol, lastR, firstCol + nCols - 1).Value2
+        If IsArray(block) Then
+            data = block
+        Else
+            ReDim data(1 To 1, 1 To 1)
+            data(1, 1) = block
+        End If
         For r = UBound(data, 1) To 1 Step -1
             If RowHasData(data, r, nCols, 0) Then
                 nRows = r

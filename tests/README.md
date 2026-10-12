@@ -5,11 +5,13 @@
 
 | Location | Contents | Defined in |
 | --- | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas` and the `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants` and `TEST_Aggregation` suites | #7 |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants` and `TEST_Aggregation` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all | #7 |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 | `expected/` | Expected values per regime, each with its reference class and source | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 
-The entry points are `TEST_Harness.RunTests`,
+`TEST_Suite.Test_RunAll` runs every suite and prints a summary. The entry
+points of the single suites are `TEST_Harness.RunTests`,
+`TEST_Formulas.RunFormulaTests`,
 `TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
 `TEST_InputValidation.RunInputValidationTests`,
 `TEST_Invariants.RunInvariantTests` and
