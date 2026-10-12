@@ -509,6 +509,10 @@ Use only the categories needed by a release.
   full name, such as `EBA Single Rulebook Q&A 2023_6962`, instead of its
   source ID (#145); it matched only `EBA Q&A 2023_6962`. The source
   register's row that defines the ID is the only exemption.
+- `tools/check_source.py` no longer takes a `$sourceRoots` declaration inside
+  a PowerShell comment as the synchronizer's active list (#144). It found
+  the first matching line before tracking comments, so a complete list in a
+  `<# ... #>` block could hide a directory missing from the active list.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive
