@@ -115,9 +115,17 @@ function Get-VbaComponentName {
 function Test-DocumentSource {
     param([Parameter(Mandatory = $true)][string]$SourcePath)
 
-    # ThisWorkbook and the worksheet modules (code names sh*), as
-    # Sync-VbaSource recognizes them.
+    # A document module (ThisWorkbook, a worksheet or a chart sheet) is
+    # exported with VB_Base naming Excel's Workbook (00020819), Worksheet
+    # (00020820) or Chart (00020821) class, whatever its code name; an
+    # ordinary class module has no VB_Base. The names Sync-VbaSource
+    # recognizes (ThisWorkbook, sh*) also count, for a file without it.
     if ([System.IO.Path]::GetExtension($SourcePath).ToLowerInvariant() -ne ".cls") { return $false }
+    foreach ($line in [System.IO.File]::ReadLines($SourcePath)) {
+        if ($line -match '^\s*Attribute\s+VB_Base\s*=\s*"0\{(00020819|00020820|00020821)-') {
+            return $true
+        }
+    }
     $name = Get-VbaComponentName -SourcePath $SourcePath
     return ($name -eq "ThisWorkbook" -or $name -like "sh*")
 }
