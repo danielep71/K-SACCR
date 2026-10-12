@@ -323,6 +323,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- `tools/Sync-SACCR-VBA.ps1` asks whether to replace the code of the
+  worksheet and `ThisWorkbook` modules as well, so that a workbook built from
+  a newer template can keep its own sheet code; `-IncludeSheets` and
+  `-SkipSheets` answer in advance.
+
 - Rebuild any workbook built from an earlier template from the current
   template.
 - The GitHub Wiki is maintained in its own repository and is self-contained
