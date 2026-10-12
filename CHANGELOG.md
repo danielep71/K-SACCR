@@ -505,6 +505,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- `tools/check_source.py` no longer takes a `$sourceRoots` declaration inside
+  a PowerShell comment as the synchronizer's active list (#144). It found
+  the first matching line before tracking comments, so a complete list in a
+  `<# ... #>` block could hide a directory missing from the active list.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive

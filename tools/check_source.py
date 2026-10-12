@@ -163,12 +163,20 @@ def sync_roots(text: str) -> tuple[list[str], list[str]]:
     """Read the active entries of $sourceRoots: the directories, with "/"
     separators and a trailing "/", and the problems found."""
     lines = text.splitlines()
-    start = next((n for n, line in enumerate(lines) if SYNC_START.match(line)), None)
+    # Comments are tracked from the top of the file, so that a declaration
+    # inside a <# ... #> block or after a # is never taken as the active one
+    # (#144).
+    in_block = False
+    start = None
+    for number, line in enumerate(lines):
+        code, in_block = strip_comment(line, in_block)
+        if SYNC_START.match(code):
+            start = number
+            break
     if start is None:
         return [], ["$sourceRoots list not found"]
     roots: list[str] = []
     problems: list[str] = []
-    in_block = False
     for line in lines[start + 1:]:
         code, in_block = strip_comment(line, in_block)
         code = code.strip()
