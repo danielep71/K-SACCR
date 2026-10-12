@@ -12,4 +12,5 @@ Examples:
 - are not tests: assertions belong in `tests/`; and
 - are never part of the production import set.
 
-No examples exist yet; the first one follows the first facade module.
+No examples exist yet. The public worksheet functions are exercised on the
+template's FormulaTest sheet.

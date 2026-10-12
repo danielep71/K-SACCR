@@ -58,7 +58,8 @@ tools/      static checks and evidence tooling; later, build tooling
 | `docs/` | Contracts, architecture, [methodology](methodology/README.md) | Copies of root documents, Wiki pages |
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
-Each directory explains itself in a `README.md` until real material arrives.
+`src/`, `tests/`, `examples/` and `tools/` each have a `README.md`, as do
+`docs/methodology/` and `docs/methodology/sources/`.
 Subdirectories are created with their first real file, never empty.
 
 ### Production source
@@ -68,7 +69,7 @@ Subdirectories are created with their first real file, never empty.
 | `src/core/` | Calculation engine: SA-CCR formulas, validation, parsing, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
 | `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules | Host glue only; no calculation logic |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx` | Host glue only; no calculation logic |
 | `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed | — |
 
 ### Wiki
@@ -136,6 +137,11 @@ its original structure until it is refactored:
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
 | `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs` and `ClearOutputs` |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
+| Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
+| Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
+| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine` directly |
+| No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
+| `On Error Resume Next` around single statements | `CORE_Engine.WriteRunInfo` runs under it as a whole |
 
 Each deviation is removed by a reviewed change, not by reformatting.
 

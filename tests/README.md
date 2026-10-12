@@ -5,14 +5,17 @@
 
 | Location | Contents | Defined in |
 | --- | --- | --- |
-| `modules/` | Regression modules; `TEST_Harness.bas` is the harness and its entry point | #7 |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas` and the `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants` and `TEST_Aggregation` suites | #7 |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 | `expected/` | Expected values per regime, each with its reference class and source | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 
-The harness entry point is `TEST_Harness.RunTests`. How to run it and what a
-passing log looks like is in
-[`INSTALLATION.md`](../INSTALLATION.md#running-the-harness). Each other
-subdirectory is created with its first real file.
+The entry points are `TEST_Harness.RunTests`,
+`TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
+`TEST_InputValidation.RunInputValidationTests`,
+`TEST_Invariants.RunInvariantTests` and
+`TEST_Aggregation.RunAggregationTests`; the last four need
+`TEST_CaseRunner`. How to run them and what a passing log looks like is in
+[`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
 
 Rules:
 
@@ -61,7 +64,7 @@ fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
 | T13 | `cre99-example-5.bcbs` | `multiplier` | 0.958 | published |
 | T14 | `cre99-example-5.bcbs` | `exposure_value` | 1,879,000 USD | published |
 | T15 | `cre99-example-5.crr` | `exposure_value` | 1,879,000 USD | illustrative |
-| T16 | `illustrative-posted-vm-cap.bcbs` | `exposure_value` | 376592788.3471456 EUR | illustrative |
+| T16 | `illustrative-posted-vm-cap.bcbs` | `exposure_value` | 40774849.34860364 EUR | illustrative |
 | T17 | `illustrative-posted-vm-cap.crr` | `exposure_value` | 40774849.34860364 EUR | illustrative |
 | T18 | `illustrative-posted-vm-cap.crr` | `cap_applied` | `Y` | illustrative |
 | T19 | `illustrative-swaption-forward-1pct.crr` | `exposure_value` | 760.4939328393385 EUR | illustrative |
@@ -75,6 +78,10 @@ fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
 | T27 | `illustrative-climatic-commodity.crr` | `hedging_set` (CL-1) | `CO\|CLIMATIC\|STD` | illustrative |
 | T28 | `illustrative-credit-quality-step.crr` | `supervisory_factor` (B03) | 0.0042 | illustrative |
 
+The expected files with no catalogue ID, `illustrative-ir-sum-of-absolutes.bcbs`,
+`illustrative-ir-swap-unmargined.bcbs`, `illustrative-ir-swap-unmargined.crr`
+and `illustrative-partly-rejected.crr`, are additional illustrative cases.
+
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
 on 2026-10-09. T02 is printed as -0.2694; the catalogue had -0.27. Example 3
@@ -83,4 +90,5 @@ prints a residual maturity of 9 months for trade 1, so its case runs with
 values came from a Python implementation that is not in the repository or from
 unreviewed hand calculations, and stay illustrative until an independent
 derivation is committed and reviewed (#100). The illustrative values and
-tolerances are the catalogue's.
+tolerances are the catalogue's, except T16, revised in #39 (#130) to the cap
+with C = NICA only.
