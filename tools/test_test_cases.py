@@ -111,13 +111,25 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding(f"sample-case.bcbs.json:1: {message}", self.findings())
         self.expected["outputs"][0]["reference"]["locator"] = "EBA Single Rulebook Q&A 2022_6354"
         self.assertEqual(self.findings(), [])
-        # In a VBA comment as well.
+        # In a VBA comment as well, also wrapped over two comment lines, where
+        # the finding names the line the citation starts on.
         module = self.root / "src/core/CORE_Test.bas"
         module.parent.mkdir(parents=True, exist_ok=True)
-        module.write_text("Attribute VB_Name = \"CORE_Test\"\r\n' C = NICA, per EBA Single Rulebook\r\n"
-                          "' Q&A 2023_6962 and EBA Single Rulebook Q&A 2023_6962.\r\n", encoding="utf-8")
-        self.assertFinding(f"src/core/CORE_Test.bas:3: {message}", self.findings())
+        for comment, line in (("' C = NICA, per EBA Single Rulebook Q&A 2023_6962.\r\n", 2),
+                              ("' C = NICA, per EBA Single Rulebook\r\n'   Q&A 2023_6962.\r\n", 2),
+                              ("' C = NICA, per EBA\r\n' Q&A 2023_6962.\r\n", 2)):
+            with self.subTest(comment=comment):
+                module.write_text("Attribute VB_Name = \"CORE_Test\"\r\n" + comment, encoding="utf-8")
+                found = self.findings()
+                self.assertFinding(f"src/core/CORE_Test.bas:{line}: {message}", found)
+                self.assertEqual(len(found), 1, found)
         module.unlink()
+        # Wrapped in the methodology prose too.
+        register = self.root / cases.REGISTER
+        text = register.read_text(encoding="utf-8")
+        register.write_text(text + "\nThe cap follows EBA Single Rulebook\nQ&A 2023_6962.\n", encoding="utf-8")
+        self.assertFinding(f"{cases.REGISTER}:{len((text + chr(10)).splitlines()) + 1}: {message}",
+                           self.findings())
 
     def test_register_defining_row_is_the_only_exemption(self) -> None:
         # The copied register defines EBA-QA-2023_6962 with its full name and passes.
