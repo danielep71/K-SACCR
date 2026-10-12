@@ -81,6 +81,9 @@ fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
 The expected files with no catalogue ID, `illustrative-ir-sum-of-absolutes.bcbs`,
 `illustrative-ir-swap-unmargined.bcbs`, `illustrative-ir-swap-unmargined.crr`
 and `illustrative-partly-rejected.crr`, are additional illustrative cases.
+They do not come from the catalogue: each expected file records its own
+derivation, a hand calculation, a format example or the engine behaviour it
+checks.
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
@@ -89,6 +92,6 @@ prints a residual maturity of 9 months for trade 1, so its case runs with
 `DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository or from
 unreviewed hand calculations, and stay illustrative until an independent
-derivation is committed and reviewed (#100). The illustrative values and
-tolerances are the catalogue's, except T16, revised in #39 (#130) to the cap
+derivation is committed and reviewed (#100). The values and tolerances of
+T15 to T28 are the catalogue's, except T16, revised in #39 (#130) to the cap
 with C = NICA only.
