@@ -359,7 +359,7 @@ linear legs, a whole trade flagged N and a flag that is not Y or N. Every
 patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=86; checks=115; failures=0; restore=PASS`.
+`RESULT=PASS; cases=88; checks=119; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

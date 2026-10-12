@@ -78,8 +78,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 86                'Cases in a complete run
-        Private Const CHECKS      As Long = 115                'Checks in a complete run
+        Private Const CASES       As Long = 88                'Cases in a complete run
+        Private Const CHECKS      As Long = 119                'Checks in a complete run
 
 
 '
@@ -649,6 +649,27 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         SetLeg 1, "E1", "X"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+    'An error value in either column is rejected, not read as blank: as
+    'blank, an Economic trade ID error would make a leg a whole trade
+    'and an MtM leg error would pass as a non-MtM leg.
+        StartCase "legs-economic-id-error", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_ECON, CVErr(xlErrNA)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "economic-id-error", SEV_ERROR, _
+                                         "Economic trade ID must be text or blank (found an error value", _
+                                         "illustrative"
+
+        StartCase "legs-mtm-flag-error", "N"
+        AddEquityForward "L1", "30"
+        AddFxForward "L2", "0"
+        SetLeg 1, "E1", "Y"
+        SetLeg 2, "E1", "N"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_MTMLEG, CVErr(xlErrNA)
+        ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "mtm-flag-error", SEV_ERROR, _
+                                         "MtM leg must be Y or N (found an error value", "illustrative"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub

@@ -2633,10 +2633,18 @@ Private Sub CheckEconomicTrades( _
                 End If
                 mRowGroup(i) = g
                 grpLegs(g) = grpLegs(g) + 1
+                If IsError(data(i, TR_ECON)) Then
+                    AddGroupError g, "Economic trade ID must be text or blank (found an error value on row " & _
+                                  (topRow + i - 1) & ")"
+                End If
 
     'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade).
+    'An error value is not read as blank.
                 flag = UTxt(data(i, TR_MTMLEG))
-                If flag = "Y" Then
+                If IsError(data(i, TR_MTMLEG)) Then
+                    AddGroupError g, "MtM leg must be Y or N (found an error value on row " & _
+                                  (topRow + i - 1) & ")"
+                ElseIf flag = "Y" Then
                     grpMtmLegs(g) = grpMtmLegs(g) + 1
                 ElseIf flag = "N" Then
                     If Not grpGrouped(g) Then
