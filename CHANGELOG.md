@@ -60,8 +60,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for change and evidence requirements and
 | Minor | Backward-compatible capability |
 | Major | Incompatible public-contract change |
 
-The repository remains below `1.0.0` while its supported surface is still
-forming. Pre-release status does not excuse undocumented breaking changes.
+Nothing has been released yet; the first release is planned as `1.0.0` from
+`release/1.0.0`. Pre-release status does not excuse undocumented breaking
+changes.
 
 <details>
 <summary><strong>Entry categories</strong></summary>
@@ -114,25 +115,21 @@ Use only the categories needed by a release.
   report economic trades and legs separately in the run summary, the message
   box and the result line (`economic_trades_used`, `economic_trades_read`),
   and the 5,000-trade warning counts economic trades. The Basel_vs_CRR sheet
-  and the methodology describe the treatment. `TEST_InputValidation` has 88
-  cases and 119 checks. Upgrading a workbook built from an earlier template:
-  insert the two columns before Comment on Trades with these headers, and
-  change the Trades range of the Results C5 formula to `Trades!$C:$AA`, or
-  rebuild from the template.
+  and the methodology describe the treatment. `TEST_InputValidation` covers
+  these cases.
 - Every run is classified as `REGULATORY` or `WHAT-IF` (#41). The engine
   compares the numeric parameters on Params, every row of the
   supervisory-factor table and each netting set's alpha override with the
   regulatory parameter set `CRE52-CRR-2026-10-09` built into it (the values
   in the methodology, checked against CRE52.72, the consolidated CRR and
-  `CRR-RTS` Article 5). When all are equal the run summary, the message box
-  and the result line (`run_class=`) name the set; any difference makes the
-  run `WHAT-IF`, says so in the same three places, and lists each difference
-  on Checks as a warning starting "What-if:". `DaysPerYear` and
-  `IRBucketOffset` are conventions and do not change the class. A
+  `CRR-RTS` Article 5). When all are equal the run summary and the message
+  box name the set and the result line gives `run_class=REGULATORY`; any
+  difference makes the run `WHAT-IF`, says so in the same three places, and
+  lists each difference on Checks as a warning starting "What-if:".
+  `DaysPerYear` and `IRBucketOffset` are conventions and do not change the
+  class. A
   reporting-currency FX rate other than 1 now stops the run instead of
-  giving a warning. `TEST_InputValidation` has 77 cases and 96 checks. The
-  demo's climatic netting set no longer says "SF to confirm": the 18% factor
-  was checked against Art. 280e(5).
+  giving a warning. `TEST_InputValidation` covers these cases.
 - `tools/Sync-SACCR-VBA-Downloads.cmd` and the `-SourceDir` option of
   `Sync-SACCR-VBA.ps1` import into the development workbook only the
   repository modules found in a folder, such as Downloads, without copying
@@ -144,14 +141,14 @@ Use only the categories needed by a release.
   is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
   count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the
   workbook does not see. `TEST_CaseRunner.ExpectChecksLine` checks such a line;
-  `TEST_InputValidation` has 54 cases and 62 checks.
+  `TEST_InputValidation` covers the case.
 
 - Value test for the Basel sum of absolute IR bucket values (#39):
   `illustrative-ir-sum-of-absolutes` runs the CRE99 Example 1 inputs under BCBS
   with `IRBucketOffset` = FALSE and expects an IR add-on of 625,153.16 USD and
   an EAD of 959,214.42 USD, from a hand calculation (illustrative). Fixtures
   accept `IRBucketOffset` in `parameters`, and `TEST_CaseRunner.SetParameter`
-  writes Y and N as TRUE and FALSE. `TEST_Cases` has 20 cases and 39 checks.
+  writes Y and N as TRUE and FALSE.
 
 - `docs/methodology/sources/` holds copies of the regulatory texts the
   methodology was checked against: the SA-CCR articles of the consolidated CRR
@@ -194,12 +191,6 @@ Use only the categories needed by a release.
   selection to the aggregate add-on, including the maturity factor, basis and
   volatility hedging sets and time buckets by end date, with Basel CRE52 and
   CRR references for each step.
-- A source-controlled GitHub Wiki publication system keeps every maintained
-  Wiki page under `docs/wiki/`, validates its catalogue and authority links,
-  publishes the complete page set through `tools/Publish-SACCR-Wiki.cmd`, and
-  records the exact source commit and page hashes in `Wiki-Source.json`.
-  Hosted checks validate the source bundle and a separate observation detects
-  published-Wiki drift.
 - Repository-control files adopted from the Excel VBA project template:
   `.editorconfig`, `.gitattributes` and `.gitignore`. Exported VBA source is
   stored with LF in Git and checked out as CRLF; Office packages are binary and
@@ -240,9 +231,14 @@ Use only the categories needed by a release.
   effort, default references only) and gives the step-by-step build-from-source
   and export procedure.
 - Issue forms for bugs, features and documentation, and a pull-request
-  template, adapted to SACCR and its label catalogue. Forms set the assignee,
-  type label and a default priority; `docs/GOVERNANCE.md` documents the manual
-  milestone step and a three-search triage check for issue metadata.
+  template, in the style of the Excel VBA project template and adapted to
+  SACCR and its label catalogue. Forms set the assignee, type label and a
+  default priority; bug and feature forms ask for the regime (CRR, Basel
+  CRE52 or both), evidence and alternatives; the issue chooser links to
+  installation help and the methodology; the PR template covers candidate
+  identity, static checks, Excel evidence, regression coverage, risk,
+  provenance and SA-CCR-specific review. `docs/GOVERNANCE.md` documents the
+  manual milestone step and a three-search triage check for issue metadata.
 - Three VBA static checks from the template run in `python tools/check.py`,
   each with its own fixtures: jump targets stay within their procedure,
   conditional compilation is balanced and uses known symbols with `PtrSafe`
@@ -276,8 +272,7 @@ Use only the categories needed by a release.
   assumptions, open decisions and traceability table;
   [`TEST_CASES.md`](docs/methodology/TEST_CASES.md) defines fixture and
   expected-result files, reference classes (published, independent,
-  illustrative), tolerances, case categories and the completeness policy, with
-  one clearly illustrative case. No SA-CCR formula is implemented.
+  illustrative), tolerances, case categories and the completeness policy.
 - Versioning conventions in [`RELEASING.md`](RELEASING.md#versioning): a root
   `VERSION` file is created when the first release is prepared, and
   `python tools/check.py` then requires it to match the newest dated changelog
@@ -286,12 +281,6 @@ Use only the categories needed by a release.
 - Daily traffic export, as in VBA-DATETIMEPICKER: GitHub's 14-day traffic data
   is kept on the orphan `traffic-history` branch, with alert issues on spikes
   and new referrers. See [`tools/README.md`](tools/README.md#traffic-history).
-- Issue forms and the pull-request template rewritten in the style of the
-  Excel VBA project template: bug and feature forms ask for the regime (CRR,
-  Basel CRE52 or both), evidence and alternatives; the issue chooser links to
-  installation help and the methodology; the PR template covers candidate
-  identity, static checks, Excel evidence, regression coverage, risk,
-  provenance and SA-CCR-specific review.
 
 - Prototype SA-CCR engine imported from the owner's `SACCR_Calculator.xlsm`
   (engine v1.1.0): `CORE_Config`, `CORE_Engine` and `CORE_Util` in `src/core`, the ten
@@ -301,9 +290,7 @@ Use only the categories needed by a release.
   CRE52 per netting set), the CRR other-risks class and the margined-EAD cap.
   The five standard modules are laid out in the house style (#60): module and
   procedure banners giving purpose, inputs, results and regulatory
-  references, one commented declaration per line, and section comments. Their
-  statements are unchanged from the prototype apart from `Option Private
-  Module` in the three core modules, which the import had declared twice.
+  references, one commented declaration per line, and section comments.
 - Workbook template `src/workbook/SACCR_Template.xlsx` (#58): the prototype's
   12 sheets, formulas, named ranges and buttons with its VBA project and its
   document properties (`docProps/core.xml`, `docProps/app.xml`) removed;
@@ -313,15 +300,14 @@ Use only the categories needed by a release.
   the owner (#58): a workbook built from it with the repository source ran the
   harness and Run SA-CCR with the prototype's results.
 
-- The prototype TestCatalogue's 28 checks as versioned test cases (#59): 12
-  fixtures in `tests/fixtures` with expected files per regime in
-  `tests/expected`, mapped in `tests/README.md`. The 14 figures printed in BCBS
-  279 Annex 4 are `published`; the 14 that came from an unavailable Python
-  script or unreviewed hand calculations are `illustrative`. Each value and
-  tolerance matches the catalogue. `docs/methodology/TEST_CASES.md` defines
-  the full fixture vocabulary, trade-level and text results, and currencies,
-  and `tools/check_test_cases.py` validates the files in `python
-  tools/check.py`.
+- The prototype TestCatalogue's 28 checks as versioned test cases (#59), now
+  15 fixtures in `tests/fixtures` with 20 expected files, one per regime, in
+  `tests/expected`, mapped in `tests/README.md`. The 14 values printed in
+  CRE99 are `published`; the 14 that came from an unavailable Python script or
+  unreviewed hand calculations are `illustrative`.
+  `docs/methodology/TEST_CASES.md` defines the full fixture vocabulary,
+  trade-level and text results, and currencies, and
+  `tools/check_test_cases.py` validates the files in `python tools/check.py`.
 
 - The numerical test cases run against the engine in Excel (#44, decision 7):
   `tools/generate_case_tests.py` generates `tests/modules/TEST_Cases.bas` from
@@ -329,9 +315,18 @@ Use only the categories needed by a release.
   `tests/modules/TEST_CaseRunner.bas` writes each fixture into the input sheets,
   runs the engine, compares the outputs and restores the workbook. Results
   are reported per reference class.
+- The regression suites and their totals, as run in Excel by the owner:
+  `TEST_Harness` 4 cases and 6 assertions, `TEST_MainState` 18 cases,
+  `TEST_Cases` 20 cases and 39 checks, `TEST_InputValidation` 97 cases and
+  129 checks, `TEST_Aggregation` 11 cases and 11 checks, and
+  `TEST_Invariants` 4 cases and 23 checks.
 
 ### Changed
 
+- Rebuild any workbook built from an earlier template from the current
+  template.
+- The GitHub Wiki is maintained in its own repository and is self-contained
+  (#170); README links to it.
 - The Tests sheet is renamed FormulaTest and computes each expected value
   with Excel's own functions instead of a typed number, from input cells
   (yellow, E:K, with data validation of each argument's range) that the
@@ -371,15 +366,11 @@ Use only the categories needed by a release.
   inputs and Clear outputs buttons sit on row 3 (H3:L3), and README no longer
   has buttons. Every Trades input column has data validation with an input
   message (rows 5 to 5000), following the engine's trade checks, and repeated
-  Trade IDs are shown in red. README and Basel_vs_CRR take the owner's final
-  layout too.
-  `TEST_InputValidation` has 57 cases and 65 checks.
-  Upgrading a workbook built from an earlier template: add the two names, or
-  rebuild from the template.
-- README, Params and NettingSets carry the owner's final layout; NettingSets
-  has its title band in B1:B2 and the description in C3. Column headers are
-  now compared ignoring case, spaces and line breaks, so the NettingSets
-  headers `Client clearing role (N / CM / CLIENT)` and
+  Trade IDs are shown in red. `TEST_InputValidation` covers these cases.
+- README, Params, NettingSets and Basel_vs_CRR carry the owner's final
+  layout; NettingSets has its title band in B1:B2 and the description in C3.
+  Column headers are now compared ignoring case, spaces and line breaks, so
+  the NettingSets headers `Client clearing role (N / CM / CLIENT)` and
   `Margin agreements (blank / MIXED / SHARED)` match.
 - Params is located through workbook names instead of fixed rows and
   columns: `Params_Code` and `Params_Value` name the "Code" and "Value"
@@ -390,25 +381,23 @@ Use only the categories needed by a release.
   `ParamsValueCol`, `ParamsHeaderRow`, `NamedCell`). Each of the 20
   parameters is read only through its workbook name, which is now required:
   a missing or broken one stops the run, where the engine used to fall back
-  to the Code column. `TEST_InputValidation` has 55 cases and 63 checks.
+  to the Code column. `TEST_InputValidation` covers these cases.
 - README names the engine v1.0.0 instead of the prototype's v1.1.0, and its
-  note on the cap basis points to Results columns Z-AC. Every font of the
-  template names Aptos on the style instead of following the workbook theme,
-  so a sheet copied into another workbook keeps Aptos.
+  note on the cap basis points to Results columns Z-AC.
 
-- Sheet layout: every sheet of the template has two margin columns (A:B,
-  width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt, 16 pt
-  font), and every font, including the theme fonts and the sheet buttons, is
-  Aptos. Tables now start in column C, with headers on row 6 and data from
-  row 7; the Results run summary is in C4 and the status formula in C5,
-  which watches NettingSets `$C:$Q`, Trades `$C:$Y` and Params `$C:$J`.
+- Sheet layout (#141): every sheet of the template has two margin columns
+  (A:B, width 4) and two margin rows (row 1, 24 pt, 14 pt font; row 2, 26 pt,
+  16 pt font), and every font, including the theme fonts and the sheet
+  buttons, is Aptos, named on the style instead of following the workbook
+  theme, so a sheet copied into another workbook keeps Aptos. Tables now start
+  in column C, with headers on row 6 and data from row 7 (Trades: headers on
+  row 4, data from row 5); the Results run summary is in C4 and the status
+  formula in C5, which watches NettingSets `$C:$Q`, Trades `$C:$AA` and Params
+  `$C:$J`.
   Formulas, workbook names, data validation, conditional formatting, merged
   cells, filters, frozen panes and the buttons moved with the cells. The VBA
   addresses tables through `CORE_Util.TableCell` and `TableRange` with
   `CORE_Config.COL_OFFSET` = 2; `HEADER_ROW` is 6 and `FIRST_DATA_ROW` 7.
-  A workbook built from the earlier template must be rebuilt from this one:
-  the synchronizer changes code only, and the new code stops at the header
-  check of an old layout.
 
 - `tools/check_source.py` checks that `Sync-SACCR-VBA.ps1` reaches every VBA
   component: each must lie in a directory of its `$sourceRoots`, each listed
@@ -424,19 +413,14 @@ Use only the categories needed by a release.
   CRE52.10 do not support (T16 becomes 40.77m, cap applied, as under CRR). VM
   held on an unmargined netting set is rejected; VM posted on one is a one-way
   agreement, kept in C under BCBS and rejected under CRR, where the set must be
-  margined. NettingSets column D is now the client clearing role, N, CM or
+  margined. The Client clearing role column on NettingSets holds N, CM or
   CLIENT: the 5-day MPOR floor applies to CM in both regimes and to CLIENT
-  under CRR only. A new column O, Margin agreements, declares MIXED or SHARED
+  under CRR only. A new Margin agreements column declares MIXED or SHARED
   structures, which are rejected. The MPOR after disputes, 2 x (F + N - 1),
   and of a large or illiquid set, 20 + N - 1, are kept and recorded as
-  decisions. Fixtures use `clearing_role` instead of `cleared`; the Results
-  status formula watches NettingSets A:O. `TEST_InputValidation` has 53 cases
-  and 60 checks; `TEST_Cases` has 37 checks.
-  Upgrading a workbook built from the earlier template: the synchronizer
-  changes code only, and a run stops at the header check until NettingSets D4
-  reads `Client clearing role (N/CM/CLIENT)`, O4 reads
-  `Margin agreements (blank/MIXED/SHARED)` and Results A3 watches
-  `NettingSets!$A:$O`, as in the new template; or rebuild from the template.
+  decisions. Fixtures use `clearing_role` instead of `cleared`, and the
+  Results status formula watches the new column. `TEST_InputValidation` and
+  `TEST_Cases` cover these cases.
 
 - CRR scope checked against the CRR text (#33). With `IRBucketOffset` set to
   FALSE, a CRR netting set with interest-rate trades is now `INVALID` and its
@@ -445,10 +429,11 @@ Use only the categories needed by a release.
   trades can be entered as interest rate with a risk factor such as
   `EUR-INFL`, each in its own hedging set (Articles 277(4)(a), 277a(1));
   before, any IR risk factor other than a currency was rejected. The template
-  notes confirm the 18% climatic-conditions factor (Article 280e(5)), explain
-  the unrated credit mapping (Article 280c(5)(a)) and state that the optional
-  sold-option and sold-protection reductions are not applied.
-  `TEST_InputValidation` has 39 cases and `TEST_Aggregation` 11.
+  notes, including the demo's climatic netting set, which no longer says "SF
+  to confirm", confirm the 18% climatic-conditions factor (Article 280e(5)),
+  explain the unrated credit mapping (Article 280c(5)(a)) and state that the
+  optional sold-option and sold-protection reductions are not applied.
+  `TEST_InputValidation` and `TEST_Aggregation` cover these cases.
 - The CRE99 test cases (`cre99-example-*`), T01 to T14, are checked against
   the Basel Framework chapter CRE99 (effective 1 January 2023); T02 now
   expects the printed -0.2694 instead of -0.27. They are in USD, unscaled: CRE99 prints USD thousands, so amounts and expected values are
@@ -469,9 +454,7 @@ Use only the categories needed by a release.
   `TestMainState`, `CaseRunner`, `TestCases` and `TestInputValidation`).
   `M_Main` keeps its name, so the sheet buttons are unchanged, and the
   `SACCR_*` worksheet functions keep theirs. `tools/check_source.py` enforces
-  the prefixes. A workbook built before the rename must be rebuilt from the
-  template: importing the renamed modules next to the old ones gives
-  duplicate declarations.
+  the prefixes.
 - The project is licensed under the Mozilla Public License 2.0 instead of the
   MIT License. MPL 2.0 is file-level copyleft: modified versions of the
   project's files must stay under MPL 2.0 and their source must be available
@@ -480,6 +463,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The reporting currency must be three letters A to Z, in the engine and
+  in the Params validation; case and surrounding spaces are ignored (#147).
+  The engine accepted any non-empty code, such as `E1R`, and added it to the
+  FX table at rate 1. Only the format is checked, not ISO 4217 membership.
+  `TEST_InputValidation` covers digits, punctuation, two and four letters,
+  blank and lower case, and the remargining frequency at 0.5, 10000 and
+  10001.
 - The engine checks the ranges that the data validation on Params and
   NettingSets states, so a pasted or VBA-written value can no longer bypass
   them (#147). A multiplier floor outside 0 to below 1 (a floor of 1 divided
@@ -493,8 +483,8 @@ Use only the categories needed by a release.
   from 0 to 10,000, an MPOR override that is not a whole number above zero,
   and an alpha override of zero or less make the netting set `INVALID`
   instead of being used or silently replaced; a remargining frequency of 0
-  is raised to daily with a warning. `TEST_InputValidation` has 71 cases and
-  81 checks.
+  is raised to daily with a warning. `TEST_InputValidation` covers these
+  cases.
 
 - EBA Q&A 2023_6962 is cited by its source ID `EBA-QA-2023_6962` in the
   expected files, the VBA comments and the methodology (#129); the source of
@@ -518,32 +508,26 @@ Use only the categories needed by a release.
   (Art. 285(4)–(5)) only when remargining is not daily; Article 278(2) is listed
   as not implemented; EBA Q&A 2023_6962 has its own source ID and SHA-256.
 
-- Installation instructions now show 35 input-validation cases and checks,
-  matching the merged suite and recorded Excel result (#91), and describe
-  the formula-based status from #89 as integrated rather than pending.
-
 - Runtime review safeguards: reject zero/negative global alpha (#71), recognize
   parameter rows below the FX table (#80), and attempt each output cleanup even
   when another sheet is protected (#85). Cleanup reports every failed sheet
   with its error number, source and description, appended to the original run
-  error. A secondary Checks-write failure is also reported. MainState now has
-  18 cases, including multiple protected outputs, protected Results + Checks,
-  preservation of the primary error and successful recovery. An empty run
-  fingerprint means no valid results, even if protected cells remain visible.
-  New input regressions are included; Excel verification is still required
-  before merge.
+  error. A secondary Checks-write failure is also reported. `TEST_MainState`
+  covers multiple protected outputs, protected Results + Checks, preservation
+  of the primary error and successful recovery. An empty run fingerprint
+  means no valid results, even if protected cells remain visible. New input
+  regressions are included.
 - VBA synchronization refuses known retired repository components before
   changing the project (#71, #84, #87). Rebuild legacy workbooks from the current
-  template; unrelated user components are left alone. Windows/Excel validation
-  remains required.
+  template; unrelated user components are left alone.
 
 - The IR add-on diagram includes both ten-business-day floors, separate
   inflation hedging sets, and the distinct CRR/Basel one-year bucket boundary
   (#77). The SD floor also applies under corrected CRR Article 279b.
 
 - The template README now lists CORE_Engine, SACCR_Formulas, CORE_Config and
-  CORE_Util, matching the renamed modules (#84). Only the C70 text changes;
-  formulas, styles, names, sheet CodeNames and all other package parts are preserved.
+  CORE_Util, matching the renamed modules (#84). Only the module-list text
+  changes; formulas, styles, names, sheet CodeNames and all other package parts are preserved.
 
 - Fixture validation enforces quantity-specific units and rejects non-finite
   JSON numbers, including exponent overflow (#65; carries forward the unmerged
@@ -599,13 +583,13 @@ Use only the categories needed by a release.
   sets. In the template, the deliberate error trades `OT-X` and `A11` move
   to their own netting set `DEMO-REJECTED`, so the CRE99 examples and
   `NS-ALPHA` still report. The template no longer carries the prototype's
-  saved output rows, which no longer matched these inputs; Results A2 says
-  that no results exist until the workbook is run.
+  saved output rows, which no longer matched these inputs; the run summary in
+  Results C4 says that no results exist until the workbook is run.
 
 - A Checks sheet that cannot be written, for example because it is
   protected, now fails the run (#36). The errors were swallowed: the new
   results were shown while Checks still held the previous run's messages.
-  The run now clears the other output sheets, says why in Results A2 and
+  The run now clears the other output sheets, says why in Results C4 and
   raises `ERR_CHECKS_WRITE`; the button shows the reason and
   `RunSACCR_Silent` raises it. `TEST_MainState` adds the case.
 
@@ -614,20 +598,20 @@ Use only the categories needed by a release.
   example on Results or HedgingSets, left the sheets already written with
   this run's values and the others empty or from the previous run. The run
   now clears every output sheet, logs the error on Checks and in Results
-  A2, and raises it unchanged. `TEST_MainState` adds the case, through a
+  C4, and raises it unchanged. `TEST_MainState` adds the case, through a
   test seam that fails the run after TradeCalc, Results and Buckets.
 
 - Results are recognised as out of date once an input changes (#36). A
   completed run stores a fingerprint of everything it read (NettingSets,
   Trades without the Comment column, and Params) in a hidden workbook name,
-  shows it in Results A2 and in the `RunSACCR_Silent` result line
+  shows it in Results C4 and in the `RunSACCR_Silent` result line
   (`inputs=`), and `M_Main.ResultsStatus()` compares it with the inputs as
-  they are now: `CURRENT`, `STALE` or `NONE`. Results A3 holds the formula
-  `=ResultsStatusText(SACCR_RunInputs, NettingSets!$A:$N, Trades!$A:$W,
-  Params!$A:$H)`, which Excel recalculates when an input or the fingerprint
-  changes, and is red when it reads `OUT OF DATE`. A formula is used rather
-  than a macro because a macro writing to the workbook clears Excel's undo
-  history; the first version marked A2 when the Results sheet was activated
+  they are now: `CURRENT`, `STALE` or `NONE`. Results C5 holds the formula
+  `=ResultsStatusText(SACCR_RunInputs,NettingSets!$C:$Q,Trades!$C:$AA,Params!$C:$J)`,
+  which Excel recalculates when an input or the fingerprint changes, and is
+  red when it reads `OUT OF DATE`. A formula is used rather than a macro
+  because a macro writing to the workbook clears Excel's undo history; the
+  first version marked the run summary when the Results sheet was activated
   and so lost the user's Undo. A failed or validation-only run and Clear
   outputs empty the fingerprint. `TEST_MainState` adds the case.
 
@@ -673,13 +657,12 @@ Use only the categories needed by a release.
 
 ### Known limitations
 
-- The imported engine is not yet validated under the repository's test-case
-  policy and keeps the deviations listed in `docs/REPOSITORY_STRUCTURE.md`. No
-  automated check compiles VBA or runs Excel.
+- Only Basel rules covered by a published CRE99 output are validated; no CRR
+  rule is validated in v1.0.0. The engine keeps the deviations listed in
+  `docs/REPOSITORY_STRUCTURE.md`. No automated check compiles VBA or runs
+  Excel.
 - Excel evidence is manual and covers one 64-bit host; 32-bit is untested.
-- The methodology sources are registered but not yet verified against their
-  official texts.
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/commits/main
+[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/commits/release/1.0.0

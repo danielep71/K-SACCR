@@ -7,11 +7,11 @@ the suite counts as complete. Sources and rule IDs come from the
 
 > [!IMPORTANT]
 > The prototype's 28 TestCatalogue checks are ported as cases (#59): 14 values
-> printed in BCBS 279 Annex 4 are `published`; the other 14 are `illustrative`.
-> They run in Excel through `TEST_Cases.RunCaseTests` ([consumption](#consumption));
-> no rule is validated until a run passes and its published values are checked
-> against the source. The mapping is in
-> [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
+> printed in CRE99 (the BCBS 279 Annex 4a examples) are `published`; the other
+> 14 are `illustrative`. They run in Excel through `TEST_Cases.RunCaseTests`
+> ([consumption](#consumption)). Which rules they validate, and for which
+> regime, is in the [traceability](README.md#traceability) table. The mapping
+> is in [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
 
 ## 📁 Files
 
@@ -104,7 +104,7 @@ counterparties, collateral agreements or portfolio extracts.
 | `mpor_override_business_days` | number or `null` | MPOR override; `null` for none |
 | `variation_margin_net_amount`, `independent_collateral_net_amount` | amount | Net VM and NICA, held minus posted |
 | `threshold_amount`, `minimum_transfer_amount` | amount, at least 0 | Margin agreement terms |
-| `alpha_factor` | number or `null` | Alpha override; `null` uses the regime's alpha |
+| `alpha_factor` | number above 0, or `null` | Alpha override; `null` uses the regime's alpha |
 
 | Trade field | Type | Meaning |
 | --- | --- | --- |
@@ -227,6 +227,9 @@ Use these conventions when choosing them:
 | `independent` or `illustrative`, full precision | `1e-6` currency units (or `1e-9` for factors) | `1e-9` |
 | `published`, rounded | Half a unit of the last printed digit: printed in thousands → `500` | `0` |
 
+Ported illustrative catalogue cases keep the catalogue's tolerances; see
+[`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
+
 Near zero, the absolute bound governs: when `|e|` is small the relative term
 vanishes, so an expected `0` is matched within `absolute` only. Domain rules
 apply before tolerance: a quantity that must be non-negative, such as
@@ -242,8 +245,8 @@ Each fixture declares one `category`:
 | --- | --- |
 | `nominal` | Typical inputs within the domain |
 | `boundary` | Values on a domain edge: zero notional or market value, results that should be exactly zero (fully offsetting trades, negative net value floored at zero), maturity at a regulatory floor or cap, a single trade, a single hedging set |
-| `invalid` | Inputs the facade must reject: missing or unknown fields, negative amounts where not allowed, end date before start date, unknown asset class or currency. Expected results are errors, not values. JSON cannot hold NaN or infinity, so non-finite inputs are tested directly in a VBA test module instead of a fixture |
-| `regime` | Inputs chosen to show a recorded [regime difference](README.md#regime-differences), with a `crr` and a `bcbs` expected file |
+| `invalid` | Inputs the facade must reject: missing or unknown fields, negative amounts where not allowed, end date before start date, unknown asset class or currency. Expected results are errors or rejection statuses (`trade_status`, `netting_set_status`), not values. JSON cannot hold NaN or infinity, so non-finite inputs are tested directly in a VBA test module instead of a fixture |
+| `regime` | Inputs chosen to show a recorded [regime difference](README.md#regime-differences), normally with a `crr` and a `bcbs` expected file |
 
 <a id="completeness-policy"></a>
 
@@ -275,10 +278,11 @@ Decided by the owner on 2026-10-06 (decision 7, #44):
 JSON files, and `python tools/check.py` fails when the committed module is out
 of date. The generated module holds data only; the hand-written
 `tests/modules/TEST_CaseRunner.bas` writes each fixture into the NettingSets and
-Trades sheets and the AsOfDate and ReportingCcy parameters, runs the engine
-with the case's regime as the netting set's override, compares the output
-cells with the tolerance rule above, and restores the workbook. Running the
-cases is described in
+Trades sheets and the AsOfDate and ReportingCcy parameters, also sets the
+case's `parameters` on Params and the FX rate of the calculation currency to
+1, runs the engine with the case's regime as the netting set's override,
+compares the output cells with the tolerance rule above, and restores the
+workbook. Running the cases is described in
 [`INSTALLATION.md`](../../INSTALLATION.md#numerical-test-cases).
 
 The file format is enforced by `tools/check_test_cases.py`, part of

@@ -55,10 +55,11 @@ tools/      static checks and evidence tooling; later, build tooling
 | `src/` | Production components that go into the workbook, and the workbook template | Tests, examples, built workbooks |
 | `tests/` | Test modules, synthetic fixtures, reviewed expected values | Production entry points, run output |
 | `examples/` | Examples that use only the public API | Tests, real data |
-| `docs/` | Contracts, architecture, [methodology](methodology/README.md), and versioned Wiki sources under `docs/wiki/` | Copies of root documents or independently maintained Wiki-only policy |
+| `docs/` | Contracts, architecture, [methodology](methodology/README.md) | Copies of root documents, Wiki pages |
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
-Each directory explains itself in a `README.md` until real material arrives.
+`src/`, `tests/`, `examples/` and `tools/` each have a `README.md`, as do
+`docs/methodology/` and `docs/methodology/sources/`.
 Subdirectories are created with their first real file, never empty.
 
 ### Production source
@@ -68,17 +69,15 @@ Subdirectories are created with their first real file, never empty.
 | `src/core/` | Calculation engine: SA-CCR formulas, validation, parsing, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
 | `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules | Host glue only; no calculation logic |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx` | Host glue only; no calculation logic |
 | `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed | — |
 
-### Wiki sources
+### Wiki
 
-`docs/wiki/` is the reviewed source for every maintained GitHub Wiki page.
-`catalogue.json` defines page order and the authoritative repository document
-behind each guide page; `_Sidebar.md` is generated from that catalogue. The
-published Wiki is a derived artifact and is verified against its recorded source
-commit. Publication and recovery rules are in
-[`WIKI_PUBLICATION.md`](WIKI_PUBLICATION.md).
+The GitHub Wiki is maintained directly in its own repository and is
+self-contained: it does not link to files of this repository, and it is not
+part of this repository's source or checks. Where it differs from the
+versioned documents here, the versioned documents govern.
 
 ### Verification and examples
 
@@ -138,6 +137,11 @@ its original structure until it is refactored:
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
 | `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs` and `ClearOutputs` |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
+| Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
+| Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
+| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine` directly |
+| No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
+| `On Error Resume Next` around single statements | `CORE_Engine.WriteRunInfo` runs under it as a whole |
 
 Each deviation is removed by a reviewed change, not by reformatting.
 

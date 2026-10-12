@@ -4,9 +4,8 @@
 #   Reads the GitHub traffic API for this repository and appends a daily
 #   snapshot to CSV files on the orphan `traffic-history` branch, which the
 #   first run creates. It also writes data/badges/clones.json, visitors.json
-#   and visits.json there: shields.io endpoints for README badges, usable only
-#   once the repository is public, because shields.io cannot read a private
-#   repository.
+#   and visits.json there: shields.io endpoints that README badges can use,
+#   since the repository is public.
 #
 #   Adapted from VBA-DATETIMEPICKER daily-traffic.yml at f6352c2.
 #
