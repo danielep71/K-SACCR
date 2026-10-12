@@ -235,7 +235,8 @@ Keep non-passing bundles too until the finding is resolved.
 - A pass covers the harness on the recorded host only. It does not validate any
   SA-CCR number or any other Excel version.
 - Only `TEST_Harness.RunTests` is bound by the record. The other suites
-  (`TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
+  (`TEST_Formulas.RunFormulaTests`, `TEST_MainState.RunMainStateTests`,
+  `TEST_Cases.RunCaseTests`,
   `TEST_InputValidation.RunInputValidationTests`,
   `TEST_Invariants.RunInvariantTests` and
   `TEST_Aggregation.RunAggregationTests`) are imported, but their results are

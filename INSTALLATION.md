@@ -174,10 +174,11 @@ The layout and file conventions are defined in
    | 6 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 7 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
    | 8 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 9 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 10 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 11 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 12 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 9 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 10 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 11 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 12 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 13 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs` and `ClearOutputs`, so
    they work once `M_Main` is imported.
@@ -284,6 +285,25 @@ TEST_MainState.RunMainStateTests
 
 A passing run prints twenty `CASE=` lines and ends with
 `RESULT=PASS; cases=20; checks=...; failures=0; caller_state=RESTORED`.
+
+### Worksheet function contract tests
+
+`tests/modules/TEST_Formulas.bas` calls the `SACCR_*` worksheet functions
+directly, without the engine or the worksheet's data validation, and checks
+their domain and error contract (#42): an input outside its documented domain
+gives `#NUM!`, `#VALUE!`, `#REF!` or the error passed in, never a runtime
+error or a misleading number; valid inputs at the boundaries keep their
+results; single values, one-element arrays, vectors in either orientation and
+2-D ranges are handled as documented. Its last case writes the same formulas
+on a temporary worksheet, which it deletes again, so use a development
+workbook. Run:
+
+```text
+TEST_Formulas.RunFormulaTests
+```
+
+A passing run prints nine `CASE=` lines and ends with
+`RESULT=PASS; cases=9; checks=80; failures=0`.
 
 <a id="numerical-test-cases"></a>
 

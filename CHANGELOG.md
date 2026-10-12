@@ -316,12 +316,39 @@ Use only the categories needed by a release.
   runs the engine, compares the outputs and restores the workbook. Results
   are reported per reference class.
 - The regression suites and their totals, as run in Excel by the owner:
-  `TEST_Harness` 4 cases and 6 assertions, `TEST_MainState` 20 cases,
+  `TEST_Harness` 4 cases and 6 assertions, `TEST_Formulas` 9 cases and 80
+  checks, `TEST_MainState` 20 cases,
   `TEST_Cases` 20 cases and 39 checks, `TEST_InputValidation` 97 cases and
   129 checks, `TEST_Aggregation` 11 cases and 11 checks, and
   `TEST_Invariants` 4 cases and 23 checks.
 
 ### Changed
+
+- The worksheet functions check their input domains and return an Excel
+  error instead of a runtime error or a misleading number (#42). Public API
+  change: `SACCR_SupervisoryDuration`, `SACCR_MaturityFactor`,
+  `SACCR_LambdaCRR`, `SACCR_IREffectiveNotional`, `SACCR_Multiplier` and
+  `SACCR_ReplacementCost` now return `Variant` instead of `Double`
+  (`docs/PUBLIC_API.txt`); a VBA caller tests the result with `IsError`.
+  `#NUM!`: E before S or a negative SD floor; a business-day year or, when
+  margined, an MPOR of 0 or less, or a negative floor on M; a negative
+  lambda threshold; IR bucket correlations outside 0 to 1 or not forming a
+  correlation matrix (the effective notional was silently 0), with a
+  negative quadratic form within rounding still taken as 0; a negative
+  add-on or a multiplier floor outside 0 to below 1 (a floor of 1 divided by
+  zero); a negative threshold or MTA of a margined netting set; a factor
+  correlation outside 0 to 1. `#VALUE!`: a lambda threshold or an
+  aggregation element that is text or a Boolean, or a blank correlation
+  beside an add-on. `#REF!`: aggregation inputs of different sizes or 2-D
+  shapes, or of more than two dimensions. An error value in an input is
+  passed on. An overflow beyond the range of a Double gives `#NUM!`; the
+  multiplier no longer overflows with a very small add-on and gives the
+  floor or 1. A blank lambda threshold now takes the default, as an omitted
+  one does. Valid results are unchanged. The engine checks these domains
+  before it calls the functions; should a function still return an error,
+  the run stops with `ERR_FORMULA_DOMAIN` naming it instead of a type
+  mismatch. `TEST_Formulas` (new, 9 cases, 80 checks) calls the functions
+  directly, including in cells of a temporary worksheet.
 
 - Rebuild any workbook built from an earlier template from the current
   template.

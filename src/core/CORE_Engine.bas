@@ -1675,6 +1675,37 @@ Private Function LoadFXTable() As Boolean
 End Function
 
 
+Private Function FormulaNumber( _
+    ByVal result As Variant, _
+    ByVal functionName As String) _
+    As Double
+'
+'==============================================================================
+'                                FormulaNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the result of a SACCR_Formulas function as a number. The engine
+'   checks its inputs before it calls these functions, so an error value
+'   means the two disagree on a domain (#42): the run stops with an error
+'   that names the function, not with a type mismatch.
+'
+' ERROR POLICY
+'   Raises ERR_FORMULA_DOMAIN when result is an error value; Calculate
+'   withdraws the results and reports it.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        If IsError(result) Then
+            Err.Raise ERR_FORMULA_DOMAIN, "CORE_Engine." & functionName, functionName & " returned " & _
+                      CStr(result) & " for inputs the engine had accepted (#42)."
+        End If
+        FormulaNumber = CDbl(result)
+
+End Function
+
+
 Private Function ValuesAfterEnd( _
     ByVal ws As Worksheet, _
     ByVal endRow As Long, _
@@ -2249,7 +2280,7 @@ Private Function LoadNettingSets() As Boolean
                         End If
                     End If
                     .MPOR = mpor
-                    .MFMargined = SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear)
+                    .MFMargined = FormulaNumber(SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 End If
             End With
             KeyAdd mNSIndex, id, mNSCount
@@ -3134,9 +3165,9 @@ Private Sub ProcessTrades( _
                             If mNS(nsIdx).IsCRR And (ac = AC_IR Or ac = AC_CO) Then
                                 'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
                                 If ac = AC_IR Then
-                                    lam = SACCR_LambdaCRR(P, K, True, pLamThrIR)
+                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, True, pLamThrIR), "SACCR_LambdaCRR")
                                 Else
-                                    lam = SACCR_LambdaCRR(P, K, False, pLamThrCO)
+                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, False, pLamThrCO), "SACCR_LambdaCRR")
                                 End If
                                 If IsNum(lamIn) Then
                                     If Abs(CDbl(lamIn) - lam) > 0.000000001 Then
@@ -3153,7 +3184,7 @@ Private Sub ProcessTrades( _
                                 AddErr ok, msg, "supervisory volatility missing for '" & sfKey & "'"
                             Else
                                 vDelta = SACCR_OptionDelta(P, K, T, mSF(sfIdx).Vol, (optTxt = "CALL"), isLong, lam)
-                                delta = CDbl(vDelta)
+                                delta = FormulaNumber(vDelta, "SACCR_OptionDelta")
                             End If
                         End If
                     Case "CDO"
@@ -3165,7 +3196,7 @@ Private Sub ProcessTrades( _
                             If attA < 0# Or detD > 1# Or attA >= detD Then
                                 AddErr ok, msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
                             Else
-                                delta = CDbl(SACCR_CDODelta(attA, detD, isLong))
+                                delta = FormulaNumber(SACCR_CDODelta(attA, detD, isLong), "SACCR_CDODelta")
                             End If
                         End If
                 End Select
@@ -3185,7 +3216,7 @@ Private Sub ProcessTrades( _
             If ok Then
                 Select Case ac
                     Case AC_IR
-                        sd = SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear)
+                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
                         If E < 1# Then
                             bucketNo = 1
@@ -3208,7 +3239,7 @@ Private Sub ProcessTrades( _
                         hsKey = "FX|" & rf & "|" & natTag
                         subKey = rf
                     Case AC_CR
-                        sd = SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear)
+                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
                         hsKey = "CR|" & natTag
                         subKey = rf
@@ -3238,7 +3269,7 @@ Private Sub ProcessTrades( _
             If ok Then
                 sfEff = mSF(sfIdx).SF * natFactor
                 corrEff = mSF(sfIdx).Corr
-                mfU = SACCR_MaturityFactor(M, False, 0#, pMinMatBD, pBDYear)
+                mfU = FormulaNumber(SACCR_MaturityFactor(M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 If mNS(nsIdx).Margined Then
                     mfM = mNS(nsIdx).MFMargined
                 Else
@@ -3641,8 +3672,10 @@ Private Sub ComputeHedgingSets()
                         End If
                     End If
                     If pIRFull Then
-                        mHS(h).ENU = SACCR_IREffectiveNotional(mHS(h).D1U, mHS(h).D2U, mHS(h).D3U, pRho12, pRho23, pRho13)
-                        mHS(h).ENM = SACCR_IREffectiveNotional(mHS(h).D1M, mHS(h).D2M, mHS(h).D3M, pRho12, pRho23, pRho13)
+                        mHS(h).ENU = FormulaNumber(SACCR_IREffectiveNotional(mHS(h).D1U, mHS(h).D2U, mHS(h).D3U, _
+                                     pRho12, pRho23, pRho13), "SACCR_IREffectiveNotional")
+                        mHS(h).ENM = FormulaNumber(SACCR_IREffectiveNotional(mHS(h).D1M, mHS(h).D2M, mHS(h).D3M, _
+                                     pRho12, pRho23, pRho13), "SACCR_IREffectiveNotional")
                     Else
                         mHS(h).ENU = Abs(mHS(h).D1U) + Abs(mHS(h).D2U) + Abs(mHS(h).D3U)
                         mHS(h).ENM = Abs(mHS(h).D1M) + Abs(mHS(h).D2M) + Abs(mHS(h).D3M)
@@ -3861,15 +3894,15 @@ Private Sub ComputeNettingSets( _
                 Else
                     cCap = C
                 End If
-                rcU = SACCR_ReplacementCost(.V, cCap, False)
-                mU = SACCR_Multiplier(.V - cCap, addU, pFloor)
+                rcU = FormulaNumber(SACCR_ReplacementCost(.V, cCap, False), "SACCR_ReplacementCost")
+                mU = FormulaNumber(SACCR_Multiplier(.V - cCap, addU, pFloor), "SACCR_Multiplier")
                 pfeU = mU * addU
                 eadU = .Alpha * (rcU + pfeU)
 
     'Margined basis, then the cap: the EAD is the lower of the two.
                 If .Margined Then
-                    rcM = SACCR_ReplacementCost(.V, C, True, .TH, .MTA, .NICA)
-                    mM = SACCR_Multiplier(.V - C, addM, pFloor)
+                    rcM = FormulaNumber(SACCR_ReplacementCost(.V, C, True, .TH, .MTA, .NICA), "SACCR_ReplacementCost")
+                    mM = FormulaNumber(SACCR_Multiplier(.V - C, addM, pFloor), "SACCR_Multiplier")
                     pfeM = mM * addM
                     eadM = .Alpha * (rcM + pfeM)
                     ead = Min2(eadM, eadU)
