@@ -505,6 +505,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- `tools/check_test_cases.py` also flags a registered EBA Q&A cited by its
+  full name, such as `EBA Single Rulebook Q&A 2023_6962`, instead of its
+  source ID (#145); it matched only `EBA Q&A 2023_6962`. The source
+  register's row that defines the ID is the only exemption.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive

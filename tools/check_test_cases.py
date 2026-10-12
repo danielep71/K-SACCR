@@ -340,17 +340,27 @@ def read_register(root: Path) -> set[str]:
 
 
 def check_citations(root: Path, register: set[str]) -> list[str]:
-    """Flag a registered EBA Q&A cited in prose instead of by its source ID."""
+    """Flag a registered EBA Q&A cited in prose instead of by its source ID,
+    in the short form (EBA Q&A 2023_6962) or the full name (EBA Single
+    Rulebook Q&A 2023_6962) (#145). The source register's row that defines
+    the ID is the one place the full name belongs, and only that row is
+    exempt."""
     numbers = {m.group(1): sid for sid in sorted(register) if (m := QA_SOURCE_ID.match(sid))}
     if not numbers:
         return []
-    prose = re.compile(r"EBA Q&A (" + "|".join(map(re.escape, numbers)) + r")(?![0-9])")
+    alternatives = "|".join(map(re.escape, numbers))
+    prose = re.compile(r"\bEBA\s+(?:Single\s+Rulebook\s+)?Q&A\s+(" + alternatives + r")(?![0-9])")
+    defining_row = re.compile(r"^\| `EBA-QA-(" + alternatives + r")` \|")
     findings = []
     for pattern in CITATION_FILES:
         for path in sorted(root.glob(pattern)):
             text = path.read_bytes().decode("utf-8", errors="replace")
+            in_register = path.relative_to(root).as_posix() == REGISTER
             for number, line in enumerate(text.splitlines(), 1):
+                defined = defining_row.match(line) if in_register else None
                 for match in prose.finditer(line):
+                    if defined and defined.group(1) == match.group(1):
+                        continue
                     findings.append(f"{path.relative_to(root).as_posix()}:{number}: cite EBA Q&A "
                                     f"{match.group(1)} by its source ID {numbers[match.group(1)]}")
     return findings
