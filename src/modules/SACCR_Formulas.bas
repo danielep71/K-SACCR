@@ -54,6 +54,13 @@ Attribute VB_Name = "SACCR_Formulas"
     'available to worksheet cells.
     Option Explicit
 
+'------------------------------------------------------------------------------
+' MODULE CONSTANTS
+'------------------------------------------------------------------------------
+    'VarType of a LongLong, vbLongLong; only 64-bit VBA produces it. The
+    'value is used instead of the name so that 32-bit VBA compiles too.
+        Private Const VT_LONGLONG As Long = 20
+
 
 '
 '------------------------------------------------------------------------------
@@ -997,15 +1004,15 @@ Private Function IsNumberValue( _
 '                                IsNumberValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether a value is a number: not text, a Boolean, blank or an
-'   error, even when VBA would convert it.
+'   Tell whether a value is a number, including a LongLong in 64-bit VBA:
+'   not text, a Boolean, blank or an error, even when VBA would convert it.
 '
 ' UPDATED
 '   2026-10-12
 '==============================================================================
 '
         Select Case VarType(v)
-            Case vbDouble, vbSingle, vbInteger, vbLong, vbCurrency, vbDecimal, vbByte
+            Case vbDouble, vbSingle, vbInteger, vbLong, vbCurrency, vbDecimal, vbByte, VT_LONGLONG
                 IsNumberValue = True
         End Select
 

@@ -58,7 +58,12 @@ Attribute VB_Name = "TEST_Formulas"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES   As Long = 9                 'Cases in a complete run
+    'Two checks of LongLong inputs run on 64-bit VBA only.
+#If Win64 Then
+        Private Const EXPECTED_CHECKS  As Long = 82                'Checks in a complete run
+#Else
         Private Const EXPECTED_CHECKS  As Long = 80                'Checks in a complete run
+#End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -197,6 +202,9 @@ Private Sub CaseLambdaThreshold()
         CheckNear "IR, threshold blank", 0.003, SACCR_LambdaCRR(-0.002, 0.001, True, Empty), TOL
         CheckNear "IR, threshold 0", 0.002, SACCR_LambdaCRR(-0.002, 0.001, True, 0#), TOL
         CheckNear "commodity, threshold omitted", 5.5, SACCR_LambdaCRR(-5#, -4#, False), TOL
+#If Win64 Then
+        CheckNear "IR, threshold a LongLong 0", 0.002, SACCR_LambdaCRR(-0.002, 0.001, True, CLngLng(0)), TOL
+#End If
         Exit Sub
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
@@ -368,6 +376,10 @@ Private Sub CaseAggregationElements()
                   SACCR_FactorAggregation(Array(100#, Empty), Array(0.5, 0.8)), TOL
         CheckNear "negative add-on", 132.332913517386, _
                   SACCR_FactorAggregation(Array(100#, 50#, -30#, 20#), Array(0.5, 0.8, 0.4, 0.6)), 0.000000001
+#If Win64 Then
+        CheckNear "LongLong add-on", 128.452325786651, _
+                  SACCR_FactorAggregation(Array(CLngLng(100), 50#), Array(0.5, 0.8)), 0.000000001
+#End If
         Exit Sub
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description

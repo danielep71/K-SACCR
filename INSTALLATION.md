@@ -305,7 +305,8 @@ TEST_Formulas.RunFormulaTests
 ```
 
 A passing run prints nine `CASE=` lines and ends with
-`RESULT=PASS; cases=9; checks=80; failures=0`.
+`RESULT=PASS; cases=9; checks=82; failures=0` on 64-bit Excel (80 on
+32-bit, which has no `LongLong`).
 
 <a id="numerical-test-cases"></a>
 

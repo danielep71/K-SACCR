@@ -316,7 +316,7 @@ Use only the categories needed by a release.
   runs the engine, compares the outputs and restores the workbook. Results
   are reported per reference class.
 - The regression suites and their totals, as run in Excel by the owner:
-  `TEST_Harness` 4 cases and 6 assertions, `TEST_Formulas` 9 cases and 80
+  `TEST_Harness` 4 cases and 6 assertions, `TEST_Formulas` 9 cases and 82
   checks, `TEST_MainState` 20 cases,
   `TEST_Cases` 20 cases and 39 checks, `TEST_InputValidation` 97 cases and
   129 checks, `TEST_Aggregation` 11 cases and 11 checks, and
@@ -347,7 +347,7 @@ Use only the categories needed by a release.
   one does. Valid results are unchanged. The engine checks these domains
   before it calls the functions; should a function still return an error,
   the run stops with `ERR_FORMULA_DOMAIN` naming it instead of a type
-  mismatch. `TEST_Formulas` (new, 9 cases, 80 checks) calls the functions
+  mismatch. `TEST_Formulas` (new, 9 cases, 82 checks on 64-bit Excel) calls the functions
   directly, including in cells of a temporary worksheet.
 
 - `tools/Sync-SACCR-VBA.ps1` asks whether to replace the code of the
