@@ -54,7 +54,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -246,8 +246,12 @@ Public Function ResultsStatus() As String
 '   NONE: no valid completed-run fingerprint. Protected output cells may
 '   remain after failed cleanup; the run error reports that separately.
 '
+' ERROR POLICY
+'   Raises ERR_PARAMS_LAYOUT from CORE_Engine.InputFingerprint when a
+'   Params workbook name is missing or broken (#152).
+'
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
@@ -284,11 +288,13 @@ Public Function ResultsStatusText( _
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
 '     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$AA,
-'                        Params!$C:$J)
+'                        Params!$1:$1048576)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
-'   Excel recalculate the cell. A formula never clears Excel's undo
-'   history, as a macro writing to the sheet would.
+'   Excel recalculate the cell. Params is watched whole, because its tables
+'   are located through workbook names and can move (#152). A formula
+'   never clears Excel's undo history, as a macro writing to the sheet
+'   would.
 '
 ' INPUTS
 '   storedInputs: the value of SACCR_RunInputs.
@@ -302,11 +308,12 @@ Public Function ResultsStatusText( _
 '   SA-CCR."
 '
 ' ERROR POLICY
-'   Returns "Status unavailable" instead of raising: a worksheet function
-'   must not interrupt Excel.
+'   Returns "Status unavailable: " and the reason instead of raising, for
+'   example when a Params workbook name is missing (#152): a worksheet
+'   function must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -330,7 +337,7 @@ Public Function ResultsStatusText( _
         Exit Function
 
 Failed:
-        ResultsStatusText = "Status unavailable"
+        ResultsStatusText = "Status unavailable: " & Err.Description
 
 End Function
 

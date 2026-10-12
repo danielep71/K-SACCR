@@ -316,7 +316,7 @@ Use only the categories needed by a release.
   runs the engine, compares the outputs and restores the workbook. Results
   are reported per reference class.
 - The regression suites and their totals, as run in Excel by the owner:
-  `TEST_Harness` 4 cases and 6 assertions, `TEST_MainState` 18 cases,
+  `TEST_Harness` 4 cases and 6 assertions, `TEST_MainState` 20 cases,
   `TEST_Cases` 20 cases and 39 checks, `TEST_InputValidation` 97 cases and
   129 checks, `TEST_Aggregation` 11 cases and 11 checks, and
   `TEST_Invariants` 4 cases and 23 checks.
@@ -392,8 +392,8 @@ Use only the categories needed by a release.
   theme, so a sheet copied into another workbook keeps Aptos. Tables now start
   in column C, with headers on row 6 and data from row 7 (Trades: headers on
   row 4, data from row 5); the Results run summary is in C4 and the status
-  formula in C5, which watches NettingSets `$C:$Q`, Trades `$C:$AA` and Params
-  `$C:$J`.
+  formula in C5, which watches NettingSets `$C:$Q`, Trades `$C:$AA` and the
+  whole Params sheet.
   Formulas, workbook names, data validation, conditional formatting, merged
   cells, filters, frozen panes and the buttons moved with the cells. The VBA
   addresses tables through `CORE_Util.TableCell` and `TableRange` with
@@ -463,6 +463,21 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Results are reported as out of date after a Params edit also when the
+  Params tables have moved (#152). The fingerprint read Params columns C:J
+  at fixed positions, so once a column was inserted before the tables an
+  edit to the factor table's Regimes field, now in K, left the results
+  shown as current. The fingerprint now reads Params through its workbook
+  names, as the run does: each parameter's named cell, the `Code` and
+  `Value` columns, and the factor and FX tables with their headers;
+  descriptions, references and formatting are left out. The Results C5
+  formula watches the whole Params sheet. A missing or broken Params name gives no fingerprint:
+  `ResultsStatus()` raises and C5 reads `Status unavailable:` with the
+  reason. Results of a run made before this change show as out of date
+  until the next run. `TEST_MainState` adds two cases, with the template
+  layout and with a column inserted before the Params tables, which edit a
+  factor's Regimes field and its header, `Alpha` and an FX rate; the shifted
+  run must give the same result line and fingerprint.
 - The reporting currency must be three letters A to Z, in the engine and
   in the Params validation; case and surrounding spaces are ignored (#147).
   The engine accepted any non-empty code, such as `E1R`, and added it to the
@@ -603,11 +618,12 @@ Use only the categories needed by a release.
 
 - Results are recognised as out of date once an input changes (#36). A
   completed run stores a fingerprint of everything it read (NettingSets,
-  Trades without the Comment column, and Params) in a hidden workbook name,
+  Trades without the Comment column, and the Params inputs found through
+  their workbook names) in a hidden workbook name,
   shows it in Results C4 and in the `RunSACCR_Silent` result line
   (`inputs=`), and `M_Main.ResultsStatus()` compares it with the inputs as
   they are now: `CURRENT`, `STALE` or `NONE`. Results C5 holds the formula
-  `=ResultsStatusText(SACCR_RunInputs,NettingSets!$C:$Q,Trades!$C:$AA,Params!$C:$J)`,
+  `=ResultsStatusText(SACCR_RunInputs,NettingSets!$C:$Q,Trades!$C:$AA,Params!$1:$1048576)`,
   which Excel recalculates when an input or the fingerprint changes, and is
   red when it reads `OUT OF DATE`. A formula is used rather than a macro
   because a macro writing to the workbook clears Excel's undo history; the
