@@ -104,6 +104,49 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.expected["outputs"][0]["reference"]["locator"] = "scenario of EBA Q&A 2022_6354"
         self.assertEqual(self.findings(), [])
 
+    def test_full_name_qa_citation_is_flagged(self) -> None:
+        # The full name is a prose citation too (#145).
+        message = "cite EBA Q&A 2023_6962 by its source ID EBA-QA-2023_6962"
+        self.expected["outputs"][0]["reference"]["locator"] = "CRR Art. 274(3); EBA Single Rulebook Q&A 2023_6962"
+        self.assertFinding(f"sample-case.bcbs.json:1: {message}", self.findings())
+        self.expected["outputs"][0]["reference"]["locator"] = "EBA Single Rulebook Q&A 2022_6354"
+        self.assertEqual(self.findings(), [])
+        # In a VBA comment as well, also wrapped over two comment lines, where
+        # the finding names the line the citation starts on.
+        module = self.root / "src/core/CORE_Test.bas"
+        module.parent.mkdir(parents=True, exist_ok=True)
+        for comment, line in (("' C = NICA, per EBA Single Rulebook Q&A 2023_6962.\r\n", 2),
+                              ("' C = NICA, per EBA Single Rulebook\r\n'   Q&A 2023_6962.\r\n", 2),
+                              ("' C = NICA, per EBA\r\n' Q&A 2023_6962.\r\n", 2)):
+            with self.subTest(comment=comment):
+                module.write_text("Attribute VB_Name = \"CORE_Test\"\r\n" + comment, encoding="utf-8")
+                found = self.findings()
+                self.assertFinding(f"src/core/CORE_Test.bas:{line}: {message}", found)
+                self.assertEqual(len(found), 1, found)
+        module.unlink()
+        # Wrapped in the methodology prose too.
+        register = self.root / cases.REGISTER
+        text = register.read_text(encoding="utf-8")
+        register.write_text(text + "\nThe cap follows EBA Single Rulebook\nQ&A 2023_6962.\n", encoding="utf-8")
+        self.assertFinding(f"{cases.REGISTER}:{len((text + chr(10)).splitlines()) + 1}: {message}",
+                           self.findings())
+
+    def test_register_defining_row_is_the_only_exemption(self) -> None:
+        # The copied register defines EBA-QA-2023_6962 with its full name and passes.
+        register = self.root / cases.REGISTER
+        text = register.read_text(encoding="utf-8")
+        self.assertIn("| `EBA-QA-2023_6962` | EBA Single Rulebook Q&A 2023_6962 |", text)
+        self.assertEqual(self.findings(), [])
+        # Any other line of the same document is checked.
+        register.write_text(text + "\nThe cap follows EBA Single Rulebook Q&A 2023_6962.\n", encoding="utf-8")
+        line = len((text + "\n").splitlines()) + 1
+        self.assertFinding(f"{cases.REGISTER}:{line}: cite EBA Q&A 2023_6962", self.findings())
+        # So is the full name in another register row.
+        register.write_text(text.replace("| `EBA-QA-2023_6962` | EBA Single Rulebook Q&A 2023_6962 |",
+                                         "| `EBA-QA-2023_6962` | Final |", 1)
+                            + "\n| `OTHER` | EBA Single Rulebook Q&A 2023_6962 |\n", encoding="utf-8")
+        self.assertFinding("cite EBA Q&A 2023_6962", self.findings())
+
     def test_parameters(self) -> None:
         self.fixture["parameters"] = {"DaysPerYear": 360}
         self.assertEqual(self.findings(), [])

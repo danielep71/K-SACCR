@@ -505,6 +505,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- `tools/check_test_cases.py` also flags a registered EBA Q&A cited by its
+  full name, such as `EBA Single Rulebook Q&A 2023_6962`, instead of its
+  source ID (#145); it matched only `EBA Q&A 2023_6962`. The source
+  register's row that defines the ID is the only exemption.
 - `tools/check_source.py` no longer takes a `$sourceRoots` declaration inside
   a PowerShell comment as the synchronizer's active list (#144). It found
   the first matching line before tracking comments, so a complete list in a

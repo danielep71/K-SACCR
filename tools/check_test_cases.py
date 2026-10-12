@@ -339,20 +339,48 @@ def read_register(root: Path) -> set[str]:
     return set(re.findall(r"^\| `([A-Z0-9_-]+)` \|", table, re.M))
 
 
+def join_lines(lines: list[str], vba: bool) -> tuple[str, list[int]]:
+    """Join the lines of a file with single spaces, so that a citation
+    wrapped over two lines is found (#145), and give the line number of each
+    character. In VBA the comment mark that starts a line is left out, so
+    that a citation continued on the next comment line reads as one."""
+    parts: list[str] = []
+    owner: list[int] = []
+    for number, line in enumerate(lines, 1):
+        content = line.strip()
+        if vba and content.startswith("'"):
+            content = content[1:].strip()
+        parts.append(content)
+        owner.extend([number] * (len(content) + 1))
+    return " ".join(parts), owner
+
+
 def check_citations(root: Path, register: set[str]) -> list[str]:
-    """Flag a registered EBA Q&A cited in prose instead of by its source ID."""
+    """Flag a registered EBA Q&A cited in prose instead of by its source ID,
+    in the short form (EBA Q&A 2023_6962) or the full name (EBA Single
+    Rulebook Q&A 2023_6962) (#145). The source register's row that defines
+    the ID is the one place the full name belongs, and only that row is
+    exempt."""
     numbers = {m.group(1): sid for sid in sorted(register) if (m := QA_SOURCE_ID.match(sid))}
     if not numbers:
         return []
-    prose = re.compile(r"EBA Q&A (" + "|".join(map(re.escape, numbers)) + r")(?![0-9])")
+    alternatives = "|".join(map(re.escape, numbers))
+    prose = re.compile(r"\bEBA\s+(?:Single\s+Rulebook\s+)?Q&A\s+(" + alternatives + r")(?![0-9])")
+    defining_row = re.compile(r"^\| `EBA-QA-(" + alternatives + r")` \|")
     findings = []
     for pattern in CITATION_FILES:
         for path in sorted(root.glob(pattern)):
             text = path.read_bytes().decode("utf-8", errors="replace")
-            for number, line in enumerate(text.splitlines(), 1):
-                for match in prose.finditer(line):
-                    findings.append(f"{path.relative_to(root).as_posix()}:{number}: cite EBA Q&A "
-                                    f"{match.group(1)} by its source ID {numbers[match.group(1)]}")
+            in_register = path.relative_to(root).as_posix() == REGISTER
+            lines = text.splitlines()
+            joined, owner = join_lines(lines, path.suffix.lower() in (".bas", ".cls"))
+            for match in prose.finditer(joined):
+                number = owner[match.start()]
+                defined = defining_row.match(lines[number - 1]) if in_register else None
+                if defined and defined.group(1) == match.group(1) and owner[match.end() - 1] == number:
+                    continue
+                findings.append(f"{path.relative_to(root).as_posix()}:{number}: cite EBA Q&A "
+                                f"{match.group(1)} by its source ID {numbers[match.group(1)]}")
     return findings
 
 
