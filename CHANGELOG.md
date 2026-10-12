@@ -332,6 +332,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The GitHub Wiki is maintained directly in its own repository and is
+  self-contained (owner decision). `docs/wiki/`, the Wiki check and its
+  tests, the Wiki publisher and the Wiki source and drift workflows are
+  removed; README links to the Wiki instead of `docs/wiki/`.
 - The Tests sheet is renamed FormulaTest and computes each expected value
   with Excel's own functions instead of a typed number, from input cells
   (yellow, E:K, with data validation of each argument's range) that the
