@@ -37,6 +37,17 @@ theme, so a sheet copied into another workbook keeps it. The VBA reads and write
 and `TableRange`, which add the margin columns, so a column number in
 `CORE_Config` counts from column C.
 
+The FormulaTest sheet checks each `SACCR_*` worksheet function against the
+rule it implements. A row holds the function's inputs in yellow cells (E:K),
+with data validation giving each argument's meaning, range and rule,
+Expected computes the rule with Excel's own functions from the same inputs,
+and Function calls the VBA; Rel. diff is |Function - Expected| / max(1,
+|Expected|), shown in the tolerance's percentage format, and the row passes
+when it is at most the tolerance in E4 (workbook name
+`FormulaTest_Tolerance`, default 0.001%). Changing an input tests the
+function on new values; the test name describes the inputs shipped with the
+template, and the Rule column cites the source.
+
 A source change should pass the repository static checks and, when it affects
 executable VBA or numerical behaviour, be exercised in desktop Excel. See
 [Excel Evidence](../EXCEL_EVIDENCE.md) and

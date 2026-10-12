@@ -332,6 +332,15 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The Tests sheet is renamed FormulaTest and computes each expected value
+  with Excel's own functions instead of a typed number, from input cells
+  (yellow, E:K, with data validation of each argument's range) that the
+  `SACCR_*` function reads too, so changing an input tests the function on
+  new values. One tolerance cell (E4, `FormulaTest_Tolerance`, default
+  0.001%) sets the pass criterion of every row, against Rel. diff =
+  |Function - Expected| / max(1, |Expected|) shown in the same percentage
+  format. Each row cites its rule; the formulas show without the `@`
+  operator in Excel 365.
 - Every parameter value on Params (E6 to E25) has data validation with an
   input message giving its meaning, regulatory value and reference, and a
   Stop alert with the accepted range: dates 2000 to 2100, a three-letter
