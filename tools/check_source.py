@@ -133,10 +133,20 @@ def required_file(root: Path, tracked: set[str], path: str) -> list[str]:
     return []
 
 
-def strip_comment(line: str, in_block: bool) -> tuple[str, bool]:
+def strip_comment(line: str, state: str) -> tuple[str, str]:
     """Remove PowerShell comments from one line: # to the end of the line and
-    <# ... #> blocks, which may span lines; a # inside quotes is text."""
-    code, quote, i = [], "", 0
+    <# ... #> blocks, which may span lines; a # or <# inside quotes is text.
+    state carries what is open at the end of the previous line: "" (code),
+    "<#" (a block comment), '"' or "'" (a string) or '@"' or "@'" (a
+    here-string, whose lines are text and are left out of the code) (#144)."""
+    if state in ('@"', "@'"):
+        if not line.lstrip().startswith(state[1] + "@"):
+            return "", state
+        line, state = line.lstrip()[2:], ""
+    in_block = state == "<#"
+    quote = state if state in ('"', "'") else ""
+    code: list[str] = []
+    i = 0
     while i < len(line):
         if in_block:
             if line.startswith("#>", i):
@@ -147,6 +157,8 @@ def strip_comment(line: str, in_block: bool) -> tuple[str, bool]:
         char = line[i]
         if quote:
             quote = "" if char == quote else quote
+        elif line.startswith(('@"', "@'"), i) and not line[i + 2:].strip():
+            return "".join(code), line[i:i + 2]
         elif char in "\"'":
             quote = char
         elif line.startswith("<#", i):
@@ -156,21 +168,30 @@ def strip_comment(line: str, in_block: bool) -> tuple[str, bool]:
             break
         code.append(char)
         i += 1
-    return "".join(code), in_block
+    return "".join(code), "<#" if in_block else quote
 
 
 def sync_roots(text: str) -> tuple[list[str], list[str]]:
     """Read the active entries of $sourceRoots: the directories, with "/"
     separators and a trailing "/", and the problems found."""
     lines = text.splitlines()
-    start = next((n for n, line in enumerate(lines) if SYNC_START.match(line)), None)
+    # Comments and strings are tracked from the top of the file, so that a
+    # declaration inside a <# ... #> block, after a # or in a here-string is
+    # never taken as the active one, and a "<#" inside a string opens no
+    # comment (#144).
+    state = ""
+    start = None
+    for number, line in enumerate(lines):
+        code, state = strip_comment(line, state)
+        if SYNC_START.match(code):
+            start = number
+            break
     if start is None:
         return [], ["$sourceRoots list not found"]
     roots: list[str] = []
     problems: list[str] = []
-    in_block = False
     for line in lines[start + 1:]:
-        code, in_block = strip_comment(line, in_block)
+        code, state = strip_comment(line, state)
         code = code.strip()
         if not code:
             continue
