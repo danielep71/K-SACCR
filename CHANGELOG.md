@@ -101,9 +101,10 @@ Use only the categories needed by a release.
 - `TEST_Suite.Test_RunAll` runs every test suite in turn and prints only a
   summary: one line per suite with its verdict, counts and duration, the
   failure lines of a suite that failed, and a final RESULT line. The suites
-  print through `TEST_Suite.Say`, so run alone they keep their full logs.
-  An error raised by a suite counts as its failure and the next suite still
-  runs.
+  print through `TEST_Suite.Say`, so run alone they keep their full logs;
+  the new test seam `M_Main.gQuietLog` also drops the message the macros
+  print in silent mode for each engine run. An error raised by a suite
+  counts as its failure and the next suite still runs.
 - Economic trades entered as legs (#38). Trades has two new columns before
   Comment: Economic trade ID (Z) and MtM leg (Y/N) (AA); Comment moves to AB.
   Each row is a leg with a unique Trade ID; rows sharing an Economic trade ID

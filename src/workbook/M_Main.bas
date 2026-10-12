@@ -30,7 +30,8 @@ Attribute VB_Name = "M_Main"
 '   changes them for the run, and restores the captured values on success
 '   and on failure. Owns gSilent (messages to the Immediate window instead
 '   of message boxes, and errors raised to the caller), the re-entry flag
-'   mRunning, and the test seam gTestFault.
+'   mRunning, and the test seams gTestFault and gQuietLog (silent-mode
+'   messages dropped instead of printed).
 '
 ' ERROR POLICY
 '   The primary error is copied before cleanup. Each setting is restored by
@@ -79,10 +80,13 @@ Attribute VB_Name = "M_Main"
 ' MODULE STATE
 '------------------------------------------------------------------------------
     'gSilent switches messages to the Immediate window and errors to the
-    'caller. gTestFault is the test seam described above. mRunning refuses a
-    'second operation while one is in progress.
+    'caller. gTestFault is the test seam described above. gQuietLog drops
+    'the messages of silent mode instead of printing them, for
+    'TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
+    'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
         Public gTestFault   As String     'Test seam: "", "operation" or "cleanup"
+        Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Private mRunning    As Boolean    'True while an operation is in progress
 
 
@@ -993,14 +997,15 @@ Private Sub Notify( _
 '                                    Notify
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Show a message to the user, or print it in silent mode.
+'   Show a message to the user, or print it in silent mode unless
+'   gQuietLog is set.
 '
 ' INPUTS
 '   msg: the text to show.
 '   style: message-box icon, for example vbInformation or vbCritical.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1008,7 +1013,9 @@ Private Sub Notify( _
 ' SHOW OR PRINT
 '------------------------------------------------------------------------------
         If gSilent Then
-            Debug.Print msg
+            If Not gQuietLog Then
+                Debug.Print msg
+            End If
         Else
             MsgBox msg, style, "SA-CCR"
         End If

@@ -17,7 +17,8 @@ Attribute VB_Name = "TEST_Suite"
 ' DEPENDENCIES
 '   TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
 '   TEST_InputValidation, TEST_Aggregation and TEST_Invariants, with
-'   TEST_CaseRunner for the last four.
+'   TEST_CaseRunner for the last four; M_Main.gQuietLog, set while a suite
+'   runs, so that the macros' silent-mode messages are not printed either.
 '
 ' WORKSHEET SAFETY
 '   As the suites it runs: they rewrite inputs, outputs and Params and
@@ -186,9 +187,12 @@ Private Function RunOneSuite( _
 '------------------------------------------------------------------------------
 ' RUN QUIETLY
 '------------------------------------------------------------------------------
+    'M_Main.gQuietLog also drops the messages the macros print in silent
+    'mode, one per engine run.
         mResult = ""
         Set mFailures = New Collection
         mQuiet = True
+        M_Main.gQuietLog = True
         t0 = Timer
         On Error GoTo Raised
         Select Case entryPoint
@@ -211,6 +215,7 @@ Private Function RunOneSuite( _
 Report:
         On Error GoTo 0
         mQuiet = False
+        M_Main.gQuietLog = False
         seconds = Timer - t0
         If seconds < 0 Then
             seconds = seconds + 86400!
