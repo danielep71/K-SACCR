@@ -331,6 +331,20 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Input conventions for dates and currency pairs (#40). Text in a date
+  field is read only in the ISO form yyyy-mm-dd: other text, such as
+  30/09/2031, was read through the Windows regional settings and could
+  swap day and month; it now rejects the trade, or, as the reporting date,
+  stops the run. A workbook set to the 1904 date system stops the run,
+  since a date entered as a plain number would be read 1,462 days early.
+  An option whose expiry is after its maturity is rejected. An FX trade is
+  rejected when a currency of its pair has no FX rate on Params, or when
+  its notional currency is not one of the pair's. Dates entered as Excel
+  dates and the template's trades are unaffected. The support matrix in
+  the methodology records the date, FX notional and FX option quote
+  conventions; `TEST_InputValidation` covers them, with the IR maturity
+  bucket boundaries at exactly 1 and 5 years and dates on the reporting
+  date, and the case runner gains the trade-level quantity `bucket`.
 - The worksheet functions check their input domains and return an Excel
   error instead of a runtime error or a misleading number (#42). Public API
   change: `SACCR_SupervisoryDuration`, `SACCR_MaturityFactor`,

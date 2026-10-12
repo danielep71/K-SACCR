@@ -93,9 +93,9 @@ NETTING_SET_QUANTITIES = {
 }
 TRADE_QUANTITIES = {
     "adjusted_notional", "supervisory_delta", "supervisory_factor", "lambda_shift",
-    "hedging_set", "trade_status",
+    "hedging_set", "bucket", "trade_status",
 }
-TEXT_QUANTITIES = {"cap_applied", "hedging_set", "trade_status", "netting_set_status"}
+TEXT_QUANTITIES = {"cap_applied", "hedging_set", "bucket", "trade_status", "netting_set_status"}
 REFERENCE_FIELDS = {"class", "source", "locator", "derivation", "derived_by", "reviewed_by", "date"}
 REQUIRED_REFERENCE = {
     "published": ("source", "locator"),

@@ -40,6 +40,13 @@ Attribute VB_Name = "TEST_InputValidation"
 '   different alpha, a zero factor or an alpha override is WHAT-IF with
 '   the difference on Checks (#41); a DaysPerYear of 360 keeps it
 '   regulatory; a reporting-currency FX rate other than 1 stops the run.
+'   For the input conventions (#40): a text date is read only as
+'   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
+'   maturity buckets split at exactly 1 and 5 years, a trade or option
+'   ending on the reporting date is rejected, an option expiring after its
+'   maturity is rejected, both currencies of an FX pair need an FX rate,
+'   the notional must be in one of them, and a pair entered the other way
+'   round offsets the same pair entered in order.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -63,7 +70,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -79,8 +86,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 97                'Cases in a complete run
-        Private Const CHECKS      As Long = 129                'Checks in a complete run
+        Private Const CASES       As Long = 111               'Cases in a complete run
+        Private Const CHECKS      As Long = 158               'Checks in a complete run
 
 
 '
@@ -100,7 +107,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -705,6 +712,120 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectChecksLine "mtm-flag-error", SEV_ERROR, _
                                          "MtM leg must be Y or N (found an error value", "illustrative"
 
+    'Dates (#40). Text is read as a date only in the ISO form yyyy-mm-dd,
+    'whatever the regional settings; 30/09/2031 and an impossible day are
+    'rejected. The text dates are written with a leading apostrophe, so
+    'that Excel keeps them as text. ISO text gives the same adjusted
+    'notional as a date: 10,000 x (1 - exp(-0.05 x 1826/365)) / 0.05.
+        StartCase "date-text-forms", "N"
+        TEST_CaseRunner.ExpectTrue "to-serial", _
+            CORE_Util.ToSerial("2031-09-30") = CDbl(DateSerial(2031, 9, 30)) And _
+            CORE_Util.ToSerial(" 2031-09-30 ") = CDbl(DateSerial(2031, 9, 30)) And _
+            CORE_Util.ToSerial(DateSerial(2031, 9, 30)) = CDbl(DateSerial(2031, 9, 30)) And _
+            CORE_Util.ToSerial(47756#) = 47756# And _
+            CORE_Util.ToSerial("30/09/2031") = -1# And CORE_Util.ToSerial("09/30/2031") = -1# And _
+            CORE_Util.ToSerial("2031-9-30") = -1# And CORE_Util.ToSerial("2031-02-30") = -1# And _
+            CORE_Util.ToSerial("30 September 2031") = -1#, _
+            "ToSerial read a text date other than yyyy-mm-dd, or misread one", "illustrative"
+
+        StartCase "date-iso-text", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_END, "'2031-09-30"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MAT, "'2031-09-30"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "44261.1789321023", _
+                                     "0.000001", "0.000000001", "illustrative"
+
+        StartCase "date-locale-text", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_END, "'30/09/2031"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MAT, "'30/09/2031"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "not-a-date", SEV_ERROR, "maturity date is not a date", "illustrative"
+
+        StartCase "reporting-date-iso-text", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ASOF), ParamsValueCol(), "'2026-09-30"
+        ExpectStatus "VALID"
+
+        StartCase "reporting-date-locale-text", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ASOF), ParamsValueCol(), "'30/09/2026"
+        ExpectStop "Reporting date missing or not a date"
+
+    'The 1904 date system stops the run; the workbook is set back at once.
+        StartCase "date-system-1904", "N"
+        AddSwap "T1"
+        ExpectStopIn1904 "1904 date system"
+
+    'Dates on the reporting date and the IR maturity buckets (#40). E is
+    'the end date in years of 365 days from 2026-09-30: 364 days is under 1
+    'year, 365 days is 1 year and falls in 1-5Y, as does 1,825 days, exactly
+    '5 years; 1,826 days (2031-09-30) is over 5 years [CRE52.57(3)]. A
+    'trade or option ending on the reporting date is rejected; a start on
+    'it is S = 0.
+        StartCase "ir-bucket-boundaries", "N"
+        AddSwapTo "B364", "2027-09-29"
+        AddSwapTo "B365", "2027-09-30"
+        AddSwapTo "B1825", "2031-09-29"
+        AddSwapTo "B1826", "2031-09-30"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectText "bucket-364", "B364", "bucket", "<1Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-365", "B365", "bucket", "1-5Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1825", "B1825", "bucket", "1-5Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1826", "B1826", "bucket", ">5Y", "illustrative"
+
+        StartCase "trade-maturing-on-reporting-date", "N"
+        AddSwapTo "T1", VALUATION
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "matured", SEV_ERROR, "trade has matured", "illustrative"
+
+        StartCase "trade-starting-on-reporting-date", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_START, DateSerial(2026, 9, 30)
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "44261.1789321023", _
+                                     "0.000001", "0.000000001", "illustrative"
+
+        StartCase "option-expiring-on-reporting-date", "N"
+        AddEquityCall "T1", "Long", "100", "30"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2026, 9, 30)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "expired", SEV_ERROR, "option has expired", "illustrative"
+
+        StartCase "option-expiry-after-maturity", "N"
+        AddEquityCall "T1", "Long", "100", "30"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2028, 9, 30)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "expiry-after-maturity", SEV_ERROR, _
+                                         "option expiry is after the maturity date", "illustrative"
+
+    'Currency pairs (#40): both currencies need an FX rate on Params, and
+    'the notional is in one of them. USD/EUR long is EUR/USD short in the
+    'EUR/USD hedging set, so it offsets a EUR/USD long of the same
+    'notional: FX add-on 0.
+        StartCase "fx-pair-unknown-currency", "N"
+        AddFxForwardOn "T1", "EUR/XYZ", "Long"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "unknown-currency", SEV_ERROR, _
+                                         "no FX rate for currency 'XYZ' of the pair EUR/XYZ", "illustrative"
+
+        StartCase "fx-notional-outside-pair", "N"
+        AddFxForwardOn "T1", "USD/JPY", "Long"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "notional-outside-pair", SEV_ERROR, _
+                                         "notional currency 'EUR' is not a currency of the pair JPY/USD", _
+                                         "illustrative"
+
+        StartCase "fx-reversed-pair-linear", "N"
+        AddFxForwardOn "T1", "EUR/USD", "Long"
+        AddFxForwardOn "T2", "USDEUR", "Long"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectText "hedging-set", "T2", "hedging_set", "FX|EUR/USD|STD", "illustrative"
+        TEST_CaseRunner.ExpectNumber "delta", "T2", "supervisory_delta", "-1", "0", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "add-on-fx", "", "add_on.foreign_exchange", "0", "0.000001", "0", _
+                                     "illustrative"
+
         TEST_CaseRunner.EndSuite ""
         Exit Sub
 
@@ -802,11 +923,31 @@ Private Sub AddSwap( _
 '   Add a valid five-year EUR interest-rate swap to NS1.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
+'==============================================================================
+'
+        AddSwapTo tradeId, "2031-09-30"
+
+End Sub
+
+
+Private Sub AddSwapTo( _
+    ByVal tradeId As String, _
+    ByVal endDate As String)
+'
+'==============================================================================
+'                                  AddSwapTo
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a EUR interest-rate swap to NS1 starting on the reporting date and
+'   ending on endDate (yyyy-mm-dd), which is also its maturity (#40).
+'
+' UPDATED
+'   2026-10-12
 '==============================================================================
 '
         TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
-                            "10000", "30", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+                            "10000", "30", "", endDate, endDate, "", "", "", "", "", ""
 
 End Sub
 
@@ -1073,6 +1214,28 @@ Private Sub AddFxForward( _
 End Sub
 
 
+Private Sub AddFxForwardOn( _
+    ByVal tradeId As String, _
+    ByVal pair As String, _
+    ByVal direction As String)
+'
+'==============================================================================
+'                                AddFxForwardOn
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a five-year FX forward on pair as written, notional 10,000 in the
+'   case currency (EUR), MtM 0, to NS1 (#40).
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        TEST_CaseRunner.AddTrade tradeId, "FX", "", pair, "Linear", direction, "", "Standard", "", _
+                                 "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+
+End Sub
+
+
 Private Sub AddEquityCall( _
     ByVal tradeId As String, _
     ByVal direction As String, _
@@ -1137,6 +1300,54 @@ Private Sub AddCredit( _
 '
         TEST_CaseRunner.AddTrade tradeId, "CR", subClass, reference, "Linear", "Long", "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+
+End Sub
+
+
+Private Sub ExpectStopIn1904( _
+    ByVal messagePart As String)
+'
+'==============================================================================
+'                               ExpectStopIn1904
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Set the workbook to the 1904 date system, run the case expecting it to
+'   stop with messagePart, and set the workbook back to the 1900 system
+'   (#40). The case's dates shift by 1,462 days while the setting is on;
+'   they return when it is cleared.
+'
+' ERROR POLICY
+'   The setting is cleared before any error is raised again, so that a
+'   failure cannot leave the workbook in the 1904 system.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim errNumber   As Long      'Error raised while the setting was on
+    Dim errText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' RUN IN THE 1904 SYSTEM
+'------------------------------------------------------------------------------
+        If ThisWorkbook.Date1904 Then
+            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ExpectStopIn1904", _
+                      "The workbook already uses the 1904 date system."
+        End If
+        ThisWorkbook.Date1904 = True
+        On Error Resume Next
+        ExpectStop messagePart
+        errNumber = Err.Number
+        errText = Err.Description
+        On Error GoTo 0
+        ThisWorkbook.Date1904 = False
+        If errNumber <> 0 Then
+            Err.Raise errNumber, "TEST_InputValidation.ExpectStopIn1904", errText
+        End If
 
 End Sub
 
