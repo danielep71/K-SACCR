@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Added
 
+- `tools/Sync-SACCR-VBA-Downloads.cmd` and the `-SourceDir` option of
+  `Sync-SACCR-VBA.ps1` import into the development workbook only the
+  repository modules found in a folder, such as Downloads, without copying
+  them into the working tree. Files are matched by `VB_Name` (other files are
+  ignored, and the newest of several copies is taken), listed with their
+  dates for confirmation, converted to CRLF and imported; the rest of the
+  workbook's code is left as it is.
 - A margined netting set of more than 5,000 trades whose large or illiquid flag
   is N gives a warning on Checks (#39): the 20-day MPOR floor follows from the
   count in the previous quarter (CRE52.51(1); CRR Art. 285(3)(a)), which the
