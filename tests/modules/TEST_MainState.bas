@@ -798,10 +798,11 @@ Private Sub CaseStaleParams( _
 '                               CaseStaleParams
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   After a run, an edit to the Regimes field of a factor, to a parameter
-'   value or to an FX rate makes the results STALE and Results C5 OUT OF
-'   DATE, and undoing it makes them CURRENT again; a changed parameter
-'   description or cell colour leaves them CURRENT (#152). With shifted
+'   After a run, an edit to the Regimes field of a factor or its header,
+'   to a parameter value or to an FX rate makes the results STALE and
+'   Results C5 OUT OF DATE, and undoing it makes them CURRENT again; a
+'   changed parameter description or cell colour leaves them CURRENT
+'   (#152). With shifted
 '   True a column is first inserted before the Params tables, which moves
 '   every Params input and workbook name one column to the right, as the
 '   issue describes; the run must then give the same result line,
@@ -855,6 +856,7 @@ Private Sub CaseStaleParams( _
     'Regimes is the eighth factor column: K once shifted, outside the
     'C:J block fingerprinted before #152.
         EditAndUndo TableCell(ws, NamedRow(NM_SF_TABLE) + 1, sfCol + 7), "factor Regimes"
+        EditAndUndo TableCell(ws, NamedRow(NM_SF_TABLE), sfCol + 7), "factor Regimes header"
         EditAndUndo NamedCell(PRM_ALPHA), "parameter Alpha"
         EditAndUndo TableCell(ws, NamedRow(NM_FX_TABLE) + 1, fxCol + 2), "FX rate"
 

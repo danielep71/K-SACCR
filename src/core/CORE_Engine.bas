@@ -4078,8 +4078,9 @@ Private Function ParamsText() As String
 '   Write the Params inputs of a run as one text, located through the
 '   workbook names as the run locates them: the value of each parameter's
 '   named cell, the "Code" and "Value" columns (ValidateSchema reads them
-'   for repeated codes), and the factor and FX tables, each to its last
-'   row with a value or to the row above the other table when that follows
+'   for repeated codes), and the factor and FX tables from their header
+'   rows (ParamsLayoutValid checks the headers) to their last row with a
+'   value, or to the row above the other table when that follows
 '   (LoadSFTable, LoadFXTable). Other cells, such as descriptions and
 '   references, are left out.
 '
@@ -4145,7 +4146,8 @@ Private Function ParamsText() As String
 '------------------------------------------------------------------------------
 ' COLUMNS AND TABLES
 '------------------------------------------------------------------------------
-    'A table stops above the other one when that follows it, as the
+    'A table starts at its header row, whose headers ParamsLayoutValid
+    'checks, and stops above the other table when that follows it, as the
     'loaders stop; otherwise at its last row with a value.
         sfRow = NamedRow(NM_SF_TABLE)
         fxRow = NamedRow(NM_FX_TABLE)
@@ -4156,9 +4158,9 @@ Private Function ParamsText() As String
         End If
         pieces(k + 1) = BlockText(ws, 1, 1, ParamsCodeCol())
         pieces(k + 2) = BlockText(ws, 1, 1, ParamsValueCol())
-        pieces(k + 3) = BlockText(ws, sfRow + 1, UBound(Split(SF_HEADERS, "|")) + 1, _
+        pieces(k + 3) = BlockText(ws, sfRow, UBound(Split(SF_HEADERS, "|")) + 1, _
                                   NamedTableCol(NM_SF_TABLE), sfLast)
-        pieces(k + 4) = BlockText(ws, fxRow + 1, UBound(Split(FX_HEADERS, "|")) + 1, _
+        pieces(k + 4) = BlockText(ws, fxRow, UBound(Split(FX_HEADERS, "|")) + 1, _
                                   NamedTableCol(NM_FX_TABLE), fxLast)
         ParamsText = Join(pieces, Chr$(30))
 

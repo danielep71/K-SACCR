@@ -258,7 +258,7 @@ cleanup failure are each raised and leave the workbook ready for the next run.
 It also protects the Checks sheet for one run, and makes one run fail after
 the first output sheets are written, and checks that each fails with its
 results withdrawn; and it edits one trade, and on Params a factor's Regimes
-field, a parameter and an FX rate, after a run and checks that the results
+field and its header, a parameter and an FX rate, after a run and checks that the results
 are reported out of date until the edit is undone, once with the template
 layout and once with a column inserted before the Params tables, which the
 case deletes again (#152). Unlike the

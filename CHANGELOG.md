@@ -469,13 +469,14 @@ Use only the categories needed by a release.
   edit to the factor table's Regimes field, now in K, left the results
   shown as current. The fingerprint now reads Params through its workbook
   names, as the run does: each parameter's named cell, the `Code` and
-  `Value` columns, and the factor and FX tables; descriptions, references
-  and formatting are left out. The Results C5 formula watches the whole
-  Params sheet. A missing or broken Params name gives no fingerprint:
+  `Value` columns, and the factor and FX tables with their headers;
+  descriptions, references and formatting are left out. The Results C5
+  formula watches the whole Params sheet. A missing or broken Params name gives no fingerprint:
   `ResultsStatus()` raises and C5 reads `Status unavailable:` with the
   reason. Results of a run made before this change show as out of date
   until the next run. `TEST_MainState` adds two cases, with the template
-  layout and with a column inserted before the Params tables; the shifted
+  layout and with a column inserted before the Params tables, which edit a
+  factor's Regimes field and its header, `Alpha` and an FX rate; the shifted
   run must give the same result line and fingerprint.
 - The reporting currency must be three letters A to Z, in the engine and
   in the Params validation; case and surrounding spaces are ignored (#147).
