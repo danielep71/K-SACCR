@@ -125,8 +125,8 @@ Public Sub Say( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Print one line of a suite's log. During Test_RunAll the line is not
-'   printed: the RESULT line is kept, and the FAILURE lines are collected
-'   for the summary.
+'   printed: the RESULT line is kept, and the FAILURE= and FAILURE_DETAILS=
+'   lines are collected for the summary; a count such as FAILURES= is not.
 '
 ' UPDATED
 '   2026-10-12
@@ -136,7 +136,7 @@ Public Sub Say( _
             Debug.Print text
         ElseIf Left$(text, 7) = "RESULT=" Then
             mResult = text
-        ElseIf Left$(text, 7) = "FAILURE" Then
+        ElseIf Left$(text, 8) = "FAILURE=" Or Left$(text, 16) = "FAILURE_DETAILS=" Then
             mFailures.Add text
         End If
 
