@@ -353,7 +353,10 @@ Use only the categories needed by a release.
 - `tools/Sync-SACCR-VBA.ps1` asks whether to replace the code of the
   worksheet and `ThisWorkbook` modules as well, so that a workbook built from
   a newer template can keep its own sheet code; `-IncludeSheets` and
-  `-SkipSheets` answer in advance.
+  `-SkipSheets` answer in advance. With `-SourceDir` it also offers a new
+  standard module with a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`)
+  that the repository checkout does not have yet, listed apart, so that a
+  suite added by a pull request is imported with the other downloads.
 
 - Rebuild any workbook built from an earlier template from the current
   template.
