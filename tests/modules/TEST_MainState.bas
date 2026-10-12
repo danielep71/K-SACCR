@@ -969,8 +969,15 @@ Private Sub CheckStatusCell( _
 '   Check that the status formula in Results C5 starts with expectedStart,
 '   after Excel has recalculated what changed.
 '
+' METHOD
+'   DoEvents first lets Excel process the recalculation that an edit or a
+'   changed workbook name has queued, as it does when a macro returns to a
+'   user; without it the cell could still show the previous state. The
+'   cell is not forced to recalculate, so the check still shows that Excel
+'   updates the status by itself.
+'
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -982,6 +989,7 @@ Private Sub CheckStatusCell( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
+        DoEvents
         Application.Calculate
         shown = SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
         Check Left$(shown, Len(expectedStart)) = expectedStart, _
