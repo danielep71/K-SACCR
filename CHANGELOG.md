@@ -332,11 +332,12 @@ Use only the categories needed by a release.
 
 ### Changed
 
-- The Tests sheet computes each expected value with Excel's own functions
-  instead of a typed number, from input cells (yellow, E:K) that the
+- The Tests sheet is renamed FormulaTest and computes each expected value
+  with Excel's own functions instead of a typed number, from input cells
+  (yellow, E:K, with data validation of each argument's range) that the
   `SACCR_*` function reads too, so changing an input tests the function on
-  new values. One tolerance cell (D5, `Tests_Tolerance`, default 0.001%)
-  sets the pass criterion of every row. Each row cites its rule; the
+  new values. One tolerance cell (D5, `FormulaTest_Tolerance`, default
+  0.001%) sets the pass criterion of every row. Each row cites its rule; the
   formulas show without the `@` operator in Excel 365.
 - Every parameter value on Params (E6 to E25) has data validation with an
   input message giving its meaning, regulatory value and reference, and a
