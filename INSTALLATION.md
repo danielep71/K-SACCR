@@ -257,8 +257,11 @@ they found them, also when they were off, and that an operation failure and a
 cleanup failure are each raised and leave the workbook ready for the next run.
 It also protects the Checks sheet for one run, and makes one run fail after
 the first output sheets are written, and checks that each fails with its
-results withdrawn; and it edits one trade after a run and checks that the
-results are reported out of date until the edit is undone. Unlike the
+results withdrawn; and it edits one trade, and on Params a factor's Regimes
+field, a parameter and an FX rate, after a run and checks that the results
+are reported out of date until the edit is undone, once with the template
+layout and once with a column inserted before the Params tables, which the
+case deletes again (#152). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -279,8 +282,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints eighteen `CASE=` lines and ends with
-`RESULT=PASS; cases=18; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty `CASE=` lines and ends with
+`RESULT=PASS; cases=20; checks=...; failures=0; caller_state=RESTORED`.
 
 <a id="numerical-test-cases"></a>
 
@@ -418,10 +421,14 @@ and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there is no valid completed run. Results C5
-shows the same status through the formula `=ResultsStatusText(...)`, which
+changed since, and `NONE` when there is no valid completed run. Params is
+read through its workbook names, so an edit is found also after its tables
+have moved; descriptions, references and formatting do not count as edits.
+Results C5 shows the same status through the formula
+`=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
 Excel recalculates when an input changes, and turns red when it reads
-`OUT OF DATE`. A formula, unlike a macro writing to the sheet, leaves Excel's
+`OUT OF DATE`. It reads `Status unavailable:` with the reason when a Params
+workbook name is missing or broken. A formula, unlike a macro writing to the sheet, leaves Excel's
 Undo history intact. With calculation set to manual, press F9 to refresh it.
 
 <a id="validation-record"></a>

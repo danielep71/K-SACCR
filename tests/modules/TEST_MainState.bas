@@ -9,7 +9,8 @@ Attribute VB_Name = "TEST_MainState"
 '   (issue #43); that a Checks sheet that cannot be written, or any error
 '   after the outputs are being written, fails the run and withdraws its
 '   results; and that results are reported as out of date once an input
-'   changes (issue #36).
+'   changes (issue #36), also on Params after its tables have moved
+'   (issue #152).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -25,9 +26,10 @@ Attribute VB_Name = "TEST_MainState"
 '   Unlike TEST_Harness, this module runs the real macros: they clear and
 '   rewrite TradeCalc, Buckets, HedgingSets, Results and Checks, and
 '   activate the Checks sheet. One case protects the Checks sheet for one
-'   run and unprotects it again, also after an unexpected error. The last
-'   case leaves the outputs of a normal run. Use a development workbook
-'   only.
+'   run and unprotects it again, also after an unexpected error. One case
+'   inserts a column before the Params tables for its run and deletes it
+'   again, also after an unexpected error. The last case leaves the
+'   outputs of a normal run. Use a development workbook only.
 '
 ' STATE OWNERSHIP
 '   Sets calculation mode, events and screen updating to known values for
@@ -43,7 +45,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -59,7 +61,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 18   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 20   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -68,6 +70,7 @@ Attribute VB_Name = "TEST_MainState"
         Private mCheckCount     As Long      'Checks evaluated
         Private mFailureCount   As Long      'Failed checks and unexpected errors
         Private mCurrentCase    As String    'Case being run, for messages
+        Private mParamsRunLine  As String    'Result line of the unshifted Params run
 
 
 '
@@ -141,6 +144,8 @@ Public Sub RunMainStateTests()
         CaseProtectedOutput SH_BUCKETS, SH_RESULTS
         CaseProtectedOutput SH_TRADECALC, SH_RESULTS, True
         CaseStaleResults
+        CaseStaleParams False
+        CaseStaleParams True
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -786,6 +791,171 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseStaleParams( _
+    ByVal shifted As Boolean)
+'
+'==============================================================================
+'                               CaseStaleParams
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a run, an edit to the Regimes field of a factor, to a parameter
+'   value or to an FX rate makes the results STALE and Results C5 OUT OF
+'   DATE, and undoing it makes them CURRENT again; a changed parameter
+'   description or cell colour leaves them CURRENT (#152). With shifted
+'   True a column is first inserted before the Params tables, which moves
+'   every Params input and workbook name one column to the right, as the
+'   issue describes; the run must then give the same result line,
+'   fingerprint included, as the unshifted run, and the column is deleted
+'   again at the end.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws           As Worksheet    'Params sheet
+    Dim inserted     As Boolean      'The extra column is on Params
+    Dim result       As String       'Result line of the run
+    Dim sfCol        As Long         'Table column of the factor keys
+    Dim fxCol        As Long         'Table column of the FX currencies
+    Dim descCell     As Range        'Description edited, Nothing once restored
+    Dim descSaved    As Variant      'Its formula
+    Dim colorCell    As Range        'Cell recoloured, Nothing once restored
+    Dim colorSaved   As Variant      'Its fill colour
+
+'------------------------------------------------------------------------------
+' LAYOUT AND RUN
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase IIf(shifted, "results.stale-params-shifted", "results.stale-params")
+        SetState xlCalculationAutomatic, False, False
+        Set ws = GetSheet(SH_PARAMS)
+        If shifted Then
+            ws.Columns(COL_OFFSET + 1).Insert
+            inserted = True
+        End If
+        sfCol = NamedTableCol(NM_SF_TABLE)
+        fxCol = NamedTableCol(NM_FX_TABLE)
+        Check sfCol = IIf(shifted, 2, 1), "factor table in table column " & sfCol
+        result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus() & " (" & result & ")"
+        CheckStatusCell "Results current", "after a run"
+        If shifted Then
+            Check result = mParamsRunLine, "shifted run differs: " & result & " | unshifted: " & mParamsRunLine
+        Else
+            mParamsRunLine = result
+        End If
+
+'------------------------------------------------------------------------------
+' INPUTS: STALE, THEN CURRENT AGAIN
+'------------------------------------------------------------------------------
+    'Regimes is the eighth factor column: K once shifted, outside the
+    'C:J block fingerprinted before #152.
+        EditAndUndo TableCell(ws, NamedRow(NM_SF_TABLE) + 1, sfCol + 7), "factor Regimes"
+        EditAndUndo NamedCell(PRM_ALPHA), "parameter Alpha"
+        EditAndUndo TableCell(ws, NamedRow(NM_FX_TABLE) + 1, fxCol + 2), "FX rate"
+
+'------------------------------------------------------------------------------
+' NOT INPUTS: STILL CURRENT
+'------------------------------------------------------------------------------
+    'The description beside a parameter code, then a fill colour.
+        Set descCell = TableCell(ws, NamedRow(PRM_ALPHA), ParamsCodeCol() + 1)
+        descSaved = descCell.Formula
+        descCell.Value = SafeStr(descCell.Value) & " (edited)"
+        Check M_Main.ResultsStatus() = "CURRENT", "after a description edit: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a description edit"
+        descCell.Formula = descSaved
+        Set descCell = Nothing
+        Set colorCell = NamedCell(PRM_ALPHA)
+        colorSaved = colorCell.Interior.Color
+        colorCell.Interior.Color = RGB(255, 0, 0)
+        Check M_Main.ResultsStatus() = "CURRENT", "after a colour change: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a colour change"
+        colorCell.Interior.Color = colorSaved
+        Set colorCell = Nothing
+
+'------------------------------------------------------------------------------
+' RESTORE THE LAYOUT
+'------------------------------------------------------------------------------
+        If inserted Then
+            ws.Columns(COL_OFFSET + 1).Delete
+            inserted = False
+            Check NamedTableCol(NM_SF_TABLE) = 1, "factor table not back in table column 1"
+            Check M_Main.ResultsStatus() = "CURRENT", "after deleting the column: " & M_Main.ResultsStatus()
+        End If
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+    'Undo whatever is still changed: the description, the colour, the
+    'inserted column.
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not descCell Is Nothing Then descCell.Formula = descSaved
+        If Not colorCell Is Nothing Then colorCell.Interior.Color = colorSaved
+        If inserted Then ws.Columns(COL_OFFSET + 1).Delete
+        If Err.Number <> 0 Then
+            Fail mCurrentCase, "could not restore Params: " & Err.Description
+        End If
+
+End Sub
+
+
+Private Sub EditAndUndo( _
+    ByVal target As Range, _
+    ByVal what As String)
+'
+'==============================================================================
+'                                 EditAndUndo
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Change an input cell, check that the results are STALE and Results C5
+'   says OUT OF DATE, put the cell back, and check that they are CURRENT
+'   again. A number is raised by 1; any other value gets an X appended.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim saved   As Variant    'The cell's formula
+
+'------------------------------------------------------------------------------
+' EDIT AND UNDO
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        saved = target.Formula
+        If VarType(target.Value2) = vbDouble Then
+            target.Value = target.Value2 + 1#
+        Else
+            target.Value = SafeStr(target.Value2) & "X"
+        End If
+        Check M_Main.ResultsStatus() = "STALE", what & " edited: " & M_Main.ResultsStatus()
+        CheckStatusCell "OUT OF DATE", what & " edited"
+        target.Formula = saved
+        Check M_Main.ResultsStatus() = "CURRENT", what & " restored: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", what & " restored"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail mCurrentCase, what & ": unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell target, saved
+
+End Sub
+
+
 Private Sub CheckStatusCell( _
     ByVal expectedStart As String, _
     ByVal moment As String)
@@ -826,14 +996,15 @@ Private Sub RestoreCell( _
 '                                 RestoreCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Put back an input cell edited by CaseStaleResults after an unexpected
-'   error.
+'   Put back an input cell edited by CaseStaleResults or EditAndUndo after
+'   an unexpected error.
 '
 ' ERROR POLICY
-'   Contained: a failure is reported as a test failure.
+'   Contained: a failure is reported as a test failure of the current
+'   case.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
         On Error GoTo Failed
@@ -843,7 +1014,7 @@ Private Sub RestoreCell( _
         Exit Sub
 
 Failed:
-        Fail "results.stale-after-input-change", "could not restore the edited input: " & Err.Description
+        Fail mCurrentCase, "could not restore the edited input: " & Err.Description
 
 End Sub
 

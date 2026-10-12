@@ -79,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -4035,22 +4035,27 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fingerprint everything a run reads: the NettingSets and Trades input
-'   rows (without the unread Comment column) and Params columns A to H,
-'   which hold the parameters and the factor and FX tables (#36).
+'   rows (without the unread Comment column) and the Params inputs,
+'   located through the workbook names wherever the layout has moved them
+'   (ParamsText) (#36, #152).
 '
 ' RETURNS
 '   An 8-digit hexadecimal fingerprint (CORE_Util.TextHash). Equal
 '   fingerprints mean the inputs are, all but certainly, unchanged.
 '
+' ERROR POLICY
+'   Raises ERR_PARAMS_LAYOUT when a Params name is missing, broken or not
+'   on Params: a fingerprint of fixed columns could miss an edit, so none
+'   is given.
+'
 ' UPDATED
-'   2026-10-07
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Const PARAMS_COLS As Long = 8    'Params columns A to H
     Dim parts(1 To 3)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
@@ -4058,8 +4063,104 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
         parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
         parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
-        parts(3) = BlockText(GetSheet(SH_PARAMS), 1, PARAMS_COLS)
+        parts(3) = ParamsText()
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
+
+End Function
+
+
+Private Function ParamsText() As String
+'
+'==============================================================================
+'                                  ParamsText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the Params inputs of a run as one text, located through the
+'   workbook names as the run locates them: the value of each parameter's
+'   named cell, the "Code" and "Value" columns (ValidateSchema reads them
+'   for repeated codes), and the factor and FX tables, each to its last
+'   row with a value or to the row above the other table when that follows
+'   (LoadSFTable, LoadFXTable). Other cells, such as descriptions and
+'   references, are left out.
+'
+' ERROR POLICY
+'   Raises ERR_PARAMS_LAYOUT when a name is missing or broken, or when one
+'   of the four layout names is not on Params.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws         As Worksheet    'Params sheet
+    Dim nameList   As Variant      'Layout names, then parameter codes
+    Dim i          As Long         'Index into nameList
+    Dim c          As Range        'A name's top-left cell
+    Dim pieces()   As String       'Parameters, then the blocks
+    Dim k          As Long         'Position in pieces
+    Dim sfRow      As Long         'Header row of the factor table
+    Dim fxRow      As Long         'Header row of the FX table
+    Dim sfLast     As Long         'Last row of the factor block; 0 = last used
+    Dim fxLast     As Long         'Last row of the FX block; 0 = last used
+
+'------------------------------------------------------------------------------
+' CHECK THE LAYOUT NAMES
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_PARAMS)
+        nameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(nameList) To UBound(nameList)
+            Set c = NamedCell(CStr(nameList(i)))
+            If c Is Nothing Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' is missing or no longer refers to a cell."
+            ElseIf c.Worksheet.Name <> ws.Name Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' must refer to a cell on " & SH_PARAMS & "."
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' PARAMETERS
+'------------------------------------------------------------------------------
+    'Code=value of each named cell, in the order of ParameterCodes.
+        nameList = ParameterCodes()
+        ReDim pieces(1 To UBound(nameList) - LBound(nameList) + 5)
+        For i = LBound(nameList) To UBound(nameList)
+            Set c = NamedCell(CStr(nameList(i)))
+            If c Is Nothing Then
+                Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
+                          nameList(i) & "' is missing or no longer refers to a cell."
+            End If
+            k = k + 1
+            If IsError(c.Value2) Then
+                pieces(k) = nameList(i) & "=#ERR"
+            Else
+                pieces(k) = nameList(i) & "=" & CStr(c.Value2)
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' COLUMNS AND TABLES
+'------------------------------------------------------------------------------
+    'A table stops above the other one when that follows it, as the
+    'loaders stop; otherwise at its last row with a value.
+        sfRow = NamedRow(NM_SF_TABLE)
+        fxRow = NamedRow(NM_FX_TABLE)
+        If fxRow > sfRow Then
+            sfLast = fxRow - 1
+        ElseIf sfRow > fxRow Then
+            fxLast = sfRow - 1
+        End If
+        pieces(k + 1) = BlockText(ws, 1, 1, ParamsCodeCol())
+        pieces(k + 2) = BlockText(ws, 1, 1, ParamsValueCol())
+        pieces(k + 3) = BlockText(ws, sfRow + 1, UBound(Split(SF_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_SF_TABLE), sfLast)
+        pieces(k + 4) = BlockText(ws, fxRow + 1, UBound(Split(FX_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_FX_TABLE), fxLast)
+        ParamsText = Join(pieces, Chr$(30))
 
 End Function
 
@@ -4067,7 +4168,9 @@ End Function
 Private Function BlockText( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
-    ByVal nCols As Long) _
+    ByVal nCols As Long, _
+    Optional ByVal firstCol As Long = 1, _
+    Optional ByVal lastRow As Long = 0) _
     As String
 '
 '==============================================================================
@@ -4078,16 +4181,21 @@ Private Function BlockText( _
 '   last row with a value. Blank rows below it are left out, so that a
 '   used range that grew without new values does not change the text.
 '
+' INPUTS
+'   firstCol: the block's first table column, as TableCell counts it.
+'   lastRow: the last row to read; 0 for the last used row.
+'
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR    As Long        'Last used row
-    Dim data     As Variant     'Cell values, Value2 (dates as serials)
+    Dim lastR    As Long        'Last row read
+    Dim block    As Variant     'Cell values, Value2 (dates as serials)
+    Dim data     As Variant     'The same as a 2-D array, also for one cell
     Dim nRows    As Long        'Rows up to the last with a value
     Dim pieces() As String      'One text per cell
     Dim r        As Long        'Row of data
@@ -4101,10 +4209,19 @@ Private Function BlockText( _
             Exit Function
         End If
         lastR = UsedLastRow(ws)
+        If lastRow > 0 And lastRow < lastR Then
+            lastR = lastRow
+        End If
         If lastR < firstRow Then
             Exit Function
         End If
-        data = TableRange(ws, firstRow, 1, lastR, nCols).Value2
+        block = TableRange(ws, firstRow, firstCol, lastR, firstCol + nCols - 1).Value2
+        If IsArray(block) Then
+            data = block
+        Else
+            ReDim data(1 To 1, 1 To 1)
+            data(1, 1) = block
+        End If
         For r = UBound(data, 1) To 1 Step -1
             If RowHasData(data, r, nCols, 0) Then
                 nRows = r
