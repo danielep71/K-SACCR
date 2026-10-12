@@ -4,7 +4,8 @@ Synchronize repository VBA source into an existing local SACCR .xlsm workbook.
 
 .DESCRIPTION
 Updates VBA code only, from src\core, src\modules, src\workbook and
-tests\modules, so the workbook holds every engine and test module. Standard
+tests\modules, so the workbook holds every engine and test module, or only
+from the modules in -SourceDir (see the second example). Standard
 modules are replaced from source. ThisWorkbook and worksheet document modules
 keep their workbook objects and only their code text is replaced. The script
 does not write cells, formulas, names, formatting, tables, worksheets, or
@@ -18,6 +19,18 @@ workbook structure.
 
 .EXAMPLE
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm"
+
+.EXAMPLE
+.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
+
+With -SourceDir, only the modules found in that folder are imported, for
+example modules downloaded for a test, without copying them into the
+repository. A file is taken only when its VB_Name is a component of the
+repository source, so other files in the folder are ignored; when several
+files carry the same VB_Name (for example "CORE_Engine (1).bas"), the newest
+is taken. The script lists the files and asks for confirmation unless -Force
+is given, converts their line endings to CRLF and imports them. Every other
+module in the workbook is left as it is.
 #>
 
 [CmdletBinding()]
@@ -33,7 +46,13 @@ param(
     [switch]$NoBackup,
 
     [Parameter(Mandatory = $false)]
-    [switch]$Visible
+    [switch]$Visible,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SourceDir,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Force
 )
 
 Set-StrictMode -Version Latest
@@ -98,6 +117,91 @@ function Get-VbaCodeBody {
     }
 
     return [string]::Join([Environment]::NewLine, $lines)
+}
+
+function Copy-WithCrlf {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourcePath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    # ISO-8859-1 maps every byte to one character and back, so the cp1252
+    # bytes of an exported module are kept exactly; only line endings change.
+    $encoding = [System.Text.Encoding]::GetEncoding(28591)
+    $text = $encoding.GetString([System.IO.File]::ReadAllBytes($SourcePath))
+    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n").Replace("`n", "`r`n")
+    [System.IO.File]::WriteAllBytes($TargetPath, $encoding.GetBytes($text))
+}
+
+function Select-FolderSources {
+    param(
+        [Parameter(Mandatory = $true)][string]$FolderPath,
+        [Parameter(Mandatory = $true)][hashtable]$RepositoryNames,
+        [Parameter(Mandatory = $true)][string]$StagePath
+    )
+
+    $picked = @{}
+    $ignored = New-Object System.Collections.Generic.List[string]
+    $candidates = @(
+        Get-ChildItem -LiteralPath $FolderPath -File |
+            Where-Object { $_.Extension.ToLowerInvariant() -in @(".bas", ".cls", ".frm") }
+    )
+
+    foreach ($file in $candidates) {
+        $name = Get-VbaComponentName -SourcePath $file.FullName
+        $key = $name.ToLowerInvariant()
+        if (-not $RepositoryNames.ContainsKey($key)) {
+            $ignored.Add("$($file.Name) (VB_Name '$name' is not a repository component)")
+            continue
+        }
+
+        $repoExtension = [System.IO.Path]::GetExtension($RepositoryNames[$key]).ToLowerInvariant()
+        if ($file.Extension.ToLowerInvariant() -ne $repoExtension) {
+            $ignored.Add("$($file.Name) ('$name' is a $repoExtension component in the repository)")
+            continue
+        }
+
+        if ($picked.ContainsKey($key)) {
+            if ($file.LastWriteTime -gt $picked[$key].LastWriteTime) {
+                $ignored.Add("$($picked[$key].Name) (older copy of '$name')")
+                $picked[$key] = $file
+            }
+            else {
+                $ignored.Add("$($file.Name) (older copy of '$name')")
+            }
+        }
+        else {
+            $picked[$key] = $file
+        }
+    }
+
+    if ($picked.Count -eq 0) {
+        throw "No repository VBA module found in $FolderPath."
+    }
+
+    Write-Host "Modules to import from $FolderPath"
+    foreach ($key in ($picked.Keys | Sort-Object)) {
+        $file = $picked[$key]
+        Write-Host ("  {0,-26} {1,-34} {2:yyyy-MM-dd HH:mm}" -f (Get-VbaComponentName -SourcePath $file.FullName), $file.Name, $file.LastWriteTime)
+    }
+    if ($ignored.Count -gt 0) {
+        Write-Host "Ignored:"
+        foreach ($line in $ignored) { Write-Host "  $line" }
+    }
+    Write-Host ""
+
+    $null = New-Item -ItemType Directory -Path $StagePath -Force
+    $staged = @(
+        foreach ($key in ($picked.Keys | Sort-Object)) {
+            $file = $picked[$key]
+            $name = Get-VbaComponentName -SourcePath $file.FullName
+            $target = Join-Path $StagePath ($name + $file.Extension.ToLowerInvariant())
+            Copy-WithCrlf -SourcePath $file.FullName -TargetPath $target
+            Get-Item -LiteralPath $target
+        }
+    )
+
+    return $staged
 }
 
 function Find-VbaComponent {
@@ -246,6 +350,7 @@ $excel = $null
 $workbook = $null
 $saved = $false
 $backupPath = $null
+$stagePath = $null
 
 try {
     $workbookFullPath = Resolve-FullPath -PathValue $WorkbookPath
@@ -293,6 +398,29 @@ try {
         $seen[$key] = $file.FullName
     }
 
+    # -SourceDir: import only the repository modules found in that folder,
+    # after the user has seen the list. The repository source is used above
+    # only to know which component names are valid.
+    $sourceLabel = $repoFullPath
+    if (-not [string]::IsNullOrWhiteSpace($SourceDir)) {
+        $sourceDirFull = Resolve-FullPath -PathValue $SourceDir
+        if (-not (Test-Path -LiteralPath $sourceDirFull -PathType Container)) {
+            throw "SourceDir is not a folder: $sourceDirFull"
+        }
+
+        $stagePath = Join-Path ([System.IO.Path]::GetTempPath()) ("saccr-vba-sync-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+        $sourceFiles = @(Select-FolderSources -FolderPath $sourceDirFull -RepositoryNames $seen -StagePath $stagePath)
+        $sourceLabel = $sourceDirFull
+
+        if (-not $Force) {
+            $answer = Read-Host "Import these $($sourceFiles.Count) module(s) into the workbook? [Y/N]"
+            if ($answer -notmatch '^\s*(y|yes|s|si)\s*$') {
+                Write-Host "Cancelled: the workbook was not changed."
+                exit 2
+            }
+        }
+    }
+
     if (-not $NoBackup) {
         $directory = [System.IO.Path]::GetDirectoryName($workbookFullPath)
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($workbookFullPath)
@@ -306,6 +434,7 @@ try {
 
     Write-Host "Workbook:   $workbookFullPath"
     Write-Host "Repository: $repoFullPath"
+    Write-Host "Source:     $sourceLabel"
     Write-Host "Sources:    $($sourceFiles.Count)"
     Write-Host ""
 
@@ -396,6 +525,11 @@ catch {
     exit 1
 }
 finally {
+    if (-not [string]::IsNullOrWhiteSpace($stagePath) -and
+        (Test-Path -LiteralPath $stagePath -PathType Container)) {
+        try { Remove-Item -LiteralPath $stagePath -Recurse -Force } catch {}
+    }
+
     if ($null -ne $workbook) {
         try { $workbook.Close($false) } catch {}
         try {

@@ -40,13 +40,35 @@ the workbook works in Excel.
 local `.xlsm` development workbook without intentionally changing worksheets,
 cells, formulas, names, tables or formatting.
 
-For normal use on Windows, double-click `tools/Sync-SACCR-VBA.cmd`. The launcher asks for the full path of the local `.xlsm`, runs the PowerShell synchronizer, shows the result and pauses before closing. You can also drag an `.xlsm` file onto the `.cmd` file to avoid typing its path.
+For normal use on Windows, double-click `tools/Sync-SACCR-VBA.cmd`. The launcher uses the workbook path set in `DEFAULT_WORKBOOK` at the top of the file, runs the PowerShell synchronizer, shows the result and pauses before closing. Drag another `.xlsm` file onto the `.cmd` file to use that one instead.
 
 PowerShell remains available for direct use from the repository root:
 
 ```powershell
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
+
+To test modules received outside the repository, for example downloaded
+during a review, without copying them into the working tree, double-click
+`tools/Sync-SACCR-VBA-Downloads.cmd`. It asks for the folder (Enter for
+`%USERPROFILE%\Downloads`) and runs the synchronizer with `-SourceDir`:
+
+```powershell
+.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
+```
+
+In that mode only the modules found in the folder are imported; every other
+module in the workbook is left as it is. A file is taken only when its
+`VB_Name` is a component of the repository source, with the same extension,
+so other files in the folder are ignored. When several files carry the same
+`VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
+is taken. The script lists the chosen files with their dates and the ignored
+ones, and asks for confirmation (`-Force` skips it; answering no exits with
+code 2 and leaves the workbook unchanged). The chosen files are copied to a
+temporary folder with CRLF line endings, imported from there, and the copy
+is deleted afterwards. The repository files are never changed, so the
+working tree stays clean for merging. A later run of `Sync-SACCR-VBA.cmd`
+brings the workbook back to the repository source.
 
 The script reads `src/core/`, `src/modules/`, `src/workbook/` and
 `tests/modules/`, so the workbook holds the test suites as well. Standard
