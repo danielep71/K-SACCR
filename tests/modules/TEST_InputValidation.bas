@@ -37,9 +37,9 @@ Attribute VB_Name = "TEST_InputValidation"
 '   three letters A to Z, and an alpha override at or below zero; a
 '   remargining frequency of 0 is raised to daily with a warning. A run
 '   with the regulatory parameter set is REGULATORY, and one with a
-'   different alpha, a zero factor or an alpha override is WHAT-IF with the difference on Checks (#41); a
-'   DaysPerYear of 360 keeps it regulatory; a reporting-currency FX rate
-'   other than 1 stops the run.
+'   different alpha, a zero factor or an alpha override is WHAT-IF with
+'   the difference on Checks (#41); a DaysPerYear of 360 keeps it
+'   regulatory; a reporting-currency FX rate other than 1 stops the run.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
