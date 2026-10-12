@@ -18,9 +18,9 @@ Attribute VB_Name = "TEST_MainState"
 '
 ' DEPENDENCIES
 '   M_Main and its test seam gTestFault, the CORE_Engine test seam
-'   gEngineFault, and the error numbers in CORE_Config. The workbook must be
-'   built from the template with the full source, because the macros
-'   calculate and write the output sheets.
+'   gEngineFault, the error numbers in CORE_Config, and TEST_Suite.Say for
+'   the log lines. The workbook must be built from the template with the
+'   full source, because the macros calculate and write the output sheets.
 '
 ' WORKSHEET SAFETY
 '   Unlike TEST_Harness, this module runs the real macros: they clear and
@@ -118,7 +118,7 @@ Public Sub RunMainStateTests()
         callerEvents = Application.EnableEvents
         callerScreen = Application.ScreenUpdating
         callerSilent = M_Main.gSilent
-        Debug.Print "SACCR MAIN STATE TESTS"
+        TEST_Suite.Say "SACCR MAIN STATE TESTS"
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -163,8 +163,8 @@ Public Sub RunMainStateTests()
         If mCaseCount <> EXPECTED_CASES Then
             Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
         End If
-        Debug.Print "CASES=" & mCaseCount & "; CHECKS=" & mCheckCount & "; FAILURES=" & mFailureCount
-        Debug.Print "RESULT=" & IIf(mFailureCount = 0 And restored, "PASS", "FAIL") & _
+        TEST_Suite.Say "CASES=" & mCaseCount & "; CHECKS=" & mCheckCount & "; FAILURES=" & mFailureCount
+        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And restored, "PASS", "FAIL") & _
                     "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
                     "; failures=" & mFailureCount & "; caller_state=" & IIf(restored, "RESTORED", "CHANGED")
 
@@ -969,8 +969,15 @@ Private Sub CheckStatusCell( _
 '   Check that the status formula in Results C5 starts with expectedStart,
 '   after Excel has recalculated what changed.
 '
+' METHOD
+'   DoEvents first lets Excel process the recalculation that an edit or a
+'   changed workbook name has queued, as it does when a macro returns to a
+'   user; without it the cell could still show the previous state. The
+'   cell is not forced to recalculate, so the check still shows that Excel
+'   updates the status by itself.
+'
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -982,6 +989,7 @@ Private Sub CheckStatusCell( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
+        DoEvents
         Application.Calculate
         shown = SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
         Check Left$(shown, Len(expectedStart)) = expectedStart, _
@@ -1138,7 +1146,7 @@ Private Sub BeginCase( _
 '
         mCaseCount = mCaseCount + 1
         mCurrentCase = caseName
-        Debug.Print "CASE=" & caseName
+        TEST_Suite.Say "CASE=" & caseName
 
 End Sub
 
@@ -1227,6 +1235,6 @@ Private Sub Fail( _
 '==============================================================================
 '
         mFailureCount = mFailureCount + 1
-        Debug.Print "FAILURE=" & caseName & ": " & detail
+        TEST_Suite.Say "FAILURE=" & caseName & ": " & detail
 
 End Sub

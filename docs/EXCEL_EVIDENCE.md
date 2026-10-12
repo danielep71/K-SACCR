@@ -241,7 +241,9 @@ Keep non-passing bundles too until the finding is resolved.
   `TEST_Invariants.RunInvariantTests` and
   `TEST_Aggregation.RunAggregationTests`) are imported, but their results are
   not part of the record; report them separately (see
-  [running the harness](../INSTALLATION.md#running-the-harness)).
+  [running the harness](../INSTALLATION.md#running-the-harness)). The
+  summary of `TEST_Suite.Test_RunAll` is not a harness log: record
+  `TEST_Harness.RunTests` run on its own.
 - Keep logs free of credentials, client data and unredacted screenshots; see
   [`SECURITY.md`](../SECURITY.md#data-and-secrets).
 

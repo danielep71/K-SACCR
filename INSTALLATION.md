@@ -39,7 +39,7 @@ the VBA in `src/` (engine, worksheet functions, sheet macros) and
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness, the case runner and five suites; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness, the case runner, six suites and `TEST_Suite`, which runs them all; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | None |
 
@@ -181,6 +181,7 @@ The layout and file conventions are defined in
    | 11 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
    | 12 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
    | 13 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 14 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs` and `ClearOutputs`, so
    they work once `M_Main` is imported.
@@ -216,6 +217,18 @@ match the file name.
 <a id="running-the-harness"></a>
 
 ## ▶️ Running the harness
+
+To run every suite at once, type `Test_RunAll` in the Immediate window
+(**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
+`TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation` and
+`TEST_Invariants` in turn and prints only a summary: one line per suite with
+its verdict, counts and duration, the failure lines of a suite that failed,
+and a final line such as
+`RESULT=PASS; suites=7; passed=7; failed=0; seconds=...`. An error raised by
+a suite counts as its failure and the next suite still runs. The summary is
+not Excel evidence: the evidence record needs the full log of
+`TEST_Harness.RunTests` run on its own. Each suite below can also be run
+alone, with its full log.
 
 After importing the components above and compiling, open the Immediate
 window (**Ctrl+G**) and run:
