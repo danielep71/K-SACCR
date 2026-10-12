@@ -113,10 +113,10 @@ Each milestone closes through its own closeout issue; v0.0.1 closed in
 ## Current GitHub controls and limitations
 
 Observed for this personal repository on 2026-10-06; it has since been made
-public. During issue #2,
-the owner upgraded the account: GitHub's Licensing page now confirms
-**Current GitHub base plan: GitHub Pro**. The earlier Free-plan restriction is
-historical, not a current blocker. Availability and activation are distinct.
+public. During issue #2, the owner upgraded the account: GitHub's Licensing
+page now confirms **Current GitHub base plan: GitHub Pro**. The earlier
+Free-plan restriction is historical, not a current blocker. Availability and
+activation are distinct.
 
 | Control | Observed state and working response |
 | --- | --- |

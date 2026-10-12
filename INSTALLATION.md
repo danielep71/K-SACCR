@@ -418,11 +418,11 @@ and raises any failure instead of showing a message box. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there is no valid completed run. Results C5 shows the same
-status through the formula `=ResultsStatusText(...)`, which Excel recalculates
-when an input changes, and turns red when it reads `OUT OF DATE`. A formula,
-unlike a macro writing to the sheet, leaves Excel's Undo history intact. With
-calculation set to manual, press F9 to refresh it.
+changed since, and `NONE` when there is no valid completed run. Results C5
+shows the same status through the formula `=ResultsStatusText(...)`, which
+Excel recalculates when an input changes, and turns red when it reads
+`OUT OF DATE`. A formula, unlike a macro writing to the sheet, leaves Excel's
+Undo history intact. With calculation set to manual, press F9 to refresh it.
 
 <a id="validation-record"></a>
 

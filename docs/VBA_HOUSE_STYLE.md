@@ -22,11 +22,14 @@ prefixes for core, facade and test modules.
 | Core module (`src/core/`) | `CORE_` + subject | `CORE_Engine` |
 | Public API module (`src/modules/`) | `SACCR_` + subject | `SACCR_Formulas` |
 | Class (`src/classes/`) | `C` + noun | `CNettingSet` |
-| Workbook module (`src/workbook/`) | `ThisWorkbook`; sheets by code name `sh` + noun | `shInputs` |
+| Workbook module (`src/workbook/`) | `ThisWorkbook`; sheets by code name `sh` + noun | `shParams` |
 | Test module (`tests/`) | `TEST_` + subject | `TEST_Harness` |
 | Example module (`examples/`) | `Example` + subject | `ExampleSingleNettingSet` |
+| Worksheet function (`src/modules/`) | `SACCR_` + quantity; arguments use the regulatory symbols | `SACCR_ReplacementCost(V, C, ...)` |
 | Procedure | PascalCase verb phrase | `CalculateAddOn` |
 | Parameter, local variable | camelCase noun | `notionalAmount` |
+| Module-level variable | `m` + PascalCase | `mRunClass` |
+| Public variable | `g` + PascalCase | `gEngineFault` |
 | Constant | UPPER_SNAKE_CASE | `ALPHA_FACTOR` |
 | Enum type / member | `Saccr` + noun / short prefix + PascalCase | `SaccrAssetClass` / `acInterestRate` |
 
@@ -36,15 +39,16 @@ comment the first time.
 
 ## ⚙️ Module rules
 
-- Every module declares `Option Explicit`.
-- Every module in `src/core/` also declares `Option Private Module`. Both rules
-  are enforced by `tools/check_source.py`.
+- Every module declares `Option Explicit` (enforced by `tools/check_source.py`).
+- Every module in `src/core/` and `tests/modules/` declares
+  `Option Private Module` (enforced for `src/core/` by `tools/check_source.py`).
 - No `Option Base 1`: arrays are declared with explicit bounds
   (`Dim values(1 To n)`).
 - No `Variant` where a specific type works. Arguments are `ByVal` unless the
   procedure's contract is to write an output parameter.
 - No global mutable state in `src/core/`. Core procedures depend only on their
-  arguments.
+  arguments, except the engine imported from the prototype; see the
+  [known deviations](REPOSITORY_STRUCTURE.md#known-deviations).
 - A `Declare` statement, if ever needed, uses `PtrSafe` and `LongPtr`, because
   64-bit Excel is the primary target.
 
@@ -74,7 +78,9 @@ signature. Omit sections that are empty.
 - Time periods are `Double` in years unless the name says otherwise
   (`mporBusinessDays`). Dates are VBA `Date`.
 - Every numeric input states its valid domain, for example `notionalAmount >= 0`
-  or `0 < correlation <= 1`, and the facade rejects values outside it.
+  or `0 < correlation <= 1`. For an input with no meaningful result, the
+  facade's worksheet functions return a worksheet error value (`CVErr`) or
+  apply a documented floor.
 - The exact day-count, maturity and supervisory parameter conventions are part
   of the [methodology](methodology/README.md) and are cited in `REFERENCE` by
   source ID and locator, for example `CRR Article 275(1)`.
@@ -85,10 +91,11 @@ signature. Omit sections that are empty.
   `vbObjectError + 4095`, defined once in a core module and re-exposed by the
   facade when callers need them.
 - Raise with `Err.Raise number, source, description`. The source names the
-  procedure (`"SACCR.CalculateEad"`); the description states what was invalid
-  and the offending value.
-- The facade validates inputs and raises; the core may assume validated
-  arguments but still raises on internal impossibilities.
+  component and procedure (`"CORE_Engine.Calculate"`); the description states
+  what was invalid and the offending value.
+- The facade's worksheet functions do not raise: for inputs with no meaningful
+  result they return a worksheet error value (`CVErr`), or they apply a
+  documented floor. Macros and the engine raise.
 - `On Error Resume Next` is allowed only around a single statement whose error
   is checked on the next line, followed by `On Error GoTo 0` or the procedure's
   handler.
@@ -162,7 +169,7 @@ CleanUp:
         cleanupSucceeded = (Len(cleanupDetails) = 0)
         If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
         If Not cleanupSucceeded Then
-            Err.Raise ERR_CLEANUP, "SACCR.RunCalculation", cleanupDetails
+            Err.Raise ERR_CLEANUP, "M_Main.RunCalculation", cleanupDetails
         End If
         Exit Sub
 
@@ -206,11 +213,17 @@ Core procedures never change Excel state, so they need none of this.
 2. A full-width module banner: name, purpose, public surface, dependencies,
    state ownership, error policy, compatibility, updated date and author.
 3. `MODULE SETTINGS`: `Option Explicit`, plus `Option Private Module` in core.
-4. `MODULE CONSTANTS` and, outside core, `MODULE STATE` when needed.
+4. `MODULE CONSTANTS` and, outside core, `MODULE STATE` when needed; the
+   engine imported from the prototype is the exception (see the
+   [known deviations](REPOSITORY_STRUCTURE.md#known-deviations)).
 5. Centered, uppercase procedure-group headings, then the procedures.
 
 Banners use an apostrophe and 78 `=`; section rules an apostrophe and 78 `-`.
 Source decorations are ASCII only.
+
+Generated modules (`TEST_Cases`, written by `tools/generate_case_tests.py`) are
+exempt from the procedure and module banner rules; their header says they are
+generated and must not be edited by hand.
 
 ## 📐 Indentation and wrapping
 
@@ -249,16 +262,17 @@ Source decorations are ASCII only.
   `.frx` is binary and is never edited as text.
 - **Workbooks and other Office files** are build outputs, ignored by Git. One
   may be committed only at an exact path re-included in `.gitignore` and
-  approved in an issue.
+  approved in an issue. The one such path is
+  `src/workbook/SACCR_Template.xlsx`, which carries no VBA project or document
+  properties.
 
 ## 🔎 Review and validation
 
 - A formatting-only change must leave names, signatures, visibility, constants,
   calculations, tests and error behavior unchanged; a discovered defect goes in
   a separate change.
-- `python tools/check.py` must pass. It checks storage, naming, placement,
-  `Option Explicit` / `Option Private Module`, jump targets, conditional
-  compilation and the public-API manifest. It does not compile VBA.
+- `python tools/check.py` must pass. Its gates are listed in
+  [`tools/README.md`](../tools/README.md); it does not compile VBA.
 - Changed VBA is merged only after it has been compiled and tested in Excel, as
   described in [`CONTRIBUTING.md`](../CONTRIBUTING.md#validation-and-evidence).
 

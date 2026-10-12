@@ -186,7 +186,8 @@ It needs a fine-grained personal access token with `Administration: read` on
 this repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
 without it the run fails with a clear error. The badge files it writes under
 `data/badges/` are shields.io endpoint files that a README can use, since the
-repository is public. This is analytics, not CI: it runs no repository code and must never be extended to.
+repository is public. This is analytics, not CI: it runs no repository code
+and must never be extended to.
 
 ## Dependency updates
 

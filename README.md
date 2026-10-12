@@ -40,10 +40,10 @@ are listed under Unreleased in the [changelog](CHANGELOG.md). The engine
 computes EAD under EU CRR and Basel CRE52 and classifies each run as
 REGULATORY or WHAT-IF. It is checked in Excel by the regression suites in
 [`tests/modules/`](tests/README.md). Only the published CRE99 examples (T01 to
-T14) are independent references; the other expected values are illustrative
-(#100). SACCR uses the **application** profile: the deliverable is a workbook
-built from the exported source, around a host-independent calculation core
-([repository structure](docs/REPOSITORY_STRUCTURE.md)).
+T14) are references independent of this code; the other expected values are
+illustrative (#100). SACCR uses the **application** profile: the deliverable
+is a workbook built from the exported source, around a host-independent
+calculation core ([repository structure](docs/REPOSITORY_STRUCTURE.md)).
 
 ## 🌿 Development
 

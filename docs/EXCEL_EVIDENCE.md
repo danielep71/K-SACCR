@@ -35,7 +35,7 @@ the logs it cites. The record binds:
 | Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, entry point, ordered cases, assertion count, expected-error cases and required references |
 | Environment | Excel version and build, Office bitness, Windows version and architecture, VBA runtime, references, macro policy and VBA-project access as found, and `trust_changes: false` |
 | Logs | Each cited log's SHA-256; a log changed after the record was written fails |
-| Harness | For a passing regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
+| Harness | For a passing or failed regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
 
 Source digests are of the bytes **stored in Git (LF)**, not of the CRLF files
 in a Windows checkout, so do not compute them with `Get-FileHash`. Print them
@@ -80,8 +80,10 @@ clone, to print the inventory and validate the bundle.
 4. **Build the workbook** exactly as in
    [Importing VBA into Excel](../INSTALLATION.md#importing-vba-into-excel): the
    template from this checkout saved as `.xlsm` outside the checkout, the four
-   default references, the components imported in order from this checkout,
-   then **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
+   default references, every VBA component the `--inventory` output lists (all
+   of `src/` and `tests/modules/`) imported in order from this checkout, with
+   the document modules pasted as `INSTALLATION.md` describes, then
+   **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
    listed in **Tools → References** and the compile result.
 5. **Run the harness once.** Clear the Immediate window (**Ctrl+G**, then
    **Ctrl+A**, **Delete**), run `TEST_Harness.RunTests`, and copy the whole
@@ -182,6 +184,13 @@ Rules the validator applies:
   includes the assertion that an invalid CDO tranche returns `#NUM!`; it is not
   a separate observation.
 - If the harness reports `cleanup=FAIL`, the cleanup stage must be `FAIL`.
+- `environment.os` must start with Windows, and `office_bitness` must be
+  exactly `32-bit` or `64-bit`.
+- Every other environment string must be nonempty.
+- `started_at` and `finished_at` must carry a UTC offset, and the finish may
+  not precede the start.
+- Log paths must be relative, stay inside the bundle and not pass through a
+  symbolic link.
 
 When Excel was not run, use the same identity and time fields with
 `"execution": "unavailable"`, a nonempty `availability_reason`, `operator`,
@@ -225,6 +234,13 @@ Keep non-passing bundles too until the finding is resolved.
   workbook contained or authenticate the operator.
 - A pass covers the harness on the recorded host only. It does not validate any
   SA-CCR number or any other Excel version.
+- Only `TEST_Harness.RunTests` is bound by the record. The other suites
+  (`TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
+  `TEST_InputValidation.RunInputValidationTests`,
+  `TEST_Invariants.RunInvariantTests` and
+  `TEST_Aggregation.RunAggregationTests`) are imported, but their results are
+  not part of the record; report them separately (see
+  [running the harness](../INSTALLATION.md#running-the-harness)).
 - Keep logs free of credentials, client data and unredacted screenshots; see
   [`SECURITY.md`](../SECURITY.md#data-and-secrets).
 
