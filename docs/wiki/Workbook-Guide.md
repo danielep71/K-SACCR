@@ -42,7 +42,7 @@ rule it implements. A row holds the function's inputs in yellow cells (E:K),
 with data validation giving each argument's meaning, range and rule,
 Expected computes the rule with Excel's own functions from the same inputs,
 and Function calls the VBA; the row passes when they differ by at most the
-tolerance in D5 (workbook name `FormulaTest_Tolerance`, default 0.001%)
+tolerance in E5 (workbook name `FormulaTest_Tolerance`, default 0.001%)
 times max(1, |Expected|). Changing an input tests the function on new
 values; the test name describes the inputs shipped with the template, and
 the Rule column cites the source.
