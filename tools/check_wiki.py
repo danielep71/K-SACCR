@@ -68,6 +68,8 @@ def validate_catalogue(root: Path, data: dict[str, Any], files: set[str]) -> Non
     require(len(set(names)) == len(names), "duplicate Wiki page names")
     require(all(re.fullmatch(r"[A-Z][A-Za-z0-9-]*", n) for n in names), "unsafe Wiki page name")
     expected = {f"{WIKI}/{n}.md" for n in names} | {f"{WIKI}/_Sidebar.md"}
+    if f"{WIKI}/_Footer.md" in files:
+        expected.add(f"{WIKI}/_Footer.md")
     actual = {p for p in files if p.startswith(WIKI + "/") and p.endswith(".md")}
     require(expected == actual, "Wiki catalogue differs from source Markdown set: "
             + ", ".join(sorted(expected ^ actual)))
@@ -86,7 +88,8 @@ def validate_catalogue(root: Path, data: dict[str, Any], files: set[str]) -> Non
                 f"authority notice does not link registered authority: {name}")
 
 
-def render_page(text: str, page: str, names: set[str], repository: str, sha: str) -> str:
+def render_page(text: str, page: str, names: set[str], repository: str, sha: str,
+                provenance: bool = True) -> str:
     def link(match: re.Match[str]) -> str:
         target = match[1]
         if target.startswith(("https://", "http://", "mailto:", "#")):
@@ -104,19 +107,27 @@ def render_page(text: str, page: str, names: set[str], repository: str, sha: str
         suffix = separator + fragment if separator else ""
         return f'](https://github.com/{repository}/blob/{sha}/{"/".join(parts)}{suffix})'
     rendered = re.sub(r"\]\(([^\s)]+)\)", link, text)
+    if not provenance:
+        return rendered.rstrip() + "\n"
     url = f"https://github.com/{repository}/blob/{sha}/{WIKI}/{page}"
     return rendered.rstrip() + f"\n\n---\nPublished from [{sha}]({url}).\n"
 
 
-def bundle(root: Path, data: dict[str, Any], sha: str) -> dict[str, bytes]:
+def bundle(root: Path, data: dict[str, Any], sha: str, files: set[str]) -> dict[str, bytes]:
     require(re.fullmatch(r"[0-9a-f]{40}", sha) is not None, "source SHA must be a full commit")
     repository = repository_name(root)
     names = {str(p["name"]) for p in page_rows(data)}
     result: dict[str, bytes] = {}
-    for name in sorted(names | {"_Sidebar"}):
+    # The footer is published when tracked, the rule validate_catalogue applies.
+    # It is shown under every page, which already carries its own provenance line.
+    special = {"_Sidebar"}
+    if f"{WIKI}/_Footer.md" in files:
+        special.add("_Footer")
+    for name in sorted(names | special):
         page = name + ".md"
         source = (root / WIKI / page).read_text(encoding="utf-8")
-        result[page] = render_page(source, page, names, repository, sha).encode("utf-8")
+        rendered = render_page(source, page, names, repository, sha, provenance=name != "_Footer")
+        result[page] = rendered.encode("utf-8")
     record = {"schema_version": 1, "repository": repository, "source_sha": sha,
               "pages": {p: hashlib.sha256(b).hexdigest() for p, b in sorted(result.items())}}
     result["Wiki-Source.json"] = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode()
@@ -161,7 +172,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             sha = git_text(root, "rev-parse", "HEAD", check=True).stdout.strip()
             require(not git_text(root, "status", "--porcelain", check=True).stdout,
                     "Wiki publication requires a clean committed source tree")
-            expected = bundle(root, data, sha)
+            expected = bundle(root, data, sha, files)
             if args.export_dir:
                 write_bundle(expected, args.export_dir, root)
             if args.published_dir:

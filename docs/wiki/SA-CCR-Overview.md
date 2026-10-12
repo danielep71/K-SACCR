@@ -8,9 +8,9 @@ The **Standardized Approach for Counterparty Credit Risk (SA-CCR)** is the Basel
 regulatory framework for determining the **exposure at default (EAD)** of
 derivative transactions and long-settlement transactions.
 
-It is a **non-modelled, standardized exposure methodology**. Rather than relying
+It is a **nonmodeled, standardized exposure methodology**. Rather than relying
 on an institution's internal exposure model, SA-CCR combines current exposure
-with a regulatory estimate of potential future exposure and recognises, subject
+with a regulatory estimate of potential future exposure and recognizes, subject
 to the applicable rules, netting, collateral and margining arrangements.
 
 Counterparty credit risk is the risk that a counterparty to a transaction
@@ -54,7 +54,7 @@ where:
 - **PFE** is potential future exposure.
 
 The calculation is performed at the relevant **netting-set** level. Transactions
-that are not covered by a recognised legally enforceable netting agreement are
+that are not covered by a recognized legally enforceable netting agreement are
 treated separately for exposure purposes.
 
 ## Replacement Cost (RC)
@@ -93,12 +93,12 @@ supervisory parameters. The calculation reflects factors such as:
 - regulatory correlations; and
 - permitted offsetting within and across defined groups.
 
-The multiplier can recognise over-collateralisation or a negative current
+The multiplier can recognize overcollateralization or a negative current
 mark-to-market, subject to the regulatory floor.
 
 ## Asset classes and hedging sets
 
-The Basel SA-CCR framework organises trades into five principal asset classes:
+The Basel SA-CCR framework organizes trades into five principal asset classes:
 
 1. interest rate;
 2. foreign exchange;
@@ -181,7 +181,7 @@ sources, including:
    authority; and
 5. reproducible execution in Excel tied to the exact source commit.
 
-Illustrative examples may demonstrate behaviour, but they do not count as
+Illustrative examples may demonstrate behavior, but they do not count as
 independent numerical validation.
 
 ## Current project boundary
@@ -189,18 +189,22 @@ independent numerical validation.
 The first release is focused on the **full SA-CCR** calculation needed for
 independent bank-calculation validation.
 
-Simplified SA-CCR, the Original Exposure Method (OEM), securities financing
-transactions, CVA capital and full RWA calculation remain outside the first
-release unless explicitly brought into scope and validated.
+Simplified SA-CCR, the Original Exposure Method (OEM), CCP exposure/default-fund treatment, securities financing transactions, CVA, and RWA are outside v1.0.0 and have separate future milestones.
 
 The detailed and authoritative project scope is maintained in
 [Methodology](../methodology/README.md).
+
+## Current delivery and evidence status
+
+The bank-comparison workflow is a project objective, not a completed feature; [#45](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/45) remains open. The engine is not yet a fully separated host-independent core ([#60](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/60)).
+
+Under decision 8, only published CRE99 checks support the v1.0.0 numerical-validation claim. CRR is implemented but not numerically validated under this policy. All other cases remain illustrative; independent second-source comparison is [#100](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/100).
 
 ## Regulatory references
 
 - **Basel Committee on Banking Supervision — Basel Framework, CRE52:
   Standardised approach to counterparty credit risk**\
-  https://www.bis.org/committees/bcbs/basel-framework/standard/cre?allChapters=true&chapter=50
+  https://www.bis.org/basel_framework/chapter/CRE/52.htm
 - **Basel Committee on Banking Supervision — CRE51:
   Counterparty credit risk overview**\
   https://www.bis.org/committees/bcbs/basel-framework/standard/cre/51/

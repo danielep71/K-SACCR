@@ -97,6 +97,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Wiki: seven guide pages (Getting Started, Regulatory Sources, Basel vs
+  CRR, How It Works, Worked Examples, Test Catalogue, Open Items and
+  Limitations) and a footer; the five existing pages are reconciled with
+  the current baseline. The Wiki check publishes `_Footer.md` when it is
+  tracked, without a provenance line of its own, since it shows under
+  every page.
 - Economic trades entered as legs (#38). Trades has two new columns before
   Comment: Economic trade ID (Z) and MtM leg (Y/N) (AA); Comment moves to AB.
   Each row is a leg with a unique Trade ID; rows sharing an Economic trade ID

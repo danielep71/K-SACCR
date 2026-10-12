@@ -6,8 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
-from check_wiki import compare_bundle, render_page, sidebar, validate_catalogue, write_bundle
+from check_wiki import bundle, compare_bundle, render_page, sidebar, validate_catalogue, write_bundle
 
 
 def fixture(root: Path) -> tuple[dict[str, Any], set[str]]:
@@ -28,6 +29,30 @@ class WikiTests(unittest.TestCase):
             root = Path(tmp)
             data, files = fixture(root)
             validate_catalogue(root, data, files)
+
+    def test_optional_footer_is_managed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data, files = fixture(root)
+            (root / "docs/wiki/_Footer.md").write_text("Footer", encoding="utf-8")
+            files.add("docs/wiki/_Footer.md")
+            validate_catalogue(root, data, files)
+            with patch("check_wiki.repository_name", return_value="owner/repo"):
+                result = bundle(root, data, "a" * 40, files)
+            self.assertIn("_Footer.md", result)
+            self.assertIn(b"_Footer.md", result["Wiki-Source.json"])
+            self.assertNotIn(b"Published from", result["_Footer.md"])
+            self.assertIn(b"Published from", result["Home.md"])
+
+    def test_untracked_footer_is_not_published(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data, files = fixture(root)
+            (root / "docs/wiki/_Footer.md").write_text("Footer", encoding="utf-8")
+            validate_catalogue(root, data, files)
+            with patch("check_wiki.repository_name", return_value="owner/repo"):
+                result = bundle(root, data, "a" * 40, files)
+            self.assertNotIn("_Footer.md", result)
 
     def test_unregistered_page_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

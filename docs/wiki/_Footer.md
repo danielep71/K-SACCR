@@ -1,0 +1,1 @@
+SA-CCR Benchmark · v1.0.0 under development · Windows Excel 64-bit target. Published Basel checks and illustrative regressions are distinct; CRR numerical certification is not claimed. See [Validation Approach](Validation-Approach.md) and [Open Items and Limitations](Open-Items-and-Limitations.md).

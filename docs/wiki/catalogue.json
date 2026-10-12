@@ -7,8 +7,18 @@
       "authority": "README.md"
     },
     {
+      "name": "Getting-Started",
+      "title": "Getting Started",
+      "authority": "INSTALLATION.md"
+    },
+    {
       "name": "SA-CCR-Overview",
       "title": "SA-CCR Overview",
+      "authority": "docs/methodology/README.md"
+    },
+    {
+      "name": "Regulatory-Sources",
+      "title": "Regulatory Sources",
       "authority": "docs/methodology/README.md"
     },
     {
@@ -17,14 +27,39 @@
       "authority": "docs/methodology/README.md"
     },
     {
-      "name": "Validation-Approach",
-      "title": "Validation Approach",
-      "authority": "tests/README.md"
+      "name": "Basel-vs-CRR",
+      "title": "Basel vs CRR",
+      "authority": "docs/methodology/README.md"
+    },
+    {
+      "name": "How-It-Works",
+      "title": "How It Works",
+      "authority": "docs/methodology/README.md"
     },
     {
       "name": "Workbook-Guide",
       "title": "Workbook Guide",
       "authority": "INSTALLATION.md"
+    },
+    {
+      "name": "Worked-Examples",
+      "title": "Worked Examples",
+      "authority": "docs/methodology/README.md"
+    },
+    {
+      "name": "Test-Catalogue",
+      "title": "Test Catalogue",
+      "authority": "tests/README.md"
+    },
+    {
+      "name": "Validation-Approach",
+      "title": "Validation Approach",
+      "authority": "tests/README.md"
+    },
+    {
+      "name": "Open-Items-and-Limitations",
+      "title": "Open Items and Limitations",
+      "authority": "docs/methodology/README.md"
     }
   ]
 }

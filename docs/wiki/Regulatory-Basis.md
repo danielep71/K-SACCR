@@ -1,24 +1,28 @@
-# Regulatory Basis
+# ⚖️ Regulatory Basis
 
-> **Guide, not policy:** [Methodology](../methodology/README.md) is the authority for source versions, scope decisions and regime differences.
+> **Guide, not policy:** [Methodology](../methodology/README.md) owns source versions, scope decisions, and regime differences.
 
-SA-CCR Benchmark supports two explicitly identified regimes:
+The project implements two explicitly identified regimes:
 
-- **CRR** — the EU Capital Requirements Regulation implementation and project baseline.
-- **BCBS** — Basel Framework CRE52, supported separately where rules or parameters differ.
+| Regime | Project role |
+| --- | --- |
+| CRR | EU implementation and default project baseline |
+| BCBS | Basel CRE52 implementation, with differences handled explicitly |
 
-Basel and CRR are not assumed to be identical. Confirmed differences are
-recorded in the methodology register before code or expected results depend on
-them.
+Results and test expectations must identify their regime. Do not relabel a Basel worked example as a published CRR result because the same numerical value happens to occur.
 
-The source hierarchy starts with authoritative regulatory texts: the CRR and
-applicable delegated acts for the EU regime, Basel Framework CRE52 for the Basel
-regime, and published BCBS worked examples where used as numerical references.
+## First-release boundary
 
-See the [regulatory source register](../methodology/README.md#source-register)
-for the exact versions and locators.
+The declared scope is full SA-CCR for supported portfolios. It does not include the complete prudential capital calculation. Simplified SA-CCR, OEM, CCP exposure/default-fund treatment, SFTs, CVA, and RWA have separate future milestones; see [Open Items and Limitations](Open-Items-and-Limitations.md).
 
-The first release focuses on **full SA-CCR** for independent validation of bank
-calculations. Simplified SA-CCR, the Original Exposure Method, SFT exposure, CVA
-capital and the complete RWA/capital calculation remain outside the first
-release unless explicitly brought into scope and validated.
+The support matrix distinguishes supported inputs, user-supplied classifications, and rejected structures. Margining and selected client-clearing MPOR inputs do not imply that the full CCP exposure/default-fund method is implemented.
+
+## Parameters and validity are different controls
+
+Reference set `CRE52-CRR-2026-10-09` is compared with parameter values, factor rows, and alpha overrides. Differences produce **WHAT-IF** and individual Checks entries. Matching calibration produces **REGULATORY**. The owner's policy treats `DaysPerYear` and `IRBucketOffset` as conventions for classification; regime-specific validity checks still apply.
+
+REGULATORY describes calibration of accepted results. It does not certify an entire submitted portfolio, validate withheld results, establish legal eligibility, or provide regulatory approval.
+
+## Validation boundary
+
+Published CRE99 checks support the limited Basel validation claim described in the methodology. CRR behavior and additional engineering cases remain illustrative under the accepted v1.0.0 policy. Independent second-source comparison is tracked in [#100](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/100).
