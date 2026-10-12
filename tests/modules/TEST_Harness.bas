@@ -16,8 +16,9 @@ Attribute VB_Name = "TEST_Harness"
 '   automation API.
 '
 ' DEPENDENCIES
-'   SACCR_Formulas and the built-in VBA/Excel object models only. No external
-'   references, workbook fixture, worksheet, donor project, or test framework.
+'   SACCR_Formulas, TEST_Suite.Say for its log lines, and the built-in
+'   VBA/Excel object models only. No external references, workbook fixture,
+'   worksheet, donor project, or test framework.
 '
 ' STATE OWNERSHIP
 '   Owns private counters, failure text, suite-completeness state, and a re-entry
@@ -141,7 +142,7 @@ Public Sub RunTests()
     'Refuse an active run before clearing its counters or failure details.
     'An interrupted execution must be reset explicitly by the caller.
         If mRunActive Then
-            Debug.Print "RESULT=FAIL_DIRTY_START; cleanup=NOT_RUN"
+            TEST_Suite.Say "RESULT=FAIL_DIRTY_START; cleanup=NOT_RUN"
             Err.Raise _
                 TEST_ERROR_DIRTY_START, _
                 "TEST_Harness.RunTests", _
@@ -271,7 +272,7 @@ Public Sub ResetTests()
     'confirmation distinguishes an explicit reset from a completed test run.
         ResetRun
         mInjectFailure = False
-        Debug.Print "SACCR TESTS RESET; run_active=no; counters=0; injection=off"
+        TEST_Suite.Say "SACCR TESTS RESET; run_active=no; counters=0; injection=off"
 
 End Sub
 
@@ -569,7 +570,7 @@ Private Sub BeginCase( _
     'Count a case when it starts, even if its first assertion later fails;
     'the matching log record identifies which case was reached.
         mCaseCount = mCaseCount + 1
-        Debug.Print "CASE=" & caseName
+        TEST_Suite.Say "CASE=" & caseName
 
 End Sub
 
@@ -905,9 +906,9 @@ Private Sub PrintEnvironment()
 '------------------------------------------------------------------------------
     'Write the preamble before the host fields so retained output can be
     'recognized and attributed to the environment that produced it.
-        Debug.Print "SACCR TESTS"
-        Debug.Print "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
-        Debug.Print "ENVIRONMENT=" & EnvironmentSummary()
+        TEST_Suite.Say "SACCR TESTS"
+        TEST_Suite.Say "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
+        TEST_Suite.Say "ENVIRONMENT=" & EnvironmentSummary()
 
 End Sub
 
@@ -1016,18 +1017,18 @@ Private Sub PrintSummary( _
 '------------------------------------------------------------------------------
     'Write the retained counts and cleanup first, then any diagnostics and
     'the final result record consumed by the evidence validator.
-        Debug.Print "CASES=" & CStr(mCaseCount)
-        Debug.Print "ASSERTIONS=" & CStr(mAssertionCount)
-        Debug.Print "FAILURES=" & CStr(mFailureCount)
-        Debug.Print "CLEANUP=" & IIf(cleanupPassed, "PASS", "FAIL") & _
+        TEST_Suite.Say "CASES=" & CStr(mCaseCount)
+        TEST_Suite.Say "ASSERTIONS=" & CStr(mAssertionCount)
+        TEST_Suite.Say "FAILURES=" & CStr(mFailureCount)
+        TEST_Suite.Say "CLEANUP=" & IIf(cleanupPassed, "PASS", "FAIL") & _
             "; detail=" & cleanupDetail
 
     'Omit the diagnostic record on a clean run; retain all details on failure.
         If Len(mFailureDetails) > 0 Then
-            Debug.Print "FAILURE_DETAILS=" & mFailureDetails
+            TEST_Suite.Say "FAILURE_DETAILS=" & mFailureDetails
         End If
 
-        Debug.Print _
+        TEST_Suite.Say _
             "RESULT=" & verdict & _
             "; completeness=" & IIf(mSuiteCompleted, "COMPLETE", "INCOMPLETE") & _
             "; cases=" & CStr(mCaseCount) & _

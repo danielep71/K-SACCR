@@ -18,9 +18,9 @@ Attribute VB_Name = "TEST_Formulas"
 '   of the external workbook automation API.
 '
 ' DEPENDENCIES
-'   SACCR_Formulas only. Expected values are hand calculations from the
-'   formulas in the functions' headers; they check the contract, not the
-'   regulation.
+'   SACCR_Formulas, and TEST_Suite.Say for the log lines. Expected values
+'   are hand calculations from the formulas in the functions' headers; they
+'   check the contract, not the regulation.
 '
 ' WORKSHEET SAFETY
 '   The last case adds a temporary worksheet, writes values and formulas
@@ -99,7 +99,7 @@ Public Sub RunFormulaTests()
         mCaseCount = 0
         mCheckCount = 0
         mFailureCount = 0
-        Debug.Print "SACCR FORMULA CONTRACT TESTS"
+        TEST_Suite.Say "SACCR FORMULA CONTRACT TESTS"
 
         CaseSupervisoryDuration
         CaseMaturityFactor
@@ -117,7 +117,7 @@ Public Sub RunFormulaTests()
         If mCheckCount <> EXPECTED_CHECKS Then
             Fail "suite", "expected " & EXPECTED_CHECKS & " checks, ran " & mCheckCount
         End If
-        Debug.Print "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
+        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
                     "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
                     "; failures=" & mFailureCount
 
@@ -564,7 +564,7 @@ Private Sub BeginCase( _
 '
         mCaseCount = mCaseCount + 1
         mCurrentCase = caseName
-        Debug.Print "CASE=" & caseName
+        TEST_Suite.Say "CASE=" & caseName
 
 End Sub
 
@@ -596,6 +596,6 @@ Private Sub Fail( _
 '==============================================================================
 '
         mFailureCount = mFailureCount + 1
-        Debug.Print "FAILURE=" & caseName & ": " & detail
+        TEST_Suite.Say "FAILURE=" & caseName & ": " & detail
 
 End Sub
