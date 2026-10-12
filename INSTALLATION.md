@@ -349,7 +349,11 @@ warning. It checks that a run with the regulatory parameters is classified
 `REGULATORY` and names the set in the run summary, that a DaysPerYear of 360
 keeps it regulatory, that a different alpha, a zero supervisory factor or an
 alpha override makes it `WHAT-IF` with the difference listed on Checks, and
-that a reporting-currency FX rate other than 1 stops the run. For economic
+that a reporting-currency FX rate other than 1 stops the run, as does a
+reporting currency that is not three letters A to Z (digits, punctuation,
+two or four letters, blank; lower case and spaces are accepted), and the
+remargining frequency at its bounds (0.5 and 10001 rejected, 10000 accepted
+with MPOR 10009). For economic
 trades entered as legs (#38) it checks a worked two-category example (an
 equity forward with an FX leg: RC 30, add-ons 3,200 and 400, EAD 5,082, and
 the economic-trade and leg counts), a call spread entered as two option legs,
@@ -359,7 +363,7 @@ linear legs, a whole trade flagged N and a flag that is not Y or N. Every
 patched cell and name is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=88; checks=119; failures=0; restore=PASS`.
+`RESULT=PASS; cases=97; checks=129; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

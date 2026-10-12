@@ -1278,14 +1278,16 @@ Private Function LoadParams() As Boolean
 '   False.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' REPORTING DATE AND CURRENCY
 '------------------------------------------------------------------------------
-    'Both are required: there is no sensible default.
+    'Both are required: there is no sensible default. The currency is three
+    'letters A to Z; case and surrounding spaces are ignored. Only the format
+    'is checked, not membership of ISO 4217 (#147).
         On Error GoTo Fail
         pAsOf = ToSerial(GetParam(PRM_ASOF))
         If pAsOf <= 0# Then
@@ -1295,6 +1297,11 @@ Private Function LoadParams() As Boolean
         pRepCcy = UTxt(GetParam(PRM_REPCCY))
         If Len(pRepCcy) = 0 Then
             LogMsg SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency missing."
+            Exit Function
+        End If
+        If Not pRepCcy Like "[A-Z][A-Z][A-Z]" Then
+            LogMsg SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency must be three letters A to Z, " & _
+                   "e.g. EUR (found " & DescribeValue(GetParam(PRM_REPCCY)) & ")."
             Exit Function
         End If
 

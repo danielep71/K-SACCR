@@ -32,11 +32,12 @@ Attribute VB_Name = "TEST_InputValidation"
 '   above 1, correlations that do not form a correlation matrix, an MPOR
 '   floor of 0, a fractional business-day count, a negative supervisory
 '   factor, a negative threshold or MTA, a remargining frequency or MPOR
-'   override that is not a whole number of business days in range, and an
-'   alpha override at or below zero; a remargining frequency of 0 is
-'   raised to daily with a warning. A run with the regulatory parameter
-'   set is REGULATORY, and one with a different alpha, a zero factor or an
-'   alpha override is WHAT-IF with the difference on Checks (#41); a
+'   override that is not a whole number of business days in range (0.5
+'   and 10001 rejected, 10000 accepted), a reporting currency that is not
+'   three letters A to Z, and an alpha override at or below zero; a
+'   remargining frequency of 0 is raised to daily with a warning. A run
+'   with the regulatory parameter set is REGULATORY, and one with a
+'   different alpha, a zero factor or an alpha override is WHAT-IF with the difference on Checks (#41); a
 '   DaysPerYear of 360 keeps it regulatory; a reporting-currency FX rate
 '   other than 1 stops the run.
 '
@@ -78,8 +79,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 88                'Cases in a complete run
-        Private Const CHECKS      As Long = 119                'Checks in a complete run
+        Private Const CASES       As Long = 97                'Cases in a complete run
+        Private Const CHECKS      As Long = 129                'Checks in a complete run
 
 
 '
@@ -510,6 +511,18 @@ Public Sub RunInputValidationTests()
         ExpectMPOR 10
         TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "daily remargining (1 BD) used", "illustrative"
 
+    'Remargining boundaries (#147): half a day is not a whole number, 10000
+    'is the highest accepted frequency (MPOR 10 + 10000 - 1), 10001 is above
+    'it.
+        StartMarginedCase "netting-set-remargin-half-day", "CRR", "N", "0.5", "N", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+
+        StartMarginedCase "netting-set-remargin-upper-bound", "CRR", "N", "10000", "N", "N"
+        ExpectMPOR 10009
+
+        StartMarginedCase "netting-set-remargin-above-bound", "CRR", "N", "10001", "N", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+
     'Regulatory or what-if run (#41): a run whose parameters, factor table
     'and alpha overrides equal the regulatory set is REGULATORY and names
     'the set in the run summary; any difference makes it WHAT-IF and is
@@ -554,6 +567,27 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EUR"), TableCol(NM_FX_TABLE, 3), 0.9
         ExpectStop "Rate of the reporting currency must be 1"
+
+    'Reporting currency format (#147): three letters A to Z, case and
+    'surrounding spaces ignored. Written by VBA, so the worksheet validation
+    'does not stop them; the format is checked, not ISO membership.
+        StartReportingCcyCase "reporting-currency-digit", "E1R"
+        ExpectStop "Reporting currency must be three letters"
+
+        StartReportingCcyCase "reporting-currency-punctuation", "EU-"
+        ExpectStop "Reporting currency must be three letters"
+
+        StartReportingCcyCase "reporting-currency-four-letters", "EURO"
+        ExpectStop "Reporting currency must be three letters"
+
+        StartReportingCcyCase "reporting-currency-two-letters", "EU"
+        ExpectStop "Reporting currency must be three letters"
+
+        StartReportingCcyCase "reporting-currency-blank", ""
+        ExpectStop "Reporting currency missing"
+
+        StartReportingCcyCase "reporting-currency-lower-case", " eur "
+        ExpectStatus "VALID"
 
     'Economic trades and legs (#38). Legs sharing an Economic trade ID form
     'one economic trade; exactly one leg, the MtM leg, carries its MtM and
@@ -792,6 +826,28 @@ Private Sub ExpectRunClass( _
 '
         TEST_CaseRunner.ExpectTrue "run-class", CORE_Engine.RunClass = expected, _
                                    "run class " & CORE_Engine.RunClass & ", expected " & expected, "illustrative"
+
+End Sub
+
+
+Private Sub StartReportingCcyCase( _
+    ByVal caseId As String, _
+    ByVal code As String)
+'
+'==============================================================================
+'                            StartReportingCcyCase
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Start a CRR case with one swap and the reporting currency written as
+'   code, bypassing the worksheet validation.
+'
+' UPDATED
+'   2026-10-12
+'==============================================================================
+'
+        StartCase caseId, "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REPCCY), ParamsValueCol(), code
 
 End Sub
 

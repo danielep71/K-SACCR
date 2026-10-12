@@ -480,6 +480,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The reporting currency must be three letters A to Z, in the engine and
+  in the Params validation; case and surrounding spaces are ignored (#147).
+  The engine accepted any non-empty code, such as `E1R`, and added it to the
+  FX table at rate 1. Only the format is checked, not ISO 4217 membership.
+  `TEST_InputValidation` covers digits, punctuation, two and four letters,
+  blank and lower case, and the remargining frequency at 0.5, 10000 and
+  10001: 97 cases and 129 checks.
 - The engine checks the ranges that the data validation on Params and
   NettingSets states, so a pasted or VBA-written value can no longer bypass
   them (#147). A multiplier floor outside 0 to below 1 (a floor of 1 divided
