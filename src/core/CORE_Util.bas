@@ -239,8 +239,9 @@ Public Function ToSerial( _
 '
 ' INPUTS
 '   v: a date, a number already holding a serial, or text in the ISO form
-'      yyyy-mm-dd. Other text, such as 31/03/2027 or 03/31/2027, is not
-'      read: its meaning depends on the Windows regional settings (#40).
+'      yyyy-mm-dd. Other text, such as 31/03/2027, 03/31/2027 or a serial
+'      written as text, is not read: its meaning depends on the Windows
+'      regional settings (#40).
 '
 ' RETURNS
 '   The date serial as a Double; -1 when v is missing or not a date.
@@ -263,13 +264,13 @@ Public Function ToSerial( _
 ' CONVERT
 '------------------------------------------------------------------------------
     'Start from the "missing" marker and replace it only when v is usable.
+    'Text is tested before numbers: IsNum accepts numeric text such as
+    '"47756", which is not a yyyy-mm-dd date.
         ToSerial = -1#
         If IsError(v) Or IsEmpty(v) Then
             Exit Function
         End If
         If VarType(v) = vbDate Then
-            ToSerial = CDbl(v)
-        ElseIf IsNum(v) Then
             ToSerial = CDbl(v)
         ElseIf VarType(v) = vbString Then
             s = Trim$(v)
@@ -288,6 +289,8 @@ Public Function ToSerial( _
             If Month(dt) = m And Day(dt) = d Then
                 ToSerial = CDbl(dt)
             End If
+        ElseIf IsNum(v) Then
+            ToSerial = CDbl(v)
         End If
 
 End Function

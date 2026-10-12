@@ -713,16 +713,17 @@ Public Sub RunInputValidationTests()
                                          "MtM leg must be Y or N (found an error value", "illustrative"
 
     'Dates (#40). Text is read as a date only in the ISO form yyyy-mm-dd,
-    'whatever the regional settings; 30/09/2031 and an impossible day are
-    'rejected. The text dates are written with a leading apostrophe, so
-    'that Excel keeps them as text. ISO text gives the same adjusted
-    'notional as a date: 10,000 x (1 - exp(-0.05 x 1826/365)) / 0.05.
+    'whatever the regional settings; 30/09/2031, a serial written as text
+    'and an impossible day are rejected. The text dates are written with a
+    'leading apostrophe, so that Excel keeps them as text. ISO text gives
+    'the same adjusted notional as a date: 10,000 x (1 - exp(-0.05 x
+    '1826/365)) / 0.05.
         StartCase "date-text-forms", "N"
         TEST_CaseRunner.ExpectTrue "to-serial", _
             CORE_Util.ToSerial("2031-09-30") = CDbl(DateSerial(2031, 9, 30)) And _
             CORE_Util.ToSerial(" 2031-09-30 ") = CDbl(DateSerial(2031, 9, 30)) And _
             CORE_Util.ToSerial(DateSerial(2031, 9, 30)) = CDbl(DateSerial(2031, 9, 30)) And _
-            CORE_Util.ToSerial(47756#) = 47756# And _
+            CORE_Util.ToSerial(47756#) = 47756# And CORE_Util.ToSerial("47756") = -1# And _
             CORE_Util.ToSerial("30/09/2031") = -1# And CORE_Util.ToSerial("09/30/2031") = -1# And _
             CORE_Util.ToSerial("2031-9-30") = -1# And CORE_Util.ToSerial("2031-02-30") = -1# And _
             CORE_Util.ToSerial("30 September 2031") = -1#, _
