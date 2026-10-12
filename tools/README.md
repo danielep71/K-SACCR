@@ -47,6 +47,15 @@ PowerShell remains available for direct use from the repository root:
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
 
+Before it opens the workbook, the script lists the worksheet and
+`ThisWorkbook` modules in the source and asks whether to replace their code
+as well. Answer N to keep the sheet code of the workbook, for example one
+built from a newer template; the standard modules are imported either way.
+`-IncludeSheets` or `-SkipSheets` gives the answer in advance. When N leaves
+nothing to import, the script exits with code 2 and the workbook is not
+changed. The repository's sheet modules hold only `Option Explicit` and
+comments, so skipping them changes no behaviour.
+
 To test modules received outside the repository, for example downloaded
 during a review, without copying them into the working tree, double-click
 `tools/Sync-SACCR-VBA-Downloads.cmd`. It asks for the folder (Enter for

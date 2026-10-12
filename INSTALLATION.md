@@ -146,7 +146,9 @@ The layout and file conventions are defined in
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto
    `tools/Sync-SACCR-VBA.cmd`: it imports every module from `src/` and
-   `tests/modules/` and fills the document modules. It needs Excel's **Trust
+   `tests/modules/` and asks whether to fill the worksheet and
+   `ThisWorkbook` document modules as well (they hold only `Option Explicit`,
+   so either answer works). It needs Excel's **Trust
    access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
