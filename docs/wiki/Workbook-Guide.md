@@ -15,11 +15,9 @@ sheet objects and their contents. It retains a safety backup only when
 synchronization fails.
 
 Every sheet has the same layout: two narrow margin columns (A:B, width 4) and
-two margin rows (row 1, 24 pt high, 14 pt font; row 2, 26 pt, 16 pt font).
-On the output tables, the title is in C3, a description or the run summary
-in C4, the Results status in C5, the column headers on row 6 and the data from
-row 7. README, Params, NettingSets, Trades and Basel_vs_CRR have their own
-title band (B1 and B2).
+a title band on rows 1 and 2 (B1 and B2). On the output tables, a description
+or the run summary is in C4, the Results status in C5, the column headers on
+row 6 and the data from row 7.
 The input sheets are located through workbook names, so their rows can move:
 NettingSets and Trades through `NettingSets_Header` and `Trades_Header`, the
 first header cell of each table, which must stay in column C, with data from
