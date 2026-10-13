@@ -545,6 +545,12 @@ Use only the categories needed by a release.
   a PowerShell comment as the synchronizer's active list (#144). It found
   the first matching line before tracking comments, so a complete list in a
   `<# ... #>` block could hide a directory missing from the active list.
+- `tools/check_source.py` reads PowerShell backtick escapes in double-quoted
+  strings when it looks for the active `$sourceRoots` list (#188). An
+  escaped quote such as `` "`"<#`"" `` ended the string early, so the `<#`
+  opened a false block comment and the check reported "`$sourceRoots` list
+  not found" for a valid script. A single-quoted string still treats a
+  backtick as text.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive

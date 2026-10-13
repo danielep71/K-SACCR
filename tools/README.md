@@ -107,7 +107,9 @@ lies outside the directories in `$sourceRoots`, when one of those directories
 is missing, and when a document module in `src/workbook/` and the template's
 sheets (by CodeName) do not match one to one. It reads only the active
 entries of `$sourceRoots`, one `(Join-Path $repoFullPath "...")` per line:
-commented-out entries do not count, and any other entry fails the check. A new source
+commented-out entries do not count, and any other entry fails the check.
+Comments are found as PowerShell reads them: a `#` or `<#` inside a string,
+here-string or backtick escape such as `` `" `` is text. A new source
 directory must be added to `$sourceRoots`; a new worksheet needs both its sheet
 in the template and its document module.
 

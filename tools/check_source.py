@@ -138,7 +138,8 @@ def strip_comment(line: str, state: str) -> tuple[str, str]:
     <# ... #> blocks, which may span lines; a # or <# inside quotes is text.
     state carries what is open at the end of the previous line: "" (code),
     "<#" (a block comment), '"' or "'" (a string) or '@"' or "@'" (a
-    here-string, whose lines are text and are left out of the code) (#144)."""
+    here-string, whose lines are text and are left out of the code) (#144).
+    In a double-quoted string a backtick escapes the next character (#188)."""
     if state in ('@"', "@'"):
         if not line.lstrip().startswith(state[1] + "@"):
             return "", state
@@ -155,6 +156,13 @@ def strip_comment(line: str, state: str) -> tuple[str, str]:
                 i += 1
             continue
         char = line[i]
+        if quote == '"' and char == "`":
+            # A backtick escapes the next character of a double-quoted
+            # string: `" does not close it and `` is a literal backtick. In
+            # a single-quoted string a backtick is literal (#188).
+            code.append(line[i:i + 2])
+            i += 2
+            continue
         if quote:
             quote = "" if char == quote else quote
         elif line.startswith(('@"', "@'"), i) and not line[i + 2:].strip():
