@@ -238,7 +238,7 @@ Trades ─┘                │                                           │
 | `README` | In-workbook guide |
 | `Params` | Run parameters, supervisory-factor table, FX rates |
 | `NettingSets` · `Trades` | Inputs |
-| `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; run summary and stale-result indicator |
+| `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; a TOTAL row per regime over its `VALID` netting sets; run summary and stale-result indicator |
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |

@@ -137,10 +137,12 @@ Public Function RunSACCR_Silent() As String
 '
 ' RETURNS
 '   A result line such as "RESULT=OK; operation=run; errors=0; warnings=0;
-'   trades_used=62; trades_read=65; incomplete=0; total_ead=425197517.8;
-'   inputs=5A428560; cleanup=PASS". incomplete counts netting sets whose
-'   EAD was withheld; inputs is the fingerprint of the inputs the results
-'   were calculated from, empty when there are none.
+'   trades_used=62; trades_read=65; incomplete=0; total_ead_crr=4251975.8;
+'   total_ead_bcbs=8193300.1; inputs=5A428560; cleanup=PASS". incomplete
+'   counts netting sets whose EAD was withheld; total_ead_crr and
+'   total_ead_bcbs are the totals of each regime's VALID netting sets, 0
+'   when it has none (#198); inputs is the fingerprint of the inputs the
+'   results were calculated from, empty when there are none.
 '   RESULT=STOPPED means the inputs could not be loaded; see Checks.
 '
 ' STATE OWNERSHIP
@@ -152,7 +154,7 @@ Public Function RunSACCR_Silent() As String
 '   settings could not be restored, after gSilent has been restored.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -759,7 +761,7 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -783,7 +785,7 @@ Private Function ReportOutcome( _
                           "Economic trades used: " & CORE_Engine.EconomicTradesUsed & " of " & _
                           CORE_Engine.EconomicTradesRead & vbCrLf & _
                           "Legs (rows) used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
-                          "Total EAD: " & Format$(CORE_Engine.TotalEAD, "#,##0") & vbCrLf & _
+                          TotalLines() & _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
@@ -824,7 +826,8 @@ Private Function ReportOutcome( _
                      "; economic_trades_used=" & CStr(CORE_Engine.EconomicTradesUsed) & _
                      "; economic_trades_read=" & CStr(CORE_Engine.EconomicTradesRead) & _
                      "; incomplete=" & CStr(CORE_Engine.IncompleteCount) & _
-                     "; total_ead=" & Trim$(Str$(CORE_Engine.TotalEAD)) & _
+                     "; total_ead_crr=" & Trim$(Str$(CORE_Engine.TotalEAD(RG_CRR))) & _
+                     "; total_ead_bcbs=" & Trim$(Str$(CORE_Engine.TotalEAD(RG_BCBS))) & _
                      "; inputs=" & CORE_Engine.RunInputs & _
                      "; run_class=" & CORE_Engine.RunClass
         End If
@@ -955,6 +958,43 @@ Private Sub ReportFailure( _
         MsgBox msg, vbCritical, "SA-CCR"
 
 End Sub
+
+
+Private Function TotalLines() As String
+'
+'==============================================================================
+'                                  TotalLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message-box lines with the total EAD of each regime that has
+'   netting sets, for example "Total EAD CRR: 12,345 (3 of 4 netting
+'   set(s) VALID; 1 withheld)", each ending with a line break. EADs under
+'   CRR and BCBS are never added together (#198).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim regimes   As Variant    'The regimes, CRR first
+    Dim i         As Long       'Index into regimes
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        regimes = Array(RG_CRR, RG_BCBS)
+        For i = LBound(regimes) To UBound(regimes)
+            If CORE_Engine.RegimeSetCount(CStr(regimes(i))) > 0 Then
+                TotalLines = TotalLines & "Total EAD " & regimes(i) & ": " & _
+                             Format$(CORE_Engine.TotalEAD(CStr(regimes(i))), "#,##0") & _
+                             " (" & CORE_Engine.TotalStatusText(CStr(regimes(i))) & ")" & vbCrLf
+            End If
+        Next i
+
+End Function
 
 
 Private Function RunClassLine() As String

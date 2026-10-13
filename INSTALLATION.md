@@ -422,7 +422,7 @@ optional text field of a trade and in the netting-set and Params regime
 and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=124; checks=186; failures=0; restore=PASS`.
+`RESULT=PASS; cases=126; checks=190; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -446,9 +446,12 @@ its formula, lies between the floor and 1 and is 1 when V - C is not
 negative; PFE is the multiplier times the aggregate add-on;
 EAD = alpha * (RC + PFE); and a margined netting set's EAD is the lower of the
 margined EAD and the unmargined cap, with the cap flag set exactly when the
-cap is lower. Withheld netting sets must show no figures. The TOTAL row must
-hold, for V, C, RC, each asset-class add-on, the aggregate add-on, PFE and
-EAD, the sum over the `VALID` netting sets, and nothing in its other columns.
+cap is lower. Withheld netting sets must show no figures. Each regime with
+netting sets must have a TOTAL row after them, `TOTAL CRR` then
+`TOTAL BCBS`, holding for V, C, RC, each asset-class add-on, the aggregate
+add-on, PFE and EAD the sum over that regime's `VALID` netting sets, its
+regime, the number of `VALID` and withheld netting sets in its status, and
+nothing in its other columns (#198).
 It first checks that the portfolio has unmargined and margined,
 CRR and BCBS netting sets, a cap that applies and one that does not, and a
 multiplier below 1. A second run must write identical Results, TradeCalc,
@@ -463,8 +466,10 @@ add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
-and raises any failure instead of showing a message box. `inputs` is the
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
+and raises any failure instead of showing a message box. `total_ead_crr` and
+`total_ead_bcbs` are the totals of each regime's `VALID` netting sets, never
+added together (#198). `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input

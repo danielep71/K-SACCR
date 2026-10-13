@@ -335,6 +335,17 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Results totals are per regime (#198). The single `TOTAL` row added the
+  EADs of CRR and BCBS netting sets together, which in the demonstration
+  portfolio counted Example 5 twice, and did not say that withheld netting
+  sets were left out. Results now ends with one row per regime that has
+  netting sets, `TOTAL CRR` then `TOTAL BCBS`, each summing that regime's
+  `VALID` netting sets, with the regime in its regime column and, in its
+  status column, the count covered, for example "3 of 4 netting set(s)
+  VALID; 1 withheld". The message box shows one total line per regime, and
+  the result line of `RunSACCR_Silent` replaces `total_ead` with
+  `total_ead_crr` and `total_ead_bcbs`. There is no total across regimes.
+  Individual netting-set results are unchanged.
 - The root README is rewritten as the project's front page: what the toolkit
   is for, its capabilities, a quick start from clone to `Test_RunAll`, how a
   run flows through the sheets, the EU CRR and Basel differences, the

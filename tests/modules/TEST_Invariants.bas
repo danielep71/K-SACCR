@@ -9,9 +9,11 @@ Attribute VB_Name = "TEST_Invariants"
 '   stays between the floor and 1, and is 1 when V - C >= 0; PFE is the
 '   multiplier times the aggregate add-on; a margined netting set's EAD is
 '   the lower of the margined EAD and the unmargined cap; withheld netting
-'   sets show no figures; the TOTAL row holds, for each of V, C, RC, the
-'   six asset-class add-ons, the aggregate add-on, PFE and EAD, the sum
-'   over the VALID netting sets, and nothing else. It also checks that a
+'   sets show no figures; each regime has a TOTAL row (TOTAL CRR, TOTAL
+'   BCBS) that holds, for each of V, C, RC, the six asset-class add-ons,
+'   the aggregate add-on, PFE and EAD, the sum over that regime's VALID
+'   netting sets, says in its status how many are VALID and withheld, and
+'   holds nothing else (#198). It also checks that a
 '   second run gives identical outputs; that with the IR sum of absolute
 '   bucket values a CRR netting set with interest-rate trades becomes
 '   INVALID, while every other netting set VALID before stays VALID and
@@ -49,7 +51,7 @@ Attribute VB_Name = "TEST_Invariants"
 '   CRR allows).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -737,7 +739,7 @@ Private Function WithheldGap( _
 '   The first violation; "" when none.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-13
 '==============================================================================
 '
 
@@ -751,7 +753,7 @@ Private Function WithheldGap( _
 ' CHECK
 '------------------------------------------------------------------------------
         For r = 1 To RowCount(outputRows)
-            If Not IsValidRow(outputRows, r) And RowLabel(outputRows, r) <> "TOTAL" Then
+            If Not IsValidRow(outputRows, r) And Not IsTotalRow(outputRows, r) Then
                 For col = 6 To COL_MULT_CAP
                     If Not IsEmpty(outputRows(r, col)) Then
                         WithheldGap = RowLabel(outputRows, r) & " (" & _
@@ -774,67 +776,158 @@ Private Function TotalGap( _
 '                                   TotalGap
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that the TOTAL row is the last row, that each column the engine
-'   totals (V, C, RC, the six asset-class add-ons, the aggregate add-on,
-'   PFE and EAD) holds the sum over the VALID netting sets, and that every
-'   other column of the row is blank. Withheld netting sets show no
-'   figures (WithheldGap), so they add nothing.
+'   Check the TOTAL rows (#198). They follow the netting-set rows: one per
+'   regime that has netting sets, CRR first, labelled "TOTAL CRR" and
+'   "TOTAL BCBS", with the regime in the regime column. In each, every
+'   column the engine totals (V, C, RC, the six asset-class add-ons, the
+'   aggregate add-on, PFE and EAD) holds the sum over the regime's VALID
+'   netting sets; the status column says how many netting sets of the
+'   regime are VALID and how many were withheld (INVALID or INCOMPLETE);
+'   every other column is blank. Withheld netting sets show no figures
+'   (WithheldGap), so they add nothing. There is no total across regimes.
 '
 ' RETURNS
 '   The first violation, naming the column as "(column n)"; "" when none.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r                    As Long      'Results row
-    Dim col                  As Long      'Results column
-    Dim last                 As Long      'The TOTAL row
-    Dim sums(1 To RS_NCOLS)  As Double    'Sum of each totalled column over the VALID rows
+    Dim r          As Long       'Results row
+    Dim col        As Long       'Results column
+    Dim last       As Long       'Last Results row
+    Dim firstTot   As Long       'First TOTAL row; last + 1 when none
+    Dim regimes    As Variant    'The regimes, CRR first
+    Dim g          As Long       'Index into regimes
+    Dim rg         As String     'Regime of the TOTAL row being checked
+    Dim t          As Long       'Results row of that TOTAL row
+    Dim sets       As Long       'Netting sets of the regime
+    Dim valid      As Long       'Its VALID netting sets
+    Dim withheld   As Long       'Its INVALID or INCOMPLETE netting sets
+    Dim status     As String     'Status of a netting-set row
+    Dim expected   As String     'Expected status text of the TOTAL row
+    Dim sums(1 To RS_NCOLS) As Double    'Sum of each totalled column over the regime's VALID rows
 
 '------------------------------------------------------------------------------
-' CHECK
+' LOCATE THE TOTAL ROWS
 '------------------------------------------------------------------------------
         last = RowCount(outputRows)
         If last = 0 Then
             TotalGap = "Results is empty"
             Exit Function
         End If
-        If RowLabel(outputRows, last) <> "TOTAL" Then
-            TotalGap = "the last Results row is " & RowLabel(outputRows, last) & ", not TOTAL"
-            Exit Function
-        End If
-        For r = 1 To last - 1
-            If IsValidRow(outputRows, r) Then
-                For col = COL_V To COL_EAD
-                    If Len(TotalColumnName(col)) > 0 Then
-                        sums(col) = sums(col) + ToDbl(outputRows(r, col))
-                    End If
-                Next col
+        firstTot = last + 1
+        For r = 1 To last
+            If IsTotalRow(outputRows, r) Then
+                firstTot = r
+                Exit For
             End If
         Next r
-        For col = 2 To RS_NCOLS
-            If Len(TotalColumnName(col)) > 0 Then
-                If Not IsNum(outputRows(last, col)) Then
-                    TotalGap = "TOTAL " & TotalColumnName(col) & " (column " & col & ") is not a number: " & _
-                               SafeStr(outputRows(last, col))
-                    Exit Function
-                End If
-                If Not Near(ToDbl(outputRows(last, col)), sums(col)) Then
-                    TotalGap = "TOTAL " & TotalColumnName(col) & " (column " & col & ") " & _
-                               ToDbl(outputRows(last, col)) & ", sum of VALID rows " & sums(col)
-                    Exit Function
-                End If
-            ElseIf Not IsEmpty(outputRows(last, col)) Then
-                TotalGap = "TOTAL (column " & col & ") holds " & SafeStr(outputRows(last, col)) & _
-                           " where it should be blank"
+        For r = firstTot To last
+            If Not IsTotalRow(outputRows, r) Then
+                TotalGap = "netting set " & RowLabel(outputRows, r) & " follows a TOTAL row"
                 Exit Function
             End If
-        Next col
+        Next r
+
+'------------------------------------------------------------------------------
+' CHECK EACH REGIME
+'------------------------------------------------------------------------------
+        regimes = Array(RG_CRR, RG_BCBS)
+        t = firstTot
+        For g = LBound(regimes) To UBound(regimes)
+            rg = CStr(regimes(g))
+            sets = 0
+            valid = 0
+            withheld = 0
+            Erase sums
+            For r = 1 To firstTot - 1
+                If SafeStr(outputRows(r, COL_REGIME)) = rg Then
+                    sets = sets + 1
+                    status = SafeStr(outputRows(r, RS_STATUS_COL))
+                    If status = "VALID" Then
+                        valid = valid + 1
+                        For col = COL_V To COL_EAD
+                            If Len(TotalColumnName(col)) > 0 Then
+                                sums(col) = sums(col) + ToDbl(outputRows(r, col))
+                            End If
+                        Next col
+                    ElseIf Left$(status, 7) = "INVALID" Or Left$(status, 10) = "INCOMPLETE" Then
+                        withheld = withheld + 1
+                    End If
+                End If
+            Next r
+            If sets > 0 Then
+                If t > last Then
+                    TotalGap = "no TOTAL " & rg & " row for " & sets & " " & rg & " netting set(s)"
+                    Exit Function
+                End If
+                If RowLabel(outputRows, t) <> "TOTAL " & rg Then
+                    TotalGap = "expected TOTAL " & rg & ", found " & RowLabel(outputRows, t)
+                    Exit Function
+                End If
+                expected = valid & " of " & sets & " netting set(s) VALID; " & withheld & " withheld"
+                For col = 2 To RS_NCOLS
+                    If Len(TotalColumnName(col)) > 0 Then
+                        If Not IsNum(outputRows(t, col)) Then
+                            TotalGap = "TOTAL " & rg & " " & TotalColumnName(col) & " (column " & col & _
+                                       ") is not a number: " & SafeStr(outputRows(t, col))
+                            Exit Function
+                        End If
+                        If Not Near(ToDbl(outputRows(t, col)), sums(col)) Then
+                            TotalGap = "TOTAL " & rg & " " & TotalColumnName(col) & " (column " & col & ") " & _
+                                       ToDbl(outputRows(t, col)) & ", sum of VALID " & rg & " rows " & sums(col)
+                            Exit Function
+                        End If
+                    ElseIf col = COL_REGIME Then
+                        If SafeStr(outputRows(t, col)) <> rg Then
+                            TotalGap = "TOTAL " & rg & " regime (column " & col & ") holds " & _
+                                       SafeStr(outputRows(t, col))
+                            Exit Function
+                        End If
+                    ElseIf col = RS_STATUS_COL Then
+                        If SafeStr(outputRows(t, col)) <> expected Then
+                            TotalGap = "TOTAL " & rg & " status (column " & col & ") is """ & _
+                                       SafeStr(outputRows(t, col)) & """, expected """ & expected & """"
+                            Exit Function
+                        End If
+                    ElseIf Not IsEmpty(outputRows(t, col)) Then
+                        TotalGap = "TOTAL " & rg & " (column " & col & ") holds " & SafeStr(outputRows(t, col)) & _
+                                   " where it should be blank"
+                        Exit Function
+                    End If
+                Next col
+                t = t + 1
+            End If
+        Next g
+        If t <= last Then
+            TotalGap = "unexpected row " & RowLabel(outputRows, t) & " after the TOTAL rows"
+        End If
+
+End Function
+
+
+Private Function IsTotalRow( _
+    ByVal outputRows As Variant, _
+    ByVal r As Long) _
+    As Boolean
+'
+'==============================================================================
+'                                  IsTotalRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a Results row is a TOTAL row: its label starts with
+'   "TOTAL" (#198).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        IsTotalRow = (Left$(RowLabel(outputRows, r), 5) = "TOTAL")
 
 End Function
 
@@ -848,16 +941,17 @@ Private Function TotalCorruptionGap( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Show that TotalGap catches a wrong TOTAL row (#104). On a copy of the
-'   Results rows, each totalled column of the TOTAL row is in turn moved
-'   away from its sum and then blanked, and each other column is filled
-'   with 1. TotalGap must fail every time and name the corrupted column.
+'   Results rows, each totalled column of the last TOTAL row is in turn
+'   moved away from its sum and then blanked, and each other column,
+'   including its regime and status, is filled with 1. TotalGap must fail
+'   every time and name the corrupted column.
 '
 ' RETURNS
 '   The first corruption TotalGap missed or attributed to another column;
 '   "" when it caught them all.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 

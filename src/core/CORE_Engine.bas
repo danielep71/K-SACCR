@@ -45,10 +45,12 @@ Attribute VB_Name = "CORE_Engine"
 '   Collection (see CORE_Util.KeyIndex) mapping its key to its array position.
 '
 ' PUBLIC SURFACE
-'   None outside this VBA project. Calculate, the run counters and the
-'   run-fingerprint procedures (InputFingerprint, LastRunInputs,
-'   ForgetRunInputs) are Public for M_Main; Option Private Module keeps them
-'   off the supported external surface.
+'   None outside this VBA project. Calculate, the run counters (with the
+'   per-regime totals TotalEAD, RegimeSetCount, RegimeValidCount,
+'   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
+'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs) are
+'   Public for M_Main; Option Private Module keeps them off the supported
+'   external surface.
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
@@ -217,7 +219,10 @@ Attribute VB_Name = "CORE_Engine"
 
         Private mTradesRead   As Long            'Trades with an ID
         Private mTradesUsed   As Long            'Trades included in the calculation
-        Private mTotalEAD     As Double          'Sum of netting-set EADs, VALID sets only
+        Private mRegEAD(1 To 2)       As Double  'Sum of VALID EADs per regime: 1 CRR, 2 BCBS (#198)
+        Private mRegSets(1 To 2)      As Long    'Netting sets per regime
+        Private mRegValid(1 To 2)     As Long    'VALID netting sets per regime
+        Private mRegWithheld(1 To 2)  As Long    'INVALID or INCOMPLETE netting sets per regime
         Private mIncomplete   As Long            'Netting sets whose EAD was withheld
         Private mParamError   As Boolean         'A parameter was present but not usable
         Private mRunInputs    As String          'Input fingerprint of this run; "" unless it completed
@@ -457,22 +462,132 @@ Public Property Get WarningCount() As Long
 End Property
 
 
-Public Property Get TotalEAD() As Double
+Public Property Get TotalEAD( _
+    ByVal regimeCode As String) _
+    As Double
 '
 '==============================================================================
 '                                   TotalEAD
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Sum of the EADs of every reported netting set in the last run, in the
-'   reporting currency.
+'   Sum of the EADs of the VALID netting sets of one regime in the last
+'   run, in the reporting currency. EADs of different regimes are never
+'   added together (#198).
+'
+' INPUTS
+'   regimeCode: RG_CRR or RG_BCBS.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
-        TotalEAD = mTotalEAD
+        TotalEAD = mRegEAD(RegimeIndex(regimeCode))
 
 End Property
+
+
+Public Property Get RegimeSetCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                                RegimeSetCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Netting sets of one regime in the last run, whatever their status.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeSetCount = mRegSets(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Property Get RegimeValidCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                               RegimeValidCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   VALID netting sets of one regime in the last run: those whose EAD is
+'   in TotalEAD.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeValidCount = mRegValid(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Property Get RegimeWithheldCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                             RegimeWithheldCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Netting sets of one regime in the last run whose EAD was withheld
+'   (INVALID or INCOMPLETE).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeWithheldCount = mRegWithheld(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Function TotalStatusText( _
+    ByVal regimeCode As String) _
+    As String
+'
+'==============================================================================
+'                               TotalStatusText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Describe what a regime's total covers, as written in the status column
+'   of its TOTAL row: for example "3 of 4 netting set(s) VALID; 1 withheld".
+'   A NO TRADES netting set is counted but neither VALID nor withheld.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TotalStatusText = RegimeValidCount(regimeCode) & " of " & RegimeSetCount(regimeCode) & _
+                          " netting set(s) VALID; " & RegimeWithheldCount(regimeCode) & " withheld"
+
+End Function
+
+
+Private Function RegimeIndex( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                                 RegimeIndex
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Position of a regime in the per-regime totals: 1 CRR, 2 BCBS.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        If regimeCode = RG_BCBS Then
+            RegimeIndex = 2
+        Else
+            RegimeIndex = 1
+        End If
+
+End Function
 
 
 Public Property Get TradesUsed() As Long
@@ -655,7 +770,7 @@ Private Sub ResetState()
         mWarnCount = 0
         mTradesRead = 0
         mTradesUsed = 0
-        mTotalEAD = 0#
+        Erase mRegEAD, mRegSets, mRegValid, mRegWithheld
         mIncomplete = 0
         mParamError = False
         mRunInputs = ""
@@ -3855,8 +3970,11 @@ Private Sub ComputeNettingSets( _
 '   writeOutputs: True writes the Results sheet.
 '
 ' STATE OWNERSHIP
-'   Adds each VALID EAD to mTotalEAD and counts INCOMPLETE sets in
-'   mIncomplete. Only VALID sets enter the TOTAL row.
+'   Adds each VALID EAD to the total of its regime (mRegEAD) and counts
+'   the netting sets of each regime, VALID and withheld; counts INCOMPLETE
+'   and INVALID sets in mIncomplete. Only VALID sets enter the totals, and
+'   each regime has its own TOTAL row: EADs under CRR and BCBS are never
+'   added together (#198).
 '
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
@@ -3865,7 +3983,7 @@ Private Sub ComputeNettingSets( _
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -3896,14 +4014,18 @@ Private Sub ComputeNettingSets( _
     Dim eadU     As Double       'EAD, unmargined basis: the EAD or the cap
     Dim eadM     As Double       'EAD, margined, before the cap
     Dim ead      As Double       'EAD reported
-    Dim tot(1 To RS_NCOLS) As Double    'Column totals for the TOTAL row
+    Dim ri       As Long         'Regime of the netting set: 1 CRR, 2 BCBS
+    Dim firstTotal As Long       'Results row of the first TOTAL row
+    Dim tot(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
 
 '------------------------------------------------------------------------------
 ' CALCULATE EACH NETTING SET
 '------------------------------------------------------------------------------
-        ReDim outArr(1 To mNSCount + 1, 1 To RS_NCOLS)
+        ReDim outArr(1 To mNSCount + 2, 1 To RS_NCOLS)
         nOut = 0
         For k = 1 To mNSCount
+            ri = RegimeIndex(mNS(k).Regime)
+            mRegSets(ri) = mRegSets(ri) + 1
 
     'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
     'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
@@ -3919,6 +4041,7 @@ Private Sub ComputeNettingSets( _
             End With
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
+                mRegWithheld(ri) = mRegWithheld(ri) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
                 nOut = nOut + 1
@@ -3927,6 +4050,7 @@ Private Sub ComputeNettingSets( _
             End If
             If mNS(k).Rejected > 0 Then
                 mIncomplete = mIncomplete + 1
+                mRegWithheld(ri) = mRegWithheld(ri) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).Rejected & _
                        " trade(s) rejected - see the Trades messages."
                 nOut = nOut + 1
@@ -3976,7 +4100,8 @@ Private Sub ComputeNettingSets( _
                 Else
                     ead = eadU
                 End If
-                mTotalEAD = mTotalEAD + ead
+                mRegEAD(ri) = mRegEAD(ri) + ead
+                mRegValid(ri) = mRegValid(ri) + 1
 
     'Results row. A margined netting set shows its margined figures in
     'columns 9 to 18 and the cap figures in 21 and 24 to 27.
@@ -4021,14 +4146,14 @@ Private Sub ComputeNettingSets( _
                 outArr(nOut, 22) = ead
                 outArr(nOut, RS_STATUS_COL) = "VALID"
 
-    'Running totals for V, C, RC, the add-ons, PFE and EAD.
-                tot(7) = tot(7) + .V
-                tot(8) = tot(8) + C
+    'Running totals of the regime for V, C, RC, the add-ons, PFE and EAD.
+                tot(ri, 7) = tot(ri, 7) + .V
+                tot(ri, 8) = tot(ri, 8) + C
                 For a = 9 To 16
-                    tot(a) = tot(a) + ToDbl(outArr(nOut, a))
+                    tot(ri, a) = tot(ri, a) + ToDbl(outArr(nOut, a))
                 Next a
-                tot(18) = tot(18) + ToDbl(outArr(nOut, 18))
-                tot(22) = tot(22) + ead
+                tot(ri, 18) = tot(ri, 18) + ToDbl(outArr(nOut, 18))
+                tot(ri, 22) = tot(ri, 22) + ead
             End With
 NextNS:
         Next k
@@ -4036,24 +4161,34 @@ NextNS:
 '------------------------------------------------------------------------------
 ' WRITE RESULTS
 '------------------------------------------------------------------------------
-    'The TOTAL row sums columns 7 to 18 except the multiplier (17), and the
-    'EAD (22). It is written in bold.
+    'One TOTAL row per regime with netting sets, CRR first: TOTAL CRR and
+    'TOTAL BCBS (#198). Each sums, over the regime's VALID netting sets,
+    'columns 7 to 18 except the multiplier (17), and the EAD (22); its
+    'status column says how many netting sets it covers and how many were
+    'withheld. There is no total across regimes. The rows are in bold.
         If writeOutputs Then
             Set ws = GetSheet(SH_RESULTS)
             ClearOutputBlock ws, FIRST_DATA_ROW, RS_NCOLS
             If nOut > 0 Then
-                nOut = nOut + 1
-                outArr(nOut, 1) = "TOTAL"
-                For a = 7 To 18
-                    If a <> 17 Then
-                        outArr(nOut, a) = tot(a)
+                firstTotal = nOut + 1
+                For ri = 1 To 2
+                    If mRegSets(ri) > 0 Then
+                        nOut = nOut + 1
+                        outArr(nOut, 1) = "TOTAL " & Choose(ri, RG_CRR, RG_BCBS)
+                        outArr(nOut, 3) = Choose(ri, RG_CRR, RG_BCBS)
+                        For a = 7 To 18
+                            If a <> 17 Then
+                                outArr(nOut, a) = tot(ri, a)
+                            End If
+                        Next a
+                        outArr(nOut, 22) = tot(ri, 22)
+                        outArr(nOut, RS_STATUS_COL) = TotalStatusText(Choose(ri, RG_CRR, RG_BCBS))
                     End If
-                Next a
-                outArr(nOut, 22) = tot(22)
+                Next ri
                 WriteBlock ws, FIRST_DATA_ROW, outArr, nOut, RS_NCOLS
                 FormatColumns ws, FIRST_DATA_ROW, nOut, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                TableRange(ws, FIRST_DATA_ROW + nOut - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
+                TableRange(ws, FIRST_DATA_ROW + firstTotal - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
