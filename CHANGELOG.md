@@ -198,6 +198,10 @@ Use only the categories needed by a release.
   selection to the aggregate add-on, including the maturity factor, basis and
   volatility hedging sets and time buckets by end date, with Basel CRE52 and
   CRR references for each step.
+- A social preview image in `docs/assets/` (`SACCR_social_preview.png`,
+  1280 x 640, with its HTML source). Its figures are the published CRE99
+  values; `SOCIAL_PREVIEW_SOURCES.md` gives their locators and how to
+  regenerate and upload the image.
 - Repository-control files adopted from the Excel VBA project template:
   `.editorconfig`, `.gitattributes` and `.gitignore`. Exported VBA source is
   stored with LF in Git and checked out as CRLF; Office packages are binary and
