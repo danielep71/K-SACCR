@@ -280,6 +280,12 @@ function Select-FolderSources {
     }
 
     if ($picked.Count -eq 0) {
+        # Say why each file was passed over before stopping.
+        if ($ignored.Count -gt 0) {
+            Write-Host "Ignored:"
+            foreach ($line in $ignored) { Write-Host "  $line" }
+            Write-Host ""
+        }
         throw "No repository VBA module found in $FolderPath."
     }
 

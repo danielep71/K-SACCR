@@ -77,7 +77,8 @@ starts with `CORE_`, `SACCR_`, `M_` or `TEST_`; it is listed apart as a new
 module before the confirmation. Other files in the folder are ignored. When several files carry the same
 `VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
 is taken. The script lists the chosen files with their dates and the ignored
-ones, and asks for confirmation (`-Force` skips it; answering no exits with
+ones with the reason (also when no file is usable, before it stops), and asks
+for confirmation (`-Force` skips it; answering no exits with
 code 2 and leaves the workbook unchanged). The chosen files are copied to a
 temporary folder with CRLF line endings, imported from there, and the copy
 is deleted afterwards. The repository files are never changed, so the

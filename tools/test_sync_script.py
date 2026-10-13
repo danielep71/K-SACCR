@@ -81,13 +81,13 @@ class SyncScriptTests(unittest.TestCase):
         entries = "; ".join(f"'{k}' = '{v}'" for k, v in repository.items())
         return dict(self.pwsh(
             f"$repo = @{{ {entries} }}\n"
-            "$picked = @(); $lines = @(); $failed = ''\n"
+            "$picked = @(); $failed = ''; $shown = $null\n"
             "try {\n"
             f"  $out = Select-FolderSources -FolderPath '{folder}' -RepositoryNames $repo "
-            f"-StagePath '{self.root / 'stage'}' 6>&1\n"
-            "  foreach ($o in $out) { if ($o -is [System.IO.FileInfo]) { $picked += $o.Name } "
-            "else { $lines += [string]$o } }\n"
+            f"-StagePath '{self.root / 'stage'}' -InformationVariable shown 6>$null\n"
+            "  foreach ($o in $out) { if ($o -is [System.IO.FileInfo]) { $picked += $o.Name } }\n"
             "} catch { $failed = $_.Exception.Message }\n"
+            "$lines = @(foreach ($r in $shown) { [string]$r })\n"
             "@{ picked = $picked; lines = $lines; failed = $failed } | ConvertTo-Json "
             "| Set-Content -LiteralPath $env:RESULT -Encoding utf8"))
 
@@ -126,6 +126,8 @@ class SyncScriptTests(unittest.TestCase):
         result = self.select(folder)
         self.assertIn("No repository VBA module found", result["failed"])
         self.assertEqual(result["picked"], [])
+        # The reason is shown before the stop, so the user can see why.
+        self.assertIn("CORE_Engine.bas (no Attribute VB_Name line", "\n".join(result["lines"]))
 
 
 if __name__ == "__main__":
