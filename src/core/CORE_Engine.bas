@@ -79,7 +79,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -2809,7 +2809,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -3219,22 +3219,25 @@ Private Sub ProcessTrades( _
 
     '--- Hedging set, adjusted notional and bucket -------------------------------
     'IR: d = notional * SD, hedging set per currency (risk factor), bucket
-    'by end date: under 1 year, 1 to 5 years, over 5 years [CRE52.34,
-    'CRE52.57(2)-(3)]; an inflation risk factor such as EUR-INFL is its own
-    'hedging set [CRR Art. 277(4)(a), 277a(1)]. FX: d = notional, hedging
-    'set per currency pair written in alphabetical order; an inverted pair
-    'flips the delta [CRE52.58]; both currencies of the pair need an FX
-    'rate, and the notional is that of one of the pair's legs (#40). CR:
-    'd = notional * SD, one hedging set, bucket per entity [CRE52.60,
-    'CRE52.64]. EQ: one hedging set, bucket per entity [CRE52.66]. CO:
-    'hedging set per commodity group, bucket per commodity [CRE52.70]. OT:
-    'hedging set per primary risk driver [CRR Art. 277a].
+    'by end date [CRE52.34, CRE52.57(2)-(3)]: under CRR up to and including
+    '1 year, over 1 to 5 years, over 5 years [Art. 280a(3), Table 2]; under
+    'BCBS under 1 year, 1 to 5 years, over 5 years, so an end date of
+    'exactly 1 year is bucket 1 under CRR and bucket 2 under BCBS (#191). The
+    'key of bucket 1 stays "<1Y" in both regimes. An inflation risk factor
+    'such as EUR-INFL is its own hedging set [CRR Art. 277(4)(a), 277a(1)].
+    'FX: d = notional, hedging set per currency pair written in alphabetical
+    'order; an inverted pair flips the delta [CRE52.58]; both currencies of
+    'the pair need an FX rate, and the notional is that of one of the pair's
+    'legs (#40). CR: d = notional * SD, one hedging set, bucket per entity
+    '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
+    '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
+    '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
             If ok Then
                 Select Case ac
                     Case AC_IR
                         sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
-                        If E < 1# Then
+                        If E < 1# Or (mNS(nsIdx).IsCRR And E <= 1#) Then
                             bucketNo = 1
                             subKey = "<1Y"
                         ElseIf E <= 5# Then

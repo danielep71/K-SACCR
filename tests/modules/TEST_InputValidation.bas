@@ -42,7 +42,8 @@ Attribute VB_Name = "TEST_InputValidation"
 '   regulatory; a reporting-currency FX rate other than 1 stops the run.
 '   For the input conventions (#40): a text date is read only as
 '   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
-'   maturity buckets split at exactly 1 and 5 years, a trade or option
+'   maturity buckets split at exactly 1 and 5 years with the regime's edge
+'   at 1 year (#191), a trade or option
 '   ending on the reporting date is rejected, an option expiring after its
 '   maturity is rejected, both currencies of an FX pair need an FX rate,
 '   the notional must be in one of them, and a pair entered the other way
@@ -70,7 +71,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -86,8 +87,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 111               'Cases in a complete run
-        Private Const CHECKS      As Long = 158               'Checks in a complete run
+        Private Const CASES       As Long = 112               'Cases in a complete run
+        Private Const CHECKS      As Long = 163               'Checks in a complete run
 
 
 '
@@ -107,7 +108,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -759,17 +760,25 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         ExpectStopIn1904 "1904 date system"
 
-    'Dates on the reporting date and the IR maturity buckets (#40). E is
-    'the end date in years of 365 days from 2026-09-30: 364 days is under 1
-    'year, 365 days is 1 year and falls in 1-5Y, as does 1,825 days, exactly
-    '5 years; 1,826 days (2031-09-30) is over 5 years [CRE52.57(3)]. A
-    'trade or option ending on the reporting date is rejected; a start on
-    'it is S = 0.
-        StartCase "ir-bucket-boundaries", "N"
-        AddSwapTo "B364", "2027-09-29"
-        AddSwapTo "B365", "2027-09-30"
-        AddSwapTo "B1825", "2031-09-29"
-        AddSwapTo "B1826", "2031-09-30"
+    'Dates on the reporting date and the IR maturity buckets (#40, #191).
+    'E is the end date in years of 365 days from 2026-09-30: 364 days is
+    'under 1 year, 365 days exactly 1 year, 1,825 days exactly 5 years and
+    '1,826 days (2031-09-30) over 5 years. Under CRR bucket 1 includes
+    'exactly 1 year [Art. 280a(3), Table 2: > 0 and <= 1]; under BCBS it
+    'does not [CRE52.57(3): less than one year]. Exactly 5 years is in
+    'bucket 2 in both. A trade or option ending on the reporting date is
+    'rejected; a start on it is S = 0.
+        StartCase "ir-bucket-boundaries-crr", "N"
+        AddBucketSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectText "bucket-364", "B364", "bucket", "<1Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-365", "B365", "bucket", "<1Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1825", "B1825", "bucket", "1-5Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1826", "B1826", "bucket", ">5Y", "illustrative"
+
+        StartCase "ir-bucket-boundaries-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        AddBucketSwaps
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectText "bucket-364", "B364", "bucket", "<1Y", "illustrative"
         TEST_CaseRunner.ExpectText "bucket-365", "B365", "bucket", "1-5Y", "illustrative"
@@ -1211,6 +1220,27 @@ Private Sub AddFxForward( _
 '
         TEST_CaseRunner.AddTrade tradeId, "FX", "", "EUR/USD", "Linear", "Long", "", "Standard", "", _
                                  "10000", marketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+
+End Sub
+
+
+Private Sub AddBucketSwaps()
+'
+'==============================================================================
+'                                AddBucketSwaps
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add four EUR swaps to NS1 ending 364, 365, 1,825 and 1,826 days after
+'   the reporting date, at the IR maturity-bucket edges (#40, #191).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        AddSwapTo "B364", "2027-09-29"
+        AddSwapTo "B365", "2027-09-30"
+        AddSwapTo "B1825", "2031-09-29"
+        AddSwapTo "B1826", "2031-09-30"
 
 End Sub
 
