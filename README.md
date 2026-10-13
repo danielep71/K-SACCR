@@ -267,6 +267,7 @@ netting set, and every result reports the regime it used.
 | Commodity hedging sets | Adds climatic conditions (Art. 277a(1)(e); 18%) | Energy, metals, agricultural, other |
 | Single-name credit factor | By credit quality step (Art. 280c(5)) | By rating AAA to CCC (CRE52.72) |
 | IR and commodity option delta | Lambda shift of `CRR-RTS` Art. 5 | CRE52.40 |
+| IR maturity bucket 1 | End date up to and including 1 year (Art. 280a(3)) | Under 1 year (CRE52.57(3)) |
 | IR aggregation across buckets | Formula with offsets only (Art. 280a(3)) | With offsets, or sum of absolutes (CRE52.57(5)) |
 
 The [regime differences](docs/methodology/README.md#regime-differences) table

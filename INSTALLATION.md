@@ -414,7 +414,7 @@ MtM leg, no MtM leg, legs in different netting sets, a swap split into two
 linear legs, a whole trade flagged N and a flag that is not Y or N. For the
 input conventions (#40) it enters dates as ISO text and as 30/09/2031 text,
 sets the workbook to the 1904 date system for one run, puts swaps at the IR
-bucket boundaries and dates on the reporting date, gives an option an expiry
+bucket boundaries in each regime with their effect on the add-on, and dates on the reporting date, gives an option an expiry
 after its maturity, and enters FX pairs with an unknown currency, a notional
 outside the pair and the pair the other way round. It puts `#N/A` in each
 optional text field of a trade and in the netting-set and Params regime
@@ -422,7 +422,7 @@ optional text field of a trade and in the netting-set and Params regime
 and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=121; checks=177; failures=0; restore=PASS`.
+`RESULT=PASS; cases=124; checks=186; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
