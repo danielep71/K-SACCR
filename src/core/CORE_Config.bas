@@ -28,7 +28,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -304,6 +304,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_CHECKS_WRITE     As Long = vbObjectError + 2053    'Checks sheet could not be written
         Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
+        Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

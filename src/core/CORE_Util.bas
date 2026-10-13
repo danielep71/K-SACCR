@@ -37,7 +37,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1337,12 +1337,13 @@ Public Function GetParam( _
 '   code: a PRM_ code from CORE_Config, for example "Alpha".
 '
 ' RETURNS
-'   The value of the name's top-left cell; Empty when the name is missing
-'   or broken, which CORE_Engine.ValidateSchema reports before any
-'   parameter is read.
+'   The stored value of the name's top-left cell (Value2, so that a
+'   Currency or date format does not convert or round it, #196); Empty
+'   when the name is missing or broken, which CORE_Engine.ValidateSchema
+'   reports before any parameter is read.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1356,7 +1357,7 @@ Public Function GetParam( _
 '------------------------------------------------------------------------------
         Set c = NamedCell(code)
         If Not c Is Nothing Then
-            GetParam = c.Value
+            GetParam = c.Value2
         End If
 
 End Function

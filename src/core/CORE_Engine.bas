@@ -768,7 +768,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -826,8 +826,8 @@ Private Function ValidateSchema() As Boolean
         valueCol = ParamsValueCol()
         lastR = UsedLastRow(ws)
         If lastR >= 1 Then
-            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value
-            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value
+            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value2
+            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value2
         End If
         For i = LBound(codes) To UBound(codes)
             If NamedCell(CStr(codes(i))) Is Nothing Then
@@ -1278,7 +1278,7 @@ Private Function LoadParams() As Boolean
 '   False.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1344,9 +1344,13 @@ Private Function LoadParams() As Boolean
 '------------------------------------------------------------------------------
 ' REGIME
 '------------------------------------------------------------------------------
-    'A blank regime means CRR; anything other than BCBS or CRR stops the run.
+    'A blank regime means CRR; anything other than BCBS or CRR stops the run,
+    'including an Excel error value, which is not read as blank (#194).
         pRegime = UTxt(GetParam(PRM_REGIME))
-        If Len(pRegime) = 0 Then
+        If IsError(GetParam(PRM_REGIME)) Then
+            LogMsg SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR (found an error value)."
+            Exit Function
+        ElseIf Len(pRegime) = 0 Then
             pRegime = RG_CRR
             LogMsg SEV_WARN, SH_PARAMS, PRM_REGIME, "Regime missing - CRR assumed."
         ElseIf pRegime <> RG_BCBS And pRegime <> RG_CRR Then
@@ -1425,7 +1429,7 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1465,13 +1469,13 @@ Private Function LoadSFTable() As Boolean
         Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
             k = UTxt(TableCell(ws, r, c0).Value)
             entry.Key = k
-            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value)
-            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value, 0#, entry.SF)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value)
-            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value)
+            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value2)
+            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value2)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value2, 0#, entry.SF)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value2, 0#, entry.Corr) Or rowBad
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value2, 0#, entry.Vol) Or rowBad
+            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value2)
+            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value2)
             If entry.Regimes = "BOTH" Then
                 entry.Regimes = ""
             End If
@@ -1587,7 +1591,7 @@ Private Function LoadFXTable() As Boolean
 '   is an error (#41).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1624,7 +1628,7 @@ Private Function LoadFXTable() As Boolean
         r = r0 + 1
         Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
             k = UTxt(TableCell(ws, r, c0).Value)
-            rate = ToDbl(TableCell(ws, r, c0 + 2).Value, -1#)
+            rate = ToDbl(TableCell(ws, r, c0 + 2).Value2, -1#)
             idx = KeyIndex(mFXIndex, k)
             If rate <= 0# Then
                 LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
@@ -2077,7 +2081,7 @@ Private Function LoadNettingSets() As Boolean
 '   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -2109,7 +2113,7 @@ Private Function LoadNettingSets() As Boolean
             Exit Function
         End If
         n = lastR - topRow + 1
-        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value
+        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value2
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -2186,9 +2190,9 @@ Private Function LoadNettingSets() As Boolean
                 End If
 
     'Regime: blank takes the Params default; any other value than BCBS or
-    'CRR is an input error.
+    'CRR, or an Excel error value, is an input error (#194).
                 rg = UTxt(data(i, NS_REGIME))
-                If Len(rg) = 0 Then
+                If Len(rg) = 0 And Not IsError(data(i, NS_REGIME)) Then
                     rg = pRegime
                 ElseIf rg <> RG_BCBS And rg <> RG_CRR Then
                     nsErrors = nsErrors + 1
@@ -2478,6 +2482,41 @@ Private Function TradeDate( _
             End If
             TradeDate = -1#
         End If
+
+End Function
+
+
+Private Function TradeText( _
+    ByVal v As Variant, _
+    ByVal fieldName As String, _
+    ByRef ok As Boolean, _
+    ByRef msg As String) _
+    As String
+'
+'==============================================================================
+'                                  TradeText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read an optional text field of a trade, upper case. A blank field is ""
+'   and takes the caller's default; an Excel error value, such as #N/A from
+'   a broken lookup, makes the trade invalid instead of being read as blank
+'   and taking that default (#194).
+'
+' RETURNS
+'   The trimmed upper-case text; "" when blank or an error value.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        If IsError(v) Then
+            AddErr ok, msg, fieldName & " must be text or blank (found an error value)"
+        End If
+        TradeText = UTxt(v)
 
 End Function
 
@@ -2917,7 +2956,10 @@ Private Sub ProcessTrades( _
             Exit Sub
         End If
         n = lastR - topRow + 1
-        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value
+    'Value2 gives the stored values: a Currency or Accounting format would
+    'otherwise round a price or rate to four decimals, and dates come as
+    'serials, which ToSerial reads (#196).
+        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value2
         ReDim outArr(1 To n, 1 To TC_NCOLS)
         nOut = 0
 
@@ -2990,7 +3032,7 @@ Private Sub ProcessTrades( _
             ac = ACIndex(acTxt)
             If ac = 0 Then AddErr ok, msg, "asset class must be IR, FX, CR, EQ, CO or OT"
 
-            subCls = UTxt(data(i, TR_SUB))
+            subCls = TradeText(data(i, TR_SUB), "Sub-class", ok, msg)
             rf = UTxt(data(i, TR_RF))
             If Len(rf) = 0 Then AddErr ok, msg, "risk factor / reference missing"
             If InStr(rf, "|") > 0 Or InStr(rf, "#") > 0 Then
@@ -3002,7 +3044,7 @@ Private Sub ProcessTrades( _
                        "or EUR-INFL for inflation"
             End If
 
-            instType = UTxt(data(i, TR_INSTR))
+            instType = TradeText(data(i, TR_INSTR), "Instrument", ok, msg)
             If Len(instType) = 0 Then instType = "LINEAR"
             If instType <> "LINEAR" And instType <> "OPTION" And instType <> "CDO" Then
                 AddErr ok, msg, "instrument type must be Linear, Option or CDO"
@@ -3019,9 +3061,9 @@ Private Sub ProcessTrades( _
                     AddErr ok, msg, "direction must be Long or Short"
             End Select
 
-            nature = UTxt(data(i, TR_NATURE))
+            nature = TradeText(data(i, TR_NATURE), "Nature", ok, msg)
             If Len(nature) = 0 Then nature = "STANDARD"
-            lbl = UTxt(data(i, TR_LABEL))
+            lbl = TradeText(data(i, TR_LABEL), "Hedging-set label", ok, msg)
             If InStr(lbl, "|") > 0 Or InStr(lbl, "#") > 0 Then
                 AddErr ok, msg, "hedging-set label must not contain '|' or '#'"
             End If
@@ -3088,7 +3130,7 @@ Private Sub ProcessTrades( _
             Else
                 AddErr ok, msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
             End If
-            nccy = UTxt(data(i, TR_NCCY))
+            nccy = TradeText(data(i, TR_NCCY), "Notional currency", ok, msg)
             If Len(nccy) = 0 Then nccy = pRepCcy
             fxN = FXRate(nccy)
             If fxN < 0# Then AddErr ok, msg, "no FX rate for notional currency '" & nccy & "'"
@@ -3101,7 +3143,7 @@ Private Sub ProcessTrades( _
                 mtm = 0#
                 AddErr ok, msg, "MtM must be a number (found " & DescribeValue(data(i, TR_MTM)) & ")"
             End If
-            mccy = UTxt(data(i, TR_MCCY))
+            mccy = TradeText(data(i, TR_MCCY), "MtM currency", ok, msg)
             If Len(mccy) = 0 Then mccy = nccy
             fxM = FXRate(mccy)
             If fxM < 0# Then AddErr ok, msg, "no FX rate for MtM currency '" & mccy & "'"

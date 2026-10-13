@@ -277,7 +277,11 @@ results withdrawn; and it edits one trade, and on Params a factor's Regimes
 field and its header, a parameter and an FX rate, after a run and checks that the results
 are reported out of date until the edit is undone, once with the template
 layout and once with a column inserted before the Params tables, which the
-case deletes again (#152). Unlike the
+case deletes again (#152). In manual calculation it makes the first trade's
+MtM a formula on its Comment cell, changes the Comment without recalculating,
+and checks that the run uses the new MtM; a recalculation that does not
+finish stops the run and the previous results are no longer reported as
+current (#195). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -412,11 +416,13 @@ input conventions (#40) it enters dates as ISO text and as 30/09/2031 text,
 sets the workbook to the 1904 date system for one run, puts swaps at the IR
 bucket boundaries in each regime with their effect on the add-on, and dates on the reporting date, gives an option an expiry
 after its maturity, and enters FX pairs with an unknown currency, a notional
-outside the pair and the pair the other way round. Every patched cell and
-name, and the date system, is restored. It needs a workbook
+outside the pair and the pair the other way round. It puts `#N/A` in each
+optional text field of a trade and in the netting-set and Params regime
+(#194), and formats an option price as Currency (#196). Every patched cell
+and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=114; checks=167; failures=0; restore=PASS`.
+`RESULT=PASS; cases=124; checks=186; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
