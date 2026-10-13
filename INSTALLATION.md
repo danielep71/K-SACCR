@@ -277,7 +277,11 @@ results withdrawn; and it edits one trade, and on Params a factor's Regimes
 field and its header, a parameter and an FX rate, after a run and checks that the results
 are reported out of date until the edit is undone, once with the template
 layout and once with a column inserted before the Params tables, which the
-case deletes again (#152). In manual calculation it makes the first trade's
+case deletes again (#152). It also checks that the results are out of date
+after the first trade's MtM becomes the same digits as text, after a header
+on Trades or NettingSets is renamed, and after the workbook is switched to the
+other date system, and that a number format, a bold header or a header
+changed only in case and spacing leaves them current (#197). In manual calculation it makes the first trade's
 MtM a formula on its Comment cell, changes the Comment without recalculating,
 and checks that the run uses the new MtM; a recalculation that does not
 finish stops the run and the previous results are no longer reported as
@@ -302,8 +306,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty `CASE=` lines and ends with
-`RESULT=PASS; cases=20; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-five `CASE=` lines and ends with
+`RESULT=PASS; cases=25; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 
@@ -476,6 +480,10 @@ results on the sheets match the inputs as they are now, `STALE` when an input
 changed since, and `NONE` when there is no valid completed run. Params is
 read through its workbook names, so an edit is found also after its tables
 have moved; descriptions, references and formatting do not count as edits.
+The fingerprint also covers the Trades and NettingSets headers, the type of
+each value (the number 47756 and the text `'47756` differ, as do two error
+values) and the workbook's date system (#197); a header changed only in
+case or spacing, which the schema check accepts, does not count.
 Results C5 shows the same status through the formula
 `=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
 Excel recalculates when an input changes, and turns red when it reads
