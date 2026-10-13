@@ -549,6 +549,8 @@ Use only the categories needed by a release.
   exercise date of a swaption, the earliest allowed exercise date of a
   Bermudan swaption (whose T is the latest), the start of the first
   period of a cap or floor (CRE52.31(2), CRE52.32 Table 1, CRE52.42(2)).
+  The template's README and the input message of the Start date column
+  say so.
   The methodology also states how amortising, accreting, leveraged,
   multi-exchange and resetting trades are entered, since the workbook
   reads one notional and one maturity per row. `TEST_InputValidation`
