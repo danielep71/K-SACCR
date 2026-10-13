@@ -920,14 +920,19 @@ Private Function IsTotalRow( _
 '                                  IsTotalRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether a Results row is a TOTAL row: its label starts with
-'   "TOTAL" (#198).
+'   Tell whether a Results row is a TOTAL row: its label is TOTAL CRR or
+'   TOTAL BCBS, or TOTAL as written before #198. The engine rejects these
+'   as netting-set IDs, so a netting set such as TOTALENERGIES-1 is not
+'   taken for a total.
 '
 ' UPDATED
 '   2026-10-13
 '==============================================================================
 '
-        IsTotalRow = (Left$(RowLabel(outputRows, r), 5) = "TOTAL")
+    Dim label    As String       'Label of row r
+
+        label = RowLabel(outputRows, r)
+        IsTotalRow = (label = "TOTAL" Or label = "TOTAL " & RG_CRR Or label = "TOTAL " & RG_BCBS)
 
 End Function
 

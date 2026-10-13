@@ -422,7 +422,7 @@ optional text field of a trade and in the netting-set and Params regime
 and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=126; checks=190; failures=0; restore=PASS`.
+`RESULT=PASS; cases=127; checks=192; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

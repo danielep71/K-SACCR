@@ -93,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 126               'Cases in a complete run
-        Private Const CHECKS      As Long = 190               'Checks in a complete run
+        Private Const CASES       As Long = 127               'Cases in a complete run
+        Private Const CHECKS      As Long = 192               'Checks in a complete run
 
 
 '
@@ -946,6 +946,16 @@ Public Sub RunInputValidationTests()
         ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
         TEST_CaseRunner.ExpectTrue "one-total", ResultsRow("TOTAL BCBS") = 0 And ResultsRow("TOTAL") = 0, _
                                    "a TOTAL row other than TOTAL CRR was written", "illustrative"
+
+    'A netting set may not take the label of a TOTAL row: its row is
+    'ignored with an error, and TOTAL CRR still covers NS1 alone.
+        StartCase "netting-set-reserved-id", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_ID, "total crr"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "CRR"
+        AddSwap "T1"
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectChecksLine "reserved-id", SEV_ERROR, "is reserved for a TOTAL row", "illustrative"
+        ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub

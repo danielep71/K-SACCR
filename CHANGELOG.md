@@ -345,7 +345,10 @@ Use only the categories needed by a release.
   VALID; 1 withheld". The message box shows one total line per regime, and
   the result line of `RunSACCR_Silent` replaces `total_ead` with
   `total_ead_crr` and `total_ead_bcbs`. There is no total across regimes.
-  Individual netting-set results are unchanged.
+  Individual netting-set results are unchanged. `TOTAL`, `TOTAL CRR` and
+  `TOTAL BCBS` are reserved: a NettingSets row with one of them as its ID
+  is ignored with an error, so a netting set cannot be mistaken for a
+  total.
 - The root README is rewritten as the project's front page: what the toolkit
   is for, its capabilities, a quick start from clone to `Test_RunAll`, how a
   run flows through the sheets, the EU CRR and Basel differences, the

@@ -2186,7 +2186,8 @@ Private Function LoadNettingSets() As Boolean
 '
 ' STATE OWNERSHIP
 '   Fills mNS, mNSCount and mNSIndex, and sizes the asset-class add-on
-'   arrays. A duplicate ID is an error and the later row is ignored.
+'   arrays. A duplicate ID is an error and the later row is ignored, and so
+'   is a row whose ID is reserved for a TOTAL row on Results (#198).
 '
 ' REFERENCE
 '   MPOR floors CRE52.50 to CRE52.52 and CRR Art. 285(2) to (5); the
@@ -2236,7 +2237,9 @@ Private Function LoadNettingSets() As Boolean
     'An empty row is skipped; a row with data but no ID is an error, so a
     'netting set cannot silently drop out (#35). A repeated ID is ignored and
     'makes the first set with that ID INVALID: which row's terms apply to
-    'its trades is ambiguous, so its EAD is withheld.
+    'its trades is ambiguous, so its EAD is withheld. TOTAL, TOTAL CRR and
+    'TOTAL BCBS label the TOTAL rows on Results (#198), so a netting set
+    'with one of them would be mistaken for a total; its row is ignored.
         For i = 1 To n
             rowNum = topRow + i - 1
             id = UTxt(data(i, NS_ID))
@@ -2244,6 +2247,10 @@ Private Function LoadNettingSets() As Boolean
                 If RowHasData(data, i, NS_NCOLS, 0) Then
                     LogMsg SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", rowNum
                 End If
+                GoTo NextRow
+            End If
+            If id = "TOTAL" Or id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
+                LogMsg SEV_ERROR, SH_NS, id, "Netting set ID " & id & " is reserved for a TOTAL row on Results - row ignored.", rowNum
                 GoTo NextRow
             End If
             If KeyIndex(mNSIndex, id) > 0 Then
