@@ -93,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 127               'Cases in a complete run
-        Private Const CHECKS      As Long = 193               'Checks in a complete run
+        Private Const CASES       As Long = 129               'Cases in a complete run
+        Private Const CHECKS      As Long = 198               'Checks in a complete run
 
 
 '
@@ -838,6 +838,28 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectChecksLine "expiry-after-maturity", SEV_ERROR, _
                                          "option expiry is after the maturity date", "illustrative"
 
+    'Option dates of a swaption (#40): S is the start of the underlying, so
+    'an IR option without a start date is rejected instead of taking S = 0.
+    'A Bermudan swaption exercisable yearly from 2027-09-30 to 2029-09-30
+    'into a swap ending 2036-09-30 takes S = 1 (the earliest exercise date)
+    'for the duration and T = 3.0027 (the latest) for the delta
+    '[CRE52.42(1)-(2)]: d = 10000 * (exp(-0.05) - exp(-0.05 * 10.0082)) /
+    '0.05 = 68989.59, not the 78743.71 that S = 0 would give, and with P =
+    'K the delta is N(0.5 * 0.5 * sqrt(3.0027)) = 0.66757.
+        StartCase "ir-option-start-required", "N"
+        AddSwaption "T1", ""
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "start-required", SEV_ERROR, _
+                                         "option needs the start date S of its underlying", "illustrative"
+
+        StartCase "ir-option-bermudan-dates", "N"
+        AddSwaption "T1", "2027-09-30"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "bermudan-duration", "T1", "adjusted_notional", "68989.5945505363", _
+                                     "0.000001", "0.000000001", "illustrative"
+        TEST_CaseRunner.ExpectNumber "bermudan-delta", "T1", "supervisory_delta", "0.667569030490699", _
+                                     "0.000001", "0", "illustrative"
+
     'Currency pairs (#40): both currencies need an FX rate on Params, and
     'the notional is in one of them. USD/EUR long is EUR/USD short in the
     'EUR/USD hedging set, so it offsets a EUR/USD long of the same
@@ -1404,6 +1426,30 @@ Private Sub AddSmallOption()
         TEST_CaseRunner.AddTrade "T1", "EQ", "SINGLE", "ACME", "Option", "Long", "Call", "Standard", "", _
                                  "10000", "0", "", "2027-09-30", "2027-09-30", "2027-09-30", "0.012345", _
                                  "0.0123", "", "", ""
+
+End Sub
+
+
+Private Sub AddSwaption( _
+    ByVal tradeId As String, _
+    ByVal startDate As String)
+'
+'==============================================================================
+'                                 AddSwaption
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a bought EUR payer swaption on 10,000, struck at the money (P = K
+'   = 5%), with its latest exercise date on 2029-09-30 and the underlying
+'   swap ending on 2036-09-30; startDate is the start of the underlying,
+'   "" for none (#40).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", startDate, "2036-09-30", "2036-09-30", "2029-09-30", "0.05", _
+                                 "0.05", "", "", ""
 
 End Sub
 

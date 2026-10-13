@@ -542,6 +542,18 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- An interest-rate or credit option without a start date is rejected
+  (#40). S was read as 0, the duration of a swap starting today, so a
+  forward-starting or Bermudan swaption entered without its exercise date
+  took too long a duration. S is the start of the underlying: the
+  exercise date of a swaption, the earliest allowed exercise date of a
+  Bermudan swaption (whose T is the latest), the start of the first
+  period of a cap or floor (CRE52.31(2), CRE52.32 Table 1, CRE52.42(2)).
+  The methodology also states how amortising, accreting, leveraged,
+  multi-exchange and resetting trades are entered, since the workbook
+  reads one notional and one maturity per row. `TEST_InputValidation`
+  rejects a swaption without a start date and checks the duration and
+  delta of a Bermudan swaption.
 - Results are reported out of date after input changes the input
   fingerprint missed (#197). It wrote each cell as plain text, so a number
   replaced by the same digits as text, which the run reads differently (a

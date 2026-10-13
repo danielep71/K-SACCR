@@ -3311,6 +3311,20 @@ Private Sub ProcessTrades( _
                 End If
             End If
 
+    'An interest-rate or credit option takes S from its underlying
+    '[CRE52.31(2), Table 1 of CRE52.32]: for a swaption the exercise date,
+    'for a Bermudan swaption the earliest allowed exercise date
+    '[CRE52.42(2)], for a cap or floor the start of its first period. A
+    'blank start date would read as 0, the duration of a swap starting
+    'today, so it is an error (#40).
+            If instType = "OPTION" And (ac = AC_IR Or ac = AC_CR) And dStart < 0# Then
+                If IsBlankCell(data(i, TR_START)) And Not IsError(data(i, TR_START)) Then
+                    AddErr ok, msg, "an interest-rate or credit option needs the start date S of its underlying " & _
+                           "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
+                           "start of the first period)"
+                End If
+            End If
+
     '--- Supervisory delta -------------------------------------------------------
     'Linear trades: +1 long, -1 short [CRE52.39]. Options: the option delta
     'with the lambda shift; under CRR the regulatory lambda replaces any
