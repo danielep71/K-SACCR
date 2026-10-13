@@ -51,7 +51,9 @@ Attribute VB_Name = "TEST_InputValidation"
 '   An Excel error value in an optional text field of a trade, in a
 '   netting set's regime or in the Params regime is an input error, not
 '   a blank that takes a default (#194), and a Currency number format
-'   does not round an input (#196).
+'   does not round an input (#196). Results has one TOTAL row per regime,
+'   after the netting sets, with the number of VALID and withheld netting
+'   sets it covers (#198).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -91,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 124               'Cases in a complete run
-        Private Const CHECKS      As Long = 186               'Checks in a complete run
+        Private Const CASES       As Long = 127               'Cases in a complete run
+        Private Const CHECKS      As Long = 193               'Checks in a complete run
 
 
 '
@@ -913,6 +915,48 @@ Public Sub RunInputValidationTests()
                                      "0.000001", "0", "illustrative"
         TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
 
+    'Totals per regime (#198): one TOTAL row for each regime with netting
+    'sets, CRR first, after the netting-set rows; each sums the regime's
+    'VALID netting sets and says how many it covers and how many were
+    'withheld. NS1 (CRR) and NS2 (BCBS) hold one swap each; NS3 (CRR) holds
+    'a swap without MtM, so its EAD is withheld.
+        StartCase "totals-per-regime", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_ID, "NS2"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "BCBS"
+        TEST_CaseRunner.SetInputCell SH_NS, 3, NS_ID, "NS3"
+        TEST_CaseRunner.SetInputCell SH_NS, 3, NS_REGIME, "CRR"
+        AddSwap "T1"
+        AddSwap "T2"
+        AddSwap "T3"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NS, "NS2"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_NS, "NS3"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_MTM, Empty
+        TEST_CaseRunner.RunCase
+        ExpectTotal RG_CRR, "1 of 2 netting set(s) VALID; 1 withheld", "NS1"
+        ExpectTotal RG_BCBS, "1 of 1 netting set(s) VALID; 0 withheld", "NS2"
+        TEST_CaseRunner.ExpectTrue "totals-last", ResultsRow("TOTAL CRR") = ResultsRow("NS3") + 1 And _
+                                   ResultsRow("TOTAL BCBS") = ResultsRow("TOTAL CRR") + 1 And _
+                                   ResultsRow("TOTAL") = 0, _
+                                   "the TOTAL rows are not TOTAL CRR then TOTAL BCBS after the netting sets", _
+                                   "illustrative"
+
+        StartCase "totals-single-regime", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.RunCase
+        ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
+        TEST_CaseRunner.ExpectTrue "one-total", ResultsRow("TOTAL BCBS") = 0 And ResultsRow("TOTAL") = 0, _
+                                   "a TOTAL row other than TOTAL CRR was written", "illustrative"
+
+    'A netting set may not take the label of a TOTAL row: its row is
+    'ignored with an error, and TOTAL CRR still covers NS1 alone.
+        StartCase "netting-set-reserved-id", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_ID, "total crr"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "CRR"
+        AddSwap "T1"
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectChecksLine "reserved-id", SEV_ERROR, "is reserved for a TOTAL row", "illustrative"
+        ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
+
         TEST_CaseRunner.EndSuite ""
         Exit Sub
 
@@ -1498,6 +1542,95 @@ Private Sub ExpectStopIn1904( _
         If errNumber <> 0 Then
             Err.Raise errNumber, "TEST_InputValidation.ExpectStopIn1904", errText
         End If
+
+End Sub
+
+
+Private Function ResultsRow( _
+    ByVal label As String) _
+    As Long
+'
+'==============================================================================
+'                                  ResultsRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Find a Results row by the exact text of its first column: a netting
+'   set's ID or a TOTAL row's label (#198).
+'
+' RETURNS
+'   The sheet row; 0 when no row has that label.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws   As Worksheet    'Results sheet
+    Dim r    As Long         'Row being read
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_RESULTS)
+        r = FIRST_DATA_ROW
+        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
+            If SafeStr(TableCell(ws, r, 1).Value) = label Then
+                ResultsRow = r
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Sub ExpectTotal( _
+    ByVal regimeCode As String, _
+    ByVal statusText As String, _
+    ByVal nettingSetId As String)
+'
+'==============================================================================
+'                                 ExpectTotal
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check the TOTAL row of a regime (#198): it exists, its status is
+'   statusText, its EAD equals the EAD of the regime's one VALID netting
+'   set nettingSetId, and CORE_Engine.TotalEAD reports the same figure.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws       As Worksheet    'Results sheet
+    Dim tr       As Long         'Row of the TOTAL row
+    Dim nr       As Long         'Row of the netting set
+    Dim ok       As Boolean      'All conditions hold
+    Dim detail   As String       'Diagnostic
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_RESULTS)
+        tr = ResultsRow("TOTAL " & regimeCode)
+        nr = ResultsRow(nettingSetId)
+        If tr = 0 Or nr = 0 Then
+            detail = "TOTAL " & regimeCode & " or " & nettingSetId & " is missing from Results"
+        Else
+            ok = (SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) = statusText) And _
+                 (Abs(ToDbl(TableCell(ws, tr, 22).Value) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001) And _
+                 (Abs(CORE_Engine.TotalEAD(regimeCode) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001)
+            detail = "TOTAL " & regimeCode & " status """ & SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) & _
+                     """, EAD " & TableCell(ws, tr, 22).Value & "; expected """ & statusText & """ and the EAD of " & _
+                     nettingSetId & ", " & TableCell(ws, nr, 22).Value
+        End If
+        TEST_CaseRunner.ExpectTrue "total-" & LCase$(regimeCode), ok, detail, "illustrative"
 
 End Sub
 
