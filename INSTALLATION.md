@@ -407,11 +407,16 @@ equity forward with an FX leg: RC 30, add-ons 3,200 and 400, EAD 5,082, and
 the economic-trade and leg counts), a call spread entered as two option legs,
 and the rejection of two MtM legs, a repeated MtM on a leg that is not the
 MtM leg, no MtM leg, legs in different netting sets, a swap split into two
-linear legs, a whole trade flagged N and a flag that is not Y or N. Every
-patched cell and name is restored. It needs a workbook
+linear legs, a whole trade flagged N and a flag that is not Y or N. For the
+input conventions (#40) it enters dates as ISO text and as 30/09/2031 text,
+sets the workbook to the 1904 date system for one run, puts swaps at the IR
+bucket boundaries and dates on the reporting date, gives an option an expiry
+after its maturity, and enters FX pairs with an unknown currency, a notional
+outside the pair and the pair the other way round. Every patched cell and
+name, and the date system, is restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=97; checks=129; failures=0; restore=PASS`.
+`RESULT=PASS; cases=111; checks=158; failures=0; restore=PASS`.
 
 ### Aggregation tests
 

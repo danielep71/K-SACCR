@@ -1268,10 +1268,10 @@ Private Function LoadParams() As Boolean
 '
 ' RETURNS
 '   True when the parameters are usable. False, with an error logged, when
-'   the reporting date or currency is missing, the regime is not BCBS or
-'   CRR, a numeric parameter is outside the range of its data validation
-'   (ParamInRange), or the IR bucket correlations do not form a valid
-'   correlation matrix (#147).
+'   the workbook uses the 1904 date system, the reporting date or currency
+'   is missing, the regime is not BCBS or CRR, a numeric parameter is
+'   outside the range of its data validation (ParamInRange), or the IR
+'   bucket correlations do not form a valid correlation matrix (#147).
 '
 ' ERROR POLICY
 '   An unexpected error while reading is logged as an error and returns
@@ -1287,11 +1287,19 @@ Private Function LoadParams() As Boolean
 '------------------------------------------------------------------------------
     'Both are required: there is no sensible default. The currency is three
     'letters A to Z; case and surrounding spaces are ignored. Only the format
-    'is checked, not membership of ISO 4217 (#147).
+    'is checked, not membership of ISO 4217 (#147). Dates are read in the
+    '1900 date system: in a workbook set to the 1904 system, a date typed as
+    'a plain number would be read 1,462 days early, so the run stops (#40).
         On Error GoTo Fail
+        If ThisWorkbook.Date1904 Then
+            LogMsg SEV_ERROR, SH_PARAMS, "", "The workbook uses the 1904 date system, which is not supported. " & _
+                   "Clear 'Use 1904 date system' in File > Options > Advanced and check the dates."
+            Exit Function
+        End If
         pAsOf = ToSerial(GetParam(PRM_ASOF))
         If pAsOf <= 0# Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_ASOF, "Reporting date missing or invalid."
+            LogMsg SEV_ERROR, SH_PARAMS, PRM_ASOF, "Reporting date missing or not a date (enter a date, " & _
+                   "or text in the form yyyy-mm-dd; found " & DescribeValue(GetParam(PRM_ASOF)) & ")."
             Exit Function
         End If
         pRepCcy = UTxt(GetParam(PRM_REPCCY))
@@ -2801,7 +2809,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '==============================================================================
 '
 
@@ -3069,8 +3077,9 @@ Private Sub ProcessTrades( _
 
     '--- Amounts ---------------------------------------------------------------
     'The notional is unsigned; Direction gives the sign. A missing MtM is an
-    'error, not an assumed 0 (#35); a blank MtM currency means the notional
-    'currency. Both amounts are converted to the reporting currency.
+    'error, not an assumed 0 (#35); a blank notional currency means the
+    'reporting currency, and a blank MtM currency the notional currency.
+    'Both amounts are converted to the reporting currency.
             If IsNum(data(i, TR_NOTIONAL)) Then
                 notional = CDbl(data(i, TR_NOTIONAL))
                 If notional < 0# Then AddErr ok, msg, "notional must be positive (use Direction for the sign)"
@@ -3080,6 +3089,7 @@ Private Sub ProcessTrades( _
                 AddErr ok, msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
             End If
             nccy = UTxt(data(i, TR_NCCY))
+            If Len(nccy) = 0 Then nccy = pRepCcy
             fxN = FXRate(nccy)
             If fxN < 0# Then AddErr ok, msg, "no FX rate for notional currency '" & nccy & "'"
             If IsNum(data(i, TR_MTM)) Then
@@ -3150,7 +3160,12 @@ Private Sub ProcessTrades( _
                             AddErr ok, msg, "option expiry missing"
                         Else
                             T = (dExp - pAsOf) / pDaysYear
-                            If T <= 0# Then AddErr ok, msg, "option has expired"
+                            If T <= 0# Then
+                                AddErr ok, msg, "option has expired"
+                            ElseIf dExp > dMat Then
+                                AddErr ok, msg, "option expiry is after the maturity date (M is the latest " & _
+                                       "date the contract may still be active)"
+                            End If
                         End If
                         If Not IsNum(data(i, TR_PRICE)) Or Not IsNum(data(i, TR_STRIKE)) Then
                             AddErr ok, msg, "option needs underlying price and strike"
@@ -3208,11 +3223,12 @@ Private Sub ProcessTrades( _
     'CRE52.57(2)-(3)]; an inflation risk factor such as EUR-INFL is its own
     'hedging set [CRR Art. 277(4)(a), 277a(1)]. FX: d = notional, hedging
     'set per currency pair written in alphabetical order; an inverted pair
-    'flips the delta [CRE52.58]. CR: d = notional * SD, one hedging set,
-    'bucket per entity [CRE52.60, CRE52.64]. EQ: one hedging set, bucket per
-    'entity [CRE52.66]. CO: hedging set per commodity group, bucket per
-    'commodity [CRE52.70]. OT: hedging set per primary risk driver [CRR Art.
-    '277a].
+    'flips the delta [CRE52.58]; both currencies of the pair need an FX
+    'rate, and the notional is that of one of the pair's legs (#40). CR:
+    'd = notional * SD, one hedging set, bucket per entity [CRE52.60,
+    'CRE52.64]. EQ: one hedging set, bucket per entity [CRE52.66]. CO:
+    'hedging set per commodity group, bucket per commodity [CRE52.70]. OT:
+    'hedging set per primary risk driver [CRR Art. 277a].
             If ok Then
                 Select Case ac
                     Case AC_IR
@@ -3233,6 +3249,12 @@ Private Sub ProcessTrades( _
                         rf = NormalizePair(rf, pairSign)
                         If pairSign = 0# Then
                             AddErr ok, msg, "FX risk factor must be a currency pair such as EUR/USD"
+                        ElseIf FXRate(Left$(rf, 3)) < 0# Then
+                            AddErr ok, msg, "no FX rate for currency '" & Left$(rf, 3) & "' of the pair " & rf
+                        ElseIf FXRate(Right$(rf, 3)) < 0# Then
+                            AddErr ok, msg, "no FX rate for currency '" & Right$(rf, 3) & "' of the pair " & rf
+                        ElseIf nccy <> Left$(rf, 3) And nccy <> Right$(rf, 3) Then
+                            AddErr ok, msg, "notional currency '" & nccy & "' is not a currency of the pair " & rf
                         End If
                         delta = delta * pairSign
                         adjN = notionalRep
