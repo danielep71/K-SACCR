@@ -528,6 +528,16 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Under CRR, an interest-rate trade whose end date is exactly 1 year from
+  the reporting date is now in maturity bucket 1 (#191). CRR Art. 280a(3),
+  Table 2, puts E > 0 and <= 1 in bucket 1, but the engine applied the
+  Basel edge (CRE52.57(3), less than one year) in both regimes and put it in
+  bucket 2, which changes the correlation it takes in the effective
+  notional. Basel netting sets, and both regimes at exactly 5 years, are
+  unchanged. The bucket key stays `<1Y`. `TEST_InputValidation` checks the
+  edges in each regime and the effect on the IR add-on of a long swap at 1
+  year against a short one at 2 years (70.26 under CRR, 46.39 under Basel);
+  the methodology lists the difference.
 - The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
   modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
   or `é` in a comment or string of a document module could be replaced.
