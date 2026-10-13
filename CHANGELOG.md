@@ -509,6 +509,15 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
+  modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
+  or `é` in a comment or string of a document module could be replaced.
+- With `-SourceDir`, the synchronizer identifies a file only by the
+  `Attribute VB_Name` it declares (#160). A file without one took its name
+  from the file name, so a `CORE_Engine.bas` without the attribute could
+  replace `CORE_Engine`; such files, and files with a malformed, repeated or
+  invalid declaration, are now ignored with the reason. The reasons are
+  shown also when no file in the folder is usable, before the script stops.
 - `tools/check_test_cases.py` also flags a registered EBA Q&A cited by its
   full name, such as `EBA Single Rulebook Q&A 2023_6962`, instead of its
   source ID (#145); it matched only `EBA Q&A 2023_6962`. The source
