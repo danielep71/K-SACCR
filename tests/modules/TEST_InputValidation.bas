@@ -94,7 +94,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
         Private Const CASES       As Long = 127               'Cases in a complete run
-        Private Const CHECKS      As Long = 192               'Checks in a complete run
+        Private Const CHECKS      As Long = 193               'Checks in a complete run
 
 
 '
