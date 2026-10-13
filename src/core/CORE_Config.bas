@@ -292,6 +292,17 @@ Attribute VB_Name = "CORE_Config"
         Public Const AC_COUNT   As Long = 6    'Number of asset classes
 
 '------------------------------------------------------------------------------
+' FX QUOTE ORDER
+'------------------------------------------------------------------------------
+    'Market quote order of currency pairs (#40). Of two currencies, the one
+    'listed earlier is the base: EUR/USD, GBP/USD, USD/JPY, EUR/CHF. A
+    'currency not listed comes after every listed one (USD/SEK), and of two
+    'unlisted currencies the first in alphabetical order is the base
+    '(NOK/SEK). An FX option must be entered in this order, so its price
+    'and strike are always quoted the same way (CRE52.59 FAQ1).
+        Public Const FX_QUOTE_ORDER   As String = "EUR GBP AUD NZD USD CAD CHF JPY"
+
+'------------------------------------------------------------------------------
 ' ERROR NUMBERS
 '------------------------------------------------------------------------------
     'Errors raised by the workbook macros, in the project range

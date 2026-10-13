@@ -3413,7 +3413,10 @@ Private Sub ProcessTrades( _
     'FX: d = notional, hedging set per currency pair written in alphabetical
     'order; an inverted pair flips the delta [CRE52.58]; both currencies of
     'the pair need an FX rate, and the notional is that of one of the pair's
-    'legs (#40). CR: d = notional * SD, one hedging set, bucket per entity
+    'legs (#40). An FX option must be entered in market quote order
+    '(MarketPair): a call on one order and the put on the other give
+    'different deltas, so the order must be one and the same for every
+    'trade [CRE52.59 FAQ1] (#40). CR: d = notional * SD, one hedging set, bucket per entity
     '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
     '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
     '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
@@ -3443,6 +3446,10 @@ Private Sub ProcessTrades( _
                             AddErr ok, msg, "no FX rate for currency '" & Right$(rf, 3) & "' of the pair " & rf
                         ElseIf nccy <> Left$(rf, 3) And nccy <> Right$(rf, 3) Then
                             AddErr ok, msg, "notional currency '" & nccy & "' is not a currency of the pair " & rf
+                        ElseIf instType = "OPTION" And pairSign * MarketSign(rf) < 0# Then
+                            AddErr ok, msg, "FX option must be entered in market quote order as " & MarketPair(rf) & _
+                                   ", with price and strike in " & Right$(MarketPair(rf), 3) & " per " & _
+                                   Left$(MarketPair(rf), 3) & " (CRE52.59 FAQ1)"
                         End If
                         delta = delta * pairSign
                         adjN = notionalRep
@@ -3618,6 +3625,97 @@ Private Function NormalizePair( _
         Else
             pairSgn = -1#
             NormalizePair = c2 & "/" & c1
+        End If
+
+End Function
+
+
+Private Function MarketPair( _
+    ByVal pair As String) _
+    As String
+'
+'==============================================================================
+'                                  MarketPair
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write a currency pair "AAA/BBB" in market quote order: the currency
+'   listed earlier in FX_QUOTE_ORDER first; a currency not listed after
+'   every listed one; of two unlisted currencies, the alphabetical first
+'   (#40).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim c1   As String    'First currency of pair
+    Dim c2   As String    'Second currency of pair
+    Dim r1   As Long      'Rank of c1
+    Dim r2   As Long      'Rank of c2
+
+'------------------------------------------------------------------------------
+' ORDER
+'------------------------------------------------------------------------------
+        c1 = Left$(pair, 3)
+        c2 = Right$(pair, 3)
+        r1 = QuoteRank(c1)
+        r2 = QuoteRank(c2)
+        If r1 < r2 Or (r1 = r2 And c1 < c2) Then
+            MarketPair = c1 & "/" & c2
+        Else
+            MarketPair = c2 & "/" & c1
+        End If
+
+End Function
+
+
+Private Function MarketSign( _
+    ByVal pair As String) _
+    As Double
+'
+'==============================================================================
+'                                  MarketSign
+'------------------------------------------------------------------------------
+' PURPOSE
+'   +1 when a pair written in alphabetical order (NormalizePair) is also
+'   in market quote order, -1 when the market order is the reverse
+'   (JPY/USD is quoted USD/JPY). Compared with the sign NormalizePair
+'   gives, it tells whether a pair was entered in market order (#40).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        If MarketPair(pair) = pair Then
+            MarketSign = 1#
+        Else
+            MarketSign = -1#
+        End If
+
+End Function
+
+
+Private Function QuoteRank( _
+    ByVal ccy As String) _
+    As Long
+'
+'==============================================================================
+'                                  QuoteRank
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Rank of a currency in FX_QUOTE_ORDER, lower first; a currency not
+'   listed ranks after every listed one (#40).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        QuoteRank = InStr(1, " " & FX_QUOTE_ORDER & " ", " " & ccy & " ", vbBinaryCompare)
+        If QuoteRank = 0 Then
+            QuoteRank = Len(FX_QUOTE_ORDER) + 2
         End If
 
 End Function
