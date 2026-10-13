@@ -279,7 +279,9 @@ are reported out of date until the edit is undone, once with the template
 layout and once with a column inserted before the Params tables, which the
 case deletes again (#152). In manual calculation it makes the first trade's
 MtM a formula on its Comment cell, changes the Comment without recalculating,
-and checks that the run uses the new MtM (#195). Unlike the
+and checks that the run uses the new MtM; a recalculation that does not
+finish stops the run and the previous results are no longer reported as
+current (#195). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +

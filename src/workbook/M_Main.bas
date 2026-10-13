@@ -44,8 +44,10 @@ Attribute VB_Name = "M_Main"
 ' TEST SEAM
 '   gTestFault = "operation" raises ERR_INJECTED_FAULT after the settings
 '   have been changed; gTestFault = "cleanup" makes the calculation-mode
-'   restoration fail. tests/modules/TEST_MainState.bas uses both. Production
-'   code never sets it.
+'   restoration fail; gTestFault = "recalc" takes the path of a
+'   recalculation that did not finish (#195).
+'   tests/modules/TEST_MainState.bas uses all three. Production code never
+'   sets it.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -85,7 +87,7 @@ Attribute VB_Name = "M_Main"
     'TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
     'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation" or "cleanup"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup" or "recalc"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Private mRunning    As Boolean    'True while an operation is in progress
 
@@ -433,12 +435,17 @@ Private Function ExecuteOperation( _
     'recalculation still holds its old result, and the engine would
     'calculate from it and fingerprint it as current. Calculate brings every
     'dirty cell up to date first; it refreshes no external data connection
-    '(#195). Clear outputs reads no input.
+    '(#195). Clear outputs reads no input. If the recalculation does not
+    'finish, for example after Esc, the stored fingerprint is withdrawn
+    'first: a dirty input could still show the value the last run used,
+    'so its results must not be reported as current.
         If operation <> OP_CLEAR Then
             Application.Calculate
-            If Application.CalculationState <> xlDone Then
+            If Application.CalculationState <> xlDone Or gTestFault = "recalc" Then
+                CORE_Engine.ForgetRunInputs
                 Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
-                          "Excel did not finish recalculating the inputs, so the operation was not started."
+                          "Excel did not finish recalculating the inputs, so the operation was not started " & _
+                          "and the previous results are no longer reported as current."
             End If
         End If
 

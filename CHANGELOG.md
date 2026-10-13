@@ -539,7 +539,9 @@ Use only the categories needed by a release.
   manual calculation a formula input whose precedents had changed since
   the last recalculation kept its old result, so the run calculated from
   it and reported the results as current. A recalculation that does not
-  finish stops the run with `ERR_RECALC_PENDING`. External data
+  finish, for example after Esc, stops the operation with
+  `ERR_RECALC_PENDING` and withdraws the stored fingerprint, so the
+  previous results are no longer reported as current. External data
   connections are not refreshed.
 - Inputs are read with `Range.Value2` (#196). With `Range.Value`, a cell
   formatted as Currency or Accounting was converted to VBA's Currency type

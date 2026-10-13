@@ -11,7 +11,9 @@ Attribute VB_Name = "TEST_MainState"
 '   results; and that results are reported as out of date once an input
 '   changes (issue #36), also on Params after its tables have moved
 '   (issue #152); and that a run in manual calculation recalculates its
-'   formula inputs before reading them (issue #195).
+'   formula inputs before reading them, and stops without reporting old
+'   results as current when that recalculation does not finish (issue
+'   #195).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -62,7 +64,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 21   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 22   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -148,6 +150,7 @@ Public Sub RunMainStateTests()
         CaseStaleParams False
         CaseStaleParams True
         CaseManualRecalculation
+        CaseRecalculationPending
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -860,6 +863,65 @@ Unexpected:
         Fail "run.manual-recalculates-inputs", "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell mtmCell, savedMtm
         RestoreCell noteCell, savedNote
+
+End Sub
+
+
+Private Sub CaseRecalculationPending()
+'
+'==============================================================================
+'                           CaseRecalculationPending
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When the recalculation before a run does not finish (#195), simulated
+'   through gTestFault = "recalc", the run raises ERR_RECALC_PENDING, the
+'   previous results are no longer reported as current, Excel is restored,
+'   and the next run works.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result      As String    'Result line of a run
+    Dim errNumber   As Long      'Error raised by the stopped run
+    Dim errText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.recalculation-pending"
+        SetState xlCalculationManual, False, False
+        result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        M_Main.gTestFault = "recalc"
+        On Error Resume Next
+        result = M_Main.RunSACCR_Silent()
+        errNumber = Err.Number
+        errText = Err.Description
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check errNumber = ERR_RECALC_PENDING, "expected ERR_RECALC_PENDING, got " & errNumber & ": " & errText
+        Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the stopped run"
+        CheckState xlCalculationManual, False, False
+
+    'The next run completes and its results are current again.
+        result = M_Main.RunSACCR_Silent()
+        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
+        CheckState xlCalculationManual, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail "run.recalculation-pending", "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
