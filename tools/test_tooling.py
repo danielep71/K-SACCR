@@ -195,6 +195,33 @@ class SourceGateTests(unittest.TestCase):
         self.write("tools/Sync-SACCR-VBA.ps1", "$doc = @'\r\n" + old + "'@\r\n" + active)
         self.assertEqual(self.findings(), [unsynchronized])
 
+    def test_backtick_escapes_in_sync_preamble(self) -> None:
+        # In a double-quoted string a backtick escapes the next character, so
+        # `" does not close the string and a following <# is text; `` is a
+        # literal backtick and the quote after it does close the string. In a
+        # single-quoted string a backtick is literal (#188).
+        self.write("src/modules/SACCR_Test.bas", MODULE)
+        self.write("tests/modules/TEST_Test.bas", MODULE.replace("SACCR_Test", "TEST_Test"))
+        unsynchronized = ("tests/modules/TEST_Test.bas: not synchronized; add its directory to "
+                          "$sourceRoots in tools/Sync-SACCR-VBA.ps1")
+        old = ('$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),\r\n'
+               '        (Join-Path $repoFullPath "tests\\modules")\r\n    )\r\n')
+        active = '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules")\r\n    )\r\n'
+        for before in ('$x = "literal `"<#`""\r\n',
+                       '$x = "`"# not a comment `"<# nor this"\r\n',
+                       '$x = "first `"\r\n<# still text"\r\n'):
+            with self.subTest(string=before[:24]):
+                self.write("tools/Sync-SACCR-VBA.ps1", before + old)
+                self.assertEqual(self.findings(), [])
+        # After an escaped backtick the quote closes the string, so the <#
+        # opens a real comment and the complete list inside it is not active;
+        # the same holds after a single-quoted string ending in a backtick.
+        for before in (f'$x = "C:\\path``" <#\r\n{old}#>\r\n',
+                       f"$y = 'C:\\path`' <#\r\n{old}#>\r\n"):
+            with self.subTest(string=before[:24]):
+                self.write("tools/Sync-SACCR-VBA.ps1", before + active)
+                self.assertEqual(self.findings(), [unsynchronized])
+
     def test_unsupported_sync_entry_is_rejected(self) -> None:
         self.write("tools/Sync-SACCR-VBA.ps1",
                    '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),\r\n'
