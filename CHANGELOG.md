@@ -335,6 +335,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The root README is rewritten as the project's front page: what the toolkit
+  is for, its capabilities, a quick start from clone to `Test_RunAll`, how a
+  run flows through the sheets, the EU CRR and Basel differences, the
+  evidence classes and published CRE99 examples, the worksheet functions,
+  requirements, known limitations, the roadmap and the documentation map.
 - Input conventions for dates and currency pairs (#40). Text in a date
   field is read only in the ISO form yyyy-mm-dd: other text, such as
   30/09/2031, was read through the Windows regional settings and could
