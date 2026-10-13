@@ -535,7 +535,9 @@ Use only the categories needed by a release.
   bucket 2, which changes the correlation it takes in the effective
   notional. Basel netting sets, and both regimes at exactly 5 years, are
   unchanged. The bucket key stays `<1Y`. `TEST_InputValidation` checks the
-  edges in each regime; the methodology lists the difference.
+  edges in each regime and the effect on the IR add-on of a long swap at 1
+  year against a short one at 2 years (70.26 under CRR, 46.39 under Basel);
+  the methodology lists the difference.
 - The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
   modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
   or `é` in a comment or string of a document module could be replaced.

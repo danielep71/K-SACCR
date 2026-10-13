@@ -43,11 +43,11 @@ Attribute VB_Name = "TEST_InputValidation"
 '   For the input conventions (#40): a text date is read only as
 '   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
 '   maturity buckets split at exactly 1 and 5 years with the regime's edge
-'   at 1 year (#191), a trade or option
-'   ending on the reporting date is rejected, an option expiring after its
-'   maturity is rejected, both currencies of an FX pair need an FX rate,
-'   the notional must be in one of them, and a pair entered the other way
-'   round offsets the same pair entered in order.
+'   at 1 year, which changes the IR add-on of offsetting swaps (#191), a
+'   trade or option ending on the reporting date is rejected, an option
+'   expiring after its maturity is rejected, both currencies of an FX pair
+'   need an FX rate, the notional must be in one of them, and a pair
+'   entered the other way round offsets the same pair entered in order.
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -87,8 +87,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 112               'Cases in a complete run
-        Private Const CHECKS      As Long = 163               'Checks in a complete run
+        Private Const CASES       As Long = 114               'Cases in a complete run
+        Private Const CHECKS      As Long = 167               'Checks in a complete run
 
 
 '
@@ -785,6 +785,25 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectText "bucket-1825", "B1825", "bucket", "1-5Y", "illustrative"
         TEST_CaseRunner.ExpectText "bucket-1826", "B1826", "bucket", ">5Y", "illustrative"
 
+    'The edge changes the add-on, not only the label (#191). A long swap
+    'ending at exactly 1 year and a short one ending at 2 years, notional
+    '10,000 each, MF 1: D1 = 10,000 x SD(1) = 9,754.12 and D2 = -10,000 x
+    'SD(2) = -19,032.52, SD(E) = (1 - exp(-0.05 E)) / 0.05. Under CRR they
+    'are in buckets 1 and 2: add-on = 0.5% x sqrt(D1^2 + D2^2 + 1.4 D1 D2)
+    '= 70.2631. Under BCBS both are in bucket 2: 0.5% x |D1 + D2| = 46.3920.
+        StartCase "ir-bucket-offset-crr", "N"
+        AddOffsetSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "add-on-ir", "", "add_on.interest_rate", "70.2630670897333", _
+                                     "0.000001", "0.000000001", "illustrative"
+
+        StartCase "ir-bucket-offset-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        AddOffsetSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "add-on-ir", "", "add_on.interest_rate", "46.3920064647545", _
+                                     "0.000001", "0.000000001", "illustrative"
+
         StartCase "trade-maturing-on-reporting-date", "N"
         AddSwapTo "T1", VALUATION
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
@@ -1241,6 +1260,27 @@ Private Sub AddBucketSwaps()
         AddSwapTo "B365", "2027-09-30"
         AddSwapTo "B1825", "2031-09-29"
         AddSwapTo "B1826", "2031-09-30"
+
+End Sub
+
+
+Private Sub AddOffsetSwaps()
+'
+'==============================================================================
+'                                AddOffsetSwaps
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add to NS1 a long EUR swap ending exactly 1 year after the reporting
+'   date and a short one ending 2 years after it (730 days), notional
+'   10,000 each (#191).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        AddSwapTo "L365", "2027-09-30"
+        AddSwapTo "S730", "2028-09-29"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_DIR, "Short"
 
 End Sub
 
