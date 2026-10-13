@@ -55,7 +55,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -384,7 +384,7 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -425,6 +425,22 @@ Private Function ExecuteOperation( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
+
+'------------------------------------------------------------------------------
+' BRING FORMULA INPUTS UP TO DATE
+'------------------------------------------------------------------------------
+    'In manual calculation a formula whose precedents changed since the last
+    'recalculation still holds its old result, and the engine would
+    'calculate from it and fingerprint it as current. Calculate brings every
+    'dirty cell up to date first; it refreshes no external data connection
+    '(#195). Clear outputs reads no input.
+        If operation <> OP_CLEAR Then
+            Application.Calculate
+            If Application.CalculationState <> xlDone Then
+                Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
+                          "Excel did not finish recalculating the inputs, so the operation was not started."
+            End If
+        End If
 
 '------------------------------------------------------------------------------
 ' RUN THE OPERATION

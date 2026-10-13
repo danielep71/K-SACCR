@@ -46,7 +46,10 @@ Attribute VB_Name = "TEST_InputValidation"
 '   ending on the reporting date is rejected, an option expiring after its
 '   maturity is rejected, both currencies of an FX pair need an FX rate,
 '   the notional must be in one of them, and a pair entered the other way
-'   round offsets the same pair entered in order.
+'   round offsets the same pair entered in order. An Excel error value in
+'   an optional text field of a trade, in a netting set's regime or in the
+'   Params regime is an input error, not a blank that takes a default
+'   (#194), and a Currency number format does not round an input (#196).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -70,7 +73,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -86,8 +89,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 111               'Cases in a complete run
-        Private Const CHECKS      As Long = 158               'Checks in a complete run
+        Private Const CASES       As Long = 121               'Cases in a complete run
+        Private Const CHECKS      As Long = 177               'Checks in a complete run
 
 
 '
@@ -107,15 +110,18 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Params row a table case patches
-    Dim i   As Long    'Trade number in the large netting set
+    Dim r        As Long       'Params row a table case patches
+    Dim i        As Long       'Trade number in the large netting set
+    Dim fields   As Variant    'Trades column and field name, in pairs
+    Dim f        As Long       'Index of a column in fields
+    Dim savedFormat As String  'Number format of a cell a case changes
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -827,6 +833,57 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectNumber "add-on-fx", "", "add_on.foreign_exchange", "0", "0.000001", "0", _
                                      "illustrative"
 
+    'An Excel error value, such as #N/A from a broken lookup, in an optional
+    'text field is an input error, not a blank that takes the field's
+    'default (#194): Instrument would become Linear, Nature Standard, the
+    'notional currency the reporting currency, the MtM currency the
+    'notional currency, and a netting-set or Params regime the default.
+        fields = Array(TR_INSTR, "Instrument", TR_NATURE, "Nature", TR_SUB, "Sub-class", _
+                       TR_LABEL, "Hedging-set label", TR_NCCY, "Notional currency", TR_MCCY, "MtM currency")
+        For f = LBound(fields) To UBound(fields) Step 2
+            StartCase "text-error-" & LCase$(Replace(CStr(fields(f + 1)), " ", "-")), "N"
+            AddSwap "T1"
+            TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(fields(f)), CVErr(xlErrNA)
+            ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+            TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
+                                             CStr(fields(f + 1)) & " must be text or blank (found an error value)", _
+                                             "illustrative"
+        Next f
+
+        StartCase "text-error-netting-set-regime", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, CVErr(xlErrNA)
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
+                                         "Regime override must be BCBS or CRR (found an error value", "illustrative"
+
+        StartCase "text-error-params-regime", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REGIME), ParamsValueCol(), CVErr(xlErrNA)
+        ExpectStop "Regime must be BCBS or CRR (found an error value)"
+
+    'Number formats do not change what is read (#196): with a Currency
+    'format, Range.Value rounds to four decimals. A one-year single-name
+    'equity call, price 0.012345, strike 0.0123, volatility 120%, has delta
+    'N(d1) = 0.72676 with d1 = (ln(P/K) + 0.5 x 1.2^2) / 1.2; read as
+    '0.0123 the price would give 0.72575. Both formats must give 0.72676.
+    'The cell formats are put back at the end of the case.
+        StartCase "number-format-general", "N"
+        AddSmallOption
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
+                                     "0.000001", "0", "illustrative"
+
+        StartCase "number-format-currency", "N"
+        AddSmallOption
+        r = TableFirstRow(SH_TRADES)
+        savedFormat = TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = "$#,##0.00"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
+                                     "0.000001", "0", "illustrative"
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
+
         TEST_CaseRunner.EndSuite ""
         Exit Sub
 
@@ -1211,6 +1268,27 @@ Private Sub AddFxForward( _
 '
         TEST_CaseRunner.AddTrade tradeId, "FX", "", "EUR/USD", "Linear", "Long", "", "Standard", "", _
                                  "10000", marketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+
+End Sub
+
+
+Private Sub AddSmallOption()
+'
+'==============================================================================
+'                                AddSmallOption
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add to NS1 a bought one-year single-name equity call, notional 10,000,
+'   underlying price 0.012345 and strike 0.0123, values with more than
+'   four decimals (#196).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TEST_CaseRunner.AddTrade "T1", "EQ", "SINGLE", "ACME", "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", "", "2027-09-30", "2027-09-30", "2027-09-30", "0.012345", _
+                                 "0.0123", "", "", ""
 
 End Sub
 

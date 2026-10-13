@@ -10,7 +10,8 @@ Attribute VB_Name = "TEST_MainState"
 '   after the outputs are being written, fails the run and withdraws its
 '   results; and that results are reported as out of date once an input
 '   changes (issue #36), also on Params after its tables have moved
-'   (issue #152).
+'   (issue #152); and that a run in manual calculation recalculates its
+'   formula inputs before reading them (issue #195).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -45,7 +46,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -61,7 +62,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 20   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 21   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -146,6 +147,7 @@ Public Sub RunMainStateTests()
         CaseStaleResults
         CaseStaleParams False
         CaseStaleParams True
+        CaseManualRecalculation
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -787,6 +789,77 @@ Private Sub CaseStaleResults()
 Unexpected:
         Fail "results.stale-after-input-change", "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell mtmCell, saved
+
+End Sub
+
+
+Private Sub CaseManualRecalculation()
+'
+'==============================================================================
+'                           CaseManualRecalculation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   In manual calculation, a formula input whose precedent changed since
+'   the last recalculation is brought up to date before the run reads it
+'   (#195). The first trade's MtM becomes a formula on its own Comment
+'   cell, which the engine does not read; the Comment changes from 1,000 to
+'   2,000 without a recalculation, and the run must use an MtM of 2,000
+'   (the trade's MtM currency is the reporting currency). The results are
+'   then current, and the caller's manual mode is kept.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result      As String     'Result line of the run
+    Dim mtmCell     As Range      'MtM of the first trade, made a formula
+    Dim noteCell    As Range      'Comment of the first trade, its precedent
+    Dim savedMtm    As Variant    'Formula of mtmCell before the case
+    Dim savedNote   As Variant    'Formula of noteCell before the case
+    Dim calcRow     As Long       'TradeCalc row of the first trade
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.manual-recalculates-inputs"
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        Set noteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
+        savedMtm = mtmCell.Formula
+        savedNote = noteCell.Formula
+        SetState xlCalculationManual, False, False
+        noteCell.Value = 1000
+        mtmCell.Formula = "=" & noteCell.Address(False, False)
+        Application.Calculate
+        noteCell.Value = 2000
+        Check ToDbl(mtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated before the run"
+        result = M_Main.RunSACCR_Silent()
+
+    'The first trade is the first TradeCalc row; column 9 is its MtM in
+    'the reporting currency.
+        calcRow = FIRST_DATA_ROW
+        Check UTxt(TableCell(GetSheet(SH_TRADECALC), calcRow, 1).Value) = _
+              UTxt(TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_ID).Value), _
+              "the first TradeCalc row is not the first trade"
+        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value, 0#) = 2000#, _
+              "the run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value & ", expected 2000"
+        Check M_Main.ResultsStatus() = "CURRENT", "after the run: " & M_Main.ResultsStatus()
+        CheckState xlCalculationManual, False, False
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "run.manual-recalculates-inputs", "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
 
 End Sub
 

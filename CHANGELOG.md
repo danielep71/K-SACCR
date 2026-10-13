@@ -528,6 +528,24 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- An Excel error value, such as `#N/A` from a broken lookup, in an optional
+  text input is an input error instead of a blank that takes a default
+  (#194). In Instrument, Nature, Sub-class, Hedging-set label, Notional CCY
+  or MtM CCY it excludes the trade; it was read as Linear, Standard (losing
+  a volatility or basis factor), the reporting or notional currency. In a
+  netting set's regime it makes the netting set INVALID, and in the Params
+  regime it stops the run; both took the default regime.
+- A run recalculates the workbook before reading its inputs (#195). In
+  manual calculation a formula input whose precedents had changed since
+  the last recalculation kept its old result, so the run calculated from
+  it and reported the results as current. A recalculation that does not
+  finish stops the run with `ERR_RECALC_PENDING`. External data
+  connections are not refreshed.
+- Inputs are read with `Range.Value2` (#196). With `Range.Value`, a cell
+  formatted as Currency or Accounting was converted to VBA's Currency type
+  and rounded to four decimals, so a small price, strike, lambda or rate
+  depended on its number format. Dates are read as serials, as before
+  through `ToSerial`.
 - The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
   modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
   or `é` in a comment or string of a document module could be replaced.
