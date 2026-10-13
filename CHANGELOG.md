@@ -551,7 +551,9 @@ Use only the categories needed by a release.
   run, did too; and it left out the date system, although the run stops in
   a 1904 workbook. Each cell is now written with its type, the header rows
   and the date system are included, and formatting still does not count.
-  The fingerprint format changed, so a workbook run before this change
+  Headers are compared as the schema check compares them, so a change
+  only in case or spacing still leaves the results current. The
+  fingerprint format changed, so a workbook run before this change
   shows `OUT OF DATE` in Results C5 until it is run again. Excel may not
   recalculate C5 when only the date system changes; it then updates with
   the next input edit. `TEST_MainState` covers the three changes and two

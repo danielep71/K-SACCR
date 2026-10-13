@@ -887,7 +887,9 @@ Private Sub CaseStaleHeaders()
 ' PURPOSE
 '   After a run, a renamed header on Trades or NettingSets makes the
 '   results STALE, since the run would stop (#35), and the original header
-'   makes them CURRENT again. A bold header leaves them CURRENT (#197).
+'   makes them CURRENT again. A bold header, or one changed only in case
+'   and spacing, which the schema check accepts, leaves them CURRENT
+'   (#197).
 '
 ' UPDATED
 '   2026-10-13
@@ -897,8 +899,9 @@ Private Sub CaseStaleHeaders()
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headerCell   As Range      'Header made bold, Nothing once restored
+    Dim headerCell   As Range      'Header edited, Nothing once restored
     Dim savedBold    As Variant    'Its bold setting
+    Dim savedText    As Variant    'Its formula
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -918,6 +921,13 @@ Private Sub CaseStaleHeaders()
         Check M_Main.ResultsStatus() = "CURRENT", "after a bold header: " & M_Main.ResultsStatus()
         CheckStatusCell "Results current", "after a bold header"
         headerCell.Font.Bold = savedBold
+
+    'Case and spacing only: "MtM" as " m tM ".
+        savedText = headerCell.Formula
+        headerCell.Value = " " & LCase$(Left$(CStr(savedText), 1)) & " " & Mid$(CStr(savedText), 2) & " "
+        Check M_Main.ResultsStatus() = "CURRENT", "after a case and spacing edit: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a case and spacing edit"
+        headerCell.Formula = savedText
         Set headerCell = Nothing
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
@@ -928,7 +938,10 @@ Private Sub CaseStaleHeaders()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
-        If Not headerCell Is Nothing Then headerCell.Font.Bold = savedBold
+        If Not headerCell Is Nothing Then
+            headerCell.Font.Bold = savedBold
+            If Not IsEmpty(savedText) Then headerCell.Formula = savedText
+        End If
 
 End Sub
 

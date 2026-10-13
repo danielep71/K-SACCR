@@ -280,8 +280,8 @@ layout and once with a column inserted before the Params tables, which the
 case deletes again (#152). It also checks that the results are out of date
 after the first trade's MtM becomes the same digits as text, after a header
 on Trades or NettingSets is renamed, and after the workbook is switched to the
-other date system, and that a number format or a bold header leaves them
-current (#197). In manual calculation it makes the first trade's
+other date system, and that a number format, a bold header or a header
+changed only in case and spacing leaves them current (#197). In manual calculation it makes the first trade's
 MtM a formula on its Comment cell, changes the Comment without recalculating,
 and checks that the run uses the new MtM; a recalculation that does not
 finish stops the run and the previous results are no longer reported as
@@ -482,7 +482,8 @@ read through its workbook names, so an edit is found also after its tables
 have moved; descriptions, references and formatting do not count as edits.
 The fingerprint also covers the Trades and NettingSets headers, the type of
 each value (the number 47756 and the text `'47756` differ, as do two error
-values) and the workbook's date system (#197).
+values) and the workbook's date system (#197); a header changed only in
+case or spacing, which the schema check accepts, does not count.
 Results C5 shows the same status through the formula
 `=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
 Excel recalculates when an input changes, and turns red when it reads

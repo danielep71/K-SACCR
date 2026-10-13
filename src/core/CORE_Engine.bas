@@ -4284,8 +4284,8 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fingerprint everything a run reads: the workbook's date system, the
-'   NettingSets and Trades blocks from their header rows (without the
-'   unread Comment column) and the Params inputs, located through the
+'   NettingSets and Trades headers (HeaderText) and input rows (without
+'   the unread Comment column) and the Params inputs, located through the
 '   workbook names wherever the layout has moved them (ParamsText) (#36,
 '   #152). Each cell is written with its type (CellToken), so a number
 '   and the same digits as text, or two error values, differ (#197).
@@ -4309,7 +4309,7 @@ Public Function InputFingerprint() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts(1 To 4)   As String    'Text of each input block
+    Dim parts(1 To 6)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
@@ -4317,10 +4317,68 @@ Public Function InputFingerprint() As String
     'The run stops in a 1904 workbook (#185), and a renamed header stops
     'it too (#35), so both are part of what the results depend on.
         parts(1) = FP_FORMAT & "|1904=" & IIf(ThisWorkbook.Date1904, "1", "0")
-        parts(2) = BlockText(GetSheet(SH_NS), TableHeaderRow(SH_NS), NS_NCOLS)
-        parts(3) = BlockText(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_COMMENT - 1)
-        parts(4) = ParamsText()
+        parts(2) = HeaderText(SH_NS, NS_NCOLS)
+        parts(3) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        parts(4) = HeaderText(SH_TRADES, TR_COMMENT - 1)
+        parts(5) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        parts(6) = ParamsText()
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
+
+End Function
+
+
+Private Function HeaderText( _
+    ByVal sheetName As String, _
+    ByVal nCols As Long) _
+    As String
+'
+'==============================================================================
+'                                  HeaderText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the header row of the NettingSets or Trades block as one text,
+'   each header as HeadersMatch compares it: without spaces, tabs and line
+'   breaks (HeaderKey), in upper case. A header changed only in those ways
+'   passes the schema check, so it must not make the results out of date;
+'   any other change stops the run, so it must (#197). A header that is
+'   not text is written as CellToken writes it.
+'
+' RETURNS
+'   "" when the header row cannot be located; the run then stops on the
+'   same broken name.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet    'Input sheet
+    Dim r         As Long         'Header row; 0 when it cannot be located
+    Dim pieces()  As String       'One text per header
+    Dim c         As Long         'Table column
+    Dim v         As Variant      'Header cell value
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r = 0 Then
+            Exit Function
+        End If
+        Set ws = GetSheet(sheetName)
+        ReDim pieces(1 To nCols)
+        For c = 1 To nCols
+            v = TableCell(ws, r, c).Value2
+            If VarType(v) = vbString Then
+                pieces(c) = "T" & UCase$(HeaderKey(CStr(v)))
+            Else
+                pieces(c) = CellToken(v)
+            End If
+        Next c
+        HeaderText = Join(pieces, Chr$(31))
 
 End Function
 
