@@ -14,7 +14,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`) and the case-module generator (`test_generate_case_tests.py`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit` and a `VB_Name` equal to its filename and unique in the project; each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -66,20 +66,30 @@ during a review, without copying them into the working tree, double-click
 ```
 
 In that mode only the modules found in the folder are imported; every other
-module in the workbook is left as it is. A file is taken when its `VB_Name`
-is a component of the repository source, with the same extension. A
+module in the workbook is left as it is. A file is identified only by the
+`Attribute VB_Name` it declares, never by its file name: a file with no such
+line, a malformed one, several (even identical) ones or a name that is not a valid
+VBA name is listed as ignored with the reason. A file is taken when its
+`VB_Name` is a component of the repository source, with the same extension. A
 standard module (`.bas`) that the checkout does not have yet, such as a test
 suite added by the pull request under test, is also taken when its name
 starts with `CORE_`, `SACCR_`, `M_` or `TEST_`; it is listed apart as a new
 module before the confirmation. Other files in the folder are ignored. When several files carry the same
 `VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
 is taken. The script lists the chosen files with their dates and the ignored
-ones, and asks for confirmation (`-Force` skips it; answering no exits with
+ones with the reason (also when no file is usable, before it stops), and asks
+for confirmation (`-Force` skips it; answering no exits with
 code 2 and leaves the workbook unchanged). The chosen files are copied to a
 temporary folder with CRLF line endings, imported from there, and the copy
 is deleted afterwards. The repository files are never changed, so the
 working tree stays clean for merging. A later run of `Sync-SACCR-VBA.cmd`
 brings the workbook back to the repository source.
+
+The code of a document module is read as cp1252, the code page the VBE
+exports in, so characters such as `£` or `é` in comments and strings
+survive. `tools/test_sync_script.py` checks the folder selection and this
+decoding in PowerShell 7 (`pwsh`), without Excel; it is skipped where
+`pwsh` is not installed.
 
 The script reads `src/core/`, `src/modules/`, `src/workbook/` and
 `tests/modules/`, so the workbook holds the test suites as well. Standard
