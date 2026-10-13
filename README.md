@@ -1,57 +1,147 @@
 <div align="center">
 
-# 🏦 SA-CCR Benchmark — Independent Calculation and Validation Toolkit
+# 🏦 SA-CCR Toolkit
 
-### Counterparty credit risk under SA-CCR, built in Excel/VBA
+### Independent SA-CCR exposure calculation and validation in Excel VBA
 
-[![Excel VBA](https://img.shields.io/badge/Excel_VBA-Windows-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#status)
+**EU CRR and Basel CRE52 · Trade-to-EAD audit trail · Regulatory or what-if runs · Published-example regression · Synthetic data only**
+
+<br>
+
+[![Excel VBA](https://img.shields.io/badge/Excel_VBA-64--bit-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#requirements)
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
+[![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=for-the-badge)](#status)
-[![Branch](https://img.shields.io/badge/Branch-release%2F1.0.0-6f42c1?style=for-the-badge)](https://github.com/danielep71/VBA-SACCR-Toolkit/tree/release/1.0.0)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-7%2F7_PASS-2ea44f?style=for-the-badge)](#validation)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
 
-**Source-first · Synthetic data only · Static checks on every change · Calculations checked by Excel regression suites**
+[![Last commit](https://img.shields.io/github/last-commit/danielep71/VBA-SACCR-Toolkit/release%2F1.0.0?style=flat-square&label=last%20commit&color=217346)](https://github.com/danielep71/VBA-SACCR-Toolkit/commits/release/1.0.0)
+[![Clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fclones.json&style=flat-square&label=clones)](https://github.com/danielep71/VBA-SACCR-Toolkit)
+[![Visitors](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisitors.json&style=flat-square&label=visitors%20(14d))](https://github.com/danielep71/VBA-SACCR-Toolkit)
+[![Visits](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisits.json&style=flat-square&label=visits)](https://github.com/danielep71/VBA-SACCR-Toolkit)
+[![P1 issues](https://img.shields.io/github/issues/danielep71/VBA-SACCR-Toolkit/P1?style=flat-square&label=P1&color=B60205)](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20is%3Aopen%20label%3AP1)
+[![P2 issues](https://img.shields.io/github/issues/danielep71/VBA-SACCR-Toolkit/P2?style=flat-square&label=P2&color=D93F0B)](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20is%3Aopen%20label%3AP2)
+[![P3 issues](https://img.shields.io/github/issues/danielep71/VBA-SACCR-Toolkit/P3?style=flat-square&label=P3&color=FBCA04)](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20is%3Aopen%20label%3AP3)
+[![Stars](https://img.shields.io/github/stars/danielep71/VBA-SACCR-Toolkit?style=flat-square&color=bf8700)](https://github.com/danielep71/VBA-SACCR-Toolkit/stargazers)
 
-</div>
+<br>
+
+**No add-in · No external reference · No DLL · No installer · Reviewable source for every calculation**
+
+[Quick start](#quick-start)
+&nbsp;·&nbsp;
+[How a run works](#how-a-run-works)
+&nbsp;·&nbsp;
+[Regimes](#regimes)
+&nbsp;·&nbsp;
+[Validation](#validation)
+&nbsp;·&nbsp;
+[Worksheet functions](#worksheet-functions)
+&nbsp;·&nbsp;
+[Limitations](#limitations)
+&nbsp;·&nbsp;
+[Methodology](docs/methodology/README.md)
+&nbsp;·&nbsp;
+[Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki)
 
 ---
 
+<p align="center">
+  <img width="100%"
+       alt="SA-CCR Toolkit: CRE99 Example 5 netting set, PFE multiplier, regime choice and the published regression cases"
+       src="docs/assets/SACCR_social_preview.png">
+</p>
+
+---
+
+</div>
+
+> [!IMPORTANT]
+> **Nothing has been released yet.** Work takes place on `release/1.0.0` and is
+> listed under Unreleased in the [changelog](CHANGELOG.md). The engine
+> implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
+> v1.0.0, by the published CRE99 examples. CRR rules are implemented and tested
+> against illustrative values, not validated ([decision 8](docs/methodology/README.md#assumptions-and-scope)).
+
+> [!NOTE]
+> The workbook is **not stored in the repository as a macro-enabled file**. It
+> is built from the macro-free template `src/workbook/SACCR_Template.xlsx` and
+> the exported VBA source, so every line of calculation code is reviewable in a
+> pull request.
+
 ## ✨ What this project is
 
-**SA-CCR (Standardized Approach for Counterparty Credit Risk)** is the Basel
-regulatory framework for determining the exposure at default (EAD) of derivative
-transactions and long-settlement transactions. It is a standardized,
-non-modelled approach that reflects current exposure, potential future exposure,
-netting, collateral and margining arrangements.
+**SA-CCR**, the Standardised Approach for Counterparty Credit Risk, is the
+regulatory method for the exposure at default (EAD) of derivatives:
 
-**SA-CCR Benchmark** is an independent Excel/VBA toolkit designed to reproduce,
-test and reconcile SA-CCR calculations under the Basel Framework and EU CRR.
+```text
+EAD = alpha × (RC + PFE)         alpha = 1.4
+PFE = multiplier × AddOn_aggregate
+```
 
-See the [project Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) for the regulatory concepts, calculation
-structure and validation approach.
+**SA-CCR Toolkit** is an independent Excel/VBA implementation for reproducing,
+testing and reconciling that calculation. You enter netting sets and trades;
+the engine maps each trade to its asset class, hedging set and bucket, computes
+every intermediate quantity, and writes the result per netting set with the
+full trail behind it.
 
-<a id="status"></a>
+It is built for people who need to **check** an SA-CCR number rather than
+only produce one:
 
-## 🧭 Status
+- each trade's adjusted notional, supervisory delta, maturity factor and
+  effective notional is visible on `TradeCalc`;
+- each hedging set and bucket is visible on `HedgingSets` and `Buckets`;
+- every rejected input is listed on `Checks` with the reason, and the netting
+  set's EAD is withheld instead of being computed from a partial portfolio;
+- every rule is traced to its CRR article and CRE52 paragraph in the
+  [methodology](docs/methodology/README.md#traceability).
 
-Nothing has been released. Work takes place on `release/1.0.0`, and changes
-are listed under Unreleased in the [changelog](CHANGELOG.md). The engine
-computes EAD under EU CRR and Basel CRE52 and classifies each run as
-REGULATORY or WHAT-IF. It is checked in Excel by the regression suites in
-[`tests/modules/`](tests/README.md). Only the published CRE99 examples (T01 to
-T14) are references independent of this code; the other expected values are
-illustrative (#100). SACCR uses the **application** profile: the deliverable
-is a workbook built from the exported source, around a host-independent
-calculation core ([repository structure](docs/REPOSITORY_STRUCTURE.md)).
+---
 
-## 🌿 Development
+## ⭐ Why use it
 
-Development takes place on the active release branch, `release/1.0.0`. Every
-change goes through a task branch and a pull request into that branch. Changes
-to `main` require an explicit owner instruction.
+Most SA-CCR numbers come out of systems whose intermediate steps cannot be
+inspected. This toolkit is the opposite:
 
-## 🚀 Getting started
+| Need | How the toolkit meets it |
+| --- | --- |
+| Reconcile a production EAD | Trade-, hedging-set- and bucket-level outputs to compare line by line |
+| Compare EU CRR and Basel | Regime chosen per netting set; both rule sets in one engine |
+| Know whether a run is regulatory | Every run is classified `REGULATORY` or `WHAT-IF`, with each difference from the regulatory parameter set listed |
+| Trust the inputs | Malformed dates, codes, pairs, duplicates and Excel errors reject the trade or stop the run; nothing is silently read as blank |
+| Audit the code | Plain exported VBA, house style, static checks on every change, Excel regression suites |
+| Work on a locked-down machine | No add-in, COM component, DLL or extra VBA reference |
+
+---
+
+## 🎯 Core capabilities
+
+| Area | Capability |
+| --- | --- |
+| Regimes | EU CRR (default) and Basel CRE52, per netting set |
+| Asset classes | Interest rate, FX, credit, equity, commodity; other risks under CRR |
+| Instruments | Linear derivatives; European, American, Bermudan and Asian options; CDO tranches and nth-to-default; basis and volatility transactions |
+| Multi-risk trades | Economic trades entered as legs, one per risk category, with one MtM leg |
+| Netting sets | Unmargined and margined; VM, NICA, threshold, MTA; MPOR from floor, remargining frequency, large or illiquid flag, disputes and override; cap at the unmargined EAD |
+| Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it |
+| CRR specifics | Other-risks class (8%), climatic commodity hedging set (18%), credit quality steps, lambda-shifted option delta (`CRR-RTS` Art. 5) |
+| Run classification | `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
+| Input validation | Unreadable or locale-dependent dates, 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names |
+| Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
+| Testing | Seven Excel suites, `Test_RunAll` summary, and static checks in CI |
+
+The [support matrix](docs/methodology/README.md#support-matrix) lists what is
+supported, what the user must enter in a given form, and what is out of scope.
+
+---
+
+<a id="quick-start"></a>
+
+# ⚡ Quick start
+
+## 1. Clone and check
 
 ```sh
 git clone https://github.com/danielep71/VBA-SACCR-Toolkit.git
@@ -60,33 +150,321 @@ git switch release/1.0.0
 python tools/check.py
 ```
 
-Requirements, the import procedure and troubleshooting are in
+Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
+VBA out with the CRLF line endings the VBE expects. The checks need Python 3.10
+or later and no packages.
+
+## 2. Build the workbook
+
+1. Open `src/workbook/SACCR_Template.xlsx` and save it as an **Excel
+   Macro-Enabled Workbook (`.xlsm`)** outside the checkout.
+2. In Excel, enable **Trust access to the VBA project object model**.
+3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It imports
+   every module from `src/` and `tests/modules/`.
+4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
+
+The manual import order, references and troubleshooting are in
 [`INSTALLATION.md`](INSTALLATION.md).
+
+## 3. Run
+
+The template ships with a demonstration portfolio: the five CRE99 examples and
+further illustrative netting sets.
+
+| Button | Macro | Does |
+| --- | --- | --- |
+| **Run SA-CCR** | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
+| **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
+| **Clear outputs** | `ClearOutputs` | Empties the output sheets |
+
+## 4. Test (development workbook)
+
+In the Immediate window:
+
+```vb
+Test_RunAll
+```
+
+```text
+SACCR TEST SUMMARY 2026-10-13 08:28:48
+  PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0
+  PASS  TEST_MainState        cases=20; checks=381; failures=0; caller_state=RESTORED
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS
+  PASS  TEST_InputValidation  cases=111; checks=158; failures=0; restore=PASS
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS
+RESULT=PASS; suites=7; passed=7; failed=0; seconds=24,1
+```
+
+The suites rewrite inputs, outputs and Params and restore them afterwards: run
+them in a development workbook.
+
+---
+
+<a id="how-a-run-works"></a>
+
+# 🔄 How a run works
+
+```text
+Params ─┐
+        ├─► validate ─► trades ─► hedging sets ─► asset-class ─► netting set
+NettingSets              │          and buckets     add-ons         EAD
+Trades ─┘                │                                           │
+                         ▼                                           ▼
+                      Checks                         Results · HedgingSets
+                 (errors, warnings,                  Buckets · TradeCalc
+                  what-if differences)
+```
+
+1. **Parameters.** Reporting date and currency, regime, supervisory factors,
+   correlations, option volatilities and FX rates are read from Params through
+   named ranges. A value outside its range, a missing reporting date or
+   currency, or a broken name stops the run; a missing numeric parameter takes
+   its regulatory default with a warning.
+2. **Netting sets.** Margining, collateral, threshold, MTA, clearing role and
+   MPOR inputs are read and checked.
+3. **Trades.** Each trade gets its dates in years (S, E, M, T), adjusted
+   notional, supervisory delta, maturity factor and effective notional. An
+   invalid trade is excluded with all its reasons.
+4. **Aggregation.** Trades are grouped into hedging sets and buckets; add-ons
+   are aggregated per asset class with the regime's correlations.
+5. **Exposure.** RC, multiplier, PFE and EAD per netting set, with the cap for
+   margined netting sets. A netting set with a rejected trade or an invalid
+   input reports `INCOMPLETE` or `INVALID` and no EAD.
+
+| Sheet | Role |
+| --- | --- |
+| `README` | In-workbook guide |
+| `Params` | Run parameters, supervisory-factor table, FX rates |
+| `NettingSets` · `Trades` | Inputs |
+| `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; run summary and stale-result indicator |
+| `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
+| `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
+| `Checks` | Errors, warnings and what-if differences |
+| `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
+| `Basel_vs_CRR` | The two regimes side by side |
+
+<p align="center">
+  <img width="62%"
+       alt="SA-CCR interest-rate add-on: from trade selection to the aggregate add-on, with CRE52 and CRR locators"
+       src="docs/assets/SACCR_IR_AddOn_flow.png">
+</p>
+
+---
+
+<a id="regimes"></a>
+
+# ⚖️ Regimes
+
+EU CRR is the baseline and the default; Basel CRE52 is implemented as the
+differences from it. The regime is set on Params and can be overridden per
+netting set, and every result reports the regime it used.
+
+| Topic | EU CRR | Basel CRE52 |
+| --- | --- | --- |
+| Asset classes | Six, with other risks (Art. 277(1)(f), 280f; 8%) | Five (CRE52.72); other-risk trades are rejected |
+| Commodity hedging sets | Adds climatic conditions (Art. 277a(1)(e); 18%) | Energy, metals, agricultural, other |
+| Single-name credit factor | By credit quality step (Art. 280c(5)) | By rating AAA to CCC (CRE52.72) |
+| IR and commodity option delta | Lambda shift of `CRR-RTS` Art. 5 | CRE52.40 |
+| IR aggregation across buckets | Formula with offsets only (Art. 280a(3)) | With offsets, or sum of absolutes (CRE52.57(5)) |
+
+The [regime differences](docs/methodology/README.md#regime-differences) table
+gives the locators and test cases of each row; the `Basel_vs_CRR` sheet shows
+them in the workbook.
+
+---
+
+<a id="validation"></a>
+
+# ✅ Validation
+
+## Evidence classes
+
+| Class | Meaning | Used for |
+| --- | --- | --- |
+| `published` | Printed in Basel CRE99 (BCBS 279 Annex 4a), checked against the text | T01–T14: validates Basel rules |
+| `illustrative` | Hand calculation or a format example, not independently reviewed | Every other expected value; never counted as validation |
+
+There are no `independent` values: the project has one maintainer, who also
+wrote the code under test (#100).
+
+## Published CRE99 examples
+
+| Example | Published values checked | EAD (USD) |
+| --- | --- | ---: |
+| 1 · interest-rate swaps and a swaption | Adjusted notional, option delta, IR add-on | 569,000 |
+| 2 · credit derivatives | Multiplier | 381,000 |
+| 3 · commodity forwards | — | 5,406,000 |
+| 4 · IR and credit, one netting set | Replacement cost, aggregate add-on | 936,000 |
+| 5 · margined, weekly remargining | MPOR 14 business days, aggregate add-on, multiplier | 1,879,000 |
+
+## Test suites
+
+| Suite | Checks |
+| --- | --- |
+| `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict |
+| `TEST_Formulas` | Domain and Excel-error contract of every worksheet function |
+| `TEST_MainState` | Excel state, stale-result detection and failure paths of the workbook macros |
+| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions |
+| `TEST_Aggregation` | Row-order independence and offsets |
+| `TEST_Invariants` | Relations every result must satisfy |
+
+`python tools/check.py` runs the static gates (source layout, house style,
+public API, test-case schema, generated tests and tooling tests) locally and
+in CI. Static checks never stand in for Excel evidence; the
+[Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show.
+
+---
+
+<a id="worksheet-functions"></a>
+
+# 🧩 Worksheet functions
+
+The supported API is the `SACCR_Formulas` module, listed with its signatures
+in [`docs/PUBLIC_API.txt`](docs/PUBLIC_API.txt). An invalid input returns an
+Excel error (`#NUM!`, `#VALUE!` or `#REF!`) instead of a misleading number.
+
+| Function | Returns | Reference |
+| --- | --- | --- |
+| `SACCR_SupervisoryDuration(S, E, [FloorYears])` | Supervisory duration | CRE52.34; CRR Art. 279b |
+| `SACCR_MaturityFactor(M, [Margined], [MPOR_BD], …)` | Maturity factor | CRE52.48–53; CRR Art. 279c |
+| `SACCR_OptionDelta(P, K, T, Vol, IsCall, IsBought, [Lambda])` | Supervisory delta of an option | CRE52.40; CRR Art. 279a |
+| `SACCR_LambdaCRR(P, K, IsInterestRate, [Threshold])` | CRR lambda shift | `CRR-RTS` Art. 5 |
+| `SACCR_CDODelta(A, D, IsLong)` | Supervisory delta of a CDO tranche | CRE52.41 |
+| `SACCR_IREffectiveNotional(D1, D2, D3, [Rho12], [Rho23], [Rho13])` | IR effective notional across buckets | CRE52.57 |
+| `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .68, .70 |
+| `SACCR_Multiplier(VminusC, AddOn, [FloorPct])` | PFE multiplier | CRE52.23; CRR Art. 278(3) |
+| `SACCR_ReplacementCost(V, C, [Margined], [TH], [MTA], [NICA])` | Replacement cost | CRE52.10, .18; CRR Art. 275 |
+| `SACCR_NormCDF(x)` | Standard normal distribution | — |
+
+Everything in `src/core/` is internal and may change without notice.
+
+---
+
+## 📦 Repository structure
+
+```text
+src/
+  core/        engine, configuration and helpers (internal)
+  modules/     SACCR_Formulas, the public worksheet functions
+  workbook/    SACCR_Template.xlsx, M_Main and the document modules
+tests/
+  modules/     harness, case runner and suites
+  fixtures/    numerical cases (inputs)
+  expected/    expected results with their evidence class
+docs/
+  methodology/ regulatory basis, sources, support matrix, traceability
+tools/         static checks, case generator, VBA synchronizer
+```
+
+The layout and its rules are in
+[`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md).
+
+---
+
+<a id="requirements"></a>
+
+# 💻 Requirements
+
+| Host | Support |
+| --- | --- |
+| Microsoft 365 or Excel 2016 and later, Windows, 64-bit | Supported target |
+| Same versions, Windows, 32-bit | Best effort: kept compiling, not certified |
+| Excel for Mac, Excel for the web, Excel 2013 and earlier | Not supported |
+
+Only the four default VBA references of a new workbook are used. Development
+also needs Git and Python 3.10 or later.
+
+---
+
+<a id="limitations"></a>
+
+## ⚠️ Known limitations
+
+- **No release yet.** Behaviour can change on `release/1.0.0` until v1.0.0 is
+  published.
+- **CRR is implemented, not validated.** The only published reference values
+  are Basel examples; CRR results are tested against illustrative values.
+- **One leg per FX trade.** The notional is the leg the user enters; choosing
+  the leg when both are foreign is the user's.
+- **FX option quote order is the user's.** A call on EUR/USD and the put on
+  USD/EUR give different deltas (CRE52.59 FAQ1); enter each pair in the order
+  of market practice.
+- **Not supported:** digital options (#120), the optional reductions for sold
+  options and sold credit protection, several margin agreements in one netting
+  set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
+  SFT, CVA and RWA calculations.
+- **Windows desktop Excel only.**
+
+The full list is in the
+[support matrix](docs/methodology/README.md#support-matrix).
+
+---
+
+## 🗺️ Roadmap
+
+| Milestone | Scope |
+| --- | --- |
+| v1.0.0 | First release: the current engine with its evidence |
+| v1.1.0 | Digital options (#120) |
+| v1.2.0 | Simplified SA-CCR (#107) |
+| v1.3.0 | Original exposure method (#111) |
+| v1.4.0 | CCP default-fund exposures (#112) |
+| v1.5.0 | Securities financing transactions (#113) |
+| v1.6.0 | CVA (#114) |
+| v1.7.0 | Risk-weighted assets (#115) |
+
+---
 
 ## 📚 Documentation
 
 | Document | Covers |
 | --- | --- |
-| [Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide, maintained in the Wiki repository |
+| [Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide |
+| [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
+| [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
+| [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import and validation record |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
 | [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record, procedure and validator |
-| [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, numerical test-case format |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
 | [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
 | [`RELEASING.md`](RELEASING.md) | Integration into `main` and the release sequence |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |
-| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behavior and conduct reporting |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behaviour and conduct reporting |
 | [`CHANGELOG.md`](CHANGELOG.md) | Change history |
+
+---
+
+<a id="status"></a>
+
+## 📌 Status
+
+**Pre-release.** Development takes place on `release/1.0.0` through task
+branches and pull requests; `main` receives it on the owner's instruction.
+Nothing is versioned or tagged until a release is prepared.
+
+The latest recorded Excel run, `Test_RunAll` with seven of seven suites
+passing, was made by the owner on 2026-10-13 on the source merged as
+[`4d449e7`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/4d449e7350bafa224c8d190d953a115b00cd9b7a).
+It is development evidence, not release certification.
+
+---
 
 ## 🔐 Data and security
 
 Use synthetic data only. Never commit or attach real trades, netting sets,
-counterparty or collateral data, or any client or employer material. Report
-suspected vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md).
+counterparty or collateral data, or any client or employer material. VBA runs
+with the user's Office permissions: review the source and follow your
+organisation's macro policy. Report suspected vulnerabilities privately as
+described in [`SECURITY.md`](SECURITY.md).
+
+---
 
 ## 👤 Author
 
