@@ -335,6 +335,20 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Results totals are per regime (#198). The single `TOTAL` row added the
+  EADs of CRR and BCBS netting sets together, which in the demonstration
+  portfolio counted Example 5 twice, and did not say that withheld netting
+  sets were left out. Results now ends with one row per regime that has
+  netting sets, `TOTAL CRR` then `TOTAL BCBS`, each summing that regime's
+  `VALID` netting sets, with the regime in its regime column and, in its
+  status column, the count covered, for example "3 of 4 netting set(s)
+  VALID; 1 withheld". The message box shows one total line per regime, and
+  the result line of `RunSACCR_Silent` replaces `total_ead` with
+  `total_ead_crr` and `total_ead_bcbs`. There is no total across regimes.
+  Individual netting-set results are unchanged. `TOTAL`, `TOTAL CRR` and
+  `TOTAL BCBS` are reserved: a NettingSets row with one of them as its ID
+  is ignored with an error, so a netting set cannot be mistaken for a
+  total.
 - The root README is rewritten as the project's front page: what the toolkit
   is for, its capabilities, a quick start from clone to `Test_RunAll`, how a
   run flows through the sheets, the EU CRR and Basel differences, the
@@ -528,6 +542,52 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Results are reported out of date after input changes the input
+  fingerprint missed (#197). It wrote each cell as plain text, so a number
+  replaced by the same digits as text, which the run reads differently (a
+  date given as text must be an ISO date), or one error value replaced by
+  another, left the results shown as current; it started below the
+  headers, so a renamed Trades or NettingSets header, which stops the next
+  run, did too; and it left out the date system, although the run stops in
+  a 1904 workbook. Each cell is now written with its type, the header rows
+  and the date system are included, and formatting still does not count.
+  Headers are compared as the schema check compares them, so a change
+  only in case or spacing still leaves the results current. The
+  fingerprint format changed, so a workbook run before this change
+  shows `OUT OF DATE` in Results C5 until it is run again. Excel may not
+  recalculate C5 when only the date system changes; it then updates with
+  the next input edit. `TEST_MainState` covers the three changes and two
+  formatting-only edits.
+- Under CRR, an interest-rate trade whose end date is exactly 1 year from
+  the reporting date is now in maturity bucket 1 (#191). CRR Art. 280a(3),
+  Table 2, puts E > 0 and <= 1 in bucket 1, but the engine applied the
+  Basel edge (CRE52.57(3), less than one year) in both regimes and put it in
+  bucket 2, which changes the correlation it takes in the effective
+  notional. Basel netting sets, and both regimes at exactly 5 years, are
+  unchanged. The bucket key stays `<1Y`. `TEST_InputValidation` checks the
+  edges in each regime and the effect on the IR add-on of a long swap at 1
+  year against a short one at 2 years (70.26 under CRR, 46.39 under Basel);
+  the methodology lists the difference.
+- An Excel error value, such as `#N/A` from a broken lookup, in an optional
+  text input is an input error instead of a blank that takes a default
+  (#194). In Instrument, Nature, Sub-class, Hedging-set label, Notional CCY
+  or MtM CCY it excludes the trade; it was read as Linear, Standard (losing
+  a volatility or basis factor), the reporting or notional currency. In a
+  netting set's regime it makes the netting set INVALID, and in the Params
+  regime it stops the run; both took the default regime.
+- A run recalculates the workbook before reading its inputs (#195). In
+  manual calculation a formula input whose precedents had changed since
+  the last recalculation kept its old result, so the run calculated from
+  it and reported the results as current. A recalculation that does not
+  finish, for example after Esc, stops the operation with
+  `ERR_RECALC_PENDING` and withdraws the stored fingerprint, so the
+  previous results are no longer reported as current. External data
+  connections are not refreshed.
+- Inputs are read with `Range.Value2` (#196). With `Range.Value`, a cell
+  formatted as Currency or Accounting was converted to VBA's Currency type
+  and rounded to four decimals, so a small price, strike, lambda or rate
+  depended on its number format. Dates are read as serials, as before
+  through `ToSerial`.
 - The VBA synchronizer reads the code of worksheet and `ThisWorkbook`
   modules as cp1252 (#159). It read it as UTF-8, so a character such as `£`
   or `é` in a comment or string of a document module could be replaced.
@@ -545,6 +605,12 @@ Use only the categories needed by a release.
   a PowerShell comment as the synchronizer's active list (#144). It found
   the first matching line before tracking comments, so a complete list in a
   `<# ... #>` block could hide a directory missing from the active list.
+- `tools/check_source.py` reads PowerShell backtick escapes in double-quoted
+  strings when it looks for the active `$sourceRoots` list (#188). An
+  escaped quote such as `` "`"<#`"" `` ended the string early, so the `<#`
+  opened a false block comment and the check reported "`$sourceRoots` list
+  not found" for a valid script. A single-quoted string still treats a
+  backtick as text.
 - The numerical test-case validator applies the engine's input rules
   (#161). `tools/check_test_cases.py` accepted any number of 0 or more for
   the remargining period and the MPOR override and any positive

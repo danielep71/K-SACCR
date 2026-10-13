@@ -44,8 +44,10 @@ Attribute VB_Name = "M_Main"
 ' TEST SEAM
 '   gTestFault = "operation" raises ERR_INJECTED_FAULT after the settings
 '   have been changed; gTestFault = "cleanup" makes the calculation-mode
-'   restoration fail. tests/modules/TEST_MainState.bas uses both. Production
-'   code never sets it.
+'   restoration fail; gTestFault = "recalc" takes the path of a
+'   recalculation that did not finish (#195).
+'   tests/modules/TEST_MainState.bas uses all three. Production code never
+'   sets it.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -55,7 +57,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -85,7 +87,7 @@ Attribute VB_Name = "M_Main"
     'TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
     'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation" or "cleanup"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup" or "recalc"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Private mRunning    As Boolean    'True while an operation is in progress
 
@@ -135,10 +137,12 @@ Public Function RunSACCR_Silent() As String
 '
 ' RETURNS
 '   A result line such as "RESULT=OK; operation=run; errors=0; warnings=0;
-'   trades_used=62; trades_read=65; incomplete=0; total_ead=425197517.8;
-'   inputs=5A428560; cleanup=PASS". incomplete counts netting sets whose
-'   EAD was withheld; inputs is the fingerprint of the inputs the results
-'   were calculated from, empty when there are none.
+'   trades_used=62; trades_read=65; incomplete=0; total_ead_crr=4251975.8;
+'   total_ead_bcbs=8193300.1; inputs=5A428560; cleanup=PASS". incomplete
+'   counts netting sets whose EAD was withheld; total_ead_crr and
+'   total_ead_bcbs are the totals of each regime's VALID netting sets, 0
+'   when it has none (#198); inputs is the fingerprint of the inputs the
+'   results were calculated from, empty when there are none.
 '   RESULT=STOPPED means the inputs could not be loaded; see Checks.
 '
 ' STATE OWNERSHIP
@@ -150,7 +154,7 @@ Public Function RunSACCR_Silent() As String
 '   settings could not be restored, after gSilent has been restored.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -384,7 +388,7 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -425,6 +429,27 @@ Private Function ExecuteOperation( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
+
+'------------------------------------------------------------------------------
+' BRING FORMULA INPUTS UP TO DATE
+'------------------------------------------------------------------------------
+    'In manual calculation a formula whose precedents changed since the last
+    'recalculation still holds its old result, and the engine would
+    'calculate from it and fingerprint it as current. Calculate brings every
+    'dirty cell up to date first; it refreshes no external data connection
+    '(#195). Clear outputs reads no input. If the recalculation does not
+    'finish, for example after Esc, the stored fingerprint is withdrawn
+    'first: a dirty input could still show the value the last run used,
+    'so its results must not be reported as current.
+        If operation <> OP_CLEAR Then
+            Application.Calculate
+            If Application.CalculationState <> xlDone Or gTestFault = "recalc" Then
+                CORE_Engine.ForgetRunInputs
+                Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
+                          "Excel did not finish recalculating the inputs, so the operation was not started " & _
+                          "and the previous results are no longer reported as current."
+            End If
+        End If
 
 '------------------------------------------------------------------------------
 ' RUN THE OPERATION
@@ -736,7 +761,7 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
 
@@ -760,7 +785,7 @@ Private Function ReportOutcome( _
                           "Economic trades used: " & CORE_Engine.EconomicTradesUsed & " of " & _
                           CORE_Engine.EconomicTradesRead & vbCrLf & _
                           "Legs (rows) used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
-                          "Total EAD: " & Format$(CORE_Engine.TotalEAD, "#,##0") & vbCrLf & _
+                          TotalLines() & _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
@@ -801,7 +826,8 @@ Private Function ReportOutcome( _
                      "; economic_trades_used=" & CStr(CORE_Engine.EconomicTradesUsed) & _
                      "; economic_trades_read=" & CStr(CORE_Engine.EconomicTradesRead) & _
                      "; incomplete=" & CStr(CORE_Engine.IncompleteCount) & _
-                     "; total_ead=" & Trim$(Str$(CORE_Engine.TotalEAD)) & _
+                     "; total_ead_crr=" & Trim$(Str$(CORE_Engine.TotalEAD(RG_CRR))) & _
+                     "; total_ead_bcbs=" & Trim$(Str$(CORE_Engine.TotalEAD(RG_BCBS))) & _
                      "; inputs=" & CORE_Engine.RunInputs & _
                      "; run_class=" & CORE_Engine.RunClass
         End If
@@ -932,6 +958,43 @@ Private Sub ReportFailure( _
         MsgBox msg, vbCritical, "SA-CCR"
 
 End Sub
+
+
+Private Function TotalLines() As String
+'
+'==============================================================================
+'                                  TotalLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message-box lines with the total EAD of each regime that has
+'   netting sets, for example "Total EAD CRR: 12,345 (3 of 4 netting
+'   set(s) VALID; 1 withheld)", each ending with a line break. EADs under
+'   CRR and BCBS are never added together (#198).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim regimes   As Variant    'The regimes, CRR first
+    Dim i         As Long       'Index into regimes
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        regimes = Array(RG_CRR, RG_BCBS)
+        For i = LBound(regimes) To UBound(regimes)
+            If CORE_Engine.RegimeSetCount(CStr(regimes(i))) > 0 Then
+                TotalLines = TotalLines & "Total EAD " & regimes(i) & ": " & _
+                             Format$(CORE_Engine.TotalEAD(CStr(regimes(i))), "#,##0") & _
+                             " (" & CORE_Engine.TotalStatusText(CStr(regimes(i))) & ")" & vbCrLf
+            End If
+        Next i
+
+End Function
 
 
 Private Function RunClassLine() As String

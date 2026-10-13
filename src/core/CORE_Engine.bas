@@ -45,10 +45,12 @@ Attribute VB_Name = "CORE_Engine"
 '   Collection (see CORE_Util.KeyIndex) mapping its key to its array position.
 '
 ' PUBLIC SURFACE
-'   None outside this VBA project. Calculate, the run counters and the
-'   run-fingerprint procedures (InputFingerprint, LastRunInputs,
-'   ForgetRunInputs) are Public for M_Main; Option Private Module keeps them
-'   off the supported external surface.
+'   None outside this VBA project. Calculate, the run counters (with the
+'   per-regime totals TotalEAD, RegimeSetCount, RegimeValidCount,
+'   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
+'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs) are
+'   Public for M_Main; Option Private Module keeps them off the supported
+'   external surface.
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
@@ -79,7 +81,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -174,6 +176,13 @@ Attribute VB_Name = "CORE_Engine"
     End Type
 
 '------------------------------------------------------------------------------
+' MODULE CONSTANTS
+'------------------------------------------------------------------------------
+    'Opens the text of every input fingerprint; changed whenever what the
+    'fingerprint covers changes, so an older stored one never matches.
+        Private Const FP_FORMAT   As String = "FP2"    'Typed cells, headers, date system (#197)
+
+'------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
     'Each list is an array with a count of used elements and a Collection
@@ -217,7 +226,10 @@ Attribute VB_Name = "CORE_Engine"
 
         Private mTradesRead   As Long            'Trades with an ID
         Private mTradesUsed   As Long            'Trades included in the calculation
-        Private mTotalEAD     As Double          'Sum of netting-set EADs, VALID sets only
+        Private mRegEAD(1 To 2)       As Double  'Sum of VALID EADs per regime: 1 CRR, 2 BCBS (#198)
+        Private mRegSets(1 To 2)      As Long    'Netting sets per regime
+        Private mRegValid(1 To 2)     As Long    'VALID netting sets per regime
+        Private mRegWithheld(1 To 2)  As Long    'INVALID or INCOMPLETE netting sets per regime
         Private mIncomplete   As Long            'Netting sets whose EAD was withheld
         Private mParamError   As Boolean         'A parameter was present but not usable
         Private mRunInputs    As String          'Input fingerprint of this run; "" unless it completed
@@ -457,22 +469,132 @@ Public Property Get WarningCount() As Long
 End Property
 
 
-Public Property Get TotalEAD() As Double
+Public Property Get TotalEAD( _
+    ByVal regimeCode As String) _
+    As Double
 '
 '==============================================================================
 '                                   TotalEAD
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Sum of the EADs of every reported netting set in the last run, in the
-'   reporting currency.
+'   Sum of the EADs of the VALID netting sets of one regime in the last
+'   run, in the reporting currency. EADs of different regimes are never
+'   added together (#198).
+'
+' INPUTS
+'   regimeCode: RG_CRR or RG_BCBS.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-13
 '==============================================================================
 '
-        TotalEAD = mTotalEAD
+        TotalEAD = mRegEAD(RegimeIndex(regimeCode))
 
 End Property
+
+
+Public Property Get RegimeSetCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                                RegimeSetCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Netting sets of one regime in the last run, whatever their status.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeSetCount = mRegSets(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Property Get RegimeValidCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                               RegimeValidCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   VALID netting sets of one regime in the last run: those whose EAD is
+'   in TotalEAD.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeValidCount = mRegValid(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Property Get RegimeWithheldCount( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                             RegimeWithheldCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Netting sets of one regime in the last run whose EAD was withheld
+'   (INVALID or INCOMPLETE).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        RegimeWithheldCount = mRegWithheld(RegimeIndex(regimeCode))
+
+End Property
+
+
+Public Function TotalStatusText( _
+    ByVal regimeCode As String) _
+    As String
+'
+'==============================================================================
+'                               TotalStatusText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Describe what a regime's total covers, as written in the status column
+'   of its TOTAL row: for example "3 of 4 netting set(s) VALID; 1 withheld".
+'   A NO TRADES netting set is counted but neither VALID nor withheld.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TotalStatusText = RegimeValidCount(regimeCode) & " of " & RegimeSetCount(regimeCode) & _
+                          " netting set(s) VALID; " & RegimeWithheldCount(regimeCode) & " withheld"
+
+End Function
+
+
+Private Function RegimeIndex( _
+    ByVal regimeCode As String) _
+    As Long
+'
+'==============================================================================
+'                                 RegimeIndex
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Position of a regime in the per-regime totals: 1 CRR, 2 BCBS.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        If regimeCode = RG_BCBS Then
+            RegimeIndex = 2
+        Else
+            RegimeIndex = 1
+        End If
+
+End Function
 
 
 Public Property Get TradesUsed() As Long
@@ -655,7 +777,7 @@ Private Sub ResetState()
         mWarnCount = 0
         mTradesRead = 0
         mTradesUsed = 0
-        mTotalEAD = 0#
+        Erase mRegEAD, mRegSets, mRegValid, mRegWithheld
         mIncomplete = 0
         mParamError = False
         mRunInputs = ""
@@ -768,7 +890,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -826,8 +948,8 @@ Private Function ValidateSchema() As Boolean
         valueCol = ParamsValueCol()
         lastR = UsedLastRow(ws)
         If lastR >= 1 Then
-            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value
-            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value
+            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value2
+            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value2
         End If
         For i = LBound(codes) To UBound(codes)
             If NamedCell(CStr(codes(i))) Is Nothing Then
@@ -1278,7 +1400,7 @@ Private Function LoadParams() As Boolean
 '   False.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1344,9 +1466,13 @@ Private Function LoadParams() As Boolean
 '------------------------------------------------------------------------------
 ' REGIME
 '------------------------------------------------------------------------------
-    'A blank regime means CRR; anything other than BCBS or CRR stops the run.
+    'A blank regime means CRR; anything other than BCBS or CRR stops the run,
+    'including an Excel error value, which is not read as blank (#194).
         pRegime = UTxt(GetParam(PRM_REGIME))
-        If Len(pRegime) = 0 Then
+        If IsError(GetParam(PRM_REGIME)) Then
+            LogMsg SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR (found an error value)."
+            Exit Function
+        ElseIf Len(pRegime) = 0 Then
             pRegime = RG_CRR
             LogMsg SEV_WARN, SH_PARAMS, PRM_REGIME, "Regime missing - CRR assumed."
         ElseIf pRegime <> RG_BCBS And pRegime <> RG_CRR Then
@@ -1425,7 +1551,7 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1465,13 +1591,13 @@ Private Function LoadSFTable() As Boolean
         Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
             k = UTxt(TableCell(ws, r, c0).Value)
             entry.Key = k
-            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value)
-            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value, 0#, entry.SF)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value)
-            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value)
+            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value2)
+            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value2)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value2, 0#, entry.SF)
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value2, 0#, entry.Corr) Or rowBad
+            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value2, 0#, entry.Vol) Or rowBad
+            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value2)
+            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value2)
             If entry.Regimes = "BOTH" Then
                 entry.Regimes = ""
             End If
@@ -1587,7 +1713,7 @@ Private Function LoadFXTable() As Boolean
 '   is an error (#41).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -1624,7 +1750,7 @@ Private Function LoadFXTable() As Boolean
         r = r0 + 1
         Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
             k = UTxt(TableCell(ws, r, c0).Value)
-            rate = ToDbl(TableCell(ws, r, c0 + 2).Value, -1#)
+            rate = ToDbl(TableCell(ws, r, c0 + 2).Value2, -1#)
             idx = KeyIndex(mFXIndex, k)
             If rate <= 0# Then
                 LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
@@ -2067,7 +2193,8 @@ Private Function LoadNettingSets() As Boolean
 '
 ' STATE OWNERSHIP
 '   Fills mNS, mNSCount and mNSIndex, and sizes the asset-class add-on
-'   arrays. A duplicate ID is an error and the later row is ignored.
+'   arrays. A duplicate ID is an error and the later row is ignored, and so
+'   is a row whose ID is reserved for a TOTAL row on Results (#198).
 '
 ' REFERENCE
 '   MPOR floors CRE52.50 to CRE52.52 and CRR Art. 285(2) to (5); the
@@ -2077,7 +2204,7 @@ Private Function LoadNettingSets() As Boolean
 '   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -2109,7 +2236,7 @@ Private Function LoadNettingSets() As Boolean
             Exit Function
         End If
         n = lastR - topRow + 1
-        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value
+        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value2
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -2117,7 +2244,9 @@ Private Function LoadNettingSets() As Boolean
     'An empty row is skipped; a row with data but no ID is an error, so a
     'netting set cannot silently drop out (#35). A repeated ID is ignored and
     'makes the first set with that ID INVALID: which row's terms apply to
-    'its trades is ambiguous, so its EAD is withheld.
+    'its trades is ambiguous, so its EAD is withheld. TOTAL, TOTAL CRR and
+    'TOTAL BCBS label the TOTAL rows on Results (#198), so a netting set
+    'with one of them would be mistaken for a total; its row is ignored.
         For i = 1 To n
             rowNum = topRow + i - 1
             id = UTxt(data(i, NS_ID))
@@ -2125,6 +2254,10 @@ Private Function LoadNettingSets() As Boolean
                 If RowHasData(data, i, NS_NCOLS, 0) Then
                     LogMsg SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", rowNum
                 End If
+                GoTo NextRow
+            End If
+            If id = "TOTAL" Or id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
+                LogMsg SEV_ERROR, SH_NS, id, "Netting set ID " & id & " is reserved for a TOTAL row on Results - row ignored.", rowNum
                 GoTo NextRow
             End If
             If KeyIndex(mNSIndex, id) > 0 Then
@@ -2186,9 +2319,9 @@ Private Function LoadNettingSets() As Boolean
                 End If
 
     'Regime: blank takes the Params default; any other value than BCBS or
-    'CRR is an input error.
+    'CRR, or an Excel error value, is an input error (#194).
                 rg = UTxt(data(i, NS_REGIME))
-                If Len(rg) = 0 Then
+                If Len(rg) = 0 And Not IsError(data(i, NS_REGIME)) Then
                     rg = pRegime
                 ElseIf rg <> RG_BCBS And rg <> RG_CRR Then
                     nsErrors = nsErrors + 1
@@ -2478,6 +2611,41 @@ Private Function TradeDate( _
             End If
             TradeDate = -1#
         End If
+
+End Function
+
+
+Private Function TradeText( _
+    ByVal v As Variant, _
+    ByVal fieldName As String, _
+    ByRef ok As Boolean, _
+    ByRef msg As String) _
+    As String
+'
+'==============================================================================
+'                                  TradeText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read an optional text field of a trade, upper case. A blank field is ""
+'   and takes the caller's default; an Excel error value, such as #N/A from
+'   a broken lookup, makes the trade invalid instead of being read as blank
+'   and taking that default (#194).
+'
+' RETURNS
+'   The trimmed upper-case text; "" when blank or an error value.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        If IsError(v) Then
+            AddErr ok, msg, fieldName & " must be text or blank (found an error value)"
+        End If
+        TradeText = UTxt(v)
 
 End Function
 
@@ -2809,7 +2977,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -2917,7 +3085,10 @@ Private Sub ProcessTrades( _
             Exit Sub
         End If
         n = lastR - topRow + 1
-        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value
+    'Value2 gives the stored values: a Currency or Accounting format would
+    'otherwise round a price or rate to four decimals, and dates come as
+    'serials, which ToSerial reads (#196).
+        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value2
         ReDim outArr(1 To n, 1 To TC_NCOLS)
         nOut = 0
 
@@ -2990,7 +3161,7 @@ Private Sub ProcessTrades( _
             ac = ACIndex(acTxt)
             If ac = 0 Then AddErr ok, msg, "asset class must be IR, FX, CR, EQ, CO or OT"
 
-            subCls = UTxt(data(i, TR_SUB))
+            subCls = TradeText(data(i, TR_SUB), "Sub-class", ok, msg)
             rf = UTxt(data(i, TR_RF))
             If Len(rf) = 0 Then AddErr ok, msg, "risk factor / reference missing"
             If InStr(rf, "|") > 0 Or InStr(rf, "#") > 0 Then
@@ -3002,7 +3173,7 @@ Private Sub ProcessTrades( _
                        "or EUR-INFL for inflation"
             End If
 
-            instType = UTxt(data(i, TR_INSTR))
+            instType = TradeText(data(i, TR_INSTR), "Instrument", ok, msg)
             If Len(instType) = 0 Then instType = "LINEAR"
             If instType <> "LINEAR" And instType <> "OPTION" And instType <> "CDO" Then
                 AddErr ok, msg, "instrument type must be Linear, Option or CDO"
@@ -3019,9 +3190,9 @@ Private Sub ProcessTrades( _
                     AddErr ok, msg, "direction must be Long or Short"
             End Select
 
-            nature = UTxt(data(i, TR_NATURE))
+            nature = TradeText(data(i, TR_NATURE), "Nature", ok, msg)
             If Len(nature) = 0 Then nature = "STANDARD"
-            lbl = UTxt(data(i, TR_LABEL))
+            lbl = TradeText(data(i, TR_LABEL), "Hedging-set label", ok, msg)
             If InStr(lbl, "|") > 0 Or InStr(lbl, "#") > 0 Then
                 AddErr ok, msg, "hedging-set label must not contain '|' or '#'"
             End If
@@ -3088,7 +3259,7 @@ Private Sub ProcessTrades( _
             Else
                 AddErr ok, msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
             End If
-            nccy = UTxt(data(i, TR_NCCY))
+            nccy = TradeText(data(i, TR_NCCY), "Notional currency", ok, msg)
             If Len(nccy) = 0 Then nccy = pRepCcy
             fxN = FXRate(nccy)
             If fxN < 0# Then AddErr ok, msg, "no FX rate for notional currency '" & nccy & "'"
@@ -3101,7 +3272,7 @@ Private Sub ProcessTrades( _
                 mtm = 0#
                 AddErr ok, msg, "MtM must be a number (found " & DescribeValue(data(i, TR_MTM)) & ")"
             End If
-            mccy = UTxt(data(i, TR_MCCY))
+            mccy = TradeText(data(i, TR_MCCY), "MtM currency", ok, msg)
             If Len(mccy) = 0 Then mccy = nccy
             fxM = FXRate(mccy)
             If fxM < 0# Then AddErr ok, msg, "no FX rate for MtM currency '" & mccy & "'"
@@ -3219,22 +3390,25 @@ Private Sub ProcessTrades( _
 
     '--- Hedging set, adjusted notional and bucket -------------------------------
     'IR: d = notional * SD, hedging set per currency (risk factor), bucket
-    'by end date: under 1 year, 1 to 5 years, over 5 years [CRE52.34,
-    'CRE52.57(2)-(3)]; an inflation risk factor such as EUR-INFL is its own
-    'hedging set [CRR Art. 277(4)(a), 277a(1)]. FX: d = notional, hedging
-    'set per currency pair written in alphabetical order; an inverted pair
-    'flips the delta [CRE52.58]; both currencies of the pair need an FX
-    'rate, and the notional is that of one of the pair's legs (#40). CR:
-    'd = notional * SD, one hedging set, bucket per entity [CRE52.60,
-    'CRE52.64]. EQ: one hedging set, bucket per entity [CRE52.66]. CO:
-    'hedging set per commodity group, bucket per commodity [CRE52.70]. OT:
-    'hedging set per primary risk driver [CRR Art. 277a].
+    'by end date [CRE52.34, CRE52.57(2)-(3)]: under CRR up to and including
+    '1 year, over 1 to 5 years, over 5 years [Art. 280a(3), Table 2]; under
+    'BCBS under 1 year, 1 to 5 years, over 5 years, so an end date of
+    'exactly 1 year is bucket 1 under CRR and bucket 2 under BCBS (#191). The
+    'key of bucket 1 stays "<1Y" in both regimes. An inflation risk factor
+    'such as EUR-INFL is its own hedging set [CRR Art. 277(4)(a), 277a(1)].
+    'FX: d = notional, hedging set per currency pair written in alphabetical
+    'order; an inverted pair flips the delta [CRE52.58]; both currencies of
+    'the pair need an FX rate, and the notional is that of one of the pair's
+    'legs (#40). CR: d = notional * SD, one hedging set, bucket per entity
+    '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
+    '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
+    '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
             If ok Then
                 Select Case ac
                     Case AC_IR
                         sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
                         adjN = notionalRep * sd
-                        If E < 1# Then
+                        If E < 1# Or (mNS(nsIdx).IsCRR And E <= 1#) Then
                             bucketNo = 1
                             subKey = "<1Y"
                         ElseIf E <= 5# Then
@@ -3810,8 +3984,11 @@ Private Sub ComputeNettingSets( _
 '   writeOutputs: True writes the Results sheet.
 '
 ' STATE OWNERSHIP
-'   Adds each VALID EAD to mTotalEAD and counts INCOMPLETE sets in
-'   mIncomplete. Only VALID sets enter the TOTAL row.
+'   Adds each VALID EAD to the total of its regime (mRegEAD) and counts
+'   the netting sets of each regime, VALID and withheld; counts INCOMPLETE
+'   and INVALID sets in mIncomplete. Only VALID sets enter the totals, and
+'   each regime has its own TOTAL row: EADs under CRR and BCBS are never
+'   added together (#198).
 '
 ' REFERENCE
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
@@ -3820,7 +3997,7 @@ Private Sub ComputeNettingSets( _
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-13
 '==============================================================================
 '
 
@@ -3851,14 +4028,18 @@ Private Sub ComputeNettingSets( _
     Dim eadU     As Double       'EAD, unmargined basis: the EAD or the cap
     Dim eadM     As Double       'EAD, margined, before the cap
     Dim ead      As Double       'EAD reported
-    Dim tot(1 To RS_NCOLS) As Double    'Column totals for the TOTAL row
+    Dim ri       As Long         'Regime of the netting set: 1 CRR, 2 BCBS
+    Dim firstTotal As Long       'Results row of the first TOTAL row
+    Dim tot(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
 
 '------------------------------------------------------------------------------
 ' CALCULATE EACH NETTING SET
 '------------------------------------------------------------------------------
-        ReDim outArr(1 To mNSCount + 1, 1 To RS_NCOLS)
+        ReDim outArr(1 To mNSCount + 2, 1 To RS_NCOLS)
         nOut = 0
         For k = 1 To mNSCount
+            ri = RegimeIndex(mNS(k).Regime)
+            mRegSets(ri) = mRegSets(ri) + 1
 
     'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
     'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
@@ -3874,6 +4055,7 @@ Private Sub ComputeNettingSets( _
             End With
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
+                mRegWithheld(ri) = mRegWithheld(ri) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
                 nOut = nOut + 1
@@ -3882,6 +4064,7 @@ Private Sub ComputeNettingSets( _
             End If
             If mNS(k).Rejected > 0 Then
                 mIncomplete = mIncomplete + 1
+                mRegWithheld(ri) = mRegWithheld(ri) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).Rejected & _
                        " trade(s) rejected - see the Trades messages."
                 nOut = nOut + 1
@@ -3931,7 +4114,8 @@ Private Sub ComputeNettingSets( _
                 Else
                     ead = eadU
                 End If
-                mTotalEAD = mTotalEAD + ead
+                mRegEAD(ri) = mRegEAD(ri) + ead
+                mRegValid(ri) = mRegValid(ri) + 1
 
     'Results row. A margined netting set shows its margined figures in
     'columns 9 to 18 and the cap figures in 21 and 24 to 27.
@@ -3976,14 +4160,14 @@ Private Sub ComputeNettingSets( _
                 outArr(nOut, 22) = ead
                 outArr(nOut, RS_STATUS_COL) = "VALID"
 
-    'Running totals for V, C, RC, the add-ons, PFE and EAD.
-                tot(7) = tot(7) + .V
-                tot(8) = tot(8) + C
+    'Running totals of the regime for V, C, RC, the add-ons, PFE and EAD.
+                tot(ri, 7) = tot(ri, 7) + .V
+                tot(ri, 8) = tot(ri, 8) + C
                 For a = 9 To 16
-                    tot(a) = tot(a) + ToDbl(outArr(nOut, a))
+                    tot(ri, a) = tot(ri, a) + ToDbl(outArr(nOut, a))
                 Next a
-                tot(18) = tot(18) + ToDbl(outArr(nOut, 18))
-                tot(22) = tot(22) + ead
+                tot(ri, 18) = tot(ri, 18) + ToDbl(outArr(nOut, 18))
+                tot(ri, 22) = tot(ri, 22) + ead
             End With
 NextNS:
         Next k
@@ -3991,24 +4175,34 @@ NextNS:
 '------------------------------------------------------------------------------
 ' WRITE RESULTS
 '------------------------------------------------------------------------------
-    'The TOTAL row sums columns 7 to 18 except the multiplier (17), and the
-    'EAD (22). It is written in bold.
+    'One TOTAL row per regime with netting sets, CRR first: TOTAL CRR and
+    'TOTAL BCBS (#198). Each sums, over the regime's VALID netting sets,
+    'columns 7 to 18 except the multiplier (17), and the EAD (22); its
+    'status column says how many netting sets it covers and how many were
+    'withheld. There is no total across regimes. The rows are in bold.
         If writeOutputs Then
             Set ws = GetSheet(SH_RESULTS)
             ClearOutputBlock ws, FIRST_DATA_ROW, RS_NCOLS
             If nOut > 0 Then
-                nOut = nOut + 1
-                outArr(nOut, 1) = "TOTAL"
-                For a = 7 To 18
-                    If a <> 17 Then
-                        outArr(nOut, a) = tot(a)
+                firstTotal = nOut + 1
+                For ri = 1 To 2
+                    If mRegSets(ri) > 0 Then
+                        nOut = nOut + 1
+                        outArr(nOut, 1) = "TOTAL " & Choose(ri, RG_CRR, RG_BCBS)
+                        outArr(nOut, 3) = Choose(ri, RG_CRR, RG_BCBS)
+                        For a = 7 To 18
+                            If a <> 17 Then
+                                outArr(nOut, a) = tot(ri, a)
+                            End If
+                        Next a
+                        outArr(nOut, 22) = tot(ri, 22)
+                        outArr(nOut, RS_STATUS_COL) = TotalStatusText(Choose(ri, RG_CRR, RG_BCBS))
                     End If
-                Next a
-                outArr(nOut, 22) = tot(22)
+                Next ri
                 WriteBlock ws, FIRST_DATA_ROW, outArr, nOut, RS_NCOLS
                 FormatColumns ws, FIRST_DATA_ROW, nOut, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                TableRange(ws, FIRST_DATA_ROW + nOut - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
+                TableRange(ws, FIRST_DATA_ROW + firstTotal - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
@@ -4089,14 +4283,18 @@ Public Function InputFingerprint() As String
 '                               InputFingerprint
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Fingerprint everything a run reads: the NettingSets and Trades input
-'   rows (without the unread Comment column) and the Params inputs,
-'   located through the workbook names wherever the layout has moved them
-'   (ParamsText) (#36, #152).
+'   Fingerprint everything a run reads: the workbook's date system, the
+'   NettingSets and Trades headers (HeaderText) and input rows (without
+'   the unread Comment column) and the Params inputs, located through the
+'   workbook names wherever the layout has moved them (ParamsText) (#36,
+'   #152). Each cell is written with its type (CellToken), so a number
+'   and the same digits as text, or two error values, differ (#197).
 '
 ' RETURNS
 '   An 8-digit hexadecimal fingerprint (CORE_Util.TextHash). Equal
 '   fingerprints mean the inputs are, all but certainly, unchanged.
+'   FP_FORMAT opens the text, so a fingerprint stored before the format
+'   changed reads as out of date rather than as current.
 '
 ' ERROR POLICY
 '   Raises ERR_PARAMS_LAYOUT when a Params name is missing, broken or not
@@ -4104,22 +4302,83 @@ Public Function InputFingerprint() As String
 '   is given.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts(1 To 3)   As String    'Text of each input block
+    Dim parts(1 To 6)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
-        parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
-        parts(3) = ParamsText()
+    'The run stops in a 1904 workbook (#185), and a renamed header stops
+    'it too (#35), so both are part of what the results depend on.
+        parts(1) = FP_FORMAT & "|1904=" & IIf(ThisWorkbook.Date1904, "1", "0")
+        parts(2) = HeaderText(SH_NS, NS_NCOLS)
+        parts(3) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        parts(4) = HeaderText(SH_TRADES, TR_COMMENT - 1)
+        parts(5) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        parts(6) = ParamsText()
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
+
+End Function
+
+
+Private Function HeaderText( _
+    ByVal sheetName As String, _
+    ByVal nCols As Long) _
+    As String
+'
+'==============================================================================
+'                                  HeaderText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the header row of the NettingSets or Trades block as one text,
+'   each header as HeadersMatch compares it: without spaces, tabs and line
+'   breaks (HeaderKey), in upper case. A header changed only in those ways
+'   passes the schema check, so it must not make the results out of date;
+'   any other change stops the run, so it must (#197). A header that is
+'   not text is written as CellToken writes it.
+'
+' RETURNS
+'   "" when the header row cannot be located; the run then stops on the
+'   same broken name.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet    'Input sheet
+    Dim r         As Long         'Header row; 0 when it cannot be located
+    Dim pieces()  As String       'One text per header
+    Dim c         As Long         'Table column
+    Dim v         As Variant      'Header cell value
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        r = TableHeaderRow(sheetName)
+        If r = 0 Then
+            Exit Function
+        End If
+        Set ws = GetSheet(sheetName)
+        ReDim pieces(1 To nCols)
+        For c = 1 To nCols
+            v = TableCell(ws, r, c).Value2
+            If VarType(v) = vbString Then
+                pieces(c) = "T" & UCase$(HeaderKey(CStr(v)))
+            Else
+                pieces(c) = CellToken(v)
+            End If
+        Next c
+        HeaderText = Join(pieces, Chr$(31))
 
 End Function
 
@@ -4144,7 +4403,7 @@ Private Function ParamsText() As String
 '   of the four layout names is not on Params.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -4191,11 +4450,7 @@ Private Function ParamsText() As String
                           nameList(i) & "' is missing or no longer refers to a cell."
             End If
             k = k + 1
-            If IsError(c.Value2) Then
-                pieces(k) = nameList(i) & "=#ERR"
-            Else
-                pieces(k) = nameList(i) & "=" & CStr(c.Value2)
-            End If
+            pieces(k) = nameList(i) & "=" & CellToken(c.Value2)
         Next i
 
 '------------------------------------------------------------------------------
@@ -4234,16 +4489,17 @@ Private Function BlockText( _
 '                                  BlockText
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a block of cells as one text, cell by cell, from firstRow to the
-'   last row with a value. Blank rows below it are left out, so that a
-'   used range that grew without new values does not change the text.
+'   Write a block of cells as one text, cell by cell (CellToken), from
+'   firstRow to the last row with a value. Blank rows below it are left
+'   out, so that a used range that grew without new values does not
+'   change the text.
 '
 ' INPUTS
 '   firstCol: the block's first table column, as TableCell counts it.
 '   lastRow: the last row to read; 0 for the last used row.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -4297,14 +4553,45 @@ Private Function BlockText( _
         For r = 1 To nRows
             For c = 1 To nCols
                 k = k + 1
-                If IsError(data(r, c)) Then
-                    pieces(k) = "#ERR"
-                Else
-                    pieces(k) = CStr(data(r, c))
-                End If
+                pieces(k) = CellToken(data(r, c))
             Next c
         Next r
         BlockText = Join(pieces, Chr$(31))
+
+End Function
+
+
+Private Function CellToken( _
+    ByVal v As Variant) _
+    As String
+'
+'==============================================================================
+'                                  CellToken
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write one cell value (Value2) for the fingerprint with a tag for its
+'   type: N for a number, T for text, B for a logical value, E for an
+'   error value with its code, and nothing for an empty cell. The number
+'   47756 and the text '47756 are read differently since #185, so they
+'   must not give the same text (#197). Formatting does not reach Value2,
+'   so a formatting-only edit leaves the token unchanged.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        Select Case VarType(v)
+            Case vbEmpty
+                CellToken = ""
+            Case vbString
+                CellToken = "T" & v
+            Case vbBoolean
+                CellToken = IIf(v, "B1", "B0")
+            Case vbError
+                CellToken = "E" & CStr(v)
+            Case Else
+                CellToken = "N" & CStr(v)
+        End Select
 
 End Function
 

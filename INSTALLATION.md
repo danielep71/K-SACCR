@@ -277,7 +277,15 @@ results withdrawn; and it edits one trade, and on Params a factor's Regimes
 field and its header, a parameter and an FX rate, after a run and checks that the results
 are reported out of date until the edit is undone, once with the template
 layout and once with a column inserted before the Params tables, which the
-case deletes again (#152). Unlike the
+case deletes again (#152). It also checks that the results are out of date
+after the first trade's MtM becomes the same digits as text, after a header
+on Trades or NettingSets is renamed, and after the workbook is switched to the
+other date system, and that a number format, a bold header or a header
+changed only in case and spacing leaves them current (#197). In manual calculation it makes the first trade's
+MtM a formula on its Comment cell, changes the Comment without recalculating,
+and checks that the run uses the new MtM; a recalculation that does not
+finish stops the run and the previous results are no longer reported as
+current (#195). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -298,8 +306,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty `CASE=` lines and ends with
-`RESULT=PASS; cases=20; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-five `CASE=` lines and ends with
+`RESULT=PASS; cases=25; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 
@@ -410,13 +418,15 @@ MtM leg, no MtM leg, legs in different netting sets, a swap split into two
 linear legs, a whole trade flagged N and a flag that is not Y or N. For the
 input conventions (#40) it enters dates as ISO text and as 30/09/2031 text,
 sets the workbook to the 1904 date system for one run, puts swaps at the IR
-bucket boundaries and dates on the reporting date, gives an option an expiry
+bucket boundaries in each regime with their effect on the add-on, and dates on the reporting date, gives an option an expiry
 after its maturity, and enters FX pairs with an unknown currency, a notional
-outside the pair and the pair the other way round. Every patched cell and
-name, and the date system, is restored. It needs a workbook
+outside the pair and the pair the other way round. It puts `#N/A` in each
+optional text field of a trade and in the netting-set and Params regime
+(#194), and formats an option price as Currency (#196). Every patched cell
+and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=111; checks=158; failures=0; restore=PASS`.
+`RESULT=PASS; cases=127; checks=193; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
@@ -440,9 +450,12 @@ its formula, lies between the floor and 1 and is 1 when V - C is not
 negative; PFE is the multiplier times the aggregate add-on;
 EAD = alpha * (RC + PFE); and a margined netting set's EAD is the lower of the
 margined EAD and the unmargined cap, with the cap flag set exactly when the
-cap is lower. Withheld netting sets must show no figures. The TOTAL row must
-hold, for V, C, RC, each asset-class add-on, the aggregate add-on, PFE and
-EAD, the sum over the `VALID` netting sets, and nothing in its other columns.
+cap is lower. Withheld netting sets must show no figures. Each regime with
+netting sets must have a TOTAL row after them, `TOTAL CRR` then
+`TOTAL BCBS`, holding for V, C, RC, each asset-class add-on, the aggregate
+add-on, PFE and EAD the sum over that regime's `VALID` netting sets, its
+regime, the number of `VALID` and withheld netting sets in its status, and
+nothing in its other columns (#198).
 It first checks that the portfolio has unmargined and margined,
 CRR and BCBS netting sets, a cap that applies and one that does not, and a
 multiplier below 1. A second run must write identical Results, TradeCalc,
@@ -457,14 +470,20 @@ add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
 `RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
-and raises any failure instead of showing a message box. `inputs` is the
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; cleanup=PASS`
+and raises any failure instead of showing a message box. `total_ead_crr` and
+`total_ead_bcbs` are the totals of each regime's `VALID` netting sets, never
+added together (#198). `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
 results on the sheets match the inputs as they are now, `STALE` when an input
 changed since, and `NONE` when there is no valid completed run. Params is
 read through its workbook names, so an edit is found also after its tables
 have moved; descriptions, references and formatting do not count as edits.
+The fingerprint also covers the Trades and NettingSets headers, the type of
+each value (the number 47756 and the text `'47756` differ, as do two error
+values) and the workbook's date system (#197); a header changed only in
+case or spacing, which the schema check accepts, does not count.
 Results C5 shows the same status through the formula
 `=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
 Excel recalculates when an input changes, and turns red when it reads

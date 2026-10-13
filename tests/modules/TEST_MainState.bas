@@ -10,7 +10,12 @@ Attribute VB_Name = "TEST_MainState"
 '   after the outputs are being written, fails the run and withdraws its
 '   results; and that results are reported as out of date once an input
 '   changes (issue #36), also on Params after its tables have moved
-'   (issue #152).
+'   (issue #152), when a number becomes the same digits as text, a header
+'   is renamed or the date system changes, but not after a formatting
+'   change (issue #197); and that a run in manual calculation recalculates
+'   its formula inputs before reading them, and stops without reporting
+'   old results as current when that recalculation does not finish (issue
+'   #195).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -28,7 +33,9 @@ Attribute VB_Name = "TEST_MainState"
 '   activate the Checks sheet. One case protects the Checks sheet for one
 '   run and unprotects it again, also after an unexpected error. One case
 '   inserts a column before the Params tables for its run and deletes it
-'   again, also after an unexpected error. The last case leaves the
+'   again, also after an unexpected error. One case switches the workbook
+'   to the 1904 date system and back, also after an unexpected error. The
+'   last case leaves the
 '   outputs of a normal run. Use a development workbook only.
 '
 ' STATE OWNERSHIP
@@ -45,7 +52,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -61,7 +68,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 20   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 25   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -146,6 +153,11 @@ Public Sub RunMainStateTests()
         CaseStaleResults
         CaseStaleParams False
         CaseStaleParams True
+        CaseStaleValueType
+        CaseStaleHeaders
+        CaseStaleDateSystem
+        CaseManualRecalculation
+        CaseRecalculationPending
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -791,6 +803,341 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseStaleValueType()
+'
+'==============================================================================
+'                              CaseStaleValueType
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a run, the MtM of the first trade replaced by the same digits as
+'   text makes the results STALE, since the engine reads the two
+'   differently (#185); putting the number back makes them CURRENT. Two
+'   error values give different fingerprints. A number format on the cell
+'   leaves the results CURRENT (#197).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim mtmCell       As Range      'MtM of the first trade
+    Dim saved         As Variant    'Its formula
+    Dim savedFormat   As Variant    'Its number format
+    Dim naPrint       As String     'Fingerprint with #N/A in the cell
+    Dim valuePrint    As String     'Fingerprint with #VALUE! in the cell
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "results.stale-value-type"
+        SetState xlCalculationAutomatic, False, False
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        saved = mtmCell.Formula
+        savedFormat = mtmCell.NumberFormat
+        Check VarType(mtmCell.Value2) = vbDouble, "the first trade's MtM is not a number"
+        M_Main.RunSACCR_Silent
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+
+    'The same digits, entered as text.
+        mtmCell.Value = "'" & CStr(mtmCell.Value2)
+        Check VarType(mtmCell.Value2) = vbString, "the MtM was not stored as text"
+        Check M_Main.ResultsStatus() = "STALE", "number as text: " & M_Main.ResultsStatus()
+        CheckStatusCell "OUT OF DATE", "number as text"
+        mtmCell.Formula = saved
+        Check M_Main.ResultsStatus() = "CURRENT", "number restored: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "number restored"
+
+    'Two error values.
+        mtmCell.Value = CVErr(xlErrNA)
+        naPrint = CORE_Engine.InputFingerprint()
+        mtmCell.Value = CVErr(xlErrValue)
+        valuePrint = CORE_Engine.InputFingerprint()
+        Check naPrint <> valuePrint, "#N/A and #VALUE! give the same fingerprint " & naPrint
+        mtmCell.Formula = saved
+
+    'Formatting only.
+        mtmCell.NumberFormat = "0.000%"
+        Check M_Main.ResultsStatus() = "CURRENT", "after a number format: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a number format"
+        mtmCell.NumberFormat = savedFormat
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell mtmCell, saved
+        On Error Resume Next
+        If Not mtmCell Is Nothing Then mtmCell.NumberFormat = savedFormat
+
+End Sub
+
+
+Private Sub CaseStaleHeaders()
+'
+'==============================================================================
+'                               CaseStaleHeaders
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a run, a renamed header on Trades or NettingSets makes the
+'   results STALE, since the run would stop (#35), and the original header
+'   makes them CURRENT again. A bold header, or one changed only in case
+'   and spacing, which the schema check accepts, leaves them CURRENT
+'   (#197).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim headerCell   As Range      'Header edited, Nothing once restored
+    Dim savedBold    As Variant    'Its bold setting
+    Dim savedText    As Variant    'Its formula
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "results.stale-headers"
+        SetState xlCalculationAutomatic, False, False
+        M_Main.RunSACCR_Silent
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        EditAndUndo TableCell(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_MTM), "Trades MtM header"
+        EditAndUndo TableCell(GetSheet(SH_NS), TableHeaderRow(SH_NS), NS_ID), "NettingSets ID header"
+
+    'Formatting only.
+        Set headerCell = TableCell(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_MTM)
+        savedBold = headerCell.Font.Bold
+        headerCell.Font.Bold = Not CBool(savedBold)
+        Check M_Main.ResultsStatus() = "CURRENT", "after a bold header: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a bold header"
+        headerCell.Font.Bold = savedBold
+
+    'Case and spacing only: "MtM" as " m tM ".
+        savedText = headerCell.Formula
+        headerCell.Value = " " & LCase$(Left$(CStr(savedText), 1)) & " " & Mid$(CStr(savedText), 2) & " "
+        Check M_Main.ResultsStatus() = "CURRENT", "after a case and spacing edit: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a case and spacing edit"
+        headerCell.Formula = savedText
+        Set headerCell = Nothing
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not headerCell Is Nothing Then
+            headerCell.Font.Bold = savedBold
+            If Not IsEmpty(savedText) Then headerCell.Formula = savedText
+        End If
+
+End Sub
+
+
+Private Sub CaseStaleDateSystem()
+'
+'==============================================================================
+'                              CaseStaleDateSystem
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a run, switching the workbook to the other date system makes the
+'   results STALE, since the run stops in a 1904 workbook (#185), and
+'   switching back makes them CURRENT (#197).
+'
+' METHOD
+'   Excel need not recalculate Results C5 when only the date system
+'   changes, because no input cell changed; the case recalculates the cell
+'   itself, as the next input edit would.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim saved      As Boolean    'Date system of the workbook
+    Dim switched   As Boolean    'The date system is switched
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "results.stale-date-system"
+        SetState xlCalculationAutomatic, False, False
+        saved = ThisWorkbook.Date1904
+        M_Main.RunSACCR_Silent
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        ThisWorkbook.Date1904 = Not saved
+        switched = True
+        Check M_Main.ResultsStatus() = "STALE", "date system switched: " & M_Main.ResultsStatus()
+        GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
+        CheckStatusCell "OUT OF DATE", "date system switched"
+        ThisWorkbook.Date1904 = saved
+        switched = False
+        Check M_Main.ResultsStatus() = "CURRENT", "date system restored: " & M_Main.ResultsStatus()
+        GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
+        CheckStatusCell "Results current", "date system restored"
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If switched Then ThisWorkbook.Date1904 = saved
+        If Err.Number <> 0 Then
+            Fail mCurrentCase, "could not restore the date system: " & Err.Description
+        End If
+
+End Sub
+
+
+Private Sub CaseManualRecalculation()
+'
+'==============================================================================
+'                           CaseManualRecalculation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   In manual calculation, a formula input whose precedent changed since
+'   the last recalculation is brought up to date before the run reads it
+'   (#195). The first trade's MtM becomes a formula on its own Comment
+'   cell, which the engine does not read; the Comment changes from 1,000 to
+'   2,000 without a recalculation, and the run must use an MtM of 2,000
+'   (the trade's MtM currency is the reporting currency). The results are
+'   then current, and the caller's manual mode is kept.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result      As String     'Result line of the run
+    Dim mtmCell     As Range      'MtM of the first trade, made a formula
+    Dim noteCell    As Range      'Comment of the first trade, its precedent
+    Dim savedMtm    As Variant    'Formula of mtmCell before the case
+    Dim savedNote   As Variant    'Formula of noteCell before the case
+    Dim calcRow     As Long       'TradeCalc row of the first trade
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.manual-recalculates-inputs"
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        Set noteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
+        savedMtm = mtmCell.Formula
+        savedNote = noteCell.Formula
+        SetState xlCalculationManual, False, False
+        noteCell.Value = 1000
+        mtmCell.Formula = "=" & noteCell.Address(False, False)
+        Application.Calculate
+        noteCell.Value = 2000
+        Check ToDbl(mtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated before the run"
+        result = M_Main.RunSACCR_Silent()
+
+    'The first trade is the first TradeCalc row; column 9 is its MtM in
+    'the reporting currency.
+        calcRow = FIRST_DATA_ROW
+        Check UTxt(TableCell(GetSheet(SH_TRADECALC), calcRow, 1).Value) = _
+              UTxt(TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_ID).Value), _
+              "the first TradeCalc row is not the first trade"
+        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value, 0#) = 2000#, _
+              "the run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value & ", expected 2000"
+        Check M_Main.ResultsStatus() = "CURRENT", "after the run: " & M_Main.ResultsStatus()
+        CheckState xlCalculationManual, False, False
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "run.manual-recalculates-inputs", "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
+
+End Sub
+
+
+Private Sub CaseRecalculationPending()
+'
+'==============================================================================
+'                           CaseRecalculationPending
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When the recalculation before a run does not finish (#195), simulated
+'   through gTestFault = "recalc", the run raises ERR_RECALC_PENDING, the
+'   previous results are no longer reported as current, Excel is restored,
+'   and the next run works.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result      As String    'Result line of a run
+    Dim errNumber   As Long      'Error raised by the stopped run
+    Dim errText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.recalculation-pending"
+        SetState xlCalculationManual, False, False
+        result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        M_Main.gTestFault = "recalc"
+        On Error Resume Next
+        result = M_Main.RunSACCR_Silent()
+        errNumber = Err.Number
+        errText = Err.Description
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check errNumber = ERR_RECALC_PENDING, "expected ERR_RECALC_PENDING, got " & errNumber & ": " & errText
+        Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the stopped run"
+        CheckState xlCalculationManual, False, False
+
+    'The next run completes and its results are current again.
+        result = M_Main.RunSACCR_Silent()
+        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
+        CheckState xlCalculationManual, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail "run.recalculation-pending", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
 Private Sub CaseStaleParams( _
     ByVal shifted As Boolean)
 '
@@ -1006,8 +1353,8 @@ Private Sub RestoreCell( _
 '                                 RestoreCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Put back an input cell edited by CaseStaleResults or EditAndUndo after
-'   an unexpected error.
+'   Put back an input cell edited by CaseStaleResults, CaseStaleValueType
+'   or EditAndUndo after an unexpected error.
 '
 ' ERROR POLICY
 '   Contained: a failure is reported as a test failure of the current

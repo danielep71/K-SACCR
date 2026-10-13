@@ -42,11 +42,18 @@ Attribute VB_Name = "TEST_InputValidation"
 '   regulatory; a reporting-currency FX rate other than 1 stops the run.
 '   For the input conventions (#40): a text date is read only as
 '   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
-'   maturity buckets split at exactly 1 and 5 years, a trade or option
-'   ending on the reporting date is rejected, an option expiring after its
-'   maturity is rejected, both currencies of an FX pair need an FX rate,
-'   the notional must be in one of them, and a pair entered the other way
-'   round offsets the same pair entered in order.
+'   maturity buckets split at exactly 1 and 5 years with the regime's edge
+'   at 1 year, which changes the IR add-on of offsetting swaps (#191), a
+'   trade or option ending on the reporting date is rejected, an option
+'   expiring after its maturity is rejected, both currencies of an FX pair
+'   need an FX rate, the notional must be in one of them, and a pair
+'   entered the other way round offsets the same pair entered in order.
+'   An Excel error value in an optional text field of a trade, in a
+'   netting set's regime or in the Params regime is an input error, not
+'   a blank that takes a default (#194), and a Currency number format
+'   does not round an input (#196). Results has one TOTAL row per regime,
+'   after the netting sets, with the number of VALID and withheld netting
+'   sets it covers (#198).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -70,7 +77,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '
 ' AUTHOR
 '   Daniele Penza
@@ -86,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 111               'Cases in a complete run
-        Private Const CHECKS      As Long = 158               'Checks in a complete run
+        Private Const CASES       As Long = 127               'Cases in a complete run
+        Private Const CHECKS      As Long = 193               'Checks in a complete run
 
 
 '
@@ -107,15 +114,18 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Params row a table case patches
-    Dim i   As Long    'Trade number in the large netting set
+    Dim r        As Long       'Params row a table case patches
+    Dim i        As Long       'Trade number in the large netting set
+    Dim fields   As Variant    'Trades column and field name, in pairs
+    Dim f        As Long       'Index of a column in fields
+    Dim savedFormat As String  'Number format of a cell a case changes
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -759,22 +769,49 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         ExpectStopIn1904 "1904 date system"
 
-    'Dates on the reporting date and the IR maturity buckets (#40). E is
-    'the end date in years of 365 days from 2026-09-30: 364 days is under 1
-    'year, 365 days is 1 year and falls in 1-5Y, as does 1,825 days, exactly
-    '5 years; 1,826 days (2031-09-30) is over 5 years [CRE52.57(3)]. A
-    'trade or option ending on the reporting date is rejected; a start on
-    'it is S = 0.
-        StartCase "ir-bucket-boundaries", "N"
-        AddSwapTo "B364", "2027-09-29"
-        AddSwapTo "B365", "2027-09-30"
-        AddSwapTo "B1825", "2031-09-29"
-        AddSwapTo "B1826", "2031-09-30"
+    'Dates on the reporting date and the IR maturity buckets (#40, #191).
+    'E is the end date in years of 365 days from 2026-09-30: 364 days is
+    'under 1 year, 365 days exactly 1 year, 1,825 days exactly 5 years and
+    '1,826 days (2031-09-30) over 5 years. Under CRR bucket 1 includes
+    'exactly 1 year [Art. 280a(3), Table 2: > 0 and <= 1]; under BCBS it
+    'does not [CRE52.57(3): less than one year]. Exactly 5 years is in
+    'bucket 2 in both. A trade or option ending on the reporting date is
+    'rejected; a start on it is S = 0.
+        StartCase "ir-bucket-boundaries-crr", "N"
+        AddBucketSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectText "bucket-364", "B364", "bucket", "<1Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-365", "B365", "bucket", "<1Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1825", "B1825", "bucket", "1-5Y", "illustrative"
+        TEST_CaseRunner.ExpectText "bucket-1826", "B1826", "bucket", ">5Y", "illustrative"
+
+        StartCase "ir-bucket-boundaries-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        AddBucketSwaps
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectText "bucket-364", "B364", "bucket", "<1Y", "illustrative"
         TEST_CaseRunner.ExpectText "bucket-365", "B365", "bucket", "1-5Y", "illustrative"
         TEST_CaseRunner.ExpectText "bucket-1825", "B1825", "bucket", "1-5Y", "illustrative"
         TEST_CaseRunner.ExpectText "bucket-1826", "B1826", "bucket", ">5Y", "illustrative"
+
+    'The edge changes the add-on, not only the label (#191). A long swap
+    'ending at exactly 1 year and a short one ending at 2 years, notional
+    '10,000 each, MF 1: D1 = 10,000 x SD(1) = 9,754.12 and D2 = -10,000 x
+    'SD(2) = -19,032.52, SD(E) = (1 - exp(-0.05 E)) / 0.05. Under CRR they
+    'are in buckets 1 and 2: add-on = 0.5% x sqrt(D1^2 + D2^2 + 1.4 D1 D2)
+    '= 70.2631. Under BCBS both are in bucket 2: 0.5% x |D1 + D2| = 46.3920.
+        StartCase "ir-bucket-offset-crr", "N"
+        AddOffsetSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "add-on-ir", "", "add_on.interest_rate", "70.2630670897333", _
+                                     "0.000001", "0.000000001", "illustrative"
+
+        StartCase "ir-bucket-offset-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        AddOffsetSwaps
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "add-on-ir", "", "add_on.interest_rate", "46.3920064647545", _
+                                     "0.000001", "0.000000001", "illustrative"
 
         StartCase "trade-maturing-on-reporting-date", "N"
         AddSwapTo "T1", VALUATION
@@ -826,6 +863,99 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectNumber "delta", "T2", "supervisory_delta", "-1", "0", "0", "illustrative"
         TEST_CaseRunner.ExpectNumber "add-on-fx", "", "add_on.foreign_exchange", "0", "0.000001", "0", _
                                      "illustrative"
+
+    'An Excel error value, such as #N/A from a broken lookup, in an optional
+    'text field is an input error, not a blank that takes the field's
+    'default (#194): Instrument would become Linear, Nature Standard, the
+    'notional currency the reporting currency, the MtM currency the
+    'notional currency, and a netting-set or Params regime the default.
+        fields = Array(TR_INSTR, "Instrument", TR_NATURE, "Nature", TR_SUB, "Sub-class", _
+                       TR_LABEL, "Hedging-set label", TR_NCCY, "Notional currency", TR_MCCY, "MtM currency")
+        For f = LBound(fields) To UBound(fields) Step 2
+            StartCase "text-error-" & LCase$(Replace(CStr(fields(f + 1)), " ", "-")), "N"
+            AddSwap "T1"
+            TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(fields(f)), CVErr(xlErrNA)
+            ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+            TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
+                                             CStr(fields(f + 1)) & " must be text or blank (found an error value)", _
+                                             "illustrative"
+        Next f
+
+        StartCase "text-error-netting-set-regime", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, CVErr(xlErrNA)
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
+                                         "Regime override must be BCBS or CRR (found an error value", "illustrative"
+
+        StartCase "text-error-params-regime", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REGIME), ParamsValueCol(), CVErr(xlErrNA)
+        ExpectStop "Regime must be BCBS or CRR (found an error value)"
+
+    'Number formats do not change what is read (#196): with a Currency
+    'format, Range.Value rounds to four decimals. A one-year single-name
+    'equity call, price 0.012345, strike 0.0123, volatility 120%, has delta
+    'N(d1) = 0.72676 with d1 = (ln(P/K) + 0.5 x 1.2^2) / 1.2; read as
+    '0.0123 the price would give 0.72575. Both formats must give 0.72676.
+    'The cell formats are put back at the end of the case.
+        StartCase "number-format-general", "N"
+        AddSmallOption
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
+                                     "0.000001", "0", "illustrative"
+
+        StartCase "number-format-currency", "N"
+        AddSmallOption
+        r = TableFirstRow(SH_TRADES)
+        savedFormat = TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = "$#,##0.00"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
+                                     "0.000001", "0", "illustrative"
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
+
+    'Totals per regime (#198): one TOTAL row for each regime with netting
+    'sets, CRR first, after the netting-set rows; each sums the regime's
+    'VALID netting sets and says how many it covers and how many were
+    'withheld. NS1 (CRR) and NS2 (BCBS) hold one swap each; NS3 (CRR) holds
+    'a swap without MtM, so its EAD is withheld.
+        StartCase "totals-per-regime", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_ID, "NS2"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "BCBS"
+        TEST_CaseRunner.SetInputCell SH_NS, 3, NS_ID, "NS3"
+        TEST_CaseRunner.SetInputCell SH_NS, 3, NS_REGIME, "CRR"
+        AddSwap "T1"
+        AddSwap "T2"
+        AddSwap "T3"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NS, "NS2"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_NS, "NS3"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_MTM, Empty
+        TEST_CaseRunner.RunCase
+        ExpectTotal RG_CRR, "1 of 2 netting set(s) VALID; 1 withheld", "NS1"
+        ExpectTotal RG_BCBS, "1 of 1 netting set(s) VALID; 0 withheld", "NS2"
+        TEST_CaseRunner.ExpectTrue "totals-last", ResultsRow("TOTAL CRR") = ResultsRow("NS3") + 1 And _
+                                   ResultsRow("TOTAL BCBS") = ResultsRow("TOTAL CRR") + 1 And _
+                                   ResultsRow("TOTAL") = 0, _
+                                   "the TOTAL rows are not TOTAL CRR then TOTAL BCBS after the netting sets", _
+                                   "illustrative"
+
+        StartCase "totals-single-regime", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.RunCase
+        ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
+        TEST_CaseRunner.ExpectTrue "one-total", ResultsRow("TOTAL BCBS") = 0 And ResultsRow("TOTAL") = 0, _
+                                   "a TOTAL row other than TOTAL CRR was written", "illustrative"
+
+    'A netting set may not take the label of a TOTAL row: its row is
+    'ignored with an error, and TOTAL CRR still covers NS1 alone.
+        StartCase "netting-set-reserved-id", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_ID, "total crr"
+        TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "CRR"
+        AddSwap "T1"
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectChecksLine "reserved-id", SEV_ERROR, "is reserved for a TOTAL row", "illustrative"
+        ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub
@@ -1215,6 +1345,69 @@ Private Sub AddFxForward( _
 End Sub
 
 
+Private Sub AddBucketSwaps()
+'
+'==============================================================================
+'                                AddBucketSwaps
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add four EUR swaps to NS1 ending 364, 365, 1,825 and 1,826 days after
+'   the reporting date, at the IR maturity-bucket edges (#40, #191).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        AddSwapTo "B364", "2027-09-29"
+        AddSwapTo "B365", "2027-09-30"
+        AddSwapTo "B1825", "2031-09-29"
+        AddSwapTo "B1826", "2031-09-30"
+
+End Sub
+
+
+Private Sub AddOffsetSwaps()
+'
+'==============================================================================
+'                                AddOffsetSwaps
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add to NS1 a long EUR swap ending exactly 1 year after the reporting
+'   date and a short one ending 2 years after it (730 days), notional
+'   10,000 each (#191).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        AddSwapTo "L365", "2027-09-30"
+        AddSwapTo "S730", "2028-09-29"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_DIR, "Short"
+
+End Sub
+
+
+Private Sub AddSmallOption()
+'
+'==============================================================================
+'                                AddSmallOption
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add to NS1 a bought one-year single-name equity call, notional 10,000,
+'   underlying price 0.012345 and strike 0.0123, values with more than
+'   four decimals (#196).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TEST_CaseRunner.AddTrade "T1", "EQ", "SINGLE", "ACME", "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", "", "2027-09-30", "2027-09-30", "2027-09-30", "0.012345", _
+                                 "0.0123", "", "", ""
+
+End Sub
+
+
 Private Sub AddFxForwardOn( _
     ByVal tradeId As String, _
     ByVal pair As String, _
@@ -1349,6 +1542,95 @@ Private Sub ExpectStopIn1904( _
         If errNumber <> 0 Then
             Err.Raise errNumber, "TEST_InputValidation.ExpectStopIn1904", errText
         End If
+
+End Sub
+
+
+Private Function ResultsRow( _
+    ByVal label As String) _
+    As Long
+'
+'==============================================================================
+'                                  ResultsRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Find a Results row by the exact text of its first column: a netting
+'   set's ID or a TOTAL row's label (#198).
+'
+' RETURNS
+'   The sheet row; 0 when no row has that label.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws   As Worksheet    'Results sheet
+    Dim r    As Long         'Row being read
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_RESULTS)
+        r = FIRST_DATA_ROW
+        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
+            If SafeStr(TableCell(ws, r, 1).Value) = label Then
+                ResultsRow = r
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Sub ExpectTotal( _
+    ByVal regimeCode As String, _
+    ByVal statusText As String, _
+    ByVal nettingSetId As String)
+'
+'==============================================================================
+'                                 ExpectTotal
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check the TOTAL row of a regime (#198): it exists, its status is
+'   statusText, its EAD equals the EAD of the regime's one VALID netting
+'   set nettingSetId, and CORE_Engine.TotalEAD reports the same figure.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws       As Worksheet    'Results sheet
+    Dim tr       As Long         'Row of the TOTAL row
+    Dim nr       As Long         'Row of the netting set
+    Dim ok       As Boolean      'All conditions hold
+    Dim detail   As String       'Diagnostic
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_RESULTS)
+        tr = ResultsRow("TOTAL " & regimeCode)
+        nr = ResultsRow(nettingSetId)
+        If tr = 0 Or nr = 0 Then
+            detail = "TOTAL " & regimeCode & " or " & nettingSetId & " is missing from Results"
+        Else
+            ok = (SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) = statusText) And _
+                 (Abs(ToDbl(TableCell(ws, tr, 22).Value) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001) And _
+                 (Abs(CORE_Engine.TotalEAD(regimeCode) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001)
+            detail = "TOTAL " & regimeCode & " status """ & SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) & _
+                     """, EAD " & TableCell(ws, tr, 22).Value & "; expected """ & statusText & """ and the EAD of " & _
+                     nettingSetId & ", " & TableCell(ws, nr, 22).Value
+        End If
+        TEST_CaseRunner.ExpectTrue "total-" & LCase$(regimeCode), ok, detail, "illustrative"
 
 End Sub
 

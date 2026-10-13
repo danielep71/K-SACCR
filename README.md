@@ -238,7 +238,7 @@ Trades ─┘                │                                           │
 | `README` | In-workbook guide |
 | `Params` | Run parameters, supervisory-factor table, FX rates |
 | `NettingSets` · `Trades` | Inputs |
-| `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; run summary and stale-result indicator |
+| `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; a TOTAL row per regime over its `VALID` netting sets; run summary and stale-result indicator |
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
@@ -267,6 +267,7 @@ netting set, and every result reports the regime it used.
 | Commodity hedging sets | Adds climatic conditions (Art. 277a(1)(e); 18%) | Energy, metals, agricultural, other |
 | Single-name credit factor | By credit quality step (Art. 280c(5)) | By rating AAA to CCC (CRE52.72) |
 | IR and commodity option delta | Lambda shift of `CRR-RTS` Art. 5 | CRE52.40 |
+| IR maturity bucket 1 | End date up to and including 1 year (Art. 280a(3)) | Under 1 year (CRE52.57(3)) |
 | IR aggregation across buckets | Formula with offsets only (Art. 280a(3)) | With offsets, or sum of absolutes (CRE52.57(5)) |
 
 The [regime differences](docs/methodology/README.md#regime-differences) table
