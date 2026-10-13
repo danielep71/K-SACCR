@@ -161,6 +161,40 @@ class SourceGateTests(unittest.TestCase):
                    "\r\n    )\r\n")
         self.assertEqual(self.findings(), [])
 
+    def test_commented_sync_declaration_is_not_the_active_list(self) -> None:
+        # A complete list inside a block comment before an incomplete active
+        # list must not hide the missing root (#144).
+        self.write("src/modules/SACCR_Test.bas", MODULE)
+        self.write("tests/modules/TEST_Test.bas", MODULE.replace("SACCR_Test", "TEST_Test"))
+        unsynchronized = ("tests/modules/TEST_Test.bas: not synchronized; add its directory to "
+                          "$sourceRoots in tools/Sync-SACCR-VBA.ps1")
+        old = ('$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),\r\n'
+               '        (Join-Path $repoFullPath "tests\\modules")\r\n    )\r\n')
+        active = '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules")\r\n    )\r\n'
+        for before in (f"<#\r\n{old}#>\r\n", f"<# {old}#>\r\n",
+                       "".join(f"# {line}\r\n" for line in old.split("\r\n") if line)):
+            with self.subTest(before=before[:12]):
+                self.write("tools/Sync-SACCR-VBA.ps1", before + active)
+                self.assertEqual(self.findings(), [unsynchronized])
+        # A commented declaration and no active list: no list is found.
+        self.write("tools/Sync-SACCR-VBA.ps1", f"<#\r\n{old}#>\r\n")
+        self.assertIn("tools/Sync-SACCR-VBA.ps1: $sourceRoots list not found", self.findings())
+        # A complete active list after a block comment is accepted.
+        self.write("tools/Sync-SACCR-VBA.ps1", "<# synchronizer\r\n   notes #>\r\n" + old)
+        self.assertEqual(self.findings(), [])
+        # A quoted "<#" before the list does not open a comment, also in a
+        # string or here-string over several lines.
+        for before in ('$label = "<# not a comment"\r\n',
+                       '$label = "first line\r\n<# second line"\r\n',
+                       "$help = @'\r\n<# text\r\n'@\r\n",
+                       '$help = @"\r\n  <# text $x\r\n"@\r\n'):
+            with self.subTest(string=before[:16]):
+                self.write("tools/Sync-SACCR-VBA.ps1", before + old)
+                self.assertEqual(self.findings(), [])
+        # A declaration inside a here-string is text, not the active list.
+        self.write("tools/Sync-SACCR-VBA.ps1", "$doc = @'\r\n" + old + "'@\r\n" + active)
+        self.assertEqual(self.findings(), [unsynchronized])
+
     def test_unsupported_sync_entry_is_rejected(self) -> None:
         self.write("tools/Sync-SACCR-VBA.ps1",
                    '$sourceRoots = @(\r\n        (Join-Path $repoFullPath "src\\modules"),\r\n'

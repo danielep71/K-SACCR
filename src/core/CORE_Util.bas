@@ -37,7 +37,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -238,33 +238,59 @@ Public Function ToSerial( _
 '   Convert a cell value to a date serial number.
 '
 ' INPUTS
-'   v: a date, a number already holding a serial, or text that VBA recognises
-'      as a date.
+'   v: a date, a number already holding a serial, or text in the ISO form
+'      yyyy-mm-dd. Other text, such as 31/03/2027, 03/31/2027 or a serial
+'      written as text, is not read: its meaning depends on the Windows
+'      regional settings (#40).
 '
 ' RETURNS
 '   The date serial as a Double; -1 when v is missing or not a date.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s     As String    'Trimmed text of v
+    Dim y     As Long      'Year of an ISO text date
+    Dim m     As Long      'Month of an ISO text date
+    Dim d     As Long      'Day of an ISO text date
+    Dim dt    As Date      'The ISO text date, built from y, m and d
 
 '------------------------------------------------------------------------------
 ' CONVERT
 '------------------------------------------------------------------------------
     'Start from the "missing" marker and replace it only when v is usable.
+    'Text is tested before numbers: IsNum accepts numeric text such as
+    '"47756", which is not a yyyy-mm-dd date.
         ToSerial = -1#
         If IsError(v) Or IsEmpty(v) Then
             Exit Function
         End If
         If VarType(v) = vbDate Then
             ToSerial = CDbl(v)
+        ElseIf VarType(v) = vbString Then
+            s = Trim$(v)
+            If Not s Like "####-##-##" Then
+                Exit Function
+            End If
+
+    'Only a calendar date is read: 2027-02-30 is not rolled into March.
+            y = CLng(Left$(s, 4))
+            m = CLng(Mid$(s, 6, 2))
+            d = CLng(Right$(s, 2))
+            If y < 1900 Or m < 1 Or m > 12 Or d < 1 Or d > 31 Then
+                Exit Function
+            End If
+            dt = DateSerial(y, m, d)
+            If Month(dt) = m And Day(dt) = d Then
+                ToSerial = CDbl(dt)
+            End If
         ElseIf IsNum(v) Then
             ToSerial = CDbl(v)
-        ElseIf VarType(v) = vbString Then
-            If IsDate(v) Then
-                ToSerial = CDbl(CDate(v))
-            End If
         End If
 
 End Function

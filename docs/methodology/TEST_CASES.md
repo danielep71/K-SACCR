@@ -181,6 +181,7 @@ Quantities use stable names, each with one meaning only:
 | Trade | `supervisory_delta`, `supervisory_factor` | Number, unit `1` |
 | Trade | `lambda_shift` | Number in the underlying's unit: `1` for a rate, `price` otherwise |
 | Trade | `hedging_set` | Text: the engine's hedging-set key, for example `CO\|CLIMATIC\|STD` |
+| Trade | `bucket` | Text: the bucket within the hedging set: the maturity bucket `<1Y`, `1-5Y` or `>5Y` of an interest-rate trade, the reference or commodity type otherwise |
 | Trade | `trade_status` | Text: `OK` or `EXCLUDED` |
 
 A trade-level output names its trade in `trade`; a netting-set output has no

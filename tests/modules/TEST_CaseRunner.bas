@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-12
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1072,7 +1072,7 @@ Private Function OutputColumn( _
 '   The column number; 0 for an unknown quantity.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-12
 '==============================================================================
 '
 
@@ -1085,6 +1085,8 @@ Private Function OutputColumn( _
                     OutputColumn = 4
                 Case "hedging_set"
                     OutputColumn = 5
+                Case "bucket"
+                    OutputColumn = 6
                 Case "supervisory_factor"
                     OutputColumn = 7
                 Case "adjusted_notional"
