@@ -542,6 +542,20 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Results are reported out of date after input changes the input
+  fingerprint missed (#197). It wrote each cell as plain text, so a number
+  replaced by the same digits as text, which the run reads differently (a
+  date given as text must be an ISO date), or one error value replaced by
+  another, left the results shown as current; it started below the
+  headers, so a renamed Trades or NettingSets header, which stops the next
+  run, did too; and it left out the date system, although the run stops in
+  a 1904 workbook. Each cell is now written with its type, the header rows
+  and the date system are included, and formatting still does not count.
+  The fingerprint format changed, so a workbook run before this change
+  shows `OUT OF DATE` in Results C5 until it is run again. Excel may not
+  recalculate C5 when only the date system changes; it then updates with
+  the next input edit. `TEST_MainState` covers the three changes and two
+  formatting-only edits.
 - Under CRR, an interest-rate trade whose end date is exactly 1 year from
   the reporting date is now in maturity bucket 1 (#191). CRR Art. 280a(3),
   Table 2, puts E > 0 and <= 1 in bucket 1, but the engine applied the

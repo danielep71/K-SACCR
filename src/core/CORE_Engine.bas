@@ -176,6 +176,13 @@ Attribute VB_Name = "CORE_Engine"
     End Type
 
 '------------------------------------------------------------------------------
+' MODULE CONSTANTS
+'------------------------------------------------------------------------------
+    'Opens the text of every input fingerprint; changed whenever what the
+    'fingerprint covers changes, so an older stored one never matches.
+        Private Const FP_FORMAT   As String = "FP2"    'Typed cells, headers, date system (#197)
+
+'------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
     'Each list is an array with a count of used elements and a Collection
@@ -4276,14 +4283,18 @@ Public Function InputFingerprint() As String
 '                               InputFingerprint
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Fingerprint everything a run reads: the NettingSets and Trades input
-'   rows (without the unread Comment column) and the Params inputs,
-'   located through the workbook names wherever the layout has moved them
-'   (ParamsText) (#36, #152).
+'   Fingerprint everything a run reads: the workbook's date system, the
+'   NettingSets and Trades blocks from their header rows (without the
+'   unread Comment column) and the Params inputs, located through the
+'   workbook names wherever the layout has moved them (ParamsText) (#36,
+'   #152). Each cell is written with its type (CellToken), so a number
+'   and the same digits as text, or two error values, differ (#197).
 '
 ' RETURNS
 '   An 8-digit hexadecimal fingerprint (CORE_Util.TextHash). Equal
 '   fingerprints mean the inputs are, all but certainly, unchanged.
+'   FP_FORMAT opens the text, so a fingerprint stored before the format
+'   changed reads as out of date rather than as current.
 '
 ' ERROR POLICY
 '   Raises ERR_PARAMS_LAYOUT when a Params name is missing, broken or not
@@ -4291,21 +4302,24 @@ Public Function InputFingerprint() As String
 '   is given.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts(1 To 3)   As String    'Text of each input block
+    Dim parts(1 To 4)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        parts(1) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
-        parts(2) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
-        parts(3) = ParamsText()
+    'The run stops in a 1904 workbook (#185), and a renamed header stops
+    'it too (#35), so both are part of what the results depend on.
+        parts(1) = FP_FORMAT & "|1904=" & IIf(ThisWorkbook.Date1904, "1", "0")
+        parts(2) = BlockText(GetSheet(SH_NS), TableHeaderRow(SH_NS), NS_NCOLS)
+        parts(3) = BlockText(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_COMMENT - 1)
+        parts(4) = ParamsText()
         InputFingerprint = TextHash(Join(parts, Chr$(29)))
 
 End Function
@@ -4331,7 +4345,7 @@ Private Function ParamsText() As String
 '   of the four layout names is not on Params.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -4378,11 +4392,7 @@ Private Function ParamsText() As String
                           nameList(i) & "' is missing or no longer refers to a cell."
             End If
             k = k + 1
-            If IsError(c.Value2) Then
-                pieces(k) = nameList(i) & "=#ERR"
-            Else
-                pieces(k) = nameList(i) & "=" & CStr(c.Value2)
-            End If
+            pieces(k) = nameList(i) & "=" & CellToken(c.Value2)
         Next i
 
 '------------------------------------------------------------------------------
@@ -4421,16 +4431,17 @@ Private Function BlockText( _
 '                                  BlockText
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a block of cells as one text, cell by cell, from firstRow to the
-'   last row with a value. Blank rows below it are left out, so that a
-'   used range that grew without new values does not change the text.
+'   Write a block of cells as one text, cell by cell (CellToken), from
+'   firstRow to the last row with a value. Blank rows below it are left
+'   out, so that a used range that grew without new values does not
+'   change the text.
 '
 ' INPUTS
 '   firstCol: the block's first table column, as TableCell counts it.
 '   lastRow: the last row to read; 0 for the last used row.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-13
 '==============================================================================
 '
 
@@ -4484,14 +4495,45 @@ Private Function BlockText( _
         For r = 1 To nRows
             For c = 1 To nCols
                 k = k + 1
-                If IsError(data(r, c)) Then
-                    pieces(k) = "#ERR"
-                Else
-                    pieces(k) = CStr(data(r, c))
-                End If
+                pieces(k) = CellToken(data(r, c))
             Next c
         Next r
         BlockText = Join(pieces, Chr$(31))
+
+End Function
+
+
+Private Function CellToken( _
+    ByVal v As Variant) _
+    As String
+'
+'==============================================================================
+'                                  CellToken
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write one cell value (Value2) for the fingerprint with a tag for its
+'   type: N for a number, T for text, B for a logical value, E for an
+'   error value with its code, and nothing for an empty cell. The number
+'   47756 and the text '47756 are read differently since #185, so they
+'   must not give the same text (#197). Formatting does not reach Value2,
+'   so a formatting-only edit leaves the token unchanged.
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        Select Case VarType(v)
+            Case vbEmpty
+                CellToken = ""
+            Case vbString
+                CellToken = "T" & v
+            Case vbBoolean
+                CellToken = IIf(v, "B1", "B0")
+            Case vbError
+                CellToken = "E" & CStr(v)
+            Case Else
+                CellToken = "N" & CStr(v)
+        End Select
 
 End Function
 
