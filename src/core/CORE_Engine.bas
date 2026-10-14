@@ -136,6 +136,63 @@ Attribute VB_Name = "CORE_Engine"
         Regimes      As String    'Blank (both regimes), BCBS or CRR
     End Type
 
+    'One trade while ProcessTrades works through it (#60): its inputs as
+    'read, its validation state and its trade-level SA-CCR quantities. It is
+    'reset for every trade. Amounts are in the reporting currency unless
+    'stated; dates are serials, -1 when missing.
+    Private Type tTrade
+        ok            As Boolean    'False once any error is found
+        msg           As String     'Error reasons, separated by "; "
+        warn          As String     'Warnings, separated by "; "
+        tid           As String     'Trade ID
+        nsId          As String     'Netting-set ID, upper case
+        acTxt         As String     'Asset-class code, upper case
+        subCls        As String     'Sub-class, upper case
+        rf            As String     'Risk factor or reference, upper case; FX: the pair in alphabetical order
+        instType      As String     'LINEAR, OPTION or CDO
+        isLong        As Boolean    'Long (bought) position
+        optTxt        As String     'CALL or PUT
+        nature        As String     'STANDARD, BASIS or VOLATILITY
+        lbl           As String     'Basis or volatility hedging-set label
+        nsIdx         As Long       'Netting set, position in mNS; 0 when unknown
+        ac            As Long       'Asset class, an AC_ constant; 0 when unknown
+        sfKey         As String     'Key into the supervisory-factor table
+        sfIdx         As Long       'Position in mSF; 0 when not found
+        natFactor     As Double     'Factor multiplier: 1, basis or volatility
+        natTag        As String     'Hedging-set suffix: STD, BASIS:label or VOL:label
+        notional      As Double     'Notional, in its currency
+        nccy          As String     'Notional currency
+        fxN           As Double     'Rate of the notional currency
+        notionalRep   As Double     'Notional in the reporting currency
+        mtm           As Double     'MtM, in its currency
+        mccy          As String     'MtM currency
+        fxM           As Double     'Rate of the MtM currency
+        mtmRep        As Double     'MtM in the reporting currency
+        dStart        As Double     'Start date
+        dEnd          As Double     'End date
+        dMat          As Double     'Maturity date
+        dExp          As Double     'Option expiry date
+        S             As Double     'Start S, years, at least 0
+        E             As Double     'End E, years
+        M             As Double     'Maturity M, years
+        T             As Double     'Option expiry T, years
+        sd            As Double     'Supervisory duration (IR and credit)
+        adjN          As Double     'Adjusted notional d
+        delta         As Double     'Supervisory delta
+        mfU           As Double     'Maturity factor, unmargined
+        mfM           As Double     'Maturity factor, margined
+        enU           As Double     'Effective notional delta * d * MF, unmargined
+        enM           As Double     'Effective notional delta * d * MF, margined
+        hsKey         As String     'Hedging-set key
+        subKey        As String     'Bucket key within the hedging set
+        bucketNo      As Long       'IR maturity bucket 1, 2 or 3
+        sfEff         As Double     'Supervisory factor times natFactor
+        corrEff       As Double     'Correlation
+        pairSign      As Double     'FX: +1 pair kept, -1 inverted, 0 invalid; 1 otherwise
+        lam           As Double     'Lambda shift applied
+        lamOut        As Variant    'Lambda reported; Empty for non-options
+    End Type
+
     'One bucket: an IR maturity bucket, an FX currency pair, a credit or
     'equity entity, or a commodity type. Effective notionals are kept on
     'both bases: unmargined (U) and margined (M) maturity factor.
@@ -2965,7 +3022,10 @@ Private Sub ProcessTrades( _
 '   supervisory factor, amounts in the reporting currency, time to maturity,
 '   supervisory delta, adjusted notional, maturity factor and effective
 '   notional. Each valid trade is added to its bucket; every trade, valid or
-'   not, gets one TradeCalc row.
+'   not, gets one TradeCalc row. The steps run in this order for each
+'   trade, on one tTrade record: ReadTradeClass, ReadTradeAmounts,
+'   ReadTradeDates, TradeDelta, TradeHedgingSet, UseTrade and
+'   TradeCalcRow (#60).
 '
 ' INPUTS
 '   writeOutputs: True writes the TradeCalc sheet.
@@ -2980,97 +3040,27 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-14
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    'Sheet access and output.
-    Dim ws            As Worksheet    'Trades sheet
-    Dim wsOut         As Worksheet    'TradeCalc sheet
-    Dim lastR         As Long         'Last row with a trade ID
-    Dim topRow        As Long         'First data row, below the headers
-    Dim n             As Long         'Number of rows to read
-    Dim i             As Long         'Row within data
-    Dim rowNum        As Long         'Sheet row of data row i
-    Dim data          As Variant      'Input block, (row, column)
-    Dim outArr()      As Variant      'TradeCalc rows, (row, column)
-    Dim nOut          As Long         'TradeCalc rows filled
-    Dim seenIds       As Collection   'Trade IDs seen so far, mapped to their sheet row
-    Dim firstRow      As Long         'Sheet row where a duplicate ID first appeared
-
-    'Validation state of the current trade.
-    Dim ok            As Boolean      'False once any error is found
-    Dim msg           As String       'Error reasons, separated by "; "
-    Dim warn          As String       'Warnings, separated by "; "
-
-    'Classification, as entered.
-    Dim tid           As String       'Trade ID
-    Dim nsId          As String       'Netting-set ID, upper case
-    Dim acTxt         As String       'Asset-class code, upper case
-    Dim subCls        As String       'Sub-class, upper case
-    Dim rf            As String       'Risk factor or reference, upper case
-    Dim instType      As String       'LINEAR, OPTION or CDO
-    Dim dirTxt        As String       'Direction text, upper case
-    Dim optTxt        As String       'CALL or PUT
-    Dim nature        As String       'STANDARD, BASIS or VOLATILITY
-    Dim lbl           As String       'Basis or volatility hedging-set label
-
-    'Classification, resolved.
-    Dim nsIdx         As Long         'Netting set, position in mNS; 0 when unknown
-    Dim ac            As Long         'Asset class, an AC_ constant; 0 when unknown
-    Dim sfKey         As String       'Key into the supervisory-factor table
-    Dim sfIdx         As Long         'Position in mSF; 0 when not found
-    Dim isLong        As Boolean      'Long (bought) position
-    Dim natFactor     As Double       'Factor multiplier: 1, basis or volatility
-    Dim natTag        As String       'Hedging-set suffix: STD, BASIS:label or VOL:label
-
-    'Amounts.
-    Dim notional      As Double       'Notional, in its currency
-    Dim nccy          As String       'Notional currency
-    Dim fxN           As Double       'Rate of the notional currency
-    Dim notionalRep   As Double       'Notional in the reporting currency
-    Dim mtm           As Double       'MtM, in its currency
-    Dim mccy          As String       'MtM currency
-    Dim fxM           As Double       'Rate of the MtM currency
-    Dim mtmRep        As Double       'MtM in the reporting currency
-
-    'Dates as serials (-1 when missing) and as years from the reporting date.
-    Dim dStart        As Double       'Start date
-    Dim dEnd          As Double       'End date
-    Dim dMat          As Double       'Maturity date
-    Dim dExp          As Double       'Option expiry date
-    Dim S             As Double       'Start S, years, at least 0
-    Dim E             As Double       'End E, years
-    Dim M             As Double       'Maturity M, years
-    Dim T             As Double       'Option expiry T, years
-
-    'Trade-level SA-CCR quantities.
-    Dim sd            As Double       'Supervisory duration (IR and credit)
-    Dim adjN          As Double       'Adjusted notional d
-    Dim delta         As Double       'Supervisory delta
-    Dim vDelta        As Variant      'Option delta as returned by SACCR_OptionDelta
-    Dim mfU           As Double       'Maturity factor, unmargined
-    Dim mfM           As Double       'Maturity factor, margined
-    Dim enU           As Double       'Effective notional delta * d * MF, unmargined
-    Dim enM           As Double       'Effective notional delta * d * MF, margined
-    Dim hsKey         As String       'Hedging-set key
-    Dim subKey        As String       'Bucket key within the hedging set
-    Dim bucketNo      As Long         'IR maturity bucket 1, 2 or 3
-    Dim sfEff         As Double       'Supervisory factor times natFactor
-    Dim corrEff       As Double       'Correlation
-    Dim pairSign      As Double       'FX: +1 pair kept, -1 inverted, 0 invalid
-
-    'Option and CDO inputs.
-    Dim P             As Double       'Underlying price
-    Dim K             As Double       'Strike
-    Dim lam           As Double       'Lambda shift applied
-    Dim attA          As Double       'CDO attachment point
-    Dim detD          As Double       'CDO detachment point
-    Dim lamIn         As Variant      'Lambda as entered
-    Dim lamOut        As Variant      'Lambda reported; Empty for non-options
+    Dim ws        As Worksheet    'Trades sheet
+    Dim wsOut     As Worksheet    'TradeCalc sheet
+    Dim lastR     As Long         'Last row with a trade ID
+    Dim topRow    As Long         'First data row, below the headers
+    Dim n         As Long         'Number of rows to read
+    Dim i         As Long         'Row within data
+    Dim rowNum    As Long         'Sheet row of data row i
+    Dim data      As Variant      'Input block, (row, column)
+    Dim outArr()  As Variant      'TradeCalc rows, (row, column)
+    Dim nOut      As Long         'TradeCalc rows filled
+    Dim seenIds   As Collection   'Trade IDs seen so far, mapped to their sheet row
+    Dim nsIdx     As Long         'Netting set of a row without a trade ID
+    Dim t         As tTrade       'The trade being processed
+    Dim fresh     As tTrade       'Every field at its default, to reset t
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
@@ -3100,14 +3090,15 @@ Private Sub ProcessTrades( _
 '------------------------------------------------------------------------------
     'An empty row is skipped. A row with data but no trade ID is rejected,
     'and so is a repeated trade ID; either makes its netting set INCOMPLETE
-    '(#35). Every per-trade value is reset so nothing leaks from the
+    '(#35). t starts from fresh for every trade, so nothing leaks from the
     'previous trade into the output row.
         CheckEconomicTrades data, n, topRow
         Set seenIds = New Collection
         For i = 1 To n
             rowNum = topRow + i - 1
-            tid = SafeStr(data(i, TR_ID))
-            If Len(tid) = 0 Then
+            t = fresh
+            t.tid = SafeStr(data(i, TR_ID))
+            If Len(t.tid) = 0 Then
                 If RowHasData(data, i, TR_NCOLS, TR_COMMENT) Then
                     mTradesRead = mTradesRead + 1
                     LogMsg SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", rowNum
@@ -3117,441 +3108,20 @@ Private Sub ProcessTrades( _
                 GoTo NextTrade
             End If
             mTradesRead = mTradesRead + 1
-            ok = True
-            msg = ""
-            warn = ""
-            S = 0#
-            E = 0#
-            M = 0#
-            T = 0#
-            sd = 0#
-            adjN = 0#
-            delta = 0#
-            mfU = 0#
-            mfM = 0#
-            enU = 0#
-            enM = 0#
-            bucketNo = 0
-            sfEff = 0#
-            corrEff = 0#
-            hsKey = ""
-            subKey = ""
-            sfIdx = 0
-            notionalRep = 0#
-            mtmRep = 0#
-            pairSign = 1#
-            lam = 0#
-            lamOut = Empty
-
-    '--- Classification ------------------------------------------------------
-    'Netting set, asset class, risk factor, instrument, direction and
-    'nature. Basis and volatility trades form their own hedging sets, one
-    'per label, with the factor multiplied by BasisFactor or
-    'VolatilityFactor [CRE52.46, CRE52.47].
-            firstRow = KeyIndex(seenIds, tid)
-            If firstRow > 0 Then
-                AddErr ok, msg, "duplicate Trade ID (first used on row " & firstRow & ")"
-            Else
-                KeyAdd seenIds, tid, rowNum
-            End If
-
-            nsId = UTxt(data(i, TR_NS))
-            nsIdx = KeyIndex(mNSIndex, nsId)
-            If nsIdx = 0 Then AddErr ok, msg, "unknown netting set '" & nsId & "'"
-            If Len(mGrpError(mRowGroup(i))) > 0 Then AddErr ok, msg, mGrpError(mRowGroup(i))
-
-            acTxt = UTxt(data(i, TR_AC))
-            ac = ACIndex(acTxt)
-            If ac = 0 Then AddErr ok, msg, "asset class must be IR, FX, CR, EQ, CO or OT"
-
-            subCls = TradeText(data(i, TR_SUB), "Sub-class", ok, msg)
-            rf = UTxt(data(i, TR_RF))
-            If Len(rf) = 0 Then AddErr ok, msg, "risk factor / reference missing"
-            If InStr(rf, "|") > 0 Or InStr(rf, "#") > 0 Then
-                AddErr ok, msg, "risk factor / reference must not contain '|' or '#'"
-            End If
-            If ac = AC_IR And Len(rf) > 0 And _
-               Not (rf Like "[A-Z][A-Z][A-Z]" Or rf Like "[A-Z][A-Z][A-Z]-INFL") Then
-                AddErr ok, msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
-                       "or EUR-INFL for inflation"
-            End If
-
-            instType = TradeText(data(i, TR_INSTR), "Instrument", ok, msg)
-            If Len(instType) = 0 Then instType = "LINEAR"
-            If instType <> "LINEAR" And instType <> "OPTION" And instType <> "CDO" Then
-                AddErr ok, msg, "instrument type must be Linear, Option or CDO"
-            End If
-            If instType = "CDO" And ac <> AC_CR Then AddErr ok, msg, "CDO tranches are credit (CR) trades"
-
-            dirTxt = UTxt(data(i, TR_DIR))
-            Select Case dirTxt
-                Case "LONG", "BUY", "BOUGHT", "L", "B"
-                    isLong = True
-                Case "SHORT", "SELL", "SOLD", "S"
-                    isLong = False
-                Case Else
-                    AddErr ok, msg, "direction must be Long or Short"
-            End Select
-
-            nature = TradeText(data(i, TR_NATURE), "Nature", ok, msg)
-            If Len(nature) = 0 Then nature = "STANDARD"
-            lbl = TradeText(data(i, TR_LABEL), "Hedging-set label", ok, msg)
-            If InStr(lbl, "|") > 0 Or InStr(lbl, "#") > 0 Then
-                AddErr ok, msg, "hedging-set label must not contain '|' or '#'"
-            End If
-            Select Case nature
-                Case "STANDARD"
-                    natFactor = 1#
-                    natTag = "STD"
-                Case "BASIS"
-                    natFactor = pBasisF
-                    natTag = "BASIS:" & lbl
-                    If Len(lbl) = 0 Then AddErr ok, msg, "basis trade needs a hedging-set label"
-                Case "VOLATILITY"
-                    natFactor = pVolF
-                    natTag = "VOL:" & lbl
-                    If Len(lbl) = 0 Then AddErr ok, msg, "volatility trade needs a hedging-set label"
-                Case Else
-                    AddErr ok, msg, "nature must be Standard, Basis or Volatility"
-            End Select
-
-    '--- Supervisory parameters ----------------------------------------------
-    'IR, FX and OT have one factor each; the other classes are looked up by
-    'class and sub-class, for example CR_AAA.
-            If ac > 0 Then
-                Select Case ac
-                    Case AC_IR
-                        sfKey = "IR"
-                    Case AC_FX
-                        sfKey = "FX"
-                    Case AC_OT
-                        sfKey = "OT"
-                    Case Else
-                        sfKey = acTxt & "_" & subCls
-                End Select
-                sfIdx = KeyIndex(mSFIndex, sfKey)
-                If sfIdx = 0 Then AddErr ok, msg, "no supervisory factor for '" & sfKey & "' (check sub-class)"
-            End If
-
-    '--- Regime-specific availability ----------------------------------------
-    'OT exists only under CRR, and a factor-table row limited to one regime
-    'cannot be used by a netting set under the other.
-            If nsIdx > 0 And ac = AC_OT Then
-                If Not mNS(nsIdx).IsCRR Then
-                    AddErr ok, msg, "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
-                           "under BCBS map the trade to the class of its primary risk driver (CRE52)"
-                End If
-            End If
-            If nsIdx > 0 And sfIdx > 0 Then
-                If Len(mSF(sfIdx).Regimes) > 0 And mSF(sfIdx).Regimes <> mNS(nsIdx).Regime Then
-                    AddErr ok, msg, "'" & sfKey & "' is defined only for regime " & mSF(sfIdx).Regimes & _
-                           " (netting set uses " & mNS(nsIdx).Regime & ")"
-                End If
-            End If
-
-    '--- Amounts ---------------------------------------------------------------
-    'The notional is unsigned; Direction gives the sign. A missing MtM is an
-    'error, not an assumed 0 (#35); a blank notional currency means the
-    'reporting currency, and a blank MtM currency the notional currency.
-    'Both amounts are converted to the reporting currency.
-            If IsNum(data(i, TR_NOTIONAL)) Then
-                notional = CDbl(data(i, TR_NOTIONAL))
-                If notional < 0# Then AddErr ok, msg, "notional must be positive (use Direction for the sign)"
-            ElseIf IsBlankCell(data(i, TR_NOTIONAL)) And Not IsError(data(i, TR_NOTIONAL)) Then
-                AddErr ok, msg, "notional missing"
-            Else
-                AddErr ok, msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
-            End If
-            nccy = TradeText(data(i, TR_NCCY), "Notional currency", ok, msg)
-            If Len(nccy) = 0 Then nccy = pRepCcy
-            fxN = FXRate(nccy)
-            If fxN < 0# Then AddErr ok, msg, "no FX rate for notional currency '" & nccy & "'"
-            If IsNum(data(i, TR_MTM)) Then
-                mtm = CDbl(data(i, TR_MTM))
-            ElseIf IsBlankCell(data(i, TR_MTM)) And Not IsError(data(i, TR_MTM)) Then
-                mtm = 0#
-                AddErr ok, msg, "MtM missing (enter 0 if the trade has no value)"
-            Else
-                mtm = 0#
-                AddErr ok, msg, "MtM must be a number (found " & DescribeValue(data(i, TR_MTM)) & ")"
-            End If
-            mccy = TradeText(data(i, TR_MCCY), "MtM currency", ok, msg)
-            If Len(mccy) = 0 Then mccy = nccy
-            fxM = FXRate(mccy)
-            If fxM < 0# Then AddErr ok, msg, "no FX rate for MtM currency '" & mccy & "'"
-            If ok Then
-                notionalRep = notional * fxN
-                mtmRep = mtm * fxM
-            End If
-
-    '--- Dates to year fractions -----------------------------------------------
-    'A date that is present but cannot be read is an error (#35). Missing
-    'dates are filled from each other: maturity from the end date,
-    'then from the option expiry; the end date from the maturity. S, E and M
-    'are years from the reporting date on the DaysPerYear basis, with S
-    'floored at 0.
-            dStart = TradeDate(data(i, TR_START), "start date", ok, msg)
-            dEnd = TradeDate(data(i, TR_END), "end date", ok, msg)
-            dMat = TradeDate(data(i, TR_MAT), "maturity date", ok, msg)
-            dExp = TradeDate(data(i, TR_EXPIRY), "option expiry", ok, msg)
-            If dMat < 0# Then dMat = dEnd
-            If dMat < 0# Then dMat = dExp
-            If dEnd < 0# Then dEnd = dMat
-            If dMat < 0# Then
-                AddErr ok, msg, "maturity / end date missing"
-            Else
-                M = (dMat - pAsOf) / pDaysYear
-                E = (dEnd - pAsOf) / pDaysYear
-                If dStart >= 0# Then
-                    S = Max2(0#, (dStart - pAsOf) / pDaysYear)
-                Else
-                    S = 0#
-                End If
-                If M <= 0# Then
-                    AddErr ok, msg, "trade has matured (maturity <= reporting date)"
-                ElseIf (ac = AC_IR Or ac = AC_CR) And E <= S Then
-                    AddErr ok, msg, "end date must be after start date"
-                End If
-            End If
-
-    'An interest-rate or credit option takes S from its underlying
-    '[CRE52.31(2), Table 1 of CRE52.32]: for a swaption the exercise date,
-    'for a Bermudan swaption the earliest allowed exercise date
-    '[CRE52.42(2)], for a cap or floor the start of its first period. A
-    'blank start date would read as 0, the duration of a swap starting
-    'today, so it is an error (#40).
-            If instType = "OPTION" And (ac = AC_IR Or ac = AC_CR) And dStart < 0# Then
-                If IsBlankCell(data(i, TR_START)) And Not IsError(data(i, TR_START)) Then
-                    AddErr ok, msg, "an interest-rate or credit option needs the start date S of its underlying " & _
-                           "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
-                           "start of the first period)"
-                End If
-            End If
-
-    '--- Supervisory delta -------------------------------------------------------
-    'Linear trades: +1 long, -1 short [CRE52.39]. Options: the option delta
-    'with the lambda shift; under CRR the regulatory lambda replaces any
-    'entered value for IR and commodity options [CRE52.40]. CDO tranches:
-    'the tranche delta [CRE52.41].
-            If ok Then
-                Select Case instType
-                    Case "LINEAR"
-                        If isLong Then
-                            delta = 1#
-                        Else
-                            delta = -1#
-                        End If
-                    Case "OPTION"
-                        optTxt = UTxt(data(i, TR_OPT))
-                        If optTxt <> "CALL" And optTxt <> "PUT" Then AddErr ok, msg, "option type must be Call or Put"
-                        If dExp < 0# Then
-                            AddErr ok, msg, "option expiry missing"
-                        Else
-                            T = (dExp - pAsOf) / pDaysYear
-                            If T <= 0# Then
-                                AddErr ok, msg, "option has expired"
-                            ElseIf dExp > dMat Then
-                                AddErr ok, msg, "option expiry is after the maturity date (M is the latest " & _
-                                       "date the contract may still be active)"
-                            End If
-                        End If
-                        If Not IsNum(data(i, TR_PRICE)) Or Not IsNum(data(i, TR_STRIKE)) Then
-                            AddErr ok, msg, "option needs underlying price and strike"
-                        End If
-                        If ok Then
-                            P = CDbl(data(i, TR_PRICE))
-                            K = CDbl(data(i, TR_STRIKE))
-                            lamIn = data(i, TR_LAMBDA)
-                            If Not IsNum(lamIn) And Not (IsBlankCell(lamIn) And Not IsError(lamIn)) Then
-                                AddErr ok, msg, "lambda must be a number (found " & DescribeValue(lamIn) & ")"
-                            End If
-                            If mNS(nsIdx).IsCRR And (ac = AC_IR Or ac = AC_CO) Then
-                                'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
-                                If ac = AC_IR Then
-                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, True, pLamThrIR), "SACCR_LambdaCRR")
-                                Else
-                                    lam = FormulaNumber(SACCR_LambdaCRR(P, K, False, pLamThrCO), "SACCR_LambdaCRR")
-                                End If
-                                If IsNum(lamIn) Then
-                                    If Abs(CDbl(lamIn) - lam) > 0.000000001 Then
-                                        AddWarn warn, "lambda input ignored under CRR - RTS lambda applied"
-                                    End If
-                                End If
-                            Else
-                                lam = ToDbl(lamIn, 0#)
-                            End If
-                            lamOut = lam
-                            If P + lam <= 0# Or K + lam <= 0# Then
-                                AddErr ok, msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
-                            ElseIf mSF(sfIdx).Vol <= 0# Then
-                                AddErr ok, msg, "supervisory volatility missing for '" & sfKey & "'"
-                            Else
-                                vDelta = SACCR_OptionDelta(P, K, T, mSF(sfIdx).Vol, (optTxt = "CALL"), isLong, lam)
-                                delta = FormulaNumber(vDelta, "SACCR_OptionDelta")
-                            End If
-                        End If
-                    Case "CDO"
-                        If Not IsNum(data(i, TR_ATTACH)) Or Not IsNum(data(i, TR_DETACH)) Then
-                            AddErr ok, msg, "CDO tranche needs attachment and detachment points"
-                        Else
-                            attA = CDbl(data(i, TR_ATTACH))
-                            detD = CDbl(data(i, TR_DETACH))
-                            If attA < 0# Or detD > 1# Or attA >= detD Then
-                                AddErr ok, msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
-                            Else
-                                delta = FormulaNumber(SACCR_CDODelta(attA, detD, isLong), "SACCR_CDODelta")
-                            End If
-                        End If
-                End Select
-            End If
-
-    '--- Hedging set, adjusted notional and bucket -------------------------------
-    'IR: d = notional * SD, hedging set per currency (risk factor), bucket
-    'by end date [CRE52.34, CRE52.57(2)-(3)]: under CRR up to and including
-    '1 year, over 1 to 5 years, over 5 years [Art. 280a(3), Table 2]; under
-    'BCBS under 1 year, 1 to 5 years, over 5 years, so an end date of
-    'exactly 1 year is bucket 1 under CRR and bucket 2 under BCBS (#191). The
-    'key of bucket 1 stays "<1Y" in both regimes. An inflation risk factor
-    'such as EUR-INFL is its own hedging set [CRR Art. 277(4)(a), 277a(1)].
-    'FX: d = notional, hedging set per currency pair written in alphabetical
-    'order; an inverted pair flips the delta [CRE52.58]; both currencies of
-    'the pair need an FX rate, and the notional is that of one of the pair's
-    'legs (#40). An FX option must be entered in market quote order
-    '(MarketPair): a call on one order and the put on the other give
-    'different deltas, so the order must be one and the same for every
-    'trade [CRE52.59 FAQ1] (#40). CR: d = notional * SD, one hedging set, bucket per entity
-    '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
-    '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
-    '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
-            If ok Then
-                Select Case ac
-                    Case AC_IR
-                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
-                        adjN = notionalRep * sd
-                        If E < 1# Or (mNS(nsIdx).IsCRR And E <= 1#) Then
-                            bucketNo = 1
-                            subKey = "<1Y"
-                        ElseIf E <= 5# Then
-                            bucketNo = 2
-                            subKey = "1-5Y"
-                        Else
-                            bucketNo = 3
-                            subKey = ">5Y"
-                        End If
-                        hsKey = "IR|" & rf & "|" & natTag
-                    Case AC_FX
-                        rf = NormalizePair(rf, pairSign)
-                        If pairSign = 0# Then
-                            AddErr ok, msg, "FX risk factor must be a currency pair such as EUR/USD"
-                        ElseIf FXRate(Left$(rf, 3)) < 0# Then
-                            AddErr ok, msg, "no FX rate for currency '" & Left$(rf, 3) & "' of the pair " & rf
-                        ElseIf FXRate(Right$(rf, 3)) < 0# Then
-                            AddErr ok, msg, "no FX rate for currency '" & Right$(rf, 3) & "' of the pair " & rf
-                        ElseIf nccy <> Left$(rf, 3) And nccy <> Right$(rf, 3) Then
-                            AddErr ok, msg, "notional currency '" & nccy & "' is not a currency of the pair " & rf
-                        ElseIf instType = "OPTION" And pairSign * MarketSign(rf) < 0# Then
-                            AddErr ok, msg, "FX option must be entered in market quote order as " & MarketPair(rf) & _
-                                   ", with price and strike in " & Right$(MarketPair(rf), 3) & " per " & _
-                                   Left$(MarketPair(rf), 3) & " (CRE52.59 FAQ1)"
-                        End If
-                        delta = delta * pairSign
-                        adjN = notionalRep
-                        hsKey = "FX|" & rf & "|" & natTag
-                        subKey = rf
-                    Case AC_CR
-                        sd = FormulaNumber(SACCR_SupervisoryDuration(S, E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
-                        adjN = notionalRep * sd
-                        hsKey = "CR|" & natTag
-                        subKey = rf
-                    Case AC_EQ
-                        adjN = notionalRep
-                        hsKey = "EQ|" & natTag
-                        subKey = rf
-                    Case AC_CO
-                        adjN = notionalRep
-                        If Len(mSF(sfIdx).Group) = 0 Then
-                            AddErr ok, msg, "commodity hedging group missing for '" & sfKey & "'"
-                        End If
-                        hsKey = "CO|" & mSF(sfIdx).Group & "|" & natTag
-                        subKey = rf
-                    Case AC_OT
-                        'Art. 277a: same hedging set only for an identical primary risk driver.
-                        adjN = notionalRep
-                        hsKey = "OT|" & rf & "|" & natTag
-                        subKey = rf
-                End Select
-            End If
-
-    '--- Maturity factor and effective notional ---------------------------------
-    'The effective notional is kept on both bases: unmargined MF from the
-    'trade's maturity, and margined MF from the netting set's MPOR. The
-    'margined basis equals the unmargined one for an unmargined set.
-            If ok Then
-                sfEff = mSF(sfIdx).SF * natFactor
-                corrEff = mSF(sfIdx).Corr
-                mfU = FormulaNumber(SACCR_MaturityFactor(M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
-                If mNS(nsIdx).Margined Then
-                    mfM = mNS(nsIdx).MFMargined
-                Else
-                    mfM = mfU
-                End If
-                enU = delta * adjN * mfU
-                enM = delta * adjN * mfM
-                If ac = AC_CR Or ac = AC_EQ Or ac = AC_CO Then
-                    CheckReferenceClass nsIdx, ac, rf, sfKey, tid, rowNum
-                End If
-                AddToBucket nsIdx, ac, hsKey, subKey, sfEff, corrEff, enU, enM, tid, rowNum
-                mNS(nsIdx).V = mNS(nsIdx).V + mtmRep
-                mNS(nsIdx).Trades = mNS(nsIdx).Trades + 1
-                mTradesUsed = mTradesUsed + 1
-            End If
-
-            If Not ok Then LogMsg SEV_ERROR, SH_TRADES, tid, "Trade excluded: " & msg, rowNum
-            If Not ok And nsIdx > 0 Then mNS(nsIdx).Rejected = mNS(nsIdx).Rejected + 1
-            If Not ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
-            If Len(warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, tid, warn, rowNum
-
-    '--- TradeCalc row ------------------------------------------------------------
-    'Columns: 1 ID, 2 netting set, 3 asset class, 4 status, 5 hedging set,
-    '6 bucket, 7 effective SF, 8 notional, 9 MtM, 10 S, 11 E, 12 M, 13 T,
-    '14 SD, 15 d, 16 delta, 17 MF unmargined, 18 MF margined, 19 effective
-    'notional unmargined, 20 effective notional margined, 21 IR bucket,
-    '22 stand-alone add-on, 23 lambda, 24 regime, 25 messages. Columns that
-    'do not apply to the trade stay blank.
+            t.ok = True
+            t.pairSign = 1#
+            ReadTradeClass t, data, i, rowNum, seenIds
+            ReadTradeAmounts t, data, i
+            ReadTradeDates t, data, i
+            TradeDelta t, data, i
+            TradeHedgingSet t
+            UseTrade t, rowNum
+            If Not t.ok Then LogMsg SEV_ERROR, SH_TRADES, t.tid, "Trade excluded: " & t.msg, rowNum
+            If Not t.ok And t.nsIdx > 0 Then mNS(t.nsIdx).Rejected = mNS(t.nsIdx).Rejected + 1
+            If Not t.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
+            If Len(t.warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, t.tid, t.warn, rowNum
             nOut = nOut + 1
-            outArr(nOut, 1) = tid
-            outArr(nOut, 2) = nsId
-            outArr(nOut, 3) = acTxt
-            If ok Then
-                outArr(nOut, 4) = "OK"
-                outArr(nOut, 5) = hsKey
-                outArr(nOut, 6) = subKey
-                outArr(nOut, 7) = sfEff
-                outArr(nOut, 8) = notionalRep
-                outArr(nOut, 9) = mtmRep
-                outArr(nOut, 10) = S
-                outArr(nOut, 11) = E
-                outArr(nOut, 12) = M
-                If instType = "OPTION" Then outArr(nOut, 13) = T
-                If ac = AC_IR Or ac = AC_CR Then outArr(nOut, 14) = sd
-                outArr(nOut, 15) = adjN
-                outArr(nOut, 16) = delta
-                outArr(nOut, 17) = mfU
-                If mNS(nsIdx).Margined Then outArr(nOut, 18) = mfM
-                outArr(nOut, 19) = enU
-                If mNS(nsIdx).Margined Then outArr(nOut, 20) = enM
-                If ac = AC_IR Then outArr(nOut, 21) = bucketNo
-                outArr(nOut, 22) = sfEff * Abs(enU)
-                outArr(nOut, 23) = lamOut
-                outArr(nOut, 24) = mNS(nsIdx).Regime
-                outArr(nOut, 25) = warn
-            Else
-                outArr(nOut, 4) = "EXCLUDED"
-                If nsIdx > 0 Then
-                    outArr(nOut, 24) = mNS(nsIdx).Regime
-                End If
-                outArr(nOut, 25) = msg
-            End If
+            TradeCalcRow t, outArr, nOut
 NextTrade:
         Next i
         For i = 1 To mEconRead
@@ -3569,6 +3139,611 @@ NextTrade:
             WriteBlock wsOut, FIRST_DATA_ROW, outArr, nOut, TC_NCOLS
             FormatColumns wsOut, FIRST_DATA_ROW, nOut, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
+        End If
+
+End Sub
+
+
+Private Sub ReadTradeClass( _
+    ByRef t As tTrade, _
+    ByRef data As Variant, _
+    ByVal i As Long, _
+    ByVal rowNum As Long, _
+    ByVal seenIds As Collection)
+'
+'==============================================================================
+'                                ReadTradeClass
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read and check a trade's classification: a repeated Trade ID, netting
+'   set, economic-trade errors, asset class, sub-class, risk factor,
+'   instrument, direction and nature; then its supervisory-factor row and
+'   the regime rules for OT and for regime-limited factor rows (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   data, i: the Trades input block and the trade's row in it.
+'   rowNum: the trade's sheet row; seenIds: Trade IDs seen so far.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim firstRow   As Long      'Sheet row where a duplicate ID first appeared
+    Dim dirTxt     As String    'Direction text, upper case
+
+'------------------------------------------------------------------------------
+' CLASSIFICATION
+'------------------------------------------------------------------------------
+    'Netting set, asset class, risk factor, instrument, direction and
+    'nature. Basis and volatility trades form their own hedging sets, one
+    'per label, with the factor multiplied by BasisFactor or
+    'VolatilityFactor [CRE52.46, CRE52.47].
+        firstRow = KeyIndex(seenIds, t.tid)
+        If firstRow > 0 Then
+            AddErr t.ok, t.msg, "duplicate Trade ID (first used on row " & firstRow & ")"
+        Else
+            KeyAdd seenIds, t.tid, rowNum
+        End If
+
+        t.nsId = UTxt(data(i, TR_NS))
+        t.nsIdx = KeyIndex(mNSIndex, t.nsId)
+        If t.nsIdx = 0 Then AddErr t.ok, t.msg, "unknown netting set '" & t.nsId & "'"
+        If Len(mGrpError(mRowGroup(i))) > 0 Then AddErr t.ok, t.msg, mGrpError(mRowGroup(i))
+
+        t.acTxt = UTxt(data(i, TR_AC))
+        t.ac = ACIndex(t.acTxt)
+        If t.ac = 0 Then AddErr t.ok, t.msg, "asset class must be IR, FX, CR, EQ, CO or OT"
+
+        t.subCls = TradeText(data(i, TR_SUB), "Sub-class", t.ok, t.msg)
+        t.rf = UTxt(data(i, TR_RF))
+        If Len(t.rf) = 0 Then AddErr t.ok, t.msg, "risk factor / reference missing"
+        If InStr(t.rf, "|") > 0 Or InStr(t.rf, "#") > 0 Then
+            AddErr t.ok, t.msg, "risk factor / reference must not contain '|' or '#'"
+        End If
+        If t.ac = AC_IR And Len(t.rf) > 0 And _
+           Not (t.rf Like "[A-Z][A-Z][A-Z]" Or t.rf Like "[A-Z][A-Z][A-Z]-INFL") Then
+            AddErr t.ok, t.msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
+                   "or EUR-INFL for inflation"
+        End If
+
+        t.instType = TradeText(data(i, TR_INSTR), "Instrument", t.ok, t.msg)
+        If Len(t.instType) = 0 Then t.instType = "LINEAR"
+        If t.instType <> "LINEAR" And t.instType <> "OPTION" And t.instType <> "CDO" Then
+            AddErr t.ok, t.msg, "instrument type must be Linear, Option or CDO"
+        End If
+        If t.instType = "CDO" And t.ac <> AC_CR Then AddErr t.ok, t.msg, "CDO tranches are credit (CR) trades"
+
+        dirTxt = UTxt(data(i, TR_DIR))
+        Select Case dirTxt
+            Case "LONG", "BUY", "BOUGHT", "L", "B"
+                t.isLong = True
+            Case "SHORT", "SELL", "SOLD", "S"
+                t.isLong = False
+            Case Else
+                AddErr t.ok, t.msg, "direction must be Long or Short"
+        End Select
+
+        t.nature = TradeText(data(i, TR_NATURE), "Nature", t.ok, t.msg)
+        If Len(t.nature) = 0 Then t.nature = "STANDARD"
+        t.lbl = TradeText(data(i, TR_LABEL), "Hedging-set label", t.ok, t.msg)
+        If InStr(t.lbl, "|") > 0 Or InStr(t.lbl, "#") > 0 Then
+            AddErr t.ok, t.msg, "hedging-set label must not contain '|' or '#'"
+        End If
+        Select Case t.nature
+            Case "STANDARD"
+                t.natFactor = 1#
+                t.natTag = "STD"
+            Case "BASIS"
+                t.natFactor = pBasisF
+                t.natTag = "BASIS:" & t.lbl
+                If Len(t.lbl) = 0 Then AddErr t.ok, t.msg, "basis trade needs a hedging-set label"
+            Case "VOLATILITY"
+                t.natFactor = pVolF
+                t.natTag = "VOL:" & t.lbl
+                If Len(t.lbl) = 0 Then AddErr t.ok, t.msg, "volatility trade needs a hedging-set label"
+            Case Else
+                AddErr t.ok, t.msg, "nature must be Standard, Basis or Volatility"
+        End Select
+
+    'IR, FX and OT have one factor each; the other classes are looked up by
+    'class and sub-class, for example CR_AAA.
+        If t.ac > 0 Then
+            Select Case t.ac
+                Case AC_IR
+                    t.sfKey = "IR"
+                Case AC_FX
+                    t.sfKey = "FX"
+                Case AC_OT
+                    t.sfKey = "OT"
+                Case Else
+                    t.sfKey = t.acTxt & "_" & t.subCls
+            End Select
+            t.sfIdx = KeyIndex(mSFIndex, t.sfKey)
+            If t.sfIdx = 0 Then AddErr t.ok, t.msg, "no supervisory factor for '" & t.sfKey & "' (check sub-class)"
+        End If
+
+    'OT exists only under CRR, and a factor-table row limited to one regime
+    'cannot be used by a netting set under the other.
+        If t.nsIdx > 0 And t.ac = AC_OT Then
+            If Not mNS(t.nsIdx).IsCRR Then
+                AddErr t.ok, t.msg, "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
+                       "under BCBS map the trade to the class of its primary risk driver (CRE52)"
+            End If
+        End If
+        If t.nsIdx > 0 And t.sfIdx > 0 Then
+            If Len(mSF(t.sfIdx).Regimes) > 0 And mSF(t.sfIdx).Regimes <> mNS(t.nsIdx).Regime Then
+                AddErr t.ok, t.msg, "'" & t.sfKey & "' is defined only for regime " & mSF(t.sfIdx).Regimes & _
+                       " (netting set uses " & mNS(t.nsIdx).Regime & ")"
+            End If
+        End If
+
+End Sub
+
+
+Private Sub ReadTradeAmounts( _
+    ByRef t As tTrade, _
+    ByRef data As Variant, _
+    ByVal i As Long)
+'
+'==============================================================================
+'                               ReadTradeAmounts
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a trade's notional and MtM with their currencies, and convert
+'   both to the reporting currency when the trade is still valid (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   data, i: the Trades input block and the trade's row in it.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' AMOUNTS
+'------------------------------------------------------------------------------
+    'The notional is unsigned; Direction gives the sign. A missing MtM is an
+    'error, not an assumed 0 (#35); a blank notional currency means the
+    'reporting currency, and a blank MtM currency the notional currency.
+    'Both amounts are converted to the reporting currency.
+        If IsNum(data(i, TR_NOTIONAL)) Then
+            t.notional = CDbl(data(i, TR_NOTIONAL))
+            If t.notional < 0# Then AddErr t.ok, t.msg, "notional must be positive (use Direction for the sign)"
+        ElseIf IsBlankCell(data(i, TR_NOTIONAL)) And Not IsError(data(i, TR_NOTIONAL)) Then
+            AddErr t.ok, t.msg, "notional missing"
+        Else
+            AddErr t.ok, t.msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
+        End If
+        t.nccy = TradeText(data(i, TR_NCCY), "Notional currency", t.ok, t.msg)
+        If Len(t.nccy) = 0 Then t.nccy = pRepCcy
+        t.fxN = FXRate(t.nccy)
+        If t.fxN < 0# Then AddErr t.ok, t.msg, "no FX rate for notional currency '" & t.nccy & "'"
+        If IsNum(data(i, TR_MTM)) Then
+            t.mtm = CDbl(data(i, TR_MTM))
+        ElseIf IsBlankCell(data(i, TR_MTM)) And Not IsError(data(i, TR_MTM)) Then
+            t.mtm = 0#
+            AddErr t.ok, t.msg, "MtM missing (enter 0 if the trade has no value)"
+        Else
+            t.mtm = 0#
+            AddErr t.ok, t.msg, "MtM must be a number (found " & DescribeValue(data(i, TR_MTM)) & ")"
+        End If
+        t.mccy = TradeText(data(i, TR_MCCY), "MtM currency", t.ok, t.msg)
+        If Len(t.mccy) = 0 Then t.mccy = t.nccy
+        t.fxM = FXRate(t.mccy)
+        If t.fxM < 0# Then AddErr t.ok, t.msg, "no FX rate for MtM currency '" & t.mccy & "'"
+        If t.ok Then
+            t.notionalRep = t.notional * t.fxN
+            t.mtmRep = t.mtm * t.fxM
+        End If
+
+End Sub
+
+
+Private Sub ReadTradeDates( _
+    ByRef t As tTrade, _
+    ByRef data As Variant, _
+    ByVal i As Long)
+'
+'==============================================================================
+'                                ReadTradeDates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a trade's start, end, maturity and expiry dates and turn them into
+'   the years S, E and M from the reporting date (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   data, i: the Trades input block and the trade's row in it.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DATES
+'------------------------------------------------------------------------------
+    'A date that is present but cannot be read is an error (#35). Missing
+    'dates are filled from each other: maturity from the end date,
+    'then from the option expiry; the end date from the maturity. S, E and M
+    'are years from the reporting date on the DaysPerYear basis, with S
+    'floored at 0.
+        t.dStart = TradeDate(data(i, TR_START), "start date", t.ok, t.msg)
+        t.dEnd = TradeDate(data(i, TR_END), "end date", t.ok, t.msg)
+        t.dMat = TradeDate(data(i, TR_MAT), "maturity date", t.ok, t.msg)
+        t.dExp = TradeDate(data(i, TR_EXPIRY), "option expiry", t.ok, t.msg)
+        If t.dMat < 0# Then t.dMat = t.dEnd
+        If t.dMat < 0# Then t.dMat = t.dExp
+        If t.dEnd < 0# Then t.dEnd = t.dMat
+        If t.dMat < 0# Then
+            AddErr t.ok, t.msg, "maturity / end date missing"
+        Else
+            t.M = (t.dMat - pAsOf) / pDaysYear
+            t.E = (t.dEnd - pAsOf) / pDaysYear
+            If t.dStart >= 0# Then
+                t.S = Max2(0#, (t.dStart - pAsOf) / pDaysYear)
+            Else
+                t.S = 0#
+            End If
+            If t.M <= 0# Then
+                AddErr t.ok, t.msg, "trade has matured (maturity <= reporting date)"
+            ElseIf (t.ac = AC_IR Or t.ac = AC_CR) And t.E <= t.S Then
+                AddErr t.ok, t.msg, "end date must be after start date"
+            End If
+        End If
+
+    'An interest-rate or credit option takes S from its underlying
+    '[CRE52.31(2), Table 1 of CRE52.32]: for a swaption the exercise date,
+    'for a Bermudan swaption the earliest allowed exercise date
+    '[CRE52.42(2)], for a cap or floor the start of its first period. A
+    'blank start date would read as 0, the duration of a swap starting
+    'today, so it is an error (#40).
+        If t.instType = "OPTION" And (t.ac = AC_IR Or t.ac = AC_CR) And t.dStart < 0# Then
+            If IsBlankCell(data(i, TR_START)) And Not IsError(data(i, TR_START)) Then
+                AddErr t.ok, t.msg, "an interest-rate or credit option needs the start date S of its underlying " & _
+                       "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
+                       "start of the first period)"
+            End If
+        End If
+
+End Sub
+
+
+Private Sub TradeDelta( _
+    ByRef t As tTrade, _
+    ByRef data As Variant, _
+    ByVal i As Long)
+'
+'==============================================================================
+'                                  TradeDelta
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compute the supervisory delta of a valid trade: linear, option (with
+'   its expiry T and lambda shift) or CDO tranche (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   data, i: the Trades input block and the trade's row in it.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim P        As Double     'Underlying price
+    Dim K        As Double     'Strike
+    Dim attA     As Double     'CDO attachment point
+    Dim detD     As Double     'CDO detachment point
+    Dim lamIn    As Variant    'Lambda as entered
+    Dim vDelta   As Variant    'Option delta as returned by SACCR_OptionDelta
+
+'------------------------------------------------------------------------------
+' SUPERVISORY DELTA
+'------------------------------------------------------------------------------
+    'Linear trades: +1 long, -1 short [CRE52.39]. Options: the option delta
+    'with the lambda shift; under CRR the regulatory lambda replaces any
+    'entered value for IR and commodity options [CRE52.40]. CDO tranches:
+    'the tranche delta [CRE52.41].
+        If t.ok Then
+            Select Case t.instType
+                Case "LINEAR"
+                    If t.isLong Then
+                        t.delta = 1#
+                    Else
+                        t.delta = -1#
+                    End If
+                Case "OPTION"
+                    t.optTxt = UTxt(data(i, TR_OPT))
+                    If t.optTxt <> "CALL" And t.optTxt <> "PUT" Then AddErr t.ok, t.msg, "option type must be Call or Put"
+                    If t.dExp < 0# Then
+                        AddErr t.ok, t.msg, "option expiry missing"
+                    Else
+                        t.T = (t.dExp - pAsOf) / pDaysYear
+                        If t.T <= 0# Then
+                            AddErr t.ok, t.msg, "option has expired"
+                        ElseIf t.dExp > t.dMat Then
+                            AddErr t.ok, t.msg, "option expiry is after the maturity date (M is the latest " & _
+                                   "date the contract may still be active)"
+                        End If
+                    End If
+                    If Not IsNum(data(i, TR_PRICE)) Or Not IsNum(data(i, TR_STRIKE)) Then
+                        AddErr t.ok, t.msg, "option needs underlying price and strike"
+                    End If
+                    If t.ok Then
+                        P = CDbl(data(i, TR_PRICE))
+                        K = CDbl(data(i, TR_STRIKE))
+                        lamIn = data(i, TR_LAMBDA)
+                        If Not IsNum(lamIn) And Not (IsBlankCell(lamIn) And Not IsError(lamIn)) Then
+                            AddErr t.ok, t.msg, "lambda must be a number (found " & DescribeValue(lamIn) & ")"
+                        End If
+                        If mNS(t.nsIdx).IsCRR And (t.ac = AC_IR Or t.ac = AC_CO) Then
+                            'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
+                            If t.ac = AC_IR Then
+                                t.lam = FormulaNumber(SACCR_LambdaCRR(P, K, True, pLamThrIR), "SACCR_LambdaCRR")
+                            Else
+                                t.lam = FormulaNumber(SACCR_LambdaCRR(P, K, False, pLamThrCO), "SACCR_LambdaCRR")
+                            End If
+                            If IsNum(lamIn) Then
+                                If Abs(CDbl(lamIn) - t.lam) > 0.000000001 Then
+                                    AddWarn t.warn, "lambda input ignored under CRR - RTS lambda applied"
+                                End If
+                            End If
+                        Else
+                            t.lam = ToDbl(lamIn, 0#)
+                        End If
+                        t.lamOut = t.lam
+                        If P + t.lam <= 0# Or K + t.lam <= 0# Then
+                            AddErr t.ok, t.msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
+                        ElseIf mSF(t.sfIdx).Vol <= 0# Then
+                            AddErr t.ok, t.msg, "supervisory volatility missing for '" & t.sfKey & "'"
+                        Else
+                            vDelta = SACCR_OptionDelta(P, K, t.T, mSF(t.sfIdx).Vol, (t.optTxt = "CALL"), t.isLong, t.lam)
+                            t.delta = FormulaNumber(vDelta, "SACCR_OptionDelta")
+                        End If
+                    End If
+                Case "CDO"
+                    If Not IsNum(data(i, TR_ATTACH)) Or Not IsNum(data(i, TR_DETACH)) Then
+                        AddErr t.ok, t.msg, "CDO tranche needs attachment and detachment points"
+                    Else
+                        attA = CDbl(data(i, TR_ATTACH))
+                        detD = CDbl(data(i, TR_DETACH))
+                        If attA < 0# Or detD > 1# Or attA >= detD Then
+                            AddErr t.ok, t.msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
+                        Else
+                            t.delta = FormulaNumber(SACCR_CDODelta(attA, detD, t.isLong), "SACCR_CDODelta")
+                        End If
+                    End If
+            End Select
+        End If
+
+End Sub
+
+
+Private Sub TradeHedgingSet( _
+    ByRef t As tTrade)
+'
+'==============================================================================
+'                               TradeHedgingSet
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give a valid trade its adjusted notional d, hedging set and bucket, with
+'   the FX pair checks (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' HEDGING SET, ADJUSTED NOTIONAL AND BUCKET
+'------------------------------------------------------------------------------
+    'IR: d = notional * SD, hedging set per currency (risk factor), bucket
+    'by end date [CRE52.34, CRE52.57(2)-(3)]: under CRR up to and including
+    '1 year, over 1 to 5 years, over 5 years [Art. 280a(3), Table 2]; under
+    'BCBS under 1 year, 1 to 5 years, over 5 years, so an end date of
+    'exactly 1 year is bucket 1 under CRR and bucket 2 under BCBS (#191). The
+    'key of bucket 1 stays "<1Y" in both regimes. An inflation risk factor
+    'such as EUR-INFL is its own hedging set [CRR Art. 277(4)(a), 277a(1)].
+    'FX: d = notional, hedging set per currency pair written in alphabetical
+    'order; an inverted pair flips the delta [CRE52.58]; both currencies of
+    'the pair need an FX rate, and the notional is that of one of the pair's
+    'legs (#40). An FX option must be entered in market quote order
+    '(MarketPair): a call on one order and the put on the other give
+    'different deltas, so the order must be one and the same for every
+    'trade [CRE52.59 FAQ1] (#40). CR: d = notional * SD, one hedging set, bucket per entity
+    '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
+    '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
+    '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
+        If t.ok Then
+            Select Case t.ac
+                Case AC_IR
+                    t.sd = FormulaNumber(SACCR_SupervisoryDuration(t.S, t.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
+                    t.adjN = t.notionalRep * t.sd
+                    If t.E < 1# Or (mNS(t.nsIdx).IsCRR And t.E <= 1#) Then
+                        t.bucketNo = 1
+                        t.subKey = "<1Y"
+                    ElseIf t.E <= 5# Then
+                        t.bucketNo = 2
+                        t.subKey = "1-5Y"
+                    Else
+                        t.bucketNo = 3
+                        t.subKey = ">5Y"
+                    End If
+                    t.hsKey = "IR|" & t.rf & "|" & t.natTag
+                Case AC_FX
+                    t.rf = NormalizePair(t.rf, t.pairSign)
+                    If t.pairSign = 0# Then
+                        AddErr t.ok, t.msg, "FX risk factor must be a currency pair such as EUR/USD"
+                    ElseIf FXRate(Left$(t.rf, 3)) < 0# Then
+                        AddErr t.ok, t.msg, "no FX rate for currency '" & Left$(t.rf, 3) & "' of the pair " & t.rf
+                    ElseIf FXRate(Right$(t.rf, 3)) < 0# Then
+                        AddErr t.ok, t.msg, "no FX rate for currency '" & Right$(t.rf, 3) & "' of the pair " & t.rf
+                    ElseIf t.nccy <> Left$(t.rf, 3) And t.nccy <> Right$(t.rf, 3) Then
+                        AddErr t.ok, t.msg, "notional currency '" & t.nccy & "' is not a currency of the pair " & t.rf
+                    ElseIf t.instType = "OPTION" And t.pairSign * MarketSign(t.rf) < 0# Then
+                        AddErr t.ok, t.msg, "FX option must be entered in market quote order as " & MarketPair(t.rf) & _
+                               ", with price and strike in " & Right$(MarketPair(t.rf), 3) & " per " & _
+                               Left$(MarketPair(t.rf), 3) & " (CRE52.59 FAQ1)"
+                    End If
+                    t.delta = t.delta * t.pairSign
+                    t.adjN = t.notionalRep
+                    t.hsKey = "FX|" & t.rf & "|" & t.natTag
+                    t.subKey = t.rf
+                Case AC_CR
+                    t.sd = FormulaNumber(SACCR_SupervisoryDuration(t.S, t.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
+                    t.adjN = t.notionalRep * t.sd
+                    t.hsKey = "CR|" & t.natTag
+                    t.subKey = t.rf
+                Case AC_EQ
+                    t.adjN = t.notionalRep
+                    t.hsKey = "EQ|" & t.natTag
+                    t.subKey = t.rf
+                Case AC_CO
+                    t.adjN = t.notionalRep
+                    If Len(mSF(t.sfIdx).Group) = 0 Then
+                        AddErr t.ok, t.msg, "commodity hedging group missing for '" & t.sfKey & "'"
+                    End If
+                    t.hsKey = "CO|" & mSF(t.sfIdx).Group & "|" & t.natTag
+                    t.subKey = t.rf
+                Case AC_OT
+                    'Art. 277a: same hedging set only for an identical primary risk driver.
+                    t.adjN = t.notionalRep
+                    t.hsKey = "OT|" & t.rf & "|" & t.natTag
+                    t.subKey = t.rf
+            End Select
+        End If
+
+End Sub
+
+
+Private Sub UseTrade( _
+    ByRef t As tTrade, _
+    ByVal rowNum As Long)
+'
+'==============================================================================
+'                                   UseTrade
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compute the maturity factors and effective notionals of a valid trade
+'   and add it to its bucket, its netting set's MtM and the trade counts
+'   (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   rowNum: the trade's sheet row.
+'
+' STATE OWNERSHIP
+'   Adds to mBk through AddToBucket, to mNS and to mTradesUsed.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' MATURITY FACTOR AND EFFECTIVE NOTIONAL
+'------------------------------------------------------------------------------
+    'The effective notional is kept on both bases: unmargined MF from the
+    'trade's maturity, and margined MF from the netting set's MPOR. The
+    'margined basis equals the unmargined one for an unmargined set.
+        If t.ok Then
+            t.sfEff = mSF(t.sfIdx).SF * t.natFactor
+            t.corrEff = mSF(t.sfIdx).Corr
+            t.mfU = FormulaNumber(SACCR_MaturityFactor(t.M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
+            If mNS(t.nsIdx).Margined Then
+                t.mfM = mNS(t.nsIdx).MFMargined
+            Else
+                t.mfM = t.mfU
+            End If
+            t.enU = t.delta * t.adjN * t.mfU
+            t.enM = t.delta * t.adjN * t.mfM
+            If t.ac = AC_CR Or t.ac = AC_EQ Or t.ac = AC_CO Then
+                CheckReferenceClass t.nsIdx, t.ac, t.rf, t.sfKey, t.tid, rowNum
+            End If
+            AddToBucket t.nsIdx, t.ac, t.hsKey, t.subKey, t.sfEff, t.corrEff, t.enU, t.enM, t.tid, rowNum
+            mNS(t.nsIdx).V = mNS(t.nsIdx).V + t.mtmRep
+            mNS(t.nsIdx).Trades = mNS(t.nsIdx).Trades + 1
+            mTradesUsed = mTradesUsed + 1
+        End If
+
+End Sub
+
+
+Private Sub TradeCalcRow( _
+    ByRef t As tTrade, _
+    ByRef outArr() As Variant, _
+    ByVal nOut As Long)
+'
+'==============================================================================
+'                                 TradeCalcRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fill row nOut of the TradeCalc block with a trade's results, or with its
+'   rejection reasons (#60).
+'
+' INPUTS
+'   t: the trade being processed, from ProcessTrades.
+'   outArr, nOut: the TradeCalc block and the row to fill.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' TRADECALC ROW
+'------------------------------------------------------------------------------
+    'Columns: 1 ID, 2 netting set, 3 asset class, 4 status, 5 hedging set,
+    '6 bucket, 7 effective SF, 8 notional, 9 MtM, 10 S, 11 E, 12 M, 13 T,
+    '14 SD, 15 d, 16 delta, 17 MF unmargined, 18 MF margined, 19 effective
+    'notional unmargined, 20 effective notional margined, 21 IR bucket,
+    '22 stand-alone add-on, 23 lambda, 24 regime, 25 messages. Columns that
+    'do not apply to the trade stay blank.
+        outArr(nOut, 1) = t.tid
+        outArr(nOut, 2) = t.nsId
+        outArr(nOut, 3) = t.acTxt
+        If t.ok Then
+            outArr(nOut, 4) = "OK"
+            outArr(nOut, 5) = t.hsKey
+            outArr(nOut, 6) = t.subKey
+            outArr(nOut, 7) = t.sfEff
+            outArr(nOut, 8) = t.notionalRep
+            outArr(nOut, 9) = t.mtmRep
+            outArr(nOut, 10) = t.S
+            outArr(nOut, 11) = t.E
+            outArr(nOut, 12) = t.M
+            If t.instType = "OPTION" Then outArr(nOut, 13) = t.T
+            If t.ac = AC_IR Or t.ac = AC_CR Then outArr(nOut, 14) = t.sd
+            outArr(nOut, 15) = t.adjN
+            outArr(nOut, 16) = t.delta
+            outArr(nOut, 17) = t.mfU
+            If mNS(t.nsIdx).Margined Then outArr(nOut, 18) = t.mfM
+            outArr(nOut, 19) = t.enU
+            If mNS(t.nsIdx).Margined Then outArr(nOut, 20) = t.enM
+            If t.ac = AC_IR Then outArr(nOut, 21) = t.bucketNo
+            outArr(nOut, 22) = t.sfEff * Abs(t.enU)
+            outArr(nOut, 23) = t.lamOut
+            outArr(nOut, 24) = mNS(t.nsIdx).Regime
+            outArr(nOut, 25) = t.warn
+        Else
+            outArr(nOut, 4) = "EXCLUDED"
+            If t.nsIdx > 0 Then
+                outArr(nOut, 24) = mNS(t.nsIdx).Regime
+            End If
+            outArr(nOut, 25) = t.msg
         End If
 
 End Sub
