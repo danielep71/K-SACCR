@@ -139,18 +139,69 @@ test and example. The template instead reads a component registry from
 adds fixtures for that role mapping. `test_review_regressions.py` covers the
 post-merge findings, including colon-separated public declarations.
 
-### Direct-call validation: evaluated, not adopted yet
+### Project-wide call resolution: advisory
 
-VBA-DATETIMEPICKER's `check_vba_calls.py` resolves direct, module-qualified and
-typed-class calls, argument counts and literal `Application.Run`/`OnAction`
-targets. It reports anything it cannot resolve (calls through `Object` or
-`Variant`, library members, dynamic names) as *unknown*, not as a defect. That
-repository runs it as advisory only, because it needs a per-project manifest of
-VBA projects and its value grows with the number of modules.
+```sh
+python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.json \
+  --summary test-results/check_vba_calls.md
+```
 
-The engine spans three core modules, a facade, the workbook macros and seven
-test modules, so adopting it, advisory first, is due with the engine
-refactor. Until then the VBA compiler in Excel is the call-resolution check.
+`check_vba_calls.py` is vendored from VBA-DATETIMEPICKER at commit `a66790a`
+and adopted **advisory only** (#60). `check.py` does not run it. The static
+workflow runs it in a non-blocking step that adds its summary to the job page.
+Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
+compiler: compiling in Excel stays the authoritative call check.
+
+**What it checks.** For each configuration in `tools/vba-projects.json`, it
+checks only calls it can resolve with certainty, and does so in every
+conditional-compilation environment of `check_vba_conditionals.py`:
+- unqualified and module-qualified calls;
+- members of project classes;
+- Private members used from another module;
+- ambiguous public names;
+- argument counts and named arguments;
+- literal `Application.Run`, `OnTime`, `OnKey`, `OnAction`, `CallByName` and `AddressOf` targets.
+
+Anything else is reported as *unknown*, never as a defect.
+
+**Configurations.**
+
+| Configuration | Modules |
+| --- | --- |
+| `production` | The five modules of a workbook built from the template |
+| `development` | Those plus the nine test modules, as in INSTALLATION.md |
+
+The document modules (`ThisWorkbook` and the sheet modules) are listed under
+`document_modules` and are not analysed. This key is a SACCR addition.
+
+**Evidence at adoption** (release head `275dff6`):
+
+| Configuration | Resolved calls | Findings | Unknown calls (host or library, untyped receiver, `With` block) |
+| --- | ---: | --- | --- |
+| `production` | 701 | none | 442, 388 and 89 |
+| `development` | 2839 | none | 803, 745 and 91 |
+
+Three defects were planted in a scratch copy to test detection:
+
+| Planted defect | Result |
+| --- | --- |
+| A missing argument | Reported (`VBA-CALL-010`) |
+| A Private engine member called from `M_Main` | Reported (`VBA-CALL-003`) |
+| A misspelled internal procedure (`ComputeHedgingSet`) | Not reported |
+
+**Limits.**
+- **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`). The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
+- **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker. This produced 9 false findings in production and 21 in development, which is why they are excluded.
+- **Not checked:** dynamic call targets, `Object` and `Variant` receivers, and argument types.
+
+**SACCR changes to the vendored file.** Type annotations for `mypy --strict`
+(no logic change), the Ribbon parser copied from that repository's
+`check_source.py`, and `document_modules`. Three upstream parser functions
+exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one
+file from C901, so it can still be resynchronised with upstream.
+
+It does not become a blocking gate until its false-positive behaviour has been
+validated over further changes.
 
 ## GitHub Actions
 

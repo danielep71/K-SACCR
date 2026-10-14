@@ -98,6 +98,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- An advisory project-wide VBA call checker, `tools/check_vba_calls.py`,
+  vendored from VBA-DATETIMEPICKER (#60). It resolves 701 calls in the
+  production modules and 2,839 in the development workbook with no
+  findings. It runs as a non-blocking step of the static workflow, and its
+  limits are listed in `tools/README.md`.
+
 - `TEST_Suite.Test_RunAll` runs every test suite in turn and prints only a
   summary: one line per suite with its verdict, counts and duration, the
   failure lines of a suite that failed, and a final RESULT line. The suites

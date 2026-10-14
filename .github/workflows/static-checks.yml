@@ -144,6 +144,22 @@ jobs:
           set -o pipefail
           "$validator" -no-color 2>&1 | tee test-results/actionlint.txt
 
+      # Advisory only (#60): the call checker reports what it can resolve, never
+      # fails the job, and adds its summary to the job page.
+      - name: Report VBA call resolution (advisory, non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          set +e
+          python tools/check_vba_calls.py --root . \
+            --output test-results/check_vba_calls.json \
+            --summary test-results/check_vba_calls.md
+          status=$?
+          if [[ -f test-results/check_vba_calls.md ]]; then
+            cat test-results/check_vba_calls.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
+
       - name: Publish check summary
         if: always()
         run: |
