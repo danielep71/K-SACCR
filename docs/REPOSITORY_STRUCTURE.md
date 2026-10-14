@@ -141,9 +141,9 @@ its original structure until it is refactored:
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
 | `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine` directly |
 | No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
-| `On Error Resume Next` around single statements | `CORE_Engine.WriteRunInfo` runs under it as a whole |
 
-Each deviation is removed by a reviewed change, not by reformatting.
+Each deviation is removed by a reviewed change, not by reformatting. Their
+removal is planned in #220 (v1.3.0).
 
 ## 🚦 Placement rules
 

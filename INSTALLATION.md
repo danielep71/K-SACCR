@@ -281,7 +281,8 @@ case deletes again (#152). It also checks that the results are out of date
 after the first trade's MtM becomes the same digits as text, after a header
 on Trades or NettingSets is renamed, and after the workbook is switched to the
 other date system, and that a number format, a bold header or a header
-changed only in case and spacing leaves them current (#197). In manual calculation it makes the first trade's
+changed only in case and spacing leaves them current (#197). A run whose summary cannot be composed still completes,
+and Results C4 says the summary is unavailable (#60). In manual calculation it makes the first trade's
 MtM a formula on its Comment cell, changes the Comment without recalculating,
 and checks that the run uses the new MtM; a recalculation that does not
 finish stops the run and the previous results are no longer reported as
@@ -306,8 +307,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty-five `CASE=` lines and ends with
-`RESULT=PASS; cases=25; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-six `CASE=` lines and ends with
+`RESULT=PASS; cases=26; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 

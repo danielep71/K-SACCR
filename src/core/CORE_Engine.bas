@@ -40,7 +40,8 @@ Attribute VB_Name = "CORE_Engine"
 '     ProcessTrades: one row per trade, collected into buckets;
 '     ComputeHedgingSets: buckets into hedging-set and asset-class add-ons;
 '     ComputeNettingSets: RC, multiplier, PFE and EAD per netting set;
-'     WriteBuckets, WriteHedgingSets, WriteChecks, WriteRunInfo: outputs.
+'     WriteBuckets, WriteHedgingSets, WriteChecks, WriteRunInfo
+'     (RunInfoText): outputs.
 '   Each trade, bucket and hedging set is stored once in an array, with a
 '   Collection (see CORE_Util.KeyIndex) mapping its key to its array position.
 '
@@ -247,7 +248,9 @@ Attribute VB_Name = "CORE_Engine"
     'Set only by TEST_MainState: "outputs" raises ERR_INJECTED_FAULT after
     'the first output sheets are written, to prove that a failed run
     'withdraws them (#36). "outputs+cleanup" also fails the TradeCalc and
-    'Results clears with a different error. Empty in normal use.
+    'Results clears with a different error. "runinfo" fails the composing
+    'of the run summary, which must not fail the run (#60). Empty in normal
+    'use.
         Public gEngineFault   As String
 
 '------------------------------------------------------------------------------
@@ -5106,8 +5109,8 @@ Private Sub WriteRunInfo( _
 '                                 WriteRunInfo
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a one-line run summary to cell C4 (RUNINFO_CELL) of the Results
-'   sheet.
+'   Write a one-line run summary (RunInfoText) to cell C4 (RUNINFO_CELL) of
+'   the Results sheet.
 '
 ' INPUTS
 '   secs: run duration in seconds.
@@ -5118,51 +5121,103 @@ Private Sub WriteRunInfo( _
 '   Checks sheet could not be written; "" otherwise.
 '
 ' ERROR POLICY
-'   Best effort: errors are ignored, because the summary is informative only.
+'   Never raises: the summary is informative, and Calculate reports the
+'   run's outcome itself, also from its error handler. A summary that
+'   cannot be composed is replaced by a line saying so, never left empty
+'   or partial. Only the write to C4 runs under On Error Resume Next: a
+'   protected or missing Results sheet keeps its earlier summary, which
+'   the run error or Checks then explains (#36, #60).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-14
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws    As Worksheet    'Results sheet
-    Dim txt   As String       'Summary line
+    Dim txt   As String    'Summary line
+
+'------------------------------------------------------------------------------
+' COMPOSE
+'------------------------------------------------------------------------------
+        On Error GoTo NoText
+        If gEngineFault = "runinfo" Then
+            Err.Raise ERR_INJECTED_FAULT, "CORE_Engine.WriteRunInfo", "Injected run-summary failure."
+        End If
+        txt = RunInfoText(secs, completed, wroteOutputs, failure)
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
+WriteText:
         On Error Resume Next
-        Set ws = GetSheet(SH_RESULTS)
-        If Len(failure) > 0 Then
-            txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " FAILED - " & failure
-        ElseIf Not wroteOutputs Then
-            txt = "Last validation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
-                  " | errors " & mErrCount & ", warnings " & mWarnCount & _
-                  RunClassText() & _
-                  " | outputs cleared: press Run SA-CCR to calculate"
-        ElseIf completed Then
-            txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
-                  " | reporting date " & Format$(CDate(pAsOf), "yyyy-mm-dd") & _
-                  " | ccy " & pRepCcy & _
-                  " | economic trades used " & mEconUsed & " of " & mEconRead & _
-                  ", legs " & mTradesUsed & " of " & mTradesRead & _
-                  " | errors " & mErrCount & ", warnings " & mWarnCount & _
-                  RunClassText() & _
-                  " | inputs " & mRunInputs & _
-                  " | " & Format$(secs, "0.00") & " s"
-            If mIncomplete > 0 Then
-                txt = txt & " | EAD withheld for " & mIncomplete & " netting set(s)"
-            End If
-        Else
-            txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
-                  " FAILED - see Checks sheet (" & mErrCount & " errors)"
-        End If
-        ws.Range(RUNINFO_CELL).Value = txt
+        GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value = txt
+        On Error GoTo 0
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE A SUMMARY THAT CANNOT BE COMPOSED
+'------------------------------------------------------------------------------
+NoText:
+        txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " - run summary unavailable (error " & _
+              Err.Number & ": " & Err.Description & "); see Checks"
+        Resume WriteText
 
 End Sub
+
+
+Private Function RunInfoText( _
+    ByVal secs As Double, _
+    ByVal completed As Boolean, _
+    ByVal wroteOutputs As Boolean, _
+    ByVal failure As String) _
+    As String
+'
+'==============================================================================
+'                                 RunInfoText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compose the run summary written by WriteRunInfo: a failure, a
+'   validation-only run, a completed run with its counts, run class, input
+'   fingerprint and duration, or a run stopped by input errors.
+'
+' INPUTS
+'   As WriteRunInfo.
+'
+' ERROR POLICY
+'   Raises any error to WriteRunInfo, which writes a fallback line.
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+        If Len(failure) > 0 Then
+            RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " FAILED - " & failure
+        ElseIf Not wroteOutputs Then
+            RunInfoText = "Last validation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
+                          " | errors " & mErrCount & ", warnings " & mWarnCount & _
+                          RunClassText() & _
+                          " | outputs cleared: press Run SA-CCR to calculate"
+        ElseIf completed Then
+            RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
+                          " | reporting date " & Format$(CDate(pAsOf), "yyyy-mm-dd") & _
+                          " | ccy " & pRepCcy & _
+                          " | economic trades used " & mEconUsed & " of " & mEconRead & _
+                          ", legs " & mTradesUsed & " of " & mTradesRead & _
+                          " | errors " & mErrCount & ", warnings " & mWarnCount & _
+                          RunClassText() & _
+                          " | inputs " & mRunInputs & _
+                          " | " & Format$(secs, "0.00") & " s"
+            If mIncomplete > 0 Then
+                RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s)"
+            End If
+        Else
+            RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
+                          " FAILED - see Checks sheet (" & mErrCount & " errors)"
+        End If
+
+End Function
 
 
 Private Function RunClassText() As String

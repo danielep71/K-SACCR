@@ -542,6 +542,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- The run summary in Results C4 is no longer written under a blanket
+  `On Error Resume Next` (#60). An error while composing it could leave C4
+  empty or showing part of a line; such a summary is now replaced by
+  "run summary unavailable" with the error, and the run's outcome is
+  unchanged. Only the write to C4 still ignores errors, so a protected
+  Results sheet keeps its earlier summary as before. `TEST_MainState`
+  covers it.
 - An FX option must be entered in market quote order (#40). Its delta is
   computed on the price and strike as entered, and a call on EUR/USD and
   the economically identical put on USD/EUR give different deltas, so
