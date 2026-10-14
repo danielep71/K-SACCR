@@ -879,7 +879,7 @@ Use only the categories needed by a release.
   Excel.
 - Excel evidence is manual and covers one 64-bit host; 32-bit is untested.
 - Digital options are not supported under either regime (#120, planned for
-  v1.1.0). Option legs of one economic trade are calculated as an ordinary
+  v1.4.0). Option legs of one economic trade are calculated as an ordinary
   option combination: neither the CRR payoff-sized collar nor the BCBS cap
   of the effective notional is applied.
 
