@@ -98,6 +98,23 @@ only produce one:
 - every rule is traced to its CRR article and CRE52 paragraph in the
   [methodology](docs/methodology/README.md#traceability).
 
+<a id="methodology-at-a-glance"></a>
+
+### Methodology at a glance
+
+The reference card below collects the formulas and supervisory parameters on
+one page, with the points where CRR and Basel differ. Select it to open the
+full-size SVG; the [methodology](docs/methodology/README.md) remains the
+authoritative description.
+
+<p align="center">
+  <a href="docs/assets/SACCR_EAD_reference.svg">
+    <img width="100%"
+         alt="SA-CCR EAD calculation reference: netting-set exposure, trade-level inputs, asset-class parameters, aggregation, and CRR versus Basel differences"
+         src="docs/assets/SACCR_EAD_reference.svg">
+  </a>
+</p>
+
 ---
 
 ## ⭐ Why use it

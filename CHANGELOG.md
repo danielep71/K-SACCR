@@ -98,6 +98,11 @@ Use only the categories needed by a release.
 
 ### Added
 
+- A one-page SA-CCR EAD reference card, `docs/assets/SACCR_EAD_reference.svg`:
+  netting-set exposure, trade-level inputs, asset-class parameters,
+  aggregation and the points where CRR and Basel differ. The README shows it
+  under "Methodology at a glance"; the methodology remains authoritative.
+
 - An advisory project-wide VBA call checker, `tools/check_vba_calls.py`,
   vendored from VBA-DATETIMEPICKER (#60). It resolves 701 calls in the
   production modules and 2,839 in the development workbook with no
