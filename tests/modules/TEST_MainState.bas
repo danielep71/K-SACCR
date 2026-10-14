@@ -12,7 +12,8 @@ Attribute VB_Name = "TEST_MainState"
 '   changes (issue #36), also on Params after its tables have moved
 '   (issue #152), when a number becomes the same digits as text, a header
 '   is renamed or the date system changes, but not after a formatting
-'   change (issue #197); and that a run in manual calculation recalculates
+'   change (issue #197); that a run summary that cannot be composed does
+'   not fail the run (issue #60); and that a run in manual calculation recalculates
 '   its formula inputs before reading them, and stops without reporting
 '   old results as current when that recalculation does not finish (issue
 '   #195).
@@ -68,7 +69,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 25   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 26   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -143,6 +144,7 @@ Public Sub RunMainStateTests()
         CaseChecksUnwritable
         CaseOutputWriteFailure
         CaseOutputCleanupFailure
+        CaseRunInfoFailure
         CaseProtectedOutput SH_TRADECALC
         CaseProtectedOutput SH_BUCKETS
         CaseProtectedOutput SH_HEDGING
@@ -505,6 +507,63 @@ Private Sub CaseOutputWriteFailure()
 Unexpected:
         CORE_Engine.gEngineFault = ""
         Fail "run.output-write-failure", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseRunInfoFailure()
+'
+'==============================================================================
+'                              CaseRunInfoFailure
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A run summary that cannot be composed does not fail the run: the run
+'   completes, its results are CURRENT, and Results C4 says the summary is
+'   unavailable instead of being left empty or partial. The next run
+'   writes the full summary again (#60).
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result    As String    'Result line of a run
+    Dim summary   As String    'Results C4
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.summary-unavailable"
+        SetState xlCalculationAutomatic, False, False
+        CORE_Engine.gEngineFault = "runinfo"
+        result = M_Main.RunSACCR_Silent()
+        CORE_Engine.gEngineFault = ""
+        Check Left$(result, 9) = "RESULT=OK", "run with a failed summary: " & result
+        Check M_Main.ResultsStatus() = "CURRENT", "results status: " & M_Main.ResultsStatus()
+        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check InStr(1, summary, "run summary unavailable", vbTextCompare) > 0 And _
+              InStr(1, summary, "Injected run-summary failure", vbTextCompare) > 0, _
+              "Results C4 does not say the summary is unavailable: " & summary
+        CheckState xlCalculationAutomatic, False, False
+
+    'The next run writes the full summary again.
+        result = M_Main.RunSACCR_Silent()
+        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Check InStr(1, summary, " | inputs ", vbBinaryCompare) > 0, "follow-up summary: " & summary
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        CORE_Engine.gEngineFault = ""
+        Fail "run.summary-unavailable", "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
