@@ -542,6 +542,32 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- An FX option must be entered in market quote order (#40). Its delta is
+  computed on the price and strike as entered, and a call on EUR/USD and
+  the economically identical put on USD/EUR give different deltas, so
+  the result depended on which way round the pair was typed (CRE52.59
+  FAQ1). The base currency is the one listed first in EUR, GBP, AUD,
+  NZD, USD, CAD, CHF, JPY; an unlisted currency comes after them, and of
+  two unlisted currencies the alphabetical first is the base. An FX
+  option entered the other way round is rejected with the order to use.
+  Linear FX trades are unaffected. The template's README and the input
+  message of the risk-factor column say so. `TEST_InputValidation`
+  covers a reversed pair, EUR/USD, and USD/JPY, whose market order is
+  not alphabetical.
+- An interest-rate or credit option without a start date is rejected
+  (#40). S was read as 0, the duration of a swap starting today, so a
+  forward-starting or Bermudan swaption entered without its exercise date
+  took too long a duration. S is the start of the underlying: the
+  exercise date of a swaption, the earliest allowed exercise date of a
+  Bermudan swaption (whose T is the latest), the start of the first
+  period of a cap or floor (CRE52.31(2), CRE52.32 Table 1, CRE52.42(2)).
+  The template's README and the input message of the Start date column
+  say so.
+  The methodology also states how amortising, accreting, leveraged,
+  multi-exchange and resetting trades are entered, since the workbook
+  reads one notional and one maturity per row. `TEST_InputValidation`
+  rejects a swaption without a start date and checks the duration and
+  delta of a Bermudan swaption.
 - Results are reported out of date after input changes the input
   fingerprint missed (#197). It wrote each cell as plain text, so a number
   replaced by the same digits as text, which the run reads differently (a
