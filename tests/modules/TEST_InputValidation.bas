@@ -93,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 129               'Cases in a complete run
-        Private Const CHECKS      As Long = 198               'Checks in a complete run
+        Private Const CASES       As Long = 132               'Cases in a complete run
+        Private Const CHECKS      As Long = 205               'Checks in a complete run
 
 
 '
@@ -886,6 +886,33 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.ExpectNumber "add-on-fx", "", "add_on.foreign_exchange", "0", "0.000001", "0", _
                                      "illustrative"
 
+    'FX option quote order (#40): an FX option must be entered in market
+    'quote order (FX_QUOTE_ORDER), because a call on EUR/USD and the put on
+    'USD/EUR give different deltas (CRE52.59 FAQ1). A one-year EUR/USD call
+    'at the money has delta N(0.5 * 0.15) = 0.529893. A USD/JPY call, in
+    'market order but not in alphabetical order, sits in the JPY/USD
+    'hedging set with its delta reversed: -N((ln(148.5 / 150) + 0.5 *
+    '0.15^2) / 0.15) = -0.503191.
+        StartCase "fx-option-reversed-pair", "N"
+        AddFxOption "T1", "USD/EUR", "1.1", "1.1", "EUR"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "quote-order", SEV_ERROR, _
+                                         "FX option must be entered in market quote order as EUR/USD", _
+                                         "illustrative"
+
+        StartCase "fx-option-market-order", "N"
+        AddFxOption "T1", "EUR/USD", "1.1", "1.1", "EUR"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.529892644052895", _
+                                     "0.000001", "0", "illustrative"
+
+        StartCase "fx-option-market-order-not-alphabetical", "N"
+        AddFxOption "T1", "USD/JPY", "148.5", "150", "USD"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectText "hedging-set", "T1", "hedging_set", "FX|JPY/USD|STD", "illustrative"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "-0.503190610987961", _
+                                     "0.000001", "0", "illustrative"
+
     'An Excel error value, such as #N/A from a broken lookup, in an optional
     'text field is an input error, not a blank that takes the field's
     'default (#194): Instrument would become Linear, Nature Standard, the
@@ -1450,6 +1477,32 @@ Private Sub AddSwaption( _
         TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Option", "Long", "Call", "Standard", "", _
                                  "10000", "0", startDate, "2036-09-30", "2036-09-30", "2029-09-30", "0.05", _
                                  "0.05", "", "", ""
+
+End Sub
+
+
+Private Sub AddFxOption( _
+    ByVal tradeId As String, _
+    ByVal pair As String, _
+    ByVal price As String, _
+    ByVal strike As String, _
+    ByVal notionalCcy As String)
+'
+'==============================================================================
+'                                 AddFxOption
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a bought FX call on 10,000 of notionalCcy on the pair as given,
+'   expiring and maturing on 2027-09-30, one year after the valuation
+'   date (#40).
+'
+' UPDATED
+'   2026-10-13
+'==============================================================================
+'
+        TEST_CaseRunner.AddTrade tradeId, "FX", "", pair, "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", "", "", "2027-09-30", "2027-09-30", price, strike, "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, notionalCcy
 
 End Sub
 

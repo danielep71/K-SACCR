@@ -390,9 +390,11 @@ also needs Git and Python 3.10 or later.
   are Basel examples; CRR results are tested against illustrative values.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
   the leg when both are foreign is the user's.
-- **FX option quote order is the user's.** A call on EUR/USD and the put on
-  USD/EUR give different deltas (CRE52.59 FAQ1); enter each pair in the order
-  of market practice.
+- **FX options use a fixed quote order.** An FX option is rejected unless its
+  pair follows the ranking EUR, GBP, AUD, NZD, USD, CAD, CHF, JPY (USD/JPY, not
+  JPY/USD), because the two orders give different deltas (CRE52.59 FAQ1). Two
+  currencies outside the ranking are ordered alphabetically, which may differ
+  from local market practice.
 - **Not supported:** digital options (#120), the optional reductions for sold
   options and sold credit protection, several margin agreements in one netting
   set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
