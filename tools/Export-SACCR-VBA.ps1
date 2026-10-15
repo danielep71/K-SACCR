@@ -1,0 +1,125 @@
+<#
+.SYNOPSIS
+Export the VBA components of a K-SACCR workbook to a folder, for comparison
+with the repository source.
+
+.DESCRIPTION
+Opens the workbook read-only in a separate Excel instance with macros
+disabled, exports every VBA component with the VBE's own Export (standard
+modules as .bas, class and document modules as .cls, forms as .frm), and
+closes the workbook without saving. The folder must be new or empty, so
+that an earlier export is never mixed in. Compare the export with
+tools/compare_vba_export.py.
+
+.REQUIREMENTS
+- Windows desktop Excel.
+- Excel > Options > Trust Center > Macro Settings >
+  "Trust access to the VBA project object model" enabled.
+- VBA project not password-locked.
+
+.EXAMPLE
+.\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -OutDir "C:\SACCR\export"
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$WorkbookPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$OutDir
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$msoAutomationSecurityForceDisable = 3
+
+function Get-ExportExtension {
+    # The file extension the VBE gives a component type, or $null for a
+    # type it does not export.
+    param([Parameter(Mandatory = $true)][int]$ComponentType)
+
+    switch ($ComponentType) {
+        1 { return ".bas" }
+        2 { return ".cls" }
+        3 { return ".frm" }
+        100 { return ".cls" }
+    }
+    return $null
+}
+
+$excel = $null
+$workbook = $null
+
+try {
+    $workbookFullPath = [System.IO.Path]::GetFullPath((Resolve-Path -LiteralPath $WorkbookPath).Path)
+    $outFullPath = [System.IO.Path]::GetFullPath($OutDir)
+
+    if (Test-Path -LiteralPath $outFullPath -PathType Container) {
+        if (@(Get-ChildItem -LiteralPath $outFullPath -Force).Count -gt 0) {
+            throw "OutDir is not empty: $outFullPath. Use a new folder."
+        }
+    }
+    else {
+        $null = New-Item -ItemType Directory -Path $outFullPath
+    }
+
+    $excel = New-Object -ComObject Excel.Application
+    $excel.Visible = $false
+    $excel.DisplayAlerts = $false
+    $excel.EnableEvents = $false
+    $excel.AskToUpdateLinks = $false
+    $excel.AutomationSecurity = $msoAutomationSecurityForceDisable
+
+    # Open read-only: the export never changes the workbook.
+    $workbook = $excel.Workbooks.Open($workbookFullPath, 0, $true)
+
+    try {
+        $vbProject = $workbook.VBProject
+        $null = $vbProject.VBComponents.Count
+    }
+    catch {
+        throw (
+            "Cannot access the VBA project. Enable Excel Trust Center > Macro Settings > " +
+            "'Trust access to the VBA project object model' and ensure the VBA project " +
+            "is not password-locked."
+        )
+    }
+
+    $count = 0
+    foreach ($component in $vbProject.VBComponents) {
+        $extension = Get-ExportExtension -ComponentType $component.Type
+        if ($null -eq $extension) {
+            Write-Warning "Not exported: $($component.Name) (component type $($component.Type))"
+            continue
+        }
+        $target = Join-Path $outFullPath ($component.Name + $extension)
+        $component.Export($target)
+        Write-Host ("  {0}{1}" -f $component.Name, $extension)
+        $count++
+    }
+
+    Write-Host ""
+    Write-Host "Workbook: $workbookFullPath"
+    Write-Host "Exported: $count component(s) to $outFullPath"
+    Write-Host "Next:     python tools/compare_vba_export.py --export `"$outFullPath`" --mode production|development --workbook `"$workbookFullPath`""
+}
+catch {
+    Write-Error $_
+    exit 1
+}
+finally {
+    if ($null -ne $workbook) {
+        try { $workbook.Close($false) } catch {}
+        try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) } catch {}
+    }
+    if ($null -ne $excel) {
+        try { $excel.Quit() } catch {}
+        try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) } catch {}
+    }
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+}
