@@ -1,4 +1,4 @@
-# 🚀 SACCR Release Guide
+# 🚀 K-SACCR Release Guide
 
 [![Release model: exact source](https://img.shields.io/badge/release-exact%20source-0969da)](#release-invariants)
 [![Versioning: SemVer](https://img.shields.io/badge/versioning-SemVer-3f4551)](CHANGELOG.md#date-and-version-rules)

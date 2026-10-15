@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔒 SACCR Security Policy
+# 🔒 K-SACCR Security Policy
 
 ### Counterparty credit risk under SA-CCR, built in Excel/VBA
 
@@ -41,7 +41,7 @@ Excel process are not isolated security sandboxes.
 
 ## 📦 Supported versions
 
-SACCR is **pre-release**. No version has been released, so no version carries
+K-SACCR is **pre-release**. No version has been released, so no version carries
 production security support.
 
 | Source state | Security support |
@@ -63,7 +63,7 @@ message, sample workbook, screenshot or release note.
 
 GitHub private vulnerability reporting is not enabled for this repository.
 Report by email to **danielep71@gmail.com** with the subject
-**Private security report — SACCR**.
+**Private security report — K-SACCR**.
 
 Include only the information needed to assess the issue:
 
@@ -87,7 +87,7 @@ the report.
 
 ## ⏱️ Response process
 
-SACCR is maintained by one person; targets are best-effort, not a contractual
+K-SACCR is maintained by one person; targets are best-effort, not a contractual
 SLA.
 
 | Stage | Target |
@@ -223,7 +223,7 @@ Users should:
 - obtain source only from this repository and know which commit it is;
 - test with synthetic data in a controlled environment before using real data;
   and
-- understand that SACCR output is a calculation aid. It is not regulatory
+- understand that K-SACCR output is a calculation aid. It is not regulatory
   approval, model validation or an authentication or authorization control.
 
 <a id="coordinated-disclosure"></a>

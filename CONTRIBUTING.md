@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤝 Contributing to SACCR
+# 🤝 Contributing to K-SACCR
 
 ### Counterparty credit risk under SA-CCR, built in Excel/VBA
 

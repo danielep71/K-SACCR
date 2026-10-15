@@ -14,6 +14,8 @@ methodology source-register decisions.
 - **Curve:** the PFE multiplier m = min(1, F + (1 - F) exp((V - C) /
   (2 (1 - F) AddOn))) with F = 5% (CRE52.23), plotted for (V - C) / AddOn from
   -4 to +1.
+- **Name:** the title is the project name, K-SACCR; the method, SA-CCR, is
+  named in the label beside the status.
 - **Status:** the image carries "Under development" while no release exists;
   update it at the first release.
 

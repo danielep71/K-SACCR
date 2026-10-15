@@ -10,7 +10,7 @@
 
 <div align="center">
 
-# 🔀 SACCR Pull Request
+# 🔀 K-SACCR Pull Request
 
 ### Exact evidence · Reviewable change · Honest boundaries
 
