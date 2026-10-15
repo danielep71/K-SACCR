@@ -566,8 +566,10 @@ Use only the categories needed by a release.
   fingerprint is now withdrawn before the recalculation starts, not only when
   it does not finish, so a formula input still holding the value the last run
   used cannot make old results look current. A completed run records its
-  fingerprint again; validation never kept one. `TEST_MainState` has a new
-  case, `run.recalculation-error` (27 cases).
+  fingerprint again; validation never kept one. Every operation then
+  recalculates the status cell on Results, so in manual calculation it shows
+  the outcome instead of the value computed before the run. `TEST_MainState`
+  has a new case, `run.recalculation-error` (27 cases).
 
 - The run summary in Results C4 is no longer written under a blanket
   `On Error Resume Next` (#60). An error while composing it could leave C4

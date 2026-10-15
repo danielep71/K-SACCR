@@ -1212,7 +1212,8 @@ Private Sub CaseRecalculationError()
 '   calculation the Comment changes without a recalculation, so the cached
 '   MtM still equals the one the run fingerprinted. The stopped run must
 '   raise the injected error itself, restore Excel, and leave the next run
-'   working.
+'   working. The status cell on Results must follow each step although
+'   calculation stays manual.
 '
 ' UPDATED
 '   2026-10-15
@@ -1245,6 +1246,7 @@ Private Sub CaseRecalculationError()
         result = M_Main.RunSACCR_Silent()
         Check Left$(result, 9) = "RESULT=OK", "set-up run: " & result
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a run in manual calculation"
 
     'The precedent changes but nothing recalculates: the cached MtM is the
     'value the run used, so only the withdrawn fingerprint can show that
@@ -1261,6 +1263,7 @@ Private Sub CaseRecalculationError()
         Check errNumber = ERR_INJECTED_FAULT, "expected ERR_INJECTED_FAULT, got " & errNumber & ": " & errText
         Check ToDbl(mtmCell.Value, 0#) = 1000#, "the cached MtM changed although the recalculation failed"
         Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the failed recalculation"
+        CheckStatusCell "No results", "after the failed recalculation"
         CheckState xlCalculationManual, False, False
 
     'The next run recalculates, reads the new MtM and is current again.
@@ -1269,6 +1272,7 @@ Private Sub CaseRecalculationError()
         Check ToDbl(TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value, 0#) = 2000#, _
               "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value & ", expected 2000"
         Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after the follow-up run"
         CheckState xlCalculationManual, False, False
         RestoreCell mtmCell, savedMtm
         RestoreCell noteCell, savedNote

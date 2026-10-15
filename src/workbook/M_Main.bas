@@ -478,10 +478,13 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
     'Reached on success and, through Failed, after an error. The operation
     'handler is switched off first so that a reporting error cannot loop
-    'back into it.
+    'back into it. The status cell is recalculated first: the operation
+    'stored or withdrew the run fingerprint, and in manual calculation the
+    'cell would keep the value computed while the fingerprint was empty.
 CleanUp:
         On Error GoTo 0
         If stateCaptured Then
+            RefreshResultsStatus
             cleanupDetails = RestoreSettings(savedCalculation, savedEvents, savedScreen)
         End If
         mRunning = False
@@ -502,6 +505,34 @@ Failed:
         Resume CleanUp
 
 End Function
+
+
+Private Sub RefreshResultsStatus()
+'
+'==============================================================================
+'                             RefreshResultsStatus
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Recalculate the status formula on Results after an operation has
+'   stored or withdrawn the run fingerprint. In manual calculation Excel
+'   would otherwise keep the value computed during the recalculation
+'   before the run, when the fingerprint had already been withdrawn
+'   (#204), and show "No results" after a completed run.
+'
+' ERROR POLICY
+'   Best effort: a status that cannot be recalculated here is refreshed by
+'   the next recalculation, and the outcome of the operation is unchanged.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+        On Error GoTo Failed
+        GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
+
+Failed:
+
+End Sub
 
 
 Private Sub ClearAllOutputs()
