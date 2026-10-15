@@ -347,6 +347,13 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The workbook's README sheet describes the current behaviour: per-regime
+  TOTAL rows, CRR and BCBS IR bucket boundaries, the MPOR floors by clearing
+  role and the user-declared large-or-illiquid flag, collateral C for
+  unmargined and margined sets, the rejection of BCBS OT trades, the FX
+  notional leg, economic-trade legs, the actual SACCR_* argument names,
+  digital options as not supported, and the supported platforms.
+
 - Results totals are per regime (#198). The single `TOTAL` row added the
   EADs of CRR and BCBS netting sets together, which in the demonstration
   portfolio counted Example 5 twice, and did not say that withheld netting
