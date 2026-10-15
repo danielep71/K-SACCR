@@ -79,6 +79,9 @@ Attribute VB_Name = "M_Main"
         Private Const OP_VALIDATE   As Long = 2    'Validate only
         Private Const OP_CLEAR      As Long = 3    'Clear every output sheet
 
+    'Title of every message box: the project name.
+        Private Const MSG_TITLE     As String = "K-SACCR"
+
 '------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
@@ -992,7 +995,7 @@ Private Sub ReportFailure( _
         Else
             msg = "Unexpected error " & errNumber & ": " & errDescription
         End If
-        MsgBox msg, vbCritical, "SA-CCR"
+        MsgBox msg, vbCritical, MSG_TITLE
 
 End Sub
 
@@ -1117,7 +1120,7 @@ Private Sub Notify( _
                 Debug.Print msg
             End If
         Else
-            MsgBox msg, style, "SA-CCR"
+            MsgBox msg, style, MSG_TITLE
         End If
 
 End Sub
