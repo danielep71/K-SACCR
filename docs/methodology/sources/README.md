@@ -1,6 +1,6 @@
 # 📚 Regulatory sources
 
-Copies of the official texts SACCR's methodology was checked against, so that
+Copies of the official texts K-SACCR's methodology was checked against, so that
 anyone can verify a citation without searching for the right version. They are
 the public versions published by the EU and the Basel Committee; the
 [source register](../README.md#source-register) says which rules rely on which

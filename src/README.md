@@ -1,7 +1,7 @@
 # 🧩 Production Source
 
 `src/` holds the production VBA source and the macro-free workbook template:
-the only inputs from which the SACCR workbook is built. Layout, visibility and
+the only inputs from which the K-SACCR workbook is built. Layout, visibility and
 dependency rules are defined in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md).
 

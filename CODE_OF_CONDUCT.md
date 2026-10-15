@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧭 SACCR Code of Conduct
+# 🧭 K-SACCR Code of Conduct
 
 ### Counterparty credit risk under SA-CCR, built in Excel/VBA
 
@@ -86,7 +86,7 @@ Disagreement is allowed. Abuse is not.
 
 ## 🔐 Data, privacy and confidentiality
 
-SACCR computes exposure for derivative portfolios, so real inputs are almost
+K-SACCR computes exposure for derivative portfolios, so real inputs are almost
 always confidential. Do not upload such material to support a discussion or
 contribution, including:
 
@@ -186,7 +186,7 @@ argument without new evidence is not constructive.
 
 ## 🙏 Project scale and response expectations
 
-SACCR is maintained by one person. Response times are best-effort. Complex
+K-SACCR is maintained by one person. Response times are best-effort. Complex
 matters may require a particular Office/Windows environment or manual
 validation. Reasonable delay is not dismissal, and demands for immediate action
 do not replace evidence.

@@ -2,7 +2,7 @@
 
 # 📦 Installation and Developer Setup
 
-### Set up, validate, and later import SACCR into Excel
+### Set up, validate, and later import K-SACCR into Excel
 
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=flat-square)](#current-status)
 [![Checks](https://img.shields.io/badge/Checks-python_tools%2Fcheck.py-0969da?style=flat-square)](#run-the-checks)
