@@ -561,6 +561,12 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- `TEST_InputValidation` also runs the small-price option with an Accounting
+  number format, next to General and Currency, and checks that the Currency
+  and Accounting formats make `Range.Value` return the Currency type, so the
+  cases exercise the rounding that `.Value2` avoids (#196; 133 cases,
+  209 checks).
+
 - The run summary in Results C4 is no longer written under a blanket
   `On Error Resume Next` (#60). An error while composing it could leave C4
   empty or showing part of a line; such a summary is now replaced by
