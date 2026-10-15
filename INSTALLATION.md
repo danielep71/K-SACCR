@@ -490,15 +490,17 @@ netting-set figures with Results (#45). Eleven cases call
 relative tolerances, the amount scale, the multiplier (not scaled, relative
 tolerance only), a bank figure of zero, a netting set missing on either side,
 an ID listed twice, another regime, a withheld netting set, unusable bank rows
-and figures, IDs in another case, TOTAL rows, the settings, the headers and
-the summary line. The last case runs the macros on the workbook's own
+and figures, IDs in another case, TOTAL rows (and a netting set named
+`TOTAL DESK`, which is not one), the settings, the headers and the summary
+line. The last case runs the macros on the workbook's own
 portfolio: with no bank figures there is no reconciliation; with figures taken
 from Results the Reconciliation sheet shows `MATCH`, `DIFFERENCE`,
 `MISSING IN CALCULATOR` and `NOT IN BANK FILE`, and its status is current; an
-edited bank figure makes it `OUT OF DATE`, and validation withdraws it. The
+edited bank figure makes it `OUT OF DATE`, and a run whose recalculation
+does not finish, like validation, withdraws it. The
 BankNettingSets table and settings are put back. Run
 `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=12; checks=68; failures=0`.
+`RESULT=PASS; cases=12; checks=71; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; cleanup=PASS`

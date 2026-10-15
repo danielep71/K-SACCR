@@ -58,7 +58,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 12              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 68              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 71              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -489,7 +489,8 @@ Private Sub CaseIdsAndTotals()
 '==============================================================================
 ' PURPOSE
 '   IDs match regardless of case and surrounding spaces; the TOTAL rows of
-'   Results are not netting sets; an empty bank file has no rows.
+'   Results are not netting sets, but a netting set whose ID only starts
+'   with TOTAL is; an empty bank file has no rows.
 '==============================================================================
 '
 
@@ -505,15 +506,18 @@ Private Sub CaseIdsAndTotals()
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "compare.ids-and-totals"
-        bank = NewBlock(1, BN_NCOLS)
+        bank = NewBlock(2, BN_NCOLS)
         SetBankRow bank, 1, " ns1 ", "crr", 100
-        calc = NewBlock(3, RS_NCOLS)
+        SetBankRow bank, 2, "TOTAL DESK", "CRR", 50
+        calc = NewBlock(4, RS_NCOLS)
         SetCalcRow calc, 1, "NS1", "CRR", "VALID", 100, 0, 0, 0
-        SetCalcRow calc, 2, "TOTAL CRR", "CRR", "1 of 1 netting set(s) VALID", 100, 0, 0, Empty
-        SetCalcRow calc, 3, "TOTAL BCBS", "BCBS", "0 of 0", 0, 0, 0, Empty
+        SetCalcRow calc, 2, "TOTAL DESK", "CRR", "VALID", 50, 0, 0, 0
+        SetCalcRow calc, 3, "TOTAL CRR", "CRR", "2 of 2 netting set(s) VALID", 150, 0, 0, Empty
+        SetCalcRow calc, 4, "TOTAL BCBS", "BCBS", "0 of 0", 0, 0, 0, Empty
         found = Compare(bank, calc, 1#, 0#, 0#)
         CheckText "ID and regime in another case", ResultOf(found, "NS1", "EAD"), RES_MATCH
-        Check RowCount(found) = 1, "TOTAL rows reported: " & RowCount(found)
+        CheckText "netting set named TOTAL DESK", ResultOf(found, "TOTAL DESK", "EAD"), RES_MATCH
+        Check RowCount(found) = 2, "TOTAL rows reported: " & RowCount(found)
         bank = NewBlock(2, BN_NCOLS)
         bank(2, BN_COMMENT) = "comment"
         Check Not CORE_Reconcile.HasBankRows(bank), "a table with a comment only has bank rows"
@@ -623,8 +627,9 @@ Private Sub CaseWorkbook()
 '   In the workbook: a run with no bank figures makes no reconciliation; a
 '   run with figures taken from Results writes MATCH, DIFFERENCE, MISSING
 '   IN CALCULATOR and NOT IN BANK FILE rows, its summary and a current
-'   status; an edited bank figure makes the status OUT OF DATE; validation
-'   withdraws the reconciliation. The bank table and settings are put back.
+'   status; an edited bank figure makes the status OUT OF DATE; a run whose
+'   recalculation does not finish and validation each withdraw the
+'   reconciliation. The bank table and settings are put back.
 '
 ' UPDATED
 '   2026-10-15
@@ -709,10 +714,21 @@ Private Sub CaseWorkbook()
         CheckStatus wsRecon, "Reconciliation current", "after the run"
 
 '------------------------------------------------------------------------------
-' EDITED BANK FIGURE, THEN VALIDATION
+' EDITED BANK FIGURE, STOPPED RUN, THEN VALIDATION
 '------------------------------------------------------------------------------
+    'A run that stops in its recalculation raises in silent mode; the
+    'reconciliation must be gone all the same.
         TableCell(wsBank, firstRow + 1, BN_EAD).Value = 2000
         CheckStatus wsRecon, "OUT OF DATE", "after a bank figure was edited"
+        M_Main.gTestFault = "recalc"
+        On Error Resume Next
+        result = M_Main.RunSACCR_Silent()
+        Err.Clear
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check RowCount(ReconciliationRows(wsRecon)) = 0, "rows left after a run whose recalculation did not finish"
+        result = M_Main.RunSACCR_Silent()
+        Check RowCount(ReconciliationRows(wsRecon)) > 0, "no rows after a new run: " & result
         M_Main.ValidateInputs
         Check RowCount(ReconciliationRows(wsRecon)) = 0, "rows left after validation"
         CheckStatus wsRecon, "No reconciliation", "after validation"
@@ -727,6 +743,7 @@ Private Sub CaseWorkbook()
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
         RestoreBank wsBank, firstRow, saved, savedSet
 
 End Sub
@@ -996,7 +1013,8 @@ Private Function CountTotals( _
 ' COUNT
 '------------------------------------------------------------------------------
         For r = FIRST_DATA_ROW To LastDataRow(wsResults, FIRST_DATA_ROW, RS_ID)
-            If Left$(UTxt(TableCell(wsResults, r, RS_ID).Value), 5) = "TOTAL" Then
+            If UTxt(TableCell(wsResults, r, RS_ID).Value) = "TOTAL " & RG_CRR Or _
+               UTxt(TableCell(wsResults, r, RS_ID).Value) = "TOTAL " & RG_BCBS Then
                 CountTotals = CountTotals + 1
             End If
         Next r

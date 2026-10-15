@@ -289,7 +289,7 @@ Attribute VB_Name = "CORE_Config"
     'the add-on of asset class a is in column RS_ADDON_IR + a - 1. A
     'margined netting set shows its margined RC, add-ons, multiplier and
     'PFE, and the EAD after the cap.
-        Public Const RS_ID          As Long = 1     'NettingSetID; TOTAL rows start with "TOTAL"
+        Public Const RS_ID          As Long = 1     'NettingSetID, or TOTAL CRR / TOTAL BCBS
         Public Const RS_REGIME      As Long = 3     'BCBS or CRR
         Public Const RS_RC          As Long = 9     'Replacement cost
         Public Const RS_ADDON_IR    As Long = 10    'Interest-rate add-on; FX to OT follow

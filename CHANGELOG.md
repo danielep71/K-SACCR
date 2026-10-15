@@ -116,7 +116,7 @@ Use only the categories needed by a release.
   reconciliation, and a workbook without the two sheets still runs. The
   comparison is in the new module `CORE_Reconcile`, which reads no sheet; the
   run's result line gains `reconciliation=`. The new suite `TEST_Reconcile`
-  (12 cases, 68 checks) covers every result with synthetic figures and the
+  (12 cases, 71 checks) covers every result with synthetic figures and the
   sheets on the demonstration portfolio; `Test_RunAll` runs eight suites.
 
 - A source round trip (#34): `tools/Export-SACCR-VBA.ps1` exports every VBA

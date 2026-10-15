@@ -917,6 +917,23 @@ Private Function ExecuteOperation( _
         Application.Calculation = xlCalculationManual
 
 '------------------------------------------------------------------------------
+' WITHDRAW THE RECONCILIATION
+'------------------------------------------------------------------------------
+    'Every operation first withdraws the reconciliation (#45), before
+    'anything that can stop it, the recalculation included; only a run
+    'that completes makes a new one.
+        mReconState = "NONE"
+        mReconLine = ""
+        Select Case operation
+            Case OP_RUN
+                ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
+            Case OP_VALIDATE
+                ClearReconciliation "Outputs cleared by validation: press Run SA-CCR to reconcile."
+            Case OP_CLEAR
+                ClearReconciliation "Outputs cleared " & Format$(Now, "yyyy-mm-dd hh:mm:ss")
+        End Select
+
+'------------------------------------------------------------------------------
 ' BRING FORMULA INPUTS UP TO DATE
 '------------------------------------------------------------------------------
     'In manual calculation a formula whose precedents changed since the last
@@ -948,18 +965,6 @@ Private Function ExecuteOperation( _
         If gTestFault = "operation" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected operation failure."
         End If
-    'Every operation first withdraws the reconciliation (#45); only a run
-    'that completes makes a new one.
-        mReconState = "NONE"
-        mReconLine = ""
-        Select Case operation
-            Case OP_RUN
-                ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
-            Case OP_VALIDATE
-                ClearReconciliation "Outputs cleared by validation: press Run SA-CCR to reconcile."
-            Case OP_CLEAR
-                ClearReconciliation "Outputs cleared " & Format$(Now, "yyyy-mm-dd hh:mm:ss")
-        End Select
         Select Case operation
             Case OP_RUN
                 ok = CORE_Engine.Calculate(True)

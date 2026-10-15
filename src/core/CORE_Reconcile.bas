@@ -818,13 +818,14 @@ Private Function IsTotalRow( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell whether a Results ID is a TOTAL row (#198), which is not a netting
-'   set.
+'   set: one of the IDs the engine reserves for them, so that a netting set
+'   such as TOTAL DESK is still compared.
 '
 ' UPDATED
 '   2026-10-15
 '==============================================================================
 '
-        IsTotalRow = (id = "TOTAL" Or Left$(id, 6) = "TOTAL ")
+        IsTotalRow = (id = "TOTAL" Or id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS)
 
 End Function
 
