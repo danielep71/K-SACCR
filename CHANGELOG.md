@@ -561,6 +561,14 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- A recalculation that raises an error before a run or validation no longer
+  leaves the previous results reported as current (#204). The stored input
+  fingerprint is now withdrawn before the recalculation starts, not only when
+  it does not finish, so a formula input still holding the value the last run
+  used cannot make old results look current. A completed run records its
+  fingerprint again; validation never kept one. `TEST_MainState` has a new
+  case, `run.recalculation-error` (27 cases).
+
 - The run summary in Results C4 is no longer written under a blanket
   `On Error Resume Next` (#60). An error while composing it could leave C4
   empty or showing part of a line; such a summary is now replaced by
