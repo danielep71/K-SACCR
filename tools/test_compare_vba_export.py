@@ -100,5 +100,24 @@ class CompareExportTests(unittest.TestCase):
         self.assertIn("Stray.bas: expected one Attribute VB_Name line, found 0", out)
 
 
+    def test_userform_export_header_is_parsed(self) -> None:
+        # A form export: VERSION 5.00, a title-case Begin ... End block with a
+        # nested block, then the attributes and the code.
+        raw = ("VERSION 5.00\r\n"
+               "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} UF_Picker \r\n"
+               "   Caption         =   \"Pick\"\r\n"
+               "   Begin {0BA686C6-F7D3-101A-993E-0000C0EF6F5E} Ctl \r\n"
+               "   End\r\n"
+               "End\r\n"
+               'Attribute VB_Name = "UF_Picker"\r\n'
+               "Attribute VB_GlobalNameSpace = False\r\n"
+               "Option Explicit\r\n").encode("cp1252")
+        component = tool.parse(raw, "UF_Picker.frm")
+        self.assertEqual(component.name, "UF_Picker")
+        self.assertEqual(component.attributes,
+                         ('Attribute VB_Name = "UF_Picker"', "Attribute VB_GlobalNameSpace = False"))
+        self.assertEqual(component.body, ("Option Explicit",))
+
+
 if __name__ == "__main__":
     unittest.main()

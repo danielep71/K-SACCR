@@ -28,9 +28,11 @@ TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 VBA_ENCODING = "cp1252"
 SUFFIXES = (".bas", ".cls", ".frm")
 VB_NAME = re.compile(r'^Attribute VB_Name = "([^"]+)"$')
-# Lines the VBE writes before the code of a class or form: the VERSION line,
-# the BEGIN ... END property block and the Attribute lines.
-CLASS_HEADER = re.compile(r"^(VERSION \d+\.\d+ CLASS|BEGIN|END|\s+\S.*)$")
+# Lines the VBE writes before the code of a class or form: the VERSION line
+# ("VERSION 1.0 CLASS" for a class, "VERSION 5.00" for a form), the
+# BEGIN ... END property block (title case and nested in a form) and the
+# Attribute lines.
+CLASS_HEADER = re.compile(r"^(VERSION \d+\.\d+( CLASS)?|(?i:begin)(\s.*)?|(?i:end)|\s+\S.*)$")
 
 
 @dataclass(frozen=True)
