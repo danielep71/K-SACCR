@@ -49,9 +49,10 @@ Attribute VB_Name = "CORE_Engine"
 '   None outside this VBA project. Calculate, the run counters (with the
 '   per-regime totals TotalEAD, RegimeSetCount, RegimeValidCount,
 '   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
-'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs) are
-'   Public for M_Main; Option Private Module keeps them off the supported
-'   external surface.
+'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs, and
+'   BlockText, which M_Main also uses for the reconciliation fingerprint)
+'   are Public for M_Main; Option Private Module keeps them off the
+'   supported external surface.
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
@@ -82,7 +83,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -4767,7 +4768,7 @@ Private Function ParamsText() As String
 End Function
 
 
-Private Function BlockText( _
+Public Function BlockText( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
     ByVal nCols As Long, _
@@ -4782,14 +4783,15 @@ Private Function BlockText( _
 '   Write a block of cells as one text, cell by cell (CellToken), from
 '   firstRow to the last row with a value. Blank rows below it are left
 '   out, so that a used range that grew without new values does not
-'   change the text.
+'   change the text. Public for M_Main, which fingerprints the bank
+'   figures with it (#45).
 '
 ' INPUTS
 '   firstCol: the block's first table column, as TableCell counts it.
 '   lastRow: the last row to read; 0 for the last used row.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '==============================================================================
 '
 

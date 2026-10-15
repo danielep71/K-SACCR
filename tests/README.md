@@ -5,7 +5,7 @@
 
 | Location | Contents | Defined in |
 | --- | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants` and `TEST_Aggregation` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all | #7 |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants`, `TEST_Aggregation` and `TEST_Reconcile` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all | #7 |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 | `expected/` | Expected values per regime, each with its reference class and source | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
 
@@ -14,9 +14,10 @@ points of the single suites are `TEST_Harness.RunTests`,
 `TEST_Formulas.RunFormulaTests`,
 `TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
 `TEST_InputValidation.RunInputValidationTests`,
-`TEST_Invariants.RunInvariantTests` and
-`TEST_Aggregation.RunAggregationTests`; the last four need
-`TEST_CaseRunner`. How to run them and what a passing log looks like is in
+`TEST_Invariants.RunInvariantTests`,
+`TEST_Aggregation.RunAggregationTests` and
+`TEST_Reconcile.RunReconcileTests`; `TEST_Cases`, `TEST_InputValidation`,
+`TEST_Invariants` and `TEST_Aggregation` need `TEST_CaseRunner`. How to run them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
 
 Rules:
