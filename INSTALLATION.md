@@ -286,7 +286,11 @@ and Results C4 says the summary is unavailable (#60). In manual calculation it m
 MtM a formula on its Comment cell, changes the Comment without recalculating,
 and checks that the run uses the new MtM; a recalculation that does not
 finish stops the run and the previous results are no longer reported as
-current (#195). Unlike the
+current (#195). The same holds when the recalculation raises an error: the
+case runs, changes the Comment without recalculating, injects an error where
+the recalculation starts, and checks that the injected error is raised, the
+earlier results are not reported as current, and the next run reads the new
+MtM (#204). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -307,8 +311,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty-six `CASE=` lines and ends with
-`RESULT=PASS; cases=26; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-seven `CASE=` lines and ends with
+`RESULT=PASS; cases=27; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 
