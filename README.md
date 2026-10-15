@@ -176,8 +176,11 @@ or later and no packages.
 1. Open `src/workbook/SACCR_Template.xlsx` and save it as an **Excel
    Macro-Enabled Workbook (`.xlsm`)** outside the checkout.
 2. In Excel, enable **Trust access to the VBA project object model**.
-3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It imports
-   every module from `src/` and `tests/modules/`.
+3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It asks
+   which workbook to build: **P**roduction, the engine and the sheet macros
+   from `src/`, or **D**evelopment, which adds the test modules of
+   `tests/modules/` that [section 4](#4-test-development-workbook) needs. The
+   tests write to the input and output sheets: never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
