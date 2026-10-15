@@ -98,6 +98,18 @@ Use only the categories needed by a release.
 
 ### Added
 
+- A one-page SA-CCR EAD reference card, `docs/assets/SACCR_EAD_reference.svg`:
+  netting-set exposure, trade-level inputs, asset-class parameters,
+  aggregation and the points where CRR and Basel differ. The README shows it
+  under "Methodology at a glance", and the workbook's README sheet links to it
+  from the Methodology heading (D23); the methodology remains authoritative.
+
+- An advisory project-wide VBA call checker, `tools/check_vba_calls.py`,
+  vendored from VBA-DATETIMEPICKER (#60). It resolves 701 calls in the
+  production modules and 2,839 in the development workbook with no
+  findings. It runs as a non-blocking step of the static workflow, and its
+  limits are listed in `tools/README.md`.
+
 - `TEST_Suite.Test_RunAll` runs every test suite in turn and prints only a
   summary: one line per suite with its verdict, counts and duration, the
   failure lines of a suite that failed, and a final RESULT line. The suites
@@ -335,6 +347,18 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The methodology support matrix documents the Results statuses (`VALID`,
+  `INVALID`, `INCOMPLETE`, `NO TRADES`) and the per-regime totals: which
+  netting sets and columns they sum, how the coverage in their status is
+  counted, and why there is no total across regimes (#198).
+
+- The workbook's README sheet describes the current behaviour: per-regime
+  TOTAL rows, CRR and BCBS IR bucket boundaries, the MPOR floors by clearing
+  role and the user-declared large-or-illiquid flag, collateral C for
+  unmargined and margined sets, the rejection of BCBS OT trades, the FX
+  notional leg, economic-trade legs, the actual SACCR_* argument names,
+  digital options as not supported, and the supported platforms.
+
 - Results totals are per regime (#198). The single `TOTAL` row added the
   EADs of CRR and BCBS netting sets together, which in the demonstration
   portfolio counted Example 5 twice, and did not say that withheld netting
@@ -542,6 +566,29 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- A recalculation that raises an error before a run or validation no longer
+  leaves the previous results reported as current (#204). The stored input
+  fingerprint is now withdrawn before the recalculation starts, not only when
+  it does not finish, so a formula input still holding the value the last run
+  used cannot make old results look current. A completed run records its
+  fingerprint again; validation never kept one. Every operation then
+  recalculates the status cell on Results, so in manual calculation it shows
+  the outcome instead of the value computed before the run. `TEST_MainState`
+  has a new case, `run.recalculation-error` (27 cases).
+
+- `TEST_InputValidation` also runs the small-price option with an Accounting
+  number format, next to General and Currency, and checks that the Currency
+  and Accounting formats make `Range.Value` return the Currency type, so the
+  cases exercise the rounding that `.Value2` avoids (#196; 133 cases,
+  209 checks).
+
+- The run summary in Results C4 is no longer written under a blanket
+  `On Error Resume Next` (#60). An error while composing it could leave C4
+  empty or showing part of a line; such a summary is now replaced by
+  "run summary unavailable" with the error, and the run's outcome is
+  unchanged. Only the write to C4 still ignores errors, so a protected
+  Results sheet keeps its earlier summary as before. `TEST_MainState`
+  covers it.
 - An FX option must be entered in market quote order (#40). Its delta is
   computed on the price and strike as entered, and a call on EUR/USD and
   the economically identical put on USD/EUR give different deltas, so
@@ -861,7 +908,7 @@ Use only the categories needed by a release.
   Excel.
 - Excel evidence is manual and covers one 64-bit host; 32-bit is untested.
 - Digital options are not supported under either regime (#120, planned for
-  v1.1.0). Option legs of one economic trade are calculated as an ordinary
+  v1.4.0). Option legs of one economic trade are calculated as an ordinary
   option combination: neither the CRR payoff-sized collar nor the BCBS cap
   of the effective notional is applied.
 

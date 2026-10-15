@@ -12,10 +12,11 @@ Attribute VB_Name = "TEST_MainState"
 '   changes (issue #36), also on Params after its tables have moved
 '   (issue #152), when a number becomes the same digits as text, a header
 '   is renamed or the date system changes, but not after a formatting
-'   change (issue #197); and that a run in manual calculation recalculates
+'   change (issue #197); that a run summary that cannot be composed does
+'   not fail the run (issue #60); and that a run in manual calculation recalculates
 '   its formula inputs before reading them, and stops without reporting
 '   old results as current when that recalculation does not finish (issue
-'   #195).
+'   #195) or raises an error (issue #204).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -52,7 +53,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -68,7 +69,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 25   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 27   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -143,6 +144,7 @@ Public Sub RunMainStateTests()
         CaseChecksUnwritable
         CaseOutputWriteFailure
         CaseOutputCleanupFailure
+        CaseRunInfoFailure
         CaseProtectedOutput SH_TRADECALC
         CaseProtectedOutput SH_BUCKETS
         CaseProtectedOutput SH_HEDGING
@@ -158,6 +160,7 @@ Public Sub RunMainStateTests()
         CaseStaleDateSystem
         CaseManualRecalculation
         CaseRecalculationPending
+        CaseRecalculationError
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -505,6 +508,63 @@ Private Sub CaseOutputWriteFailure()
 Unexpected:
         CORE_Engine.gEngineFault = ""
         Fail "run.output-write-failure", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseRunInfoFailure()
+'
+'==============================================================================
+'                              CaseRunInfoFailure
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A run summary that cannot be composed does not fail the run: the run
+'   completes, its results are CURRENT, and Results C4 says the summary is
+'   unavailable instead of being left empty or partial. The next run
+'   writes the full summary again (#60).
+'
+' UPDATED
+'   2026-10-14
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result    As String    'Result line of a run
+    Dim summary   As String    'Results C4
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.summary-unavailable"
+        SetState xlCalculationAutomatic, False, False
+        CORE_Engine.gEngineFault = "runinfo"
+        result = M_Main.RunSACCR_Silent()
+        CORE_Engine.gEngineFault = ""
+        Check Left$(result, 9) = "RESULT=OK", "run with a failed summary: " & result
+        Check M_Main.ResultsStatus() = "CURRENT", "results status: " & M_Main.ResultsStatus()
+        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check InStr(1, summary, "run summary unavailable", vbTextCompare) > 0 And _
+              InStr(1, summary, "Injected run-summary failure", vbTextCompare) > 0, _
+              "Results C4 does not say the summary is unavailable: " & summary
+        CheckState xlCalculationAutomatic, False, False
+
+    'The next run writes the full summary again.
+        result = M_Main.RunSACCR_Silent()
+        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Check InStr(1, summary, " | inputs ", vbBinaryCompare) > 0, "follow-up summary: " & summary
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        CORE_Engine.gEngineFault = ""
+        Fail "run.summary-unavailable", "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1134,6 +1194,98 @@ Private Sub CaseRecalculationPending()
 Unexpected:
         M_Main.gTestFault = ""
         Fail "run.recalculation-pending", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseRecalculationError()
+'
+'==============================================================================
+'                            CaseRecalculationError
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When the recalculation before a run raises an error (#204), simulated
+'   through gTestFault = "recalc-error", the previous results are no longer
+'   reported as current, even though a formula input still holds the value
+'   the last run used. The first trade's MtM becomes a formula on its own
+'   Comment cell, as in CaseManualRecalculation; after a run in manual
+'   calculation the Comment changes without a recalculation, so the cached
+'   MtM still equals the one the run fingerprinted. The stopped run must
+'   raise the injected error itself, restore Excel, and leave the next run
+'   working. The status cell on Results must follow each step although
+'   calculation stays manual.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result      As String     'Result line of a run
+    Dim errNumber   As Long       'Error raised by the stopped run
+    Dim errText     As String     'Its description
+    Dim mtmCell     As Range      'MtM of the first trade, made a formula
+    Dim noteCell    As Range      'Comment of the first trade, its precedent
+    Dim savedMtm    As Variant    'Formula of mtmCell before the case
+    Dim savedNote   As Variant    'Formula of noteCell before the case
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "run.recalculation-error"
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        Set noteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
+        savedMtm = mtmCell.Formula
+        savedNote = noteCell.Formula
+        SetState xlCalculationManual, False, False
+        noteCell.Value = 1000
+        mtmCell.Formula = "=" & noteCell.Address(False, False)
+        result = M_Main.RunSACCR_Silent()
+        Check Left$(result, 9) = "RESULT=OK", "set-up run: " & result
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after a run in manual calculation"
+
+    'The precedent changes but nothing recalculates: the cached MtM is the
+    'value the run used, so only the withdrawn fingerprint can show that
+    'the results may be out of date.
+        noteCell.Value = 2000
+        Check ToDbl(mtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated too early"
+        M_Main.gTestFault = "recalc-error"
+        On Error Resume Next
+        result = M_Main.RunSACCR_Silent()
+        errNumber = Err.Number
+        errText = Err.Description
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check errNumber = ERR_INJECTED_FAULT, "expected ERR_INJECTED_FAULT, got " & errNumber & ": " & errText
+        Check ToDbl(mtmCell.Value, 0#) = 1000#, "the cached MtM changed although the recalculation failed"
+        Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the failed recalculation"
+        CheckStatusCell "No results", "after the failed recalculation"
+        CheckState xlCalculationManual, False, False
+
+    'The next run recalculates, reads the new MtM and is current again.
+        result = M_Main.RunSACCR_Silent()
+        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value, 0#) = 2000#, _
+              "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value & ", expected 2000"
+        Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
+        CheckStatusCell "Results current", "after the follow-up run"
+        CheckState xlCalculationManual, False, False
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail "run.recalculation-error", "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell mtmCell, savedMtm
+        RestoreCell noteCell, savedNote
 
 End Sub
 

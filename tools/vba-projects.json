@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "description": "VBA project configurations analyzed by check_vba_calls.py. Each configuration is one VBA project that can exist in a real workbook; modules from different configurations are never combined.",
+  "project_name_patterns": [
+    "^CORE_",
+    "^SACCR_",
+    "^M_",
+    "^TEST_"
+  ],
+  "macro_name_functions": [],
+  "document_modules": [
+    "src/workbook/ThisWorkbook.cls",
+    "src/workbook/shBaselVsCRR.cls",
+    "src/workbook/shBuckets.cls",
+    "src/workbook/shChecks.cls",
+    "src/workbook/shHedgingSets.cls",
+    "src/workbook/shNettingSets.cls",
+    "src/workbook/shParams.cls",
+    "src/workbook/shReadme.cls",
+    "src/workbook/shResults.cls",
+    "src/workbook/shTestCatalogue.cls",
+    "src/workbook/shTests.cls",
+    "src/workbook/shTradeCalc.cls",
+    "src/workbook/shTrades.cls"
+  ],
+  "configurations": {
+    "production": {
+      "description": "The production modules of a workbook built from the template: the engine, the worksheet functions and the sheet-button macros.",
+      "gating": true,
+      "modules": [
+        "src/core/CORE_Config.bas",
+        "src/core/CORE_Engine.bas",
+        "src/core/CORE_Util.bas",
+        "src/modules/SACCR_Formulas.bas",
+        "src/workbook/M_Main.bas"
+      ]
+    },
+    "development": {
+      "description": "The development workbook of INSTALLATION.md: the production modules and every test module.",
+      "gating": true,
+      "modules": [
+        "src/core/CORE_Config.bas",
+        "src/core/CORE_Engine.bas",
+        "src/core/CORE_Util.bas",
+        "src/modules/SACCR_Formulas.bas",
+        "src/workbook/M_Main.bas",
+        "tests/modules/TEST_Aggregation.bas",
+        "tests/modules/TEST_CaseRunner.bas",
+        "tests/modules/TEST_Cases.bas",
+        "tests/modules/TEST_Formulas.bas",
+        "tests/modules/TEST_Harness.bas",
+        "tests/modules/TEST_InputValidation.bas",
+        "tests/modules/TEST_Invariants.bas",
+        "tests/modules/TEST_MainState.bas",
+        "tests/modules/TEST_Suite.bas"
+      ]
+    }
+  }
+}

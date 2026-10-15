@@ -98,6 +98,23 @@ only produce one:
 - every rule is traced to its CRR article and CRE52 paragraph in the
   [methodology](docs/methodology/README.md#traceability).
 
+<a id="methodology-at-a-glance"></a>
+
+### Methodology at a glance
+
+The reference card below collects the formulas and supervisory parameters on
+one page, with the points where CRR and Basel differ. Select it to open the
+full-size SVG; the [methodology](docs/methodology/README.md) remains the
+authoritative description.
+
+<p align="center">
+  <a href="docs/assets/SACCR_EAD_reference.svg">
+    <img width="100%"
+         alt="SA-CCR EAD calculation reference: netting-set exposure, trade-level inputs, asset-class parameters, aggregation, and CRR versus Basel differences"
+         src="docs/assets/SACCR_EAD_reference.svg">
+  </a>
+</p>
+
 ---
 
 ## ⭐ Why use it
@@ -410,14 +427,20 @@ The full list is in the
 
 | Milestone | Scope |
 | --- | --- |
-| v1.0.0 | First release: the current engine with its evidence |
-| v1.1.0 | Digital options (#120) |
-| v1.2.0 | Simplified SA-CCR (#107) |
-| v1.3.0 | Original exposure method (#111) |
-| v1.4.0 | CCP default-fund exposures (#112) |
-| v1.5.0 | Securities financing transactions (#113) |
-| v1.6.0 | CVA (#114) |
-| v1.7.0 | Risk-weighted assets (#115) |
+| v1.0.0 | First supported Excel release: the current engine with its evidence |
+| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#212) |
+| v1.2.0 | Excel Ribbon interface (#213–#218) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100), randomised FormulaTest inputs (#165) |
+| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157) |
+| v1.5.0 | Simplified SA-CCR (#107) |
+| v1.6.0 | Original exposure method (#111) |
+| v1.7.0 | CCP exposures and default funds (#112) |
+| v1.8.0 | Securities financing transactions (#113) |
+| v1.9.0 | Regulatory CVA risk (#114) |
+| v1.10.0 | Risk-weighted assets and capital (#115) |
+
+The [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones)
+hold the current scope of each release.
 
 ---
 

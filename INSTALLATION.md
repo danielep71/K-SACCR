@@ -281,11 +281,16 @@ case deletes again (#152). It also checks that the results are out of date
 after the first trade's MtM becomes the same digits as text, after a header
 on Trades or NettingSets is renamed, and after the workbook is switched to the
 other date system, and that a number format, a bold header or a header
-changed only in case and spacing leaves them current (#197). In manual calculation it makes the first trade's
+changed only in case and spacing leaves them current (#197). A run whose summary cannot be composed still completes,
+and Results C4 says the summary is unavailable (#60). In manual calculation it makes the first trade's
 MtM a formula on its Comment cell, changes the Comment without recalculating,
 and checks that the run uses the new MtM; a recalculation that does not
 finish stops the run and the previous results are no longer reported as
-current (#195). Unlike the
+current (#195). The same holds when the recalculation raises an error: the
+case runs, changes the Comment without recalculating, injects an error where
+the recalculation starts, and checks that the injected error is raised, the
+earlier results are not reported as current, and the next run reads the new
+MtM (#204). Unlike the
 harness, it runs the real macros, which rewrite the output sheets, so use a
 development workbook. The seven protected-output scenarios cover each output
 alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
@@ -306,8 +311,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty-five `CASE=` lines and ends with
-`RESULT=PASS; cases=25; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-seven `CASE=` lines and ends with
+`RESULT=PASS; cases=27; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 
@@ -422,11 +427,12 @@ bucket boundaries in each regime with their effect on the add-on, and dates on t
 after its maturity, and enters FX pairs with an unknown currency, a notional
 outside the pair and the pair the other way round. It puts `#N/A` in each
 optional text field of a trade and in the netting-set and Params regime
-(#194), and formats an option price as Currency (#196). Every patched cell
+(#194), and formats an option price as Currency and as Accounting, checking
+that each format makes `Range.Value` return the Currency type (#196). Every patched cell
 and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=132; checks=205; failures=0; restore=PASS`.
+`RESULT=PASS; cases=133; checks=209; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
