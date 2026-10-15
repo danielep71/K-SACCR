@@ -347,6 +347,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The methodology support matrix documents the Results statuses (`VALID`,
+  `INVALID`, `INCOMPLETE`, `NO TRADES`) and the per-regime totals: which
+  netting sets and columns they sum, how the coverage in their status is
+  counted, and why there is no total across regimes (#198).
+
 - The workbook's README sheet describes the current behaviour: per-regime
   TOTAL rows, CRR and BCBS IR bucket boundaries, the MPOR floors by clearing
   role and the user-declared large-or-illiquid flag, collateral C for
