@@ -45,9 +45,10 @@ Attribute VB_Name = "M_Main"
 '   gTestFault = "operation" raises ERR_INJECTED_FAULT after the settings
 '   have been changed; gTestFault = "cleanup" makes the calculation-mode
 '   restoration fail; gTestFault = "recalc" takes the path of a
-'   recalculation that did not finish (#195).
-'   tests/modules/TEST_MainState.bas uses all three. Production code never
-'   sets it.
+'   recalculation that did not finish (#195); gTestFault = "recalc-error"
+'   raises ERR_INJECTED_FAULT where the recalculation starts, as an error
+'   thrown by it would (#204). tests/modules/TEST_MainState.bas uses all
+'   four. Production code never sets it.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -57,7 +58,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -87,7 +88,7 @@ Attribute VB_Name = "M_Main"
     'TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
     'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup" or "recalc"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc" or "recalc-error"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Private mRunning    As Boolean    'True while an operation is in progress
 
@@ -388,7 +389,7 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '==============================================================================
 '
 
@@ -437,14 +438,19 @@ Private Function ExecuteOperation( _
     'recalculation still holds its old result, and the engine would
     'calculate from it and fingerprint it as current. Calculate brings every
     'dirty cell up to date first; it refreshes no external data connection
-    '(#195). Clear outputs reads no input. If the recalculation does not
-    'finish, for example after Esc, the stored fingerprint is withdrawn
-    'first: a dirty input could still show the value the last run used,
-    'so its results must not be reported as current.
+    '(#195). Clear outputs reads no input. The stored fingerprint is
+    'withdrawn before the recalculation starts: if it does not finish, for
+    'example after Esc, or raises an error, a dirty input could still show
+    'the value the last run used, so the earlier results must not be
+    'reported as current (#204). A run that completes records its own
+    'fingerprint again; validation never keeps one.
         If operation <> OP_CLEAR Then
+            CORE_Engine.ForgetRunInputs
+            If gTestFault = "recalc-error" Then
+                Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected recalculation failure."
+            End If
             Application.Calculate
             If Application.CalculationState <> xlDone Or gTestFault = "recalc" Then
-                CORE_Engine.ForgetRunInputs
                 Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
                           "Excel did not finish recalculating the inputs, so the operation was not started " & _
                           "and the previous results are no longer reported as current."
@@ -472,10 +478,13 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
     'Reached on success and, through Failed, after an error. The operation
     'handler is switched off first so that a reporting error cannot loop
-    'back into it.
+    'back into it. The status cell is recalculated first: the operation
+    'stored or withdrew the run fingerprint, and in manual calculation the
+    'cell would keep the value computed while the fingerprint was empty.
 CleanUp:
         On Error GoTo 0
         If stateCaptured Then
+            RefreshResultsStatus
             cleanupDetails = RestoreSettings(savedCalculation, savedEvents, savedScreen)
         End If
         mRunning = False
@@ -496,6 +505,34 @@ Failed:
         Resume CleanUp
 
 End Function
+
+
+Private Sub RefreshResultsStatus()
+'
+'==============================================================================
+'                             RefreshResultsStatus
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Recalculate the status formula on Results after an operation has
+'   stored or withdrawn the run fingerprint. In manual calculation Excel
+'   would otherwise keep the value computed during the recalculation
+'   before the run, when the fingerprint had already been withdrawn
+'   (#204), and show "No results" after a completed run.
+'
+' ERROR POLICY
+'   Best effort: a status that cannot be recalculated here is refreshed by
+'   the next recalculation, and the outcome of the operation is unchanged.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+        On Error GoTo Failed
+        GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
+
+Failed:
+
+End Sub
 
 
 Private Sub ClearAllOutputs()
