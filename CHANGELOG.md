@@ -347,6 +347,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The workbook carries the project name K-SACCR: in B1 of every sheet,
+  formerly "SA-CCR Calculator", and as the title of its message boxes,
+  formerly "SA-CCR". The "Run SA-CCR" button keeps its name, which refers to
+  the method.
+
 - The methodology support matrix documents the Results statuses (`VALID`,
   `INVALID`, `INCOMPLETE`, `NO TRADES`) and the per-regime totals: which
   netting sets and columns they sum, how the coverage in their status is
