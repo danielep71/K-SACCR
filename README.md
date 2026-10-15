@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏦 SA-CCR Toolkit
+# 🏦 K-SACCR
 
 ### Independent SA-CCR exposure calculation and validation in Excel VBA
 
@@ -50,7 +50,7 @@
 
 <p align="center">
   <img width="100%"
-       alt="SA-CCR Toolkit: CRE99 Example 5 netting set, PFE multiplier, regime choice and the published regression cases"
+       alt="K-SACCR: CRE99 Example 5 netting set, PFE multiplier, regime choice and the published regression cases"
        src="docs/assets/SACCR_social_preview.png">
 </p>
 
@@ -81,7 +81,7 @@ EAD = alpha × (RC + PFE)         alpha = 1.4
 PFE = multiplier × AddOn_aggregate
 ```
 
-**SA-CCR Toolkit** is an independent Excel/VBA implementation for reproducing,
+**K-SACCR** is an independent Excel/VBA implementation for reproducing,
 testing and reconciling that calculation. You enter netting sets and trades;
 the engine maps each trade to its asset class, hedging set and bucket, computes
 every intermediate quantity, and writes the result per netting set with the

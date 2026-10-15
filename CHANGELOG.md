@@ -2,7 +2,7 @@
 
 # 📜 Changelog
 
-### Release history for SACCR counterparty credit risk in Excel/VBA
+### Release history for K-SACCR counterparty credit risk in Excel/VBA
 
 [![Format](https://img.shields.io/badge/Format-Keep_a_Changelog-0969da?style=flat-square)](https://keepachangelog.com/en/1.1.0/)
 [![Versioning](https://img.shields.io/badge/Versioning-SemVer-6f42c1?style=flat-square)](https://semver.org/spec/v2.0.0.html)
@@ -18,7 +18,7 @@
 
 ---
 
-All notable changes to **SACCR** are documented here.
+All notable changes to **K-SACCR** are documented here.
 
 This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). It records
@@ -235,7 +235,7 @@ Use only the categories needed by a release.
 - Root project documents in the same form as the other Excel/VBA repositories:
   [`CONTRIBUTING.md`](CONTRIBUTING.md), [`INSTALLATION.md`](INSTALLATION.md),
   [`SECURITY.md`](SECURITY.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and
-  [`RELEASING.md`](RELEASING.md), tailored to SACCR's pre-release state. The
+  [`RELEASING.md`](RELEASING.md), tailored to K-SACCR's pre-release state. The
   README now gives the project status, a getting-started path and a
   documentation map.
 - Repository structure for the **application** profile:
@@ -255,7 +255,7 @@ Use only the categories needed by a release.
   and export procedure.
 - Issue forms for bugs, features and documentation, and a pull-request
   template, in the style of the Excel VBA project template and adapted to
-  SACCR and its label catalogue. Forms set the assignee, type label and a
+  K-SACCR and its label catalogue. Forms set the assignee, type label and a
   default priority; bug and feature forms ask for the regime (CRR, Basel
   CRE52 or both), evidence and alternatives; the issue chooser links to
   installation help and the methodology; the PR template covers candidate
@@ -346,6 +346,11 @@ Use only the categories needed by a release.
   `TEST_Invariants` 4 cases and 23 checks.
 
 ### Changed
+
+- The project is named K-SACCR in the documentation, the reference card and
+  the social preview. The repository keeps its name, VBA-SACCR-Toolkit, and
+  technical identifiers keep the `SACCR` prefix (`SACCR_*` functions,
+  `SACCR_Template.xlsx`, the sync scripts).
 
 - The methodology support matrix documents the Results statuses (`VALID`,
   `INVALID`, `INCOMPLETE`, `NO TRADES`) and the per-regime totals: which

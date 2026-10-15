@@ -1,5 +1,5 @@
 name: "🐛 Bug report"
-description: "Report reproducible incorrect behavior in SACCR source, tooling or documentation."
+description: "Report reproducible incorrect behavior in K-SACCR source, tooling or documentation."
 title: "[Bug]: "
 labels: ["bug", "P2"]
 assignees: ["danielep71"]

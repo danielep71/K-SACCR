@@ -1,4 +1,4 @@
-# SACCR tooling
+# K-SACCR tooling
 
 Requirements: Git and Python 3.10+ on PATH. `check.py` needs no Python packages
 and no Excel. Run from the repository root before every push:
@@ -129,13 +129,13 @@ object model** setting. The workbook VBA project must not be password-locked.
 
 `check_vba_jumps.py`, `check_vba_conditionals.py` and `check_vba_public_api.py`
 come from EXCEL-VBA-PROJECT-TEMPLATE at commit
-`b903fe44ef6a032c4689870b83745afa1c22490d`. SACCR now evaluates jumps per reachable compilation environment and checks
+`b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR now evaluates jumps per reachable compilation environment and checks
 `PtrSafe` in the declaration modifier position. The
 public-API checker takes each component's role from its folder, as defined in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md): `src/modules/`
 is public; the other `src/` folders are internal; `tests/` and `examples/` are
 test and example. The template instead reads a component registry from
-`.github/repository-profile.json`, which SACCR does not use. `test_tooling.py`
+`.github/repository-profile.json`, which K-SACCR does not use. `test_tooling.py`
 adds fixtures for that role mapping. `test_review_regressions.py` covers the
 post-merge findings, including colon-separated public declarations.
 
@@ -172,7 +172,7 @@ Anything else is reported as *unknown*, never as a defect.
 | `development` | Those plus the nine test modules, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
-`document_modules` and are not analysed. This key is a SACCR addition.
+`document_modules` and are not analysed. This key is a K-SACCR addition.
 
 **Evidence at adoption** (release head `275dff6`):
 
@@ -194,7 +194,7 @@ Three defects were planted in a scratch copy to test detection:
 - **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker. This produced 9 false findings in production and 21 in development, which is why they are excluded.
 - **Not checked:** dynamic call targets, `Object` and `Variant` receivers, and argument types.
 
-**SACCR changes to the vendored file.** Type annotations for `mypy --strict`
+**K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
 (no logic change), the Ribbon parser copied from that repository's
 `check_source.py`, and `document_modules`. Three upstream parser functions
 exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one

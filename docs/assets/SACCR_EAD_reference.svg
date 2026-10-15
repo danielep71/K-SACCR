@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1444" viewBox="0 0 1800 1444" role="img" aria-labelledby="t d">
-<title id="t">SA-CCR EAD calculation reference</title>
-<desc id="d">Formulas and supervisory parameters of the standardised approach for counterparty credit risk under Basel CRE52 and the EU CRR, as implemented in VBA-SACCR-Toolkit.</desc>
+<title id="t">K-SACCR | SA-CCR EAD calculation reference</title>
+<desc id="d">Formulas and supervisory parameters of the standardised approach for counterparty credit risk under Basel CRE52 and the EU CRR, as implemented in K-SACCR.</desc>
 <rect width="1800" height="1444" fill="#ffffff"/>
-<text x="900.0" y="58" font-family="Georgia, Times New Roman, serif" font-size="44" font-weight="bold" fill="#0f2a52" text-anchor="middle">SA-CCR | EAD calculation reference</text>
-<text x="900.0" y="94" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="21" font-weight="bold" fill="#1f4e8c" text-anchor="middle">Basel CRE52 and EU CRR (Art. 274–280f, 285) • formulas and parameters as implemented in VBA-SACCR-Toolkit</text>
+<text x="900.0" y="58" font-family="Georgia, Times New Roman, serif" font-size="44" font-weight="bold" fill="#0f2a52" text-anchor="middle">K-SACCR | SA-CCR EAD calculation reference</text>
+<text x="900.0" y="94" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="21" font-weight="bold" fill="#1f4e8c" text-anchor="middle">Basel CRE52 and EU CRR (Art. 274–280f, 285) • formulas and parameters as implemented in K-SACCR</text>
 <rect x="20" y="118" width="1760" height="218" fill="#fff" stroke="#1f4e8c" stroke-width="1.5" rx="6"/>
 <path d="M20,124 a6,6 0 0 1 6,-6 h1748 a6,6 0 0 1 6,6 v32 h-1760 z" fill="#1f4e8c"/>
 <rect x="20" y="118" width="58" height="38" fill="#0f2a52" stroke="#0f2a52" stroke-width="0" rx="0"/>

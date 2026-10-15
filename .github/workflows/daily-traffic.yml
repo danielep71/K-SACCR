@@ -658,7 +658,7 @@ jobs:
           # Built line by line: multi-line lists inside a dedented f-string
           # would defeat textwrap.dedent and indent most of the body.
           body = "\n".join([
-              "Automated traffic alert for **SACCR**.",
+              "Automated traffic alert for **K-SACCR**.",
               "",
               "Trigger reason:",
               ", ".join(reasons),

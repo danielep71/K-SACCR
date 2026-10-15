@@ -4,7 +4,7 @@
 [![Contracts: explicit](https://img.shields.io/badge/contracts-explicit-6f42c1)](#procedure-contracts)
 [![State: restored](https://img.shields.io/badge/Excel%20state-restored-0969da)](#operation-and-cleanup)
 
-This document is authoritative for **how SACCR's VBA is written**: naming,
+This document is authoritative for **how K-SACCR's VBA is written**: naming,
 contracts, errors, Excel-state handling and source presentation. Where a
 component lives is owned by
 [`REPOSITORY_STRUCTURE.md`](REPOSITORY_STRUCTURE.md); importing and exporting

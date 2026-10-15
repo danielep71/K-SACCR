@@ -15,12 +15,12 @@ how VBA is written by [`VBA_HOUSE_STYLE.md`](VBA_HOUSE_STYLE.md).
 
 ## 🧭 Profile decision
 
-**SACCR uses the `application` profile.** Decided by the owner on 2026-10-06
+**K-SACCR uses the `application` profile.** Decided by the owner on 2026-10-06
 in issue #3.
 
-| Question | Answer for SACCR |
+| Question | Answer for K-SACCR |
 | --- | --- |
-| Who calls it? | A user working in the SACCR workbook: entering trades and netting sets, running the calculation, reading results. |
+| Who calls it? | A user working in the K-SACCR workbook: entering trades and netting sets, running the calculation, reading results. |
 | What does it own? | The workbook: input and result sheets, the calculation engine and their startup and packaging. |
 | Lifecycle | The workbook is the deliverable; it is built from the exported source in this repository. |
 | Supported environments | Excel for Windows; see [supported hosts](../INSTALLATION.md#supported-hosts). |
