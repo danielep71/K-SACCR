@@ -4,7 +4,7 @@
 [![Binding: exact SHA](https://img.shields.io/badge/binding-exact%20SHA-217346)](#what-a-record-binds)
 [![Validator: offline](https://img.shields.io/badge/validator-offline-6f42c1)](#validating-a-bundle)
 
-This document defines how a run of SACCR in Excel is recorded so that it can be
+This document defines how a run of K-SACCR in Excel is recorded so that it can be
 tied to one exact commit and checked. It is authoritative for the **evidence
 record, the manual Windows/Excel procedure and the validator**. How to build the
 workbook is in [`INSTALLATION.md`](../INSTALLATION.md#importing-vba-into-excel);
@@ -261,7 +261,7 @@ unavailable records and
 the command-line exit codes. Those tests are not Excel evidence.
 
 The validator and policy are adapted from EXCEL-VBA-PROJECT-TEMPLATE at commit
-`b903fe44ef6a032c4689870b83745afa1c22490d`. SACCR keeps manual execution only,
+`b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR keeps manual execution only,
 derives the source inventory from the repository layout instead of a profile
 file, requires the default references, binds the harness `ENVIRONMENT` line
 (including a Windows host), and

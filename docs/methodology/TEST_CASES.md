@@ -1,6 +1,6 @@
 # 🧪 Numerical Test Cases
 
-This document defines how SACCR's numerical test cases are written: inputs,
+This document defines how K-SACCR's numerical test cases are written: inputs,
 units, expected results, their provenance, tolerances, case categories and when
 the suite counts as complete. Sources and rule IDs come from the
 [methodology](README.md).
@@ -203,10 +203,10 @@ evidence that the implementation is correct.
 | Class | Meaning | Required fields |
 | --- | --- | --- |
 | `published` | Printed in a source from the register, for example a worked example | `source`, exact `locator` (section, example, table) |
-| `independent` | Computed outside SACCR's code, by a separate method such as a reviewer's spreadsheet or script, from the cited rules | `source`, `locator`, `derivation`, `derived_by`, `reviewed_by` |
+| `independent` | Computed outside K-SACCR's code, by a separate method such as a reviewer's spreadsheet or script, from the cited rules | `source`, `locator`, `derivation`, `derived_by`, `reviewed_by` |
 | `illustrative` | Shows the format or a behaviour; not a validated SA-CCR figure | `derivation` saying why it exists |
 
-An `independent` value is never produced by running SACCR itself, and never
+An `independent` value is never produced by running K-SACCR itself, and never
 reviewed only by the person who wrote the code under test. Test output reports
 illustrative results separately and never as validation.
 
