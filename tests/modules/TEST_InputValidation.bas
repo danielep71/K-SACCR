@@ -50,8 +50,8 @@ Attribute VB_Name = "TEST_InputValidation"
 '   entered the other way round offsets the same pair entered in order.
 '   An Excel error value in an optional text field of a trade, in a
 '   netting set's regime or in the Params regime is an input error, not
-'   a blank that takes a default (#194), and a Currency number format
-'   does not round an input (#196). Results has one TOTAL row per regime,
+'   a blank that takes a default (#194), and a Currency or Accounting
+'   number format does not round an input (#196). Results has one TOTAL row per regime,
 '   after the netting sets, with the number of VALID and withheld netting
 '   sets it covers (#198).
 '
@@ -77,7 +77,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -93,8 +93,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 132               'Cases in a complete run
-        Private Const CHECKS      As Long = 205               'Checks in a complete run
+        Private Const CASES       As Long = 133               'Cases in a complete run
+        Private Const CHECKS      As Long = 209               'Checks in a complete run
 
 
 '
@@ -946,8 +946,11 @@ Public Sub RunInputValidationTests()
     'format, Range.Value rounds to four decimals. A one-year single-name
     'equity call, price 0.012345, strike 0.0123, volatility 120%, has delta
     'N(d1) = 0.72676 with d1 = (ln(P/K) + 0.5 x 1.2^2) / 1.2; read as
-    '0.0123 the price would give 0.72575. Both formats must give 0.72676.
-    'The cell formats are put back at the end of the case.
+    '0.0123 the price would give 0.72575. General, Currency and Accounting
+    'must all give 0.72676. The Currency and Accounting cases also check
+    'that Range.Value returns the VBA Currency type for the formatted cell,
+    'so that each is a format that would have rounded the input. The cell
+    'formats are put back at the end of each case.
         StartCase "number-format-general", "N"
         AddSmallOption
         ExpectStatus "VALID"
@@ -962,6 +965,20 @@ Public Sub RunInputValidationTests()
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
                                      "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectTrue "value-type", VarType(TableCell(GetSheet(SH_TRADES), r, TR_PRICE).Value) = vbCurrency, _
+                                   "the Currency format did not make Range.Value return Currency", "illustrative"
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
+
+        StartCase "number-format-accounting", "N"
+        AddSmallOption
+        r = TableFirstRow(SH_TRADES)
+        savedFormat = TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat
+        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* ""-""??_);_(@_)"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectTrue "value-type", VarType(TableCell(GetSheet(SH_TRADES), r, TR_PRICE).Value) = vbCurrency, _
+                                   "the Accounting format did not make Range.Value return Currency", "illustrative"
         TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
 
     'Totals per regime (#198): one TOTAL row for each regime with netting

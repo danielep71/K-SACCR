@@ -427,11 +427,12 @@ bucket boundaries in each regime with their effect on the add-on, and dates on t
 after its maturity, and enters FX pairs with an unknown currency, a notional
 outside the pair and the pair the other way round. It puts `#N/A` in each
 optional text field of a trade and in the netting-set and Params regime
-(#194), and formats an option price as Currency (#196). Every patched cell
+(#194), and formats an option price as Currency and as Accounting, checking
+that each format makes `Range.Value` return the Currency type (#196). Every patched cell
 and name, the number format and the date system are restored. It needs a workbook
 built from the template. Import it with `TEST_CaseRunner` and run
 `TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=132; checks=205; failures=0; restore=PASS`.
+`RESULT=PASS; cases=133; checks=209; failures=0; restore=PASS`.
 
 ### Aggregation tests
 
