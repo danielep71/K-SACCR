@@ -34,7 +34,10 @@ make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
 The script opens a built workbook read-only in Excel and exports every VBA
 component to a new folder; the comparison checks that folder against the
 source of one commit for a production or development workbook, and prints the
-template and workbook digests. Its tests run in `tool-tests`, without Excel.
+template and workbook digests. It ignores the letter case of code outside
+strings and comments, which the VBE re-cases on import, and the attributes of
+document modules, which Excel writes. Its tests run in `tool-tests`, without
+Excel.
 
 These are static checks only. None of them compiles VBA, opens Excel, runs a
 test harness or validates any SA-CCR number, and a pass is never evidence that

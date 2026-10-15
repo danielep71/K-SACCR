@@ -101,10 +101,13 @@ Use only the categories needed by a release.
 - A source round trip (#34): `tools/Export-SACCR-VBA.ps1` exports every VBA
   component of a built workbook, opened read-only, to a new folder, and
   `tools/compare_vba_export.py` checks the export against the source of one
-  commit for a production or development workbook: the same components, code,
-  identifier case and attributes, ignoring only line endings, trailing blank
-  lines and the class-file header block. It prints the template and workbook
-  digests. `docs/EXCEL_EVIDENCE.md` describes the procedure.
+  commit for a production or development workbook: the same components, code
+  and standard-module attributes. It ignores line endings, trailing blank
+  lines, the class-file header block, the letter case of code outside strings
+  and comments, which the VBE re-cases project-wide on import, and the
+  attributes of document modules, which Excel writes. It prints the template
+  and workbook digests and the number of re-cased lines.
+  `docs/EXCEL_EVIDENCE.md` describes the procedure.
 
 - A one-page SA-CCR EAD reference card, `docs/assets/SACCR_EAD_reference.svg`:
   netting-set exposure, trade-level inputs, asset-class parameters,
