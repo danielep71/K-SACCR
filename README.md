@@ -202,7 +202,10 @@ To compare the results with your bank's own figures, enter them on
 set at the top of the sheet. **Run SA-CCR** then writes the comparison to
 `Reconciliation`: one row per netting set and figure, `MATCH` within either
 tolerance or `DIFFERENCE`, and a row for every netting set that cannot be
-compared, with the reason.
+compared, with the reason. `BankTrades` and `TradeReconciliation` do the same
+per trade leg, by Trade ID, against `TradeCalc`: notional, MtM, M,
+supervisory duration, adjusted notional, delta, maturity factors, effective
+notionals and the stand-alone add-on.
 
 ## 4. Test (development workbook)
 
@@ -273,6 +276,7 @@ Trades ─┘                │                                           │
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
 | `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results: `MATCH` or `DIFFERENCE` per figure, and every netting set missing on either side, listed twice, of another regime, withheld or unusable |
+| `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs and `NOT APPLICABLE` figures |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 

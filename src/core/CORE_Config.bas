@@ -57,6 +57,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_CHECKS      As String = "Checks"         'Errors, warnings, information
         Public Const SH_BANK_NS     As String = "BankNettingSets"    'Bank figures per netting set (#45)
         Public Const SH_RECON       As String = "Reconciliation"     'Bank figures against Results (#45)
+        Public Const SH_BANK_TR     As String = "BankTrades"             'Bank figures per trade leg (#45)
+        Public Const SH_TRADE_RECON As String = "TradeReconciliation"    'Bank figures against TradeCalc (#45)
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -299,6 +301,31 @@ Attribute VB_Name = "CORE_Config"
         Public Const RS_EAD         As Long = 22    'EAD reported
 
 '------------------------------------------------------------------------------
+' TRADECALC COLUMNS READ BY THE RECONCILIATION
+'------------------------------------------------------------------------------
+    'Column of each TradeCalc figure that bank trade figures are compared
+    'with (#45). A column that does not apply to a trade is blank: T for a
+    'non-option, SD outside interest rate and credit, the margined MF and
+    'effective notional in an unmargined netting set; an EXCLUDED trade
+    'has only its reasons.
+        Public Const TC_ID          As Long = 1     'TradeID: the leg
+        Public Const TC_NS          As Long = 2     'NettingSetID
+        Public Const TC_AC          As Long = 3     'Asset class
+        Public Const TC_STATUS      As Long = 4     'OK or EXCLUDED
+        Public Const TC_NOTIONAL    As Long = 8     'Notional, reporting currency
+        Public Const TC_MTM         As Long = 9     'MtM, reporting currency
+        Public Const TC_M           As Long = 12    'Maturity M, years
+        Public Const TC_SD          As Long = 14    'Supervisory duration
+        Public Const TC_ADJN        As Long = 15    'Adjusted notional d
+        Public Const TC_DELTA       As Long = 16    'Supervisory delta
+        Public Const TC_MFU         As Long = 17    'Maturity factor, unmargined
+        Public Const TC_MFM         As Long = 18    'Maturity factor, margined
+        Public Const TC_ENU         As Long = 19    'Effective notional, unmargined
+        Public Const TC_ENM         As Long = 20    'Effective notional, margined
+        Public Const TC_ADDON       As Long = 22    'Stand-alone add-on
+        Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
+
+'------------------------------------------------------------------------------
 ' BANK FIGURES
 '------------------------------------------------------------------------------
     'The BankNettingSets sheet holds a bank's own figures per netting set,
@@ -318,6 +345,20 @@ Attribute VB_Name = "CORE_Config"
         Public Const BN_NCOLS       As Long = 14    'Number of columns
         Public Const BN_HEADERS As String = "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|" & _
             "AddOn IR|AddOn FX|AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
+    'The BankTrades sheet holds a bank's own figures per trade leg, to be
+    'compared with TradeCalc, in the same way. Amounts are scaled; M, the
+    'supervisory duration, the delta and the maturity factors are not.
+        Public Const NM_BT_HEADER   As String = "BankTrades_Header"    'Header cell "TradeID"
+        Public Const NM_BT_SCALE    As String = "BankTR_Scale"         'Units per bank amount: 1, 1000, ...
+        Public Const NM_BT_ABSTOL   As String = "BankTR_AbsTol"        'Absolute tolerance, reporting ccy
+        Public Const NM_BT_RELTOL   As String = "BankTR_RelTol"        'Relative tolerance
+        Public Const BT_ID          As Long = 1     'TradeID: the leg
+        Public Const BT_NOTIONAL    As Long = 2     'Notional; the figures follow in the order of the measures
+        Public Const BT_COMMENT     As Long = 13    'Free-text comment, not read
+        Public Const BT_NCOLS       As Long = 13    'Number of columns
+        Public Const BT_HEADERS As String = "TradeID|Notional (rep ccy)|MtM (rep ccy)|M (years)|" & _
+            "Supervisory duration|Adjusted notional d|Supervisory delta|MF unmargined|MF margined|" & _
+            "Effective notional unmargined|Effective notional margined|Stand-alone add-on|"
 
 '------------------------------------------------------------------------------
 ' RECONCILIATION
@@ -330,6 +371,12 @@ Attribute VB_Name = "CORE_Config"
         Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
         Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
         Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
+    'TradeReconciliation has the same layout, with its own hidden name,
+    'and holds the trade's netting set and asset class in the two regime
+    'columns (TRC_NS, TRC_AC); trades carry the regime of their netting set.
+        Public Const TRADE_RECON_INPUTS_NAME As String = "SACCR_TradeReconInputs"    'Empty when none exists
+        Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
+        Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
         Public Const RC_ID          As Long = 1     'NettingSetID
         Public Const RC_BANKROW     As Long = 2     'Row on BankNettingSets; blank when not in the bank file
         Public Const RC_BANKREGIME  As Long = 3     'Regime given by the bank
@@ -352,6 +399,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const RES_REGIME     As String = "REGIME MISMATCH"          'Bank and Results regimes differ
         Public Const RES_WITHHELD   As String = "WITHHELD"                 'Results status is not VALID
         Public Const RES_INVALID    As String = "INVALID INPUT"            'Bank row or figure not usable
+        Public Const RES_EXCLUDED   As String = "EXCLUDED"                 'Trade excluded by the calculator
+        Public Const RES_NA         As String = "NOT APPLICABLE"           'No calculator figure for this trade
 
 '------------------------------------------------------------------------------
 ' ASSET CLASSES
