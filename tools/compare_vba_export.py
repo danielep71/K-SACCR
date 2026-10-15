@@ -37,6 +37,7 @@ VB_NAME = re.compile(r'^Attribute VB_Name = "([^"]+)"$')
 # ("VERSION 1.0 CLASS" for a class, "VERSION 5.00" for a form), the
 # BEGIN ... END property block (title case and nested in a form) and the
 # Attribute lines.
+REM = re.compile(r"rem(?=\s|$)", re.IGNORECASE)
 CLASS_HEADER = re.compile(r"^(VERSION \d+\.\d+( CLASS)?|(?i:begin)(\s.*)?|(?i:end)|\s+\S.*)$")
 
 
@@ -76,20 +77,34 @@ def parse(raw: bytes, label: str) -> Component:
 
 
 def fold_case(line: str) -> str:
-    """``line`` with its code lower-cased, string literals and the comment kept."""
+    """``line`` with its code lower-cased, string literals and the comment kept.
+
+    A comment starts at an apostrophe outside a string, or at ``Rem`` where a
+    statement starts: the start of the line, after a line number or after a
+    colon."""
     folded: list[str] = []
     in_string = False
-    for index, char in enumerate(line):
-        if char == '"':
-            in_string = not in_string
-        elif not in_string and char == "'":
+    statement_start = True
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if in_string:
+            in_string = char != '"'
+        elif char == '"':
+            in_string, statement_start = True, False
+        elif char == "'":
             return "".join(folded) + line[index:]
-        folded.append(char if in_string else char.lower())
-    code = "".join(folded)
-    rem = re.match(r"^(\s*(?:\d+\s+)?rem)(\s.*)?$", code)
-    if rem and rem.group(2) is not None:
-        return rem.group(1) + line[len(rem.group(1)):]
-    return code
+        elif char == ":":
+            statement_start = True
+        elif statement_start and REM.match(line, index):
+            return "".join(folded) + "rem" + line[index + 3:]
+        elif statement_start and char.isdigit() and not "".join(folded).strip(" \t0123456789"):
+            pass
+        elif not char.isspace():
+            statement_start = False
+        folded.append(char if in_string or char == '"' else char.lower())
+        index += 1
+    return "".join(folded)
 
 
 def committed(root: Path, sha: str, path: str) -> bytes:

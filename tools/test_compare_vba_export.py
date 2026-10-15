@@ -98,6 +98,10 @@ class CompareExportTests(unittest.TestCase):
         self.assertEqual(tool.fold_case("    MsgBox \"It's OK\", , MSG_TITLE 'Show It"),
                          "    msgbox \"It's OK\", , msg_title 'Show It")
         self.assertEqual(tool.fold_case("    Rem Keep THIS"), "    rem Keep THIS")
+        self.assertEqual(tool.fold_case("    X = 1: Rem Keep THIS"), "    x = 1: rem Keep THIS")
+        self.assertEqual(tool.fold_case("Done: REM it's KEPT"), "done: rem it's KEPT")
+        self.assertEqual(tool.fold_case("10 Rem Keep THIS"), "10 rem Keep THIS")
+        self.assertEqual(tool.fold_case("    Remaining = Rem2"), "    remaining = rem2")
         self.assertEqual(tool.fold_case('    S = """A"" B"'), '    s = """A"" B"')
 
     def test_changed_attribute_of_a_standard_module_fails(self) -> None:
