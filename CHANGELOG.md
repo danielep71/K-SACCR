@@ -347,6 +347,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- `tools/Sync-SACCR-VBA.ps1` asks whether it is building a production
+  workbook (engine, worksheet functions and sheet macros) or a development
+  workbook (also every test module), instead of always importing the tests
+  (#34). `-Mode Production` or `-Mode Development` answers in advance. Both
+  component sets come from `tools/vba-projects.json`, which the call checker
+  already uses; a component missing from it stops the synchronization. A
+  production synchronization leaves existing test modules in place and warns.
+
 - The project is named K-SACCR in the documentation, the reference card and
   the social preview. The repository keeps its name, VBA-SACCR-Toolkit, and
   technical identifiers keep the `SACCR` prefix (`SACCR_*` functions,

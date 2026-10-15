@@ -130,5 +130,50 @@ class SyncScriptTests(unittest.TestCase):
         self.assertIn("CORE_Engine.bas (no Attribute VB_Name line", "\n".join(result["lines"]))
 
 
+    def mode(self, answer: str) -> Any:
+        return self.pwsh(f"$m = ConvertTo-SyncMode -Answer '{answer}'\n"
+                         "ConvertTo-Json -InputObject @{ mode = $m } | Set-Content -LiteralPath $env:RESULT -Encoding utf8")["mode"]
+
+    def test_mode_answer(self) -> None:
+        # P/D, short and long words in any case; anything else cancels (#34).
+        for answer, expected in (("p", "Production"), (" PROD ", "Production"), ("production", "Production"),
+                                 ("D", "Development"), ("dev", "Development"), ("Development", "Development"),
+                                 ("", None), ("y", None), ("pd", None), ("production x", None)):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.mode(answer), expected)
+
+    def manifest_sources(self, mode: str) -> list[str]:
+        repo = Path(__file__).resolve().parent.parent
+        names = self.pwsh(f"$f = Get-ManifestSources -RepoPath '{repo}' -Mode {mode}\n"
+                          "ConvertTo-Json -InputObject @($f | ForEach-Object { $_.Name }) "
+                          "| Set-Content -LiteralPath $env:RESULT -Encoding utf8")
+        return list(names)
+
+    def test_manifest_sources_per_mode(self) -> None:
+        # Production: the five standard modules and the document modules;
+        # development adds every test module and nothing else (#34).
+        manifest = json.loads((SCRIPT.parent / "vba-projects.json").read_text(encoding="utf-8"))
+        documents = {Path(p).name for p in manifest["document_modules"]}
+        production = self.manifest_sources("Production")
+        development = self.manifest_sources("Development")
+        self.assertEqual(set(production), {Path(p).name for p in manifest["configurations"]["production"]["modules"]} | documents)
+        self.assertEqual(set(development) - set(production),
+                         {Path(p).name for p in manifest["configurations"]["development"]["modules"]
+                          if p.startswith("tests/")})
+        self.assertFalse([n for n in production if n.startswith("TEST_")])
+        self.assertEqual(len(development), len(set(development)))
+
+    def test_manifest_entry_must_exist(self) -> None:
+        repo = self.root / "repo"
+        (repo / "tools").mkdir(parents=True)
+        (repo / "tools" / "vba-projects.json").write_text(json.dumps(
+            {"document_modules": [], "configurations": {"production": {"modules": ["src/core/Missing.bas"]}}}),
+            encoding="utf-8")
+        result = self.pwsh(f"$failed = ''\ntry {{ $null = Get-ManifestSources -RepoPath '{repo}' -Mode Production }} "
+                           "catch { $failed = $_.Exception.Message }\n"
+                           "@{ failed = $failed } | ConvertTo-Json | Set-Content -LiteralPath $env:RESULT -Encoding utf8")
+        self.assertIn("not found: src/core/Missing.bas", result["failed"])
+
+
 if __name__ == "__main__":
     unittest.main()

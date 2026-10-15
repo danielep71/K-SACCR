@@ -36,8 +36,8 @@ the workbook works in Excel.
 ## Local VBA synchronization
 
 `Sync-SACCR-VBA.ps1` synchronizes the repository VBA source into an existing
-local `.xlsm` development workbook without intentionally changing worksheets,
-cells, formulas, names, tables or formatting.
+local `.xlsm` workbook without intentionally changing worksheets, cells,
+formulas, names, tables or formatting.
 
 For normal use on Windows, double-click `tools/Sync-SACCR-VBA.cmd`. The launcher uses the workbook path set in `DEFAULT_WORKBOOK` at the top of the file, runs the PowerShell synchronizer, shows the result and pauses before closing. Drag another `.xlsm` file onto the `.cmd` file to use that one instead.
 
@@ -46,6 +46,23 @@ PowerShell remains available for direct use from the repository root:
 ```powershell
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
+
+A full synchronization first asks which workbook it is building, unless
+`-Mode Production` or `-Mode Development` gives the answer:
+
+| Mode | Components | Use |
+| --- | --- | --- |
+| Production | The `production` configuration of `tools/vba-projects.json` (the five standard modules of `src/`) and its document modules | A workbook that calculates |
+| Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
+
+Any other answer cancels with exit code 2 and the workbook is not changed.
+The manifest is the single list of both sets, shared with
+`check_vba_calls.py`: a component in `src/` or `tests/modules/` that it does
+not list stops the synchronization before Excel starts. A production
+synchronization never removes modules; if the workbook already holds `TEST_`
+modules, it says so and leaves them, and a production workbook should then
+be built again from the template. `-Mode` cannot be combined with
+`-SourceDir`, which imports what the folder holds.
 
 Before it opens the workbook, the script lists the worksheet and
 `ThisWorkbook` modules in the source and asks whether to replace their code
@@ -87,12 +104,12 @@ brings the workbook back to the repository source.
 
 The code of a document module is read as cp1252, the code page the VBE
 exports in, so characters such as `£` or `é` in comments and strings
-survive. `tools/test_sync_script.py` checks the folder selection and this
-decoding in PowerShell 7 (`pwsh`), without Excel; it is skipped where
-`pwsh` is not installed.
+survive. `tools/test_sync_script.py` checks the folder selection, this
+decoding, the answer to the production/development question and the
+component set of each mode in PowerShell 7 (`pwsh`), without Excel; it is
+skipped where `pwsh` is not installed.
 
-The script reads `src/core/`, `src/modules/`, `src/workbook/` and
-`tests/modules/`, so the workbook holds the test suites as well. Standard
+The script reads the components the manifest lists for the chosen mode. Standard
 modules are replaced from source; `ThisWorkbook` and worksheet document modules
 keep their workbook objects and only their code text is replaced. It disables
 Excel events, macro execution, external-link updates and automatic calculation
