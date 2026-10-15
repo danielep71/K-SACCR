@@ -81,8 +81,10 @@ clone, to print the inventory and validate the bundle.
    [Importing VBA into Excel](../INSTALLATION.md#importing-vba-into-excel): the
    template from this checkout saved as `.xlsm` outside the checkout, the four
    default references, every VBA component the `--inventory` output lists (all
-   of `src/` and `tests/modules/`) imported in order from this checkout, with
-   the document modules pasted as `INSTALLATION.md` describes, then
+   of `src/` and `tests/modules/`: a **development** workbook) imported in
+   order from this checkout, with the document modules pasted as
+   `INSTALLATION.md` describes, or with `tools/Sync-SACCR-VBA.ps1 -Mode
+   Development`, then
    **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
    listed in **Tools → References** and the compile result.
 5. **Run the harness once.** Clear the Immediate window (**Ctrl+G**, then
