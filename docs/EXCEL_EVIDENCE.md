@@ -147,12 +147,18 @@ project object model* enabled, and Python on the same machine.
    python tools/compare_vba_export.py --export C:\path\export --mode production --candidate-sha FULL_SHA --workbook C:\path\K-SACCR.xlsm
    ```
 
-   It prints the candidate, the template and workbook SHA-256 digests, one
-   `FAIL` line per difference and `RESULT=PASS` or `RESULT=FAIL`. Line endings
-   and trailing blank lines are ignored, and so is the `VERSION`/`BEGIN`/`END`
-   block of a class file; code, identifier case and `Attribute` lines must
-   match. A difference in identifier case usually means the VBE re-cased a
-   name across the project: fix the source to the exported spelling.
+   It prints the candidate, the template and workbook SHA-256 digests, the
+   number of re-cased lines, one `FAIL` line per difference and
+   `RESULT=PASS` or `RESULT=FAIL`. Code and the `Attribute` lines of standard
+   modules must match. Ignored:
+   - line endings, trailing blank lines and the `VERSION`/`BEGIN`/`END` block
+     of a class file;
+   - letter case in code outside string literals and comments. VBA names are
+     case-insensitive and the VBE keeps one spelling per name across the
+     project, so it re-cases identifiers on import. The lines that differ only
+     that way are counted, not failed;
+   - the attributes of the document modules. The synchronizer replaces only
+     their code, and Excel writes their attributes.
 6. **Retain** the comparison output, the compile and run results and the
    source digests from `check_excel_evidence.py --inventory`, for example in
    the issue or pull request that needs the evidence.

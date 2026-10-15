@@ -71,18 +71,53 @@ class CompareExportTests(unittest.TestCase):
         self.assertIn("src/workbook/M_Main.bas: code differs at line", out)
         self.assertIn("'SA-CCR'", out.replace('"', "'"))
 
-    def test_identifier_case_change_fails(self) -> None:
-        # The VBE re-cases identifiers project-wide; the source must follow.
+    def test_identifier_case_is_ignored_and_counted(self) -> None:
+        # The VBE gives each name one spelling across the project, as it did
+        # for the netting-set ID field in the first production round trip.
         self.export("production")
+        self.edit("CORE_Engine.bas", b"        ID                As String", b"        id                As String")
         self.edit("CORE_Util.bas", b"Option Explicit", b"option explicit")
-        self.assertEqual(self.run_tool("production")[0], 1)
+        code, out = self.run_tool("production")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Re-cased:  2 line(s)", out)
 
-    def test_changed_attribute_fails(self) -> None:
+    def test_case_change_in_a_string_or_comment_fails(self) -> None:
+        for path, old, new in (("src/workbook/M_Main.bas", b'"K-SACCR"', b'"k-saccr"'),
+                               ("src/core/CORE_Engine.bas", b"'Netting-set ID, upper case",
+                                b"'netting-set ID, upper case")):
+            with self.subTest(path=path):
+                for item in self.folder.iterdir():
+                    item.unlink()
+                self.export("production")
+                self.edit(Path(path).name, old, new)
+                code, out = self.run_tool("production")
+                self.assertEqual(code, 1, out)
+                self.assertIn(f"{path}: code differs at line", out)
+
+    def test_fold_case_keeps_strings_and_comments(self) -> None:
+        self.assertEqual(tool.fold_case("    MsgBox \"It's OK\", , MSG_TITLE 'Show It"),
+                         "    msgbox \"It's OK\", , msg_title 'Show It")
+        self.assertEqual(tool.fold_case("    Rem Keep THIS"), "    rem Keep THIS")
+        self.assertEqual(tool.fold_case('    S = """A"" B"'), '    s = """A"" B"')
+
+    def test_changed_attribute_of_a_standard_module_fails(self) -> None:
         self.export("production")
-        self.edit("shParams.cls", b"Attribute VB_Exposed = True", b"Attribute VB_Exposed = False")
+        self.edit("CORE_Util.bas", b'Attribute VB_Name = "CORE_Util"\r\n',
+                  b'Attribute VB_Name = "CORE_Util"\r\nAttribute VB_Description = "x"\r\n')
         code, out = self.run_tool("production")
         self.assertEqual(code, 1)
-        self.assertIn("src/workbook/shParams.cls: attributes differ", out)
+        self.assertIn("src/core/CORE_Util.bas: attributes differ", out)
+
+    def test_document_module_attributes_are_not_compared(self) -> None:
+        # Excel writes them and the synchronizer replaces only the code. The
+        # first production round trip exported the sheet modules without
+        # VB_Base, VB_TemplateDerived and VB_Customizable.
+        self.export("production")
+        for line in (b'Attribute VB_Base = "0{00020820-0000-0000-C000-000000000046}"\r\n',
+                     b"Attribute VB_TemplateDerived = False\r\n", b"Attribute VB_Customizable = True\r\n"):
+            self.edit("shParams.cls", line, b"")
+        code, out = self.run_tool("production")
+        self.assertEqual(code, 0, out)
 
     def test_missing_and_extra_components_fail(self) -> None:
         self.export("development")
