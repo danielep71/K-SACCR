@@ -20,8 +20,10 @@
 <text x="224" y="253.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" fill="#0f2a52" text-anchor="start">Unmargined</text>
 <rect x="210" y="277" width="150" height="59" fill="#e9eff8" stroke="#a8bddc" stroke-width="1" rx="0"/>
 <text x="224" y="312.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" fill="#0f2a52" text-anchor="start">Margined</text>
-<text x="385" y="256" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">RC = max(V − C, 0)</text>
-<text x="385" y="315" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">RC = max(V − C, TH + MTA − NICA, 0)</text>
+<text x="385" y="250" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">RC = max(V − C, 0)</text>
+<text x="385" y="270" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4a5a68" text-anchor="start">C = NICA; under BCBS a one-way agreement adds the posted VM (negative).</text>
+<text x="385" y="308" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">RC = max(V − C, TH + MTA − NICA, 0)</text>
+<text x="385" y="328" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4a5a68" text-anchor="start">C = VM + NICA.</text>
 <line x1="900.0" y1="156" x2="900.0" y2="336" stroke="#a8bddc" stroke-width="1"/>
 <rect x="900.0" y="156" width="200" height="96" fill="#e9eff8" stroke="#a8bddc" stroke-width="1" rx="0"/>
 <text x="914.0" y="210.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" fill="#0f2a52" text-anchor="start">Multiplier</text>
@@ -40,7 +42,7 @@
 <text x="1125.0" y="279" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">Margined EAD ≤ unmargined EAD of the same set, with C = NICA  (CRE52.2; CRR Art. 274(3))</text>
 <rect x="900.0" y="294" width="200" height="42" fill="#e9eff8" stroke="#a8bddc" stroke-width="1" rx="0"/>
 <text x="914.0" y="321.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" fill="#0f2a52" text-anchor="start">Definitions</text>
-<text x="1125.0" y="312" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">V: net MtM of the trades;  C: net collateral after haircuts (VM + NICA if margined, NICA if not);</text>
+<text x="1125.0" y="312" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">V: net MtM of the trades;  C: net collateral after haircuts, positive if held (see RC);</text>
 <text x="1125.0" y="330" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">TH: threshold;  MTA: minimum transfer amount;  NICA: net independent collateral amount.</text>
 <rect x="20" y="352" width="1760" height="268" fill="#fff" stroke="#1f4e8c" stroke-width="1.5" rx="6"/>
 <path d="M20,358 a6,6 0 0 1 6,-6 h1748 a6,6 0 0 1 6,6 v32 h-1760 z" fill="#1f4e8c"/>
@@ -89,13 +91,14 @@
 <rect x="1300" y="502" width="170" height="118" fill="#e9eff8" stroke="#a8bddc" stroke-width="1" rx="0"/>
 <text x="1314" y="558.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" fill="#0f2a52" text-anchor="start">Maturity factor</text>
 <text x="1314" y="578.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4a5a68" text-anchor="start">margined</text>
-<text x="1488" y="550" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">MF = 1.5 ×</text>
-<path d="M1601,549.0 l5,-3 l7,29.0 l8,-58 h100" fill="none" stroke="#1b2733" stroke-width="1.4"/>
-<text x="1668" y="536" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="19" font-weight="normal" fill="#1b2733" text-anchor="middle">MPOR</text>
-<line x1="1630.0" y1="543" x2="1706.0" y2="543" stroke="#1b2733" stroke-width="1.2"/>
-<text x="1668" y="565" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="19" font-weight="normal" fill="#1b2733" text-anchor="middle">250</text>
-<text x="1488" y="594" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4a5a68" text-anchor="start">MPOR = F + N − 1; F = 10 BD (5 client-cleared),</text>
-<text x="1488" y="611" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4a5a68" text-anchor="start">20 if &gt; 5,000 trades or illiquid; ×2 on disputes.</text>
+<text x="1488" y="540" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="22" font-weight="normal" fill="#1b2733" text-anchor="start">MF = 1.5 ×</text>
+<path d="M1601,539.0 l5,-3 l7,27.0 l8,-54 h100" fill="none" stroke="#1b2733" stroke-width="1.4"/>
+<text x="1668" y="526" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="19" font-weight="normal" fill="#1b2733" text-anchor="middle">MPOR</text>
+<line x1="1630.0" y1="533" x2="1706.0" y2="533" stroke="#1b2733" stroke-width="1.2"/>
+<text x="1668" y="555" font-family="Cambria Math, Cambria, Times New Roman, serif" font-size="19" font-weight="normal" fill="#1b2733" text-anchor="middle">250</text>
+<text x="1488" y="580" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4a5a68" text-anchor="start">MPOR = F + N − 1, ×2 on disputes; F = 10 BD,</text>
+<text x="1488" y="595" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4a5a68" text-anchor="start">5 for CM (CLIENT: CRR only), 20 if flagged large</text>
+<text x="1488" y="610" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4a5a68" text-anchor="start">(&gt; 5,000 trades last quarter) or illiquid.</text>
 <rect x="20" y="636" width="1760" height="330" fill="#fff" stroke="#1f4e8c" stroke-width="1.5" rx="6"/>
 <path d="M20,642 a6,6 0 0 1 6,-6 h1748 a6,6 0 0 1 6,6 v32 h-1760 z" fill="#1f4e8c"/>
 <rect x="20" y="636" width="58" height="38" fill="#0f2a52" stroke="#0f2a52" stroke-width="0" rx="0"/>
@@ -240,7 +243,7 @@
 <rect x="20" y="1286" width="1760" height="96" fill="#fdf6ec" stroke="#b45309" stroke-width="1.5" rx="6"/>
 <text x="40" y="1314" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="bold" fill="#b45309" text-anchor="start">CRR vs Basel — where the toolkit's results can differ</text>
 <text x="40" y="1340" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">• IR bucket 1: E ≤ 1 y under CRR, E &lt; 1 y under Basel (exactly 1 y: bucket 1 vs bucket 2).</text>
-<text x="920" y="1340" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">• Other risks (OT, SF 8%) exist only under CRR; Basel maps them to the primary risk driver's class.</text>
+<text x="920" y="1340" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">• Other risks (OT, SF 8%): CRR only; a BCBS OT trade is rejected and its netting set's EAD withheld.</text>
 <text x="40" y="1364" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">• CRR shifts IR and commodity option deltas by the regulatory λ; Basel uses the λ entered.</text>
 <text x="920" y="1364" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" fill="#1b2733" text-anchor="start">• IR sum of absolute bucket values: Basel option only.  Climatic conditions: own CO hedging set under CRR.</text>
 <text x="30" y="1408" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4a5a68" text-anchor="start">Sources: BCBS CRE52 (in force 2023-01-01); Regulation (EU) No 575/2013, consolidated 26.06.2026; Delegated Regulation (EU) 2021/931 as amended by 2025/855.</text>
