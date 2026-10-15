@@ -10,6 +10,7 @@
   "macro_name_functions": [],
   "document_modules": [
     "src/workbook/ThisWorkbook.cls",
+    "src/workbook/shBankNettingSets.cls",
     "src/workbook/shBaselVsCRR.cls",
     "src/workbook/shBuckets.cls",
     "src/workbook/shChecks.cls",
@@ -17,6 +18,7 @@
     "src/workbook/shNettingSets.cls",
     "src/workbook/shParams.cls",
     "src/workbook/shReadme.cls",
+    "src/workbook/shReconciliation.cls",
     "src/workbook/shResults.cls",
     "src/workbook/shTestCatalogue.cls",
     "src/workbook/shTests.cls",
@@ -30,6 +32,7 @@
       "modules": [
         "src/core/CORE_Config.bas",
         "src/core/CORE_Engine.bas",
+        "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
         "src/workbook/M_Main.bas"
@@ -41,6 +44,7 @@
       "modules": [
         "src/core/CORE_Config.bas",
         "src/core/CORE_Engine.bas",
+        "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
         "src/workbook/M_Main.bas",
@@ -52,6 +56,7 @@
         "tests/modules/TEST_InputValidation.bas",
         "tests/modules/TEST_Invariants.bas",
         "tests/modules/TEST_MainState.bas",
+        "tests/modules/TEST_Reconcile.bas",
         "tests/modules/TEST_Suite.bas"
       ]
     }

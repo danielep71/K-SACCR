@@ -98,6 +98,27 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Reconciliation with a bank's own figures, per netting set (#45). The new
+  input sheet `BankNettingSets` takes, per netting set ID, the regime and any
+  of EAD, RC, PFE, the aggregate and asset-class add-ons and the multiplier,
+  with an amount scale (units, thousands, millions) and an absolute and a
+  relative tolerance in named cells. **Run SA-CCR** compares them with Results
+  and writes the new `Reconciliation` sheet: one row per netting set and
+  figure with both values, the difference (calculator - bank), the relative
+  difference and `MATCH` (within either tolerance; the multiplier is not
+  scaled and only the relative tolerance applies to it) or `DIFFERENCE`, and
+  one row for each netting set that is not compared: `MISSING IN CALCULATOR`,
+  `NOT IN BANK FILE`, `DUPLICATE`, `REGIME MISMATCH`, `WITHHELD` (no EAD on
+  Results) or `INVALID INPUT`. Figures of different regimes are never
+  compared. A summary in Reconciliation C4 counts each result; the status
+  formula in C5 reads `OUT OF DATE` once a bank figure, a setting or an input
+  changes. Validation, Clear outputs and a stopped run withdraw the
+  reconciliation, and a workbook without the two sheets still runs. The
+  comparison is in the new module `CORE_Reconcile`, which reads no sheet; the
+  run's result line gains `reconciliation=`. The new suite `TEST_Reconcile`
+  (12 cases, 68 checks) covers every result with synthetic figures and the
+  sheets on the demonstration portfolio; `Test_RunAll` runs eight suites.
+
 - A source round trip (#34): `tools/Export-SACCR-VBA.ps1` exports every VBA
   component of a built workbook, opened read-only, to a new folder, and
   `tools/compare_vba_export.py` checks the export against the source of one

@@ -292,8 +292,9 @@ Keep non-passing bundles too until the finding is resolved.
   (`TEST_Formulas.RunFormulaTests`, `TEST_MainState.RunMainStateTests`,
   `TEST_Cases.RunCaseTests`,
   `TEST_InputValidation.RunInputValidationTests`,
-  `TEST_Invariants.RunInvariantTests` and
-  `TEST_Aggregation.RunAggregationTests`) are imported, but their results are
+  `TEST_Invariants.RunInvariantTests`,
+  `TEST_Aggregation.RunAggregationTests` and
+  `TEST_Reconcile.RunReconcileTests`) are imported, but their results are
   not part of the record; report them separately (see
   [running the harness](../INSTALLATION.md#running-the-harness)). The
   summary of `TEST_Suite.Test_RunAll` is not a harness log: record

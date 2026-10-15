@@ -197,6 +197,13 @@ further illustrative netting sets.
 | **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
 
+To compare the results with your bank's own figures, enter them on
+`BankNettingSets`, one row per netting set with its regime, in the amount scale
+set at the top of the sheet. **Run SA-CCR** then writes the comparison to
+`Reconciliation`: one row per netting set and figure, `MATCH` within either
+tolerance or `DIFFERENCE`, and a row for every netting set that cannot be
+compared, with the reason.
+
 ## 4. Test (development workbook)
 
 In the Immediate window:
@@ -252,6 +259,9 @@ Trades ─┘                │                                           │
 5. **Exposure.** RC, multiplier, PFE and EAD per netting set, with the cap for
    margined netting sets. A netting set with a rejected trade or an invalid
    input reports `INCOMPLETE` or `INVALID` and no EAD.
+6. **Reconciliation.** When `BankNettingSets` holds figures, each is compared
+   with the same figure on Results, netting sets matched by ID and never
+   across regimes (#45).
 
 | Sheet | Role |
 | --- | --- |
@@ -262,6 +272,7 @@ Trades ─┘                │                                           │
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
+| `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results: `MATCH` or `DIFFERENCE` per figure, and every netting set missing on either side, listed twice, of another regime, withheld or unusable |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
@@ -331,6 +342,7 @@ wrote the code under test (#100).
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions |
 | `TEST_Aggregation` | Row-order independence and offsets |
 | `TEST_Invariants` | Relations every result must satisfy |
+| `TEST_Reconcile` | Comparison of bank figures with Results, and the Reconciliation sheet |
 
 `python tools/check.py` runs the static gates (source layout, house style,
 public API, test-case schema, generated tests and tooling tests) locally and
