@@ -1,7 +1,8 @@
 # K-SACCR user manual, version 1.0.0
 
-The source of the user manual for K-SACCR 1.0.0. The PDF built from it is
-attached to the GitHub Release; it is not stored in this repository.
+The source of the user manual for K-SACCR 1.0.0. The PDF built from it will
+be attached to the 1.0.0 GitHub Release when that release is published; it is
+not stored in this repository.
 
 | File | Contents |
 | --- | --- |
