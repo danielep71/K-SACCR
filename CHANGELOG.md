@@ -110,7 +110,7 @@ Use only the categories needed by a release.
   and any test log without the operator's `CANDIDATE=` line for the
   candidate. A new gate in `python tools/check.py`, `excel-evidence-policy`,
   fails when the policy's counts, headers or suite list differ from the test
-  modules and `Test_RunAll`. Evidence records of schema 1 are no longer
+  modules and `Test_RunAll`, or from the test counts the root README shows. Evidence records of schema 1 are no longer
   accepted.
 
 - An evidence report of the run (#45). **Export evidence**, a new button on

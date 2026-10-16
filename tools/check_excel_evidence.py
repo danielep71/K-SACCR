@@ -569,8 +569,55 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     return problems
 
 
+def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
+    """The test counts the root README shows, against the policy (64-bit counts)."""
+    rows = [(policy["entry_point"].split(".")[0], len(policy["cases"]), policy["assertions"])]
+    rows += [(spec["entry_point"].split(".")[0], spec["cases"], spec["checks"]["64-bit"])
+             for spec in policy["suites"]]
+    suites = len(rows)
+    cases = sum(row[1] for row in rows)
+    checks = sum(row[2] for row in rows)
+    text = (root / "README.md").read_text(encoding="utf-8")
+    problems = []
+    # Each display appears once with the policy's values: a stale copy left beside
+    # the corrected one would contradict it.
+    displays = {
+        "Excel suites badge": (r"badge/Excel_suites-([^-?)]+)", f"{suites}%2F{suites}_PASS"),
+        "Regression badge": (r"badge/Regression-([^-?)]+)", f"{cases}_cases_%C2%B7_{checks}_checks"),
+        "Testing capability": (r"^ {0,3}\|[ \t]*Testing[ \t]*\|[^(\n]*\(([^()\n]*)\)",
+                               f"{cases} cases, {checks} checks"),
+        "suite table total": (r"^ {0,3}\|[ \t]*\*\*Total\*\*[ \t]*\|(.*)\|$", f" | **{cases}** | **{checks}** "),
+        "Test_RunAll result": (r"^RESULT=(\w+; suites=[^;]*; passed=[^;]*; failed=[^;]*);",
+                               f"PASS; suites={suites}; passed={suites}; failed=0"),
+    }
+    for label, (pattern, value) in displays.items():
+        displayed = re.findall(pattern, text, re.MULTILINE)
+        if displayed != [value]:
+            problems.append(f"README.md: {label} must appear once, as {value!r}, not {displayed}")
+    # Every row, in order: a second, stale row for one suite is a contradiction.
+    table = [(name, int(found_cases), int(found_checks)) for name, found_cases, found_checks
+             in re.findall(r"^ {0,3}\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)]
+    # Every row naming a suite must parse, as for the summary lines below; Markdown
+    # renders a table row indented by up to three spaces.
+    if table != rows or len(re.findall(r"^ {0,3}\|[ \t]*`TEST_\w+`", text, re.MULTILINE)) != len(table):
+        problems.append("README.md: suite table rows differ from the policy suites and counts")
+    # Every suite-result line must parse: one in another format, such as an older
+    # summary without timings, would otherwise be skipped while still displayed.
+    lines = re.findall(r"^[ \t]*(?:PASS|FAIL)[ \t]+TEST_\w+.*$", text, re.MULTILINE)
+    if len(re.findall(r"^SACCR TEST SUMMARY ", text, re.MULTILINE)) != 1 \
+            or len(lines) != len(SUMMARY_LINE.findall(text)):
+        problems.append("README.md: Test_RunAll output must be one summary whose lines all parse")
+    shown = []
+    for status, name, detail, _ in SUMMARY_LINE.findall(text):
+        found = re.search(r"\bcases=(\d+); (?:checks|assertions)=(\d+); failures=0\b", detail)
+        shown.append((name, int(found.group(1)), int(found.group(2))) if status == "PASS" and found else None)
+    if shown != rows:
+        problems.append("README.md: Test_RunAll output differs from the policy suites and counts")
+    return problems
+
+
 def policy_problems(root: Path) -> list[str]:
-    """Check that the working tree's policy matches the test modules and Test_RunAll."""
+    """Check that the working tree's policy matches the test modules, Test_RunAll and README."""
     try:
         policy = parse_policy((root / POLICY).read_bytes())
         harness = module_text(root, policy["entry_point"])
@@ -587,7 +634,7 @@ def policy_problems(root: Path) -> list[str]:
             problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")
         if declared(runner, "SUITE_COUNT", 0) != {len(entries)}:
             problems.append("SUITE_COUNT differs from the number of policy suites")
-        return problems
+        return problems + readme_problems(root, policy)
     except (ValueError, OSError) as error:
         return [str(error)]
 

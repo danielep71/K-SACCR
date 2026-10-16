@@ -48,12 +48,13 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --inventory
 ```
 
 The policy changes together with the suites: adding a case or a check to a
-test module updates `.github/excel-evidence-policy.json` in the same pull
-request. `python tools/check.py` (gate `excel-evidence-policy`) fails when the
+test module updates `.github/excel-evidence-policy.json`, and the test counts
+the root `README.md` shows, in the same pull request. `python tools/check.py` (gate `excel-evidence-policy`) fails when the
 policy's counts differ from those the modules declare (`EXPECTED_CASES`,
 `EXPECTED_CHECKS`, `CASES`, `CHECKS`, `BeginSuite`; per bitness where a
 count is declared under `#If Win64`), when a header or `MODE`
-line differs, or when `Test_RunAll` runs other suites. A module that declares
+line differs, when `Test_RunAll` runs other suites, or when the README's
+badges, suite table or `Test_RunAll` output show other suites or counts. A module that declares
 no check count (`TEST_MainState`) is held only by its evidence log.
 
 <a id="manual-procedure"></a>

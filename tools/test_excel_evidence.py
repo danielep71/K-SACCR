@@ -486,6 +486,7 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.assertEqual(evidence.policy_problems(ROOT), [])
         copy_root = self.area / "copy"
         shutil.copytree(ROOT / "tests" / "modules", copy_root / "tests" / "modules")
+        shutil.copy(ROOT / "README.md", copy_root / "README.md")
         (copy_root / ".github").mkdir()
         policy = copy.deepcopy(self.policy)
         policy["suites"][-1]["cases"] = 18
@@ -515,6 +516,48 @@ class ExcelEvidenceTests(unittest.TestCase):
         policy["suites"][self.index("TEST_Aggregation")]["first_case"] = "invariants-demo-repeat"
         with self.assertRaisesRegex(ValueError, "distinct first cases"):
             evidence.parse_policy(json.dumps(policy).encode())
+
+    def test_readme_counts_match_the_policy(self) -> None:
+        copy_root = self.area / "copy"
+        shutil.copytree(ROOT / "tests" / "modules", copy_root / "tests" / "modules")
+        (copy_root / ".github").mkdir()
+        shutil.copy(ROOT / evidence.POLICY, copy_root / evidence.POLICY)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for old, new, message in (
+                ("Excel_suites-8%2F8_PASS", "Excel_suites-7%2F7_PASS", "Excel suites badge"),
+                ("Regression-227_cases", "Regression-226_cases", "Regression badge"),
+                ("| 19 | 140 |", "| 18 | 137 |", "suite table rows differ"),
+                ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | 9 | 80 |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
+                ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
+                ("| **227** | **975** |", "| **226** | **975** |", "suite table total"),
+                ("TEST_Reconcile        cases=19; checks=140", "TEST_Reconcile        cases=18; checks=137",
+                 "Test_RunAll output differs"),
+                ("RESULT=PASS; suites=8; passed=8", "RESULT=PASS; suites=7; passed=7", "Test_RunAll result"),
+                # A stale copy beside the corrected display contradicts it.
+                ("[![Excel suites]", "![stale](https://img.shields.io/badge/Excel_suites-7%2F7_PASS-2ea44f)\n"
+                 "[![Excel suites]", "Excel suites badge"),
+                ("| **Total** |", "| **Total** | | **226** | **975** |\n| **Total** |", "suite table total"),
+                ("RESULT=PASS; suites=8", "RESULT=FAIL; suites=8; passed=7; failed=1; seconds=1\n"
+                 "RESULT=PASS; suites=8", "Test_RunAll result"),
+                ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge"),
+                ("Eight Excel suites (227", "Seven Excel suites (**226** cases, 975 checks); eight (227",
+                 "Testing capability"),
+                ("| `TEST_Formulas` |", "   | `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
+                ("  PASS  TEST_MainState", "  PASS  TEST_MainState        cases=20; checks=381; failures=0; "
+                 "caller_state=RESTORED\n  PASS  TEST_MainState", "lines all parse"),
+                ("SACCR TEST SUMMARY 2026", "SACCR TEST SUMMARY 2026-10-13 08:28:48\nSACCR TEST SUMMARY 2026",
+                 "lines all parse")):
+            with self.subTest(message=message):
+                self.assertIn(old, readme)
+                (copy_root / "README.md").write_text(readme.replace(old, new), encoding="utf-8")
+                self.assertIn(message, " ".join(evidence.policy_problems(copy_root)))
+        # Counts in other prose are not the Testing capability.
+        prose = readme.replace("## Test suites", "Benchmarks (3 cases and 4 checks) differ.\n\n## Test suites")
+        (copy_root / "README.md").write_text(prose, encoding="utf-8")
+        self.assertEqual(evidence.policy_problems(copy_root), [])
 
     def test_cli_exit_codes_inventory_and_output_guard(self) -> None:
         self.path.write_text(json.dumps(self.record))
