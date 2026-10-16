@@ -515,7 +515,7 @@ after an input edit, bank figures entered after the run, every bank figure
 removed after a reconciliation, or an edited Results cell, and listing a
 currency added below the FX table; the cells and files are put back or
 removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=18; checks=125; failures=0`.
+`RESULT=PASS; cases=18; checks=126; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`

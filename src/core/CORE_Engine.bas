@@ -56,8 +56,10 @@ Attribute VB_Name = "CORE_Engine"
 '   supported external surface.
 '
 ' DEPENDENCIES
-'   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
-'   SACCR_Formulas for every regulatory formula.
+'   CORE_Config for the layout, CORE_Util for conversions and sheet access,
+'   SACCR_Formulas for every regulatory formula, and CORE_Export.NumberText
+'   for the run time in the run summary, with a decimal point in every
+'   locale (#45).
 '
 ' STATE OWNERSHIP
 '   Owns the module state below. ResetState clears it at the start of each
@@ -5387,7 +5389,7 @@ Private Function RunInfoText( _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
                           " | inputs " & mRunInputs & _
-                          " | " & Format$(secs, "0.00") & " s"
+                          " | " & CORE_Export.NumberText(Round(secs, 2)) & " s"
             If mIncomplete > 0 Then
                 RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s)"
             End If

@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 125              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 126              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1150,6 +1150,8 @@ Private Sub CaseExportWorkbook()
         textA = FileText(fileA)
         Check Left$(textA, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(textA, 40)
         Check InStr(textA, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
+        Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
+              "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
         Check InStr(textA, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
         Check InStr(textA, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(textA, vbCrLf & "CHECKS;") > 0 And _
               InStr(textA, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
@@ -1236,6 +1238,9 @@ Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell mtmCell, savedMtm
         RestoreCell bankCell, savedBank
+        If Not outCell Is Nothing Then
+            outCell.Value2 = savedOut
+        End If
         If Not fxCells Is Nothing Then
             fxCells.Formula = savedFx
         End If
