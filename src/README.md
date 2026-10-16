@@ -10,17 +10,25 @@ dependency rules are defined in
 | `core/` | Calculation engine. Every module declares `Option Private Module`; no Excel object-model access. |
 | `modules/` | Public facade: supported entry points listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt). |
 | `classes/` | Class modules; each header states whether it is public surface or internal (none yet). |
-| `workbook/` | Exported `ThisWorkbook` and sheet modules; host glue only. Also `SACCR_Template.xlsx`, the macro-free template holding the 12 sheets. |
+| `workbook/` | Exported `ThisWorkbook` and sheet modules; host glue only. Also `SACCR_Template.xlsx`, the macro-free template holding the 16 sheets. |
 | `forms/` | UserForms with `.frm` beside `.frx`, only if one is ever needed (none yet). |
 
 Current source:
 
 - the engine, first imported from the prototype `SACCR_Calculator.xlsm` (#57):
   `core/CORE_Config`, `core/CORE_Util`, `core/CORE_Engine`, the worksheet
-  functions in `modules/SACCR_Formulas`, and `workbook/M_Main` with the 13
+  functions in `modules/SACCR_Formulas`, and `workbook/M_Main` with the
   document modules;
-- `workbook/SACCR_Template.xlsx`: the 12 sheets (README, Params, NettingSets,
-  Trades, Results, HedgingSets, Buckets, TradeCalc, Checks, TestCatalogue,
+- `core/CORE_Reconcile`, the comparison of a bank's figures with Results and
+  TradeCalc (#45), which reads no sheet: `M_Main` reads BankNettingSets,
+  BankTrades, Results and TradeCalc and writes Reconciliation and
+  TradeReconciliation;
+- `core/CORE_Export`, the CSV encoding of the evidence report (#45), which
+  reads no sheet: `M_Main.ExportEvidence` gathers the run and writes the
+  file;
+- `workbook/SACCR_Template.xlsx`: the 16 sheets (README, Params, NettingSets,
+  Trades, Results, HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets,
+  Reconciliation, BankTrades, TradeReconciliation, TestCatalogue,
   FormulaTest, Basel_vs_CRR) with their formulas, named ranges, data
   validation and buttons, and no VBA project or document properties.
 

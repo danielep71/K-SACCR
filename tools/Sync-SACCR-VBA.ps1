@@ -3,10 +3,18 @@
 Synchronize repository VBA source into an existing local SACCR .xlsm workbook.
 
 .DESCRIPTION
-Updates VBA code only, from src\core, src\modules, src\workbook and
-tests\modules, so the workbook holds every engine and test module, or only
-from the modules in -SourceDir (see the second example). Standard
-modules are replaced from source. ThisWorkbook and worksheet document modules
+Updates VBA code only. A full synchronization imports the components that
+tools\vba-projects.json lists for one of two workbooks, and asks which one
+unless -Mode gives the answer:
+
+- Production: the engine, the worksheet functions and the sheet-button
+  macros (src\), for a workbook that is used to calculate.
+- Development: the production modules and every test module
+  (tests\modules), for a workbook that runs the test suites. The tests
+  write to the input and output sheets; never run them on real data.
+
+With -SourceDir only the modules found in that folder are imported (see the
+third example). Standard modules are replaced from source. ThisWorkbook and worksheet document modules
 keep their workbook objects and only their code text is replaced. The script
 does not write cells, formulas, names, formatting, tables, worksheets, or
 workbook structure.
@@ -24,6 +32,12 @@ it is. -IncludeSheets or -SkipSheets gives the answer in advance.
 
 .EXAMPLE
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm"
+
+Asks whether the workbook is a production or a development workbook, then
+whether to replace the sheet code as well.
+
+.EXAMPLE
+.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -Mode Development -SkipSheets
 
 .EXAMPLE
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
@@ -73,7 +87,11 @@ param(
     [switch]$IncludeSheets,
 
     [Parameter(Mandatory = $false)]
-    [switch]$SkipSheets
+    [switch]$SkipSheets,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("Production", "Development")]
+    [string]$Mode
 )
 
 Set-StrictMode -Version Latest
@@ -323,6 +341,51 @@ function Select-FolderSources {
     return $staged
 }
 
+function ConvertTo-SyncMode {
+    # The answer to the production/development question: Production,
+    # Development, or $null for anything else.
+    param([AllowNull()][AllowEmptyString()][string]$Answer)
+
+    switch -Regex (([string]$Answer).Trim()) {
+        '^(?i)(p|prod|production)$' { return "Production" }
+        '^(?i)(d|dev|development)$' { return "Development" }
+    }
+    return $null
+}
+
+function Get-ManifestSources {
+    # The components of one workbook, from tools\vba-projects.json: the
+    # modules of its configuration and the document modules, sorted by
+    # path. Every listed file must exist.
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoPath,
+        [Parameter(Mandatory = $true)][ValidateSet("Production", "Development")][string]$Mode
+    )
+
+    $manifestPath = Join-Path (Join-Path $RepoPath "tools") "vba-projects.json"
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Component manifest not found: $manifestPath"
+    }
+
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $configuration = $manifest.configurations.($Mode.ToLowerInvariant())
+    if ($null -eq $configuration) {
+        throw "Configuration '$($Mode.ToLowerInvariant())' not found in $manifestPath"
+    }
+
+    $relative = @($configuration.modules) + @($manifest.document_modules)
+    $files = @(
+        foreach ($entry in $relative) {
+            $path = Join-Path $RepoPath ([string]$entry)
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Component listed in $manifestPath not found: $entry"
+            }
+            Get-Item -LiteralPath $path
+        }
+    )
+    return @($files | Sort-Object FullName)
+}
+
 function Find-VbaComponent {
     param(
         [Parameter(Mandatory = $true)]$VBProject,
@@ -470,6 +533,7 @@ $workbook = $null
 $saved = $false
 $backupPath = $null
 $stagePath = $null
+$syncMode = $null
 
 try {
     $workbookFullPath = Resolve-FullPath -PathValue $WorkbookPath
@@ -515,6 +579,44 @@ try {
         }
 
         $seen[$key] = $file.FullName
+    }
+
+    # Every component in the source folders must be listed in the manifest,
+    # so that a new module is never left out of both workbooks unnoticed.
+    $developmentFiles = @(Get-ManifestSources -RepoPath $repoFullPath -Mode Development)
+    $listed = @{}
+    foreach ($file in $developmentFiles) {
+        $listed[$file.FullName.ToLowerInvariant()] = $true
+    }
+    foreach ($file in $sourceFiles) {
+        if (-not $listed.ContainsKey($file.FullName.ToLowerInvariant())) {
+            throw "Component not listed in tools\vba-projects.json: $($file.FullName)"
+        }
+    }
+
+    # Full synchronization: the production or the development component set.
+    # -SourceDir instead takes what the folder holds.
+    if (-not [string]::IsNullOrWhiteSpace($SourceDir) -and -not [string]::IsNullOrWhiteSpace($Mode)) {
+        throw "Use -Mode only for a full synchronization, not with -SourceDir."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+        $syncMode = $Mode
+        if ([string]::IsNullOrWhiteSpace($syncMode)) {
+            Write-Host "Which workbook is this?"
+            Write-Host "  P = production: engine, worksheet functions and sheet-button macros"
+            Write-Host "  D = development: production modules and every test module"
+            Write-Host "      (the tests write to the input and output sheets)"
+            $syncMode = ConvertTo-SyncMode -Answer (Read-Host "Production or development? [P/D]")
+            if ($null -eq $syncMode) {
+                Write-Host "Cancelled: the workbook was not changed."
+                exit 2
+            }
+        }
+
+        $sourceFiles = @(Get-ManifestSources -RepoPath $repoFullPath -Mode $syncMode)
+        Write-Host "Mode: $syncMode ($($sourceFiles.Count) components)"
+        Write-Host ""
     }
 
     # -SourceDir: import only the repository modules found in that folder,
@@ -633,6 +735,21 @@ try {
     foreach ($retiredName in $retiredNames) {
         if ($null -ne (Find-VbaComponent -VBProject $vbProject -Name $retiredName)) {
             throw "Retired repository component '$retiredName' found. Rebuild from the current template and source; no VBA changes have been made."
+        }
+    }
+
+    # A production synchronization never removes modules: test modules
+    # already in the workbook stay, and the user is told.
+    if ($syncMode -eq "Production") {
+        $testModules = @(
+            foreach ($component in $vbProject.VBComponents) {
+                if ($component.Name -like "TEST_*") { $component.Name }
+            }
+        )
+        if ($testModules.Count -gt 0) {
+            Write-Warning ("This workbook already holds test modules, which a production " +
+                "synchronization does not remove: " + ($testModules -join ", ") +
+                ". For a production workbook, build it from the template.")
         }
     }
 

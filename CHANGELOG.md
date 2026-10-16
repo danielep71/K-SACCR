@@ -98,6 +98,90 @@ Use only the categories needed by a release.
 
 ### Added
 
+- An evidence report of the run (#45). **Export evidence**, a new button on
+  `Reconciliation`, writes one CSV file, separated by `;` with a `.` decimal
+  point, CR LF line ends and UTF-8 without a byte-order mark in every locale.
+  Each line starts with its section: `RUN` (format, run summary with the run
+  class, input and output fingerprints, reporting date and currency, default
+  regime, the reference parameter set, totals per regime, the counts on
+  Checks, and for each reconciliation `CURRENT` or `NOT MADE`, its fingerprint
+  and summary, and the scale and tolerances it used), `PARAMS`, `SF_TABLE`,
+  `FX_TABLE`, `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`
+  and a fixed `LIMITATIONS` section. The export refuses while Excel has a
+  recalculation pending, while the results are not current, while a
+  reconciliation no longer matches its bank figures (also after they were all
+  removed), or after an output cell was edited: a completed run stores the
+  fingerprint of the exported outputs in the hidden name `SACCR_RunOutputs`.
+  `SF_TABLE` and `FX_TABLE` hold the rows the run read, also those added below
+  the table's named range. Text that Excel would read as a formula is written
+  with a leading apostrophe. A file therefore describes the inputs as they are
+  and what the run wrote; two exports of the same run are identical. The
+  encoding is in the new module `CORE_Export`, which reads no sheet; `M_Main`
+  adds `ExportEvidence` and `ExportEvidence_Silent`, and
+  `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
+  write their tolerances with a decimal point in every locale, and the run
+  summary on Results its run time. `TEST_Reconcile`: 19 cases, 140 checks.
+
+- `python tools/check.py` reports a VBA string literal left open on its
+  line, with the file and line number: `""` inside a literal is one quote,
+  and quotes in comments (after `'` or `Rem`, also on a continued comment
+  line) do not count. The VBE reports such a line only as a syntax error
+  when the module is imported, as happened during the review of #45.
+
+- Reconciliation with a bank's own figures per trade leg (#45). The new input
+  sheet `BankTrades` takes, per Trade ID, any of the notional and MtM in the
+  reporting currency, M, the supervisory duration, the adjusted notional, the
+  supervisory delta, the unmargined and margined maturity factors and
+  effective notionals and the stand-alone add-on, with its own scale and
+  tolerances (`BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol`). **Run
+  SA-CCR** compares them with TradeCalc on the new sheet
+  `TradeReconciliation`, laid out as Reconciliation with the leg's netting set
+  and asset class and, in a last column, its Economic trade ID from Trades
+  (blank for a whole trade), so legs can be grouped as the bank groups its
+  trades. Amounts are scaled; M, the supervisory duration, the delta and the
+  maturity factors are not, and only the relative tolerance applies to them. A
+  leg excluded by the calculator is `EXCLUDED` with its reasons; a Trade ID
+  listed more than once on TradeCalc (repeated on Trades) is `DUPLICATE` and
+  not compared, with or without a bank row; and a figure the calculator does
+  not have for the leg (for example a margined maturity factor in an
+  unmargined netting set) is `NOT APPLICABLE`. Its status formula is
+  `TradeReconciliationStatusText`, its fingerprint `SACCR_TradeReconInputs`,
+  and the result line gains `trade_reconciliation=`. `CORE_Reconcile` now
+  compares both tables with one shared core. `TEST_Reconcile`: 16 cases, 96
+  checks.
+
+- Reconciliation with a bank's own figures, per netting set (#45). The new
+  input sheet `BankNettingSets` takes, per netting set ID, the regime and any
+  of EAD, RC, PFE, the aggregate and asset-class add-ons and the multiplier,
+  with an amount scale (units, thousands, millions) and an absolute and a
+  relative tolerance in named cells. **Run SA-CCR** compares them with Results
+  and writes the new `Reconciliation` sheet: one row per netting set and
+  figure with both values, the difference (calculator - bank), the relative
+  difference and `MATCH` (within either tolerance; the multiplier is not
+  scaled and only the relative tolerance applies to it) or `DIFFERENCE`, and
+  one row for each netting set that is not compared: `MISSING IN CALCULATOR`,
+  `NOT IN BANK FILE`, `DUPLICATE`, `REGIME MISMATCH`, `WITHHELD` (no EAD on
+  Results) or `INVALID INPUT`. Figures of different regimes are never
+  compared. A summary in Reconciliation C4 counts each result; the status
+  formula in C5 reads `OUT OF DATE` once a bank figure, a setting or an input
+  changes. Validation, Clear outputs and a stopped run withdraw the
+  reconciliation, and a workbook without the two sheets still runs. The
+  comparison is in the new module `CORE_Reconcile`, which reads no sheet; the
+  run's result line gains `reconciliation=`. The new suite `TEST_Reconcile`
+  (12 cases, 71 checks) covers every result with synthetic figures and the
+  sheets on the demonstration portfolio; `Test_RunAll` runs eight suites.
+
+- A source round trip (#34): `tools/Export-SACCR-VBA.ps1` exports every VBA
+  component of a built workbook, opened read-only, to a new folder, and
+  `tools/compare_vba_export.py` checks the export against the source of one
+  commit for a production or development workbook: the same components, code
+  and standard-module attributes. It ignores line endings, trailing blank
+  lines, the class-file header block, the letter case of code outside strings
+  and comments, which the VBE re-cases project-wide on import, and the
+  attributes of document modules, which Excel writes. It prints the template
+  and workbook digests and the number of re-cased lines.
+  `docs/EXCEL_EVIDENCE.md` describes the procedure.
+
 - A one-page SA-CCR EAD reference card, `docs/assets/SACCR_EAD_reference.svg`:
   netting-set exposure, trade-level inputs, asset-class parameters,
   aggregation and the points where CRR and Basel differ. The README shows it
@@ -346,6 +430,14 @@ Use only the categories needed by a release.
   `TEST_Invariants` 4 cases and 23 checks.
 
 ### Changed
+
+- `tools/Sync-SACCR-VBA.ps1` asks whether it is building a production
+  workbook (engine, worksheet functions and sheet macros) or a development
+  workbook (also every test module), instead of always importing the tests
+  (#34). `-Mode Production` or `-Mode Development` answers in advance. Both
+  component sets come from `tools/vba-projects.json`, which the call checker
+  already uses; a component missing from it stops the synchronization. A
+  production synchronization leaves existing test modules in place and warns.
 
 - The project is named K-SACCR in the documentation, the reference card and
   the social preview. The repository keeps its name, VBA-SACCR-Toolkit, and

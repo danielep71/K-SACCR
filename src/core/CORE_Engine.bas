@@ -49,13 +49,17 @@ Attribute VB_Name = "CORE_Engine"
 '   None outside this VBA project. Calculate, the run counters (with the
 '   per-regime totals TotalEAD, RegimeSetCount, RegimeValidCount,
 '   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
-'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs) are
-'   Public for M_Main; Option Private Module keeps them off the supported
-'   external surface.
+'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs, and
+'   BlockText, which M_Main also uses for the reconciliation fingerprint)
+'   and ParameterCodes, which it uses for the evidence report,
+'   are Public for M_Main; Option Private Module keeps them off the
+'   supported external surface.
 '
 ' DEPENDENCIES
-'   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
-'   SACCR_Formulas for every regulatory formula.
+'   CORE_Config for the layout, CORE_Util for conversions and sheet access,
+'   SACCR_Formulas for every regulatory formula, and CORE_Export.NumberText
+'   for the run time in the run summary, with a decimal point in every
+'   locale (#45).
 '
 ' STATE OWNERSHIP
 '   Owns the module state below. ResetState clears it at the start of each
@@ -82,7 +86,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1039,11 +1043,12 @@ Private Function ValidateSchema() As Boolean
 End Function
 
 
-Private Function ParameterCodes() As Variant
+Public Function ParameterCodes() As Variant
 '
 '==============================================================================
 ' PURPOSE
-'   The parameter vocabulary shared by schema and table validation.
+'   The parameter vocabulary shared by schema and table validation, and
+'   by the evidence report of M_Main (#45).
 ' RETURNS
 '   An array of the supported parameter codes.
 '==============================================================================
@@ -4767,7 +4772,7 @@ Private Function ParamsText() As String
 End Function
 
 
-Private Function BlockText( _
+Public Function BlockText( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
     ByVal nCols As Long, _
@@ -4782,14 +4787,15 @@ Private Function BlockText( _
 '   Write a block of cells as one text, cell by cell (CellToken), from
 '   firstRow to the last row with a value. Blank rows below it are left
 '   out, so that a used range that grew without new values does not
-'   change the text.
+'   change the text. Public for M_Main, which fingerprints the bank
+'   figures with it (#45).
 '
 ' INPUTS
 '   firstCol: the block's first table column, as TableCell counts it.
 '   lastRow: the last row to read; 0 for the last used row.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '==============================================================================
 '
 
@@ -5383,7 +5389,7 @@ Private Function RunInfoText( _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
                           " | inputs " & mRunInputs & _
-                          " | " & Format$(secs, "0.00") & " s"
+                          " | " & CORE_Export.NumberText(Round(secs, 2)) & " s"
             If mIncomplete > 0 Then
                 RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s)"
             End If

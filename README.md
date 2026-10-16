@@ -176,8 +176,11 @@ or later and no packages.
 1. Open `src/workbook/SACCR_Template.xlsx` and save it as an **Excel
    Macro-Enabled Workbook (`.xlsm`)** outside the checkout.
 2. In Excel, enable **Trust access to the VBA project object model**.
-3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It imports
-   every module from `src/` and `tests/modules/`.
+3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It asks
+   which workbook to build: **P**roduction, the engine and the sheet macros
+   from `src/`, or **D**evelopment, which adds the test modules of
+   `tests/modules/` that [section 4](#4-test-development-workbook) needs. The
+   tests write to the input and output sheets: never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
@@ -193,6 +196,27 @@ further illustrative netting sets.
 | **Run SA-CCR** | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
 | **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
+| **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
+
+To compare the results with your bank's own figures, enter them on
+`BankNettingSets`, one row per netting set with its regime, in the amount scale
+set at the top of the sheet. **Run SA-CCR** then writes the comparison to
+`Reconciliation`: one row per netting set and figure, `MATCH` within either
+tolerance or `DIFFERENCE`, and a row for every netting set that cannot be
+compared, with the reason. `BankTrades` and `TradeReconciliation` do the same
+per trade leg, by Trade ID, against `TradeCalc`: notional, MtM, M,
+supervisory duration, adjusted notional, delta, maturity factors, effective
+notionals and the stand-alone add-on. Each leg's row also shows its Economic
+trade ID from Trades, so legs can be grouped as the bank groups its trades.
+
+**Export evidence** then writes the run to one CSV file, separated by `;`
+with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
+run's identity and input fingerprint, the parameters, supervisory-factor and
+FX tables, Results, both reconciliations, Checks and the report's
+limitations, each line starting with its section. It refuses while the
+results or a reconciliation are out of date, or after an output cell was
+edited, so the file always describes the inputs as they are and what the
+run wrote.
 
 ## 4. Test (development workbook)
 
@@ -249,6 +273,10 @@ Trades ─┘                │                                           │
 5. **Exposure.** RC, multiplier, PFE and EAD per netting set, with the cap for
    margined netting sets. A netting set with a rejected trade or an invalid
    input reports `INCOMPLETE` or `INVALID` and no EAD.
+6. **Reconciliation.** When `BankNettingSets` holds figures, each is compared
+   with the same figure on Results, netting sets matched by ID and never
+   across regimes (#45). **Export evidence** writes the run and its
+   reconciliations to a CSV file.
 
 | Sheet | Role |
 | --- | --- |
@@ -259,6 +287,8 @@ Trades ─┘                │                                           │
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
+| `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results: `MATCH` or `DIFFERENCE` per figure, and every netting set missing on either side, listed twice, of another regime, withheld or unusable |
+| `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs, `NOT APPLICABLE` figures and each leg's Economic trade ID |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
@@ -328,6 +358,7 @@ wrote the code under test (#100).
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions |
 | `TEST_Aggregation` | Row-order independence and offsets |
 | `TEST_Invariants` | Relations every result must satisfy |
+| `TEST_Reconcile` | Comparison of bank figures with Results, and the Reconciliation sheet |
 
 `python tools/check.py` runs the static gates (source layout, house style,
 public API, test-case schema, generated tests and tooling tests) locally and

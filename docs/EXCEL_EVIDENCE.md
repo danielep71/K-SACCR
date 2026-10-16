@@ -81,8 +81,10 @@ clone, to print the inventory and validate the bundle.
    [Importing VBA into Excel](../INSTALLATION.md#importing-vba-into-excel): the
    template from this checkout saved as `.xlsm` outside the checkout, the four
    default references, every VBA component the `--inventory` output lists (all
-   of `src/` and `tests/modules/`) imported in order from this checkout, with
-   the document modules pasted as `INSTALLATION.md` describes, then
+   of `src/` and `tests/modules/`: a **development** workbook) imported in
+   order from this checkout, with the document modules pasted as
+   `INSTALLATION.md` describes, or with `tools/Sync-SACCR-VBA.ps1 -Mode
+   Development`, then
    **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
    listed in **Tools → References** and the compile result.
 5. **Run the harness once.** Clear the Immediate window (**Ctrl+G**, then
@@ -108,6 +110,58 @@ clone, to print the inventory and validate the bundle.
 
 If Excel cannot be run, write an `unavailable` record (below) and say so. Do
 not fill an environment, stage or harness with values that were not observed.
+
+<a id="source-round-trip"></a>
+
+## 🔁 Source round trip
+
+A workbook built from the template and the source of one commit must hold
+exactly that source: the components the mode lists in
+`tools/vba-projects.json`, each with the same code and attributes. The round
+trip shows it (#34). It needs Windows Excel with *Trust access to the VBA
+project object model* enabled, and Python on the same machine.
+
+1. **Clean checkout of the candidate**, as in step 1 of the manual procedure,
+   with `git status` clean.
+2. **Build** the workbook from the checkout's template, saved as `.xlsm`
+   outside the checkout, and synchronize it:
+
+   ```powershell
+   .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Production -IncludeSheets
+   ```
+
+   For a development workbook, use `-Mode Development`.
+3. **Compile and run.** Open the workbook, run **Debug → Compile
+   VBAProject**, then **Run SA-CCR** on the demonstration portfolio (and, in a
+   development workbook, `TEST_Suite.Test_RunAll`). Save and close.
+4. **Export** to a new folder; the workbook is opened read-only and not
+   changed:
+
+   ```powershell
+   .\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -OutDir "C:\path\export"
+   ```
+
+5. **Compare** with the source of the candidate:
+
+   ```sh
+   python tools/compare_vba_export.py --export C:\path\export --mode production --candidate-sha FULL_SHA --workbook C:\path\K-SACCR.xlsm
+   ```
+
+   It prints the candidate, the template and workbook SHA-256 digests, the
+   number of re-cased lines, one `FAIL` line per difference and
+   `RESULT=PASS` or `RESULT=FAIL`. Code and the `Attribute` lines of standard
+   modules must match. Ignored:
+   - line endings, trailing blank lines and the `VERSION`/`BEGIN`/`END` block
+     of a class file;
+   - letter case in code outside string literals and comments. VBA names are
+     case-insensitive and the VBE keeps one spelling per name across the
+     project, so it re-cases identifiers on import. The lines that differ only
+     that way are counted, not failed;
+   - the attributes of the document modules. The synchronizer replaces only
+     their code, and Excel writes their attributes.
+6. **Retain** the comparison output, the compile and run results and the
+   source digests from `check_excel_evidence.py --inventory`, for example in
+   the issue or pull request that needs the evidence.
 
 <a id="record-template"></a>
 
@@ -238,8 +292,9 @@ Keep non-passing bundles too until the finding is resolved.
   (`TEST_Formulas.RunFormulaTests`, `TEST_MainState.RunMainStateTests`,
   `TEST_Cases.RunCaseTests`,
   `TEST_InputValidation.RunInputValidationTests`,
-  `TEST_Invariants.RunInvariantTests` and
-  `TEST_Aggregation.RunAggregationTests`) are imported, but their results are
+  `TEST_Invariants.RunInvariantTests`,
+  `TEST_Aggregation.RunAggregationTests` and
+  `TEST_Reconcile.RunReconcileTests`) are imported, but their results are
   not part of the record; report them separately (see
   [running the harness](../INSTALLATION.md#running-the-harness)). The
   summary of `TEST_Suite.Test_RunAll` is not a harness log: record

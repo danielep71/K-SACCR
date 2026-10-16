@@ -7,13 +7,14 @@ Attribute VB_Name = "CORE_Config"
 '   header and first data rows, the column of each input field, the width of
 '   each output table, parameter codes, regime and asset-class codes, the
 '   severity labels written to the Checks sheet, the expected column
-'   headers, and the error numbers raised by the workbook macros. When a
-'   sheet layout changes, it changes here and nowhere else.
+'   headers, the bank-figure and reconciliation layout, and the error
+'   numbers raised by the workbook macros. When a sheet layout changes, it
+'   changes here and nowhere else.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
-'   by CORE_Util, CORE_Engine and M_Main; Option Private Module keeps them off the
-'   supported external surface.
+'   by CORE_Util, CORE_Engine, CORE_Reconcile and M_Main; Option Private
+'   Module keeps them off the supported external surface.
 '
 ' DEPENDENCIES
 '   None. Every value is a literal.
@@ -28,7 +29,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-15
 '
 ' AUTHOR
 '   Daniele Penza
@@ -54,6 +55,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_BUCKETS     As String = "Buckets"        'One row per bucket
         Public Const SH_TRADECALC   As String = "TradeCalc"      'One row per trade
         Public Const SH_CHECKS      As String = "Checks"         'Errors, warnings, information
+        Public Const SH_BANK_NS     As String = "BankNettingSets"    'Bank figures per netting set (#45)
+        Public Const SH_RECON       As String = "Reconciliation"     'Bank figures against Results (#45)
+        Public Const SH_BANK_TR     As String = "BankTrades"             'Bank figures per trade leg (#45)
+        Public Const SH_TRADE_RECON As String = "TradeReconciliation"    'Bank figures against TradeCalc (#45)
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -279,6 +284,134 @@ Attribute VB_Name = "CORE_Config"
         Public Const RS_STATUS_COL  As Long = 28    'Results: VALID, INCOMPLETE or NO TRADES
 
 '------------------------------------------------------------------------------
+' RESULTS COLUMNS READ BY THE RECONCILIATION
+'------------------------------------------------------------------------------
+    'Column of each Results figure that bank figures are compared with
+    '(#45). Columns 10 to 15 are the asset-class add-ons in AC_ order, so
+    'the add-on of asset class a is in column RS_ADDON_IR + a - 1. A
+    'margined netting set shows its margined RC, add-ons, multiplier and
+    'PFE, and the EAD after the cap.
+        Public Const RS_ID          As Long = 1     'NettingSetID, or TOTAL CRR / TOTAL BCBS
+        Public Const RS_REGIME      As Long = 3     'BCBS or CRR
+        Public Const RS_RC          As Long = 9     'Replacement cost
+        Public Const RS_ADDON_IR    As Long = 10    'Interest-rate add-on; FX to OT follow
+        Public Const RS_ADDON       As Long = 16    'Aggregate add-on
+        Public Const RS_MULT        As Long = 17    'Multiplier
+        Public Const RS_PFE         As Long = 18    'PFE
+        Public Const RS_EAD         As Long = 22    'EAD reported
+
+'------------------------------------------------------------------------------
+' TRADECALC COLUMNS READ BY THE RECONCILIATION
+'------------------------------------------------------------------------------
+    'Column of each TradeCalc figure that bank trade figures are compared
+    'with (#45). A column that does not apply to a trade is blank: T for a
+    'non-option, SD outside interest rate and credit, the margined MF and
+    'effective notional in an unmargined netting set; an EXCLUDED trade
+    'has only its reasons.
+        Public Const TC_ID          As Long = 1     'TradeID: the leg
+        Public Const TC_NS          As Long = 2     'NettingSetID
+        Public Const TC_AC          As Long = 3     'Asset class
+        Public Const TC_STATUS      As Long = 4     'OK or EXCLUDED
+        Public Const TC_NOTIONAL    As Long = 8     'Notional, reporting currency
+        Public Const TC_MTM         As Long = 9     'MtM, reporting currency
+        Public Const TC_M           As Long = 12    'Maturity M, years
+        Public Const TC_SD          As Long = 14    'Supervisory duration
+        Public Const TC_ADJN        As Long = 15    'Adjusted notional d
+        Public Const TC_DELTA       As Long = 16    'Supervisory delta
+        Public Const TC_MFU         As Long = 17    'Maturity factor, unmargined
+        Public Const TC_MFM         As Long = 18    'Maturity factor, margined
+        Public Const TC_ENU         As Long = 19    'Effective notional, unmargined
+        Public Const TC_ENM         As Long = 20    'Effective notional, margined
+        Public Const TC_ADDON       As Long = 22    'Stand-alone add-on
+        Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
+
+'------------------------------------------------------------------------------
+' BANK FIGURES
+'------------------------------------------------------------------------------
+    'The BankNettingSets sheet holds a bank's own figures per netting set,
+    'to be compared with Results (#45). Its table is located through the
+    'workbook name of its first header cell, with data from the next row;
+    'three named cells set the amount scale and the tolerances. A blank
+    'figure is not compared.
+        Public Const NM_BN_HEADER   As String = "BankNettingSets_Header"    'Header cell "NettingSetID"
+        Public Const NM_BN_SCALE    As String = "BankNS_Scale"              'Units per bank amount: 1, 1000, ...
+        Public Const NM_BN_ABSTOL   As String = "BankNS_AbsTol"             'Absolute tolerance, reporting ccy
+        Public Const NM_BN_RELTOL   As String = "BankNS_RelTol"             'Relative tolerance
+        Public Const BN_ID          As Long = 1     'Netting-set ID
+        Public Const BN_REGIME      As Long = 2     'BCBS or CRR
+        Public Const BN_EAD         As Long = 3     'EAD; the figures follow in the order of the measures
+        Public Const BN_MULT        As Long = 13    'Multiplier: the one figure not scaled
+        Public Const BN_COMMENT     As Long = 14    'Free-text comment, not read
+        Public Const BN_NCOLS       As Long = 14    'Number of columns
+        Public Const BN_HEADERS As String = "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|" & _
+            "AddOn IR|AddOn FX|AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
+    'The BankTrades sheet holds a bank's own figures per trade leg, to be
+    'compared with TradeCalc, in the same way. Amounts are scaled; M, the
+    'supervisory duration, the delta and the maturity factors are not.
+        Public Const NM_BT_HEADER   As String = "BankTrades_Header"    'Header cell "TradeID"
+        Public Const NM_BT_SCALE    As String = "BankTR_Scale"         'Units per bank amount: 1, 1000, ...
+        Public Const NM_BT_ABSTOL   As String = "BankTR_AbsTol"        'Absolute tolerance, reporting ccy
+        Public Const NM_BT_RELTOL   As String = "BankTR_RelTol"        'Relative tolerance
+        Public Const BT_ID          As Long = 1     'TradeID: the leg
+        Public Const BT_NOTIONAL    As Long = 2     'Notional; the figures follow in the order of the measures
+        Public Const BT_COMMENT     As Long = 13    'Free-text comment, not read
+        Public Const BT_NCOLS       As Long = 13    'Number of columns
+        Public Const BT_HEADERS As String = "TradeID|Notional (rep ccy)|MtM (rep ccy)|M (years)|" & _
+            "Supervisory duration|Adjusted notional d|Supervisory delta|MF unmargined|MF margined|" & _
+            "Effective notional unmargined|Effective notional margined|Stand-alone add-on|"
+
+'------------------------------------------------------------------------------
+' RECONCILIATION
+'------------------------------------------------------------------------------
+    'The Reconciliation sheet has one row per netting set and measure, in
+    'the layout of the other output sheets (headers on HEADER_ROW), its
+    'summary in RECON_INFO_CELL and a status formula in RECON_STATUS_CELL.
+    'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
+    'figures and inputs it was made from; it is empty when there is none.
+        Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
+        Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
+        Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
+    'TradeReconciliation has the same layout, with its own hidden name,
+    'and holds the trade's netting set and asset class in the two regime
+    'columns (TRC_NS, TRC_AC); trades carry the regime of their netting set.
+        Public Const TRADE_RECON_INPUTS_NAME As String = "SACCR_TradeReconInputs"    'Empty when none exists
+    'The hidden name RUN_OUTPUTS_NAME holds the fingerprint of what the
+    'evidence report exports from the output sheets, taken when a run
+    'completes; an output cell edited after the run no longer matches it.
+        Public Const RUN_OUTPUTS_NAME As String = "SACCR_RunOutputs"    'Empty when no run completed
+        Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
+        Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
+    'TradeReconciliation has one column more, after the Note: the leg's
+    'Economic trade ID on Trades, blank for a whole trade, so that legs
+    'can be grouped as the bank groups its trades.
+        Public Const TRC_ECON       As Long = 13    'TradeReconciliation: Economic trade ID on Trades
+        Public Const TRC_NCOLS      As Long = 13    'TradeReconciliation: number of columns
+        Public Const RC_ID          As Long = 1     'NettingSetID
+        Public Const RC_BANKROW     As Long = 2     'Row on BankNettingSets; blank when not in the bank file
+        Public Const RC_BANKREGIME  As Long = 3     'Regime given by the bank
+        Public Const RC_CALCREGIME  As Long = 4     'Regime on Results
+        Public Const RC_CALCSTATUS  As Long = 5     'Status on Results
+        Public Const RC_MEASURE     As Long = 6     'EAD, RC, PFE, ...
+        Public Const RC_BANK        As Long = 7     'Bank figure, scaled to units
+        Public Const RC_CALC        As Long = 8     'Results figure
+        Public Const RC_DIFF        As Long = 9     'Calculator minus bank
+        Public Const RC_REL         As Long = 10    'Difference over the absolute bank figure
+        Public Const RC_RESULT      As Long = 11    'One of the RES_ labels
+        Public Const RC_NOTE        As Long = 12    'Why, for every result other than MATCH and DIFFERENCE
+        Public Const RC_NCOLS       As Long = 12    'Number of columns
+    'Result of each Reconciliation row.
+        Public Const RES_MATCH      As String = "MATCH"                    'Within a tolerance
+        Public Const RES_DIFF       As String = "DIFFERENCE"               'Outside both tolerances
+        Public Const RES_MISSING    As String = "MISSING IN CALCULATOR"    'Bank ID not on Results
+        Public Const RES_NOTINBANK  As String = "NOT IN BANK FILE"         'Results netting set not in the bank file
+        Public Const RES_DUPLICATE  As String = "DUPLICATE"                'Bank ID listed more than once
+        Public Const RES_REGIME     As String = "REGIME MISMATCH"          'Bank and Results regimes differ
+        Public Const RES_WITHHELD   As String = "WITHHELD"                 'Results status is not VALID
+        Public Const RES_INVALID    As String = "INVALID INPUT"            'Bank row or figure not usable
+        Public Const RES_EXCLUDED   As String = "EXCLUDED"                 'Trade excluded by the calculator
+        Public Const RES_NA         As String = "NOT APPLICABLE"           'No calculator figure for this trade
+
+'------------------------------------------------------------------------------
 ' ASSET CLASSES
 '------------------------------------------------------------------------------
     'Internal asset-class numbers, used as array indexes. OT (other risks)
@@ -316,6 +449,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
+        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file not replaced whole
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS
