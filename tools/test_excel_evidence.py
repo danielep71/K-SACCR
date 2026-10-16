@@ -526,7 +526,9 @@ class ExcelEvidenceTests(unittest.TestCase):
         for old, new, message in (
                 ("Excel_suites-8%2F8_PASS", "Excel_suites-7%2F7_PASS", "Excel suites badge"),
                 ("Regression-227_cases", "Regression-226_cases", "Regression badge"),
-                ("| 19 | 140 |", "| 18 | 137 |", "suite table counts differ"),
+                ("| 19 | 140 |", "| 18 | 137 |", "suite table rows differ"),
+                ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | 9 | 80 |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
                 ("| **227** | **975** |", "| **226** | **975** |", "suite table total"),
                 ("TEST_Reconcile        cases=19; checks=140", "TEST_Reconcile        cases=18; checks=137",
                  "Test_RunAll output differs"),

@@ -588,10 +588,11 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     }
     problems += [f"README.md: {label} does not show {value!r}"
                  for label, value in expected.items() if value not in text]
-    table = {name: (int(found_cases), int(found_checks)) for name, found_cases, found_checks
-             in re.findall(r"^\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)}
-    if table != {name: (row_cases, row_checks) for name, row_cases, row_checks in rows}:
-        problems.append("README.md: suite table counts differ from the policy")
+    # Every row, in order: a second, stale row for one suite is a contradiction.
+    table = [(name, int(found_cases), int(found_checks)) for name, found_cases, found_checks
+             in re.findall(r"^\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)]
+    if table != rows:
+        problems.append("README.md: suite table rows differ from the policy suites and counts")
     shown = []
     for status, name, detail, _ in SUMMARY_LINE.findall(text):
         found = re.search(r"\bcases=(\d+); (?:checks|assertions)=(\d+); failures=0\b", detail)
