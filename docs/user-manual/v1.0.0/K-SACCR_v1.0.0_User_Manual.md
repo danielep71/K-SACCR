@@ -1016,7 +1016,7 @@ Regulatory **published** reference values and **illustrative** cases have fundam
 | Trade `EXCLUDED` | Failed domain, date, code, pair, group or currency check. | Read its TradeCalc/Checks messages, correct source and rerun. |
 | Netting set `INCOMPLETE` | One or more associated trades rejected. | Trace every excluded leg; do not use the withheld EAD. |
 | Netting set `INVALID` | Invalid netting data, duplicate set IDs or unsupported regime treatment. | Correct netting terms, IDs and regime/options. |
-| `NO TRADES` | No usable transactions in that set. | Confirm population and as-of scope. |
+| `NO TRADES` | No trade rows refer to that netting set (rejected trades make it `INCOMPLETE` instead). | Confirm the trade population, the `NettingSetID` values on `Trades` and the as-of scope. |
 | Reconciliation `REGIME MISMATCH` | Bank comparison is across BCBS/CRR. | Align regimes; never compare by EAD amount alone. |
 | Reconciliation `DUPLICATE` | Duplicate population key on one side. | Audit all duplicate rows and identifiers. |
 | Unexpected `DIFFERENCE` | Amount scale, FX quote, date convention, margin setting, class or aggregation. | Apply top-down/bottom-up reconciliation sequence. |
