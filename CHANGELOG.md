@@ -289,7 +289,8 @@ pull requests.
   decisions, support matrix, traceability table and test-case format.
 - `docs/GOVERNANCE.md` (branch policy, labels, review), repository structure,
   VBA house style and `docs/assets/README.md` for the images: a one-page EAD
-  reference card, workbook screenshots and the social preview.
+  reference card (also shown on the workbook's README sheet), workbook
+  screenshots and the social preview.
 - A user manual, as pandoc Markdown with its build instructions in
   `docs/user-manual/v1.0.0/`; its PDF will be attached to the 1.0.0 release.
 
