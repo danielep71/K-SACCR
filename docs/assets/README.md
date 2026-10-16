@@ -81,7 +81,7 @@ README!D23 links to C114, a cell behind the lower part of the picture:
 Excel scrolls only until the target cell is in view, so a link to the
 heading would leave the picture below the window. The picture is a PNG of this SVG: when the SVG changes,
 render it again and replace the picture in the template
-(`xl/media/image1.png`, shown 1260 px wide):
+(`xl/media/image1.png`, shown 1420 px wide, the width of columns C:D):
 
 1. Open the SVG in an HTML page that shows it at 1800 x 1444 px and take a
    screenshot with headless Chromium at a device scale factor of 1, in a
