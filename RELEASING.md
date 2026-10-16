@@ -87,7 +87,7 @@ task PR into the release branch.
 
 Before the first release, check that the figures in the social preview image
 still match its source notes in
-[`docs/assets/SOCIAL_PREVIEW_SOURCES.md`](docs/assets/SOCIAL_PREVIEW_SOURCES.md),
+[`docs/assets/README.md`](docs/assets/README.md#social-preview),
 and update its "Under development" status as those notes describe.
 
 ### 4. Run the static gates
