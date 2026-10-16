@@ -141,7 +141,7 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 14 sheets, named ranges, formulas and buttons, and no VBA. Built
+   holds the 16 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto
@@ -175,7 +175,7 @@ The layout and file conventions are defined in
    | ---: | --- | --- | --- |
    | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet layout constants, parameter codes and error numbers |
    | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
-   | 3 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results (#45) |
+   | 3 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc (#45) |
    | 4 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 5 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 6 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`; reads and writes the reconciliation sheets |
@@ -498,17 +498,24 @@ from Results the Reconciliation sheet shows `MATCH`, `DIFFERENCE`,
 `MISSING IN CALCULATOR` and `NOT IN BANK FILE`, and its status is current; an
 edited bank figure makes it `OUT OF DATE`, and a run whose recalculation
 does not finish, like validation, withdraws it. The
-BankNettingSets table and settings are put back. Run
+BankNettingSets table and settings are put back. Four more cases do the same
+per trade leg against TradeCalc: amounts scaled and the delta and maturity
+factors not, a figure the calculator does not have (`NOT APPLICABLE`), a
+leg missing on either side, an `EXCLUDED` leg with its reasons, a leg listed
+twice, the trade summary, and, in the workbook, `MATCH`, `DIFFERENCE` and
+`MISSING IN CALCULATOR` on TradeReconciliation with its status current and
+then `OUT OF DATE`; the BankTrades table is put back. Run
 `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=12; checks=71; failures=0`.
+`RESULT=PASS; cases=16; checks=96; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; cleanup=PASS`
+`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
 and raises any failure instead of showing a message box. `reconciliation` is
 `DONE` when the bank figures on BankNettingSets were compared, `NONE` when
 there are none, `FAILED` when their settings or headers are unusable (the
 Reconciliation summary in C4 says why), and `UNAVAILABLE` in a workbook built
-from a template without the two sheets. `total_ead_crr` and
+from a template without the two sheets; `trade_reconciliation` says the same
+for BankTrades and TradeReconciliation. `total_ead_crr` and
 `total_ead_bcbs` are the totals of each regime's `VALID` netting sets, never
 added together (#198). `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
@@ -531,6 +538,8 @@ Reconciliation C5 does the same for the comparison with the bank's figures
 through `=ReconciliationStatusText(...)`, which also watches BankNettingSets:
 it reads `OUT OF DATE` once a bank figure, a setting or an input changes after
 the run, and `No reconciliation` when there is none or no current results.
+TradeReconciliation C5 does the same through
+`=TradeReconciliationStatusText(...)`, which watches BankTrades.
 
 <a id="validation-record"></a>
 

@@ -3,14 +3,17 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE: TEST_Reconcile
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check the reconciliation of a bank's netting-set figures with Results
-'   (#45): figures within either tolerance MATCH and others are a
+'   Check the reconciliation of a bank's figures with the calculator's
+'   (#45), per netting set against Results and per trade leg against
+'   TradeCalc: figures within either tolerance MATCH and others are a
 '   DIFFERENCE; bank amounts are scaled and the multiplier is not; IDs
 '   missing on either side, listed twice, of another regime, withheld on
 '   Results or unusable are each reported and never compared; TOTAL rows
-'   are not netting sets; and, in the workbook, a run writes the
-'   Reconciliation sheet, an edited bank figure makes it OUT OF DATE, and
-'   validation withdraws it.
+'   are not netting sets; trade-leg ratios are not scaled, a figure the
+'   calculator does not have is NOT APPLICABLE and an excluded leg is
+'   EXCLUDED; and, in the workbook, a run writes the Reconciliation and
+'   TradeReconciliation sheets, an edited bank figure makes them OUT OF
+'   DATE, and validation withdraws them.
 '
 ' PUBLIC SURFACE
 '   RunReconcileTests is the entry point. Option Private Module keeps it out
@@ -23,9 +26,9 @@ Attribute VB_Name = "TEST_Reconcile"
 '   TEST_Suite.Say for the log lines. Every figure is synthetic.
 '
 ' WORKSHEET SAFETY
-'   The workbook case writes bank figures on BankNettingSets, runs the
-'   macros, which rewrite every output sheet, and puts the BankNettingSets
-'   table and settings back, also after an unexpected error. It leaves the
+'   The workbook cases write bank figures on BankNettingSets and
+'   BankTrades, run the macros, which rewrite every output sheet, and put
+'   the bank tables and settings back, also after an unexpected error. It leaves the
 '   outputs of a normal run. Use a development workbook.
 '
 ' STATE OWNERSHIP
@@ -57,8 +60,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 12              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 71              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 16              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 96              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -121,6 +124,10 @@ Public Sub RunReconcileTests()
         CaseSettingsAndHeaders
         CaseSummary
         CaseWorkbook
+        CaseTradeFigures
+        CaseTradePopulations
+        CaseTradeSummary
+        CaseTradeWorkbook
 
         Application.Calculation = callerCalculation
         M_Main.gSilent = callerSilent
@@ -736,7 +743,7 @@ Private Sub CaseWorkbook()
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
-        RestoreBank wsBank, firstRow, saved, savedSet
+        RestoreBankTable wsBank, firstRow, BN_NCOLS, saved, savedSet, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
         result = M_Main.RunSACCR_Silent()
         Check Left$(result, 9) = "RESULT=OK", "closing run: " & result
         Exit Sub
@@ -744,20 +751,24 @@ Private Sub CaseWorkbook()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
-        RestoreBank wsBank, firstRow, saved, savedSet
+        RestoreBankTable wsBank, firstRow, BN_NCOLS, saved, savedSet, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
 
 End Sub
 
 
-Private Sub RestoreBank( _
+Private Sub RestoreBankTable( _
     ByVal wsBank As Worksheet, _
     ByVal firstRow As Long, _
+    ByVal nCols As Long, _
     ByVal saved As Variant, _
-    ByVal savedSet As Variant)
+    ByVal savedSet As Variant, _
+    ByVal scaleName As String, _
+    ByVal absName As String, _
+    ByVal relName As String)
 '
 '==============================================================================
 ' PURPOSE
-'   Put the bank table and settings back as CaseWorkbook found them.
+'   Put a bank table and its settings back as a workbook case found them.
 '
 ' ERROR POLICY
 '   Contained: a failure is reported as a failure of the case.
@@ -767,14 +778,254 @@ Private Sub RestoreBank( _
         If wsBank Is Nothing Or Not IsArray(saved) Or Not IsArray(savedSet) Then
             Exit Sub
         End If
-        TableRange(wsBank, firstRow, 1, firstRow + 49, BN_NCOLS).Formula = saved
-        NamedCell(NM_BN_SCALE).Formula = savedSet(0)
-        NamedCell(NM_BN_ABSTOL).Formula = savedSet(1)
-        NamedCell(NM_BN_RELTOL).Formula = savedSet(2)
+        TableRange(wsBank, firstRow, 1, firstRow + 49, nCols).Formula = saved
+        NamedCell(scaleName).Formula = savedSet(0)
+        NamedCell(absName).Formula = savedSet(1)
+        NamedCell(relName).Formula = savedSet(2)
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not restore BankNettingSets: " & Err.Description
+        Fail mCurrentCase, "could not restore " & wsBank.Name & ": " & Err.Description
+
+End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                 TRADE CASES
+'
+'------------------------------------------------------------------------------
+'
+
+Private Sub CaseTradeFigures()
+'
+'==============================================================================
+' PURPOSE
+'   Trade-leg amounts are scaled and the delta and maturity factors are
+'   not, with only the relative tolerance; a figure the calculator does
+'   not have for the trade is NOT APPLICABLE; the trade's netting set and
+'   asset class are shown.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim bank   As Variant    'Bank rows
+    Dim calc   As Variant    'TradeCalc rows
+    Dim found  As Variant    'Reconciliation rows
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "trade.figures"
+        bank = NewBlock(1, BT_NCOLS)
+        bank(1, BT_ID) = "T1"
+        bank(1, BT_NOTIONAL) = 10
+        bank(1, BT_NOTIONAL + 5) = 0.5
+        bank(1, BT_NOTIONAL + 6) = 1
+        bank(1, BT_NOTIONAL + 7) = 0.3
+        calc = NewBlock(1, TC_NCOLS)
+        SetTradeCalcRow calc, 1, "T1", "NS1", "IR", "OK", 10000.4, 0.6, 1, Empty, ""
+        found = CompareT(bank, calc, 1000#, 1#, 0.0001)
+        CheckText "notional in thousands", ResultOf(found, "T1", "Notional"), RES_MATCH
+        CheckText "delta outside the relative tolerance", ResultOf(found, "T1", "Supervisory delta"), RES_DIFF
+        CheckNear "delta not scaled", CellOf(found, "T1", "Supervisory delta", RC_BANK), 0.5
+        CheckText "equal maturity factor", ResultOf(found, "T1", "MF unmargined"), RES_MATCH
+        CheckText "no margined maturity factor", ResultOf(found, "T1", "MF margined"), RES_NA
+        CheckText "netting set shown", CStr(CellOf(found, "T1", "Notional", TRC_NS)), "NS1"
+        Check mCounts(RCN_NA) = 1 And mCounts(RCN_COMPARED) = 3, _
+              "counts not applicable/compared: " & mCounts(RCN_NA) & "/" & mCounts(RCN_COMPARED)
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseTradePopulations()
+'
+'==============================================================================
+' PURPOSE
+'   A bank leg absent from TradeCalc is MISSING IN CALCULATOR; a TradeCalc
+'   leg absent from the bank file is NOT IN BANK FILE with its notional; an
+'   excluded leg is EXCLUDED with the calculator's reasons; a leg listed
+'   twice is DUPLICATE on each row; a row without TradeID is INVALID INPUT.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim bank   As Variant    'Bank rows
+    Dim calc   As Variant    'TradeCalc rows
+    Dim found  As Variant    'Reconciliation rows
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "trade.populations"
+        bank = NewBlock(5, BT_NCOLS)
+        bank(1, BT_ID) = "T2"
+        bank(1, BT_NOTIONAL) = 100
+        bank(2, BT_ID) = "T4"
+        bank(2, BT_NOTIONAL) = 100
+        bank(3, BT_ID) = "T5"
+        bank(3, BT_NOTIONAL) = 100
+        bank(4, BT_ID) = "T5"
+        bank(4, BT_NOTIONAL) = 100
+        bank(5, BT_NOTIONAL) = 100
+        calc = NewBlock(3, TC_NCOLS)
+        SetTradeCalcRow calc, 1, "T3", "NS1", "FX", "OK", 300, 1, 1, Empty, ""
+        SetTradeCalcRow calc, 2, "T4", "NS1", "IR", "EXCLUDED", Empty, Empty, Empty, Empty, "Maturity date missing"
+        SetTradeCalcRow calc, 3, "T5", "NS1", "IR", "OK", 100, 1, 1, Empty, ""
+        found = CompareT(bank, calc, 1#, 0#, 0#)
+        CheckText "bank leg not on TradeCalc", ResultOf(found, "T2", "Notional"), RES_MISSING
+        CheckText "TradeCalc leg not in the bank file", ResultOf(found, "T3", "Notional"), RES_NOTINBANK
+        CheckNear "its notional", CellOf(found, "T3", "Notional", RC_CALC), 300#
+        CheckText "excluded leg", ResultOf(found, "T4", ""), RES_EXCLUDED
+        Check InStr(SafeStr(CellOf(found, "T4", "", RC_NOTE)), "Maturity date missing") > 0, _
+              "reasons of the excluded leg: " & SafeStr(CellOf(found, "T4", "", RC_NOTE))
+        CheckText "leg listed twice", ResultOf(found, "T5", ""), RES_DUPLICATE
+        CheckText "row without TradeID", ResultOf(found, "", ""), RES_INVALID
+        Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_EXCLUDED) = 1 And RowCount(found) = 6, _
+              "duplicate/excluded/rows: " & mCounts(RCN_DUPLICATE) & "/" & mCounts(RCN_EXCLUDED) & "/" & RowCount(found)
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseTradeSummary()
+'
+'==============================================================================
+' PURPOSE
+'   The trade summary names its counts, and a setting problem names the
+'   BankTrades cell.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim counts()   As Long      'Counts
+    Dim text       As String    'Summary line
+    Dim i          As Long      'Count
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "trade.summary"
+        ReDim counts(1 To RCN_COUNT)
+        For i = 1 To RCN_COUNT
+            counts(i) = 10 + i
+        Next i
+        text = CORE_Reconcile.TradeSummaryText(counts, 1#, 1#, 0#)
+        Check InStr(text, "bank trade legs 11") > 0 And InStr(text, "excluded 21") > 0 And _
+              InStr(text, "not applicable 22") > 0 And InStr(text, "not in bank file 16") > 0, "summary: " & text
+        Check InStr(CORE_Reconcile.SettingsProblem(0#, 1#, 0#, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL), _
+                    NM_BT_SCALE) > 0, "zero BankTrades scale accepted"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseTradeWorkbook()
+'
+'==============================================================================
+' PURPOSE
+'   In the workbook: figures taken from the first OK leg on TradeCalc give
+'   a MATCH and a DIFFERENCE, an unknown leg is MISSING IN CALCULATOR, the
+'   run reports trade_reconciliation=DONE, the TradeReconciliation status
+'   is current and an edited bank figure makes it OUT OF DATE. The
+'   BankTrades table and settings are put back.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim wsBank     As Worksheet    'BankTrades
+    Dim wsRecon    As Worksheet    'TradeReconciliation
+    Dim wsCalc     As Worksheet    'TradeCalc
+    Dim firstRow   As Long         'First bank row
+    Dim saved      As Variant      'Bank table formulas, first 50 rows
+    Dim savedSet   As Variant      'Settings formulas, (scale, abs, rel)
+    Dim result     As String       'Result line of a run
+    Dim r          As Long         'TradeCalc row of the first OK leg
+    Dim i          As Long         'TradeCalc row
+    Dim legId      As String       'Its TradeID
+    Dim outcomes   As Variant      'TradeReconciliation rows
+
+'------------------------------------------------------------------------------
+' SAVE THE BANK TABLE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "trade.workbook-run-edit"
+        Application.Calculation = xlCalculationAutomatic
+        M_Main.gSilent = True
+        Set wsBank = GetSheet(SH_BANK_TR)
+        Set wsRecon = GetSheet(SH_TRADE_RECON)
+        Set wsCalc = GetSheet(SH_TRADECALC)
+        firstRow = NamedRow(NM_BT_HEADER) + 1
+        saved = TableRange(wsBank, firstRow, 1, firstRow + 49, BT_NCOLS).Formula
+        savedSet = Array(NamedCell(NM_BT_SCALE).Formula, NamedCell(NM_BT_ABSTOL).Formula, _
+                         NamedCell(NM_BT_RELTOL).Formula)
+
+'------------------------------------------------------------------------------
+' FIGURES TAKEN FROM TRADECALC
+'------------------------------------------------------------------------------
+        TableRange(wsBank, firstRow, 1, firstRow + 49, BT_NCOLS).ClearContents
+        result = M_Main.RunSACCR_Silent()
+        For i = LastDataRow(wsCalc, FIRST_DATA_ROW, TC_ID) To FIRST_DATA_ROW Step -1
+            If SafeStr(TableCell(wsCalc, i, TC_STATUS).Value) = "OK" Then
+                r = i
+            End If
+        Next i
+        Check r > 0, "no OK leg on TradeCalc: build the workbook from the template"
+        legId = SafeStr(TableCell(wsCalc, r, TC_ID).Value)
+        NamedCell(NM_BT_SCALE).Value = 1
+        NamedCell(NM_BT_ABSTOL).Value = 1
+        NamedCell(NM_BT_RELTOL).Value = 0.0001
+        TableCell(wsBank, firstRow, BT_ID).Value = legId
+        TableCell(wsBank, firstRow, BT_NOTIONAL).Value = TableCell(wsCalc, r, TC_NOTIONAL).Value2
+        TableCell(wsBank, firstRow, BT_NOTIONAL + 5).Value = TableCell(wsCalc, r, TC_DELTA).Value2 + 0.1
+        TableCell(wsBank, firstRow + 1, BT_ID).Value = "NO-SUCH-LEG"
+        TableCell(wsBank, firstRow + 1, BT_NOTIONAL).Value = 1000
+        result = M_Main.RunSACCR_Silent()
+        Check InStr(result, "; trade_reconciliation=DONE;") > 0, "run with bank trade figures: " & result
+        outcomes = ReconciliationRows(wsRecon)
+        CheckText "notional as on TradeCalc", ResultOf(outcomes, legId, "Notional"), RES_MATCH
+        CheckText "delta 0.1 higher", ResultOf(outcomes, legId, "Supervisory delta"), RES_DIFF
+        CheckText "leg not on TradeCalc", ResultOf(outcomes, "NO-SUCH-LEG", "Notional"), RES_MISSING
+        CheckStatus wsRecon, "Reconciliation current", "after the run"
+        TableCell(wsBank, firstRow + 1, BT_NOTIONAL).Value = 2000
+        CheckStatus wsRecon, "OUT OF DATE", "after a bank figure was edited"
+
+'------------------------------------------------------------------------------
+' RESTORE
+'------------------------------------------------------------------------------
+        RestoreBankTable wsBank, firstRow, BT_NCOLS, saved, savedSet, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
+        result = M_Main.RunSACCR_Silent()
+        Check Left$(result, 9) = "RESULT=OK", "closing run: " & result
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreBankTable wsBank, firstRow, BT_NCOLS, saved, savedSet, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
 
 End Sub
 
@@ -884,6 +1135,57 @@ Private Function Compare( _
         Compare = CORE_Reconcile.CompareNettingSets(bank, 1, calc, scaleFactor, absTol, relTol, mCounts)
 
 End Function
+
+
+Private Function CompareT( _
+    ByVal bank As Variant, _
+    ByVal calc As Variant, _
+    ByVal scaleFactor As Double, _
+    ByVal absTol As Double, _
+    ByVal relTol As Double) _
+    As Variant
+'
+'==============================================================================
+' PURPOSE
+'   Run CORE_Reconcile.CompareTrades with the bank rows starting on sheet
+'   row 1, and keep its counts in mCounts.
+'==============================================================================
+'
+        CompareT = CORE_Reconcile.CompareTrades(bank, 1, calc, scaleFactor, absTol, relTol, mCounts)
+
+End Function
+
+
+Private Sub SetTradeCalcRow( _
+    ByRef calc As Variant, _
+    ByVal r As Long, _
+    ByVal id As String, _
+    ByVal setCode As String, _
+    ByVal classCode As String, _
+    ByVal status As String, _
+    ByVal notional As Variant, _
+    ByVal delta As Variant, _
+    ByVal unmarginedMf As Variant, _
+    ByVal marginedMf As Variant, _
+    ByVal messages As String)
+'
+'==============================================================================
+' PURPOSE
+'   Fill a TradeCalc row: ID, netting set, asset class, status, notional,
+'   delta, the two maturity factors and the messages.
+'==============================================================================
+'
+        calc(r, TC_ID) = id
+        calc(r, TC_NS) = setCode
+        calc(r, TC_AC) = classCode
+        calc(r, TC_STATUS) = status
+        calc(r, TC_NOTIONAL) = notional
+        calc(r, TC_DELTA) = delta
+        calc(r, TC_MFU) = unmarginedMf
+        calc(r, TC_MFM) = marginedMf
+        calc(r, TC_MESSAGES) = messages
+
+End Sub
 
 
 Private Function RowOf( _

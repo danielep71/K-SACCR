@@ -18,15 +18,16 @@ Attribute VB_Name = "M_Main"
 '   ResultsStatusText: the same as text, for the status formula in Results
 '   C5; Excel recalculates it when an input changes, without a macro
 '   writing to the workbook, so Undo keeps working.
-'   ReconciliationStatusText: the same for the reconciliation of the bank
-'   figures, for the status formula in Reconciliation C5 (#45).
+'   ReconciliationStatusText and TradeReconciliationStatusText: the same
+'   for the reconciliations of the bank figures, for the status formulas
+'   in Reconciliation C5 and TradeReconciliation C5 (#45).
 '   The sheet buttons call the first three by name. These macros are not
 '   listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
-'   for the comparison of the bank figures with Results (#45), whose
-'   sheets this module reads and writes; CORE_Util and CORE_Config for the
+'   for the comparison of the bank figures with Results and TradeCalc
+'   (#45), whose sheets this module reads and writes; CORE_Util and CORE_Config for the
 '   output sheets and the error numbers.
 '
 ' STATE OWNERSHIP
@@ -86,6 +87,10 @@ Attribute VB_Name = "M_Main"
     'Title of every message box: the project name.
         Private Const MSG_TITLE     As String = "K-SACCR"
 
+    'Reconciliations of bank figures (#45).
+        Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
+        Private Const RECON_TR      As Long = 2    'BankTrades against TradeCalc
+
 '------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
@@ -98,10 +103,11 @@ Attribute VB_Name = "M_Main"
         Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc" or "recalc-error"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Private mRunning    As Boolean    'True while an operation is in progress
-    'The reconciliation of the last operation (#45), for its message and
-    'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message line.
-        Private mReconState As String     'Reconciliation outcome
-        Private mReconLine  As String     'Line for the run message; "" for none
+    'The reconciliations of the last operation (#45), for its message and
+    'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
+        Private mReconState      As String    'Netting-set reconciliation outcome
+        Private mTradeReconState As String    'Trade reconciliation outcome
+        Private mReconLine       As String    'Lines for the run message; "" for none
 
 
 '
@@ -399,11 +405,76 @@ Public Function ReconciliationStatusText( _
 '   only so that Excel recalculates.
 '
 ' RETURNS
+'   As ReconStatus.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+        ReconciliationStatusText = ReconStatus(RECON_NS, storedRecon, storedRun)
+
+End Function
+
+
+Public Function TradeReconciliationStatusText( _
+    ByVal storedRecon As Variant, _
+    ByVal storedRun As Variant, _
+    ByVal bankRows As Range, _
+    ByVal nettingSetRows As Range, _
+    ByVal tradeRows As Range, _
+    ByVal paramRows As Range) _
+    As String
+'
+'==============================================================================
+'                        TradeReconciliationStatusText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Worksheet function for the status cell in TradeReconciliation C5
+'   (#45), as ReconciliationStatusText:
+'     =TradeReconciliationStatusText(SACCR_TradeReconInputs,
+'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$Q,
+'        Trades!$C:$AA, Params!$1:$1048576)
+'
+' INPUTS
+'   storedRecon: the value of SACCR_TradeReconInputs; the others as
+'   ReconciliationStatusText, with BankTrades as bankRows.
+'
+' RETURNS
+'   As ReconStatus.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+        TradeReconciliationStatusText = ReconStatus(RECON_TR, storedRecon, storedRun)
+
+End Function
+
+
+Private Function ReconStatus( _
+    ByVal kind As Long, _
+    ByVal storedRecon As Variant, _
+    ByVal storedRun As Variant) _
+    As String
+'
+'==============================================================================
+'                                 ReconStatus
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compare the stored fingerprint of a reconciliation with the bank
+'   figures and inputs as they are now.
+'
+' INPUTS
+'   kind: RECON_NS or RECON_TR; storedRecon, storedRun: as the worksheet
+'   functions.
+'
+' RETURNS
 '   "Reconciliation current (...)", "OUT OF DATE - ..." or "No
 '   reconciliation: ...".
 '
 ' ERROR POLICY
-'   Returns "Status unavailable: " and the reason instead of raising.
+'   Returns "Status unavailable: " and the reason instead of raising: a
+'   worksheet function must not interrupt Excel.
 '
 ' UPDATED
 '   2026-10-15
@@ -423,40 +494,47 @@ Public Function ReconciliationStatusText( _
         On Error GoTo Failed
         stored = SafeStr(storedRecon)
         If Len(stored) = 0 Or Len(SafeStr(storedRun)) = 0 Then
-            ReconciliationStatusText = "No reconciliation: enter bank figures on BankNettingSets and press Run SA-CCR."
-        ElseIf stored = ReconFingerprint() Then
-            ReconciliationStatusText = "Reconciliation current (bank figures and inputs " & stored & ")"
+            ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(kind) & _
+                          " and press Run SA-CCR."
+        ElseIf stored = ReconFingerprint(kind) Then
+            ReconStatus = "Reconciliation current (bank figures and inputs " & stored & ")"
         Else
-            ReconciliationStatusText = "OUT OF DATE - bank figures or inputs changed since the last run; " & _
-                                       "press Run SA-CCR."
+            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR."
         End If
         Exit Function
 
 Failed:
-        ReconciliationStatusText = "Status unavailable: " & Err.Description
+        ReconStatus = "Status unavailable: " & Err.Description
 
 End Function
 
 
-Private Function ReconcileAfterRun() As String
+Private Function ReconcileAfterRun( _
+    ByVal kind As Long) _
+    As String
 '
 '==============================================================================
 '                              ReconcileAfterRun
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   After a completed run, compare the figures on BankNettingSets with
-'   Results and write the Reconciliation sheet, its summary and its
-'   fingerprint (#45). Sets mReconLine for the run message.
+'   After a completed run, compare the figures on a bank sheet with the
+'   calculator's sheet and write the reconciliation sheet, its summary and
+'   its fingerprint (#45): BankNettingSets against Results into
+'   Reconciliation, or BankTrades against TradeCalc into
+'   TradeReconciliation. Adds a line to mReconLine for the run message.
+'
+' INPUTS
+'   kind: RECON_NS or RECON_TR.
 '
 ' RETURNS
 '   DONE: rows written. NONE: no bank figures entered. UNAVAILABLE: the
-'   workbook has no BankNettingSets or Reconciliation sheet, for example
-'   one built from an older template. FAILED: the settings, the headers or
-'   the reconciliation itself failed; the summary cell says why.
+'   workbook does not have the two sheets, for example one built from an
+'   older template. FAILED: the settings, the headers or the
+'   reconciliation itself failed; the summary cell says why.
 '
 ' ERROR POLICY
 '   Never raises: the SA-CCR results stand whatever happens here. An error
-'   leaves the Reconciliation sheet cleared, its fingerprint empty and the
+'   leaves the reconciliation sheet cleared, its fingerprint empty and the
 '   reason in its summary cell.
 '
 ' UPDATED
@@ -467,100 +545,114 @@ Private Function ReconcileAfterRun() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wsBank      As Worksheet    'BankNettingSets
-    Dim wsRecon     As Worksheet    'Reconciliation
-    Dim wsResults   As Worksheet    'Results
+    Dim wsBank      As Worksheet    'The bank sheet
+    Dim wsRecon     As Worksheet    'The reconciliation sheet
+    Dim wsCalc      As Worksheet    'Results or TradeCalc
     Dim headerRow   As Long         'Header row of the bank table
     Dim problem     As String       'Why the reconciliation cannot run; "" when it can
-    Dim scaleValue  As Variant      'BankNS_Scale
-    Dim absValue    As Variant      'BankNS_AbsTol
-    Dim relValue    As Variant      'BankNS_RelTol
+    Dim settings(1 To 3) As Variant 'Scale, absolute and relative tolerance
+    Dim i           As Long         'Setting
     Dim lastR       As Long         'Last row read
     Dim bank        As Variant      'Bank rows; Empty when none
-    Dim calc        As Variant      'Results rows; Empty when none
-    Dim counts()    As Long         'Counts from CompareNettingSets
-    Dim found       As Variant      'Rows from CompareNettingSets; Empty when none
+    Dim calc        As Variant      'Calculator rows; Empty when none
+    Dim counts()    As Long         'Counts from the comparison
+    Dim found       As Variant      'Rows from the comparison; Empty when none
     Dim outRows()   As Variant      'The same as an array for WriteBlock
     Dim nRows       As Long         'Rows to write
     Dim summary     As String       'Summary line without its time stamp
+    Dim reconName   As String       'Name of the reconciliation in the run message
+    Dim others      As Long         'Rows other than MATCH and DIFFERENCE
 
 '------------------------------------------------------------------------------
 ' FIND THE SHEETS AND SETTINGS
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        If Not ReconciliationSheetsPresent() Then
+        reconName = IIf(kind = RECON_NS, "Reconciliation", "Trade reconciliation")
+        If Not ReconciliationSheetsPresent(kind) Then
             ReconcileAfterRun = "UNAVAILABLE"
             Exit Function
         End If
-        Set wsBank = GetSheet(SH_BANK_NS)
-        Set wsRecon = GetSheet(SH_RECON)
-        headerRow = BankHeaderRow()
+        Set wsBank = GetSheet(BankSheetOf(kind))
+        Set wsRecon = GetSheet(ReconSheetOf(kind))
+        headerRow = BankHeaderRow(kind)
         If headerRow = 0 Then
-            problem = "the name " & NM_BN_HEADER & " is missing or not in column C of " & SH_BANK_NS
+            problem = "the name " & HeaderNameOf(kind) & " is missing or not in column C of " & BankSheetOf(kind)
         Else
             problem = CORE_Reconcile.HeadersProblem( _
-                      TableRange(wsBank, headerRow, 1, headerRow, BN_NCOLS).Value2, BN_HEADERS)
+                      TableRange(wsBank, headerRow, 1, headerRow, BankColsOf(kind)).Value2, BankHeadersOf(kind))
         End If
+        For i = 1 To 3
+            If Len(problem) = 0 Then
+                problem = NamedValue(SettingNameOf(kind, i), BankSheetOf(kind), settings(i))
+            End If
+        Next i
         If Len(problem) = 0 Then
-            problem = NamedValue(NM_BN_SCALE, scaleValue)
-        End If
-        If Len(problem) = 0 Then
-            problem = NamedValue(NM_BN_ABSTOL, absValue)
-        End If
-        If Len(problem) = 0 Then
-            problem = NamedValue(NM_BN_RELTOL, relValue)
-        End If
-        If Len(problem) = 0 Then
-            problem = CORE_Reconcile.SettingsProblem(scaleValue, absValue, relValue)
+            problem = CORE_Reconcile.SettingsProblem(settings(1), settings(2), settings(3), _
+                      SettingNameOf(kind, 1), SettingNameOf(kind, 2), SettingNameOf(kind, 3))
         End If
         If Len(problem) > 0 Then
-            ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & problem & "."
-            mReconLine = "Reconciliation not run: " & problem & "."
+            ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & problem & ".", _
+                                kind
+            AddReconLine reconName & " not run: " & problem & "."
             ReconcileAfterRun = "FAILED"
             Exit Function
         End If
 
 '------------------------------------------------------------------------------
-' READ THE BANK FIGURES AND THE RESULTS
+' READ THE BANK FIGURES AND THE CALCULATOR ROWS
 '------------------------------------------------------------------------------
         lastR = UsedLastRow(wsBank)
         If lastR > headerRow Then
-            bank = TableRange(wsBank, headerRow + 1, 1, lastR, BN_NCOLS).Value2
+            bank = TableRange(wsBank, headerRow + 1, 1, lastR, BankColsOf(kind)).Value2
         End If
-        If Not CORE_Reconcile.HasBankRows(bank) Then
-            ClearReconciliation "No bank figures on " & SH_BANK_NS & ": nothing to reconcile."
+        If Not CORE_Reconcile.HasBankRows(bank, BankColsOf(kind)) Then
+            ClearReconciliation "No bank figures on " & BankSheetOf(kind) & ": nothing to reconcile.", kind
             ReconcileAfterRun = "NONE"
             Exit Function
         End If
-        Set wsResults = GetSheet(SH_RESULTS)
-        lastR = LastDataRow(wsResults, FIRST_DATA_ROW, RS_ID)
-        If lastR >= FIRST_DATA_ROW Then
-            calc = TableRange(wsResults, FIRST_DATA_ROW, 1, lastR, RS_NCOLS).Value2
+        If kind = RECON_NS Then
+            Set wsCalc = GetSheet(SH_RESULTS)
+            lastR = LastDataRow(wsCalc, FIRST_DATA_ROW, RS_ID)
+            If lastR >= FIRST_DATA_ROW Then
+                calc = TableRange(wsCalc, FIRST_DATA_ROW, 1, lastR, RS_NCOLS).Value2
+            End If
+        Else
+            Set wsCalc = GetSheet(SH_TRADECALC)
+            lastR = LastDataRow(wsCalc, FIRST_DATA_ROW, TC_ID)
+            If lastR >= FIRST_DATA_ROW Then
+                calc = TableRange(wsCalc, FIRST_DATA_ROW, 1, lastR, TC_NCOLS).Value2
+            End If
         End If
 
 '------------------------------------------------------------------------------
 ' COMPARE AND WRITE
 '------------------------------------------------------------------------------
-        found = CORE_Reconcile.CompareNettingSets(bank, headerRow + 1, calc, CDbl(scaleValue), CDbl(absValue), _
-                                              CDbl(relValue), counts)
+        If kind = RECON_NS Then
+            found = CORE_Reconcile.CompareNettingSets(bank, headerRow + 1, calc, CDbl(settings(1)), _
+                                                      CDbl(settings(2)), CDbl(settings(3)), counts)
+            summary = CORE_Reconcile.SummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), CDbl(settings(3)))
+        Else
+            found = CORE_Reconcile.CompareTrades(bank, headerRow + 1, calc, CDbl(settings(1)), _
+                                                 CDbl(settings(2)), CDbl(settings(3)), counts)
+            summary = CORE_Reconcile.TradeSummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), _
+                                                      CDbl(settings(3)))
+        End If
         ClearOutputBlock wsRecon, FIRST_DATA_ROW, RC_NCOLS
         If IsArray(found) Then
             outRows = found
             nRows = UBound(outRows, 1)
             WriteBlock wsRecon, FIRST_DATA_ROW, outRows, nRows, RC_NCOLS
-            FormatColumns wsRecon, FIRST_DATA_ROW, nRows, "@|0|@|@|@|@|#,##0.00|#,##0.00|#,##0.00|0.0000%|@|@"
+            FormatColumns wsRecon, FIRST_DATA_ROW, nRows, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
+                          "#,##0.00########|0.0000%|@|@"
         End If
-        summary = CORE_Reconcile.SummaryText(counts, CDbl(scaleValue), CDbl(absValue), CDbl(relValue))
         wsRecon.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                                                " | " & summary
-        RememberReconInputs ReconFingerprint()
-        mReconLine = "Reconciliation: " & counts(RCN_COMPARED) & " figure(s) compared, " & _
-                     counts(RCN_MATCH) & " MATCH, " & counts(RCN_DIFF) & " DIFFERENCE"
-        If counts(RCN_MISSING) + counts(RCN_NOTINBANK) + counts(RCN_DUPLICATE) + counts(RCN_REGIME) + _
-           counts(RCN_WITHHELD) + counts(RCN_INVALID) > 0 Then
-            mReconLine = mReconLine & "; netting sets not compared: see the Reconciliation sheet"
-        End If
-        mReconLine = mReconLine & "."
+        RememberReconInputs kind, ReconFingerprint(kind)
+        others = counts(RCN_MISSING) + counts(RCN_NOTINBANK) + counts(RCN_DUPLICATE) + counts(RCN_REGIME) + _
+                 counts(RCN_WITHHELD) + counts(RCN_INVALID) + counts(RCN_EXCLUDED) + counts(RCN_NA)
+        AddReconLine reconName & ": " & counts(RCN_COMPARED) & " figure(s) compared, " & counts(RCN_MATCH) & _
+                     " MATCH, " & counts(RCN_DIFF) & " DIFFERENCE" & _
+                     IIf(others > 0, "; " & others & " other row(s): see the " & ReconSheetOf(kind) & " sheet", "") & "."
         ReconcileAfterRun = "DONE"
         Exit Function
 
@@ -569,23 +661,50 @@ Private Function ReconcileAfterRun() As String
 '------------------------------------------------------------------------------
 Failed:
         ClearReconciliation "Reconciliation failed " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " (error " & _
-                            Err.Number & ": " & Err.Description & ")."
-        mReconLine = "Reconciliation failed: " & Err.Description & "."
+                            Err.Number & ": " & Err.Description & ").", kind
+        AddReconLine reconName & " failed: " & Err.Description & "."
         ReconcileAfterRun = "FAILED"
 
 End Function
 
 
+Private Sub AddReconLine( _
+    ByVal lineText As String)
+'
+'==============================================================================
+'                                 AddReconLine
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add a line about a reconciliation to mReconLine, the text of the run
+'   message.
+'
+' UPDATED
+'   2026-10-15
+'==============================================================================
+'
+        If Len(mReconLine) > 0 Then
+            mReconLine = mReconLine & vbCrLf
+        End If
+        mReconLine = mReconLine & lineText
+
+End Sub
+
+
 Private Sub ClearReconciliation( _
-    ByVal infoText As String)
+    ByVal infoText As String, _
+    Optional ByVal kind As Long = 0)
 '
 '==============================================================================
 '                             ClearReconciliation
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Withdraw the reconciliation: empty its fingerprint and its rows and
-'   write infoText to its summary cell. Every operation starts with this,
-'   so that no reconciliation outlives the results it compared.
+'   Withdraw a reconciliation: empty its fingerprint and its rows and write
+'   infoText to its summary cell. Every operation starts with this for
+'   both, so that no reconciliation outlives the results it compared.
+'
+' INPUTS
+'   infoText: the text for the summary cell.
+'   kind: RECON_NS or RECON_TR; 0 for both.
 '
 ' ERROR POLICY
 '   Best effort, and never raises: the fingerprint is emptied first, so a
@@ -599,26 +718,31 @@ Private Sub ClearReconciliation( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws   As Worksheet    'Reconciliation
+    Dim k    As Long         'Reconciliation cleared
+    Dim ws   As Worksheet    'Its sheet
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
-        ForgetReconInputs
-        If Not ReconciliationSheetsPresent() Then
-            Exit Sub
-        End If
-        Set ws = GetSheet(SH_RECON)
-        ClearOutputBlock ws, FIRST_DATA_ROW, RC_NCOLS
-        ws.Range(RECON_INFO_CELL).Value = infoText
-
-Failed:
+        On Error Resume Next
+        For k = RECON_NS To RECON_TR
+            If kind = 0 Or kind = k Then
+                ForgetReconInputs k
+                If ReconciliationSheetsPresent(k) Then
+                    Set ws = GetSheet(ReconSheetOf(k))
+                    ClearOutputBlock ws, FIRST_DATA_ROW, RC_NCOLS
+                    ws.Range(RECON_INFO_CELL).Value = infoText
+                End If
+            End If
+        Next k
+        Err.Clear
 
 End Sub
 
 
-Private Function ReconFingerprint() As String
+Private Function ReconFingerprint( _
+    ByVal kind As Long) _
+    As String
 '
 '==============================================================================
 '                               ReconFingerprint
@@ -627,6 +751,9 @@ Private Function ReconFingerprint() As String
 '   Fingerprint what a reconciliation depends on: the run inputs
 '   (CORE_Engine.InputFingerprint), the bank table from its header row,
 '   without the comment column, and the scale and tolerance cells.
+'
+' INPUTS
+'   kind: RECON_NS or RECON_TR.
 '
 ' ERROR POLICY
 '   Raises when the bank table or a setting cannot be located, or as
@@ -648,20 +775,20 @@ Private Function ReconFingerprint() As String
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        headerRow = BankHeaderRow()
+        headerRow = BankHeaderRow(kind)
         If headerRow = 0 Then
             Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ReconFingerprint", _
-                      "The name " & NM_BN_HEADER & " is missing or not in column C of " & SH_BANK_NS & "."
+                      "The name " & HeaderNameOf(kind) & " is missing or not in column C of " & BankSheetOf(kind) & "."
         End If
         parts(1) = CORE_Engine.InputFingerprint()
-        parts(2) = CORE_Engine.BlockText(GetSheet(SH_BANK_NS), headerRow, BN_COMMENT - 1)
-        For i = 0 To 2
-            Set c = NamedCell(Choose(i + 1, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL))
+        parts(2) = CORE_Engine.BlockText(GetSheet(BankSheetOf(kind)), headerRow, BankColsOf(kind) - 1)
+        For i = 1 To 3
+            Set c = NamedCell(SettingNameOf(kind, i))
             If c Is Nothing Then
                 Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ReconFingerprint", _
-                          "The name " & Choose(i + 1, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL) & " is missing."
+                          "The name " & SettingNameOf(kind, i) & " is missing."
             End If
-            parts(3 + i) = CORE_Engine.BlockText(c.Worksheet, c.Row, 1, c.Column - COL_OFFSET, c.Row)
+            parts(2 + i) = CORE_Engine.BlockText(c.Worksheet, c.Row, 1, c.Column - COL_OFFSET, c.Row)
         Next i
         ReconFingerprint = TextHash(Join(parts, Chr$(29)))
 
@@ -669,13 +796,14 @@ End Function
 
 
 Private Sub RememberReconInputs( _
+    ByVal kind As Long, _
     ByVal fingerprint As String)
 '
 '==============================================================================
 '                             RememberReconInputs
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Store the fingerprint of a completed reconciliation in a hidden
+'   Store the fingerprint of a completed reconciliation in its hidden
 '   workbook name.
 '
 ' ERROR POLICY
@@ -687,23 +815,24 @@ Private Sub RememberReconInputs( _
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=RECON_INPUTS_NAME, RefersTo:="=""" & fingerprint & """", Visible:=False
+        ThisWorkbook.Names.Add Name:=InputsNameOf(kind), RefersTo:="=""" & fingerprint & """", Visible:=False
         Exit Sub
 
 Failed:
-        ForgetReconInputs
+        ForgetReconInputs kind
 
 End Sub
 
 
-Private Sub ForgetReconInputs()
+Private Sub ForgetReconInputs( _
+    ByVal kind As Long)
 '
 '==============================================================================
 '                              ForgetReconInputs
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Empty the stored reconciliation fingerprint. The name is kept, empty,
-'   because the status formula on Reconciliation refers to it.
+'   Empty the stored fingerprint of a reconciliation. The name is kept,
+'   empty, because the status formula of its sheet refers to it.
 '
 ' ERROR POLICY
 '   Contains any error.
@@ -713,22 +842,23 @@ Private Sub ForgetReconInputs()
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=RECON_INPUTS_NAME, RefersTo:="=""""", Visible:=False
+        ThisWorkbook.Names.Add Name:=InputsNameOf(kind), RefersTo:="=""""", Visible:=False
 
 Failed:
 
 End Sub
 
 
-Private Function ReconciliationSheetsPresent() As Boolean
+Private Function ReconciliationSheetsPresent( _
+    ByVal kind As Long) _
+    As Boolean
 '
 '==============================================================================
 '                         ReconciliationSheetsPresent
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether the workbook has both the BankNettingSets and the
-'   Reconciliation sheet. A workbook built from a template before #45 has
-'   neither, and still runs.
+'   Tell whether the workbook has both sheets of a reconciliation. A
+'   workbook built from an older template lacks them, and still runs.
 '
 ' ERROR POLICY
 '   Contains the expected error of a missing sheet.
@@ -741,15 +871,15 @@ Private Function ReconciliationSheetsPresent() As Boolean
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wsBank    As Worksheet    'BankNettingSets; Nothing when absent
-    Dim wsRecon   As Worksheet    'Reconciliation; Nothing when absent
+    Dim wsBank    As Worksheet    'The bank sheet; Nothing when absent
+    Dim wsRecon   As Worksheet    'The reconciliation sheet; Nothing when absent
 
 '------------------------------------------------------------------------------
 ' LOOK UP
 '------------------------------------------------------------------------------
         On Error Resume Next
-        Set wsBank = ThisWorkbook.Worksheets(SH_BANK_NS)
-        Set wsRecon = ThisWorkbook.Worksheets(SH_RECON)
+        Set wsBank = ThisWorkbook.Worksheets(BankSheetOf(kind))
+        Set wsRecon = ThisWorkbook.Worksheets(ReconSheetOf(kind))
         Err.Clear
         On Error GoTo 0
         ReconciliationSheetsPresent = Not wsBank Is Nothing And Not wsRecon Is Nothing
@@ -757,14 +887,16 @@ Private Function ReconciliationSheetsPresent() As Boolean
 End Function
 
 
-Private Function BankHeaderRow() As Long
+Private Function BankHeaderRow( _
+    ByVal kind As Long) _
+    As Long
 '
 '==============================================================================
 '                                BankHeaderRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the header row of the bank table, from the workbook name
-'   NM_BN_HEADER, which must be in column C of BankNettingSets.
+'   Return the header row of a bank table, from the workbook name of its
+'   first header cell, which must be in column C of the bank sheet.
 '
 ' RETURNS
 '   The row; 0 when the name is missing, broken, on another sheet or not
@@ -783,9 +915,9 @@ Private Function BankHeaderRow() As Long
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        Set c = NamedCell(NM_BN_HEADER)
+        Set c = NamedCell(HeaderNameOf(kind))
         If Not c Is Nothing Then
-            If StrComp(c.Worksheet.Name, SH_BANK_NS, vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
+            If StrComp(c.Worksheet.Name, BankSheetOf(kind), vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
                 BankHeaderRow = c.Row
             End If
         End If
@@ -795,6 +927,7 @@ End Function
 
 Private Function NamedValue( _
     ByVal nameText As String, _
+    ByVal sheetName As String, _
     ByRef valueRead As Variant) _
     As String
 '
@@ -802,10 +935,10 @@ Private Function NamedValue( _
 '                                  NamedValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read the value of a workbook name's cell on BankNettingSets.
+'   Read the value of a workbook name's cell on a given sheet.
 '
 ' INPUTS
-'   nameText: the workbook name.
+'   nameText: the workbook name; sheetName: the sheet it must be on.
 '   valueRead: receives the cell's Value2.
 '
 ' RETURNS
@@ -827,11 +960,115 @@ Private Function NamedValue( _
         Set c = NamedCell(nameText)
         If c Is Nothing Then
             NamedValue = "the name " & nameText & " is missing"
-        ElseIf StrComp(c.Worksheet.Name, SH_BANK_NS, vbTextCompare) <> 0 Then
-            NamedValue = "the name " & nameText & " is not on " & SH_BANK_NS
+        ElseIf StrComp(c.Worksheet.Name, sheetName, vbTextCompare) <> 0 Then
+            NamedValue = "the name " & nameText & " is not on " & sheetName
         Else
             valueRead = c.Value2
         End If
+
+End Function
+
+
+Private Function BankSheetOf( _
+    ByVal kind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The bank sheet of a reconciliation.
+'==============================================================================
+'
+        BankSheetOf = IIf(kind = RECON_NS, SH_BANK_NS, SH_BANK_TR)
+
+End Function
+
+
+Private Function ReconSheetOf( _
+    ByVal kind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The output sheet of a reconciliation.
+'==============================================================================
+'
+        ReconSheetOf = IIf(kind = RECON_NS, SH_RECON, SH_TRADE_RECON)
+
+End Function
+
+
+Private Function HeaderNameOf( _
+    ByVal kind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The workbook name of the first header cell of a bank table.
+'==============================================================================
+'
+        HeaderNameOf = IIf(kind = RECON_NS, NM_BN_HEADER, NM_BT_HEADER)
+
+End Function
+
+
+Private Function SettingNameOf( _
+    ByVal kind As Long, _
+    ByVal i As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The workbook name of setting i of a bank sheet: 1 the scale, 2 the
+'   absolute tolerance, 3 the relative tolerance.
+'==============================================================================
+'
+        If kind = RECON_NS Then
+            SettingNameOf = Choose(i, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL)
+        Else
+            SettingNameOf = Choose(i, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL)
+        End If
+
+End Function
+
+
+Private Function BankColsOf( _
+    ByVal kind As Long) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   The number of columns of a bank table; the last is its comment.
+'==============================================================================
+'
+        BankColsOf = IIf(kind = RECON_NS, BN_NCOLS, BT_NCOLS)
+
+End Function
+
+
+Private Function BankHeadersOf( _
+    ByVal kind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The expected headers of a bank table.
+'==============================================================================
+'
+        BankHeadersOf = IIf(kind = RECON_NS, BN_HEADERS, BT_HEADERS)
+
+End Function
+
+
+Private Function InputsNameOf( _
+    ByVal kind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The hidden workbook name holding a reconciliation's fingerprint.
+'==============================================================================
+'
+        InputsNameOf = IIf(kind = RECON_NS, RECON_INPUTS_NAME, TRADE_RECON_INPUTS_NAME)
 
 End Function
 
@@ -919,10 +1156,11 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
 ' WITHDRAW THE RECONCILIATION
 '------------------------------------------------------------------------------
-    'Every operation first withdraws the reconciliation (#45), before
+    'Every operation first withdraws both reconciliations (#45), before
     'anything that can stop it, the recalculation included; only a run
-    'that completes makes a new one.
+    'that completes makes new ones.
         mReconState = "NONE"
+        mTradeReconState = "NONE"
         mReconLine = ""
         Select Case operation
             Case OP_RUN
@@ -969,7 +1207,8 @@ Private Function ExecuteOperation( _
             Case OP_RUN
                 ok = CORE_Engine.Calculate(True)
                 If ok Then
-                    mReconState = ReconcileAfterRun()
+                    mReconState = ReconcileAfterRun(RECON_NS)
+                    mTradeReconState = ReconcileAfterRun(RECON_TR)
                 Else
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."
                 End If
@@ -1020,8 +1259,9 @@ Private Sub RefreshResultsStatus()
 '                             RefreshResultsStatus
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Recalculate the status formulas on Results and Reconciliation after an
-'   operation has stored or withdrawn the run fingerprint. In manual calculation Excel
+'   Recalculate the status formulas on Results, Reconciliation and
+'   TradeReconciliation after an operation has stored or withdrawn the run
+'   fingerprint. In manual calculation Excel
 '   would otherwise keep the value computed during the recalculation
 '   before the run, when the fingerprint had already been withdrawn
 '   (#204), and show "No results" after a completed run.
@@ -1036,8 +1276,11 @@ Private Sub RefreshResultsStatus()
 '
         On Error GoTo Failed
         GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
-        If ReconciliationSheetsPresent() Then
+        If ReconciliationSheetsPresent(RECON_NS) Then
             GetSheet(SH_RECON).Range(RECON_STATUS_CELL).Calculate
+        End If
+        If ReconciliationSheetsPresent(RECON_TR) Then
+            GetSheet(SH_TRADE_RECON).Range(RECON_STATUS_CELL).Calculate
         End If
 
 Failed:
@@ -1301,7 +1544,7 @@ Private Function ReportOutcome( _
 '
 ' RETURNS
 '   The result line, for example "RESULT=OK; operation=run; ...;
-'   reconciliation=DONE; cleanup=PASS".
+'   reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS".
 '
 ' ERROR POLICY
 '   In silent mode a cleanup failure raises ERR_CLEANUP_FAILED, with the
@@ -1380,7 +1623,8 @@ Private Function ReportOutcome( _
                      "; total_ead_bcbs=" & Trim$(Str$(CORE_Engine.TotalEAD(RG_BCBS))) & _
                      "; inputs=" & CORE_Engine.RunInputs & _
                      "; run_class=" & CORE_Engine.RunClass & _
-                     "; reconciliation=" & mReconState
+                     "; reconciliation=" & mReconState & _
+                     "; trade_reconciliation=" & mTradeReconState
         End If
         result = result & "; cleanup=" & IIf(Len(cleanupDetails) = 0, "PASS", "FAIL")
 

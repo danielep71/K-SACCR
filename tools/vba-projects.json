@@ -11,6 +11,7 @@
   "document_modules": [
     "src/workbook/ThisWorkbook.cls",
     "src/workbook/shBankNettingSets.cls",
+    "src/workbook/shBankTrades.cls",
     "src/workbook/shBaselVsCRR.cls",
     "src/workbook/shBuckets.cls",
     "src/workbook/shChecks.cls",
@@ -23,6 +24,7 @@
     "src/workbook/shTestCatalogue.cls",
     "src/workbook/shTests.cls",
     "src/workbook/shTradeCalc.cls",
+    "src/workbook/shTradeReconciliation.cls",
     "src/workbook/shTrades.cls"
   ],
   "configurations": {
