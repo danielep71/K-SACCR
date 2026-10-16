@@ -77,7 +77,7 @@ changed; update the card when a supervisory parameter or formula changes.
 
 The workbook carries the card as a picture on its README sheet, under the
 "Reference card" heading, so a user never has to leave Excel (#281).
-README!D23 links to C115, a cell behind the lower part of the picture:
+README!D23 links to C114, a cell behind the lower part of the picture:
 Excel scrolls only until the target cell is in view, so a link to the
 heading would leave the picture below the window. The picture is a PNG of this SVG: when the SVG changes,
 render it again and replace the picture in the template
