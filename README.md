@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-228_cases_%C2%B7_975_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-228_cases_%C2%B7_1001_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -151,7 +151,7 @@ inspected. This toolkit is the opposite:
 | Reconciliation | Bank figures per netting set (`BankNettingSets`) and per trade leg (`BankTrades`), compared with Results and TradeCalc within an absolute or a relative tolerance |
 | Evidence export | One CSV file per run, `;`-separated with a `.` decimal point and UTF-8 whatever the regional settings |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
-| Testing | Eight Excel suites (228 cases, 975 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (228 cases, 1001 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -231,16 +231,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-16 09:10:15
+SACCR TEST SUMMARY 2026-10-16 13:02:15
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,5 s)
-  PASS  TEST_MainState        cases=27; checks=465; failures=0; caller_state=RESTORED  (49,6 s)
-  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (11,5 s)
-  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (35,6 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (3,6 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,8 s)
-  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (9,1 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=111,8
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (16,3 s)
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (2,9 s)
+  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (14,1 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,3 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,2 s)
+  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (7,2 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=44,2
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -437,13 +437,13 @@ wrote the code under test (#100).
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 28 | 465 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 28 | 491 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 20 | 39 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 133 | 209 |
 | `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 19 | 140 |
-| **Total** | | **228** | **975** |
+| **Total** | | **228** | **1001** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -598,8 +598,9 @@ branches and pull requests; `main` receives it on the owner's instruction.
 Nothing is versioned or tagged until a release is prepared.
 
 The latest recorded Excel run, `Test_RunAll` with eight of eight suites
-passing, was made by the owner on 2026-10-16 on the source merged as
-[`9722b30`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/9722b30c7ffde81a2234e3f9b494fb5ce6ec1828).
+passing, was made by the owner on 2026-10-16 on the source of
+[#254](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/254) at
+[`357a693`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/357a693c461bdd85d75543394b27fa6c6c944493).
 It is development evidence, not release certification.
 
 ---

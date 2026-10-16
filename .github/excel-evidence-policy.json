@@ -33,7 +33,7 @@
       "header": "SACCR MAIN STATE TESTS",
       "mode_line": false,
       "cases": 28,
-      "checks": {"32-bit": 465, "64-bit": 465},
+      "checks": {"32-bit": 491, "64-bit": 491},
       "restoration": "caller_state=RESTORED",
       "first_case": null
     },
