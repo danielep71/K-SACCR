@@ -282,7 +282,7 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.assertInvalid("normal-mode")
 
     def test_timeout_keeps_log_without_claims(self) -> None:
-        for kept in (0, 1, 5, 11):
+        for kept in (1, 2, 6, 12):
             partial = "\n".join([*self.log.splitlines()[:kept], ""])
             self.record["stages"]["regression"] = self.stage("harness.log", partial)
             self.record["stages"]["regression"]["status"] = "TIMEOUT"
@@ -291,6 +291,9 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.record["harness"] = {"cases": 2}
         self.assertInvalid("no harness results")
         self.record["harness"] = None
+        self.record["stages"]["regression"] = self.stage("harness.log", "SACCR TESTS\n")
+        self.record["stages"]["regression"]["status"] = "TIMEOUT"
+        self.assertInvalid("exactly one CANDIDATE")
         for finished in (self.log, self.log.replace("RESULT=PASS", "RESULT=FAIL")):
             self.record["stages"]["regression"] = self.stage("harness.log", finished)
             self.record["stages"]["regression"]["status"] = "TIMEOUT"
@@ -424,6 +427,10 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.record["suites"][self.index("TEST_InputValidation")] = self.suite(
             spec, self.suite_log(spec), status="FAIL")
         self.assertInvalid("contradicts a passing report")
+        self.record["suites"][self.index("TEST_InputValidation")] = self.suite(
+            spec, log, status="FAIL", failures=2)
+        self.record["harness"]["expected_errors"][0]["status"] = "FAIL"
+        self.assertInvalid("a passing harness needs every expected-error result")
 
     def test_unfinished_suites(self) -> None:
         position = self.index("TEST_Aggregation")
@@ -431,12 +438,16 @@ class ExcelEvidenceTests(unittest.TestCase):
                                                failures=None, log=None)
         self.assertEqual(self.evaluate()["outcomes"], ["INCOMPLETE"])
         spec = self.spec("TEST_Aggregation")
-        hung = self.suite(spec, "CANDIDATE=x\nSACCR CASE TESTS\nCASE=case-0\n", status="TIMEOUT")
+        hung = self.suite(spec, f"CANDIDATE={self.sha}\nSACCR CASE TESTS\nCASE=case-0\n", status="TIMEOUT")
         hung.update(cases=None, checks=None, failures=None)
         self.record["suites"][position] = hung
         self.assertEqual(self.evaluate()["outcomes"], ["EXECUTION_TIMEOUT"])
         hung.update(cases=11)
         self.assertInvalid("has no results")
+        foreign = self.suite(spec, "CANDIDATE=" + "e" * 40 + "\nSACCR CASE TESTS\n", status="TIMEOUT")
+        foreign.update(cases=None, checks=None, failures=None)
+        self.record["suites"][position] = foreign
+        self.assertInvalid("another candidate")
 
     def test_summary_must_agree_with_the_reports(self) -> None:
         self.summary()

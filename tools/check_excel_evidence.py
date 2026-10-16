@@ -325,9 +325,11 @@ def validate_harness(record: dict[str, Any], policy: dict[str, Any], log: str) -
                 "invalid expected-error result")
         observed.append(error["case"])
     require(observed == policy["expected_error_cases"], "expected-error results differ from policy")
-    status = record["stages"]["regression"]["status"]
-    require(status == "FAIL" or all(error["status"] == "PASS" for error in harness["expected_errors"]),
-            "regression PASS needs every expected-error result to pass")
+    # Tied to the harness's own counts: another suite's failure makes the regression
+    # stage FAIL but says nothing about the harness's expected errors.
+    clean = harness["completeness"] == "COMPLETE" and harness["failures"] == 0
+    require(not clean or all(error["status"] == "PASS" for error in harness["expected_errors"]),
+            "a passing harness needs every expected-error result to pass")
     validate_report(record, policy, log)
 
 
@@ -380,6 +382,7 @@ def validate_suite(spec: dict[str, Any], value: Any, record: dict[str, Any],
             require(item["log"] is None, f"NOT_RUN {label} cannot cite a log")
             return "INCOMPLETE", None
         log = retained_log(directory, item["log"])
+        require_candidate(log, record["candidate_sha"], label)
         require(not re.search(r"^RESULT=", log, re.M),
                 f"{label} log has a RESULT line; record it as PASS or FAIL, not TIMEOUT")
         return "EXECUTION_TIMEOUT", log
@@ -464,8 +467,10 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
     if regression in ("NOT_RUN", "TIMEOUT"):
         # An unfinished run is non-green; its log is retained and hashed but makes no claims.
         require(record["harness"] is None, "an unfinished regression has no harness results")
-        require(regression == "NOT_RUN" or not re.search(r"^RESULT=", logs["regression"], re.M),
-                "a log with a RESULT line finished; record it as PASS or FAIL, not TIMEOUT")
+        if regression == "TIMEOUT":
+            require_candidate(logs["regression"], record["candidate_sha"], "harness")
+            require(not re.search(r"^RESULT=", logs["regression"], re.M),
+                    "a log with a RESULT line finished; record it as PASS or FAIL, not TIMEOUT")
     else:
         validate_harness(record, policy, logs["regression"])
     suite_outcomes, suite_logs = validate_suites(record, policy, directory)
