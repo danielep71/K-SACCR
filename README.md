@@ -303,6 +303,21 @@ BankNettingSets · BankTrades ────────────────�
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
+The input sheets of the demonstration portfolio, as Excel shows them (yellow
+cells are inputs):
+
+<p align="center">
+  <img width="100%"
+       alt="NettingSets sheet: the five CRE99 examples and further illustrative netting sets, with margining, clearing role, MPOR, collateral and regime override columns"
+       src="docs/assets/SACCR_NettingSets.png">
+</p>
+
+<p align="center">
+  <img width="62%"
+       alt="Params sheet: reporting date and currency, alpha, multiplier floor, MPOR floors, IR correlations, default regime and CRR lambda thresholds, each with its CRE52 or CRR reference"
+       src="docs/assets/SACCR_Params.png">
+</p>
+
 ---
 
 <a id="regimes"></a>
