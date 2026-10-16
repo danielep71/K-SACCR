@@ -313,9 +313,10 @@ Use only the categories needed by a release.
   (run parameters and supervisory table) and README sheets, and Results,
   TradeCalc, HedgingSets, Buckets, Checks, BankNettingSets, Reconciliation,
   TestCatalogue and FormulaTest after a run of the demonstration workbook,
-  taken in Excel. The root README shows Results and Checks, and the
-  calculation detail, the reconciliation, the input sheets and the test sheets
-  in collapsible sections; `SCREENSHOTS_SOURCES.md` records how they were
+  taken in Excel, with the Basel_vs_CRR sheet and the start of that run's
+  evidence CSV. The root README shows Results and Checks, and the calculation
+  detail, the reconciliation, the evidence file, the input sheets, the regime
+  comparison and the test sheets in collapsible sections; `SCREENSHOTS_SOURCES.md` records how they were
   taken and processed.
 - A social preview image in `docs/assets/` (`SACCR_social_preview.png`,
   1280 x 640, with its HTML source). Its figures are the published CRE99

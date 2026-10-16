@@ -222,6 +222,19 @@ results or a reconciliation are out of date, or after an output cell was
 edited, so the file always describes the inputs as they are and what the
 run wrote.
 
+<details>
+<summary><b>Evidence file</b>: the start of the CSV written by Export evidence</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Evidence CSV opened in a text editor: RUN lines with the format, run summary, result and reconciliation status, input and output fingerprints, reporting date, currency, default regime, totals and status per regime, Checks counts, reconciliation summary and tolerances, then the PARAMS lines and the start of the SF_TABLE section"
+       src="docs/assets/SACCR_Evidence_CSV.png">
+</p>
+
+</details>
+
 ## 4. Test (development workbook)
 
 In the Immediate window:
@@ -432,6 +445,19 @@ netting set, and every result reports the regime it used.
 The [regime differences](docs/methodology/README.md#regime-differences) table
 gives the locators and test cases of each row; the `Basel_vs_CRR` sheet shows
 them in the workbook.
+
+<details>
+<summary><b>In the workbook</b>: the Basel_vs_CRR sheet</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Basel_vs_CRR sheet, first 14 rows: for each area the Basel CRE52 rule, the EU CRR rule, whether they differ, the effect on the numbers, the workbook treatment, the tests that cover it and the source check"
+       src="docs/assets/SACCR_Basel_vs_CRR.png">
+</p>
+
+</details>
 
 ---
 
