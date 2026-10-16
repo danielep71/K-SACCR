@@ -16,7 +16,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   RunCaseExpectingStop,
 '   OutputNumber, ExpectNumber, ExpectText, ExpectTrue, ExpectChecksLine and
 '   EndSuite, for
-'   TEST_Cases, TEST_InputValidation, TEST_Aggregation and TEST_Invariants.
+'   TEST_Cases, TEST_InputValidation, TEST_Aggregation, TEST_Invariants and
+'   TEST_Benchmark.
 '   Option Private Module keeps them out of the external workbook automation
 '   API.
 '
@@ -51,7 +52,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-16
 '
 ' AUTHOR
 '   Daniele Penza

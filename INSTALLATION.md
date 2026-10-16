@@ -40,7 +40,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, seven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`), the shared case runner `TEST_CaseRunner`, and `TEST_Suite`, which runs the harness and every suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, seven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | None |
 
@@ -179,15 +179,16 @@ The layout and file conventions are defined in
    | 6 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
    | 8 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 9 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
-   | 10 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 11 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 12 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 13 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 14 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 15 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 16 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 17 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 9 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 10 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 11 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 12 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 13 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 14 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 15 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 16 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 17 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 18 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs` and
    `ExportEvidence`, so they work once `M_Main` is imported.
@@ -395,6 +396,36 @@ cover the evidence export: the CSV encoding of each field, and, in the
 workbook, an export that is the same byte for byte when written twice and is
 refused after an input, bank-figure or output edit. The BankNettingSets and
 BankTrades tables are put back and the exported files removed.
+
+### Benchmark
+
+```text
+TEST_Benchmark.RunBenchmark
+TEST_Benchmark.RunBenchmark "1000,10000,50000"
+```
+
+Not a suite: `Test_RunAll` does not run it and the Excel evidence does not
+include it, because its timings depend on the machine. Needs
+`TEST_CaseRunner` and a workbook built from the template. It writes synthetic
+CRR portfolios of the given numbers of legs (1,000 and 10,000 by default; up
+to 100,000), in netting sets of 500 legs, alternately unmargined and margined,
+with interest-rate swaps, FX forwards and options, credit default swaps,
+equity forwards and options and commodity forwards, all valid; then, last, a
+portfolio of 1,000 legs with a stray comment 100,000 rows below the first
+Trades row, which inflates the sheet's used range. For each it times the
+writing of the inputs and the engine run, prints a `BENCH` line such as
+this one, with the seconds in the locale's number format,
+
+```text
+BENCH case=bench-10000; legs=10000; netting_sets=20; used=10000; withheld=0; errors=0; warnings=0; tradecalc_rows=10000; results_rows=21; write_s=<seconds>; run_s=<seconds>
+```
+
+and checks that the run completed with every leg used, every netting set
+`VALID`, no error on Checks, one Results row per netting set and the `TOTAL
+CRR` row, and one TradeCalc row per leg; the used-range scenario also shows
+`used_last_row` and checks that the comment did inflate the used range and was
+removed. The inputs are restored. Sizes that cannot be read print a `BENCH_REJECTED=` line
+and change nothing.
 
 <a id="automation-entry-points"></a>
 
