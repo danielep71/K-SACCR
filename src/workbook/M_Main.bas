@@ -2387,7 +2387,8 @@ Private Function ReportOutcome( _
                           vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
                         msg = msg & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
-                              " netting set(s) with rejected trades or invalid inputs."
+                              " netting set(s) with rejected trades or invalid inputs: " & _
+                              CORE_Engine.WithheldByRegimeText() & "."
                     End If
                     If Len(mReconLine) > 0 Then
                         msg = msg & vbCrLf & vbCrLf & mReconLine
