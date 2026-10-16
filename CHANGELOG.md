@@ -291,7 +291,7 @@ pull requests.
   VBA house style and `docs/assets/README.md` for the images: a one-page EAD
   reference card, workbook screenshots and the social preview.
 - A user manual, as pandoc Markdown with its build instructions in
-  `docs/user-manual/v1.0.0/`; its PDF is attached to the release.
+  `docs/user-manual/v1.0.0/`; its PDF will be attached to the 1.0.0 release.
 
 ### Differences from the prototype workbook
 
