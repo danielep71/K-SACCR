@@ -47,6 +47,7 @@ CODE_NAME = re.compile(r'<(?:sheetPr|workbookPr)\b[^>]*\bcodeName="([^"]+)"')
 # character, and a line continuation cannot sit inside it. A literal left
 # open is a compile error the VBE reports only on import.
 REM_STATEMENT = re.compile(r"Rem(?=[ \t]|$)", re.I)
+LINE_NUMBER = re.compile(r"[ \t]*\d+(?=[ \t])")
 
 
 def index_eol(root: Path) -> dict[str, tuple[str, str]]:
@@ -117,9 +118,11 @@ def check_component(root: Path, path: str, tracked: set[str], names: dict[str, s
 def unclosed_literals(text: str) -> list[int]:
     """Return the numbers of the lines whose code leaves a string literal open.
 
-    A ' outside a literal, or Rem at the start of a statement, begins a
-    comment; a comment line ending in a space and an underscore continues on
-    the next line, which is then comment as well.
+    A ' outside a literal and outside [...], where it quotes a sheet name as
+    in ['Sheet 1'!A1], or Rem at the start of a statement, also after a
+    numeric line label, begins a comment; a comment line ending in a space
+    and an underscore continues on the next line, which is then comment as
+    well.
     """
     lines: list[int] = []
     in_comment = False
@@ -129,16 +132,22 @@ def unclosed_literals(text: str) -> list[int]:
             continue
         quoted = False
         statement_start = True
-        i = 0
+        brackets = 0
+        label = LINE_NUMBER.match(line)
+        i = label.end() if label else 0
         while i < len(line):
             char = line[i]
             if quoted:
                 quoted = char != '"'
             elif char == '"':
                 quoted = True
-            elif char == "'" or (statement_start and REM_STATEMENT.match(line, i)):
+            elif (char == "'" and not brackets) or (statement_start and REM_STATEMENT.match(line, i)):
                 in_comment = line.rstrip().endswith(" _")
                 break
+            elif char == "[":
+                brackets += 1
+            elif char == "]" and brackets:
+                brackets -= 1
             if char == ":" and not quoted:
                 statement_start = True
             elif not char.isspace():

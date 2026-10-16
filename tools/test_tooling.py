@@ -70,11 +70,18 @@ class SourceGateTests(unittest.TestCase):
         self.write("src/modules/SACCR_Test.bas", MODULE.replace("End Sub", body + "End Sub"))
         self.assertIn("src/modules/SACCR_Test.bas:5: string literal not closed", self.findings())
 
+    def test_unclosed_literal_after_a_quoted_sheet_name_is_reported(self) -> None:
+        body = "    Debug.Print ['Sheet 1'!A1], \"open\r\n"
+        self.write("src/modules/SACCR_Test.bas", MODULE.replace("End Sub", body + "End Sub"))
+        self.assertIn("src/modules/SACCR_Test.bas:5: string literal not closed", self.findings())
+
     def test_quotes_in_strings_and_comments_are_not_literals(self) -> None:
         body = ('    x = "=""" & y & """" \' a "comment\r\n'
                 '    x = "it\'s": Rem say "hi\r\n'
                 '    \' a comment _\r\n'
-                '    continued with a " quote\r\n')
+                '    continued with a " quote\r\n'
+                '100 Rem say "hi\r\n'
+                '    Debug.Print [\'Sheet 1\'!A1], "x" \' "\r\n')
         self.write("src/modules/SACCR_Test.bas", MODULE.replace("End Sub", body + "End Sub"))
         self.assertEqual(self.findings(), [])
 
