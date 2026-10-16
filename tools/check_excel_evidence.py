@@ -579,15 +579,20 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     checks = sum(row[2] for row in rows)
     text = (root / "README.md").read_text(encoding="utf-8")
     problems = []
-    expected = {
-        "Excel suites badge": f"Excel_suites-{suites}%2F{suites}_PASS",
-        "Regression badge": f"Regression-{cases}_cases_%C2%B7_{checks}_checks",
-        "Testing capability": f"({cases} cases, {checks} checks)",
-        "suite table total": f"| **Total** | | **{cases}** | **{checks}** |",
-        "Test_RunAll result": f"RESULT=PASS; suites={suites}; passed={suites}; failed=0;",
+    # Each display appears once with the policy's values: a stale copy left beside
+    # the corrected one would contradict it.
+    displays = {
+        "Excel suites badge": (r"badge/Excel_suites-([^-?)]+)", f"{suites}%2F{suites}_PASS"),
+        "Regression badge": (r"badge/Regression-([^-?)]+)", f"{cases}_cases_%C2%B7_{checks}_checks"),
+        "Testing capability": (r"\((\d+ cases, \d+ checks)\)", f"{cases} cases, {checks} checks"),
+        "suite table total": (r"^\| \*\*Total\*\* \|(.*)\|$", f" | **{cases}** | **{checks}** "),
+        "Test_RunAll result": (r"^RESULT=(\w+; suites=\d+; passed=\d+; failed=\d+);",
+                               f"PASS; suites={suites}; passed={suites}; failed=0"),
     }
-    problems += [f"README.md: {label} does not show {value!r}"
-                 for label, value in expected.items() if value not in text]
+    for label, (pattern, value) in displays.items():
+        displayed = re.findall(pattern, text, re.MULTILINE)
+        if displayed != [value]:
+            problems.append(f"README.md: {label} must appear once, as {value!r}, not {displayed}")
     # Every row, in order: a second, stale row for one suite is a contradiction.
     table = [(name, int(found_cases), int(found_checks)) for name, found_cases, found_checks
              in re.findall(r"^\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)]

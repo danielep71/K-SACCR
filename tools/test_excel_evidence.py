@@ -532,7 +532,14 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("| **227** | **975** |", "| **226** | **975** |", "suite table total"),
                 ("TEST_Reconcile        cases=19; checks=140", "TEST_Reconcile        cases=18; checks=137",
                  "Test_RunAll output differs"),
-                ("RESULT=PASS; suites=8; passed=8", "RESULT=PASS; suites=7; passed=7", "Test_RunAll result")):
+                ("RESULT=PASS; suites=8; passed=8", "RESULT=PASS; suites=7; passed=7", "Test_RunAll result"),
+                # A stale copy beside the corrected display contradicts it.
+                ("[![Excel suites]", "![stale](https://img.shields.io/badge/Excel_suites-7%2F7_PASS-2ea44f)\n"
+                 "[![Excel suites]", "Excel suites badge"),
+                ("| **Total** |", "| **Total** | | **226** | **975** |\n| **Total** |", "suite table total"),
+                ("RESULT=PASS; suites=8", "RESULT=FAIL; suites=8; passed=7; failed=1; seconds=1\n"
+                 "RESULT=PASS; suites=8", "Test_RunAll result"),
+                ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge")):
             with self.subTest(message=message):
                 self.assertIn(old, readme)
                 (copy_root / "README.md").write_text(readme.replace(old, new), encoding="utf-8")
