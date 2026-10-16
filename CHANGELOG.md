@@ -147,7 +147,9 @@ pull requests.
 - MPOR floors (#39): 10 business days bilateral; 5 for client clearing, for the
   clearing member (CM) in both regimes and for the client (CLIENT) under CRR
   only (CRE54.8, CRE54.12, CRE54.14; CRR Art. 279c(1)). After margin disputes
-  the MPOR is 2 x (F + N - 1); a large or illiquid set, flagged by the user,
+  the MPOR is 2 x (F + N - 1) in both regimes, as CRE52.51(3) gives; under CRR
+  this is higher than Art. 285(4)-(5), 2F + N - 1, when remargining is not
+  daily (a recorded decision). A large or illiquid set, flagged by the user,
   takes 20 + N - 1 (CRE52.51; CRR Art. 285). A margined netting set of more than
   5,000 trades with the flag N gives a warning, since the floor follows from
   the previous quarter's count.
@@ -185,9 +187,9 @@ pull requests.
 
 - One Results row per input netting set with a status: `VALID`, `INVALID`,
   `INCOMPLETE` (a rejected trade; the EAD is withheld rather than computed on
-  the remaining trades) or `NO TRADES` (#36). Results ends with `TOTAL CRR` and
-  `TOTAL BCBS`, each summing that regime's `VALID` netting sets and saying how
-  many are covered; there is no total across regimes, and `TOTAL`,
+  the remaining trades) or `NO TRADES` (#36). Results ends with one total row
+  per regime present in the inputs, `TOTAL CRR` and/or `TOTAL BCBS`, each
+  summing that regime's `VALID` netting sets and saying how many are covered; there is no total across regimes, and `TOTAL`,
   `TOTAL CRR` and `TOTAL BCBS` are reserved IDs (#198).
 - Results are recognised as out of date (#36, #152, #197): a completed run
   stores a fingerprint of its inputs in the hidden name `SACCR_RunInputs`, and
