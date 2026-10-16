@@ -826,6 +826,49 @@ Public Function NamedRow( _
 End Function
 
 
+Public Function TableHeaderName( _
+    ByVal sheetName As String) _
+    As String
+'
+'==============================================================================
+'                               TableHeaderName
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the workbook name of the first header cell of a sheet's table:
+'   NM_NS_HEADER and NM_TR_HEADER for the inputs, NM_RS_HEADER and the
+'   others for the output tables.
+'
+' RETURNS
+'   The name; "" for a sheet whose table is not located this way.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        Select Case sheetName
+            Case SH_NS
+                TableHeaderName = NM_NS_HEADER
+            Case SH_TRADES
+                TableHeaderName = NM_TR_HEADER
+            Case SH_RESULTS
+                TableHeaderName = NM_RS_HEADER
+            Case SH_HEDGING
+                TableHeaderName = NM_HS_HEADER
+            Case SH_BUCKETS
+                TableHeaderName = NM_BK_HEADER
+            Case SH_TRADECALC
+                TableHeaderName = NM_TC_HEADER
+            Case SH_CHECKS
+                TableHeaderName = NM_CK_HEADER
+            Case SH_RECON
+                TableHeaderName = NM_RECON_HEADER
+            Case SH_TRADE_RECON
+                TableHeaderName = NM_TRECON_HEADER
+        End Select
+
+End Function
+
+
 Public Function TableHeaderRow( _
     ByVal sheetName As String) _
     As Long
@@ -834,17 +877,17 @@ Public Function TableHeaderRow( _
 '                                TableHeaderRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the header row of a sheet's table. NettingSets and Trades are
-'   located through the workbook name of their first header cell
-'   (NM_NS_HEADER, NM_TR_HEADER), which must be in column C of that sheet;
-'   every other sheet has its headers on HEADER_ROW.
+'   Return the header row of a sheet's table, located through the workbook
+'   name of its first header cell (TableHeaderName), which must be in
+'   column C of that sheet. The rows can therefore move: a row inserted or
+'   deleted above a table moves the name with it.
 '
 ' RETURNS
-'   The row; 0 when an input sheet's name is missing, broken, on another
-'   sheet or not in column C.
+'   The row; 0 when the sheet has no such name, or the name is missing,
+'   broken, on another sheet or not in column C.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-16
 '==============================================================================
 '
 
@@ -857,15 +900,10 @@ Public Function TableHeaderRow( _
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        Select Case sheetName
-            Case SH_NS
-                headerName = NM_NS_HEADER
-            Case SH_TRADES
-                headerName = NM_TR_HEADER
-            Case Else
-                TableHeaderRow = HEADER_ROW
-                Exit Function
-        End Select
+        headerName = TableHeaderName(sheetName)
+        If Len(headerName) = 0 Then
+            Exit Function
+        End If
         Set c = NamedCell(headerName)
         If Not c Is Nothing Then
             If StrComp(c.Worksheet.Name, sheetName, vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
@@ -907,6 +945,49 @@ Public Function TableFirstRow( _
         If r > 0 Then
             TableFirstRow = r + 1
         End If
+
+End Function
+
+
+Public Function OutputFirstRow( _
+    ByVal sheetName As String) _
+    As Long
+'
+'==============================================================================
+'                                OutputFirstRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the first data row of an output table (Results, HedgingSets,
+'   Buckets, TradeCalc, Checks, Reconciliation, TradeReconciliation): the
+'   row below the header cell its workbook name refers to.
+'
+' ERROR POLICY
+'   Raises ERR_OUTPUT_LAYOUT when the name is missing, broken, on another
+'   sheet or not in column C: an output written at a guessed row could
+'   leave rows of an earlier run under the headers. Like a missing sheet,
+'   this needs the workbook rebuilt from the template.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim r   As Long    'First data row; 0 when the name cannot locate it
+
+'------------------------------------------------------------------------------
+' RESOLVE
+'------------------------------------------------------------------------------
+        r = TableFirstRow(sheetName)
+        If r = 0 Then
+            Err.Raise ERR_OUTPUT_LAYOUT, "CORE_Util.OutputFirstRow", _
+                      "Workbook name '" & TableHeaderName(sheetName) & "' is missing or no longer refers to " & _
+                      "the first header cell, in column C, of " & sheetName & _
+                      " - rebuild the workbook from the template."
+        End If
+        OutputFirstRow = r
 
 End Function
 

@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-227_cases_%C2%B7_975_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-228_cases_%C2%B7_975_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -151,7 +151,7 @@ inspected. This toolkit is the opposite:
 | Reconciliation | Bank figures per netting set (`BankNettingSets`) and per trade leg (`BankTrades`), compared with Results and TradeCalc within an absolute or a relative tolerance |
 | Evidence export | One CSV file per run, `;`-separated with a `.` decimal point and UTF-8 whatever the regional settings |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
-| Testing | Eight Excel suites (227 cases, 975 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (228 cases, 975 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -437,13 +437,13 @@ wrote the code under test (#100).
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection and failure paths of the workbook macros | 27 | 465 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 28 | 465 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 20 | 39 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 133 | 209 |
 | `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 19 | 140 |
-| **Total** | | **227** | **975** |
+| **Total** | | **228** | **975** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).

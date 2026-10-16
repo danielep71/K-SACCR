@@ -3054,6 +3054,7 @@ Private Sub ProcessTrades( _
 '------------------------------------------------------------------------------
     Dim ws        As Worksheet    'Trades sheet
     Dim wsOut     As Worksheet    'TradeCalc sheet
+    Dim outTop    As Long         'First TradeCalc data row
     Dim lastR     As Long         'Last row with a trade ID
     Dim topRow    As Long         'First data row, below the headers
     Dim n         As Long         'Number of rows to read
@@ -3078,7 +3079,7 @@ Private Sub ProcessTrades( _
         If lastR < topRow Then
             LogMsg SEV_ERROR, SH_TRADES, "", "No trades found."
             If writeOutputs Then
-                ClearOutputBlock GetSheet(SH_TRADECALC), FIRST_DATA_ROW, TC_NCOLS
+                ClearOutputBlock GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), TC_NCOLS
             End If
             Exit Sub
         End If
@@ -3140,9 +3141,10 @@ NextTrade:
 '------------------------------------------------------------------------------
         If writeOutputs Then
             Set wsOut = GetSheet(SH_TRADECALC)
-            ClearOutputBlock wsOut, FIRST_DATA_ROW, TC_NCOLS
-            WriteBlock wsOut, FIRST_DATA_ROW, outArr, nOut, TC_NCOLS
-            FormatColumns wsOut, FIRST_DATA_ROW, nOut, _
+            outTop = OutputFirstRow(SH_TRADECALC)
+            ClearOutputBlock wsOut, outTop, TC_NCOLS
+            WriteBlock wsOut, outTop, outArr, nOut, TC_NCOLS
+            FormatColumns wsOut, outTop, nOut, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
         End If
 
@@ -4325,6 +4327,7 @@ Private Sub ComputeNettingSets( _
     Dim ead      As Double       'EAD reported
     Dim ri       As Long         'Regime of the netting set: 1 CRR, 2 BCBS
     Dim firstTotal As Long       'Results row of the first TOTAL row
+    Dim outTop   As Long         'First Results data row
     Dim tot(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
 
 '------------------------------------------------------------------------------
@@ -4477,7 +4480,8 @@ NextNS:
     'withheld. There is no total across regimes. The rows are in bold.
         If writeOutputs Then
             Set ws = GetSheet(SH_RESULTS)
-            ClearOutputBlock ws, FIRST_DATA_ROW, RS_NCOLS
+            outTop = OutputFirstRow(SH_RESULTS)
+            ClearOutputBlock ws, outTop, RS_NCOLS
             If nOut > 0 Then
                 firstTotal = nOut + 1
                 For ri = 1 To 2
@@ -4494,10 +4498,10 @@ NextNS:
                         outArr(nOut, RS_STATUS_COL) = TotalStatusText(Choose(ri, RG_CRR, RG_BCBS))
                     End If
                 Next ri
-                WriteBlock ws, FIRST_DATA_ROW, outArr, nOut, RS_NCOLS
-                FormatColumns ws, FIRST_DATA_ROW, nOut, _
+                WriteBlock ws, outTop, outArr, nOut, RS_NCOLS
+                FormatColumns ws, outTop, nOut, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                TableRange(ws, FIRST_DATA_ROW + firstTotal - 1, 1, FIRST_DATA_ROW + nOut - 1, RS_NCOLS).Font.Bold = True
+                TableRange(ws, outTop + firstTotal - 1, 1, outTop + nOut - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
@@ -4556,10 +4560,10 @@ Private Sub ClearOutputSheets()
 '   2026-10-06
 '==============================================================================
 '
-        ClearOutputBlock GetSheet(SH_TRADECALC), FIRST_DATA_ROW, TC_NCOLS
-        ClearOutputBlock GetSheet(SH_BUCKETS), FIRST_DATA_ROW, BK_NCOLS
-        ClearOutputBlock GetSheet(SH_HEDGING), FIRST_DATA_ROW, HS_NCOLS
-        ClearOutputBlock GetSheet(SH_RESULTS), FIRST_DATA_ROW, RS_NCOLS
+        ClearOutputBlock GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), TC_NCOLS
+        ClearOutputBlock GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), BK_NCOLS
+        ClearOutputBlock GetSheet(SH_HEDGING), OutputFirstRow(SH_HEDGING), HS_NCOLS
+        ClearOutputBlock GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_NCOLS
 
 End Sub
 
@@ -5039,7 +5043,7 @@ Private Function TryClearOutput( _
                 Err.Raise ERR_CLEANUP_FAILED, "CORE_Engine.TryClearOutput", "Injected output cleanup failure."
             End If
         End If
-        ClearOutputBlock GetSheet(sheetName), FIRST_DATA_ROW, nCols
+        ClearOutputBlock GetSheet(sheetName), OutputFirstRow(sheetName), nCols
         TryClearOutput = True
         Exit Function
 Failed:
@@ -5072,6 +5076,7 @@ Private Sub WriteBuckets()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ws      As Worksheet    'Buckets sheet
+    Dim topRow  As Long         'First Buckets data row
     Dim arr()   As Variant      'Output rows, (row, column)
     Dim b       As Long         'Bucket, position in mBk
 
@@ -5084,7 +5089,8 @@ Private Sub WriteBuckets()
     'Correlation and add-ons apply to credit, equity and commodity only;
     'margined figures to margined netting sets only.
         Set ws = GetSheet(SH_BUCKETS)
-        ClearOutputBlock ws, FIRST_DATA_ROW, BK_NCOLS
+        topRow = OutputFirstRow(SH_BUCKETS)
+        ClearOutputBlock ws, topRow, BK_NCOLS
         If mBkCount = 0 Then
             Exit Sub
         End If
@@ -5108,8 +5114,8 @@ Private Sub WriteBuckets()
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        WriteBlock ws, FIRST_DATA_ROW, arr, mBkCount, BK_NCOLS
-        FormatColumns ws, FIRST_DATA_ROW, mBkCount, "@|@|@|@|0|0.00%|0%|#,##0|#,##0|#,##0|#,##0"
+        WriteBlock ws, topRow, arr, mBkCount, BK_NCOLS
+        FormatColumns ws, topRow, mBkCount, "@|@|@|@|0|0.00%|0%|#,##0|#,##0|#,##0|#,##0"
 
 End Sub
 
@@ -5136,6 +5142,7 @@ Private Sub WriteHedgingSets()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ws      As Worksheet    'HedgingSets sheet
+    Dim topRow  As Long         'First HedgingSets data row
     Dim arr()   As Variant      'Output rows, (row, column)
     Dim h       As Long         'Hedging set, position in mHS
     Dim mg      As Boolean      'Netting set of h is margined
@@ -5148,7 +5155,8 @@ Private Sub WriteHedgingSets()
     'and 10 idiosyncratic part (credit, equity, commodity), 11 hedging-set
     'add-on, 12 add-on unmargined, 13 basis, 14 SF (IR, FX, OT).
         Set ws = GetSheet(SH_HEDGING)
-        ClearOutputBlock ws, FIRST_DATA_ROW, HS_NCOLS
+        topRow = OutputFirstRow(SH_HEDGING)
+        ClearOutputBlock ws, topRow, HS_NCOLS
         If mHSCount = 0 Then
             Exit Sub
         End If
@@ -5200,8 +5208,8 @@ Private Sub WriteHedgingSets()
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        WriteBlock ws, FIRST_DATA_ROW, arr, mHSCount, HS_NCOLS
-        FormatColumns ws, FIRST_DATA_ROW, mHSCount, "@|@|@|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|@|0.00%"
+        WriteBlock ws, topRow, arr, mHSCount, HS_NCOLS
+        FormatColumns ws, topRow, mHSCount, "@|@|@|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|@|0.00%"
 
 End Sub
 
@@ -5236,6 +5244,7 @@ Private Function WriteChecks( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ws      As Worksheet    'Checks sheet
+    Dim topRow  As Long         'First Checks data row
     Dim arr()   As Variant      'Output rows, (message, field)
     Dim i       As Long         'Message
     Dim j       As Long         'Field
@@ -5247,12 +5256,13 @@ Private Function WriteChecks( _
         On Error GoTo Failed
         failure = ""
         Set ws = GetSheet(SH_CHECKS)
-        ClearOutputBlock ws, FIRST_DATA_ROW, CK_NCOLS
+        topRow = OutputFirstRow(SH_CHECKS)
+        ClearOutputBlock ws, topRow, CK_NCOLS
         If mLogCount = 0 Then
             ReDim arr(1 To 1, 1 To CK_NCOLS)
             arr(1, 1) = SEV_INFO
             arr(1, 5) = "No issues found."
-            WriteBlock ws, FIRST_DATA_ROW, arr, 1, CK_NCOLS
+            WriteBlock ws, topRow, arr, 1, CK_NCOLS
             WriteChecks = True
             Exit Function
         End If
@@ -5262,10 +5272,10 @@ Private Function WriteChecks( _
                 arr(i, j) = mLog(j, i)
             Next j
         Next i
-        WriteBlock ws, FIRST_DATA_ROW, arr, mLogCount, CK_NCOLS
+        WriteBlock ws, topRow, arr, mLogCount, CK_NCOLS
         For i = 1 To mLogCount
             If arr(i, 1) = SEV_ERROR Then
-                TableCell(ws, FIRST_DATA_ROW + i - 1, 1).Font.Bold = True
+                TableCell(ws, topRow + i - 1, 1).Font.Bold = True
             End If
         Next i
         WriteChecks = True

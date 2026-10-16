@@ -367,8 +367,8 @@ Private Function ResultsRows() As Variant
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_RESULTS)
         lastR = UsedLastRow(ws)
-        If lastR >= FIRST_DATA_ROW Then
-            ResultsRows = TableRange(ws, FIRST_DATA_ROW, 1, lastR, RS_NCOLS).Value
+        If lastR >= OutputFirstRow(SH_RESULTS) Then
+            ResultsRows = TableRange(ws, OutputFirstRow(SH_RESULTS), 1, lastR, RS_NCOLS).Value
         End If
 
 End Function

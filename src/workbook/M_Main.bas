@@ -557,6 +557,8 @@ Private Function ReconcileAfterRun( _
     Dim settings(1 To 3) As Variant 'Scale, absolute and relative tolerance
     Dim i           As Long         'Setting
     Dim lastR       As Long         'Last row read
+    Dim calcTop     As Long         'First data row of Results or TradeCalc
+    Dim outTop      As Long         'First data row of the reconciliation sheet
     Dim bank        As Variant      'Bank rows; Empty when none
     Dim calc        As Variant      'Calculator rows; Empty when none
     Dim counts()    As Long         'Counts from the comparison
@@ -616,15 +618,17 @@ Private Function ReconcileAfterRun( _
         End If
         If kind = RECON_NS Then
             Set wsCalc = GetSheet(SH_RESULTS)
-            lastR = LastDataRow(wsCalc, FIRST_DATA_ROW, RS_ID)
-            If lastR >= FIRST_DATA_ROW Then
-                calc = TableRange(wsCalc, FIRST_DATA_ROW, 1, lastR, RS_NCOLS).Value2
+            calcTop = OutputFirstRow(SH_RESULTS)
+            lastR = LastDataRow(wsCalc, calcTop, RS_ID)
+            If lastR >= calcTop Then
+                calc = TableRange(wsCalc, calcTop, 1, lastR, RS_NCOLS).Value2
             End If
         Else
             Set wsCalc = GetSheet(SH_TRADECALC)
-            lastR = LastDataRow(wsCalc, FIRST_DATA_ROW, TC_ID)
-            If lastR >= FIRST_DATA_ROW Then
-                calc = TableRange(wsCalc, FIRST_DATA_ROW, 1, lastR, TC_NCOLS).Value2
+            calcTop = OutputFirstRow(SH_TRADECALC)
+            lastR = LastDataRow(wsCalc, calcTop, TC_ID)
+            If lastR >= calcTop Then
+                calc = TableRange(wsCalc, calcTop, 1, lastR, TC_NCOLS).Value2
             End If
         End If
 
@@ -641,7 +645,8 @@ Private Function ReconcileAfterRun( _
             summary = CORE_Reconcile.TradeSummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), _
                                                       CDbl(settings(3)))
         End If
-        ClearOutputBlock wsRecon, FIRST_DATA_ROW, ReconColsOf(kind)
+        outTop = OutputFirstRow(ReconSheetOf(kind))
+        ClearOutputBlock wsRecon, outTop, ReconColsOf(kind)
         If IsArray(found) Then
             If kind = RECON_NS Then
                 outRows = found
@@ -649,8 +654,8 @@ Private Function ReconcileAfterRun( _
                 outRows = WithEconomicTradeIds(found)
             End If
             nRows = UBound(outRows, 1)
-            WriteBlock wsRecon, FIRST_DATA_ROW, outRows, nRows, ReconColsOf(kind)
-            FormatColumns wsRecon, FIRST_DATA_ROW, nRows, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
+            WriteBlock wsRecon, outTop, outRows, nRows, ReconColsOf(kind)
+            FormatColumns wsRecon, outTop, nRows, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
                           "#,##0.00########|0.0000%|@|@" & IIf(kind = RECON_NS, "", "|@")
         End If
         wsRecon.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
@@ -738,7 +743,7 @@ Private Sub ClearReconciliation( _
                 ForgetReconInputs k
                 If ReconciliationSheetsPresent(k) Then
                     Set ws = GetSheet(ReconSheetOf(k))
-                    ClearOutputBlock ws, FIRST_DATA_ROW, ReconColsOf(k)
+                    ClearOutputBlock ws, OutputFirstRow(ReconSheetOf(k)), ReconColsOf(k)
                     ws.Range(RECON_INFO_CELL).Value = infoText
                 End If
             End If
@@ -1452,6 +1457,7 @@ Private Function EvidenceText() As String
     Dim s          As String       'The report
     Dim wsRes      As Worksheet    'Results
     Dim lastR      As Long         'Last row of a table
+    Dim topRow     As Long         'First data row of a table
     Dim r          As Long         'Row
     Dim id         As String       'Results ID
     Dim codes      As Variant      'Parameter codes
@@ -1481,16 +1487,18 @@ Private Function EvidenceText() As String
     'The set the template ships, not a claim about this run: whether the run
     'used it unchanged is in run_summary (regulatory or what-if).
         s = s & RunLine("reference_parameter_set", REF_SET_ID)
-        lastR = LastDataRow(wsRes, FIRST_DATA_ROW, RS_ID)
-        For r = FIRST_DATA_ROW To lastR
+        topRow = OutputFirstRow(SH_RESULTS)
+        lastR = LastDataRow(wsRes, topRow, RS_ID)
+        For r = topRow To lastR
             id = UTxt(TableCell(wsRes, r, RS_ID).Value2)
             If id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
                 s = s & RunLine("total_ead_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_EAD).Value2)
                 s = s & RunLine("total_status_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_STATUS_COL).Value2)
             End If
         Next r
-        lastR = LastDataRow(GetSheet(SH_CHECKS), FIRST_DATA_ROW, 1)
-        For r = FIRST_DATA_ROW To lastR
+        topRow = OutputFirstRow(SH_CHECKS)
+        lastR = LastDataRow(GetSheet(SH_CHECKS), topRow, 1)
+        For r = topRow To lastR
             sev = UTxt(TableCell(GetSheet(SH_CHECKS), r, 1).Value2)
             If sev = SEV_ERROR Then nSev(1) = nSev(1) + 1
             If sev = SEV_WARN Then nSev(2) = nSev(2) + 1
@@ -1611,18 +1619,20 @@ Private Function SheetTableLines( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'The sheet
-    Dim lastR   As Long         'Last row of the table
+    Dim ws        As Worksheet    'The sheet
+    Dim headerRow As Long         'Header row of the table
+    Dim lastR     As Long         'Last row of the table
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
         Set ws = GetSheet(sheetName)
-        lastR = LastDataRow(ws, FIRST_DATA_ROW, 1)
-        If lastR < HEADER_ROW Then
-            lastR = HEADER_ROW
+        headerRow = OutputFirstRow(sheetName) - 1
+        lastR = LastDataRow(ws, headerRow + 1, 1)
+        If lastR < headerRow Then
+            lastR = headerRow
         End If
-        SheetTableLines = CORE_Export.TableLines(section, TableRange(ws, HEADER_ROW, 1, lastR, nCols).Value2)
+        SheetTableLines = CORE_Export.TableLines(section, TableRange(ws, headerRow, 1, lastR, nCols).Value2)
 
 End Function
 
@@ -2101,11 +2111,11 @@ Private Sub ClearAllOutputs()
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        ClearOutputBlock GetSheet(SH_TRADECALC), FIRST_DATA_ROW, TC_NCOLS
-        ClearOutputBlock GetSheet(SH_BUCKETS), FIRST_DATA_ROW, BK_NCOLS
-        ClearOutputBlock GetSheet(SH_HEDGING), FIRST_DATA_ROW, HS_NCOLS
-        ClearOutputBlock GetSheet(SH_RESULTS), FIRST_DATA_ROW, RS_NCOLS
-        ClearOutputBlock GetSheet(SH_CHECKS), FIRST_DATA_ROW, CK_NCOLS
+        ClearOutputBlock GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), TC_NCOLS
+        ClearOutputBlock GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), BK_NCOLS
+        ClearOutputBlock GetSheet(SH_HEDGING), OutputFirstRow(SH_HEDGING), HS_NCOLS
+        ClearOutputBlock GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_NCOLS
+        ClearOutputBlock GetSheet(SH_CHECKS), OutputFirstRow(SH_CHECKS), CK_NCOLS
         CORE_Engine.ForgetRunInputs
         GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value = "Outputs cleared " & Format$(Now, "yyyy-mm-dd hh:mm:ss")
 

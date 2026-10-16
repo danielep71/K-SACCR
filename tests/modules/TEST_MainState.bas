@@ -13,10 +13,12 @@ Attribute VB_Name = "TEST_MainState"
 '   (issue #152), when a number becomes the same digits as text, a header
 '   is renamed or the date system changes, but not after a formatting
 '   change (issue #197); that a run summary that cannot be composed does
-'   not fail the run (issue #60); and that a run in manual calculation recalculates
+'   not fail the run (issue #60); that a run in manual calculation recalculates
 '   its formula inputs before reading them, and stops without reporting
 '   old results as current when that recalculation does not finish (issue
-'   #195) or raises an error (issue #204).
+'   #195) or raises an error (issue #204); and that every output table is
+'   located through the workbook name of its first header cell, so that it
+'   can move.
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -35,8 +37,10 @@ Attribute VB_Name = "TEST_MainState"
 '   run and unprotects it again, also after an unexpected error. One case
 '   inserts a column before the Params tables for its run and deletes it
 '   again, also after an unexpected error. One case switches the workbook
-'   to the 1904 date system and back, also after an unexpected error. The
-'   last case leaves the
+'   to the 1904 date system and back, also after an unexpected error. One
+'   case inserts a row above the HedgingSets table for its run and deletes
+'   it again, and breaks the Checks_Header name and restores it, also after
+'   an unexpected error. The last case leaves the
 '   outputs of a normal run. Use a development workbook only.
 '
 ' STATE OWNERSHIP
@@ -53,7 +57,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-16
 '
 ' AUTHOR
 '   Daniele Penza
@@ -69,7 +73,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 27   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 28   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -161,6 +165,7 @@ Public Sub RunMainStateTests()
         CaseManualRecalculation
         CaseRecalculationPending
         CaseRecalculationError
+        CaseOutputHeaderNames
         CaseSilentFlagPreserved
 
 '------------------------------------------------------------------------------
@@ -398,7 +403,7 @@ Private Sub CaseChecksUnwritable()
         On Error GoTo Unexpected
         GetSheet(SH_CHECKS).Unprotect
         Check errNumber = ERR_CHECKS_WRITE, "expected the Checks write error, got " & errNumber & ": " & errText
-        Check IsBlankCell(TableCell(results, FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
+        Check IsBlankCell(TableCell(results, OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
         Check InStr(1, SafeStr(results.Range(RUNINFO_CELL).Value), "Checks sheet could not be written", _
                     vbTextCompare) > 0, "run summary does not say why: " & SafeStr(results.Range(RUNINFO_CELL).Value)
         CheckState xlCalculationAutomatic, False, False
@@ -487,9 +492,9 @@ Private Sub CaseOutputWriteFailure()
         Check errNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & errNumber & ": " & errText
         Check errSource = "CORE_Engine.Calculate", "injected error source was replaced: " & errSource
         Check errText = "Injected output failure.", "injected error description was replaced: " & errText
-        Check IsBlankCell(TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 1).Value), "TradeCalc rows were not withdrawn"
-        Check IsBlankCell(TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, 1).Value), "Results rows were not withdrawn"
-        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), FIRST_DATA_ROW, 1).Value), "Buckets rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 1).Value), "TradeCalc rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
+        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), 1).Value), "Buckets rows were not withdrawn"
         summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
         Check InStr(1, summary, "results withdrawn", vbTextCompare) > 0, "run summary does not say why: " & summary
         Check ChecksMention("Injected output failure"), "Checks does not show the error"
@@ -605,9 +610,9 @@ Private Sub CaseOutputCleanupFailure()
         Check InStr(errText, "source=CORE_Engine.TryClearOutput]: Injected output cleanup failure.") > 0, _
               "cleanup source/description lost"
         Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "incomplete cleanup reported as withdrawn"
-        Check Not IsBlankCell(TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, 1).Value), "expected retained partial Results"
-        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), FIRST_DATA_ROW, 1).Value), "Buckets skipped after first cleanup failure"
-        Check IsBlankCell(TableCell(GetSheet(SH_HEDGING), FIRST_DATA_ROW, 1).Value), "HedgingSets not cleared"
+        Check Not IsBlankCell(TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), 1).Value), "expected retained partial Results"
+        Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), 1).Value), "Buckets skipped after first cleanup failure"
+        Check IsBlankCell(TableCell(GetSheet(SH_HEDGING), OutputFirstRow(SH_HEDGING), 1).Value), "HedgingSets not cleared"
         Check ChecksMention("Injected output failure."), "Checks lost primary failure"
         Check ChecksMention("Injected output cleanup failure."), "Checks lost cleanup failure"
         Check M_Main.ResultsStatus() = "NONE", "failed run left valid results"
@@ -687,14 +692,14 @@ Private Sub CaseProtectedOutput( _
         oldSummary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
         statusFormula = GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula
         For i = 0 To 3
-            TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value = "OLD-OUTPUT"
+            TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value = "OLD-OUTPUT"
             lastRows(i) = UsedLastRow(GetSheet(CStr(sheetNames(i))))
             If CStr(sheetNames(i)) = protectedSheet Or CStr(sheetNames(i)) = secondSheet Then
                 GetSheet(CStr(sheetNames(i))).Protect
                 ownsProtection(i) = True
                 'Capture Excel's localized error independently, before the run.
                 On Error Resume Next
-                ClearOutputBlock GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, CLng(widths(i))
+                ClearOutputBlock GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), CLng(widths(i))
                 probeNumber = Err.Number
                 probeSource = Err.Source
                 probeText = Err.Description
@@ -726,13 +731,13 @@ Private Sub CaseProtectedOutput( _
         Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "reported withdrawal despite retained outputs"
         For i = 0 To 3
             If ownsProtection(i) Then
-                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value) = "OLD-OUTPUT", _
+                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value) = "OLD-OUTPUT", _
                       CStr(sheetNames(i)) & " protected sentinel unexpectedly changed"
                 Check InStr(1, errText, detail(i), vbBinaryCompare) > 0, "missing cleanup detail: " & detail(i)
                 If Not protectChecks Then Check ChecksMention(detail(i)), "Checks lacks detail: " & detail(i)
             Else
                 Check Application.CountA(GetSheet(CStr(sheetNames(i))).Range( _
-                      TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1), _
+                      TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1), _
                       TableCell(GetSheet(CStr(sheetNames(i))), lastRows(i), CLng(widths(i))))) = 0, _
                       CStr(sheetNames(i)) & " retained output cells"
             End If
@@ -769,7 +774,7 @@ Private Sub CaseProtectedOutput( _
         Check M_Main.ResultsStatus() = "CURRENT", "recovery did not publish a valid fingerprint"
         Check Not ChecksMention("output cleanup incomplete"), "recovery retained obsolete failure diagnostics"
         For i = 0 To 3
-            Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), FIRST_DATA_ROW, 1).Value) <> "OLD-OUTPUT", _
+            Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value) <> "OLD-OUTPUT", _
                   CStr(sheetNames(i)) & " retained the old sentinel after recovery"
         Next i
         CheckState xlCalculationAutomatic, False, False
@@ -1116,7 +1121,7 @@ Private Sub CaseManualRecalculation()
 
     'The first trade is the first TradeCalc row; column 9 is its MtM in
     'the reporting currency.
-        calcRow = FIRST_DATA_ROW
+        calcRow = OutputFirstRow(SH_TRADECALC)
         Check UTxt(TableCell(GetSheet(SH_TRADECALC), calcRow, 1).Value) = _
               UTxt(TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_ID).Value), _
               "the first TradeCalc row is not the first trade"
@@ -1269,8 +1274,8 @@ Private Sub CaseRecalculationError()
     'The next run recalculates, reads the new MtM and is current again.
         result = M_Main.RunSACCR_Silent()
         Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
-        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value, 0#) = 2000#, _
-              "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), FIRST_DATA_ROW, 9).Value & ", expected 2000"
+        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value, 0#) = 2000#, _
+              "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value & ", expected 2000"
         Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
         CheckStatusCell "Results current", "after the follow-up run"
         CheckState xlCalculationManual, False, False
@@ -1555,7 +1560,7 @@ Private Function ChecksMention( _
 '------------------------------------------------------------------------------
     'Checks column 5 holds the message.
         Set ws = GetSheet(SH_CHECKS)
-        For r = FIRST_DATA_ROW To UsedLastRow(ws)
+        For r = OutputFirstRow(SH_CHECKS) To UsedLastRow(ws)
             If InStr(1, SafeStr(TableCell(ws, r, 5).Value), fragment, vbTextCompare) > 0 Then
                 ChecksMention = True
                 Exit Function
@@ -1563,6 +1568,101 @@ Private Function ChecksMention( _
         Next r
 
 End Function
+
+
+Private Sub CaseOutputHeaderNames()
+'
+'==============================================================================
+'                            CaseOutputHeaderNames
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Every output table is located through the workbook name of its first
+'   header cell. A row inserted above the HedgingSets table moves the name,
+'   and the next run writes directly below the moved headers, leaving the
+'   inserted row empty; deleting the row moves the table back. A broken
+'   Checks_Header stops OutputFirstRow with ERR_OUTPUT_LAYOUT, naming it.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim sheetNames   As Variant      'Output sheets
+    Dim firstHeads   As Variant      'Their first headers
+    Dim i            As Long         'Output sheet
+    Dim r            As Long         'A header row
+    Dim ws           As Worksheet    'HedgingSets
+    Dim insertAt     As Long         'Row inserted above HedgingSets; 0 when none
+    Dim nm           As Name         'Checks_Header, Nothing once restored
+    Dim savedRef     As String       'Its reference
+    Dim errNumber    As Long         'Error raised by OutputFirstRow
+    Dim errText      As String       'Its description
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "layout.output-header-names"
+        SetState xlCalculationAutomatic, False, False
+
+    'Each name is on the first header of its table, in column C.
+        sheetNames = Array(SH_RESULTS, SH_HEDGING, SH_BUCKETS, SH_TRADECALC, SH_CHECKS, SH_RECON, SH_TRADE_RECON)
+        firstHeads = Array("NettingSetID", "NettingSetID", "NettingSetID", "TradeID", "Severity", "NettingSetID", "TradeID")
+        For i = 0 To UBound(sheetNames)
+            r = TableHeaderRow(CStr(sheetNames(i)))
+            Check r > 0, CStr(sheetNames(i)) & ": " & TableHeaderName(CStr(sheetNames(i))) & " does not locate the table"
+            If r > 0 Then
+                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), r, 1).Value) = CStr(firstHeads(i)), _
+                      CStr(sheetNames(i)) & ": the named cell is not the first header"
+            End If
+        Next i
+
+    'A row inserted above HedgingSets moves the table with its name.
+        Set ws = GetSheet(SH_HEDGING)
+        r = TableHeaderRow(SH_HEDGING)
+        ws.Rows(r).Insert
+        insertAt = r
+        Check TableHeaderRow(SH_HEDGING) = r + 1, "the HedgingSets header name did not move with the inserted row"
+        M_Main.RunSACCR_Silent
+        Check SafeStr(TableCell(ws, r + 1, 1).Value) = "NettingSetID", "the HedgingSets headers were overwritten"
+        Check Not IsBlankCell(TableCell(ws, r + 2, 1).Value), "HedgingSets was not written below the moved headers"
+        Check Application.CountA(ws.Rows(r)) = 0, "the run wrote into the row inserted above the headers"
+        ws.Rows(r).Delete
+        insertAt = 0
+        Check TableHeaderRow(SH_HEDGING) = r, "the HedgingSets header name did not move back"
+        M_Main.RunSACCR_Silent
+        Check Not IsBlankCell(TableCell(ws, r + 1, 1).Value), "HedgingSets was not written below its headers"
+
+    'A broken name stops OutputFirstRow, naming the name.
+        Set nm = ThisWorkbook.Names(NM_CK_HEADER)
+        savedRef = nm.RefersTo
+        nm.RefersTo = "=#REF!"
+        On Error Resume Next
+        r = OutputFirstRow(SH_CHECKS)
+        errNumber = Err.Number
+        errText = Err.Description
+        On Error GoTo Unexpected
+        nm.RefersTo = savedRef
+        Set nm = Nothing
+        Check errNumber = ERR_OUTPUT_LAYOUT, "a broken " & NM_CK_HEADER & " raised error " & errNumber
+        Check InStr(1, errText, NM_CK_HEADER, vbBinaryCompare) > 0, "the error does not name " & NM_CK_HEADER & ": " & errText
+        Check OutputFirstRow(SH_CHECKS) = TableHeaderRow(SH_CHECKS) + 1, "Checks_Header was not restored"
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not nm Is Nothing Then nm.RefersTo = savedRef
+        If insertAt > 0 Then ws.Rows(insertAt).Delete
+
+End Sub
 
 
 Private Sub CaseSilentFlagPreserved()

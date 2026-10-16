@@ -1691,7 +1691,7 @@ Private Function ResultsRow( _
 ' FIND
 '------------------------------------------------------------------------------
         Set ws = GetSheet(SH_RESULTS)
-        r = FIRST_DATA_ROW
+        r = OutputFirstRow(SH_RESULTS)
         Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
             If SafeStr(TableCell(ws, r, 1).Value) = label Then
                 ResultsRow = r

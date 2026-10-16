@@ -855,7 +855,7 @@ Public Function OutputNumber( _
         Set ws = GetSheet(SH_RESULTS)
         col = OutputColumn(quantity, False)
         r = FindHeaderRow(ws, 1, nettingSetId)
-        If col = 0 Or r < FIRST_DATA_ROW Then
+        If col = 0 Or r < OutputFirstRow(SH_RESULTS) Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.OutputNumber", _
                       quantity & " of " & nettingSetId & " not found on Results."
         End If
@@ -1019,7 +1019,7 @@ Private Function ReadOutput( _
             Exit Function
         End If
         r = FindHeaderRow(ws, 1, rowId)
-        If r < FIRST_DATA_ROW Then
+        If r < OutputFirstRow(ws.Name) Then
             detail = rowId & " not found on " & ws.Name
             Exit Function
         End If
@@ -1207,7 +1207,7 @@ Private Function ChecksHasLine( _
     'Checks columns: 1 severity, 5 message.
         Set ws = GetSheet(SH_CHECKS)
         lastR = UsedLastRow(ws)
-        For r = FIRST_DATA_ROW To lastR
+        For r = OutputFirstRow(SH_CHECKS) To lastR
             If SafeStr(TableCell(ws, r, 1).Value) = severity Then
                 If InStr(1, SafeStr(TableCell(ws, r, 5).Value), messagePart, vbTextCompare) > 0 Then
                     ChecksHasLine = True
