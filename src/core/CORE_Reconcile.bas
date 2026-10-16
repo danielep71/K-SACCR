@@ -241,7 +241,10 @@ Private Function CompareTable( _
 '   The comparison behind CompareNettingSets and CompareTrades: index the
 '   calculator rows by ID, count the bank IDs, compare each bank row
 '   (CompareNettingSetRow or CompareTradeRow), then list the calculator
-'   rows that are not in the bank file.
+'   rows that are not in the bank file. A Trade ID listed more than once on
+'   TradeCalc (repeated on Trades, where the engine excludes the later
+'   rows) is not compared: which row is the calculator's leg cannot be
+'   told.
 '
 ' INPUTS
 '   kind: KIND_NS or KIND_TR; the other arguments as CompareNettingSets.
@@ -256,6 +259,8 @@ Private Function CompareTable( _
 '------------------------------------------------------------------------------
     Dim calcIndex    As Collection    'Calculator ID to calculator row
     Dim calcUsed()   As Boolean       'The calculator row is in the bank file
+    Dim calcTimes()  As Long          'Rows of each calculator ID, by its first row
+    Dim listed       As Long          'Calculator rows of a bank ID
     Dim bankIndex    As Collection    'Bank ID to position in bankSeen
     Dim bankSeen()   As Long          'Bank rows of each distinct ID
     Dim commentCol   As Long          'Comment column of the bank table
@@ -278,12 +283,17 @@ Private Function CompareTable( _
         Set calcIndex = New Collection
         If nCalc > 0 Then
             ReDim calcUsed(1 To nCalc)
+            ReDim calcTimes(1 To nCalc)
         End If
         For r = 1 To nCalc
             id = CalcId(kind, calc, r)
             If Len(id) > 0 Then
-                If KeyIndex(calcIndex, id) = 0 Then
+                k = KeyIndex(calcIndex, id)
+                If k = 0 Then
                     KeyAdd calcIndex, id, r
+                    calcTimes(r) = 1
+                Else
+                    calcTimes(k) = calcTimes(k) + 1
                 End If
             End If
         Next r
@@ -337,8 +347,12 @@ Private Function CompareTable( _
                                              bankSeen(KeyIndex(bankIndex, id)), _
                                              scaleFactor, absTol, relTol, outArr, nOut, counts
                     Else
+                        listed = 0
+                        If k > 0 Then
+                            listed = calcTimes(k)
+                        End If
                         CompareTradeRow bank, r, bankFirstRow + r - 1, calc, k, _
-                                        bankSeen(KeyIndex(bankIndex, id)), _
+                                        bankSeen(KeyIndex(bankIndex, id)), listed, _
                                         scaleFactor, absTol, relTol, outArr, nOut, counts
                     End If
                 End If
@@ -353,7 +367,13 @@ Private Function CompareTable( _
             id = CalcId(kind, calc, r)
             If Len(id) > 0 Then
                 If KeyIndex(calcIndex, id) = r And Not calcUsed(r) Then
-                    If kind = KIND_NS Then
+                    If kind = KIND_TR And calcTimes(r) > 1 Then
+                        AddRow outArr, nOut, SafeStr(calc(r, TC_ID)), Empty, SafeStr(calc(r, TC_NS)), _
+                               SafeStr(calc(r, TC_AC)), "", "", Empty, Empty, RES_DUPLICATE, _
+                               "Listed " & calcTimes(r) & " times on TradeCalc (Trade ID repeated on Trades): " & _
+                               "none of its rows is compared."
+                        counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
+                    ElseIf kind = KIND_NS Then
                         AddRow outArr, nOut, id, Empty, "", UTxt(calc(r, RS_REGIME)), _
                                SafeStr(calc(r, RS_STATUS_COL)), "EAD", Empty, NumberOrEmpty(calc(r, RS_EAD)), _
                                RES_NOTINBANK, "No row for this netting set on BankNettingSets."
@@ -363,7 +383,9 @@ Private Function CompareTable( _
                                NumberOrEmpty(calc(r, TC_NOTIONAL)), RES_NOTINBANK, _
                                "No row for this trade leg on BankTrades."
                     End If
-                    counts(RCN_NOTINBANK) = counts(RCN_NOTINBANK) + 1
+                    If Not (kind = KIND_TR And calcTimes(r) > 1) Then
+                        counts(RCN_NOTINBANK) = counts(RCN_NOTINBANK) + 1
+                    End If
                 End If
             End If
         Next r
@@ -479,6 +501,7 @@ Private Sub CompareTradeRow( _
     ByRef calc As Variant, _
     ByVal calcRow As Long, _
     ByVal timesListed As Long, _
+    ByVal calcListed As Long, _
     ByVal scaleFactor As Double, _
     ByVal absTol As Double, _
     ByVal relTol As Double, _
@@ -496,7 +519,8 @@ Private Sub CompareTradeRow( _
 '   regime check here.
 '
 ' INPUTS
-'   As CompareNettingSetRow, with the TradeCalc rows as calc.
+'   As CompareNettingSetRow, with the TradeCalc rows as calc; calcListed:
+'   the TradeCalc rows with this Trade ID, 0 when there is none.
 '
 ' UPDATED
 '   2026-10-15
@@ -523,6 +547,13 @@ Private Sub CompareTradeRow( _
         If timesListed > 1 Then
             AddRow outArr, nOut, id, sheetRow, calcNs, calcAc, calcStatus, "", Empty, Empty, _
                    RES_DUPLICATE, "Listed " & timesListed & " times on BankTrades: none of its rows is compared."
+            counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
+            Exit Sub
+        End If
+        If calcListed > 1 Then
+            AddRow outArr, nOut, id, sheetRow, calcNs, calcAc, "", "", Empty, Empty, RES_DUPLICATE, _
+                   "Listed " & calcListed & " times on TradeCalc (Trade ID repeated on Trades): none of its rows " & _
+                   "is compared."
             counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
             Exit Sub
         End If

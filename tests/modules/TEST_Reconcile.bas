@@ -65,8 +65,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 137              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 19              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 140              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -131,6 +131,7 @@ Public Sub RunReconcileTests()
         CaseWorkbook
         CaseTradeFigures
         CaseTradePopulations
+        CaseTradeCalcDuplicates
         CaseTradeSummary
         CaseTradeWorkbook
         CaseExportFields
@@ -901,6 +902,50 @@ Private Sub CaseTradePopulations()
         CheckText "row without TradeID", ResultOf(found, "", ""), RES_INVALID
         Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_EXCLUDED) = 1 And RowCount(found) = 6, _
               "duplicate/excluded/rows: " & mCounts(RCN_DUPLICATE) & "/" & mCounts(RCN_EXCLUDED) & "/" & RowCount(found)
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseTradeCalcDuplicates()
+'
+'==============================================================================
+' PURPOSE
+'   A Trade ID listed twice on TradeCalc (repeated on Trades, the later row
+'   EXCLUDED by the engine) is DUPLICATE and not compared, with or without
+'   a bank row; it is not NOT IN BANK FILE.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim bank   As Variant    'Bank rows
+    Dim calc   As Variant    'TradeCalc rows
+    Dim found  As Variant    'Reconciliation rows
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "trade.calc-duplicates"
+        bank = NewBlock(1, BT_NCOLS)
+        bank(1, BT_ID) = "T7"
+        bank(1, BT_NOTIONAL) = 100
+        calc = NewBlock(4, TC_NCOLS)
+        SetTradeCalcRow calc, 1, "T7", "NS1", "IR", "OK", 100, 1, 1, Empty, ""
+        SetTradeCalcRow calc, 2, "T7", "NS1", "IR", "EXCLUDED", Empty, Empty, Empty, Empty, "duplicate Trade ID"
+        SetTradeCalcRow calc, 3, "T8", "NS1", "FX", "OK", 50, 1, 1, Empty, ""
+        SetTradeCalcRow calc, 4, "T8", "NS1", "FX", "EXCLUDED", Empty, Empty, Empty, Empty, "duplicate Trade ID"
+        found = CompareT(bank, calc, 1#, 0#, 0#)
+        CheckText "bank leg listed twice on TradeCalc", ResultOf(found, "T7", ""), RES_DUPLICATE
+        CheckText "leg listed twice on TradeCalc, not in the bank file", ResultOf(found, "T8", ""), RES_DUPLICATE
+        Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_NOTINBANK) = 0 And mCounts(RCN_COMPARED) = 0 And _
+              RowCount(found) = 2, "duplicate/not in bank/compared/rows: " & mCounts(RCN_DUPLICATE) & "/" & _
+              mCounts(RCN_NOTINBANK) & "/" & mCounts(RCN_COMPARED) & "/" & RowCount(found)
         Exit Sub
 
 Unexpected:
