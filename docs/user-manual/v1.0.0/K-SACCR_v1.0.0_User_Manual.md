@@ -1146,7 +1146,7 @@ At the documentation baseline, the v1.0.0 milestone had outstanding final-packag
 4. Record host operating system, Excel version/build and **64-bit** architecture; open, import/synchronize, compile, run, validate, clear, save and reopen the **final package** on the owner's host.
 5. Execute all eight suites against the accepted candidate; retain **each log**, counts, pass/fail results, restoration and a validated bundle bound to the exact source and candidate hashes. Do not reuse results from prior commits.
 6. Test demo amounts, regime-specific totals, intentionally excluded trades, `Checks`, netting-set and trade-level reconciliation populations and duplicate-ID handling.
-7. Test the three freshness/integrity hidden names (`SACCR_ReconInputs`, `SACCR_TradeReconInputs`, `SACCR_RunOutputs`), negative export/refusal cases, **both manual and silent** exports, and unchanged-run reproducibility.
+7. Test the four freshness/integrity hidden names (`SACCR_RunInputs`, `SACCR_ReconInputs`, `SACCR_TradeReconInputs`, `SACCR_RunOutputs`), negative export/refusal cases, **both manual and silent** exports, and unchanged-run reproducibility.
 8. Measure and publish the supported-size envelope, including an **inflated UsedRange** scenario. Do not market an unmeasured size claim.
 9. Archive source/template/workbook hashes, package build/parity logs, Excel host records, full test evidence, limits, release notes, a one-off release report and this manual's final SHA/PDF hash.
 10. Only after owner authorization and passing release gates: integrate into main if needed, prepare the version/changelog, apply the **annotated tag** and publish the GitHub Release, attaching only identified certified artifacts.
