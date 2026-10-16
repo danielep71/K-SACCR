@@ -33,6 +33,10 @@ prefixes for core, facade and test modules.
 | Constant | UPPER_SNAKE_CASE | `ALPHA_FACTOR` |
 | Enum type / member | `Saccr` + noun / short prefix + PascalCase | `SaccrAssetClass` / `acInterestRate` |
 
+The project has no class or example modules yet: `src/classes/` does not
+exist and `examples/` holds only its README. Their rows apply when such
+modules are introduced.
+
 Names are English and spelled out; avoid abbreviations other than established
 SA-CCR terms (`EAD`, `RC`, `PFE`, `MPOR`), written in full in the procedure's
 comment the first time.
@@ -93,9 +97,8 @@ signature. Omit sections that are empty.
 - Raise with `Err.Raise number, source, description`. The source names the
   component and procedure (`"CORE_Engine.Calculate"`); the description states
   what was invalid and the offending value.
-- The facade's worksheet functions do not raise: for inputs with no meaningful
-  result they return a worksheet error value (`CVErr`), or they apply a
-  documented floor. Macros and the engine raise.
+- Macros and the engine raise; the facade's worksheet functions do not (see
+  [Units and domains](#units-and-domains)).
 - `On Error Resume Next` is allowed only around a single statement whose error
   is checked on the next line, followed by `On Error GoTo 0` or the procedure's
   handler.
@@ -127,85 +130,59 @@ Any procedure that changes Excel application state owns restoring it.
    cleanup. Restoring is best effort: a failure inside cleanup must never
    replace the original error.
 
-The example returns cleanup status separately, so callers retain it even when
-an operation error is re-raised. Each restoration has its own error handler;
-both are attempted. A cleanup-only failure raises a named error, never success.
-The illustrative cleanup error constant must be allocated once in the project's
-error catalogue before this pattern is used in production.
+The reference implementation is `M_Main.ExecuteOperation` in
+[`src/workbook/M_Main.bas`](../src/workbook/M_Main.bas), with
+`RestoreSettings`, `RestoreCalculation`, `RestoreEvents` and
+`RestoreScreenUpdating`. Each `Restore...` helper contains its own error and
+returns what failed as text, empty on success, so every restoration is
+attempted. The sketch below follows the same pattern; a cleanup-only failure
+raises `ERR_CLEANUP_FAILED` (`src/core/CORE_Config.bas`), never success, and
+`cleanupDetails` returns the failures to the caller also when the primary
+error is re-raised.
 
 ```vb
-Public Sub RunCalculation(ByRef cleanupSucceeded As Boolean, _
-                          ByRef cleanupDetails As String)
-    Const ERR_CLEANUP As Long = vbObjectError + 4095    'Illustrative only
-    Dim savedScreen As Boolean
-    Dim savedCalculation As Long
-    Dim errNumber As Long
-    Dim errSource As String
-    Dim errDescription As String
-    Dim calculationError As String
-    Dim screenError As String
+Public Sub RunOperation(ByRef cleanupDetails As String)
+    Dim savedCalculation   As XlCalculation    'Calculation mode before the operation
+    Dim savedScreen        As Boolean          'ScreenUpdating before the operation
+    Dim stateCaptured      As Boolean          'True once both were read
+    Dim errNumber          As Long             'Primary error number; 0 for none
+    Dim errSource          As String           'Primary error source
+    Dim errDescription     As String           'Primary error description
 
-        cleanupSucceeded = True
-        cleanupDetails = vbNullString
-        'Capture all state before changing anything. Capture errors propagate.
-        savedScreen = Application.ScreenUpdating
+        On Error GoTo Failed
         savedCalculation = Application.Calculation
-        On Error GoTo HandleError
+        savedScreen = Application.ScreenUpdating
+        stateCaptured = True
         Application.ScreenUpdating = False
         Application.Calculation = xlCalculationManual
 
         '... work ...
 
 CleanUp:
-        'Disable the operation handler before cleanup or re-raising errors.
         On Error GoTo 0
-        calculationError = RestoreCalculation(savedCalculation)
-        screenError = RestoreScreenUpdating(savedScreen)
-        cleanupDetails = calculationError
-        If Len(screenError) > 0 Then
-            If Len(cleanupDetails) > 0 Then cleanupDetails = cleanupDetails & "; "
-            cleanupDetails = cleanupDetails & screenError
+        If stateCaptured Then
+            cleanupDetails = AppendDetail(RestoreCalculation(savedCalculation), _
+                                          RestoreScreenUpdating(savedScreen))
         End If
-        cleanupSucceeded = (Len(cleanupDetails) = 0)
         If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
-        If Not cleanupSucceeded Then
-            Err.Raise ERR_CLEANUP, "M_Main.RunCalculation", cleanupDetails
+        If Len(cleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.RunOperation", cleanupDetails
         End If
         Exit Sub
 
-HandleError:
+Failed:
         errNumber = Err.Number
         errSource = Err.Source
         errDescription = Err.Description
         Resume CleanUp
 End Sub
-
-Private Function RestoreCalculation(ByVal savedValue As Long) As String
-        On Error GoTo Failed
-        Application.Calculation = savedValue
-        If Application.Calculation <> savedValue Then
-            RestoreCalculation = "Calculation: restored value does not match"
-        End If
-        Exit Function
-Failed:
-        RestoreCalculation = "Calculation: " & CStr(Err.Number) & " / " & _
-                             Err.Source & " / " & Err.Description
-End Function
-
-Private Function RestoreScreenUpdating(ByVal savedValue As Boolean) As String
-        On Error GoTo Failed
-        Application.ScreenUpdating = savedValue
-        If Application.ScreenUpdating <> savedValue Then
-            RestoreScreenUpdating = "ScreenUpdating: restored value does not match"
-        End If
-        Exit Function
-Failed:
-        RestoreScreenUpdating = "ScreenUpdating: " & CStr(Err.Number) & " / " & _
-                                Err.Source & " / " & Err.Description
-End Function
 ```
 
-Core procedures never change Excel state, so they need none of this.
+Core procedures do not change Excel application settings, so they need none
+of this. They are not free of Excel side effects: `CORE_Engine` and
+`CORE_Util` read the input sheets and write the output sheets, one of the
+[known deviations](REPOSITORY_STRUCTURE.md#known-deviations) of the engine
+imported from the prototype.
 
 ## 🧱 Module layout
 
