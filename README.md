@@ -320,6 +320,12 @@ TOTAL row per regime:
        src="docs/assets/SACCR_Results_EAD.png">
 </p>
 
+The demonstration portfolio enters dates as calendar dates over 365 days a
+year, so `BCBS-EX3` shows 5,405 against the 5,406 printed in CRE99: its WTI
+trade has M = 0.7507 rather than the printed 0.75. The regression case enters
+exactly 0.75 years and matches 5,406
+([details](docs/assets/SCREENSHOTS_SOURCES.md)).
+
 <details>
 <summary><b>Calculation detail</b>: TradeCalc, HedgingSets and Buckets</summary>
 
