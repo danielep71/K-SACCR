@@ -1367,7 +1367,6 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
         Set wsRes = GetSheet(SH_RESULTS)
         s = RunLine("format", "K-SACCR evidence 1")
-        s = s & RunLine("workbook", ThisWorkbook.Name)
         s = s & RunLine("run_summary", wsRes.Range(RUNINFO_CELL).Value2)
         s = s & RunLine("results_status", ResultsStatus())
         s = s & RunLine("inputs", CORE_Engine.LastRunInputs())
@@ -1380,7 +1379,9 @@ Private Function EvidenceText() As String
         End If
         s = s & RunLine("reporting_ccy", NamedCell(PRM_REPCCY).Value2)
         s = s & RunLine("regime_default", NamedCell(PRM_REGIME).Value2)
-        s = s & RunLine("parameter_set", REF_SET_ID)
+    'The set the template ships, not a claim about this run: whether the run
+    'used it unchanged is in run_summary (regulatory or what-if).
+        s = s & RunLine("reference_parameter_set", REF_SET_ID)
         lastR = LastDataRow(wsRes, FIRST_DATA_ROW, RS_ID)
         For r = FIRST_DATA_ROW To lastR
             id = UTxt(TableCell(wsRes, r, RS_ID).Value2)
@@ -1404,7 +1405,10 @@ Private Function EvidenceText() As String
             If Not ReconciliationSheetsPresent(i) Then
                 s = s & RunLine(prefix, "UNAVAILABLE")
             Else
-                s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NONE"))
+            'Without a stored fingerprint the reconciliation was not made:
+            'no bank figures, or settings or headers it could not use; the
+            'summary says which.
+                s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NOT MADE"))
                 s = s & RunLine(prefix & "_inputs", StoredText(InputsNameOf(i)))
                 s = s & RunLine(prefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
             'The settings are part of a reconciliation's fingerprint; without

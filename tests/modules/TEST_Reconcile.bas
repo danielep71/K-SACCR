@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 131              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 132              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1152,7 +1152,9 @@ Private Sub CaseExportWorkbook()
         textA = FileText(fileA)
         Check Left$(textA, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(textA, 40)
         Check InStr(textA, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
-        Check InStr(textA, vbCrLf & "RUN;reconciliation;NONE" & vbCrLf) > 0 And _
+        Check InStr(textA, vbCrLf & "RUN;reference_parameter_set;") > 0 And InStr(textA, "RUN;workbook;") = 0, _
+              "run identity lines"
+        Check InStr(textA, vbCrLf & "RUN;reconciliation;NOT MADE" & vbCrLf) > 0 And _
               InStr(textA, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
         Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
               "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)

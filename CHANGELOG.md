@@ -101,10 +101,11 @@ Use only the categories needed by a release.
 - An evidence report of the run (#45). **Export evidence**, a new button on
   `Reconciliation`, writes one CSV file, separated by `;` with a `.` decimal
   point, CR LF line ends and UTF-8 without a byte-order mark in every locale.
-  Each line starts with its section: `RUN` (format, workbook, run summary,
-  input fingerprint, reporting date and currency, default regime, parameter
-  set, totals per regime, the counts on Checks, and for each reconciliation
-  its fingerprint, summary, scale and tolerances), `PARAMS`, `SF_TABLE`,
+  Each line starts with its section: `RUN` (format, run summary with the run
+  class, input and output fingerprints, reporting date and currency, default
+  regime, the reference parameter set, totals per regime, the counts on
+  Checks, and for each reconciliation `CURRENT` or `NOT MADE`, its fingerprint
+  and summary, and the scale and tolerances it used), `PARAMS`, `SF_TABLE`,
   `FX_TABLE`, `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`
   and a fixed `LIMITATIONS` section. The export refuses while Excel has a
   recalculation pending, while the results are not current, while a
@@ -119,7 +120,7 @@ Use only the categories needed by a release.
   adds `ExportEvidence` and `ExportEvidence_Silent`, and
   `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
   write their tolerances with a decimal point in every locale, and the run
-  summary on Results its run time. `TEST_Reconcile`: 18 cases, 131 checks.
+  summary on Results its run time. `TEST_Reconcile`: 18 cases, 132 checks.
 
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,
