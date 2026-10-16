@@ -133,7 +133,7 @@ configuration.
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
 | Automatic head-branch deletion | Enabled. Merged PR branches are deleted automatically. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, self-contained and outside this repository's source and checks (owner decision). Authoritative documentation stays in versioned `docs/`. |
-| Private vulnerability reporting | The primary reporting channel in [`SECURITY.md`](../SECURITY.md); confirm in Settings → Code security that it is enabled. |
+| Private vulnerability reporting | Enabled; the primary reporting channel in [`SECURITY.md`](../SECURITY.md). |
 | Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
 | Dependency graph and Dependabot alerts | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. |
 | Low-impact development-dependency alert auto-dismissal | Disabled by explicit owner decision. Keep those alerts visible. |
