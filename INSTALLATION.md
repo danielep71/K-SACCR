@@ -2,7 +2,7 @@
 
 # 📦 Installation and Developer Setup
 
-### Set up, validate, and later import K-SACCR into Excel
+### Set up, build, validate and upgrade K-SACCR in Excel
 
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=flat-square)](#current-status)
 [![Checks](https://img.shields.io/badge/Checks-python_tools%2Fcheck.py-0969da?style=flat-square)](#run-the-checks)
@@ -16,8 +16,8 @@
 
 ---
 
-This document is authoritative for **developer setup, import, upgrade, recovery
-and removal**. Contribution workflow is owned by
+This document is authoritative for **developer setup, import, upgrade and
+removal**. Contribution workflow is owned by
 [`CONTRIBUTING.md`](CONTRIBUTING.md), vulnerability handling by
 [`SECURITY.md`](SECURITY.md), and publication by [`RELEASING.md`](RELEASING.md).
 
@@ -30,16 +30,17 @@ and removal**. Contribution workflow is owned by
 
 ## 🧭 Current status
 
-There is **no SA-CCR release yet**; work is on `release/1.0.0`. The workbook
-is built from the macro-free template `src/workbook/SACCR_Template.xlsx` and
-the VBA in `src/` (engine, worksheet functions, sheet macros) and
-`tests/modules/` (regression harness and test suites).
+There is **no SA-CCR release yet**; work is on the
+[active release branch](docs/GOVERNANCE.md#branches). The workbook is built
+from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
+`src/` (engine, worksheet functions, sheet macros) and `tests/modules/`
+(regression harness and test suites).
 
 | Topic | Status |
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness, the case runner, six suites and `TEST_Suite`, which runs them all; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, seven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`), the shared case runner `TEST_CaseRunner`, and `TEST_Suite`, which runs the harness and every suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | None |
 
@@ -51,6 +52,7 @@ the VBA in `src/` (engine, worksheet functions, sheet macros) and
 | Python 3.10 or later | `python tools/check.py`; standard library only, no packages |
 | Node.js 20 or later | Optional: local label-catalogue checks |
 | Microsoft Excel for Windows | Importing, compiling and running the VBA; see [supported hosts](#supported-hosts) |
+| Windows PowerShell, as shipped with Windows | `tools/Sync-SACCR-VBA.cmd`, which runs `tools/Sync-SACCR-VBA.ps1` through `powershell.exe`; not needed to import the VBA by hand |
 
 <a id="supported-hosts"></a>
 
@@ -84,8 +86,9 @@ cd VBA-SACCR-Toolkit
 git switch release/1.0.0
 ```
 
-`release/1.0.0` is the active development branch; `main` receives it only on
-the owner's request.
+The branch to switch to is the
+[active release branch](docs/GOVERNANCE.md#branches); `main` receives it only
+on the owner's request.
 
 Do not use **Code → Download ZIP**. `.gitattributes` excludes repository
 plumbing such as `.gitattributes`, `.gitignore` and `.editorconfig` from GitHub
@@ -139,7 +142,8 @@ The layout and file conventions are defined in
    workbooks are never committed.
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto
-   `tools/Sync-SACCR-VBA.cmd`. It first asks which workbook you are building:
+   `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; it has no
+   default workbook. It first asks which workbook you are building:
    **P**roduction, with the engine, the worksheet functions and the
    sheet-button macros, or **D**evelopment, which adds every test module of
    `tests/modules/`. The two component sets are listed in
@@ -160,20 +164,20 @@ The layout and file conventions are defined in
       the `.cls` document modules there are pasted, not imported (step 5);
    5. every `.frm` in `src/forms/` (none at present; its `.frx` loads with it;
       never import a `.frx`);
-   6. for a development workbook only: `tests/` and `examples/` modules.
+   6. for a development workbook only: every module in `tests/modules/`.
 
    Current components, in import order. Within each folder the order is
    alphabetical by file name, as `tools/Sync-SACCR-VBA.ps1` imports them:
 
    | # | File | Component | Role |
    | ---: | --- | --- | --- |
-   | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet layout constants, parameter codes and error numbers |
+   | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet names, the workbook names of the tables, column numbers, parameter codes and error numbers |
    | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
-   | 3 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes (#45) |
-   | 4 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc (#45) |
+   | 3 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes |
+   | 4 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 5 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 6 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`; reads and writes the reconciliation sheets |
+   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
    | 8 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 9 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
    | 10 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
@@ -225,140 +229,98 @@ To run every suite at once, type `Test_RunAll` in the Immediate window
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`
 and `TEST_Reconcile` in turn and prints only a summary: one line per suite
 with its verdict, counts and duration, the failure lines of a suite that
-failed, and a final line such as
-`RESULT=PASS; suites=8; passed=8; failed=0; seconds=...`. An error raised by
-a suite counts as its failure and the next suite still runs. The summary is
-not Excel evidence: the evidence record needs the full log of every suite,
-each run on its own, and checks the summary against them when it is added
-(see [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md)). Each suite below can
-also be run alone, with its full log.
+failed, and a final `RESULT=` line with the number of suites passed and
+failed. An error raised by a suite counts as its failure and the next suite
+still runs. The summary is not Excel evidence: the evidence record needs the
+full log of every suite, each run on its own, and checks the summary against
+them when it is added (see [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md)).
 
-After importing the components above and compiling, open the Immediate
-window (**Ctrl+G**) and run:
+Each suite below can also be run alone, with its full log, by typing its entry
+point in the Immediate window. A passing run ends with a `RESULT=PASS` line
+with `failures=0`; the expected case and check counts of every suite are in
+`.github/excel-evidence-policy.json` and in the
+[suite table](README.md#test-suites) of the README. The header comment of each
+module in `tests/modules/` describes its cases in detail. Every suite except
+the harness runs the real engine or writes to the sheets: use a development
+workbook.
+
+### Worksheet function harness
 
 ```text
 TEST_Harness.RunTests
 ```
 
-A passing run prints a `MODE=NORMAL` line, the environment, one `CASE=` line per
-case, the counts, the cleanup verdict and finally:
+Runs the worksheet-function regression cases. It prints a `MODE=NORMAL`
+line, the environment, one `CASE=` line per case, the counts and a cleanup
+verdict. Anything but `RESULT=PASS` is a failure, including a run that stops
+early: the harness requires every case and assertion to run before it can
+report `PASS`, and it raises an error after printing a failed result.
 
-```text
-RESULT=PASS; completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS
-```
-
-Anything else is a failure, including a run that stops early: the harness
-requires exactly 4 cases and 6 assertions before it can report `PASS`, and it
-raises an error after printing a failed result.
-
-To see the failure path, run:
-
-```text
-TEST_Harness.RunTestsWithInjectedFailure
-```
-
-It runs the same suite with one deliberately wrong expectation, in
-`replacement-cost.exact`, and must print
-`MODE=INJECTED_FAILURE` and
-`RESULT=FAIL; completeness=COMPLETE; cases=4; assertions=6; failures=1; cleanup=PASS`,
-followed by the suite failure error. If a run is interrupted, run
+`TEST_Harness.RunTestsWithInjectedFailure` runs the same cases with one
+deliberately wrong expectation, in `replacement-cost.exact`, and must print
+`MODE=INJECTED_FAILURE` and a `RESULT=FAIL` line with `failures=1`, followed
+by the suite failure error. If a run is interrupted, run
 `TEST_Harness.ResetTests` before running again.
 
 The harness never changes Excel settings. It checks that `Calculation`,
 `DisplayAlerts`, `EnableEvents` and `ScreenUpdating` are the same after the run
 as before, and reports `cleanup=FAIL` if not.
 
-### Workbook macro state tests
-
-`tests/modules/TEST_MainState.bas` checks that **Run SA-CCR**, **Validate inputs**
-and **Clear outputs** put calculation mode, events and screen updating back as
-they found them, also when they were off, and that an operation failure and a
-cleanup failure are each raised and leave the workbook ready for the next run.
-It also protects the Checks sheet for one run, and makes one run fail after
-the first output sheets are written, and checks that each fails with its
-results withdrawn; and it edits one trade, and on Params a factor's Regimes
-field and its header, a parameter and an FX rate, after a run and checks that the results
-are reported out of date until the edit is undone, once with the template
-layout and once with a column inserted before the Params tables, which the
-case deletes again (#152). It also checks that the results are out of date
-after the first trade's MtM becomes the same digits as text, after a header
-on Trades or NettingSets is renamed, and after the workbook is switched to the
-other date system, and that a number format, a bold header or a header
-changed only in case and spacing leaves them current (#197). A run whose summary cannot be composed still completes,
-and Results C4 says the summary is unavailable (#60). In manual calculation it makes the first trade's
-MtM a formula on its Comment cell, changes the Comment without recalculating,
-and checks that the run uses the new MtM; a recalculation that does not
-finish stops the run and the previous results are no longer reported as
-current (#195). The same holds when the recalculation raises an error: the
-case runs, changes the Comment without recalculating, injects an error where
-the recalculation starts, and checks that the injected error is raised, the
-earlier results are not reported as current, and the next run reads the new
-MtM (#204). Unlike the
-harness, it runs the real macros, which rewrite the output sheets, so use a
-development workbook. The seven protected-output scenarios cover each output
-alone, TradeCalc + HedgingSets, Buckets + Results, and TradeCalc + Results +
-Checks. They assert every writable table is empty, every failed clear is named
-with its error number/source/description, the original error remains primary,
-and a subsequent unprotected run succeeds. Another case injects a known primary
-write failure and two cleanup failures with a different number and source,
-proving secondary errors do not replace the original. A protected Results sheet may retain
-its old table and C4 summary: the raised error (and Checks, when writable) must
-say cleanup is incomplete. `ResultsStatus() = "NONE"` means no valid completed
-run fingerprint, not proof that all output cells are empty. The tests preserve
-C5, retaining the formula-based status implemented in PR #89 without a cleanup
-write to that cell.
-
-Run:
-
-```text
-TEST_MainState.RunMainStateTests
-```
-
-A passing run prints twenty-eight `CASE=` lines and ends with
-`RESULT=PASS; cases=28; checks=...; failures=0; caller_state=RESTORED`.
-
 ### Worksheet function contract tests
-
-`tests/modules/TEST_Formulas.bas` calls the `SACCR_*` worksheet functions
-directly, without the engine or the worksheet's data validation, and checks
-their domain and error contract (#42): an input outside its documented domain
-gives `#NUM!`, `#VALUE!`, `#REF!` or the error passed in, never a runtime
-error or a misleading number; valid inputs at the boundaries keep their
-results; single values, one-element arrays, vectors in either orientation and
-2-D ranges are handled as documented. Its last case writes the same formulas
-on a temporary worksheet, which it deletes again, so use a development
-workbook. Run:
 
 ```text
 TEST_Formulas.RunFormulaTests
 ```
 
-A passing run prints nine `CASE=` lines and ends with
-`RESULT=PASS; cases=9; checks=82; failures=0` on 64-bit Excel (80 on
-32-bit, which has no `LongLong`).
+Calls the `SACCR_*` worksheet functions directly and checks their domain and
+error contract: an input outside its domain gives an Excel error, never a
+runtime error or a misleading number, and boundary values, arrays and ranges
+behave as documented. Its last case writes the formulas on a temporary
+worksheet and deletes it again. On 32-bit Excel the two `LongLong` checks are
+skipped.
+
+### Workbook macro state tests
+
+```text
+TEST_MainState.RunMainStateTests
+```
+
+Runs the real workbook macros. It checks that **Run SA-CCR**, **Validate
+inputs** and **Clear outputs** put calculation mode, events and screen
+updating back as they found them; that an operation failure and a cleanup
+failure are raised separately and leave the workbook ready for the next run,
+with the results of a failed run withdrawn; that the results are reported out
+of date after an input edit, also after the Params tables have moved, and not
+after a formatting change; that a run in manual calculation recalculates its
+inputs first; that every output table is located through the workbook name of
+its first header cell (`layout.output-header-names`, #253); and that
+`RunSACCR_Silent` restores its silent flag (`silent.flag-preserved`).
+
+Some cases protect output sheets, insert a column before the Params tables or
+a row above the HedgingSets table, switch the workbook to the 1904 date system
+or break the `Checks_Header` name; each change is undone, also after an
+unexpected error, and the caller's Excel settings are restored. The last case
+leaves the outputs of a normal run.
 
 <a id="numerical-test-cases"></a>
 
 ### Numerical test cases
 
-`tests/modules/TEST_Cases.bas` is generated from `tests/fixtures` and
-`tests/expected`; never edit it by hand. After changing a JSON file, run
-`python tools/generate_case_tests.py` and import the regenerated module.
-Import it with `tests/modules/TEST_CaseRunner.bas`, then run:
-
 ```text
 TEST_Cases.RunCaseTests
 ```
 
-Each case writes its fixture into the NettingSets and Trades rows and the
-AsOfDate and ReportingCcy parameters, runs the engine and checks the outputs;
-the other Params values must be the template's, except those a fixture sets in
-its `parameters`, which are restored after the case. At the end the inputs and
-parameters are written back, the engine is run once more and Excel settings
-are restored. A passing run prints one `CASE=` line per expected file, the
-results per reference class, and
-`RESULT=PASS; cases=20; checks=39; failures=0; restore=PASS`. Illustrative
-results are counted separately and validate nothing.
+`tests/modules/TEST_Cases.bas` is generated from `tests/fixtures` and
+`tests/expected`; never edit it by hand. After changing a JSON file, run
+`python tools/generate_case_tests.py` and import the regenerated module with
+`tests/modules/TEST_CaseRunner.bas`.
+
+Each case writes its fixture into the NettingSets and Trades rows, the
+AsOfDate and ReportingCcy parameters and any parameter the fixture sets, runs
+the engine and checks the outputs; the other Params values must be the
+template's. At the end the inputs and parameters are written back, the engine
+runs once more and Excel settings are restored. The results are counted per
+reference class; illustrative results validate nothing.
 
 To see the failure path of any suite run through `TEST_CaseRunner`, arm the
 injection on the same Immediate-window line as the suite:
@@ -369,263 +331,198 @@ TEST_CaseRunner.InjectFailure: TEST_Cases.RunCaseTests
 
 The suite moves the expected value of its first numeric check by ten times its
 tolerance plus one, so the comparison must reject it. It prints
-`MODE=INJECTED_FAILURE` and an `INJECTED=` line naming the check, then one
-`FAILURE=` line for it; for `TEST_Cases` that is T01, so the summary shows
-`PUBLISHED: passed=13; failed=1` and
-`RESULT=FAIL; cases=20; checks=39; failures=1; restore=PASS`. The injection
-applies to that one suite only. A suite with no numeric check, such as
+`MODE=INJECTED_FAILURE`, an `INJECTED=` line naming the check and one
+`FAILURE=` line for it, and ends with `RESULT=FAIL`. The injection applies to
+that one suite only. A suite with no numeric check, such as
 `TEST_Aggregation`, fails with a message saying so.
 
 ### Invalid-input tests
 
-`tests/modules/TEST_InputValidation.bas` writes inputs that a JSON fixture
-cannot express (a trade row without an ID, a duplicate trade ID, a missing
-MtM, an unreadable date, a typo in a netting-set flag or amount) through
-`TEST_CaseRunner` and checks that each makes the netting set `INCOMPLETE` or
-`INVALID`, and that blank optional fields still take their defaults. It
-repeats a netting-set ID and puts `#N/A` in a trade, a netting set and a
-parameter. It also renames a header, breaks a parameter name, duplicates a parameter, a
-supervisory-factor key and a currency, and puts a blank row or a blank key in
-the factor and FX tables, and checks that the run stops, or continues when the
-duplicate has the same values. For aggregation it gives one credit reference
-two sub-classes, in both orders, and adds a basis trade without a label, a
-reference with a reserved character and an interest-rate risk factor that is
-not a currency. For the CRR scope it checks that the sum of absolute IR
-bucket values makes a CRR netting set `INVALID` but is accepted under BCBS, and
-that an inflation risk factor such as `EUR-INFL` is accepted while another
-suffix is rejected. For the netting-set terms it rejects VM held on an
-unmargined netting set, VM posted on an unmargined CRR netting set, a clearing
-role or margin-agreement code that is not N, CM, CLIENT, MIXED or SHARED, and
-the MIXED and SHARED structures; it accepts VM posted on an unmargined BCBS
-netting set and checks its replacement cost, and checks the MPOR of each
-clearing role and of disputes and a large netting set with weekly
-remargining, and the warning for a margined netting set of more than 5,000
-trades whose large or illiquid flag is N, and checks that a broken Params,
-NettingSets or Trades layout name stops the run. It writes values outside the
-ranges of the data validation, which validation would not stop because VBA
-writes them: a multiplier floor of 1, correlations above 1 or that do not form
-a correlation matrix, an MPOR floor of 0, a fractional business-day count and
-a negative supervisory factor stop the run; a negative threshold or MTA, a
-remargining frequency or MPOR override that is not a whole number of business
-days in range, and an alpha override of zero or less make the netting set
-`INVALID`; a remargining frequency of 0 is raised to daily with a
-warning. It checks that a run with the regulatory parameters is classified
-`REGULATORY` and names the set in the run summary, that a DaysPerYear of 360
-keeps it regulatory, that a different alpha, a zero supervisory factor or an
-alpha override makes it `WHAT-IF` with the difference listed on Checks, and
-that a reporting-currency FX rate other than 1 stops the run, as does a
-reporting currency that is not three letters A to Z (digits, punctuation,
-two or four letters, blank; lower case and spaces are accepted), and the
-remargining frequency at its bounds (0.5 and 10001 rejected, 10000 accepted
-with MPOR 10009). For economic
-trades entered as legs (#38) it checks a worked two-category example (an
-equity forward with an FX leg: RC 30, add-ons 3,200 and 400, EAD 5,082, and
-the economic-trade and leg counts), a call spread entered as two option legs,
-and the rejection of two MtM legs, a repeated MtM on a leg that is not the
-MtM leg, no MtM leg, legs in different netting sets, a swap split into two
-linear legs, a whole trade flagged N and a flag that is not Y or N. For the
-input conventions (#40) it enters dates as ISO text and as 30/09/2031 text,
-sets the workbook to the 1904 date system for one run, puts swaps at the IR
-bucket boundaries in each regime with their effect on the add-on, and dates on the reporting date, gives an option an expiry
-after its maturity, and enters FX pairs with an unknown currency, a notional
-outside the pair and the pair the other way round. It puts `#N/A` in each
-optional text field of a trade and in the netting-set and Params regime
-(#194), and formats an option price as Currency and as Accounting, checking
-that each format makes `Range.Value` return the Currency type (#196). Every patched cell
-and name, the number format and the date system are restored. It needs a workbook
-built from the template. Import it with `TEST_CaseRunner` and run
-`TEST_InputValidation.RunInputValidationTests`; it ends with
-`RESULT=PASS; cases=133; checks=209; failures=0; restore=PASS`.
+```text
+TEST_InputValidation.RunInputValidationTests
+```
+
+Needs `TEST_CaseRunner` and a workbook built from the template. It writes
+inputs that a JSON fixture cannot express: missing and duplicate IDs,
+unreadable dates and codes, Excel error values, broken layout names, values
+outside the ranges of the data validation, invalid netting-set terms, economic
+trades entered as legs, and the date, IR bucket, FX pair and number-format
+conventions. It checks that each rejects the trade, makes the netting set
+`INCOMPLETE` or `INVALID`, stops the run, or is accepted with its default or
+a warning, and that the run is classified `REGULATORY` or `WHAT-IF` as it
+should be. Every patched cell and name, the number format and the date system
+are restored.
 
 ### Aggregation tests
 
-`tests/modules/TEST_Aggregation.bas` runs the workbook's own portfolio in its
-row order, reversed and rotated, and checks that Results is the same each time;
-and it checks offsets by comparing outputs with each other: two opposite swaps
-in one bucket offset exactly, and nothing offsets across currencies, between
-interest rate and inflation in one currency, across netting sets or credit
-entities, or between a standard and a basis hedging set. Import it
-with `TEST_CaseRunner` and run `TEST_Aggregation.RunAggregationTests`; it ends
-with `RESULT=PASS; cases=11; checks=11; failures=0; restore=PASS`.
+```text
+TEST_Aggregation.RunAggregationTests
+```
+
+Needs `TEST_CaseRunner`. It runs the workbook's own portfolio in its row
+order, reversed and rotated, and checks that Results is the same each time;
+and it checks offsets: two opposite swaps in one bucket offset exactly, and
+nothing offsets across currencies, between interest rate and inflation,
+across netting sets or credit entities, or between a standard and a basis
+hedging set. The inputs are restored.
 
 ### Invariant tests
 
-`tests/modules/TEST_Invariants.bas` checks relations that every result must
-satisfy, recomputed from the Results columns and the NettingSets inputs. On
-the workbook's own portfolio it checks, for each `VALID` netting set, that the
-aggregate add-on is the sum of the asset-class add-ons; RC follows its
-margined or unmargined formula and is never negative; the multiplier follows
-its formula, lies between the floor and 1 and is 1 when V - C is not
-negative; PFE is the multiplier times the aggregate add-on;
-EAD = alpha * (RC + PFE); and a margined netting set's EAD is the lower of the
-margined EAD and the unmargined cap, with the cap flag set exactly when the
-cap is lower. Withheld netting sets must show no figures. Each regime with
-netting sets must have a TOTAL row after them, `TOTAL CRR` then
-`TOTAL BCBS`, holding for V, C, RC, each asset-class add-on, the aggregate
-add-on, PFE and EAD the sum over that regime's `VALID` netting sets, its
-regime, the number of `VALID` and withheld netting sets in its status, and
-nothing in its other columns (#198).
-It first checks that the portfolio has unmargined and margined,
-CRR and BCBS netting sets, a cap that applies and one that does not, and a
-multiplier below 1. A second run must write identical Results, TradeCalc,
-HedgingSets and Buckets. With `IRBucketOffset` set to FALSE a CRR netting set
-with interest-rate trades must become `INVALID` (Art. 280a(3) allows only the
-formula with offsets); every other netting set `VALID` before must stay
-`VALID`, no IR add-on may fall, and at least one must rise. Two checks then corrupt copies of the outputs, each TOTAL column in turn
-and one netting set made invalid in the second run, and pass only if the
-relations fail and name what was corrupted. Two opposite swaps, which give a zero
-add-on, must give EAD = 1.4 * RC. Import it with `TEST_CaseRunner` and run
-`TEST_Invariants.RunInvariantTests`; it ends with
-`RESULT=PASS; cases=4; checks=23; failures=0; restore=PASS`.
+```text
+TEST_Invariants.RunInvariantTests
+```
+
+Needs `TEST_CaseRunner`. On the workbook's own portfolio it recomputes, from
+Results and NettingSets, the relations every result must satisfy: the
+aggregate add-on, RC, multiplier, PFE, EAD, the cap of margined netting sets
+and the TOTAL row of each regime. It checks that a second run writes identical
+outputs, that switching `IRBucketOffset` off makes a CRR netting set with
+interest-rate trades `INVALID`, and that the relations catch deliberately
+corrupted copies of the outputs. The inputs are restored.
 
 ### Reconciliation tests
 
-`tests/modules/TEST_Reconcile.bas` checks the comparison of a bank's
-netting-set figures with Results (#45). Eleven cases call
-`CORE_Reconcile` with synthetic figures and no sheet: the absolute and
-relative tolerances, the amount scale, the multiplier (not scaled, relative
-tolerance only), a bank figure of zero, a netting set missing on either side,
-an ID listed twice, another regime, a withheld netting set, unusable bank rows
-and figures, IDs in another case, TOTAL rows (and a netting set named
-`TOTAL DESK`, which is not one), the settings, the headers and the summary
-line. The last case runs the macros on the workbook's own
-portfolio: with no bank figures there is no reconciliation; with figures taken
-from Results the Reconciliation sheet shows `MATCH`, `DIFFERENCE`,
-`MISSING IN CALCULATOR` and `NOT IN BANK FILE`, and its status is current; an
-edited bank figure makes it `OUT OF DATE`, and a run whose recalculation
-does not finish, like validation, withdraws it. The
-BankNettingSets table and settings are put back. Five more cases do the same
-per trade leg against TradeCalc: amounts scaled and the delta and maturity
-factors not, a figure the calculator does not have (`NOT APPLICABLE`), a
-leg missing on either side, an `EXCLUDED` leg with its reasons, a leg listed
-twice on BankTrades or on TradeCalc (a Trade ID repeated on Trades), the trade summary, and, in the workbook, `MATCH`, `DIFFERENCE` and
-`MISSING IN CALCULATOR` on TradeReconciliation, the leg's Economic trade ID
-from Trades in the last column, its status current and
-then `OUT OF DATE`; the BankTrades table is put back. Two cases cover the
-evidence export: the CSV fields (decimal point, quoting, text read as a
-formula, error values, CR LF,
-UTF-8 without a byte-order mark, including characters outside the BMP) and,
-in the workbook, an export written twice byte for byte the same, also over a
-longer hidden file of that name, and refused
-after an input edit, bank figures entered after the run, every bank figure
-removed after a reconciliation, or an edited Results cell, and listing a
-currency added below the FX table; the cells and files are put back or
-removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=19; checks=140; failures=0`.
+```text
+TEST_Reconcile.RunReconcileTests
+```
 
-For automation, `RunSACCR_Silent` returns a result line such as
-`RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
-and raises any failure instead of showing a message box. `reconciliation` is
-`DONE` when the bank figures on BankNettingSets were compared, `NONE` when
-there are none, `FAILED` when their settings or headers are unusable (the
-Reconciliation summary in C4 says why), and `UNAVAILABLE` in a workbook built
-from a template without the two sheets; `trade_reconciliation` says the same
-for BankTrades and TradeReconciliation. `total_ead_crr` and
-`total_ead_bcbs` are the totals of each regime's `VALID` netting sets, never
-added together (#198). `inputs` is the
+Calls `CORE_Reconcile` with synthetic figures and no sheet, per netting set
+and per trade leg: tolerances, amount scale, figures missing on either side,
+duplicates, other regimes, withheld netting sets, excluded legs and unusable
+rows. It then runs the macros on the workbook's own portfolio and checks the
+Reconciliation and TradeReconciliation sheets and their status. Two cases
+cover the evidence export: the CSV encoding of each field, and, in the
+workbook, an export that is the same byte for byte when written twice and is
+refused after an input, bank-figure or output edit. The BankNettingSets and
+BankTrades tables are put back and the exported files removed.
+
+<a id="automation-entry-points"></a>
+
+## 🤖 Automation entry points
+
+`M_Main` has entry points for a caller that runs the workbook without the
+buttons, such as a script or a test. None of them shows a message box.
+
+### RunSACCR_Silent
+
+`RunSACCR_Silent` runs **Run SA-CCR**, writes its messages to the Immediate
+window and raises any failure to the caller. It returns a result line; for the
+demonstration portfolio with the bank figures of the reconciliation
+screenshot:
+
+```text
+RESULT=OK; operation=run; errors=5; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=74A6C31F; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS
+```
+
+`RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
+and `warnings` count the errors and warnings on Checks, and `incomplete` the
+netting sets whose EAD was withheld. `reconciliation` is `DONE` when the bank
+figures on BankNettingSets were compared, `NONE` when there are none,
+`FAILED` when their settings or headers are unusable (the Reconciliation
+summary in C4 says why), and `UNAVAILABLE` in a workbook built from a template
+without the two sheets; `trade_reconciliation` says the same for BankTrades
+and TradeReconciliation. `total_ead_crr` and `total_ead_bcbs` are the totals
+of each regime's `VALID` netting sets, never added together. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results C4. `M_Main.ResultsStatus()` returns `CURRENT` when the
-results on the sheets match the inputs as they are now, `STALE` when an input
-changed since, and `NONE` when there is no valid completed run. Params is
-read through its workbook names, so an edit is found also after its tables
-have moved; descriptions, references and formatting do not count as edits.
-The fingerprint also covers the Trades and NettingSets headers, the type of
-each value (the number 47756 and the text `'47756` differ, as do two error
-values) and the workbook's date system (#197); a header changed only in
-case or spacing, which the schema check accepts, does not count.
+run summary on Results C4.
+
+### ResultsStatus and the status cells
+
+`M_Main.ResultsStatus()` returns `CURRENT` when the results on the sheets
+match the inputs as they are now, `STALE` when an input changed since, and
+`NONE` when there is no valid completed run; `NONE` does not prove that every
+output cell is empty, as a protected sheet may keep old values after a failed
+clear. Params is read through its workbook names, so an edit is found also
+after its tables have moved; descriptions, references and formatting do not
+count as edits. The fingerprint also covers the Trades and NettingSets
+headers, the type of each value (the number 47756 and the text `'47756`
+differ, as do two error values) and the workbook's date system; a header
+changed only in case or spacing, which the schema check accepts, does not
+count.
+
 Results C5 shows the same status through the formula
-`=ResultsStatusText(...)`, which watches the input sheets, Params whole, and
-Excel recalculates when an input changes, and turns red when it reads
-`OUT OF DATE`. It reads `Status unavailable:` with the reason when a Params
-workbook name is missing or broken. A formula, unlike a macro writing to the sheet, leaves Excel's
-Undo history intact. With calculation set to manual, press F9 to refresh it.
-Reconciliation C5 does the same for the comparison with the bank's figures
-through `=ReconciliationStatusText(...)`, which also watches BankNettingSets:
-it reads `OUT OF DATE` once a bank figure, a setting or an input changes after
-the run, and `No reconciliation` when there is none or no current results.
-TradeReconciliation C5 does the same through
+`=ResultsStatusText(...)`, which watches the input sheets and Params whole, so
+Excel recalculates it when an input changes; it turns red when it reads
+`OUT OF DATE`, and reads `Status unavailable:` with the reason when a Params
+workbook name is missing or broken. A formula, unlike a macro writing to the
+sheet, leaves Excel's Undo history intact. With calculation set to manual,
+press F9 to refresh it. Reconciliation C5 does the same for the comparison
+with the bank's figures through `=ReconciliationStatusText(...)`, which also
+watches BankNettingSets: it reads `OUT OF DATE` once a bank figure, a setting
+or an input changes after the run, and `No reconciliation` when there is none
+or no current results. TradeReconciliation C5 does the same through
 `=TradeReconciliationStatusText(...)`, which watches BankTrades.
 
-`ExportEvidence_Silent(filePath)` writes the evidence report without a
-dialog and returns `RESULT=OK; lines=...; file=...`, or
-`RESULT=REFUSED; reason=...` while Excel has a recalculation pending (manual
-calculation: press F9), when `ResultsStatus()` is not `CURRENT`, when
-a reconciliation does not match its bank figures, settings and inputs as
-they are now (also after every bank figure was removed), or when an output
-cell on Results, Checks or a reconciliation sheet differs from what the run
-wrote: a completed run stores the fingerprint of the exported outputs in
-the hidden name `SACCR_RunOutputs`, which every operation empties first,
-and the report gives it as `RUN;outputs`. The file is `;`-separated, with a `.` decimal point, CR LF
-line ends and UTF-8 without a byte-order mark; the first field of every
-line names its section (`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`,
-`RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`,
-`LIMITATIONS`), and the first line is `RUN;format;K-SACCR evidence 1`.
-`RUN;reference_parameter_set` names the set the template ships; whether the
-run used it unchanged (`REGULATORY`) or not (`WHAT-IF`) is in
-`RUN;run_summary`. A reconciliation reads `CURRENT` or `NOT MADE`; its
-summary says why one was not made. The workbook's file name is not in the
-report, as a Save As would change it for the same run.
-Text that Excel would read as a formula when the file is opened (starting
-with `=`, `+`, `-`, `@`, a tab or a carriage return) is written with a
-leading apostrophe; numbers keep their sign. Error values are written by
-their Excel names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and
-tolerances are in `RUN` only when it was made, as they are then part of
-its fingerprint. `SF_TABLE` and `FX_TABLE`
-hold the rows the run read: from the header of
-`SF_Table` or `FX_Table` down to the first blank key, also below the
-name's range.
+### ExportEvidence_Silent
+
+`ExportEvidence_Silent(filePath)` writes the evidence report without a dialog
+and returns `RESULT=OK; lines=...; file=...`, or `RESULT=REFUSED; reason=...`
+while Excel has a recalculation pending (manual calculation: press F9), when
+`ResultsStatus()` is not `CURRENT`, when a reconciliation does not match its
+bank figures, settings and inputs as they are now (also after every bank
+figure was removed), or when an output cell on Results, Checks or a
+reconciliation sheet differs from what the run wrote: a completed run stores
+the fingerprint of the exported outputs in the hidden name `SACCR_RunOutputs`,
+which every operation empties first, and the report gives it as
+`RUN;outputs`.
+
+The file is `;`-separated, with a `.` decimal point, CR LF line ends and UTF-8
+without a byte-order mark; the first field of every line names its section
+(`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`, `RESULTS`, `RECONCILIATION`,
+`TRADE_RECONCILIATION`, `CHECKS`, `LIMITATIONS`), and the first line is
+`RUN;format;K-SACCR evidence 1`. `RUN;reference_parameter_set` names the set
+the template ships; whether the run used it unchanged (`REGULATORY`) or not
+(`WHAT-IF`) is in `RUN;run_summary`. A reconciliation reads `CURRENT` or
+`NOT MADE`; its summary says why one was not made. The workbook's file name
+is not in the report, as a Save As would change it for the same run. Text
+that Excel would read as a formula when the file is opened (starting with
+`=`, `+`, `-`, `@`, a tab or a carriage return) is written with a leading
+apostrophe; numbers keep their sign. Error values are written by their Excel
+names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and tolerances are in
+`RUN` only when it was made, as they are then part of its fingerprint.
+`SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
+`SF_Table` or `FX_Table` down to the first blank key, also below the name's
+range.
 
 <a id="validation-record"></a>
 
 ## 🧪 Validation record
 
-A successful import is not certification. Record at least:
-
-```text
-Commit (full SHA):
-Files imported:
-Excel / Office version and build:
-Office bitness:
-Operating system:
-Compile:
-Regression harness:
-Specific scenario:
-Cleanup:
-Skipped or unverified:
-```
-
-A skipped, incomplete or cleanup-failed run is not a pass. Static checks cannot
-substitute for Excel execution.
-
-When the run must be bound to an exact commit, for example for a release or an
-issue's acceptance evidence, record it as an evidence bundle and validate it
-with `tools/check_excel_evidence.py`; see
-[`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md).
+A successful import is not certification: record each Excel run with the
+[record template](docs/EXCEL_EVIDENCE.md#record-template) of
+`docs/EXCEL_EVIDENCE.md`, which `tools/check_excel_evidence.py` validates
+against the exact commit.
 
 ## ⬆️ Upgrade
 
-Before moving to a newer commit:
+Read the notes in the [changelog](CHANGELOG.md) for the changes since the
+commit the workbook was built from. Then:
 
-1. read the CHANGELOG's notes;
-2. back up the host and any user configuration;
-3. identify the complete component set at the target commit; and
-4. review compatibility notes and known limitations.
+- **Only the VBA changed:** drag the workbook onto `tools/Sync-SACCR-VBA.cmd`
+  again, or import the changed modules by hand as above, run
+  **Debug → Compile VBAProject** and run the tests that apply.
+- **The template changed** (its sheets, layout or workbook names): build a new
+  workbook from `src/workbook/SACCR_Template.xlsx` as described under
+  [building a workbook from source](#building-a-workbook-from-source), and
+  copy your inputs into it. `git diff --stat <old-sha> HEAD --
+  src/workbook/SACCR_Template.xlsx` shows whether the template changed. A run
+  that stops with `Workbook name '…_Header' is missing or no longer refers to
+  the first header cell, in column C, of … - rebuild the workbook from the
+  template.` comes from a workbook built from an older template.
 
-Replace the whole component set, compile again and repeat the validation. Do not
-infer backward compatibility from successful compilation alone.
-
-Treat a locally modified copy as a fork: diff it against the old and new source,
-reapply modifications deliberately and retest them.
+Treat a locally modified copy as a fork: diff it against the old and new
+source, reapply modifications deliberately and retest them.
 
 ## 🧯 Troubleshooting
 
 | Symptom | Check first |
 | --- | --- |
-| Compile error or missing procedure | All components come from one commit, and required references are set. |
+| Compile error or missing procedure | All components come from one commit, and only the four default references are set. |
 | Ambiguous name | Remove duplicate or older copies of a component. |
-| Form controls missing or corrupt | Re-import the exact `.frm` with its adjacent `.frx`. |
+| A run stops with `Workbook name '…' is missing or no longer refers to …` | The workbook was built from an older template, or a name was deleted; build it again from `src/workbook/SACCR_Template.xlsx`. |
+| A production workbook holds `TEST_` modules | A production synchronization never removes modules; build it again from the template. |
 | Garbled accented characters after import | The module was copied from a browser or re-saved in another encoding; import the file from the checkout. |
-| Different result from a reference | Confirm the commit, inputs, configuration and the independent reference used. |
+| Different result from a reference | Confirm the commit, the inputs, the Params values and the reference used. |
 | Security warning | Verify the source origin and organizational macro settings. |
 | `tools/check.py` reports CRLF in Git | Renormalize with `git add --renormalize .` and commit the result separately. |
 
@@ -633,13 +530,11 @@ Suspected security problems follow [`SECURITY.md`](SECURITY.md), not issues.
 
 ## 🗑️ Removal
 
-1. Run any project-owned shutdown or cleanup procedure.
-2. Remove the components and integrations the project owns.
-3. Compile the remaining VBA project.
-4. Close and reopen, and verify nothing still depends on removed components.
-
-Removing modules does not remove formulas, names, links, connections or other
-host integrations. Remove only state the project owns.
+The built workbook is the only thing installed: nothing is registered with
+Excel or Windows. Delete the `.xlsm`, the `*.pre-vba-sync.*` backups the
+synchronizer wrote beside it, and any evidence files you exported. If you
+enabled **Trust access to the VBA project object model** only to build the
+workbook, turn it off again.
 
 ## 📚 Related documents
 
