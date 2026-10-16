@@ -99,6 +99,11 @@ First release, planned as `1.0.0` from the release branch `release/1.0.0`.
 Everything below is new in it; engineering detail is in the linked issues and
 pull requests.
 
+### Changed
+
+- Refresh the project website with a deep-blue and azure palette, pale blue
+  surfaces, and coordinated navigation, links, and example-card accents (#284).
+
 ### Added
 
 - Public GitHub Pages project website with a workflow overview, workbook

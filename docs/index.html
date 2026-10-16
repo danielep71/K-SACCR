@@ -6,7 +6,7 @@
   <title>K-SACCR — SA-CCR Calculator and Validation Toolkit for Excel VBA</title>
   <meta name="description" content="Explore K-SACCR, an open-source Excel VBA toolkit for SA-CCR exposure calculation, Basel benchmarking, reconciliation, and a traceable trade-to-EAD audit trail.">
   <link rel="canonical" href="https://danielep71.github.io/VBA-SACCR-Toolkit/">
-  <meta name="theme-color" content="#102e36">
+  <meta name="theme-color" content="#00338d">
   <meta property="og:type" content="website">
   <meta property="og:title" content="K-SACCR — SA-CCR in Excel VBA">
   <meta property="og:description" content="Calculate, inspect, and reconcile counterparty credit exposure. Open source, documented methodology, and published Basel examples.">
@@ -15,42 +15,43 @@
   <meta property="og:image:alt" content="K-SACCR project overview with Basel CRE99 Example 5 and the PFE multiplier curve">
   <meta name="twitter:card" content="summary_large_image">
   <style>
-    :root { color-scheme: light; --ink: #102e36; --muted: #4a6268; --paper: #f5f6f0; --green: #136b50; --line: #d2ddd5; }
+    :root { color-scheme: light; --ink: #00338d; --muted: #475b78; --paper: #f6f8fc; --accent: #005eb8; --line: #d4dfef; }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
     body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.65; }
-    a { color: var(--green); text-underline-offset: .22em; }
+    a { color: var(--accent); text-underline-offset: .22em; }
     a:hover { text-decoration-thickness: 2px; }
-    a:focus-visible, summary:focus-visible { outline: 3px solid #b56b00; outline-offset: 5px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #0077c8; outline-offset: 5px; }
     .wrap { width: min(1120px, 90%); margin-inline: auto; }
     .skip { position: absolute; left: 1rem; top: -5rem; padding: .6rem 1rem; background: white; z-index: 3; }
     .skip:focus { top: 1rem; }
     header { border-bottom: 1px solid var(--line); }
     nav { min-height: 86px; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
     .brand { color: var(--ink); text-decoration: none; font-weight: 800; font-size: 1.35rem; letter-spacing: -.05em; }
-    .brand span { color: var(--green); }
+    .brand span { color: var(--accent); }
     .navlinks { display: flex; flex-wrap: wrap; gap: 1.6rem; font-size: .9rem; }
     .navlinks a { color: var(--ink); text-decoration: none; }
-    .eyebrow { font-size: .72rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; color: var(--green); }
+    .eyebrow { font-size: .72rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
     .hero { padding-block: 78px 64px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 70px; align-items: center; }
     h1 { font-size: clamp(2.8rem, 5.4vw, 4.6rem); line-height: 1.06; letter-spacing: -.065em; font-weight: 730; margin: 1.2rem 0 1.5rem; }
-    h1 em { font-style: normal; color: var(--green); }
+    h1 em { font-style: normal; color: var(--accent); }
     .lead { font-size: 1.1rem; color: var(--muted); max-width: 54ch; }
     .actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.8rem; }
-    .button { display: inline-block; padding: .8rem 1.1rem; border: 1px solid var(--green); border-radius: 4px; font-size: .9rem; font-weight: 650; text-decoration: none; }
-    .button.primary { color: white; background: var(--green); }
+    .button { display: inline-block; padding: .8rem 1.1rem; border: 1px solid var(--accent); border-radius: 4px; font-size: .9rem; font-weight: 650; text-decoration: none; }
+    .button.primary { color: white; background: var(--accent); }
     .status { margin-top: 1.2rem; font-size: .8rem; color: var(--muted); }
-    .example { background: var(--ink); color: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 20px 45px #102e3614; }
-    .example .eyebrow { color: #a9d9bc; }
+    .example { background: var(--ink); color: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 20px 45px #00338d14; }
+    .example .eyebrow { color: #9ed9ff; }
     .example h2 { font-size: 1.4rem; margin: .6rem 0 1.5rem; letter-spacing: -.025em; }
     .example dl { margin: 0; }
     .example dl div { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid #ffffff26; }
-    .example dt { color: #c6d9da; font-size: .85rem; }
+    .example dt { color: #d4e7fa; font-size: .85rem; }
     .example dd { margin: 0; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
     .total { margin-top: 1.5rem; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-    .total strong { font-size: 3rem; line-height: 1; letter-spacing: -.05em; color: #c8edaf; }
-    .example small { display: block; color: #c6d9da; font-size: .73rem; margin-top: 1.3rem; }
-    .example a { color: #c8edaf; }
+    .total strong { font-size: 3rem; line-height: 1; letter-spacing: -.05em; color: #9ed9ff; }
+    .example small { display: block; color: #d4e7fa; font-size: .73rem; margin-top: 1.3rem; }
+    .example a { color: #9ed9ff; }
+    .example a:focus-visible, footer a:focus-visible { outline-color: #9ed9ff; }
     .strip { display: flex; flex-wrap: wrap; gap: .8rem 2.5rem; padding-block: 1.2rem; border-block: 1px solid var(--line); font-size: .8rem; font-weight: 650; }
     section { padding-block: 64px; }
     h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.045em; line-height: 1.2; margin: .8rem 0 1.3rem; }
@@ -58,17 +59,17 @@
     p { margin: .7rem 0; }
     .intro { max-width: 690px; color: var(--muted); }
     .steps { padding: 0; margin: 2.5rem 0 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
-    .steps li { border-top: 2px solid var(--green); padding-top: 1rem; }
-    .number { color: var(--green); font-family: ui-monospace, monospace; font-size: .85rem; }
+    .steps li { border-top: 2px solid var(--accent); padding-top: 1rem; }
+    .number { color: var(--accent); font-family: ui-monospace, monospace; font-size: .85rem; }
     .steps p { color: var(--muted); font-size: .94rem; }
     .screen { margin: 2.3rem 0 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: white; }
     .screen img { width: 100%; height: auto; display: block; }
     figcaption { padding: 1rem 1.3rem; font-size: .8rem; color: var(--muted); border-top: 1px solid var(--line); }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
-    .tint { background: #e9eee7; border-block: 1px solid var(--line); }
+    .tint { background: #eaf1fa; border-block: 1px solid var(--line); }
     .scope-list { padding-left: 1.2rem; color: var(--muted); }
     .scope-list li { margin-block: .7rem; }
-    .note { border-left: 3px solid var(--green); padding-left: 1.2rem; margin-top: 1.4rem; }
+    .note { border-left: 3px solid var(--accent); padding-left: 1.2rem; margin-top: 1.4rem; }
     .formula { font-family: ui-monospace, monospace; font-size: 1.1rem; padding: 1.1rem 0; border-block: 1px solid var(--line); margin-top: 1.5rem; }
     .resources { display: grid; grid-template-columns: 1fr 1fr; gap: 0 3rem; margin-top: 2rem; }
     .resource { display: block; text-decoration: none; padding: 1.3rem 0; border-top: 1px solid var(--line); }
@@ -78,7 +79,7 @@
     details { margin-top: 2rem; padding: 1.2rem 0; border-block: 1px solid var(--line); }
     summary { cursor: pointer; font-weight: 650; }
     details p { color: var(--muted); max-width: 85ch; }
-    footer { padding-block: 2rem; background: var(--ink); color: #c6d9da; font-size: .8rem; }
+    footer { padding-block: 2rem; background: var(--ink); color: #d4e7fa; font-size: .8rem; }
     footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
     footer a { color: white; }
     @media (max-width: 760px) {
