@@ -303,14 +303,41 @@ BankNettingSets · BankTrades ────────────────�
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
-Results after a run of the demonstration portfolio, with the run summary,
-the stale-result indicator and a TOTAL row per regime:
+Results after a run of the demonstration portfolio: the run summary and
+stale-result indicator, RC and the add-ons per asset class, then the
+multiplier, PFE, EAD, the cap for margined netting sets and the status, with a
+TOTAL row per regime:
 
 <p align="center">
   <img width="100%"
-       alt="Results sheet after a run: one row per netting set with regime, margining, trade count, MPOR, V, C, RC, add-ons by asset class, aggregate add-on and multiplier, and TOTAL CRR and TOTAL BCBS rows"
-       src="docs/assets/SACCR_Results.png">
+       alt="Results sheet after a run, left part: one row per netting set with regime, margining, trade count, MPOR, V, C, RC, add-ons by asset class, aggregate add-on and multiplier, and TOTAL CRR and TOTAL BCBS rows"
+       src="docs/assets/SACCR_Results_AddOns.png">
 </p>
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run, right part: aggregate add-on, multiplier, PFE, alpha, margined EAD, unmargined cap, EAD, cap applied and status per netting set; two netting sets are INCOMPLETE because trades were rejected"
+       src="docs/assets/SACCR_Results_EAD.png">
+</p>
+
+<details>
+<summary><b>Calculation detail</b>: HedgingSets and Buckets</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="HedgingSets sheet: per netting set and hedging set, the IR maturity-bucket effective notionals D1 to D3, systematic and idiosyncratic components, hedging-set add-on, unmargined add-on, basis and supervisory factor"
+       src="docs/assets/SACCR_HedgingSets.png">
+</p>
+
+<p align="center">
+  <img width="85%"
+       alt="Buckets sheet: per netting set, hedging set and maturity bucket, entity or commodity type, the trade count, supervisory factor, correlation, effective notionals and entity add-ons, unmargined and margined"
+       src="docs/assets/SACCR_Buckets.png">
+</p>
+
+</details>
 
 <details>
 <summary><b>Input sheets</b>: NettingSets, Trades and Params (yellow cells are inputs)</summary>
