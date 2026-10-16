@@ -115,13 +115,7 @@ python tools/check.py --ci
 python tools/check.py --ci --base <base-sha>   # for a pull request's full range
 ```
 
-Optional label-catalogue checks:
-
-```sh
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --self-test
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --mode validate
-node .github/scripts/labels-drift.mjs --policy .github/label-policy.json --self-test
-```
+Optional label-catalogue checks are in [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#labels).
 
 The gates are described in [`tools/README.md`](tools/README.md). They are static
 checks: they never compile VBA or run Excel.

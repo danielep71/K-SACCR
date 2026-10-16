@@ -12,9 +12,11 @@ the ignored `test-results/` directory. `--ci` checks committed whitespace instea
 of local edits and requires a clean tree; add `--base <base-sha>` to inspect a
 pull request's whole range.
 
+<a id="gates"></a>
+
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -52,7 +54,18 @@ the workbook works in Excel.
 local `.xlsm` workbook without intentionally changing worksheets, cells,
 formulas, names, tables or formatting.
 
-For normal use on Windows, double-click `tools/Sync-SACCR-VBA.cmd`. The launcher uses the workbook path set in `DEFAULT_WORKBOOK` at the top of the file, runs the PowerShell synchronizer, shows the result and pauses before closing. Drag another `.xlsm` file onto the `.cmd` file to use that one instead.
+For normal use on Windows, close the workbook and drag its `.xlsm` file onto
+`tools/Sync-SACCR-VBA.cmd`, or run the launcher with the workbook's full path
+as its argument:
+
+```bat
+tools\Sync-SACCR-VBA.cmd "C:\path\to\SACCR.xlsm"
+```
+
+The launcher runs the PowerShell synchronizer on that workbook, shows the
+result and pauses before closing. It has no default workbook: started
+without one, for example by double-clicking it, it prints how to use it,
+pauses and exits with code 1 without starting PowerShell.
 
 PowerShell remains available for direct use from the repository root:
 
@@ -65,7 +78,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the five standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the seven standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -87,9 +100,11 @@ changed. The repository's sheet modules hold only `Option Explicit` and
 comments, so skipping them changes no behaviour.
 
 To test modules received outside the repository, for example downloaded
-during a review, without copying them into the working tree, double-click
-`tools/Sync-SACCR-VBA-Downloads.cmd`. It asks for the folder (Enter for
-`%USERPROFILE%\Downloads`) and runs the synchronizer with `-SourceDir`:
+during a review, without copying them into the working tree, drag the
+workbook onto `tools/Sync-SACCR-VBA-Downloads.cmd` (or pass its path as the
+argument, as above; without one it stops in the same way). It asks for the
+folder (Enter for `%USERPROFILE%\Downloads`) and runs the synchronizer with
+`-SourceDir`:
 
 ```powershell
 .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
@@ -143,9 +158,19 @@ here-string or backtick escape such as `` `" `` is text. A new source
 directory must be added to `$sourceRoots`; a new worksheet needs both its sheet
 in the template and its document module.
 
-Because it changes code only, a change to a sheet layout (a column or header)
-does not reach an existing workbook. The engine's header check then stops the
-run with the expected header; rebuild the workbook from the current template.
+Because it changes code only, a change to a sheet layout (a sheet, a column,
+a header or a workbook name) does not reach an existing workbook; such a
+workbook is rebuilt from the current template. The engine finds every input
+and output table through the workbook name of its first header cell
+(`NettingSets_Header`, `Trades_Header`, `Results_Header` and the other
+`*_Header` names), so a workbook built from a template older than those
+names cannot run or validate. The engine clears the output tables first, and
+a missing output-table name stops it there with `ERR_OUTPUT_LAYOUT`; a
+missing input-table name is reported on Checks and also stops the run. Both
+messages name the missing workbook name and ask for the workbook to be
+rebuilt from the template. Where the names exist, an input header that
+differs from the expected one is reported on Checks with the expected text
+and stops the run.
 
 The synchronizer rejects known retired repository modules before changing any
 VBA component. Rebuild such a workbook from the current template and source;
@@ -197,30 +222,15 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The five modules of a workbook built from the template |
-| `development` | Those plus the nine test modules, as in INSTALLATION.md |
+| `production` | The seven standard modules of a workbook built from the template |
+| `development` | Those plus the ten test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
 
-**Evidence at adoption** (release head `275dff6`):
-
-| Configuration | Resolved calls | Findings | Unknown calls (host or library, untyped receiver, `With` block) |
-| --- | ---: | --- | --- |
-| `production` | 701 | none | 442, 388 and 89 |
-| `development` | 2839 | none | 803, 745 and 91 |
-
-Three defects were planted in a scratch copy to test detection:
-
-| Planted defect | Result |
-| --- | --- |
-| A missing argument | Reported (`VBA-CALL-010`) |
-| A Private engine member called from `M_Main` | Reported (`VBA-CALL-003`) |
-| A misspelled internal procedure (`ComputeHedgingSet`) | Not reported |
-
 **Limits.**
 - **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`). The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
-- **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker. This produced 9 false findings in production and 21 in development, which is why they are excluded.
+- **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker, which is why they are excluded.
 - **Not checked:** dynamic call targets, `Object` and `Variant` receivers, and argument types.
 
 **K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
@@ -249,8 +259,9 @@ even when checks fail and retained for 30 days. The artifact name includes
 the candidate SHA, run ID and attempt; `static-checks.json` also records the
 candidate SHA. Missing evidence fails the upload step.
 
-The workflow uses a read-only token, does not persist checkout credentials,
-and pins actions to full commit SHAs taken from the template.
+The workflow's token has `contents: read` only, checkout does not persist
+credentials, and actions are pinned to full commit SHAs taken from the
+template.
 It uses GitHub-hosted Ubuntu and Python 3.10.
 A successful job is static-check evidence only, not Excel validation.
 
@@ -275,6 +286,21 @@ ruff check tools
 mypy
 ```
 
+### Label workflows
+
+`.github/workflows/labels-sync.yml` and `labels-drift.yml` keep the issue
+labels equal to `.github/labels.json`; [`docs/GOVERNANCE.md`](../docs/GOVERNANCE.md#label-workflows)
+describes them. Their token defaults to `contents: read`:
+
+| Workflow | Job | Runs on | Permissions |
+| --- | --- | --- | --- |
+| Sync issue labels | Validate label manifest | Pull requests to `main` or `release/**` that change the label inputs | `contents: read` |
+| Sync issue labels | Reconcile live labels | Pushes to `main` that change the label inputs, manual dispatch | `contents: read`, `issues: write` |
+| Detect issue-label drift | Label drift fixtures | Pull requests to `main` or `release/**` that change the label inputs | `contents: read` |
+| Detect issue-label drift | Live label drift | Daily at 05:17 UTC, manual dispatch | `contents: read`, `issues: read` |
+
+Every checkout sets `persist-credentials: false`.
+
 ## Traffic history
 
 `.github/workflows/daily-traffic.yml`, adapted from VBA-DATETIMEPICKER, runs
@@ -286,8 +312,12 @@ branch. It also opens an alert issue, assigned and labelled **P3**, on a views
 or clones spike, a new star or fork, or a new referrer with at least five
 views.
 
-It needs a fine-grained personal access token with `Administration: read` on
-this repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
+The workflow's token defaults to `contents: read`; only the traffic job
+receives `contents: write`, to push the CSV history to `traffic-history`,
+and `issues: write`, to open the alert issue. Its checkout keeps the
+credentials for that push. The traffic API itself is read with a
+fine-grained personal access token with `Administration: read` on this
+repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
 without it the run fails with a clear error. The badge files it writes under
 `data/badges/` are shields.io endpoint files that a README can use, since the
 repository is public. This is analytics, not CI: it runs no repository code
