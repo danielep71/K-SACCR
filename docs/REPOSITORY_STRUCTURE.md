@@ -45,6 +45,7 @@ label catalogue; this document makes it the architecture decision as well.
 .github/            workflows, issue and pull-request templates, label catalogue
                     and its scripts, Excel evidence policy
 docs/               contracts, architecture, governance, evidence record
+  index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
   assets/           images and diagrams of the documentation, with their sources
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
