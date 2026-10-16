@@ -33,9 +33,8 @@ prefixes for core, facade and test modules.
 | Constant | UPPER_SNAKE_CASE | `ALPHA_FACTOR` |
 | Enum type / member | `Saccr` + noun / short prefix + PascalCase | `SaccrAssetClass` / `acInterestRate` |
 
-The project has no class or example modules yet: `src/classes/` does not
-exist and `examples/` holds only its README. Their rows apply when such
-modules are introduced.
+The project has no class or example modules yet: `src/classes/` and
+`examples/` do not exist. Their rows apply when such modules are introduced.
 
 Names are English and spelled out; avoid abbreviations other than established
 SA-CCR terms (`EAD`, `RC`, `PFE`, `MPOR`), written in full in the procedure's
@@ -166,7 +165,7 @@ CleanUp:
         End If
         If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
         If Len(cleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "M_Main.RunOperation", cleanupDetails
+            Err.Raise ERR_CLEANUP_FAILED, "RunOperation", cleanupDetails
         End If
         Exit Sub
 
