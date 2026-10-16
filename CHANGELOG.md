@@ -120,7 +120,7 @@ Use only the categories needed by a release.
   adds `ExportEvidence` and `ExportEvidence_Silent`, and
   `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
   write their tolerances with a decimal point in every locale, and the run
-  summary on Results its run time. `TEST_Reconcile`: 18 cases, 137 checks.
+  summary on Results its run time. `TEST_Reconcile`: 19 cases, 140 checks.
 
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,
@@ -140,13 +140,15 @@ Use only the categories needed by a release.
   (blank for a whole trade), so legs can be grouped as the bank groups its
   trades. Amounts are scaled; M, the supervisory duration, the delta and the
   maturity factors are not, and only the relative tolerance applies to them. A
-  leg excluded by the calculator is `EXCLUDED` with its reasons, and a figure
-  the calculator does not have for the leg (for example a margined maturity
-  factor in an unmargined netting set) is `NOT APPLICABLE`. Its status formula
-  is `TradeReconciliationStatusText`, its fingerprint
-  `SACCR_TradeReconInputs`, and the result line gains `trade_reconciliation=`.
-  `CORE_Reconcile` now compares both tables with one shared core.
-  `TEST_Reconcile`: 16 cases, 96 checks.
+  leg excluded by the calculator is `EXCLUDED` with its reasons; a Trade ID
+  listed more than once on TradeCalc (repeated on Trades) is `DUPLICATE` and
+  not compared, with or without a bank row; and a figure the calculator does
+  not have for the leg (for example a margined maturity factor in an
+  unmargined netting set) is `NOT APPLICABLE`. Its status formula is
+  `TradeReconciliationStatusText`, its fingerprint `SACCR_TradeReconInputs`,
+  and the result line gains `trade_reconciliation=`. `CORE_Reconcile` now
+  compares both tables with one shared core. `TEST_Reconcile`: 16 cases, 96
+  checks.
 
 - Reconciliation with a bank's own figures, per netting set (#45). The new
   input sheet `BankNettingSets` takes, per netting set ID, the regime and any
