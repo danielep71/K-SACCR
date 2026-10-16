@@ -149,6 +149,7 @@ Public Sub RunOperation(ByRef cleanupDetails As String)
     Dim errSource          As String           'Primary error source
     Dim errDescription     As String           'Primary error description
 
+        cleanupDetails = vbNullString
         On Error GoTo Failed
         savedCalculation = Application.Calculation
         savedScreen = Application.ScreenUpdating
