@@ -326,6 +326,15 @@ trade has M = 0.7507 rather than the printed 0.75. The regression case enters
 exactly 0.75 years and matches 5,406
 ([details](docs/assets/SCREENSHOTS_SOURCES.md)).
 
+Checks lists every trade the run rejected, with its row and reason, and every
+netting set whose EAD is withheld as a result:
+
+<p align="center">
+  <img width="100%"
+       alt="Checks sheet after the demonstration run: five ERROR lines, three trades excluded with their Trades row and reason, and two netting sets whose EAD is withheld"
+       src="docs/assets/SACCR_Checks.png">
+</p>
+
 <details>
 <summary><b>Calculation detail</b>: TradeCalc, HedgingSets and Buckets</summary>
 
@@ -353,6 +362,25 @@ exactly 0.75 years and matches 5,406
   <img width="85%"
        alt="Buckets sheet: per netting set, hedging set and maturity bucket, entity or commodity type, the trade count, supervisory factor, correlation, effective notionals and entity add-ons, unmargined and margined"
        src="docs/assets/SACCR_Buckets.png">
+</p>
+
+</details>
+
+<details>
+<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and one row per netting set with the bank's regime and figures"
+       src="docs/assets/SACCR_BankNettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 matches the calculator, a bank row without a regime is INVALID INPUT, and every other netting set is NOT IN BANK FILE, each with its note"
+       src="docs/assets/SACCR_Reconciliation.png">
 </p>
 
 </details>
@@ -447,6 +475,25 @@ wrote the code under test (#100).
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
+
+<details>
+<summary><b>In the workbook</b>: TestCatalogue and FormulaTest</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="TestCatalogue sheet: 28 reference tests with area, source, source status, regime, the output cell read, expected value, tolerance, engine value, difference and PASS; summary 28 passed, 0 failed"
+       src="docs/assets/SACCR_TestCatalogue.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="FormulaTest sheet: unit tests of the SACCR_ worksheet functions, each with its inputs, the value recomputed with Excel's own functions, the function's value, the relative difference, PASS and the CRE52 or CRR rule"
+       src="docs/assets/SACCR_FormulaTest.png">
+</p>
+
+</details>
 
 `python tools/check.py` runs the static gates (source layout, house style,
 public API, test-case schema, generated tests and tooling tests) locally and
