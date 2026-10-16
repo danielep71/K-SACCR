@@ -791,12 +791,17 @@ The `TradeReconciliation` output carries the **Economic trade ID** so that sever
 
 ## How a comparison is classified
 
-For an applicable bank-versus-calculator metric, the tool calculates **calculator minus bank**, a relative difference using the absolute bank denominator where defined, and a result. A figure is a `MATCH` if it meets the **absolute OR relative** tolerance; it is a `DIFFERENCE` if it lies outside both. A zero bank denominator requires careful reading of the absolute tolerance rather than an invented relative ratio.
+For an applicable bank-versus-calculator metric, the tool calculates **calculator minus bank**, a relative difference using the absolute bank figure as denominator where it is not zero, and a result. The rule depends on the kind of metric:
+
+- **Amounts** (EAD, RC, PFE, add-ons, notionals, MtM, effective notionals): the bank figure is multiplied by the sheet's scale, and the figure is a `MATCH` if it meets the **absolute OR relative** tolerance. When the bank figure is zero there is no relative difference, so only the absolute tolerance applies.
+- **Ratios** (`Multiplier` on BankNettingSets; `M`, supervisory duration, supervisory delta and both maturity factors on BankTrades): the scale is not applied and the absolute tolerance is **not** used. The figure is a `MATCH` only within the relative tolerance, or, when the bank figure is zero, only if the calculator figure is exactly zero.
+
+A figure outside the applicable tolerance is a `DIFFERENCE`.
 
 | Result on reconciliation | Meaning | Primary next action |
 |:--|:--|:--|
-| `MATCH` | Applicable comparison within at least one tolerance. | Check that source, regime, scale and coverage are correct; do not infer independent model certification from a match. |
-| `DIFFERENCE` | Comparison beyond both tolerances. | Trace inputs, valuation, maturity, netting, categories and regulatory rules. |
+| `MATCH` | Applicable comparison within the applicable tolerance (see above). | Check that source, regime, scale and coverage are correct; do not infer independent model certification from a match. |
+| `DIFFERENCE` | Comparison outside the applicable tolerance. | Trace inputs, valuation, maturity, netting, categories and regulatory rules. |
 | `MISSING IN CALCULATOR` | Bank key not represented by the corresponding calculator output. | Reconcile source populations and identifiers. |
 | `NOT IN BANK FILE` | Calculator key has no bank-side population match. | Verify the bank extract's scope/filtering. |
 | `DUPLICATE` | Duplicate identifiers make an unambiguous bank population comparison impossible. | Correct the duplicate-ID issue; do not select an arbitrary first row. |
