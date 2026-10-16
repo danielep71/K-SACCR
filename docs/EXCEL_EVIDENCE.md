@@ -264,8 +264,7 @@ Rules the validator applies:
   another suite's case fails. The policy gate checks `first_case` against the
   first case each module starts.
 - Each test run has its own log: the same log cannot be cited for two suites,
-  even with blank lines or trailing spaces added to a copy. A failed run that
-  stopped before its first case names no case, and this is what tells it apart.
+  even with blank lines or trailing spaces added to a copy.
 - The regression stage is `FAIL` when the harness or a suite failed, and
   `PASS` otherwise; a suite that did not finish makes the record `INCOMPLETE`
   or `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
@@ -339,6 +338,11 @@ Keep non-passing bundles too until the finding is resolved.
   validate nothing), and no other Excel version or bitness.
 - The `CANDIDATE=` line is typed by the operator: it stops a log of one commit
   from being cited, by mistake, for another, not a deliberate forgery.
+- A case-runner suite that fails before its first case prints no case name,
+  so its log does not say which of the four suites ran. A copy of such a log
+  with an added line passes as another suite's failed run. The record is then
+  `TEST_FAILED` either way, never a pass, and telling the suites apart would
+  need each log to name its suite.
 - The summary of `TEST_Suite.Test_RunAll` is an index, not a report: it is
   checked against the suites' own logs and never replaces them.
 - Keep logs free of credentials, client data and unredacted screenshots; see
