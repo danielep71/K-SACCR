@@ -12,6 +12,9 @@ took them in Excel for Windows on 2026-10-16.
 | `SACCR_Results_AddOns.png`, `SACCR_Results_EAD.png` | Results after a run: RC and add-ons, then PFE, EAD, cap and status |
 | `SACCR_TradeCalc_Inputs.png`, `SACCR_TradeCalc_AddOns.png` | Every trade-level quantity of that run: dates, duration, adjusted notional and delta, then maturity factors, effective notionals and add-on |
 | `SACCR_HedgingSets.png`, `SACCR_Buckets.png` | The hedging-set and bucket detail of that run |
+| `SACCR_Checks.png` | The errors of that run: excluded trades and withheld netting sets |
+| `SACCR_BankNettingSets.png`, `SACCR_Reconciliation.png` | A reconciliation: the bank's EAD for BCBS-EX1, copied from Results (MATCH), a row without a regime (INVALID INPUT), and the netting sets not in the bank file |
+| `SACCR_TestCatalogue.png`, `SACCR_FormulaTest.png` | The reference-test catalogue and the worksheet-function unit tests, all passing |
 
 The input sheets show the template's own content; the output sheets show a run
 of that portfolio on that day.
@@ -22,9 +25,9 @@ of that portfolio on that day.
 - **Number format:** the values follow the regional settings of the machine
   that took them (decimal comma, thousands point); the workbook itself reads
   and writes locale-independent values.
-- **Use:** the root README shows both Results images, the calculation detail
-  and the input sheets in collapsible sections; the Wiki can reference any of
-  them.
+- **Use:** the root README shows both Results images and Checks, and the
+  calculation detail, the reconciliation, the input sheets and the two test
+  sheets in collapsible sections; the Wiki can reference any of them.
 - **CRE99 Example 3:** the demonstration workbook shows an EAD of 5,405
   (thousands), the published figure 5,406. The demo enters the WTI trade with
   actual dates over 365 days a year (TradeCalc shows M = 0.7507); the
