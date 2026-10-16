@@ -51,12 +51,15 @@ Attribute VB_Name = "CORE_Engine"
 '   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
 '   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs, and
 '   BlockText, which M_Main also uses for the reconciliation fingerprint)
+'   and ParameterCodes, which it uses for the evidence report,
 '   are Public for M_Main; Option Private Module keeps them off the
 '   supported external surface.
 '
 ' DEPENDENCIES
-'   CORE_Config for the layout, CORE_Util for conversions and sheet access, and
-'   SACCR_Formulas for every regulatory formula.
+'   CORE_Config for the layout, CORE_Util for conversions and sheet access,
+'   SACCR_Formulas for every regulatory formula, and CORE_Export.NumberText
+'   for the run time in the run summary, with a decimal point in every
+'   locale (#45).
 '
 ' STATE OWNERSHIP
 '   Owns the module state below. ResetState clears it at the start of each
@@ -1040,11 +1043,12 @@ Private Function ValidateSchema() As Boolean
 End Function
 
 
-Private Function ParameterCodes() As Variant
+Public Function ParameterCodes() As Variant
 '
 '==============================================================================
 ' PURPOSE
-'   The parameter vocabulary shared by schema and table validation.
+'   The parameter vocabulary shared by schema and table validation, and
+'   by the evidence report of M_Main (#45).
 ' RETURNS
 '   An array of the supported parameter codes.
 '==============================================================================
@@ -5385,7 +5389,7 @@ Private Function RunInfoText( _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
                           " | inputs " & mRunInputs & _
-                          " | " & Format$(secs, "0.00") & " s"
+                          " | " & CORE_Export.NumberText(Round(secs, 2)) & " s"
             If mIncomplete > 0 Then
                 RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s)"
             End If

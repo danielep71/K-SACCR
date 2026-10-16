@@ -23,6 +23,9 @@ Current source:
   TradeCalc (#45), which reads no sheet: `M_Main` reads BankNettingSets,
   BankTrades, Results and TradeCalc and writes Reconciliation and
   TradeReconciliation;
+- `core/CORE_Export`, the CSV encoding of the evidence report (#45), which
+  reads no sheet: `M_Main.ExportEvidence` gathers the run and writes the
+  file;
 - `workbook/SACCR_Template.xlsx`: the 16 sheets (README, Params, NettingSets,
   Trades, Results, HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets,
   Reconciliation, BankTrades, TradeReconciliation, TestCatalogue,

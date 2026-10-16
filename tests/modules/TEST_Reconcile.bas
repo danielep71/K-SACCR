@@ -13,7 +13,10 @@ Attribute VB_Name = "TEST_Reconcile"
 '   calculator does not have is NOT APPLICABLE and an excluded leg is
 '   EXCLUDED; and, in the workbook, a run writes the Reconciliation and
 '   TradeReconciliation sheets, an edited bank figure makes them OUT OF
-'   DATE, and validation withdraws them.
+'   DATE, and validation withdraws them. The evidence report (CORE_Export,
+'   M_Main.ExportEvidence_Silent) writes invariant CSV fields and UTF-8,
+'   is the same for two exports of one run, and is refused when the
+'   results or the bank figures changed after the run.
 '
 ' PUBLIC SURFACE
 '   RunReconcileTests is the entry point. Option Private Module keeps it out
@@ -28,7 +31,9 @@ Attribute VB_Name = "TEST_Reconcile"
 ' WORKSHEET SAFETY
 '   The workbook cases write bank figures on BankNettingSets and
 '   BankTrades, run the macros, which rewrite every output sheet, and put
-'   the bank tables and settings back, also after an unexpected error. It leaves the
+'   the bank tables and settings back, also after an unexpected error. The
+'   export case writes two files to the TEMP folder and deletes them, and
+'   edits one input and one bank cell and puts them back. It leaves the
 '   outputs of a normal run. Use a development workbook.
 '
 ' STATE OWNERSHIP
@@ -60,8 +65,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 16              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 96              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 132              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -128,6 +133,8 @@ Public Sub RunReconcileTests()
         CaseTradePopulations
         CaseTradeSummary
         CaseTradeWorkbook
+        CaseExportFields
+        CaseExportWorkbook
 
         Application.Calculation = callerCalculation
         M_Main.gSilent = callerSilent
@@ -1026,6 +1033,317 @@ Private Sub CaseTradeWorkbook()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RestoreBankTable wsBank, firstRow, BT_NCOLS, saved, savedSet, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
+
+End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                EXPORT CASES
+'
+'------------------------------------------------------------------------------
+'
+
+Private Sub CaseExportFields()
+'
+'==============================================================================
+' PURPOSE
+'   The evidence CSV writes numbers with a decimal point and no thousands
+'   separator in every locale, quotes only text that needs it, writes text
+'   Excel would read as a formula with a leading apostrophe, names error
+'   values as Excel does, ends lines with CR LF and encodes UTF-8 without a
+'   byte-order mark, including characters outside the BMP.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim b()   As Byte    'UTF-8 bytes
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "export.fields"
+        CheckText "number", CORE_Export.NumberText(48595558.5), "48595558.5"
+        CheckText "number below one", CORE_Export.NumberText(0.0001), "0.0001"
+        CheckText "negative number below one", CORE_Export.NumberText(-0.5), "-0.5"
+        CheckText "text with a separator", CORE_Export.CsvField("a;b"), """a;b"""
+        CheckText "text with a quote", CORE_Export.CsvField("say ""x"""), """say """"x"""""""
+        CheckText "plain text", CORE_Export.CsvField("NS-ALPHA"), "NS-ALPHA"
+        CheckText "text read as a formula", CORE_Export.CsvField("=1+1"), "'=1+1"
+        CheckText "text starting with a minus", CORE_Export.CsvField("-x;y"), """'-x;y"""
+        CheckText "logical value", CORE_Export.CsvField(True), "TRUE"
+        CheckText "error value", CORE_Export.CsvField(CVErr(xlErrNA)), "#N/A"
+        CheckText "newer error value", CORE_Export.CsvField(CVErr(2045)), "#SPILL!"
+        CheckText "empty cell", CORE_Export.CsvField(Empty), ""
+        CheckText "line", CORE_Export.CsvLine("RUN", Array("alpha", 1.4)), "RUN;alpha;1.4" & vbCrLf
+        b = CORE_Export.Utf8Bytes("A" & ChrW(&HE9) & ChrW(&H20AC))
+        Check UBound(b) = 5 And b(0) = &H41 And b(1) = &HC3 And b(2) = &HA9 And b(3) = &HE2 And b(4) = &H82 And _
+              b(5) = &HAC, "UTF-8 of A, e acute and the euro sign"
+        b = CORE_Export.Utf8Bytes(ChrW(&HD83D) & ChrW(&HDE00))
+        Check UBound(b) = 3 And b(0) = &HF0 And b(1) = &H9F And b(2) = &H98 And b(3) = &H80, _
+              "UTF-8 of a character outside the BMP"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseExportWorkbook()
+'
+'==============================================================================
+' PURPOSE
+'   In the workbook: after a run the evidence report is written with its
+'   sections, and a second export of the same run is identical byte for
+'   byte, also over a longer hidden file of that name; an edited input, bank figures entered after the run, bank
+'   figures removed after a reconciliation and an edited output cell each
+'   make the export refuse, as does a recalculation pending in manual
+'   calculation; undoing them, or a new run, allows it again. A
+'   currency added below the FX table's named range is in the report.
+'   The edited cells and the files are put back or removed.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim folder      As String       'Folder for the test files
+    Dim fileA       As String       'First export
+    Dim fileB       As String       'Second export
+    Dim result      As String       'Result line
+    Dim textA       As String       'First export as text
+    Dim mtmCell     As Range        'An input edited and restored
+    Dim savedMtm    As Variant      'Its formula
+    Dim bankCell    As Range        'A bank figure entered and removed
+    Dim savedBank   As Variant      'Its formula
+    Dim outCell     As Range        'An output edited and restored
+    Dim savedOut    As Variant      'Its value
+    Dim wsParams    As Worksheet    'Params
+    Dim fxCol       As Long         'Key column of the FX table
+    Dim fxRow       As Long         'First blank row below it
+    Dim fxCells     As Range        'A currency added and removed
+    Dim savedFx     As Variant      'Their formulas
+    Dim fileNo      As Integer      'File number of a file written by the case
+
+'------------------------------------------------------------------------------
+' EXPORT TWICE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "export.workbook"
+        Application.Calculation = xlCalculationAutomatic
+        M_Main.gSilent = True
+        folder = Environ$("TEMP")
+        If Len(folder) = 0 Then
+            folder = ThisWorkbook.Path
+        End If
+        fileA = folder & Application.PathSeparator & "K-SACCR_evidence_test_a.csv"
+        fileB = folder & Application.PathSeparator & "K-SACCR_evidence_test_b.csv"
+        result = M_Main.RunSACCR_Silent()
+        result = M_Main.ExportEvidence_Silent(fileA)
+        Check Left$(result, 9) = "RESULT=OK", "first export: " & result
+        textA = FileText(fileA)
+        Check Left$(textA, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(textA, 40)
+        Check InStr(textA, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
+        Check InStr(textA, vbCrLf & "RUN;reference_parameter_set;") > 0 And InStr(textA, "RUN;workbook;") = 0, _
+              "run identity lines"
+        Check InStr(textA, vbCrLf & "RUN;reconciliation;NOT MADE" & vbCrLf) > 0 And _
+              InStr(textA, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
+        Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
+              "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        Check InStr(textA, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
+        Check InStr(textA, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(textA, vbCrLf & "CHECKS;") > 0 And _
+              InStr(textA, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check FileText(fileB) = textA, "a second export of the same run differs"
+        fileNo = FreeFile
+        Open fileB For Output As #fileNo
+        Print #fileNo, String$(Len(textA) + 100, "x")
+        Close #fileNo
+        SetAttr fileB, vbHidden
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK" And FileText(fileB) = textA, _
+              "a longer hidden file is not replaced whole: " & result
+
+'------------------------------------------------------------------------------
+' REFUSE WHEN NOT CURRENT
+'------------------------------------------------------------------------------
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        savedMtm = mtmCell.Formula
+        mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED", "export after an input edit: " & result
+        mtmCell.Formula = savedMtm
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export after undoing the edit: " & result
+    'In manual calculation the same value written again leaves the status
+    'formulas to recalculate: the export waits for F9.
+        Application.Calculation = xlCalculationManual
+        mtmCell.Formula = savedMtm
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "recalculating") > 0, _
+              "export with a recalculation pending: " & result
+        Application.Calculate
+        Application.Calculation = xlCalculationAutomatic
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export after the recalculation: " & result
+        Set bankCell = TableCell(GetSheet(SH_BANK_NS), NamedRow(NM_BN_HEADER) + 1, BN_ID)
+        savedBank = bankCell.Formula
+        bankCell.Value = "NEW-AFTER-RUN"
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, SH_BANK_NS) > 0, _
+              "export with bank figures entered after the run: " & result
+        result = M_Main.RunSACCR_Silent()
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export with a reconciliation: " & result
+        Check InStr(FileText(fileB), vbCrLf & "RUN;reconciliation_scale;") > 0, "settings of the reconciliation missing"
+        bankCell.Formula = savedBank
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, SH_BANK_NS) > 0, _
+              "export after every bank figure was removed: " & result
+
+'------------------------------------------------------------------------------
+' REFUSE AN EDITED OUTPUT
+'------------------------------------------------------------------------------
+        result = M_Main.RunSACCR_Silent()
+        Set outCell = TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, RS_EAD)
+        savedOut = outCell.Value2
+        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "output cell") > 0, _
+              "export after an output cell was edited: " & result
+        outCell.Value2 = savedOut
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export after restoring the output cell: " & result
+
+'------------------------------------------------------------------------------
+' EXPORT A CURRENCY ADDED BELOW THE FX TABLE
+'------------------------------------------------------------------------------
+    'The template asks for new currencies directly below the last row,
+    'outside the range of the name FX_Table; the run reads them, so the
+    'report must list them.
+        Set wsParams = GetSheet(SH_PARAMS)
+        fxCol = NamedTableCol(NM_FX_TABLE)
+        fxRow = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(wsParams, fxRow, fxCol).Value)
+            fxRow = fxRow + 1
+        Loop
+        Set fxCells = TableRange(wsParams, fxRow, fxCol, fxRow, fxCol + 2)
+        savedFx = fxCells.Formula
+        fxCells.Value = Array("ZZX", "Test currency", 2)
+        result = M_Main.RunSACCR_Silent()
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check InStr(FileText(fileB), vbCrLf & "FX_TABLE;ZZX;Test currency;2" & vbCrLf) > 0, _
+              "a currency added below the FX table is missing from the report: " & result
+        fxCells.Formula = savedFx
+        result = M_Main.RunSACCR_Silent()
+
+'------------------------------------------------------------------------------
+' CLEAN UP
+'------------------------------------------------------------------------------
+        RemoveFile fileA
+        RemoveFile fileB
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Application.Calculation = xlCalculationAutomatic
+        RestoreCell mtmCell, savedMtm
+        RestoreCell bankCell, savedBank
+        If Not outCell Is Nothing Then
+            outCell.Value2 = savedOut
+        End If
+        If Not fxCells Is Nothing Then
+            fxCells.Formula = savedFx
+        End If
+        RemoveFile fileA
+        RemoveFile fileB
+
+End Sub
+
+
+Private Function FileText( _
+    ByVal filePath As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Read a file's bytes as text, one character per byte; enough to check
+'   the ASCII content of an export.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim fileNo   As Integer    'File number
+    Dim b()      As Byte       'The bytes
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        fileNo = FreeFile
+        Open filePath For Binary Access Read As #fileNo
+        If LOF(fileNo) > 0 Then
+            ReDim b(0 To LOF(fileNo) - 1)
+            Get #fileNo, , b
+            FileText = StrConv(b, vbUnicode)
+        End If
+        Close #fileNo
+
+End Function
+
+
+Private Sub RemoveFile( _
+    ByVal filePath As String)
+'
+'==============================================================================
+' PURPOSE
+'   Delete a test file when it exists.
+'
+' ERROR POLICY
+'   Contained.
+'==============================================================================
+'
+        On Error Resume Next
+        If Len(filePath) > 0 Then
+            If Len(Dir$(filePath, vbHidden)) > 0 Then
+                SetAttr filePath, vbNormal
+                Kill filePath
+            End If
+        End If
+        Err.Clear
+
+End Sub
+
+
+Private Sub RestoreCell( _
+    ByVal target As Range, _
+    ByVal saved As Variant)
+'
+'==============================================================================
+' PURPOSE
+'   Put back a cell edited by a case, after an unexpected error.
+'
+' ERROR POLICY
+'   Contained: a failure is reported as a failure of the case.
+'==============================================================================
+'
+        On Error GoTo Failed
+        If Not target Is Nothing Then
+            target.Formula = saved
+        End If
+        Exit Sub
+
+Failed:
+        Fail mCurrentCase, "could not restore an edited cell: " & Err.Description
 
 End Sub
 

@@ -98,6 +98,30 @@ Use only the categories needed by a release.
 
 ### Added
 
+- An evidence report of the run (#45). **Export evidence**, a new button on
+  `Reconciliation`, writes one CSV file, separated by `;` with a `.` decimal
+  point, CR LF line ends and UTF-8 without a byte-order mark in every locale.
+  Each line starts with its section: `RUN` (format, run summary with the run
+  class, input and output fingerprints, reporting date and currency, default
+  regime, the reference parameter set, totals per regime, the counts on
+  Checks, and for each reconciliation `CURRENT` or `NOT MADE`, its fingerprint
+  and summary, and the scale and tolerances it used), `PARAMS`, `SF_TABLE`,
+  `FX_TABLE`, `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`
+  and a fixed `LIMITATIONS` section. The export refuses while Excel has a
+  recalculation pending, while the results are not current, while a
+  reconciliation no longer matches its bank figures (also after they were all
+  removed), or after an output cell was edited: a completed run stores the
+  fingerprint of the exported outputs in the hidden name `SACCR_RunOutputs`.
+  `SF_TABLE` and `FX_TABLE` hold the rows the run read, also those added below
+  the table's named range. Text that Excel would read as a formula is written
+  with a leading apostrophe. A file therefore describes the inputs as they are
+  and what the run wrote; two exports of the same run are identical. The
+  encoding is in the new module `CORE_Export`, which reads no sheet; `M_Main`
+  adds `ExportEvidence` and `ExportEvidence_Silent`, and
+  `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
+  write their tolerances with a decimal point in every locale, and the run
+  summary on Results its run time. `TEST_Reconcile`: 18 cases, 132 checks.
+
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,
   and quotes in comments (after `'` or `Rem`, also on a continued comment

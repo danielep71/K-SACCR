@@ -175,23 +175,24 @@ The layout and file conventions are defined in
    | ---: | --- | --- | --- |
    | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet layout constants, parameter codes and error numbers |
    | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
-   | 3 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc (#45) |
-   | 4 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
-   | 5 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 6 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`; reads and writes the reconciliation sheets |
-   | 7 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 8 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
-   | 9 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 10 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 11 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 12 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 13 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 14 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 15 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 16 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 3 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes (#45) |
+   | 4 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc (#45) |
+   | 5 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
+   | 6 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
+   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`; reads and writes the reconciliation sheets |
+   | 8 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 9 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites; development workbook only |
+   | 10 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 11 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 12 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 13 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 14 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 15 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 16 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 17 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
-   The sheet buttons call `RunSACCR`, `ValidateInputs` and `ClearOutputs`, so
-   they work once `M_Main` is imported.
+   The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs` and
+   `ExportEvidence`, so they work once `M_Main` is imported.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
@@ -504,9 +505,17 @@ factors not, a figure the calculator does not have (`NOT APPLICABLE`), a
 leg missing on either side, an `EXCLUDED` leg with its reasons, a leg listed
 twice, the trade summary, and, in the workbook, `MATCH`, `DIFFERENCE` and
 `MISSING IN CALCULATOR` on TradeReconciliation with its status current and
-then `OUT OF DATE`; the BankTrades table is put back. Run
-`TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=16; checks=96; failures=0`.
+then `OUT OF DATE`; the BankTrades table is put back. Two cases cover the
+evidence export: the CSV fields (decimal point, quoting, text read as a
+formula, error values, CR LF,
+UTF-8 without a byte-order mark, including characters outside the BMP) and,
+in the workbook, an export written twice byte for byte the same, also over a
+longer hidden file of that name, and refused
+after an input edit, bank figures entered after the run, every bank figure
+removed after a reconciliation, or an edited Results cell, and listing a
+currency added below the FX table; the cells and files are put back or
+removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
+`RESULT=PASS; cases=18; checks=132; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
@@ -540,6 +549,35 @@ it reads `OUT OF DATE` once a bank figure, a setting or an input changes after
 the run, and `No reconciliation` when there is none or no current results.
 TradeReconciliation C5 does the same through
 `=TradeReconciliationStatusText(...)`, which watches BankTrades.
+
+`ExportEvidence_Silent(filePath)` writes the evidence report without a
+dialog and returns `RESULT=OK; lines=...; file=...`, or
+`RESULT=REFUSED; reason=...` while Excel has a recalculation pending (manual
+calculation: press F9), when `ResultsStatus()` is not `CURRENT`, when
+a reconciliation does not match its bank figures, settings and inputs as
+they are now (also after every bank figure was removed), or when an output
+cell on Results, Checks or a reconciliation sheet differs from what the run
+wrote: a completed run stores the fingerprint of the exported outputs in
+the hidden name `SACCR_RunOutputs`, which every operation empties first,
+and the report gives it as `RUN;outputs`. The file is `;`-separated, with a `.` decimal point, CR LF
+line ends and UTF-8 without a byte-order mark; the first field of every
+line names its section (`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`,
+`RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`,
+`LIMITATIONS`), and the first line is `RUN;format;K-SACCR evidence 1`.
+`RUN;reference_parameter_set` names the set the template ships; whether the
+run used it unchanged (`REGULATORY`) or not (`WHAT-IF`) is in
+`RUN;run_summary`. A reconciliation reads `CURRENT` or `NOT MADE`; its
+summary says why one was not made. The workbook's file name is not in the
+report, as a Save As would change it for the same run.
+Text that Excel would read as a formula when the file is opened (starting
+with `=`, `+`, `-`, `@`, a tab or a carriage return) is written with a
+leading apostrophe; numbers keep their sign. Error values are written by
+their Excel names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and
+tolerances are in `RUN` only when it was made, as they are then part of
+its fingerprint. `SF_TABLE` and `FX_TABLE`
+hold the rows the run read: from the header of
+`SF_Table` or `FX_Table` down to the first blank key, also below the
+name's range.
 
 <a id="validation-record"></a>
 

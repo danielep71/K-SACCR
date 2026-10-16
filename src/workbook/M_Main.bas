@@ -21,13 +21,17 @@ Attribute VB_Name = "M_Main"
 '   ReconciliationStatusText and TradeReconciliationStatusText: the same
 '   for the reconciliations of the bank figures, for the status formulas
 '   in Reconciliation C5 and TradeReconciliation C5 (#45).
+'   ExportEvidence: write the evidence report of the last run to a CSV
+'   file (#45); ExportEvidence_Silent: the same to a given file, for
+'   automation and tests.
 '   The sheet buttons call the first three by name. These macros are not
 '   listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
-'   (#45), whose sheets this module reads and writes; CORE_Util and CORE_Config for the
+'   (#45), whose sheets this module reads and writes; CORE_Export for the
+'   evidence report; CORE_Util and CORE_Config for the
 '   output sheets and the error numbers.
 '
 ' STATE OWNERSHIP
@@ -1076,6 +1080,698 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+'                               EVIDENCE EXPORT
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ExportEvidence()
+'
+'==============================================================================
+'                                ExportEvidence
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the evidence report of the last run to a CSV file chosen by the
+'   user (#45): run identity, parameters, Results, both reconciliations,
+'   Checks and the report's limitations (CORE_Export). Refused when the
+'   results or a reconciliation with bank figures are not current, or when
+'   an output cell was edited after the run.
+'
+' USAGE
+'   Assigned to the Export evidence button on Reconciliation.
+'
+' ERROR POLICY
+'   Reports a refusal or a write failure in a message, or in the Immediate
+'   window in silent mode; never raises.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim problem   As String     'Why the report cannot be written; "" when it can
+    Dim target    As Variant    'Chosen file, or False when cancelled
+    Dim nLines    As Long       'Lines written
+
+'------------------------------------------------------------------------------
+' CHECK, ASK AND WRITE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        problem = EvidenceProblem()
+        If Len(problem) > 0 Then
+            Notify "Evidence not exported: " & problem & ".", vbExclamation
+            Exit Sub
+        End If
+        target = Application.GetSaveAsFilename(InitialFileName:=DefaultEvidenceName(), _
+                                               FileFilter:="CSV files (*.csv), *.csv", _
+                                               Title:="Export evidence")
+        If VarType(target) = vbBoolean Then
+            Exit Sub
+        End If
+        nLines = WriteEvidence(CStr(target))
+        Notify "Evidence exported: " & CStr(target) & " (" & nLines & " lines).", vbInformation
+        Exit Sub
+
+Failed:
+        Notify "Evidence not exported: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function ExportEvidence_Silent( _
+    ByVal filePath As String) _
+    As String
+'
+'==============================================================================
+'                            ExportEvidence_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   ExportEvidence for automation and tests: write the report to filePath
+'   without asking.
+'
+' RETURNS
+'   "RESULT=OK; lines=N; file=..." or "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   A file that cannot be written raises to the caller.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim problem   As String    'Why the report cannot be written; "" when it can
+
+'------------------------------------------------------------------------------
+' CHECK AND WRITE
+'------------------------------------------------------------------------------
+        problem = EvidenceProblem()
+        If Len(problem) > 0 Then
+            ExportEvidence_Silent = "RESULT=REFUSED; reason=" & problem
+        Else
+            ExportEvidence_Silent = "RESULT=OK; lines=" & WriteEvidence(filePath) & "; file=" & filePath
+        End If
+
+End Function
+
+
+Private Function EvidenceProblem() As String
+'
+'==============================================================================
+'                               EvidenceProblem
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell why no evidence report may be written now: the results are not
+'   those of the current inputs, or a sheet of bank figures holds figures
+'   whose reconciliation is missing or out of date. An evidence report
+'   must never describe results that do not match the inputs.
+'
+' RETURNS
+'   "" when the report may be written; otherwise the reason.
+'
+' ERROR POLICY
+'   Never raises: an error is itself the reason.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim kind      As Long       'Reconciliation checked
+    Dim stored    As String     'A stored fingerprint
+    Dim current   As Boolean    'True when the reconciliation is current
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+    'In manual calculation a formula input may still show the value from
+    'before its precedents changed, and the fingerprints would read it as
+    'current.
+        If Application.CalculationState <> xlDone Then
+            EvidenceProblem = "Excel has not finished recalculating; press F9, then Run SA-CCR if the results " & _
+                              "are out of date"
+            Exit Function
+        End If
+        If ResultsStatus() <> "CURRENT" Then
+            EvidenceProblem = "the results are not those of the current inputs; press Run SA-CCR first"
+            Exit Function
+        End If
+    'A stored reconciliation must match its bank figures as they are now,
+    'also when every bank row was removed after the run; bank figures
+    'without a stored reconciliation were never compared.
+        For kind = RECON_NS To RECON_TR
+            If ReconciliationSheetsPresent(kind) Then
+                stored = StoredText(InputsNameOf(kind))
+                If Len(stored) > 0 Then
+                    current = (stored = ReconFingerprint(kind))
+                Else
+                    current = Not BankRowsEntered(kind)
+                End If
+                If Not current Then
+                    EvidenceProblem = "the reconciliation of the bank figures on " & BankSheetOf(kind) & _
+                                      " is not current; press Run SA-CCR first"
+                    Exit Function
+                End If
+            End If
+        Next kind
+    'The output sheets are not protected: what the report copies from them
+    'must still be what the run wrote.
+        stored = StoredText(RUN_OUTPUTS_NAME)
+        If Len(stored) = 0 Then
+            EvidenceProblem = "the outputs of the last run were not recorded; press Run SA-CCR first"
+        ElseIf stored <> OutputFingerprint() Then
+            EvidenceProblem = "an output cell on Results, Checks or a reconciliation sheet was changed after " & _
+                              "the run; press Run SA-CCR first"
+        End If
+        Exit Function
+
+Failed:
+        EvidenceProblem = "the workbook could not be checked (" & Err.Description & ")"
+
+End Function
+
+
+Private Function WriteEvidence( _
+    ByVal filePath As String) _
+    As Long
+'
+'==============================================================================
+'                                WriteEvidence
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the evidence report to filePath as UTF-8 without a byte-order
+'   mark, replacing any file of that name, hidden ones included; a
+'   read-only file is left as it is and the write fails.
+'
+' RETURNS
+'   The number of lines written.
+'
+' ERROR POLICY
+'   Raises when the file cannot be written, or when it holds more than
+'   the report afterwards (an old file that could not be removed); the
+'   file number is closed first.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim text        As String    'The report
+    Dim bytes()     As Byte      'Its UTF-8 bytes
+    Dim fileNo      As Integer   'File number; 0 while none is open
+    Dim errNumber   As Long      'Error to raise after closing the file
+    Dim errText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        text = EvidenceText()
+        bytes = CORE_Export.Utf8Bytes(text)
+    'Open For Binary does not truncate: an old file must go first, also
+    'when it is hidden, or a shorter report would keep its tail.
+        On Error GoTo Failed
+        If Len(Dir$(filePath, vbHidden Or vbSystem)) > 0 Then
+            If (GetAttr(filePath) And vbReadOnly) = 0 Then
+                SetAttr filePath, vbNormal
+            End If
+            Kill filePath
+        End If
+        fileNo = FreeFile
+        Open filePath For Binary Access Write As #fileNo
+        Put #fileNo, , bytes
+        If LOF(fileNo) <> UBound(bytes) - LBound(bytes) + 1 Then
+            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "an older file of that name could not be replaced"
+        End If
+        Close #fileNo
+        WriteEvidence = (Len(text) - Len(Replace(text, vbCrLf, ""))) \ 2
+        Exit Function
+
+Failed:
+        errNumber = Err.Number
+        errText = Err.Description
+        If fileNo <> 0 Then
+            Close #fileNo
+        End If
+        Err.Raise errNumber, "M_Main.WriteEvidence", "Could not write " & filePath & ": " & errText
+
+End Function
+
+
+Private Function EvidenceText() As String
+'
+'==============================================================================
+'                                 EvidenceText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Build the evidence report from the sheets as they are: RUN (the run
+'   identity), PARAMS, SF_TABLE and FX_TABLE (the parameter snapshot),
+'   RESULTS, RECONCILIATION, TRADE_RECONCILIATION, CHECKS and LIMITATIONS.
+'   Everything is read from the workbook, so the report is the same after
+'   the workbook is closed and reopened.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s          As String       'The report
+    Dim wsRes      As Worksheet    'Results
+    Dim lastR      As Long         'Last row of a table
+    Dim r          As Long         'Row
+    Dim id         As String       'Results ID
+    Dim codes      As Variant      'Parameter codes
+    Dim i          As Long         'Code or reconciliation
+    Dim nSev(1 To 3) As Long       'Checks lines: ERROR, WARNING, INFO
+    Dim sev        As String       'Severity of a Checks line
+    Dim prefix     As String       'Key prefix of a reconciliation
+    Dim c          As Range        'A named cell
+
+'------------------------------------------------------------------------------
+' RUN
+'------------------------------------------------------------------------------
+        Set wsRes = GetSheet(SH_RESULTS)
+        s = RunLine("format", "K-SACCR evidence 1")
+        s = s & RunLine("run_summary", wsRes.Range(RUNINFO_CELL).Value2)
+        s = s & RunLine("results_status", ResultsStatus())
+        s = s & RunLine("inputs", CORE_Engine.LastRunInputs())
+        s = s & RunLine("outputs", StoredText(RUN_OUTPUTS_NAME))
+        Set c = NamedCell(PRM_ASOF)
+        If IsNumeric(c.Value2) And Not IsEmpty(c.Value2) Then
+            s = s & RunLine("reporting_date", Format$(CDate(c.Value2), "yyyy-mm-dd"))
+        Else
+            s = s & RunLine("reporting_date", c.Value2)
+        End If
+        s = s & RunLine("reporting_ccy", NamedCell(PRM_REPCCY).Value2)
+        s = s & RunLine("regime_default", NamedCell(PRM_REGIME).Value2)
+    'The set the template ships, not a claim about this run: whether the run
+    'used it unchanged is in run_summary (regulatory or what-if).
+        s = s & RunLine("reference_parameter_set", REF_SET_ID)
+        lastR = LastDataRow(wsRes, FIRST_DATA_ROW, RS_ID)
+        For r = FIRST_DATA_ROW To lastR
+            id = UTxt(TableCell(wsRes, r, RS_ID).Value2)
+            If id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
+                s = s & RunLine("total_ead_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_EAD).Value2)
+                s = s & RunLine("total_status_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_STATUS_COL).Value2)
+            End If
+        Next r
+        lastR = LastDataRow(GetSheet(SH_CHECKS), FIRST_DATA_ROW, 1)
+        For r = FIRST_DATA_ROW To lastR
+            sev = UTxt(TableCell(GetSheet(SH_CHECKS), r, 1).Value2)
+            If sev = SEV_ERROR Then nSev(1) = nSev(1) + 1
+            If sev = SEV_WARN Then nSev(2) = nSev(2) + 1
+            If sev = SEV_INFO Then nSev(3) = nSev(3) + 1
+        Next r
+        s = s & RunLine("checks_errors", nSev(1))
+        s = s & RunLine("checks_warnings", nSev(2))
+        s = s & RunLine("checks_info", nSev(3))
+        For i = RECON_NS To RECON_TR
+            prefix = IIf(i = RECON_NS, "reconciliation", "trade_reconciliation")
+            If Not ReconciliationSheetsPresent(i) Then
+                s = s & RunLine(prefix, "UNAVAILABLE")
+            Else
+            'Without a stored fingerprint the reconciliation was not made:
+            'no bank figures, or settings or headers it could not use; the
+            'summary says which.
+                s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NOT MADE"))
+                s = s & RunLine(prefix & "_inputs", StoredText(InputsNameOf(i)))
+                s = s & RunLine(prefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
+            'The settings are part of a reconciliation's fingerprint; without
+            'one they were not used, and could change after the run.
+                If Len(StoredText(InputsNameOf(i))) > 0 Then
+                    s = s & RunLine(prefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
+                    s = s & RunLine(prefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
+                    s = s & RunLine(prefix & "_rel_tol", NamedCell(SettingNameOf(i, 3)).Value2)
+                End If
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' PARAMETER SNAPSHOT
+'------------------------------------------------------------------------------
+        codes = CORE_Engine.ParameterCodes()
+        For i = LBound(codes) To UBound(codes)
+            s = s & CORE_Export.CsvLine("PARAMS", Array(codes(i), NamedCell(CStr(codes(i))).Value2))
+        Next i
+        s = s & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
+        s = s & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
+
+'------------------------------------------------------------------------------
+' TABLES
+'------------------------------------------------------------------------------
+        s = s & OutputTableLines()
+        s = s & CORE_Export.LimitationLines()
+        EvidenceText = s
+
+End Function
+
+
+Private Function ParamsTableLines( _
+    ByVal section As String, _
+    ByVal nameText As String, _
+    ByVal headers As String) _
+    As String
+'
+'==============================================================================
+'                               ParamsTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A Params table as the engine reads it: from the header row of its
+'   workbook name down to the first blank key, across its header columns.
+'   Rows added below the named range are read by the run, so they are
+'   exported too.
+'
+' ERROR POLICY
+'   Raises when the name does not locate a header row.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet    'Params
+    Dim headRow   As Long         'Header row
+    Dim keyCol    As Long         'Key column
+    Dim r         As Long         'Row read
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_PARAMS)
+        headRow = NamedRow(nameText)
+        keyCol = NamedTableCol(nameText)
+        If headRow = 0 Then
+            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ParamsTableLines", "The name " & nameText & " is missing."
+        End If
+        r = headRow + 1
+        Do While Not IsBlankCell(TableCell(ws, r, keyCol).Value)
+            r = r + 1
+        Loop
+        ParamsTableLines = CORE_Export.TableLines(section, TableRange(ws, headRow, keyCol, r - 1, _
+                                                  keyCol + UBound(Split(headers, "|"))).Value2)
+
+End Function
+
+
+Private Function SheetTableLines( _
+    ByVal section As String, _
+    ByVal sheetName As String, _
+    ByVal nCols As Long) _
+    As String
+'
+'==============================================================================
+'                               SheetTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write an output table as lines of a section: its header row, then its
+'   rows down to the last with a value in the first column.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws      As Worksheet    'The sheet
+    Dim lastR   As Long         'Last row of the table
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(sheetName)
+        lastR = LastDataRow(ws, FIRST_DATA_ROW, 1)
+        If lastR < HEADER_ROW Then
+            lastR = HEADER_ROW
+        End If
+        SheetTableLines = CORE_Export.TableLines(section, TableRange(ws, HEADER_ROW, 1, lastR, nCols).Value2)
+
+End Function
+
+
+Private Function RunLine( _
+    ByVal key As String, _
+    ByVal entry As Variant) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   One line of the RUN section: key and value.
+'==============================================================================
+'
+        RunLine = CORE_Export.CsvLine("RUN", Array(key, entry))
+
+End Function
+
+
+Private Function DefaultEvidenceName() As String
+'
+'==============================================================================
+'                             DefaultEvidenceName
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The file name offered for a report: K-SACCR_evidence_ with the date and
+'   time, in the workbook's folder when it has one.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        DefaultEvidenceName = "K-SACCR_evidence_" & Format$(Now, "yyyymmdd-hhnnss") & ".csv"
+    'A workbook opened from OneDrive or SharePoint has a URL as its path,
+    'which the save dialog cannot start from.
+        If Len(ThisWorkbook.Path) > 0 And InStr(ThisWorkbook.Path, "://") = 0 Then
+            DefaultEvidenceName = ThisWorkbook.Path & Application.PathSeparator & DefaultEvidenceName
+        End If
+
+End Function
+
+
+Private Function BankRowsEntered( _
+    ByVal kind As Long) _
+    As Boolean
+'
+'==============================================================================
+'                               BankRowsEntered
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a bank sheet holds any figure: an unreadable table counts
+'   as holding figures, so that it is never skipped silently.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws          As Worksheet    'The bank sheet
+    Dim headerRow   As Long         'Its header row
+    Dim lastR       As Long         'Its last used row
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        headerRow = BankHeaderRow(kind)
+        If headerRow = 0 Then
+            BankRowsEntered = True
+            Exit Function
+        End If
+        Set ws = GetSheet(BankSheetOf(kind))
+        lastR = UsedLastRow(ws)
+        If lastR > headerRow Then
+            BankRowsEntered = CORE_Reconcile.HasBankRows( _
+                TableRange(ws, headerRow + 1, 1, lastR, BankColsOf(kind)).Value2, BankColsOf(kind))
+        End If
+
+End Function
+
+
+Private Function StoredText( _
+    ByVal nameText As String) _
+    As String
+'
+'==============================================================================
+'                                  StoredText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the fingerprint stored in a hidden workbook name (a
+'   reconciliation's or the run outputs'), or "" when there is none, as
+'   CORE_Engine.LastRunInputs.
+'
+' ERROR POLICY
+'   Contains the expected error of a missing name.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim wbName   As Name    'The stored name, Nothing when absent
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        Set wbName = ThisWorkbook.Names(nameText)
+        Err.Clear
+        On Error GoTo 0
+        If Not wbName Is Nothing Then
+            StoredText = Replace(Replace(wbName.RefersTo, "=", ""), """", "")
+        End If
+
+End Function
+
+
+Private Function OutputTableLines() As String
+'
+'==============================================================================
+'                               OutputTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The output tables of the evidence report: RESULTS, RECONCILIATION and
+'   TRADE_RECONCILIATION when their sheets exist, and CHECKS.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s   As String    'The lines
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        s = SheetTableLines("RESULTS", SH_RESULTS, RS_NCOLS)
+        If ReconciliationSheetsPresent(RECON_NS) Then
+            s = s & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
+        End If
+        If ReconciliationSheetsPresent(RECON_TR) Then
+            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, RC_NCOLS)
+        End If
+        OutputTableLines = s & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
+
+End Function
+
+
+Private Function OutputFingerprint() As String
+'
+'==============================================================================
+'                              OutputFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint what the evidence report copies from the output sheets:
+'   the run summary on Results, the summary of each reconciliation sheet
+'   and the output tables.
+'
+' ERROR POLICY
+'   Raises when a sheet cannot be read.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s      As String    'The text fingerprinted
+    Dim kind   As Long      'Reconciliation
+
+'------------------------------------------------------------------------------
+' FINGERPRINT
+'------------------------------------------------------------------------------
+        s = CORE_Export.CsvField(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        For kind = RECON_NS To RECON_TR
+            If ReconciliationSheetsPresent(kind) Then
+                s = s & Chr$(29) & CORE_Export.CsvField(GetSheet(ReconSheetOf(kind)).Range(RECON_INFO_CELL).Value2)
+            End If
+        Next kind
+        OutputFingerprint = TextHash(s & Chr$(29) & OutputTableLines())
+
+End Function
+
+
+Private Sub RememberRunOutputs()
+'
+'==============================================================================
+'                              RememberRunOutputs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Store the fingerprint of the output sheets when a run has completed,
+'   its reconciliations included.
+'
+' ERROR POLICY
+'   Best effort: when the fingerprint cannot be taken or stored it is left
+'   empty, and the export refuses until the next run.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""" & OutputFingerprint() & """", _
+                               Visible:=False
+        Exit Sub
+
+Failed:
+        ForgetRunOutputs
+
+End Sub
+
+
+Private Sub ForgetRunOutputs()
+'
+'==============================================================================
+'                               ForgetRunOutputs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Empty the stored fingerprint of the output sheets.
+'
+' ERROR POLICY
+'   Contains any error.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""""", Visible:=False
+
+Failed:
+
+End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
 '                              OPERATION RUNNER
 '
 '------------------------------------------------------------------------------
@@ -1156,12 +1852,13 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
 ' WITHDRAW THE RECONCILIATION
 '------------------------------------------------------------------------------
-    'Every operation first withdraws both reconciliations (#45), before
-    'anything that can stop it, the recalculation included; only a run
-    'that completes makes new ones.
+    'Every operation first withdraws both reconciliations (#45) and the
+    'fingerprint of the output sheets, before anything that can stop it,
+    'the recalculation included; only a run that completes makes new ones.
         mReconState = "NONE"
         mTradeReconState = "NONE"
         mReconLine = ""
+        ForgetRunOutputs
         Select Case operation
             Case OP_RUN
                 ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
@@ -1209,6 +1906,7 @@ Private Function ExecuteOperation( _
                 If ok Then
                     mReconState = ReconcileAfterRun(RECON_NS)
                     mTradeReconState = ReconcileAfterRun(RECON_TR)
+                    RememberRunOutputs
                 Else
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."
                 End If
