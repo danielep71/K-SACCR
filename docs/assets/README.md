@@ -75,6 +75,21 @@ The SVG is the source. Its values were checked against the methodology
 parameter table on the release branch on 2026-10-15, when the SVG last
 changed; update the card when a supervisory parameter or formula changes.
 
+The workbook carries the card as a picture on its README sheet, under the
+"Reference card" heading, so a user never has to leave Excel (#281).
+README!D23 links to C114, a cell behind the lower part of the picture:
+Excel scrolls only until the target cell is in view, so a link to the
+heading would leave the picture below the window. The picture is a PNG of this SVG: when the SVG changes,
+render it again and replace the picture in the template
+(`xl/media/image1.png`, shown 1260 px wide):
+
+1. Open the SVG in an HTML page that shows it at 1800 x 1444 px and take a
+   screenshot with headless Chromium at a device scale factor of 1, in a
+   window taller than 1444 px; crop it to 1800 x 1444.
+2. Quantize it to 256 colours (Pillow `quantize(colors=256,
+   method=MEDIANCUT, dither=NONE)`) and save it with `optimize=True`, as for
+   the screenshots above.
+
 <a id="social-preview"></a>
 
 ## 🪧 Social preview
