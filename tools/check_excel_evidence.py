@@ -42,7 +42,7 @@ RECORD_KEYS = ("schema_version repository candidate_sha execution availability_r
                "started_at finished_at operator environment sources stages harness suites summary")
 POLICY_KEYS = ("schema_version repository entry_point cases assertions expected_error_cases "
                "required_references suites summary_entry_point")
-SUITE_POLICY_KEYS = "entry_point header mode_line cases checks restoration"
+SUITE_POLICY_KEYS = "entry_point header mode_line cases checks restoration first_case"
 SUITE_RECORD_KEYS = "entry_point status cases checks failures log"
 BITNESS = ("32-bit", "64-bit")
 STATUSES = ("PASS", "FAIL", "NOT_RUN", "TIMEOUT")
@@ -143,6 +143,10 @@ def parse_suite_policy(value: Any) -> dict[str, Any]:
             or (isinstance(suite["restoration"], str)
                 and re.fullmatch(r"\w+=\w+", suite["restoration"]) is not None),
             "policy suite restoration must be null or key=value")
+    require(suite["first_case"] is None
+            or (isinstance(suite["first_case"], str)
+                and re.fullmatch(r"[\w.-]+", suite["first_case"]) is not None),
+            "policy suite first_case must be null or a case name")
     return suite
 
 
@@ -160,9 +164,17 @@ def parse_policy(raw: bytes) -> dict[str, Any]:
     require(bool(cases) and set(errors) <= set(cases),
             "expected-error cases must belong to the declared suite")
     require(isinstance(policy["suites"], list) and bool(policy["suites"]), "policy needs suites")
-    entries = [parse_suite_policy(suite)["entry_point"] for suite in policy["suites"]]
+    suites = [parse_suite_policy(suite) for suite in policy["suites"]]
+    entries = [suite["entry_point"] for suite in suites]
     require(len(set(entries + [policy["entry_point"]])) == len(entries) + 1,
             "policy entry points must be distinct")
+    # Suites that print the same header are told apart by the first case they run.
+    headers = [suite["header"] for suite in suites]
+    shared = [suite for suite in suites if headers.count(suite["header"]) > 1]
+    require(all(suite["first_case"] is not None for suite in shared),
+            "suites that share a header need their first case")
+    firsts = [suite["first_case"] for suite in shared]
+    require(len(set(firsts)) == len(firsts), "suites that share a header need distinct first cases")
     require(nonempty(policy["summary_entry_point"]), "policy needs the summary entry point")
     return policy
 
@@ -351,8 +363,12 @@ def validate_suite_log(spec: dict[str, Any], item: dict[str, Any], log: str,
             f"{label} log must contain exactly one run")
     modes = [mode.strip() for mode in re.findall(r"^MODE=(.*)$", log, re.MULTILINE)]
     require(modes == (["NORMAL"] if spec["mode_line"] else []), f"{label} log is not a normal-mode run")
-    require(len(re.findall(r"^CASE=", log, re.MULTILINE)) == item["cases"],
-            f"{label} CASE lines differ from the record")
+    cases = [case.strip() for case in re.findall(r"^CASE=(.*)$", log, re.MULTILINE)]
+    require(len(cases) == item["cases"], f"{label} CASE lines differ from the record")
+    # A shared header does not say which suite ran; its first case does (regime suffix aside).
+    first = spec["first_case"]
+    require(first is None or not cases or cases[0] == first or cases[0].startswith(first + "."),
+            f"{label} log starts with another suite's case")
     restoration = spec["restoration"].split("=") if spec["restoration"] else None
     keys = ["cases", "checks", "failures"] + ([restoration[0]] if restoration else [])
     verdict, values = result_fields(single(log, "RESULT", label), keys, label)
@@ -458,6 +474,11 @@ def validate_unavailable(record: dict[str, Any]) -> list[str]:
     return ["UNAVAILABLE"]
 
 
+def normalized(log: str) -> str:
+    """A log as the validator reads it: no blank lines, no trailing spaces."""
+    return "\n".join(line.rstrip() for line in log.splitlines() if line.strip())
+
+
 def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[str, Any],
                     directory: Path) -> list[str]:
     require(record["availability_reason"] is None, "a manual run has no unavailability reason")
@@ -479,9 +500,10 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
     if regression in ("PASS", "FAIL"):
         suite_logs[policy["entry_point"]] = logs["regression"]
     validate_summary(record, policy, directory, suite_logs)
-    # The case-runner suites share a header: one log cited for two of them, for
-    # example a failed one whose counts the policy does not check, is one run.
-    require(len(set(suite_logs.values())) == len(suite_logs), "the same log is cited for two test runs")
+    # One log cited for two runs is one run, whatever blank lines or trailing
+    # spaces were added to a copy: the validator reads past both.
+    runs = {normalized(log) for log in suite_logs.values()}
+    require(len(runs) == len(suite_logs), "the same log is cited for two test runs")
     return list(dict.fromkeys(outcomes + suite_outcomes))
 
 
@@ -524,7 +546,7 @@ def module_text(root: Path, entry_point: str) -> str:
 
 def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     """The policy counts of one suite against the counts its module declares."""
-    text = module_text(root, spec["entry_point"])
+    text = module = module_text(root, spec["entry_point"])
     problems = []
     if declared(text, "EXPECTED_CASES|CASES", 0) != {spec["cases"]}:
         problems.append(f"{spec['entry_point']}: policy cases differ from the module")
@@ -540,6 +562,10 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
         problems.append(f"{spec['entry_point']}: header {spec['header']!r} not printed by the module")
     if spec["mode_line"] != runner:
         problems.append(f"{spec['entry_point']}: policy mode_line differs from the module")
+    # The first case a case-runner module starts in its source is the first it runs.
+    first = re.search(r'\b(?:BeginCase|StartCase)\s+"([^"]+)"', module)
+    if spec["first_case"] is not None and (first is None or first.group(1) != spec["first_case"]):
+        problems.append(f"{spec['entry_point']}: policy first_case differs from the module")
     return problems
 
 

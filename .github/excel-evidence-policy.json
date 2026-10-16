@@ -25,7 +25,8 @@
       "mode_line": false,
       "cases": 9,
       "checks": {"32-bit": 80, "64-bit": 82},
-      "restoration": null
+      "restoration": null,
+      "first_case": null
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",
@@ -33,7 +34,8 @@
       "mode_line": false,
       "cases": 27,
       "checks": {"32-bit": 465, "64-bit": 465},
-      "restoration": "caller_state=RESTORED"
+      "restoration": "caller_state=RESTORED",
+      "first_case": null
     },
     {
       "entry_point": "TEST_Cases.RunCaseTests",
@@ -41,7 +43,8 @@
       "mode_line": true,
       "cases": 20,
       "checks": {"32-bit": 39, "64-bit": 39},
-      "restoration": "restore=PASS"
+      "restoration": "restore=PASS",
+      "first_case": "cre99-example-1"
     },
     {
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
@@ -49,7 +52,8 @@
       "mode_line": true,
       "cases": 133,
       "checks": {"32-bit": 209, "64-bit": 209},
-      "restoration": "restore=PASS"
+      "restoration": "restore=PASS",
+      "first_case": "trade-middle-row-without-id"
     },
     {
       "entry_point": "TEST_Aggregation.RunAggregationTests",
@@ -57,7 +61,8 @@
       "mode_line": true,
       "cases": 11,
       "checks": {"32-bit": 11, "64-bit": 11},
-      "restoration": "restore=PASS"
+      "restoration": "restore=PASS",
+      "first_case": "aggregation-demo-original-order"
     },
     {
       "entry_point": "TEST_Invariants.RunInvariantTests",
@@ -65,7 +70,8 @@
       "mode_line": true,
       "cases": 4,
       "checks": {"32-bit": 23, "64-bit": 23},
-      "restoration": "restore=PASS"
+      "restoration": "restore=PASS",
+      "first_case": "invariants-demo"
     },
     {
       "entry_point": "TEST_Reconcile.RunReconcileTests",
@@ -73,7 +79,8 @@
       "mode_line": false,
       "cases": 19,
       "checks": {"32-bit": 140, "64-bit": 140},
-      "restoration": null
+      "restoration": null,
+      "first_case": null
     }
   ],
   "summary_entry_point": "TEST_Suite.Test_RunAll"

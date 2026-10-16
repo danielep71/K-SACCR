@@ -106,9 +106,12 @@ class ExcelEvidenceTests(unittest.TestCase):
         if spec["restoration"]:
             key, value = spec["restoration"].split("=")
             result += f"; {key}={value if restored else 'FAIL'}"
+        names = [f"case-{index}" for index in range(cases)]
+        if spec["first_case"] and names:
+            names[0] = spec["first_case"] + ".crr"
         return "\n".join([f"CANDIDATE={candidate or self.sha}", spec["header"],
                           *(["MODE=" + mode] if spec["mode_line"] else []),
-                          *(f"CASE=case-{index}" for index in range(cases)), result, ""])
+                          *(f"CASE={name}" for name in names), result, ""])
 
     def suite(self, spec: dict[str, Any], log: str | None = None, *, status: str = "PASS",
               **counts: int) -> dict[str, Any]:
@@ -435,9 +438,17 @@ class ExcelEvidenceTests(unittest.TestCase):
     def test_one_failed_log_cannot_serve_two_suites(self) -> None:
         self.record["stages"]["regression"]["status"] = "FAIL"
         failed = self.suite_log(self.spec("TEST_Cases"), verdict="FAIL", cases=3, checks=5, failures=1)
-        for module in ("TEST_Cases", "TEST_Invariants"):
+        # A copy padded with blank lines is still TEST_Cases' report: its first case says so.
+        for module, padding in (("TEST_Cases", ""), ("TEST_Invariants", "\n\n")):
             self.record["suites"][self.index(module)] = self.suite(
-                self.spec(module), failed, status="FAIL", cases=3, checks=5, failures=1)
+                self.spec(module), failed + padding, status="FAIL", cases=3, checks=5, failures=1)
+        self.assertInvalid("TEST_Invariants.RunInvariantTests log starts with another suite's case")
+        # A run that stopped before its first case names no case; a padded copy is still one run.
+        empty = self.suite_log(self.spec("TEST_Cases"), verdict="FAIL", cases=0, checks=0, failures=1)
+        padded = empty.replace("\n", " \n", 1) + "\n \n"
+        for module, log in (("TEST_Cases", empty), ("TEST_Invariants", padded)):
+            self.record["suites"][self.index(module)] = self.suite(
+                self.spec(module), log, status="FAIL", cases=0, checks=0, failures=1)
         self.assertInvalid("the same log is cited for two test runs")
         too_many = self.suite_log(self.spec("TEST_Invariants"), verdict="FAIL", cases=5, failures=1)
         self.record["suites"][self.index("TEST_Invariants")] = self.suite(
@@ -493,6 +504,17 @@ class ExcelEvidenceTests(unittest.TestCase):
         del policy["suites"][1]
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         self.assertIn("not the policy suites", " ".join(evidence.policy_problems(copy_root)))
+        policy = copy.deepcopy(self.policy)
+        policy["suites"][self.index("TEST_Invariants")]["first_case"] = "invariants-demo-repeat"
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        self.assertIn("TEST_Invariants.RunInvariantTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
+        policy["suites"][self.index("TEST_Aggregation")]["first_case"] = None
+        with self.assertRaisesRegex(ValueError, "share a header need their first case"):
+            evidence.parse_policy(json.dumps(policy).encode())
+        policy["suites"][self.index("TEST_Aggregation")]["first_case"] = "invariants-demo-repeat"
+        with self.assertRaisesRegex(ValueError, "distinct first cases"):
+            evidence.parse_policy(json.dumps(policy).encode())
 
     def test_cli_exit_codes_inventory_and_output_guard(self) -> None:
         self.path.write_text(json.dumps(self.record))

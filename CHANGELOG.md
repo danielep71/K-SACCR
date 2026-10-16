@@ -100,11 +100,12 @@ Use only the categories needed by a release.
 
 - The Excel evidence record binds every test suite, not only the harness
   (#46). `.github/excel-evidence-policy.json` (schema 2) lists the seven other
-  suites with their header, case count, check count per bitness and
-  restoration field, and the record (`host.json`, schema 2) gives each its own
-  log, run on its own, plus an optional `Test_RunAll` summary.
+  suites with their header, case count, check count per bitness, restoration
+  field and, for the case-runner suites that share a header, their first case,
+  and the record (`host.json`, schema 2) gives each its own log, run on its own, plus an optional `Test_RunAll` summary.
   `tools/check_excel_evidence.py` rejects a missing or reordered suite, counts
-  of another commit, a log that is not one normal-mode run, a suite that did
+  of another commit, a log that is not one normal-mode run, one log cited for
+  two suites, a log that starts with another suite's case, a suite that did
   not restore its state, a summary that contradicts the suites' own reports,
   and any test log without the operator's `CANDIDATE=` line for the
   candidate. A new gate in `python tools/check.py`, `excel-evidence-policy`,

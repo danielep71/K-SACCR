@@ -32,7 +32,7 @@ the logs it cites. The record binds:
 | --- | --- |
 | Candidate | Full 40-character commit SHA; the import log must name it |
 | Sources | Every `.bas`, `.cls` and `.frm` under `src/` and `tests/` at that commit, plus each form's `.frx` and the workbook template `src/workbook/SACCR_Template.xlsx`, with the SHA-256 of the exact bytes stored in Git. `examples/` is not imported |
-| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, the harness entry point, ordered cases, assertion count and expected-error cases, the required references, and every other suite with its header, case count, check count per bitness and restoration field |
+| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, the harness entry point, ordered cases, assertion count and expected-error cases, the required references, and every other suite with its header, case count, check count per bitness, restoration field and, where suites share a header, first case |
 | Environment | Excel version and build, Office bitness, Windows version and architecture, VBA runtime, references, macro policy and VBA-project access as found, and `trust_changes: false` |
 | Logs | Each cited log's SHA-256; a log changed after the record was written fails |
 | Harness | For a passing or failed regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `CANDIDATE`, `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
@@ -259,8 +259,13 @@ Rules the validator applies:
   and log; one abandoned as hung is `TIMEOUT` with `null` counts and a log
   without a `RESULT=` line. A failed suite may stop early, but cannot report
   more cases than the policy gives it.
+- The four case-runner suites print the same header, so the policy gives each
+  its first case (`first_case`), and a log whose first `CASE` line names
+  another suite's case fails. The policy gate checks `first_case` against the
+  first case each module starts.
 - Each test run has its own log: the same log cannot be cited for two suites,
-  which matters for the four case-runner suites that share one header.
+  even with blank lines or trailing spaces added to a copy. A failed run that
+  stopped before its first case names no case, and this is what tells it apart.
 - The regression stage is `FAIL` when the harness or a suite failed, and
   `PASS` otherwise; a suite that did not finish makes the record `INCOMPLETE`
   or `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
