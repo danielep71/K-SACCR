@@ -423,9 +423,10 @@ BENCH case=bench-10000; legs=10000; netting_sets=20; used=10000; withheld=0; err
 and checks that the run completed with every leg used, every netting set
 `VALID`, no error on Checks, one Results row per netting set and the `TOTAL
 CRR` row, and one TradeCalc row per leg; the used-range scenario also shows
-`used_last_row` and checks that the comment did inflate the used range and was
-removed. The inputs are restored. Sizes that cannot be read print a `BENCH_REJECTED=` line
-and change nothing.
+`used_last_row` and checks that the comment did inflate the used range and
+that deleting its row gives the used range back its extent. The inputs are
+restored. Sizes that cannot be read print a `BENCH_REJECTED=` line and change
+nothing.
 
 <a id="automation-entry-points"></a>
 

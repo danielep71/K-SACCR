@@ -46,9 +46,10 @@ Attribute VB_Name = "TEST_Benchmark"
 '
 ' WORKSHEET SAFETY
 '   As TEST_CaseRunner: inputs and outputs are rewritten during the run and
-'   restored at the end. The stray comment is removed at the end of its
-'   scenario and, after an unexpected error, before the workbook is
-'   restored. Use a development workbook.
+'   restored at the end. The stray comment's row is deleted at the end of
+'   its scenario and, after an unexpected error, before the workbook is
+'   restored, so the Trades used range shrinks back to its extent before
+'   the comment. Use a development workbook.
 '
 ' STATE OWNERSHIP
 '   Owns mStrayRow, the row of the stray comment while it exists.
@@ -111,6 +112,7 @@ Attribute VB_Name = "TEST_Benchmark"
 ' MODULE STATE
 '------------------------------------------------------------------------------
         Private mStrayRow   As Long    'Sheet row of the stray comment; 0 when there is none
+        Private mUsedBefore As Long    'Last row of the Trades used range before the stray comment
 
 
 '
@@ -222,7 +224,7 @@ Private Sub RunScenario( _
 '   Write a portfolio, time the writing and the engine run, record the
 '   checks and print the BENCH line. In the used-range scenario a stray
 '   comment is written STRAY_OFFSET rows below the first Trades row before
-'   the run, and removed after it.
+'   the run, and its row deleted after it.
 '
 ' INPUTS
 '   caseId: the case label.
@@ -270,6 +272,7 @@ Private Sub RunScenario( _
         WriteTrades legs
         writeSeconds = SecondsSince(t0)
         If inflateUsedRange Then
+            mUsedBefore = UsedLastRow(GetSheet(SH_TRADES))
             mStrayRow = FirstInputRow(SH_TRADES) + STRAY_OFFSET
             TableCell(GetSheet(SH_TRADES), mStrayRow, TR_COMMENT).Value = STRAY_TEXT
             usedLast = UsedLastRow(GetSheet(SH_TRADES))
@@ -328,7 +331,7 @@ Private Sub RunScenario( _
 '------------------------------------------------------------------------------
         If inflateUsedRange Then
             detail = ClearStray()
-            TEST_CaseRunner.ExpectTrue "stray-removed", Len(detail) = 0, detail, REFERENCE_CLASS
+            TEST_CaseRunner.ExpectTrue "used-range-restored", Len(detail) = 0, detail, REFERENCE_CLASS
         End If
 
 End Sub
@@ -395,12 +398,17 @@ Private Function ClearStray() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Remove the stray comment of the used-range scenario, if one was
-'   written.
+'   written, and give the Trades used range back its extent before the
+'   comment. Clearing the cell is not enough: Excel keeps the used range
+'   at the stray row, so later scans and EndSuite would still cover it.
+'   The stray row is deleted instead (it holds nothing else, far below
+'   the template's formatted rows) and UsedRange is read again, which
+'   makes Excel recompute it.
 '
 ' RETURNS
 '   Empty on success or when there is nothing to remove; otherwise why the
-'   comment could not be removed. EndSuite then still clears it with the
-'   other Trades rows.
+'   comment could not be removed or the used range did not shrink back.
+'   EndSuite still clears a remaining comment with the other Trades rows.
 '
 ' ERROR POLICY
 '   Contains its own error, so that it can run on the error path.
@@ -411,14 +419,26 @@ Private Function ClearStray() As String
 '
 
 '------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet    'Trades
+    Dim usedNow   As Long         'Last row of the Trades used range after the deletion
+
+'------------------------------------------------------------------------------
 ' REMOVE
 '------------------------------------------------------------------------------
         If mStrayRow = 0 Then
             Exit Function
         End If
         On Error GoTo Failed
-        TableCell(GetSheet(SH_TRADES), mStrayRow, TR_COMMENT).ClearContents
+        Set ws = GetSheet(SH_TRADES)
+        TableCell(ws, mStrayRow, TR_COMMENT).EntireRow.Delete
         mStrayRow = 0
+        usedNow = UsedLastRow(ws)
+        If usedNow > mUsedBefore Then
+            ClearStray = "the Trades used range still ends on row " & usedNow & _
+                         " after the stray row was deleted; it ended on row " & mUsedBefore & " before"
+        End If
         Exit Function
 
 '------------------------------------------------------------------------------
