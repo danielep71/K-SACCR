@@ -539,7 +539,11 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("| **Total** |", "| **Total** | | **226** | **975** |\n| **Total** |", "suite table total"),
                 ("RESULT=PASS; suites=8", "RESULT=FAIL; suites=8; passed=7; failed=1; seconds=1\n"
                  "RESULT=PASS; suites=8", "Test_RunAll result"),
-                ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge")):
+                ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge"),
+                ("  PASS  TEST_MainState", "  PASS  TEST_MainState        cases=20; checks=381; failures=0; "
+                 "caller_state=RESTORED\n  PASS  TEST_MainState", "lines all parse"),
+                ("SACCR TEST SUMMARY 2026", "SACCR TEST SUMMARY 2026-10-13 08:28:48\nSACCR TEST SUMMARY 2026",
+                 "lines all parse")):
             with self.subTest(message=message):
                 self.assertIn(old, readme)
                 (copy_root / "README.md").write_text(readme.replace(old, new), encoding="utf-8")

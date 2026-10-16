@@ -598,6 +598,12 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
              in re.findall(r"^\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)]
     if table != rows:
         problems.append("README.md: suite table rows differ from the policy suites and counts")
+    # Every suite-result line must parse: one in another format, such as an older
+    # summary without timings, would otherwise be skipped while still displayed.
+    lines = re.findall(r"^[ \t]*(?:PASS|FAIL)[ \t]+TEST_\w+.*$", text, re.MULTILINE)
+    if len(re.findall(r"^SACCR TEST SUMMARY ", text, re.MULTILINE)) != 1 \
+            or len(lines) != len(SUMMARY_LINE.findall(text)):
+        problems.append("README.md: Test_RunAll output must be one summary whose lines all parse")
     shown = []
     for status, name, detail, _ in SUMMARY_LINE.findall(text):
         found = re.search(r"\bcases=(\d+); (?:checks|assertions)=(\d+); failures=0\b", detail)
