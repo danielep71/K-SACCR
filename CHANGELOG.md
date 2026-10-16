@@ -101,6 +101,10 @@ pull requests.
 
 ### Added
 
+- Public GitHub Pages project website with a workflow overview, workbook
+  screenshot, published Basel example, explicit validation limits, and links
+  to source and documentation (#279).
+
 #### Calculation
 
 - SA-CCR exposure at default under the EU CRR or Basel CRE52, chosen per
