@@ -14,7 +14,7 @@
         "source": "BCBS",
         "locator": "CRE52.40 FAQ (lambda by judgement)",
         "derivation": "Prototype TestCatalogue T22 (Negative forward without lambda under BCBS is rejected; CRE52.40 FAQ (lambda by judgement); hand calculation from the regulation; workbook reference NIR-B, Status). The catalogue reads trade NIR-B, which has the same inputs as NIR-C in this fixture. Catalogue note: Enter lambda on the trade for BCBS. Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"
       },
@@ -29,7 +29,7 @@
         "source": "BCBS",
         "locator": "Engine contract, issue #36",
         "derivation": "Engine behaviour required by #36, not a regulatory figure: a netting set with a rejected trade reports no EAD.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"
       }

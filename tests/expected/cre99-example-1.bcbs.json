@@ -19,7 +19,7 @@
         "source": "CRE99",
         "locator": "Example 1, CRE99.29",
         "derivation": "Printed in CRE99 Example 1, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T01.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -40,7 +40,7 @@
         "source": "CRE99",
         "locator": "Example 1, CRE99.32 (delta method in CRE99.31)",
         "derivation": "Printed in CRE99 Example 1, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. Printed to four decimals; the catalogue had rounded it to -0.27. Ported from prototype TestCatalogue T02.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -60,7 +60,7 @@
         "source": "CRE99",
         "locator": "Example 1, CRE99.39",
         "derivation": "Printed in CRE99 Example 1, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T03.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -80,7 +80,7 @@
         "source": "CRE99",
         "locator": "Example 1, CRE99.40",
         "derivation": "Printed in CRE99 Example 1, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T04.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
