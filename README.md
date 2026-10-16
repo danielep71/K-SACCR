@@ -60,8 +60,9 @@
 </div>
 
 > [!IMPORTANT]
-> **Nothing has been released yet.** Work takes place on `release/1.0.0` and is
-> listed under Unreleased in the [changelog](CHANGELOG.md). The engine
+> **Nothing has been released yet.** Work takes place on the
+> [active release branch](docs/GOVERNANCE.md#branches) and is listed under
+> Unreleased in the [changelog](CHANGELOG.md). The engine
 > implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
 > v1.0.0, by the published CRE99 examples. CRR rules are implemented and tested
 > against illustrative values, not validated ([decision 8](docs/methodology/README.md#assumptions-and-scope)).
@@ -118,39 +119,26 @@ authoritative description.
 
 ---
 
-## ⭐ Why use it
+## 🎯 Core capabilities
 
 Most SA-CCR numbers come out of systems whose intermediate steps cannot be
 inspected. This toolkit is the opposite:
 
-| Need | How the toolkit meets it |
-| --- | --- |
-| Reconcile a production EAD | Enter the bank's own figures per netting set and per trade leg; each is compared with the engine's, `MATCH` or `DIFFERENCE` within tolerances, and every row that cannot be compared says why |
-| Keep evidence of a run | **Export evidence** writes the run's identity, input fingerprint, parameters, results and reconciliations to one CSV file, and refuses while anything is out of date |
-| Compare EU CRR and Basel | Regime chosen per netting set; both rule sets in one engine |
-| Know whether a run is regulatory | Every run is classified `REGULATORY` or `WHAT-IF`, with each difference from the regulatory parameter set listed |
-| Trust the inputs | Malformed dates, codes, pairs, duplicates and Excel errors reject the trade or stop the run; nothing is silently read as blank |
-| Audit the code | Plain exported VBA, house style, static checks on every change, Excel regression suites |
-| Work on a locked-down machine | No add-in, COM component, DLL or extra VBA reference |
-
----
-
-## 🎯 Core capabilities
-
 | Area | Capability |
 | --- | --- |
-| Regimes | EU CRR (default) and Basel CRE52, per netting set |
+| Regimes | EU CRR (default) and Basel CRE52 in one engine, chosen per netting set |
 | Asset classes | Interest rate, FX, credit, equity, commodity; other risks under CRR |
 | Instruments | Linear derivatives; European, American, Bermudan and Asian options; CDO tranches and nth-to-default; basis and volatility transactions |
 | Multi-risk trades | Economic trades entered as legs, one per risk category, with one MtM leg |
 | Netting sets | Unmargined and margined; VM, NICA, threshold, MTA; MPOR from floor, remargining frequency, large or illiquid flag, disputes and override; cap at the unmargined EAD |
 | Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it |
 | CRR specifics | Other-risks class (8%), climatic commodity hedging set (18%), credit quality steps, lambda-shifted option delta (`CRR-RTS` Art. 5) |
-| Run classification | `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
-| Input validation | Unreadable or locale-dependent dates, 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names |
-| Reconciliation | Bank figures per netting set (`BankNettingSets`) and per trade leg (`BankTrades`), compared with Results and TradeCalc within an absolute or a relative tolerance |
-| Evidence export | One CSV file per run, `;`-separated with a `.` decimal point and UTF-8 whatever the regional settings |
+| Run classification | Every run is `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
+| Input validation | Unreadable or locale-dependent dates, the 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names reject the trade or netting set or stop the run; nothing is silently read as blank |
+| Reconciliation | A bank's own figures per netting set and per trade leg, compared with the engine's ([how](#3-run)) |
+| Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
+| Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
 | Testing | Eight Excel suites (228 cases, 1001 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -180,11 +168,14 @@ or later and no packages.
 1. Open `src/workbook/SACCR_Template.xlsx` and save it as an **Excel
    Macro-Enabled Workbook (`.xlsm`)** outside the checkout.
 2. In Excel, enable **Trust access to the VBA project object model**.
-3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`. It asks
-   which workbook to build: **P**roduction, the engine and the sheet macros
-   from `src/`, or **D**evelopment, which adds the test modules of
-   `tests/modules/` that [section 4](#4-test-development-workbook) needs. The
-   tests write to the input and output sheets: never run them on real data.
+3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`, or pass
+   its path to the launcher; there is no default workbook. It asks which
+   workbook to build: **P**roduction, the engine and the sheet macros from
+   `src/`, or **D**evelopment, which adds the test modules of `tests/modules/`
+   that [section 4](#4-test-development-workbook) needs. It then asks whether
+   to replace the code of the worksheet and `ThisWorkbook` modules as well;
+   they hold only `Option Explicit`, so either answer works. The tests write
+   to the input and output sheets: never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
@@ -205,13 +196,16 @@ further illustrative netting sets.
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
 set at the top of the sheet. **Run SA-CCR** then writes the comparison to
-`Reconciliation`: one row per netting set and figure, `MATCH` within either
-tolerance or `DIFFERENCE`, and a row for every netting set that cannot be
-compared, with the reason. `BankTrades` and `TradeReconciliation` do the same
-per trade leg, by Trade ID, against `TradeCalc`: notional, MtM, M,
-supervisory duration, adjusted notional, delta, maturity factors, effective
-notionals and the stand-alone add-on. Each leg's row also shows its Economic
-trade ID from Trades, so legs can be grouped as the bank groups its trades.
+`Reconciliation`: one row per netting set and figure, matched by ID and never
+across regimes, `MATCH` within the absolute or the relative tolerance or
+`DIFFERENCE`, and a row for every netting set that cannot be compared, with
+the reason: missing on either side, listed twice, of another regime, withheld
+or unusable. `BankTrades` and `TradeReconciliation` do the same per trade leg,
+by Trade ID, against `TradeCalc`: notional, MtM, M, supervisory duration,
+adjusted notional, delta, maturity factors, effective notionals and the
+stand-alone add-on, with `EXCLUDED` legs and `NOT APPLICABLE` figures. Each
+leg's row also shows its Economic trade ID from Trades, so legs can be grouped
+as the bank groups its trades.
 
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
@@ -296,11 +290,9 @@ BankNettingSets · BankTrades ────────────────�
 5. **Exposure.** RC, multiplier, PFE and EAD per netting set, with the cap for
    margined netting sets. A netting set with a rejected trade or an invalid
    input reports `INCOMPLETE` or `INVALID` and no EAD.
-6. **Reconciliation.** When `BankNettingSets` holds figures, each is compared
-   with the same figure on Results, netting sets matched by ID and never
-   across regimes; `BankTrades` legs are compared with TradeCalc by Trade ID
-   (#45). **Export evidence** writes the run and its reconciliations to a CSV
-   file.
+6. **Reconciliation and evidence.** Bank figures, when entered, are compared
+   with Results and TradeCalc, and **Export evidence** writes the run to a CSV
+   file ([details](#3-run)).
 
 | Sheet | Role |
 | --- | --- |
@@ -311,8 +303,8 @@ BankNettingSets · BankTrades ────────────────�
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
-| `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results: `MATCH` or `DIFFERENCE` per figure, and every netting set missing on either side, listed twice, of another regime, withheld or unusable |
-| `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs, `NOT APPLICABLE` figures and each leg's Economic trade ID |
+| `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results |
+| `BankTrades` · `TradeReconciliation` | The same per trade leg, against TradeCalc |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
@@ -337,7 +329,7 @@ The demonstration portfolio enters dates as calendar dates over 365 days a
 year, so `BCBS-EX3` shows 5,405 against the 5,406 printed in CRE99: its WTI
 trade has M = 0.7507 rather than the printed 0.75. The regression case enters
 exactly 0.75 years and matches 5,406
-([details](docs/assets/SCREENSHOTS_SOURCES.md)).
+([details](docs/assets/README.md)).
 
 Checks lists every trade the run rejected, with its row and reason, and every
 netting set whose EAD is withheld as a result:
@@ -399,9 +391,15 @@ netting set whose EAD is withheld as a result:
 </details>
 
 <details>
-<summary><b>Input sheets</b>: NettingSets, Trades and Params (yellow cells are inputs)</summary>
+<summary><b>Input sheets</b>: the README guide, NettingSets, Trades and Params with its supervisory-factor table (yellow cells are inputs)</summary>
 
 <br>
+
+<p align="center">
+  <img width="100%"
+       alt="README sheet in the workbook: the seven How to use steps (enable macros, parameters, netting sets, trades, run, review, regime) and the sign and input conventions for direction, sub-class, risk factor, notional, dates, nature and options"
+       src="docs/assets/SACCR_README_sheet.png">
+</p>
 
 <p align="center">
   <img width="100%"
@@ -419,6 +417,12 @@ netting set whose EAD is withheld as a result:
   <img width="62%"
        alt="Params sheet: reporting date and currency, alpha, multiplier floor, MPOR floors, IR correlations, default regime and CRR lambda thresholds, each with its CRE52 or CRR reference"
        src="docs/assets/SACCR_Params.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Params sheet, supervisory-factor table: per SF_Key the asset class, category, supervisory factor, correlation, supervisory option volatility, commodity hedging set, the regimes it applies to and its CRE52 or CRR reference; the climatic commodity and other-risk rows apply under CRR only"
+       src="docs/assets/SACCR_Params_Supervisory.png">
 </p>
 
 </details>
@@ -521,8 +525,7 @@ Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
 
 </details>
 
-`python tools/check.py` runs the static gates (source layout, house style,
-public API, test-case schema, generated tests and tooling tests) locally and
+`python tools/check.py` runs the [static gates](tools/README.md) locally and
 in CI. Static checks never stand in for Excel evidence; the
 [Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
 suite by suite, and `tools/check_excel_evidence.py` validates a record against
@@ -558,21 +561,13 @@ Everything in `src/core/` is internal and may change without notice.
 ## 📦 Repository structure
 
 ```text
-src/
-  core/        engine, configuration and helpers (internal)
-  modules/     SACCR_Formulas, the public worksheet functions
-  workbook/    SACCR_Template.xlsx, M_Main and the document modules
-tests/
-  modules/     harness, case runner and suites
-  fixtures/    numerical cases (inputs)
-  expected/    expected results with their evidence class
-docs/
-  methodology/ regulatory basis, sources, support matrix, traceability
-tools/         static checks, case generator, VBA synchronizer and exporter,
-               Excel evidence validator
+src/     engine (core/), worksheet functions (modules/), template and sheet macros (workbook/)
+tests/   test modules, fixtures and expected results
+docs/    methodology, evidence record, governance, house style, images
+tools/   static checks, case generator, VBA synchronizer and exporter
 ```
 
-The layout and its rules are in
+The full layout and its rules are in
 [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md).
 
 ---
@@ -581,14 +576,8 @@ The layout and its rules are in
 
 # 💻 Requirements
 
-| Host | Support |
-| --- | --- |
-| Microsoft 365 or Excel 2016 and later, Windows, 64-bit | Supported target |
-| Same versions, Windows, 32-bit | Best effort: kept compiling, not certified |
-| Excel for Mac, Excel for the web, Excel 2013 and earlier | Not supported |
-
-Only the four default VBA references of a new workbook are used. Development
-also needs Git and Python 3.10 or later.
+Desktop Excel for Windows: the [supported hosts](INSTALLATION.md#supported-hosts)
+and the VBA references are listed in `INSTALLATION.md`.
 
 ---
 
@@ -596,7 +585,8 @@ also needs Git and Python 3.10 or later.
 
 ## ⚠️ Known limitations
 
-- **No release yet.** Behaviour can change on `release/1.0.0` until v1.0.0 is
+- **No release yet.** Behaviour can change on the
+  [active release branch](docs/GOVERNANCE.md#branches) until v1.0.0 is
   published.
 - **CRR is implemented, not validated.** The only published reference values
   are Basel examples; CRR results are tested against illustrative values.
@@ -647,15 +637,14 @@ hold the current scope of each release.
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
-| [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import and validation record |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests |
+| [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
 | [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record for every suite, procedure and validator |
-| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
+| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branch model and integration into `main`, ownership and review, issue metadata, GitHub settings and labels |
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
-| [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
-| [`RELEASING.md`](RELEASING.md) | Integration into `main` and the release sequence |
+| [`RELEASING.md`](RELEASING.md) | Release steps: versioning, release invariants and current status |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behaviour and conduct reporting |
 | [`CHANGELOG.md`](CHANGELOG.md) | Change history |
@@ -666,8 +655,9 @@ hold the current scope of each release.
 
 ## 📌 Status
 
-**Pre-release.** Development takes place on `release/1.0.0` through task
-branches and pull requests; `main` receives it on the owner's instruction.
+**Pre-release.** Development takes place on the
+[active release branch](docs/GOVERNANCE.md#branches) through task branches and
+pull requests; `main` receives it on the owner's instruction.
 Nothing is versioned or tagged until a release is prepared.
 
 The latest recorded Excel run, `Test_RunAll` with eight of eight suites

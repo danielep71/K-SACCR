@@ -2,39 +2,36 @@
 
 `src/` holds the production VBA source and the macro-free workbook template:
 the only inputs from which the K-SACCR workbook is built. Layout, visibility and
-dependency rules are defined in
+dependency rules, including what each subdirectory holds, are defined in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md).
-
-| Location | Contents |
-| --- | --- |
-| `core/` | Calculation engine. Every module declares `Option Private Module`; no Excel object-model access. |
-| `modules/` | Public facade: supported entry points listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt). |
-| `classes/` | Class modules; each header states whether it is public surface or internal (none yet). |
-| `workbook/` | Exported `ThisWorkbook` and sheet modules; host glue only. Also `SACCR_Template.xlsx`, the macro-free template holding the 16 sheets. |
-| `forms/` | UserForms with `.frm` beside `.frx`, only if one is ever needed (none yet). |
 
 Current source:
 
-- the engine, first imported from the prototype `SACCR_Calculator.xlsm` (#57):
-  `core/CORE_Config`, `core/CORE_Util`, `core/CORE_Engine`, the worksheet
-  functions in `modules/SACCR_Formulas`, and `workbook/M_Main` with the
-  document modules;
-- `core/CORE_Reconcile`, the comparison of a bank's figures with Results and
-  TradeCalc (#45), which reads no sheet: `M_Main` reads BankNettingSets,
-  BankTrades, Results and TradeCalc and writes Reconciliation and
-  TradeReconciliation;
-- `core/CORE_Export`, the CSV encoding of the evidence report (#45), which
-  reads no sheet: `M_Main.ExportEvidence` gathers the run and writes the
-  file;
+- `core/CORE_Config.bas`: sheet names, the workbook names of the tables,
+  column numbers, parameter codes and error numbers;
+- `core/CORE_Engine.bas`: the calculation of EAD per netting set, which reads
+  the input sheets and writes the output sheets;
+- `core/CORE_Export.bas`: the CSV encoding of the evidence report; it reads no
+  sheet;
+- `core/CORE_Reconcile.bas`: the comparison of a bank's figures with Results
+  and TradeCalc; it reads no sheet;
+- `core/CORE_Util.bas`: value conversions, keyed lookups and sheet helpers;
+- `modules/SACCR_Formulas.bas`: the public `SACCR_*` worksheet functions,
+  listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
+- `workbook/M_Main.bas`: the sheet-button macros, the automation entry points
+  and status functions, and the reading and writing of the reconciliation
+  sheets and the evidence file;
+- `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
+  modules, which hold only `Option Explicit`;
 - `workbook/SACCR_Template.xlsx`: the 16 sheets (README, Params, NettingSets,
   Trades, Results, HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets,
   Reconciliation, BankTrades, TradeReconciliation, TestCatalogue,
   FormulaTest, Basel_vs_CRR) with their formulas, named ranges, data
   validation and buttons, and no VBA project or document properties.
 
-The imported engine does not yet follow every rule here: `CORE_Engine` and
-`CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a standard
-module kept with the workbook glue because the sheet buttons call it. See
-[known deviations](../docs/REPOSITORY_STRUCTURE.md#known-deviations).
+The engine does not yet follow every rule of the layout: `CORE_Engine` and
+`CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a
+standard module kept with the workbook glue because the sheet buttons call it.
+See [known deviations](../docs/REPOSITORY_STRUCTURE.md#known-deviations).
 
 Do not place tests, examples, built workbooks or generated output here.
