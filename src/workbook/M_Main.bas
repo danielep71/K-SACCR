@@ -1094,7 +1094,8 @@ Public Sub ExportEvidence()
 '   Write the evidence report of the last run to a CSV file chosen by the
 '   user (#45): run identity, parameters, Results, both reconciliations,
 '   Checks and the report's limitations (CORE_Export). Refused when the
-'   results or a reconciliation with bank figures are not current.
+'   results or a reconciliation with bank figures are not current, or when
+'   an output cell was edited after the run.
 '
 ' USAGE
 '   Assigned to the Export evidence button on Reconciliation.
@@ -1205,7 +1206,9 @@ Private Function EvidenceProblem() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim kind   As Long    'Reconciliation checked
+    Dim kind      As Long       'Reconciliation checked
+    Dim stored    As String     'A stored fingerprint
+    Dim current   As Boolean    'True when the reconciliation is current
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -1215,17 +1218,33 @@ Private Function EvidenceProblem() As String
             EvidenceProblem = "the results are not those of the current inputs; press Run SA-CCR first"
             Exit Function
         End If
+    'A stored reconciliation must match its bank figures as they are now,
+    'also when every bank row was removed after the run; bank figures
+    'without a stored reconciliation were never compared.
         For kind = RECON_NS To RECON_TR
             If ReconciliationSheetsPresent(kind) Then
-                If BankRowsEntered(kind) Then
-                    If StoredReconInputs(kind) <> ReconFingerprint(kind) Or Len(StoredReconInputs(kind)) = 0 Then
-                        EvidenceProblem = "the bank figures on " & BankSheetOf(kind) & _
-                                          " changed after the last run; press Run SA-CCR first"
-                        Exit Function
-                    End If
+                stored = StoredText(InputsNameOf(kind))
+                If Len(stored) > 0 Then
+                    current = (stored = ReconFingerprint(kind))
+                Else
+                    current = Not BankRowsEntered(kind)
+                End If
+                If Not current Then
+                    EvidenceProblem = "the reconciliation of the bank figures on " & BankSheetOf(kind) & _
+                                      " is not current; press Run SA-CCR first"
+                    Exit Function
                 End If
             End If
         Next kind
+    'The output sheets are not protected: what the report copies from them
+    'must still be what the run wrote.
+        stored = StoredText(RUN_OUTPUTS_NAME)
+        If Len(stored) = 0 Then
+            EvidenceProblem = "the outputs of the last run were not recorded; press Run SA-CCR first"
+        ElseIf stored <> OutputFingerprint() Then
+            EvidenceProblem = "an output cell on Results, Checks or a reconciliation sheet was changed after " & _
+                              "the run; press Run SA-CCR first"
+        End If
         Exit Function
 
 Failed:
@@ -1334,6 +1353,7 @@ Private Function EvidenceText() As String
         s = s & RunLine("run_summary", wsRes.Range(RUNINFO_CELL).Value2)
         s = s & RunLine("results_status", ResultsStatus())
         s = s & RunLine("inputs", CORE_Engine.LastRunInputs())
+        s = s & RunLine("outputs", StoredText(RUN_OUTPUTS_NAME))
         Set c = NamedCell(PRM_ASOF)
         If IsNumeric(c.Value2) And Not IsEmpty(c.Value2) Then
             s = s & RunLine("reporting_date", Format$(CDate(c.Value2), "yyyy-mm-dd"))
@@ -1366,8 +1386,8 @@ Private Function EvidenceText() As String
             If Not ReconciliationSheetsPresent(i) Then
                 s = s & RunLine(prefix, "UNAVAILABLE")
             Else
-                s = s & RunLine(prefix, IIf(Len(StoredReconInputs(i)) > 0, "CURRENT", "NONE"))
-                s = s & RunLine(prefix & "_inputs", StoredReconInputs(i))
+                s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NONE"))
+                s = s & RunLine(prefix & "_inputs", StoredText(InputsNameOf(i)))
                 s = s & RunLine(prefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
                 s = s & RunLine(prefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
                 s = s & RunLine(prefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
@@ -1388,14 +1408,7 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
 ' TABLES
 '------------------------------------------------------------------------------
-        s = s & SheetTableLines("RESULTS", SH_RESULTS, RS_NCOLS)
-        If ReconciliationSheetsPresent(RECON_NS) Then
-            s = s & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
-        End If
-        If ReconciliationSheetsPresent(RECON_TR) Then
-            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, RC_NCOLS)
-        End If
-        s = s & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
+        s = s & OutputTableLines()
         s = s & CORE_Export.LimitationLines()
         EvidenceText = s
 
@@ -1516,16 +1529,17 @@ Private Function BankRowsEntered( _
 End Function
 
 
-Private Function StoredReconInputs( _
-    ByVal kind As Long) _
+Private Function StoredText( _
+    ByVal nameText As String) _
     As String
 '
 '==============================================================================
-'                              StoredReconInputs
+'                                  StoredText
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the fingerprint stored by the last reconciliation of a kind, or
-'   "" when there is none, as CORE_Engine.LastRunInputs.
+'   Return the fingerprint stored in a hidden workbook name (a
+'   reconciliation's or the run outputs'), or "" when there is none, as
+'   CORE_Engine.LastRunInputs.
 '
 ' ERROR POLICY
 '   Contains the expected error of a missing name.
@@ -1544,14 +1558,137 @@ Private Function StoredReconInputs( _
 ' READ
 '------------------------------------------------------------------------------
         On Error Resume Next
-        Set wbName = ThisWorkbook.Names(InputsNameOf(kind))
+        Set wbName = ThisWorkbook.Names(nameText)
         Err.Clear
         On Error GoTo 0
         If Not wbName Is Nothing Then
-            StoredReconInputs = Replace(Replace(wbName.RefersTo, "=", ""), """", "")
+            StoredText = Replace(Replace(wbName.RefersTo, "=", ""), """", "")
         End If
 
 End Function
+
+
+Private Function OutputTableLines() As String
+'
+'==============================================================================
+'                               OutputTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The output tables of the evidence report: RESULTS, RECONCILIATION and
+'   TRADE_RECONCILIATION when their sheets exist, and CHECKS.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s   As String    'The lines
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        s = SheetTableLines("RESULTS", SH_RESULTS, RS_NCOLS)
+        If ReconciliationSheetsPresent(RECON_NS) Then
+            s = s & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
+        End If
+        If ReconciliationSheetsPresent(RECON_TR) Then
+            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, RC_NCOLS)
+        End If
+        OutputTableLines = s & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
+
+End Function
+
+
+Private Function OutputFingerprint() As String
+'
+'==============================================================================
+'                              OutputFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint what the evidence report copies from the output sheets:
+'   the run summary on Results, the summary of each reconciliation sheet
+'   and the output tables.
+'
+' ERROR POLICY
+'   Raises when a sheet cannot be read.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim s      As String    'The text fingerprinted
+    Dim kind   As Long      'Reconciliation
+
+'------------------------------------------------------------------------------
+' FINGERPRINT
+'------------------------------------------------------------------------------
+        s = CORE_Export.CsvField(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        For kind = RECON_NS To RECON_TR
+            If ReconciliationSheetsPresent(kind) Then
+                s = s & Chr$(29) & CORE_Export.CsvField(GetSheet(ReconSheetOf(kind)).Range(RECON_INFO_CELL).Value2)
+            End If
+        Next kind
+        OutputFingerprint = TextHash(s & Chr$(29) & OutputTableLines())
+
+End Function
+
+
+Private Sub RememberRunOutputs()
+'
+'==============================================================================
+'                              RememberRunOutputs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Store the fingerprint of the output sheets when a run has completed,
+'   its reconciliations included.
+'
+' ERROR POLICY
+'   Best effort: when the fingerprint cannot be taken or stored it is left
+'   empty, and the export refuses until the next run.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""" & OutputFingerprint() & """"", _
+                               Visible:=False
+        Exit Sub
+
+Failed:
+        ForgetRunOutputs
+
+End Sub
+
+
+Private Sub ForgetRunOutputs()
+'
+'==============================================================================
+'                               ForgetRunOutputs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Empty the stored fingerprint of the output sheets.
+'
+' ERROR POLICY
+'   Contains any error.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""""", Visible:=False
+
+Failed:
+
+End Sub
 
 
 '
@@ -1637,12 +1774,13 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
 ' WITHDRAW THE RECONCILIATION
 '------------------------------------------------------------------------------
-    'Every operation first withdraws both reconciliations (#45), before
-    'anything that can stop it, the recalculation included; only a run
-    'that completes makes new ones.
+    'Every operation first withdraws both reconciliations (#45) and the
+    'fingerprint of the output sheets, before anything that can stop it,
+    'the recalculation included; only a run that completes makes new ones.
         mReconState = "NONE"
         mTradeReconState = "NONE"
         mReconLine = ""
+        ForgetRunOutputs
         Select Case operation
             Case OP_RUN
                 ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
@@ -1690,6 +1828,7 @@ Private Function ExecuteOperation( _
                 If ok Then
                     mReconState = ReconcileAfterRun(RECON_NS)
                     mTradeReconState = ReconcileAfterRun(RECON_TR)
+                    RememberRunOutputs
                 Else
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."
                 End If

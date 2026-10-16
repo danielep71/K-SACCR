@@ -509,9 +509,10 @@ then `OUT OF DATE`; the BankTrades table is put back. Two cases cover the
 evidence export: the CSV fields (decimal point, quoting, error values, CR LF,
 UTF-8 without a byte-order mark, including characters outside the BMP) and,
 in the workbook, an export written twice byte for byte the same and refused
-after an input edit or bank figures entered after the run; the files are
+after an input edit, bank figures entered after the run, every bank figure
+removed after a reconciliation, or an edited Results cell; the files are
 removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=18; checks=117; failures=0`.
+`RESULT=PASS; cases=18; checks=121; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
@@ -548,9 +549,13 @@ TradeReconciliation C5 does the same through
 
 `ExportEvidence_Silent(filePath)` writes the evidence report without a
 dialog and returns `RESULT=OK; lines=...; file=...`, or
-`RESULT=REFUSED; reason=...` when `ResultsStatus()` is not `CURRENT` or a
-reconciliation does not match its bank figures, settings and inputs as
-they are now. The file is `;`-separated, with a `.` decimal point, CR LF
+`RESULT=REFUSED; reason=...` when `ResultsStatus()` is not `CURRENT`, when
+a reconciliation does not match its bank figures, settings and inputs as
+they are now (also after every bank figure was removed), or when an output
+cell on Results, Checks or a reconciliation sheet differs from what the run
+wrote: a completed run stores the fingerprint of the exported outputs in
+the hidden name `SACCR_RunOutputs`, which every operation empties first,
+and the report gives it as `RUN;outputs`. The file is `;`-separated, with a `.` decimal point, CR LF
 line ends and UTF-8 without a byte-order mark; the first field of every
 line names its section (`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`,
 `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`,

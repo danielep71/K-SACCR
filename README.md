@@ -213,8 +213,9 @@ with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
 run's identity and input fingerprint, the parameters, supervisory-factor and
 FX tables, Results, both reconciliations, Checks and the report's
 limitations, each line starting with its section. It refuses while the
-results or a reconciliation are out of date, so the file always describes
-the inputs as they are.
+results or a reconciliation are out of date, or after an output cell was
+edited, so the file always describes the inputs as they are and what the
+run wrote.
 
 ## 4. Test (development workbook)
 

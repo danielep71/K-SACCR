@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 117              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 121              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1096,9 +1096,10 @@ Private Sub CaseExportWorkbook()
 ' PURPOSE
 '   In the workbook: after a run the evidence report is written with its
 '   sections, and a second export of the same run is identical byte for
-'   byte; an edited input, and bank figures entered after the run, each
-'   make the export refuse; undoing them allows it again. The edited cells
-'   and the files are put back or removed.
+'   byte; an edited input, bank figures entered after the run, bank
+'   figures removed after a reconciliation and an edited output cell each
+'   make the export refuse; undoing them, or a new run, allows it again.
+'   The edited cells and the files are put back or removed.
 '
 ' UPDATED
 '   2026-10-16
@@ -1117,6 +1118,8 @@ Private Sub CaseExportWorkbook()
     Dim savedMtm    As Variant      'Its formula
     Dim bankCell    As Range        'A bank figure entered and removed
     Dim savedBank   As Variant      'Its formula
+    Dim outCell     As Range        'An output edited and restored
+    Dim savedOut    As Variant      'Its value
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1160,7 +1163,27 @@ Private Sub CaseExportWorkbook()
         result = M_Main.ExportEvidence_Silent(fileB)
         Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, SH_BANK_NS) > 0, _
               "export with bank figures entered after the run: " & result
+        result = M_Main.RunSACCR_Silent()
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export with a reconciliation: " & result
         bankCell.Formula = savedBank
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, SH_BANK_NS) > 0, _
+              "export after every bank figure was removed: " & result
+
+'------------------------------------------------------------------------------
+' REFUSE AN EDITED OUTPUT
+'------------------------------------------------------------------------------
+        result = M_Main.RunSACCR_Silent()
+        Set outCell = TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, RS_EAD)
+        savedOut = outCell.Value2
+        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "output cell") > 0, _
+              "export after an output cell was edited: " & result
+        outCell.Value2 = savedOut
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export after restoring the output cell: " & result
 
 '------------------------------------------------------------------------------
 ' CLEAN UP

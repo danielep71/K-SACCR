@@ -375,6 +375,10 @@ Attribute VB_Name = "CORE_Config"
     'and holds the trade's netting set and asset class in the two regime
     'columns (TRC_NS, TRC_AC); trades carry the regime of their netting set.
         Public Const TRADE_RECON_INPUTS_NAME As String = "SACCR_TradeReconInputs"    'Empty when none exists
+    'The hidden name RUN_OUTPUTS_NAME holds the fingerprint of what the
+    'evidence report exports from the output sheets, taken when a run
+    'completes; an output cell edited after the run no longer matches it.
+        Public Const RUN_OUTPUTS_NAME As String = "SACCR_RunOutputs"    'Empty when no run completed
         Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
         Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
         Public Const RC_ID          As Long = 1     'NettingSetID
