@@ -638,6 +638,34 @@ Public Function TotalStatusText( _
 End Function
 
 
+Public Function WithheldByRegimeText() As String
+'
+'==============================================================================
+'                             WithheldByRegimeText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Split the netting sets whose EAD is withheld by regime, for the run
+'   summary and the end-of-run message: for example "BCBS 2" or "BCBS 1,
+'   CRR 1". A regime without a withheld netting set is left out; the text
+'   is empty when none is withheld (#275).
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+        If RegimeWithheldCount(RG_BCBS) > 0 Then
+            WithheldByRegimeText = RG_BCBS & " " & RegimeWithheldCount(RG_BCBS)
+        End If
+        If RegimeWithheldCount(RG_CRR) > 0 Then
+            If Len(WithheldByRegimeText) > 0 Then
+                WithheldByRegimeText = WithheldByRegimeText & ", "
+            End If
+            WithheldByRegimeText = WithheldByRegimeText & RG_CRR & " " & RegimeWithheldCount(RG_CRR)
+        End If
+
+End Function
+
+
 Private Function RegimeIndex( _
     ByVal regimeCode As String) _
     As Long
@@ -5401,7 +5429,8 @@ Private Function RunInfoText( _
                           " | inputs " & mRunInputs & _
                           " | " & CORE_Export.NumberText(Round(secs, 2)) & " s"
             If mIncomplete > 0 Then
-                RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s)"
+                RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s): " & _
+                              WithheldByRegimeText()
             End If
         Else
             RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
