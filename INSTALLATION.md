@@ -320,8 +320,8 @@ Run:
 TEST_MainState.RunMainStateTests
 ```
 
-A passing run prints twenty-seven `CASE=` lines and ends with
-`RESULT=PASS; cases=27; checks=...; failures=0; caller_state=RESTORED`.
+A passing run prints twenty-eight `CASE=` lines and ends with
+`RESULT=PASS; cases=28; checks=...; failures=0; caller_state=RESTORED`.
 
 ### Worksheet function contract tests
 
