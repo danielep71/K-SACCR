@@ -32,10 +32,12 @@ the logs it cites. The record binds:
 | --- | --- |
 | Candidate | Full 40-character commit SHA; the import log must name it |
 | Sources | Every `.bas`, `.cls` and `.frm` under `src/` and `tests/` at that commit, plus each form's `.frx` and the workbook template `src/workbook/SACCR_Template.xlsx`, with the SHA-256 of the exact bytes stored in Git. `examples/` is not imported |
-| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, entry point, ordered cases, assertion count, expected-error cases and required references |
+| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, the harness entry point, ordered cases, assertion count and expected-error cases, the required references, and every other suite with its header, case count, check count per bitness and restoration field |
 | Environment | Excel version and build, Office bitness, Windows version and architecture, VBA runtime, references, macro policy and VBA-project access as found, and `trust_changes: false` |
 | Logs | Each cited log's SHA-256; a log changed after the record was written fails |
-| Harness | For a passing or failed regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
+| Harness | For a passing or failed regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `CANDIDATE`, `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
+| Suites | Every other suite the policy lists, in its order, each run on its own: one normal-mode report whose `CANDIDATE`, header, `CASE` and `RESULT` lines agree with the record and, for a pass, with the policy's counts and restoration field |
+| Summary | Optional: one `TEST_Suite.Test_RunAll` summary whose line for each suite agrees with that suite's own report |
 
 Source digests are of the bytes **stored in Git (LF)**, not of the CRLF files
 in a Windows checkout, so do not compute them with `Get-FileHash`. Print them
@@ -45,9 +47,13 @@ with the validator:
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --inventory
 ```
 
-The policy changes together with the harness: adding a case or an assertion to
-`tests/modules/TEST_Harness.bas` updates `.github/excel-evidence-policy.json` in
-the same pull request.
+The policy changes together with the suites: adding a case or a check to a
+test module updates `.github/excel-evidence-policy.json` in the same pull
+request. `python tools/check.py` (gate `excel-evidence-policy`) fails when the
+policy's counts differ from those the modules declare (`EXPECTED_CASES`,
+`EXPECTED_CHECKS`, `CASES`, `CHECKS`, `BeginSuite`), when a header or `MODE`
+line differs, or when `Test_RunAll` runs other suites. A module that declares
+no check count (`TEST_MainState`) is held only by its evidence log.
 
 <a id="manual-procedure"></a>
 
@@ -87,17 +93,24 @@ clone, to print the inventory and validate the bundle.
    Development`, then
    **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
    listed in **Tools → References** and the compile result.
-5. **Run the harness once.** Clear the Immediate window (**Ctrl+G**, then
-   **Ctrl+A**, **Delete**), run `TEST_Harness.RunTests`, and copy the whole
-   Immediate-window output into `harness.log`, saved as UTF-8. Keep a failing
-   report as it is: never replace it with a later passing one. Do not put a
-   `RunTestsWithInjectedFailure` run in this log.
+5. **Run each suite once, on its own.** For the harness and for every suite in
+   the policy, in its order: clear the Immediate window (**Ctrl+G**, then
+   **Ctrl+A**, **Delete**), run the entry point (`TEST_Harness.RunTests`,
+   `TEST_Formulas.RunFormulaTests`, and so on), and copy the whole
+   Immediate-window output into its own log, saved as UTF-8: `harness.log`,
+   `TEST_Formulas.log`, and so on. Start every log with the line
+   `CANDIDATE=FULL_SHA`, typed before the pasted output, so that it cannot be
+   cited for another commit. Keep a failing report as it is: never replace it
+   with a later passing one. Do not put an injected-failure run in these logs.
+   Optionally, run `TEST_Suite.Test_RunAll` last and keep its output, after a
+   `CANDIDATE=` line, as `summary.log`; it must then agree with every suite's
+   own log.
 6. **Clean up.** Note the harness `CLEANUP=` line, close the test workbook, and
    record in `session.log` that it was closed and the finish time.
 7. **Hash the logs**, after their last edit:
 
    ```sh
-   python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" harness.log
+   python -c "import hashlib,sys;[print(hashlib.sha256(open(f,'rb').read()).hexdigest(), f) for f in sys.argv[1:]]" *.log
    ```
 
    PowerShell's `Get-FileHash -Algorithm SHA256 harness.log` gives the same
@@ -171,7 +184,7 @@ Replace every value with what was observed. This shape is not evidence.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "danielep71/VBA-SACCR-Toolkit",
   "candidate_sha": "FULL_40_CHARACTER_SHA",
   "execution": "manual",
@@ -212,9 +225,17 @@ Replace every value with what was observed. This shape is not evidence.
     "expected_errors": [
       {"case": "cdo-delta.invalid-tranche", "status": "PASS", "detail": "Implied by the complete passing suite"}
     ]
-  }
+  },
+  "suites": [
+    {"entry_point": "TEST_Formulas.RunFormulaTests", "status": "PASS", "cases": 9, "checks": 82, "failures": 0,
+     "log": {"path": "TEST_Formulas.log", "sha256": "FORMULAS_LOG_DIGEST"}},
+    "... one object for each suite in .github/excel-evidence-policy.json, in its order ..."
+  ],
+  "summary": {"path": "summary.log", "sha256": "SUMMARY_LOG_DIGEST"}
 }
 ```
+
+`summary` is `null` when `Test_RunAll` was not run.
 
 Rules the validator applies:
 
@@ -224,7 +245,24 @@ Rules the validator applies:
 - `references` must be exactly the policy's required references, in any order.
 - A stage that did not run has `"status": "NOT_RUN"` and `"log": null`. Compile
   cannot run after a failed import, nor the regression after a failed compile.
-  When the regression did not run or timed out, `harness` is `null`.
+  When the regression did not run or timed out, `harness` is `null`; when it
+  did not run, no suite ran either.
+- Every log of a test run starts with `CANDIDATE=` and the full candidate SHA;
+  a log naming another commit, or none, fails.
+- `suites` lists every suite of the policy once, in its order. A suite that
+  ran is `PASS` or `FAIL` with the counts its `RESULT` line shows, and as many
+  `CASE` lines as cases. A `PASS` needs the policy's case count and its check
+  count for the recorded bitness, no failure and, where the policy names one,
+  the restoration field (`restore=PASS`, `caller_state=RESTORED`); counts of an
+  older commit fail. A suite that did not run is `NOT_RUN` with `null` counts
+  and log; one abandoned as hung is `TIMEOUT` with `null` counts and a log
+  without a `RESULT=` line.
+- The regression stage is `FAIL` when the harness or a suite failed, and
+  `PASS` otherwise; a suite that did not finish makes the record `INCOMPLETE`
+  or `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
+- A summary needs every suite's own report; its line for each suite must show
+  the same verdict and `RESULT` fields, and its `RESULT` line the right
+  counts.
 - A failed regression keeps the observed counts, with `completeness` set to
   `INCOMPLETE` when the harness stopped early but still printed its report. Its
   log must be one normal-mode report whose `CASE` lines follow the policy order
@@ -248,7 +286,8 @@ Rules the validator applies:
 
 When Excel was not run, use the same identity and time fields with
 `"execution": "unavailable"`, a nonempty `availability_reason`, `operator`,
-`environment` and `harness` set to `null`, `"sources": []` and `"stages": {}`.
+`environment`, `harness` and `summary` set to `null`, `"sources": []`,
+`"stages": {}` and `"suites": []`.
 
 <a id="validating-a-bundle"></a>
 
@@ -272,7 +311,7 @@ or output error.
 | `PASS` | Complete, consistent record; every stage and the expected-error result passed |
 | `IMPORT_FAILED` | Import failed |
 | `COMPILE_FAILED` | Compilation failed |
-| `TEST_FAILED` | The harness reported a failure |
+| `TEST_FAILED` | The harness or a suite reported a failure |
 | `CLEANUP_FAILED` | Harness or operator cleanup failed |
 | `EXECUTION_TIMEOUT` | A stage was abandoned as hung |
 | `INCOMPLETE` | At least one stage did not run |
@@ -286,19 +325,13 @@ Keep non-passing bundles too until the finding is resolved.
 
 - Source and log digests are identity controls. They do not prove what a
   workbook contained or authenticate the operator.
-- A pass covers the harness on the recorded host only. It does not validate any
-  SA-CCR number or any other Excel version.
-- Only `TEST_Harness.RunTests` is bound by the record. The other suites
-  (`TEST_Formulas.RunFormulaTests`, `TEST_MainState.RunMainStateTests`,
-  `TEST_Cases.RunCaseTests`,
-  `TEST_InputValidation.RunInputValidationTests`,
-  `TEST_Invariants.RunInvariantTests`,
-  `TEST_Aggregation.RunAggregationTests` and
-  `TEST_Reconcile.RunReconcileTests`) are imported, but their results are
-  not part of the record; report them separately (see
-  [running the harness](../INSTALLATION.md#running-the-harness)). The
-  summary of `TEST_Suite.Test_RunAll` is not a harness log: record
-  `TEST_Harness.RunTests` run on its own.
+- A pass covers the suites on the recorded host only. It validates SA-CCR
+  numbers only as far as the cases do (published values; illustrative ones
+  validate nothing), and no other Excel version or bitness.
+- The `CANDIDATE=` line is typed by the operator: it stops a log of one commit
+  from being cited, by mistake, for another, not a deliberate forgery.
+- The summary of `TEST_Suite.Test_RunAll` is an index, not a report: it is
+  checked against the suites' own logs and never replaces them.
 - Keep logs free of credentials, client data and unredacted screenshots; see
   [`SECURITY.md`](../SECURITY.md#data-and-secrets).
 
@@ -307,6 +340,11 @@ Keep non-passing bundles too until the finding is resolved.
 `tools/test_excel_evidence.py` runs inside `python tools/check.py`
 (`tool-tests`). It uses synthetic records and a temporary Git repository to
 cover a valid record and wrong source identity, a different candidate,
+logs without or with another `CANDIDATE=` line, a missing or reordered suite,
+stale suite counts, suite records that contradict their logs, injected-mode or
+repeated suite runs, a suite that did not restore its state, failed, not-run and
+hung suites, summaries that contradict the suites' reports, the policy check
+against the test modules,
 incomplete and interrupted execution, failed cleanup, import, compile and test
 failures, failure records that contradict their logs, timeouts that claim
 results or cite a finished log,

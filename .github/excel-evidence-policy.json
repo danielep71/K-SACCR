@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "danielep71/VBA-SACCR-Toolkit",
   "entry_point": "TEST_Harness.RunTests",
   "cases": [
@@ -17,5 +17,64 @@
     "Microsoft Excel 16.0 Object Library",
     "OLE Automation",
     "Microsoft Office 16.0 Object Library"
-  ]
+  ],
+  "suites": [
+    {
+      "entry_point": "TEST_Formulas.RunFormulaTests",
+      "header": "SACCR FORMULA CONTRACT TESTS",
+      "mode_line": false,
+      "cases": 9,
+      "checks": {"32-bit": 80, "64-bit": 82},
+      "restoration": null
+    },
+    {
+      "entry_point": "TEST_MainState.RunMainStateTests",
+      "header": "SACCR MAIN STATE TESTS",
+      "mode_line": false,
+      "cases": 27,
+      "checks": {"32-bit": 465, "64-bit": 465},
+      "restoration": "caller_state=RESTORED"
+    },
+    {
+      "entry_point": "TEST_Cases.RunCaseTests",
+      "header": "SACCR CASE TESTS",
+      "mode_line": true,
+      "cases": 20,
+      "checks": {"32-bit": 39, "64-bit": 39},
+      "restoration": "restore=PASS"
+    },
+    {
+      "entry_point": "TEST_InputValidation.RunInputValidationTests",
+      "header": "SACCR CASE TESTS",
+      "mode_line": true,
+      "cases": 133,
+      "checks": {"32-bit": 209, "64-bit": 209},
+      "restoration": "restore=PASS"
+    },
+    {
+      "entry_point": "TEST_Aggregation.RunAggregationTests",
+      "header": "SACCR CASE TESTS",
+      "mode_line": true,
+      "cases": 11,
+      "checks": {"32-bit": 11, "64-bit": 11},
+      "restoration": "restore=PASS"
+    },
+    {
+      "entry_point": "TEST_Invariants.RunInvariantTests",
+      "header": "SACCR CASE TESTS",
+      "mode_line": true,
+      "cases": 4,
+      "checks": {"32-bit": 23, "64-bit": 23},
+      "restoration": "restore=PASS"
+    },
+    {
+      "entry_point": "TEST_Reconcile.RunReconcileTests",
+      "header": "SACCR RECONCILIATION TESTS",
+      "mode_line": false,
+      "cases": 19,
+      "checks": {"32-bit": 140, "64-bit": 140},
+      "restoration": null
+    }
+  ],
+  "summary_entry_point": "TEST_Suite.Test_RunAll"
 }

@@ -4,7 +4,10 @@
 The validator never runs Excel and cannot authenticate what an operator did. It
 checks that the record is complete and consistent, that the declared source
 inventory is the exact Git content of the candidate, and that the retained logs
-match their digests and the harness report. See docs/EXCEL_EVIDENCE.md.
+match their digests and the reports of the harness and of every other suite the
+policy lists, each run on its own, and of the optional Test_RunAll summary.
+With --check-policy it instead checks that the policy's suites and counts match
+the test modules of the working tree. See docs/EXCEL_EVIDENCE.md.
 Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44: manual execution only, and
 the source inventory is derived from the repository layout.
 """
@@ -36,7 +39,15 @@ DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 SCOPE = ("Checks a retained manual record and its source and log bindings; "
          "does not run Excel or authenticate the operator.")
 RECORD_KEYS = ("schema_version repository candidate_sha execution availability_reason "
-               "started_at finished_at operator environment sources stages harness")
+               "started_at finished_at operator environment sources stages harness suites summary")
+POLICY_KEYS = ("schema_version repository entry_point cases assertions expected_error_cases "
+               "required_references suites summary_entry_point")
+SUITE_POLICY_KEYS = "entry_point header mode_line cases checks restoration"
+SUITE_RECORD_KEYS = "entry_point status cases checks failures log"
+BITNESS = ("32-bit", "64-bit")
+STATUSES = ("PASS", "FAIL", "NOT_RUN", "TIMEOUT")
+# One line of the Test_RunAll summary, e.g. "  PASS  TEST_Cases            cases=20; ...  (4,1 s)".
+SUMMARY_LINE = re.compile(r"^  (PASS|FAIL)  (TEST_\w+) +(.+?)  \(([0-9.,]+) s\)[ \t]*$", re.MULTILINE)
 ENVIRONMENT_KEYS = ("excel_version excel_build office_bitness os os_architecture runtime "
                     "references macro_policy vba_project_access trust_changes")
 
@@ -114,11 +125,30 @@ def source_inventory(root: Path, sha: str) -> list[dict[str, str]]:
             for path in sorted(paths)]
 
 
-def load_policy(root: Path, sha: str) -> dict[str, Any]:
-    policy = object_keys(decode(committed(root, sha, POLICY)),
-                         "schema_version repository entry_point cases assertions "
-                         "expected_error_cases required_references", "evidence policy")
-    require(type(policy["schema_version"]) is int and policy["schema_version"] == 1,
+def count(value: Any, label: str) -> int:
+    require(type(value) is int and value >= 0, f"invalid {label}")
+    return int(value)
+
+
+def parse_suite_policy(value: Any) -> dict[str, Any]:
+    suite = object_keys(value, SUITE_POLICY_KEYS, "policy suite")
+    require(nonempty(suite["entry_point"]) and "." in suite["entry_point"]
+            and nonempty(suite["header"]), "policy suite needs an entry point and a header")
+    require(isinstance(suite["mode_line"], bool), "policy suite mode_line must be true or false")
+    require(count(suite["cases"], "policy suite cases") > 0, "policy suite needs cases")
+    checks = object_keys(suite["checks"], " ".join(BITNESS), "policy suite checks")
+    require(all(count(checks[key], "policy suite checks") > 0 for key in BITNESS),
+            "policy suite needs checks for each bitness")
+    require(suite["restoration"] is None
+            or (isinstance(suite["restoration"], str)
+                and re.fullmatch(r"\w+=\w+", suite["restoration"]) is not None),
+            "policy suite restoration must be null or key=value")
+    return suite
+
+
+def parse_policy(raw: bytes) -> dict[str, Any]:
+    policy = object_keys(decode(raw), POLICY_KEYS, "evidence policy")
+    require(type(policy["schema_version"]) is int and policy["schema_version"] == 2,
             "unsupported evidence policy schema")
     require(nonempty(policy["repository"]) and nonempty(policy["entry_point"]),
             "policy needs a repository and an entry point")
@@ -129,12 +159,21 @@ def load_policy(root: Path, sha: str) -> dict[str, Any]:
     string_list(policy["required_references"], "policy references")
     require(bool(cases) and set(errors) <= set(cases),
             "expected-error cases must belong to the declared suite")
+    require(isinstance(policy["suites"], list) and bool(policy["suites"]), "policy needs suites")
+    entries = [parse_suite_policy(suite)["entry_point"] for suite in policy["suites"]]
+    require(len(set(entries + [policy["entry_point"]])) == len(entries) + 1,
+            "policy entry points must be distinct")
+    require(nonempty(policy["summary_entry_point"]), "policy needs the summary entry point")
     return policy
+
+
+def load_policy(root: Path, sha: str) -> dict[str, Any]:
+    return parse_policy(committed(root, sha, POLICY))
 
 
 def validate_identity(value: Any, policy: dict[str, Any], sha: str) -> dict[str, Any]:
     record = object_keys(value, RECORD_KEYS, "evidence record")
-    require(type(record["schema_version"]) is int and record["schema_version"] == 1,
+    require(type(record["schema_version"]) is int and record["schema_version"] == 2,
             "unsupported evidence record schema")
     require(record["repository"] == policy["repository"], "record repository differs from policy")
     require(record["candidate_sha"] == sha, "record candidate_sha differs from the candidate")
@@ -204,10 +243,15 @@ def validate_stages(record: dict[str, Any], directory: Path) -> tuple[list[str],
     return list(dict.fromkeys(outcomes)), logs
 
 
-def single(log: str, key: str) -> str:
+def single(log: str, key: str, label: str = "harness") -> str:
     values: list[str] = re.findall(rf"^{re.escape(key)}=(.*)$", log, re.MULTILINE)
-    require(len(values) == 1, f"harness log needs exactly one {key}= line")
+    require(len(values) == 1, f"{label} log needs exactly one {key}= line")
     return values[0].strip()
+
+
+def require_candidate(log: str, sha: str, label: str) -> None:
+    """Each test log starts with the operator's CANDIDATE= line, so it cannot serve another commit."""
+    require(single(log, "CANDIDATE", label) == sha, f"{label} log names another candidate")
 
 
 def report_cases(record: dict[str, Any], policy: dict[str, Any], log: str) -> list[str]:
@@ -236,6 +280,7 @@ def report_cases(record: dict[str, Any], policy: dict[str, Any], log: str) -> li
 def validate_report(record: dict[str, Any], policy: dict[str, Any], log: str) -> None:
     """Bind a passing or failed regression to one complete normal-mode harness report."""
     harness = record["harness"]
+    require_candidate(log, record["candidate_sha"], "harness")
     report_cases(record, policy, log)
     for field in ("cases", "assertions", "failures"):
         require(single(log, field.upper()) == str(harness[field]),
@@ -256,7 +301,11 @@ def validate_report(record: dict[str, Any], policy: dict[str, Any], log: str) ->
     regression = record["stages"]["regression"]["status"]
     require(regression == "FAIL" or (complete and harness["failures"] == 0),
             "regression PASS contradicts the harness results")
-    require(regression == "PASS" or not passed, "regression FAIL contradicts a passing report")
+    # The suites are validated after the harness; read their statuses defensively here.
+    suites_failed = isinstance(record["suites"], list) and any(
+        isinstance(suite, dict) and suite.get("status") == "FAIL" for suite in record["suites"])
+    require(regression == "PASS" or not passed or suites_failed,
+            "regression FAIL contradicts a passing report")
     require(cleanup == "PASS" or record["stages"]["cleanup"]["status"] == "FAIL",
             "a harness cleanup failure must be recorded as cleanup FAIL")
 
@@ -282,10 +331,124 @@ def validate_harness(record: dict[str, Any], policy: dict[str, Any], log: str) -
     validate_report(record, policy, log)
 
 
+def result_fields(result: str, keys: list[str], label: str) -> tuple[str, list[str]]:
+    """Split a RESULT line into its verdict and the values of ``keys``, in that order."""
+    verdict, *fields = result.split("; ")
+    require(verdict in ("PASS", "FAIL"), f"{label} RESULT must be PASS or FAIL")
+    pairs = [field.partition("=") for field in fields]
+    require([key for key, _, _ in pairs] == keys, f"{label} RESULT fields differ from the policy")
+    return verdict, [value for _, _, value in pairs]
+
+
+def validate_suite_log(spec: dict[str, Any], item: dict[str, Any], log: str,
+                       record: dict[str, Any]) -> None:
+    """Bind one suite record to a single normal-mode report of that suite."""
+    label = spec["entry_point"]
+    require_candidate(log, record["candidate_sha"], label)
+    require(re.findall(rf"^{re.escape(spec['header'])}[ \t]*$", log, re.MULTILINE) == [spec["header"]],
+            f"{label} log must contain exactly one run")
+    modes = [mode.strip() for mode in re.findall(r"^MODE=(.*)$", log, re.MULTILINE)]
+    require(modes == (["NORMAL"] if spec["mode_line"] else []), f"{label} log is not a normal-mode run")
+    require(len(re.findall(r"^CASE=", log, re.MULTILINE)) == item["cases"],
+            f"{label} CASE lines differ from the record")
+    restoration = spec["restoration"].split("=") if spec["restoration"] else None
+    keys = ["cases", "checks", "failures"] + ([restoration[0]] if restoration else [])
+    verdict, values = result_fields(single(log, "RESULT", label), keys, label)
+    require(values[:3] == [str(item[key]) for key in ("cases", "checks", "failures")],
+            f"{label} RESULT counts differ from the record")
+    if item["status"] == "FAIL":
+        require(verdict == "FAIL", f"{label} FAIL contradicts a passing report")
+        return
+    checks = spec["checks"][record["environment"]["office_bitness"]]
+    require(verdict == "PASS" and item["failures"] == 0, f"{label} PASS contradicts its report")
+    require(item["cases"] == spec["cases"] and item["checks"] == checks,
+            f"{label} counts differ from the policy ({spec['cases']} cases, {checks} checks)")
+    require(restoration is None or values[3] == restoration[1], f"{label} did not restore its state")
+
+
+def validate_suite(spec: dict[str, Any], value: Any, record: dict[str, Any],
+                   directory: Path) -> tuple[str | None, str | None]:
+    """Return the suite's outcome, if it is not a pass, and its retained log."""
+    item = object_keys(value, SUITE_RECORD_KEYS, "suite")
+    label = spec["entry_point"]
+    require(item["entry_point"] == label, "suites differ from the policy")
+    require(item["status"] in STATUSES, f"invalid {label} status")
+    if item["status"] in ("NOT_RUN", "TIMEOUT"):
+        require(all(item[key] is None for key in ("cases", "checks", "failures")),
+                f"an unfinished {label} has no results")
+        if item["status"] == "NOT_RUN":
+            require(item["log"] is None, f"NOT_RUN {label} cannot cite a log")
+            return "INCOMPLETE", None
+        log = retained_log(directory, item["log"])
+        require(not re.search(r"^RESULT=", log, re.M),
+                f"{label} log has a RESULT line; record it as PASS or FAIL, not TIMEOUT")
+        return "EXECUTION_TIMEOUT", log
+    for key in ("cases", "checks", "failures"):
+        count(item[key], f"{label} {key}")
+    log = retained_log(directory, item["log"])
+    validate_suite_log(spec, item, log, record)
+    return ("TEST_FAILED" if item["status"] == "FAIL" else None), log
+
+
+def validate_suites(record: dict[str, Any], policy: dict[str, Any],
+                    directory: Path) -> tuple[list[str], dict[str, str]]:
+    """Validate every suite the policy lists, in its order; return outcomes and logs."""
+    suites = record["suites"]
+    require(isinstance(suites, list), "suites must be an array")
+    require([item.get("entry_point") if isinstance(item, dict) else None for item in suites]
+            == [spec["entry_point"] for spec in policy["suites"]],
+            "suites differ from the policy: every suite is recorded once, in policy order")
+    regression = record["stages"]["regression"]["status"]
+    require(regression != "NOT_RUN" or all(item["status"] == "NOT_RUN" for item in suites),
+            "no suite can run when the regression did not")
+    outcomes: list[str] = []
+    logs: dict[str, str] = {}
+    for spec, item in zip(policy["suites"], suites):
+        outcome, log = validate_suite(spec, item, record, directory)
+        if outcome:
+            outcomes.append(outcome)
+        if log is not None:
+            logs[spec["entry_point"]] = log
+    # A suite that did not finish is INCOMPLETE or EXECUTION_TIMEOUT, not a test failure.
+    require(regression != "PASS" or all(item["status"] != "FAIL" for item in suites),
+            "regression PASS cannot hide a failed suite")
+    return outcomes, logs
+
+
+def report_detail(log: str, label: str) -> tuple[str, str]:
+    """The verdict of a report and its RESULT fields, as Test_RunAll prints them."""
+    verdict, _, detail = single(log, "RESULT", label).partition("; ")
+    return verdict, detail
+
+
+def validate_summary(record: dict[str, Any], policy: dict[str, Any], directory: Path,
+                     logs: dict[str, str]) -> None:
+    """Check the optional Test_RunAll summary against the individual reports."""
+    if record["summary"] is None:
+        return
+    entries = [policy["entry_point"]] + [spec["entry_point"] for spec in policy["suites"]]
+    require(set(entries) <= set(logs), "a summary needs every suite's own report")
+    log = retained_log(directory, record["summary"])
+    require_candidate(log, record["candidate_sha"], "summary")
+    require(len(re.findall(r"^SACCR TEST SUMMARY ", log, re.MULTILINE)) == 1,
+            "summary log must contain exactly one Test_RunAll run")
+    lines = SUMMARY_LINE.findall(log)
+    require([name for _, name, _, _ in lines] == [entry.split(".")[0] for entry in entries],
+            "summary suites differ from the policy")
+    for (status, name, detail, _), entry in zip(lines, entries):
+        require((status, detail.strip()) == report_detail(logs[entry], entry),
+                f"summary line of {name} contradicts its own report")
+    failed = sum(status == "FAIL" for status, _, _, _ in lines)
+    verdict, values = result_fields(single(log, "RESULT", "summary"),
+                                    ["suites", "passed", "failed", "seconds"], "summary")
+    require(values[:3] == [str(len(entries)), str(len(entries) - failed), str(failed)]
+            and verdict == ("FAIL" if failed else "PASS"), "summary RESULT contradicts its suite lines")
+
+
 def validate_unavailable(record: dict[str, Any]) -> list[str]:
     require(nonempty(record["availability_reason"]), "unavailable needs a reason")
-    require(all(record[key] is None for key in ("operator", "environment", "harness"))
-            and record["sources"] == [] and record["stages"] == {},
+    require(all(record[key] is None for key in ("operator", "environment", "harness", "summary"))
+            and record["sources"] == [] and record["stages"] == {} and record["suites"] == [],
             "unavailable cannot carry execution claims")
     return ["UNAVAILABLE"]
 
@@ -305,7 +468,72 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
                 "a log with a RESULT line finished; record it as PASS or FAIL, not TIMEOUT")
     else:
         validate_harness(record, policy, logs["regression"])
-    return outcomes
+    suite_outcomes, suite_logs = validate_suites(record, policy, directory)
+    if regression in ("PASS", "FAIL"):
+        suite_logs[policy["entry_point"]] = logs["regression"]
+    validate_summary(record, policy, directory, suite_logs)
+    return list(dict.fromkeys(outcomes + suite_outcomes))
+
+
+def declared(text: str, names: str, position: int) -> set[int]:
+    """Counts a test module declares: Const <names> As Long = n, or BeginSuite n, m."""
+    values = {int(value) for value in re.findall(rf"Const (?:{names})\s+As Long = (\d+)", text)}
+    begin = re.findall(r"BeginSuite (\d+), (\d+)", text)
+    return values | {int(pair[position]) for pair in begin}
+
+
+def module_text(root: Path, entry_point: str) -> str:
+    module, _, procedure = entry_point.partition(".")
+    path = root / "tests" / "modules" / f"{module}.bas"
+    require(path.is_file(), f"{entry_point}: no tests/modules/{module}.bas")
+    text = path.read_text(encoding="cp1252")
+    require(re.search(rf"^Public Sub {re.escape(procedure)}\b", text, re.MULTILINE) is not None,
+            f"{entry_point}: no Public Sub {procedure}")
+    return text
+
+
+def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
+    """The policy counts of one suite against the counts its module declares."""
+    text = module_text(root, spec["entry_point"])
+    problems = []
+    if declared(text, "EXPECTED_CASES|CASES", 0) != {spec["cases"]}:
+        problems.append(f"{spec['entry_point']}: policy cases differ from the module")
+    checks = declared(text, "EXPECTED_CHECKS|CHECKS", 1)
+    # A module that declares no check count (MainState) is held only by the evidence logs.
+    if checks and checks != set(spec["checks"].values()):
+        problems.append(f"{spec['entry_point']}: policy checks differ from the module")
+    # The case-runner suites print the runner's header and MODE line.
+    runner = "TEST_CaseRunner.BeginSuite" in text
+    if runner:
+        text += (root / "tests" / "modules" / "TEST_CaseRunner.bas").read_text(encoding="cp1252")
+    if f'"{spec["header"]}"' not in text:
+        problems.append(f"{spec['entry_point']}: header {spec['header']!r} not printed by the module")
+    if spec["mode_line"] != runner:
+        problems.append(f"{spec['entry_point']}: policy mode_line differs from the module")
+    return problems
+
+
+def policy_problems(root: Path) -> list[str]:
+    """Check that the working tree's policy matches the test modules and Test_RunAll."""
+    try:
+        policy = parse_policy((root / POLICY).read_bytes())
+        harness = module_text(root, policy["entry_point"])
+        problems = []
+        if (declared(harness, "EXPECTED_CASES", 0) != {len(policy["cases"])}
+                or declared(harness, "EXPECTED_ASSERTIONS", 1) != {policy["assertions"]}):
+            problems.append(f"{policy['entry_point']}: policy counts differ from the module")
+        for spec in policy["suites"]:
+            problems += suite_problems(root, spec)
+        runner = module_text(root, policy["summary_entry_point"])
+        listed = re.findall(r'"(TEST_\w+\.\w+)"', runner.split("suites = Array(", 1)[-1].split(")\n", 1)[0])
+        entries = [policy["entry_point"]] + [spec["entry_point"] for spec in policy["suites"]]
+        if listed != entries:
+            problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")
+        if declared(runner, "SUITE_COUNT", 0) != {len(entries)}:
+            problems.append("SUITE_COUNT differs from the number of policy suites")
+        return problems
+    except (ValueError, OSError) as error:
+        return [str(error)]
 
 
 def evaluate(root: Path, sha: str, evidence: Path) -> dict[str, Any]:
@@ -340,13 +568,21 @@ def markdown(report: dict[str, Any]) -> str:
 def main(arguments: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--candidate-sha")
     parser.add_argument("--evidence", type=Path, help="host.json inside the retained bundle")
     parser.add_argument("--inventory", action="store_true",
                         help="print the candidate's source inventory for the record and exit")
+    parser.add_argument("--check-policy", action="store_true",
+                        help="check the working tree's policy against the test modules and exit")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--summary", type=Path)
     options = parser.parse_args(arguments)
+    if options.check_policy:
+        problems = policy_problems(options.root)
+        print("\n".join(problems) if problems else "Excel evidence policy: PASS")
+        return 1 if problems else 0
+    if options.candidate_sha is None:
+        parser.error("--candidate-sha is required")
     if options.inventory:
         try:
             require_commit(options.root, options.candidate_sha)

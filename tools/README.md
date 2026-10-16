@@ -21,12 +21,15 @@ pull request's whole range.
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
 | `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose (`EBA Q&A 2023_6962` or `EBA Single Rulebook Q&A 2023_6962`), in the expected files, the VBA source and the methodology; only the source register's row that defines the ID may use the full name. It does not run any case |
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
+| `excel-evidence-policy` | `.github/excel-evidence-policy.json` matches the test modules: the harness's case and assertion counts, each suite's case and check counts (`EXPECTED_CASES`, `EXPECTED_CHECKS`, `CASES`, `CHECKS` or `BeginSuite`; a module without a check count is held by its evidence log only), header and `MODE` line, and the suites `TEST_Suite.Test_RunAll` runs, with `SUITE_COUNT` |
 | `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
 | `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
 
-`check_excel_evidence.py` is not a gate: it validates a manual Excel evidence
-bundle against a candidate commit, and `--inventory` prints the source digests a
-record needs. Its synthetic tests, `test_excel_evidence.py`, run in `tool-tests`.
+`check_excel_evidence.py` validates a manual Excel evidence bundle against a
+candidate commit: the harness and every other suite the policy lists, each with
+its own log, and the optional `Test_RunAll` summary. `--inventory` prints the
+source digests a record needs, and `--check-policy` is the
+`excel-evidence-policy` gate above. Its synthetic tests, `test_excel_evidence.py`, run in `tool-tests`.
 See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they

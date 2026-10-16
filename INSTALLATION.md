@@ -234,9 +234,10 @@ with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final line such as
 `RESULT=PASS; suites=8; passed=8; failed=0; seconds=...`. An error raised by
 a suite counts as its failure and the next suite still runs. The summary is
-not Excel evidence: the evidence record needs the full log of
-`TEST_Harness.RunTests` run on its own. Each suite below can also be run
-alone, with its full log.
+not Excel evidence: the evidence record needs the full log of every suite,
+each run on its own, and checks the summary against them when it is added
+(see [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md)). Each suite below can
+also be run alone, with its full log.
 
 After importing the components above and compiling, open the Immediate
 window (**Ctrl+G**) and run:

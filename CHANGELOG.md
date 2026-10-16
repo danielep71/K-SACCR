@@ -98,6 +98,20 @@ Use only the categories needed by a release.
 
 ### Added
 
+- The Excel evidence record binds every test suite, not only the harness
+  (#46). `.github/excel-evidence-policy.json` (schema 2) lists the seven other
+  suites with their header, case count, check count per bitness and
+  restoration field, and the record (`host.json`, schema 2) gives each its own
+  log, run on its own, plus an optional `Test_RunAll` summary.
+  `tools/check_excel_evidence.py` rejects a missing or reordered suite, counts
+  of another commit, a log that is not one normal-mode run, a suite that did
+  not restore its state, a summary that contradicts the suites' own reports,
+  and any test log without the operator's `CANDIDATE=` line for the
+  candidate. A new gate in `python tools/check.py`, `excel-evidence-policy`,
+  fails when the policy's counts, headers or suite list differ from the test
+  modules and `Test_RunAll`. Evidence records of schema 1 are no longer
+  accepted.
+
 - An evidence report of the run (#45). **Export evidence**, a new button on
   `Reconciliation`, writes one CSV file, separated by `;` with a `.` decimal
   point, CR LF line ends and UTF-8 without a byte-order mark in every locale.
