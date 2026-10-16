@@ -584,9 +584,9 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     displays = {
         "Excel suites badge": (r"badge/Excel_suites-([^-?)]+)", f"{suites}%2F{suites}_PASS"),
         "Regression badge": (r"badge/Regression-([^-?)]+)", f"{cases}_cases_%C2%B7_{checks}_checks"),
-        "Testing capability": (r"\((\d+ cases, \d+ checks)\)", f"{cases} cases, {checks} checks"),
-        "suite table total": (r"^\| \*\*Total\*\* \|(.*)\|$", f" | **{cases}** | **{checks}** "),
-        "Test_RunAll result": (r"^RESULT=(\w+; suites=\d+; passed=\d+; failed=\d+);",
+        "Testing capability": (r"\(([^()]*\bcases\b[^()]*\bchecks\b[^()]*)\)", f"{cases} cases, {checks} checks"),
+        "suite table total": (r"^\|[ \t]*\*\*Total\*\*[ \t]*\|(.*)\|$", f" | **{cases}** | **{checks}** "),
+        "Test_RunAll result": (r"^RESULT=(\w+; suites=[^;]*; passed=[^;]*; failed=[^;]*);",
                                f"PASS; suites={suites}; passed={suites}; failed=0"),
     }
     for label, (pattern, value) in displays.items():
@@ -596,7 +596,8 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     # Every row, in order: a second, stale row for one suite is a contradiction.
     table = [(name, int(found_cases), int(found_checks)) for name, found_cases, found_checks
              in re.findall(r"^\| `(TEST_\w+)` \|.*\| (\d+) \| (\d+) \|$", text, re.MULTILINE)]
-    if table != rows:
+    # Every row naming a suite must parse, as for the summary lines below.
+    if table != rows or len(re.findall(r"^\|[ \t]*`TEST_\w+`", text, re.MULTILINE)) != len(table):
         problems.append("README.md: suite table rows differ from the policy suites and counts")
     # Every suite-result line must parse: one in another format, such as an older
     # summary without timings, would otherwise be skipped while still displayed.

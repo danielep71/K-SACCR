@@ -529,6 +529,8 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("| 19 | 140 |", "| 18 | 137 |", "suite table rows differ"),
                 ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | 9 | 80 |\n| `TEST_Formulas` |",
                  "suite table rows differ"),
+                ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
                 ("| **227** | **975** |", "| **226** | **975** |", "suite table total"),
                 ("TEST_Reconcile        cases=19; checks=140", "TEST_Reconcile        cases=18; checks=137",
                  "Test_RunAll output differs"),
@@ -540,6 +542,8 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("RESULT=PASS; suites=8", "RESULT=FAIL; suites=8; passed=7; failed=1; seconds=1\n"
                  "RESULT=PASS; suites=8", "Test_RunAll result"),
                 ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge"),
+                ("Eight Excel suites (227", "Seven Excel suites (**226** cases, 975 checks); eight (227",
+                 "Testing capability"),
                 ("  PASS  TEST_MainState", "  PASS  TEST_MainState        cases=20; checks=381; failures=0; "
                  "caller_state=RESTORED\n  PASS  TEST_MainState", "lines all parse"),
                 ("SACCR TEST SUMMARY 2026", "SACCR TEST SUMMARY 2026-10-13 08:28:48\nSACCR TEST SUMMARY 2026",
