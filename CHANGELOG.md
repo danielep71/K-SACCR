@@ -309,6 +309,15 @@ Use only the categories needed by a release.
   selection to the aggregate add-on, including the maturity factor, basis and
   volatility hedging sets and time buckets by end date, with Basel CRE52 and
   CRR references for each step.
+- Workbook screenshots in `docs/assets/`: the NettingSets, Trades, Params
+  (run parameters and supervisory table) and README sheets, and Results,
+  TradeCalc, HedgingSets, Buckets, Checks, BankNettingSets, Reconciliation,
+  TestCatalogue and FormulaTest after a run of the demonstration workbook,
+  taken in Excel, with the Basel_vs_CRR sheet and the start of that run's
+  evidence CSV. The root README shows Results and Checks, and the calculation
+  detail, the reconciliation, the evidence file, the input sheets, the regime
+  comparison and the test sheets in collapsible sections; `SCREENSHOTS_SOURCES.md` records how they were
+  taken and processed.
 - A social preview image in `docs/assets/` (`SACCR_social_preview.png`,
   1280 x 640, with its HTML source). Its figures are the published CRE99
   values; `SOCIAL_PREVIEW_SOURCES.md` gives their locators and how to
@@ -445,6 +454,20 @@ Use only the categories needed by a release.
   `TEST_Invariants` 4 cases and 23 checks.
 
 ### Changed
+
+- The output tables are located through workbook names, like NettingSets
+  and Trades, instead of fixed rows (headers on row 6, data from row 7).
+  `Results_Header`, `HedgingSets_Header`, `Buckets_Header`,
+  `TradeCalc_Header`, `Checks_Header`, `Reconciliation_Header` and
+  `TradeReconciliation_Header` name the first header cell of each table, and
+  the engine, the macros and the evidence export write and read from the row
+  below it (`CORE_Util.OutputFirstRow`). A row inserted or deleted above an
+  output table therefore moves the table: before, the next run wrote at the
+  old rows and could leave a row of the previous run under the headers. A
+  missing or broken name stops the run with an error that names it, like a
+  missing sheet; a workbook built before this change has none of the names
+  and must be rebuilt from the template. `TEST_MainState` has a new case,
+  `layout.output-header-names` (28 cases).
 
 - `tools/Sync-SACCR-VBA.ps1` asks whether it is building a production
   workbook (engine, worksheet functions and sheet macros) or a development
@@ -610,14 +633,14 @@ Use only the categories needed by a release.
   16 pt font), and every font, including the theme fonts and the sheet
   buttons, is Aptos, named on the style instead of following the workbook
   theme, so a sheet copied into another workbook keeps Aptos. Tables now start
-  in column C, with headers on row 6 and data from row 7 (Trades: headers on
-  row 4, data from row 5); the Results run summary is in C4 and the status
-  formula in C5, which watches NettingSets `$C:$Q`, Trades `$C:$AA` and the
-  whole Params sheet.
+  in column C, each with data from the row below its headers; the Results run
+  summary is in C4 and the status formula in C5, which watches NettingSets
+  `$C:$Q`, Trades `$C:$AA` and the whole Params sheet.
   Formulas, workbook names, data validation, conditional formatting, merged
   cells, filters, frozen panes and the buttons moved with the cells. The VBA
   addresses tables through `CORE_Util.TableCell` and `TableRange` with
-  `CORE_Config.COL_OFFSET` = 2; `HEADER_ROW` is 6 and `FIRST_DATA_ROW` 7.
+  `CORE_Config.COL_OFFSET` = 2, and finds each table's rows through the
+  workbook name of its first header cell.
 
 - `tools/check_source.py` checks that `Sync-SACCR-VBA.ps1` reaches every VBA
   component: each must lie in a directory of its `$sourceRoots`, each listed

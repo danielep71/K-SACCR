@@ -64,22 +64,26 @@ Attribute VB_Name = "CORE_Config"
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
     'Every sheet has two narrow margin columns (A:B) and two margin rows
-    '(1:2). Every table starts in column C. The output tables have their
-    'headers on row 6 and data from row 7. The input tables are located
-    'through workbook names, so their rows can move: NettingSets and Trades
-    'through the name of their first header cell (NM_NS_HEADER,
-    'NM_TR_HEADER), with data from the next row (CORE_Util.TableHeaderRow
-    'and TableFirstRow), and Params as described under PARAMS SHEET. Column
-    'numbers in this
-    'module (NS_, TR_, RS_ and the others) count from the first table
-    'column; CORE_Util.TableCell and TableRange add COL_OFFSET. The run
-    'summary is written to cell C4 of the Results sheet.
+    '(1:2). Every table starts in column C. The tables are located through
+    'workbook names, so their rows can move: each input and output table
+    'through the name of its first header cell, in column C, with data from
+    'the next row (CORE_Util.TableHeaderRow, TableFirstRow and, for the
+    'output tables, OutputFirstRow), and Params as described under PARAMS
+    'SHEET. Column numbers in this module (NS_, TR_, RS_ and the others)
+    'count from the first table column; CORE_Util.TableCell and TableRange
+    'add COL_OFFSET. The run summary is written to cell C4 of the Results
+    'sheet.
         Public Const COL_OFFSET       As Long = 2         'Margin columns left of every table
-        Public Const HEADER_ROW       As Long = 6         'Row holding the column headers
-        Public Const FIRST_DATA_ROW   As Long = 7         'First row of data below the headers
         Public Const RUNINFO_CELL     As String = "C4"    'Cell receiving the run summary line
         Public Const NM_NS_HEADER     As String = "NettingSets_Header"    'NettingSets header cell "NettingSetID"
         Public Const NM_TR_HEADER     As String = "Trades_Header"         'Trades header cell "TradeID"
+        Public Const NM_RS_HEADER     As String = "Results_Header"        'Results header cell "NettingSetID"
+        Public Const NM_HS_HEADER     As String = "HedgingSets_Header"    'HedgingSets header cell "NettingSetID"
+        Public Const NM_BK_HEADER     As String = "Buckets_Header"        'Buckets header cell "NettingSetID"
+        Public Const NM_TC_HEADER     As String = "TradeCalc_Header"      'TradeCalc header cell "TradeID"
+        Public Const NM_CK_HEADER     As String = "Checks_Header"         'Checks header cell "Severity"
+        Public Const NM_RECON_HEADER  As String = "Reconciliation_Header"         'Reconciliation header cell "NettingSetID"
+        Public Const NM_TRECON_HEADER As String = "TradeReconciliation_Header"    'TradeReconciliation header cell "TradeID"
 
 '------------------------------------------------------------------------------
 ' PARAMS SHEET
@@ -364,7 +368,7 @@ Attribute VB_Name = "CORE_Config"
 ' RECONCILIATION
 '------------------------------------------------------------------------------
     'The Reconciliation sheet has one row per netting set and measure, in
-    'the layout of the other output sheets (headers on HEADER_ROW), its
+    'the layout of the other output sheets (headers at NM_RECON_HEADER), its
     'summary in RECON_INFO_CELL and a status formula in RECON_STATUS_CELL.
     'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
     'figures and inputs it was made from; it is empty when there is none.
@@ -450,6 +454,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
         Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file not replaced whole
+        Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

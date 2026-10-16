@@ -1461,8 +1461,8 @@ Private Function SheetRows( _
 '------------------------------------------------------------------------------
         Set ws = GetSheet(sheetName)
         lastR = UsedLastRow(ws)
-        If lastR >= FIRST_DATA_ROW Then
-            SheetRows = TableRange(ws, FIRST_DATA_ROW, 1, lastR, columnCount).Value
+        If lastR >= OutputFirstRow(sheetName) Then
+            SheetRows = TableRange(ws, OutputFirstRow(sheetName), 1, lastR, columnCount).Value
         End If
 
 End Function

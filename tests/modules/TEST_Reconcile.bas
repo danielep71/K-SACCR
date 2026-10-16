@@ -696,8 +696,8 @@ Private Sub CaseWorkbook()
 '------------------------------------------------------------------------------
     'The first VALID netting set: its EAD as on Results (MATCH) and its RC
     'ten percent higher (DIFFERENCE); and an ID that Results does not have.
-        lastR = LastDataRow(wsResults, FIRST_DATA_ROW, RS_ID)
-        For i = lastR To FIRST_DATA_ROW Step -1
+        lastR = LastDataRow(wsResults, OutputFirstRow(SH_RESULTS), RS_ID)
+        For i = lastR To OutputFirstRow(SH_RESULTS) Step -1
             If SafeStr(TableCell(wsResults, i, RS_STATUS_COL).Value) = "VALID" Then
                 r = i
             End If
@@ -721,8 +721,8 @@ Private Sub CaseWorkbook()
         CheckText "RC ten percent higher", ResultOf(outcomes, nsId, "RC"), RES_DIFF
         CheckText "ID not on Results", ResultOf(outcomes, "NOT-ON-RESULTS", "EAD"), RES_MISSING
     'Every other netting set on Results is not in the bank file: all the
-    'rows from FIRST_DATA_ROW but the TOTAL rows and the one compared.
-        Check CountResult(outcomes, RES_NOTINBANK) = LastDataRow(wsResults, FIRST_DATA_ROW, RS_ID) - FIRST_DATA_ROW - _
+    'rows from the first data row but the TOTAL rows and the one compared.
+        Check CountResult(outcomes, RES_NOTINBANK) = LastDataRow(wsResults, OutputFirstRow(SH_RESULTS), RS_ID) - OutputFirstRow(SH_RESULTS) - _
               CountTotals(wsResults), "NOT IN BANK FILE rows: " & CountResult(outcomes, RES_NOTINBANK)
         Check InStr(SafeStr(wsRecon.Range(RECON_INFO_CELL).Value), "Last reconciliation") = 1, _
               "summary: " & SafeStr(wsRecon.Range(RECON_INFO_CELL).Value)
@@ -1049,7 +1049,7 @@ Private Sub CaseTradeWorkbook()
 '------------------------------------------------------------------------------
         TableRange(wsBank, firstRow, 1, firstRow + 49, BT_NCOLS).ClearContents
         result = M_Main.RunSACCR_Silent()
-        For i = LastDataRow(wsCalc, FIRST_DATA_ROW, TC_ID) To FIRST_DATA_ROW Step -1
+        For i = LastDataRow(wsCalc, OutputFirstRow(SH_TRADECALC), TC_ID) To OutputFirstRow(SH_TRADECALC) Step -1
             If SafeStr(TableCell(wsCalc, i, TC_STATUS).Value) = "OK" Then
                 r = i
             End If
@@ -1299,7 +1299,7 @@ Private Sub CaseExportWorkbook()
 ' REFUSE AN EDITED OUTPUT
 '------------------------------------------------------------------------------
         result = M_Main.RunSACCR_Silent()
-        Set outCell = TableCell(GetSheet(SH_RESULTS), FIRST_DATA_ROW, RS_EAD)
+        Set outCell = TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_EAD)
         savedOut = outCell.Value2
         outCell.Value2 = ToDbl(savedOut, 0#) + 1#
         result = M_Main.ExportEvidence_Silent(fileB)
@@ -1718,7 +1718,7 @@ Private Function CountTotals( _
 '------------------------------------------------------------------------------
 ' COUNT
 '------------------------------------------------------------------------------
-        For r = FIRST_DATA_ROW To LastDataRow(wsResults, FIRST_DATA_ROW, RS_ID)
+        For r = OutputFirstRow(SH_RESULTS) To LastDataRow(wsResults, OutputFirstRow(SH_RESULTS), RS_ID)
             If UTxt(TableCell(wsResults, r, RS_ID).Value) = "TOTAL " & RG_CRR Or _
                UTxt(TableCell(wsResults, r, RS_ID).Value) = "TOTAL " & RG_BCBS Then
                 CountTotals = CountTotals + 1
@@ -1741,14 +1741,16 @@ Private Function ReconciliationRows( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Dim topRow  As Long    'First data row
     Dim lastR   As Long    'Last row with a result
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        lastR = LastDataRow(wsRecon, FIRST_DATA_ROW, RC_RESULT)
-        If lastR >= FIRST_DATA_ROW Then
-            ReconciliationRows = TableRange(wsRecon, FIRST_DATA_ROW, 1, lastR, _
+        topRow = OutputFirstRow(wsRecon.Name)
+        lastR = LastDataRow(wsRecon, topRow, RC_RESULT)
+        If lastR >= topRow Then
+            ReconciliationRows = TableRange(wsRecon, topRow, 1, lastR, _
                                             IIf(wsRecon.Name = SH_TRADE_RECON, TRC_NCOLS, RC_NCOLS)).Value2
         End If
 

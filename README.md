@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-227_cases_%C2%B7_975_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-228_cases_%C2%B7_1001_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -151,7 +151,7 @@ inspected. This toolkit is the opposite:
 | Reconciliation | Bank figures per netting set (`BankNettingSets`) and per trade leg (`BankTrades`), compared with Results and TradeCalc within an absolute or a relative tolerance |
 | Evidence export | One CSV file per run, `;`-separated with a `.` decimal point and UTF-8 whatever the regional settings |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
-| Testing | Eight Excel suites (227 cases, 975 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (228 cases, 1001 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -222,6 +222,19 @@ results or a reconciliation are out of date, or after an output cell was
 edited, so the file always describes the inputs as they are and what the
 run wrote.
 
+<details>
+<summary><b>Evidence file</b>: the start of the CSV written by Export evidence</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Evidence CSV opened in a text editor: RUN lines with the format, run summary, result and reconciliation status, input and output fingerprints, reporting date, currency, default regime, totals and status per regime, Checks counts, reconciliation summary and tolerances, then the PARAMS lines and the start of the SF_TABLE section"
+       src="docs/assets/SACCR_Evidence_CSV.png">
+</p>
+
+</details>
+
 ## 4. Test (development workbook)
 
 In the Immediate window:
@@ -231,16 +244,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-16 09:10:15
+SACCR TEST SUMMARY 2026-10-16 13:02:15
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,5 s)
-  PASS  TEST_MainState        cases=27; checks=465; failures=0; caller_state=RESTORED  (49,6 s)
-  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (11,5 s)
-  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (35,6 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (3,6 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,8 s)
-  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (9,1 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=111,8
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (16,3 s)
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (2,9 s)
+  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (14,1 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,3 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,2 s)
+  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (7,2 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=44,2
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -303,6 +316,113 @@ BankNettingSets · BankTrades ────────────────�
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
+Results after a run of the demonstration portfolio: the run summary and
+stale-result indicator, RC and the add-ons per asset class, then the
+multiplier, PFE, EAD, the cap for margined netting sets and the status, with a
+TOTAL row per regime:
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run, left part: one row per netting set with regime, margining, trade count, MPOR, V, C, RC, add-ons by asset class, aggregate add-on and multiplier, and TOTAL CRR and TOTAL BCBS rows"
+       src="docs/assets/SACCR_Results_AddOns.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run, right part: aggregate add-on, multiplier, PFE, alpha, margined EAD, unmargined cap, EAD, cap applied and status per netting set; two netting sets are INCOMPLETE because trades were rejected"
+       src="docs/assets/SACCR_Results_EAD.png">
+</p>
+
+The demonstration portfolio enters dates as calendar dates over 365 days a
+year, so `BCBS-EX3` shows 5,405 against the 5,406 printed in CRE99: its WTI
+trade has M = 0.7507 rather than the printed 0.75. The regression case enters
+exactly 0.75 years and matches 5,406
+([details](docs/assets/SCREENSHOTS_SOURCES.md)).
+
+Checks lists every trade the run rejected, with its row and reason, and every
+netting set whose EAD is withheld as a result:
+
+<p align="center">
+  <img width="100%"
+       alt="Checks sheet after the demonstration run: five ERROR lines, three trades excluded with their Trades row and reason, and two netting sets whose EAD is withheld"
+       src="docs/assets/SACCR_Checks.png">
+</p>
+
+<details>
+<summary><b>Calculation detail</b>: TradeCalc, HedgingSets and Buckets</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="TradeCalc sheet, left part: per trade, netting set, asset class, status, hedging set, bucket, effective supervisory factor, notional and MtM in reporting currency, S, E, M, T, supervisory duration, adjusted notional and supervisory delta"
+       src="docs/assets/SACCR_TradeCalc_Inputs.png">
+</p>
+
+<p align="center">
+  <img width="75%"
+       alt="TradeCalc sheet, right part: per trade, adjusted notional, supervisory delta, unmargined and margined maturity factors, effective notionals, IR bucket, stand-alone add-on, lambda and regime"
+       src="docs/assets/SACCR_TradeCalc_AddOns.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="HedgingSets sheet: per netting set and hedging set, the IR maturity-bucket effective notionals D1 to D3, systematic and idiosyncratic components, hedging-set add-on, unmargined add-on, basis and supervisory factor"
+       src="docs/assets/SACCR_HedgingSets.png">
+</p>
+
+<p align="center">
+  <img width="85%"
+       alt="Buckets sheet: per netting set, hedging set and maturity bucket, entity or commodity type, the trade count, supervisory factor, correlation, effective notionals and entity add-ons, unmargined and margined"
+       src="docs/assets/SACCR_Buckets.png">
+</p>
+
+</details>
+
+<details>
+<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set"
+       src="docs/assets/SACCR_BankNettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 4.62 (0.0855%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
+       src="docs/assets/SACCR_Reconciliation.png">
+</p>
+
+</details>
+
+<details>
+<summary><b>Input sheets</b>: NettingSets, Trades and Params (yellow cells are inputs)</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="NettingSets sheet: the five CRE99 examples and further illustrative netting sets, with margining, clearing role, MPOR, collateral and regime override columns"
+       src="docs/assets/SACCR_NettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Trades sheet: one row per trade leg with netting set, asset class, sub-class, risk factor, instrument, direction, option type, nature, notional, MtM and dates"
+       src="docs/assets/SACCR_Trades.png">
+</p>
+
+<p align="center">
+  <img width="62%"
+       alt="Params sheet: reporting date and currency, alpha, multiplier floor, MPOR floors, IR correlations, default regime and CRR lambda thresholds, each with its CRE52 or CRR reference"
+       src="docs/assets/SACCR_Params.png">
+</p>
+
+</details>
+
 ---
 
 <a id="regimes"></a>
@@ -325,6 +445,19 @@ netting set, and every result reports the regime it used.
 The [regime differences](docs/methodology/README.md#regime-differences) table
 gives the locators and test cases of each row; the `Basel_vs_CRR` sheet shows
 them in the workbook.
+
+<details>
+<summary><b>In the workbook</b>: the Basel_vs_CRR sheet</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Basel_vs_CRR sheet, first 14 rows: for each area the Basel CRE52 rule, the EU CRR rule, whether they differ, the effect on the numbers, the workbook treatment, the tests that cover it and the source check"
+       src="docs/assets/SACCR_Basel_vs_CRR.png">
+</p>
+
+</details>
 
 ---
 
@@ -358,16 +491,35 @@ wrote the code under test (#100).
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection and failure paths of the workbook macros | 27 | 465 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 28 | 491 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 20 | 39 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 133 | 209 |
 | `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 19 | 140 |
-| **Total** | | **227** | **975** |
+| **Total** | | **228** | **1001** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
+
+<details>
+<summary><b>In the workbook</b>: TestCatalogue and FormulaTest</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="TestCatalogue sheet: 28 reference tests with area, source, source status, regime, the output cell read, expected value, tolerance, engine value, difference and PASS; summary 28 passed, 0 failed"
+       src="docs/assets/SACCR_TestCatalogue.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="FormulaTest sheet: unit tests of the SACCR_ worksheet functions, each with its inputs, the value recomputed with Excel's own functions, the function's value, the relative difference, PASS and the CRE52 or CRR rule"
+       src="docs/assets/SACCR_FormulaTest.png">
+</p>
+
+</details>
 
 `python tools/check.py` runs the static gates (source layout, house style,
 public API, test-case schema, generated tests and tooling tests) locally and
@@ -519,8 +671,9 @@ branches and pull requests; `main` receives it on the owner's instruction.
 Nothing is versioned or tagged until a release is prepared.
 
 The latest recorded Excel run, `Test_RunAll` with eight of eight suites
-passing, was made by the owner on 2026-10-16 on the source merged as
-[`9722b30`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/9722b30c7ffde81a2234e3f9b494fb5ce6ec1828).
+passing, was made by the owner on 2026-10-16 on the source of
+[#254](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/254) at
+[`357a693`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/357a693c461bdd85d75543394b27fa6c6c944493).
 It is development evidence, not release certification.
 
 ---
