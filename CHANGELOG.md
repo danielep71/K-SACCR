@@ -99,7 +99,15 @@ First release, planned as `1.0.0` from the release branch `release/1.0.0`.
 Everything below is new in it; engineering detail is in the linked issues and
 pull requests.
 
+### Changed
+
+- Refresh the project website with a deep-blue and azure palette, pale blue
+  surfaces, and coordinated navigation, links, and example-card accents (#284).
+
 ### Added
+
+- Add the owner-supplied Google Search Console verification tag to the project
+  website, enabling ownership verification after deployment (#287).
 
 - Public GitHub Pages project website with a workflow overview, workbook
   screenshot, published Basel example, explicit validation limits, and links
@@ -293,7 +301,8 @@ pull requests.
   decisions, support matrix, traceability table and test-case format.
 - `docs/GOVERNANCE.md` (branch policy, labels, review), repository structure,
   VBA house style and `docs/assets/README.md` for the images: a one-page EAD
-  reference card, workbook screenshots and the social preview.
+  reference card (also shown on the workbook's README sheet), workbook
+  screenshots and the social preview.
 - A user manual, as pandoc Markdown with its build instructions in
   `docs/user-manual/v1.0.0/`; its PDF will be attached to the 1.0.0 release.
 
