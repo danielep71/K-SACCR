@@ -145,8 +145,7 @@ in the template and its document module.
 
 Because it changes code only, a change to a sheet layout (a column or header)
 does not reach an existing workbook. The engine's header check then stops the
-run with the expected header; the CHANGELOG entry of such a change says which
-cells to update, or the workbook is rebuilt from the template.
+run with the expected header; rebuild the workbook from the current template.
 
 The synchronizer rejects known retired repository modules before changing any
 VBA component. Rebuild such a workbook from the current template and source;

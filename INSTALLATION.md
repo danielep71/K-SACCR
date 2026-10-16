@@ -612,7 +612,7 @@ with `tools/check_excel_evidence.py`; see
 
 Before moving to a newer commit:
 
-1. read the changelog between the two commits;
+1. read the CHANGELOG's notes;
 2. back up the host and any user configuration;
 3. identify the complete component set at the target commit; and
 4. review compatibility notes and known limitations.
