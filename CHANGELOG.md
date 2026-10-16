@@ -120,7 +120,7 @@ Use only the categories needed by a release.
   adds `ExportEvidence` and `ExportEvidence_Silent`, and
   `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
   write their tolerances with a decimal point in every locale, and the run
-  summary on Results its run time. `TEST_Reconcile`: 18 cases, 132 checks.
+  summary on Results its run time. `TEST_Reconcile`: 18 cases, 137 checks.
 
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,
@@ -133,18 +133,20 @@ Use only the categories needed by a release.
   reporting currency, M, the supervisory duration, the adjusted notional, the
   supervisory delta, the unmargined and margined maturity factors and
   effective notionals and the stand-alone add-on, with its own scale and
-  tolerances (`BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol`). **Run SA-CCR**
-  compares them with TradeCalc on the new sheet `TradeReconciliation`, laid
-  out as Reconciliation with the leg's netting set and asset class. Amounts are
-  scaled; M, the supervisory duration, the delta and the maturity factors are
-  not, and only the relative tolerance applies to them. A leg excluded by the
-  calculator is `EXCLUDED` with its reasons, and a figure the calculator does
-  not have for the leg (for example a margined maturity factor in an
-  unmargined netting set) is `NOT APPLICABLE`. Its status formula is
-  `TradeReconciliationStatusText`, its fingerprint `SACCR_TradeReconInputs`,
-  and the result line gains `trade_reconciliation=`. `CORE_Reconcile` now
-  compares both tables with one shared core. `TEST_Reconcile`: 16 cases, 96
-  checks.
+  tolerances (`BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol`). **Run
+  SA-CCR** compares them with TradeCalc on the new sheet
+  `TradeReconciliation`, laid out as Reconciliation with the leg's netting set
+  and asset class and, in a last column, its Economic trade ID from Trades
+  (blank for a whole trade), so legs can be grouped as the bank groups its
+  trades. Amounts are scaled; M, the supervisory duration, the delta and the
+  maturity factors are not, and only the relative tolerance applies to them. A
+  leg excluded by the calculator is `EXCLUDED` with its reasons, and a figure
+  the calculator does not have for the leg (for example a margined maturity
+  factor in an unmargined netting set) is `NOT APPLICABLE`. Its status formula
+  is `TradeReconciliationStatusText`, its fingerprint
+  `SACCR_TradeReconInputs`, and the result line gains `trade_reconciliation=`.
+  `CORE_Reconcile` now compares both tables with one shared core.
+  `TEST_Reconcile`: 16 cases, 96 checks.
 
 - Reconciliation with a bank's own figures, per netting set (#45). The new
   input sheet `BankNettingSets` takes, per netting set ID, the regime and any

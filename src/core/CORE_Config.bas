@@ -381,6 +381,11 @@ Attribute VB_Name = "CORE_Config"
         Public Const RUN_OUTPUTS_NAME As String = "SACCR_RunOutputs"    'Empty when no run completed
         Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
         Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
+    'TradeReconciliation has one column more, after the Note: the leg's
+    'Economic trade ID on Trades, blank for a whole trade, so that legs
+    'can be grouped as the bank groups its trades.
+        Public Const TRC_ECON       As Long = 13    'TradeReconciliation: Economic trade ID on Trades
+        Public Const TRC_NCOLS      As Long = 13    'TradeReconciliation: number of columns
         Public Const RC_ID          As Long = 1     'NettingSetID
         Public Const RC_BANKROW     As Long = 2     'Row on BankNettingSets; blank when not in the bank file
         Public Const RC_BANKREGIME  As Long = 3     'Regime given by the bank

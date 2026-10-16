@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 132              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 137              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -954,8 +954,9 @@ Private Sub CaseTradeWorkbook()
 '   In the workbook: figures taken from the first OK leg on TradeCalc give
 '   a MATCH and a DIFFERENCE, an unknown leg is MISSING IN CALCULATOR, the
 '   run reports trade_reconciliation=DONE, the TradeReconciliation status
-'   is current and an edited bank figure makes it OUT OF DATE. The
-'   BankTrades table and settings are put back.
+'   is current and an edited bank figure makes it OUT OF DATE; an Economic
+'   trade ID set on Trades for the leg is shown on its rows. The BankTrades
+'   table and settings, and the Trades cells, are put back.
 '
 ' UPDATED
 '   2026-10-15
@@ -976,6 +977,12 @@ Private Sub CaseTradeWorkbook()
     Dim i          As Long         'TradeCalc row
     Dim legId      As String       'Its TradeID
     Dim outcomes   As Variant      'TradeReconciliation rows
+    Dim wsTrades   As Worksheet    'Trades
+    Dim tradeRow   As Long         'Trades row of the leg
+    Dim econCell   As Range        'Its Economic trade ID, set and restored
+    Dim mtmLegCell As Range        'Its MtM leg flag, set and restored
+    Dim savedEcon  As Variant      'Formula of econCell
+    Dim savedMtmLeg As Variant     'Formula of mtmLegCell
 
 '------------------------------------------------------------------------------
 ' SAVE THE BANK TABLE
@@ -1023,6 +1030,36 @@ Private Sub CaseTradeWorkbook()
         CheckStatus wsRecon, "OUT OF DATE", "after a bank figure was edited"
 
 '------------------------------------------------------------------------------
+' ECONOMIC TRADE ID
+'------------------------------------------------------------------------------
+    'The leg made an economic trade of one leg, which must then be its MtM
+    'leg; its rows show the ID, a leg not on Trades shows none.
+        Set wsTrades = GetSheet(SH_TRADES)
+        For i = TableFirstRow(SH_TRADES) To LastDataRow(wsTrades, TableFirstRow(SH_TRADES), TR_ID)
+            If UTxt(TableCell(wsTrades, i, TR_ID).Value) = UTxt(legId) Then
+                tradeRow = i
+            End If
+        Next i
+        Check tradeRow > 0, "leg " & legId & " not found on Trades"
+        If tradeRow > 0 Then
+            Set econCell = TableCell(wsTrades, tradeRow, TR_ECON)
+            Set mtmLegCell = TableCell(wsTrades, tradeRow, TR_MTMLEG)
+            savedEcon = econCell.Formula
+            savedMtmLeg = mtmLegCell.Formula
+            econCell.Value = "ECON-T1"
+            mtmLegCell.Value = "Y"
+            result = M_Main.RunSACCR_Silent()
+            outcomes = ReconciliationRows(wsRecon)
+            CheckText "Economic trade ID of the leg", SafeStr(CellOf(outcomes, legId, "Notional", TRC_ECON)), "ECON-T1"
+            CheckText "Economic trade ID of a leg not on Trades", _
+                      SafeStr(CellOf(outcomes, "NO-SUCH-LEG", "Notional", TRC_ECON)), ""
+            econCell.Formula = savedEcon
+            mtmLegCell.Formula = savedMtmLeg
+            Check UBound(ColumnValues(wsTrades, tradeRow, tradeRow, TR_ID), 1) = 1, _
+                  "a one-row Trades column is not read as an array"
+        End If
+
+'------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
         RestoreBankTable wsBank, firstRow, BT_NCOLS, saved, savedSet, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
@@ -1032,6 +1069,8 @@ Private Sub CaseTradeWorkbook()
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell econCell, savedEcon
+        RestoreCell mtmLegCell, savedMtmLeg
         RestoreBankTable wsBank, firstRow, BT_NCOLS, saved, savedSet, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
 
 End Sub
@@ -1159,6 +1198,8 @@ Private Sub CaseExportWorkbook()
         Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
               "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
         Check InStr(textA, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
+        Check InStr(textA, vbCrLf & "TRADE_RECONCILIATION;TradeID;") > 0 And _
+              InStr(textA, ";Note;Economic trade ID" & vbCrLf) > 0, "trade reconciliation header line"
         Check InStr(textA, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(textA, vbCrLf & "CHECKS;") > 0 And _
               InStr(textA, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
         result = M_Main.ExportEvidence_Silent(fileB)
@@ -1662,7 +1703,8 @@ Private Function ReconciliationRows( _
 '------------------------------------------------------------------------------
         lastR = LastDataRow(wsRecon, FIRST_DATA_ROW, RC_RESULT)
         If lastR >= FIRST_DATA_ROW Then
-            ReconciliationRows = TableRange(wsRecon, FIRST_DATA_ROW, 1, lastR, RC_NCOLS).Value2
+            ReconciliationRows = TableRange(wsRecon, FIRST_DATA_ROW, 1, lastR, _
+                                            IIf(wsRecon.Name = SH_TRADE_RECON, TRC_NCOLS, RC_NCOLS)).Value2
         End If
 
 End Function
