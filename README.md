@@ -303,6 +303,85 @@ BankNettingSets · BankTrades ────────────────�
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
+Results after a run of the demonstration portfolio: the run summary and
+stale-result indicator, RC and the add-ons per asset class, then the
+multiplier, PFE, EAD, the cap for margined netting sets and the status, with a
+TOTAL row per regime:
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run, left part: one row per netting set with regime, margining, trade count, MPOR, V, C, RC, add-ons by asset class, aggregate add-on and multiplier, and TOTAL CRR and TOTAL BCBS rows"
+       src="docs/assets/SACCR_Results_AddOns.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run, right part: aggregate add-on, multiplier, PFE, alpha, margined EAD, unmargined cap, EAD, cap applied and status per netting set; two netting sets are INCOMPLETE because trades were rejected"
+       src="docs/assets/SACCR_Results_EAD.png">
+</p>
+
+The demonstration portfolio enters dates as calendar dates over 365 days a
+year, so `BCBS-EX3` shows 5,405 against the 5,406 printed in CRE99: its WTI
+trade has M = 0.7507 rather than the printed 0.75. The regression case enters
+exactly 0.75 years and matches 5,406
+([details](docs/assets/SCREENSHOTS_SOURCES.md)).
+
+<details>
+<summary><b>Calculation detail</b>: TradeCalc, HedgingSets and Buckets</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="TradeCalc sheet, left part: per trade, netting set, asset class, status, hedging set, bucket, effective supervisory factor, notional and MtM in reporting currency, S, E, M, T, supervisory duration, adjusted notional and supervisory delta"
+       src="docs/assets/SACCR_TradeCalc_Inputs.png">
+</p>
+
+<p align="center">
+  <img width="75%"
+       alt="TradeCalc sheet, right part: per trade, adjusted notional, supervisory delta, unmargined and margined maturity factors, effective notionals, IR bucket, stand-alone add-on, lambda and regime"
+       src="docs/assets/SACCR_TradeCalc_AddOns.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="HedgingSets sheet: per netting set and hedging set, the IR maturity-bucket effective notionals D1 to D3, systematic and idiosyncratic components, hedging-set add-on, unmargined add-on, basis and supervisory factor"
+       src="docs/assets/SACCR_HedgingSets.png">
+</p>
+
+<p align="center">
+  <img width="85%"
+       alt="Buckets sheet: per netting set, hedging set and maturity bucket, entity or commodity type, the trade count, supervisory factor, correlation, effective notionals and entity add-ons, unmargined and margined"
+       src="docs/assets/SACCR_Buckets.png">
+</p>
+
+</details>
+
+<details>
+<summary><b>Input sheets</b>: NettingSets, Trades and Params (yellow cells are inputs)</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="NettingSets sheet: the five CRE99 examples and further illustrative netting sets, with margining, clearing role, MPOR, collateral and regime override columns"
+       src="docs/assets/SACCR_NettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Trades sheet: one row per trade leg with netting set, asset class, sub-class, risk factor, instrument, direction, option type, nature, notional, MtM and dates"
+       src="docs/assets/SACCR_Trades.png">
+</p>
+
+<p align="center">
+  <img width="62%"
+       alt="Params sheet: reporting date and currency, alpha, multiplier floor, MPOR floors, IR correlations, default regime and CRR lambda thresholds, each with its CRE52 or CRR reference"
+       src="docs/assets/SACCR_Params.png">
+</p>
+
+</details>
+
 ---
 
 <a id="regimes"></a>
