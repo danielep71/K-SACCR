@@ -238,16 +238,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-16 13:02:15
+SACCR TEST SUMMARY 2026-10-16 16:44:53
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (16,3 s)
-  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (2,9 s)
-  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (14,1 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,3 s)
+  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (24,3 s)
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (2,8 s)
+  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (15,5 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,4 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,2 s)
-  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (7,2 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=44,2
+  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (7,1 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=53,4
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -662,8 +662,9 @@ Nothing is versioned or tagged until a release is prepared.
 
 The latest recorded Excel run, `Test_RunAll` with eight of eight suites
 passing, was made by the owner on 2026-10-16 on the source of
-[#254](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/254) at
-[`357a693`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/357a693c461bdd85d75543394b27fa6c6c944493).
+[#269](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/269) at
+[`bb7dc8e`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/bb7dc8ea2f1a9d62273dcc74c1634b131cc97ab0), which
+includes the template changes of #260 and #267.
 It is development evidence, not release certification.
 
 ---
