@@ -10,7 +10,8 @@ took them in Excel for Windows on 2026-10-16.
 | `SACCR_Params.png`, `SACCR_Params_Supervisory.png` | Run parameters, and the supervisory table |
 | `SACCR_README_sheet.png` | The in-workbook guide |
 | `SACCR_Results_AddOns.png`, `SACCR_Results_EAD.png` | Results after a run: RC and add-ons, then PFE, EAD, cap and status |
-| `SACCR_HedgingSets.png`, `SACCR_Buckets.png` | The calculation detail of that run |
+| `SACCR_TradeCalc_Inputs.png`, `SACCR_TradeCalc_AddOns.png` | Every trade-level quantity of that run: dates, duration, adjusted notional and delta, then maturity factors, effective notionals and add-on |
+| `SACCR_HedgingSets.png`, `SACCR_Buckets.png` | The hedging-set and bucket detail of that run |
 
 The input sheets show the template's own content; the output sheets show a run
 of that portfolio on that day.
@@ -26,8 +27,9 @@ of that portfolio on that day.
   them.
 - **CRE99 Example 3:** the demonstration workbook shows an EAD of 5,405
   (thousands), the published figure 5,406. The demo enters the WTI trade with
-  actual dates over 365 days a year; the regression fixture enters 270 days
-  over 360, exactly 0.75 years as printed, and matches 5,406.
+  actual dates over 365 days a year (TradeCalc shows M = 0.7507); the
+  regression fixture enters 270 days over 360, exactly 0.75 years as printed,
+  and matches 5,406.
 
 Retake a screenshot when the layout or content of its sheet changes, and keep
 the same processing.

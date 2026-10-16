@@ -321,9 +321,21 @@ TOTAL row per regime:
 </p>
 
 <details>
-<summary><b>Calculation detail</b>: HedgingSets and Buckets</summary>
+<summary><b>Calculation detail</b>: TradeCalc, HedgingSets and Buckets</summary>
 
 <br>
+
+<p align="center">
+  <img width="100%"
+       alt="TradeCalc sheet, left part: per trade, netting set, asset class, status, hedging set, bucket, effective supervisory factor, notional and MtM in reporting currency, S, E, M, T, supervisory duration, adjusted notional and supervisory delta"
+       src="docs/assets/SACCR_TradeCalc_Inputs.png">
+</p>
+
+<p align="center">
+  <img width="75%"
+       alt="TradeCalc sheet, right part: per trade, adjusted notional, supervisory delta, unmargined and margined maturity factors, effective notionals, IR bucket, stand-alone add-on, lambda and regime"
+       src="docs/assets/SACCR_TradeCalc_AddOns.png">
+</p>
 
 <p align="center">
   <img width="100%"

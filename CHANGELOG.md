@@ -311,8 +311,8 @@ Use only the categories needed by a release.
   CRR references for each step.
 - Workbook screenshots in `docs/assets/`: the NettingSets, Trades, Params
   (run parameters and supervisory table) and README sheets, and Results,
-  HedgingSets and Buckets after a run of the demonstration workbook, taken in
-  Excel. The root README shows Results, and the calculation detail and input
+  TradeCalc, HedgingSets and Buckets after a run of the demonstration
+  workbook, taken in Excel. The root README shows Results, and the calculation detail and input
   sheets in collapsible sections; `SCREENSHOTS_SOURCES.md` records how they
   were taken and processed.
 - A social preview image in `docs/assets/` (`SACCR_social_preview.png`,
