@@ -90,7 +90,8 @@ checks.
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
-on 2026-10-09. T02 is printed as -0.2694; the catalogue had -0.27. Example 3
+on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,
+and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
 `DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository or from

@@ -91,10 +91,11 @@ Subdirectories are created with their first real file, never empty.
 
 ### Wiki
 
-The GitHub Wiki is maintained directly in its own repository and is
-self-contained: it does not link to files of this repository, and it is not
-part of this repository's source or checks. Where it differs from the
-versioned documents here, the versioned documents govern.
+The GitHub Wiki is maintained directly in its own repository, in two
+sections, Regulation and Workbook. It links to files and images of this
+repository only on `main`, and it is not part of this repository's source or
+checks. Where it differs from the versioned documents here, the versioned
+documents govern.
 
 ### Verification and examples
 
