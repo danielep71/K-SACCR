@@ -48,6 +48,7 @@ docs/               contracts, architecture, governance, evidence record
   assets/           images and diagrams of the documentation, with their sources
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
+  user-manual/      user manual source, one folder per version (v1.0.0/)
 src/                production VBA source: the only input to the workbook
   core/             calculation engine (internal)
   modules/          public worksheet functions
@@ -76,7 +77,8 @@ is created with its first file.
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
 `src/`, `tests/` and `tools/` each have a `README.md`, as do `docs/assets/`,
-`docs/methodology/` and `docs/methodology/sources/`.
+`docs/methodology/`, `docs/methodology/sources/` and each version folder of
+`docs/user-manual/`.
 Subdirectories are created with their first real file, never empty.
 
 ### Production source
@@ -189,6 +191,7 @@ enforced by `tools/check_source.py`; the others by review.
 - [`../tests/README.md`](../tests/README.md)
 - [`assets/README.md`](assets/README.md)
 - [`methodology/README.md`](methodology/README.md)
+- [`user-manual/v1.0.0/README.md`](user-manual/v1.0.0/README.md)
 - [`../tools/README.md`](../tools/README.md)
 
 ---
