@@ -499,11 +499,11 @@ Private Function ReconStatus( _
         stored = SafeStr(storedRecon)
         If Len(stored) = 0 Or Len(SafeStr(storedRun)) = 0 Then
             ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(kind) & _
-                          " and press Run SA-CCR."
+                          " and press Run SA-CCR (on Results or Trades)."
         ElseIf stored = ReconFingerprint(kind) Then
             ReconStatus = "Reconciliation current (bank figures and inputs " & stored & ")"
         Else
-            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR."
+            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on Results or Trades)."
         End If
         Exit Function
 
