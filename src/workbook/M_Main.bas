@@ -499,11 +499,11 @@ Private Function ReconStatus( _
         stored = SafeStr(storedRecon)
         If Len(stored) = 0 Or Len(SafeStr(storedRun)) = 0 Then
             ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(kind) & _
-                          " and press Run SA-CCR."
+                          " and press Run SA-CCR (on Results or Trades)."
         ElseIf stored = ReconFingerprint(kind) Then
             ReconStatus = "Reconciliation current (bank figures and inputs " & stored & ")"
         Else
-            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR."
+            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on Results or Trades)."
         End If
         Exit Function
 
@@ -2387,7 +2387,8 @@ Private Function ReportOutcome( _
                           vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
                         msg = msg & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
-                              " netting set(s) with rejected trades or invalid inputs."
+                              " netting set(s) with rejected trades or invalid inputs: " & _
+                              CORE_Engine.WithheldByRegimeText() & "."
                     End If
                     If Len(mReconLine) > 0 Then
                         msg = msg & vbCrLf & vbCrLf & mReconLine
