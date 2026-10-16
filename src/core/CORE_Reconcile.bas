@@ -26,7 +26,8 @@ Attribute VB_Name = "CORE_Reconcile"
 '
 ' DEPENDENCIES
 '   CORE_Config for the column layout and the result labels; CORE_Util for
-'   text conversion and the Collection index (KeyIndex, KeyAdd).
+'   text conversion and the Collection index (KeyIndex, KeyAdd);
+'   CORE_Export for numbers written the same in every locale.
 '
 ' STATE OWNERSHIP
 '   None. Every procedure works on its arguments only and touches no
@@ -795,8 +796,8 @@ Public Function SummaryText( _
                       " | withheld " & counts(RCN_WITHHELD) & _
                       " | invalid input " & counts(RCN_INVALID) & _
                       " | not applicable " & counts(RCN_NA) & _
-                      " | scale " & CStr(scaleFactor) & _
-                      " | tolerance " & CStr(absTol) & " or " & CStr(relTol * 100#) & "%"
+                      " | scale " & CORE_Export.NumberText(scaleFactor) & _
+                      " | tolerance " & CORE_Export.NumberText(absTol) & " or " & CORE_Export.NumberText(relTol * 100#) & "%"
 
 End Function
 
@@ -832,8 +833,8 @@ Public Function TradeSummaryText( _
                            " | duplicate rows " & counts(RCN_DUPLICATE) & _
                            " | excluded " & counts(RCN_EXCLUDED) & _
                            " | invalid input " & counts(RCN_INVALID) & _
-                           " | scale " & CStr(scaleFactor) & _
-                           " | tolerance " & CStr(absTol) & " or " & CStr(relTol * 100#) & "%"
+                           " | scale " & CORE_Export.NumberText(scaleFactor) & _
+                           " | tolerance " & CORE_Export.NumberText(absTol) & " or " & CORE_Export.NumberText(relTol * 100#) & "%"
 
 End Function
 

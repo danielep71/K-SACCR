@@ -51,6 +51,7 @@ Attribute VB_Name = "CORE_Engine"
 '   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
 '   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs, and
 '   BlockText, which M_Main also uses for the reconciliation fingerprint)
+'   and ParameterCodes, which it uses for the evidence report,
 '   are Public for M_Main; Option Private Module keeps them off the
 '   supported external surface.
 '
@@ -1040,11 +1041,12 @@ Private Function ValidateSchema() As Boolean
 End Function
 
 
-Private Function ParameterCodes() As Variant
+Public Function ParameterCodes() As Variant
 '
 '==============================================================================
 ' PURPOSE
-'   The parameter vocabulary shared by schema and table validation.
+'   The parameter vocabulary shared by schema and table validation, and
+'   by the evidence report of M_Main (#45).
 ' RETURNS
 '   An array of the supported parameter codes.
 '==============================================================================

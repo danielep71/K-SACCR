@@ -196,6 +196,7 @@ further illustrative netting sets.
 | **Run SA-CCR** | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
 | **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
+| **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
@@ -206,6 +207,14 @@ compared, with the reason. `BankTrades` and `TradeReconciliation` do the same
 per trade leg, by Trade ID, against `TradeCalc`: notional, MtM, M,
 supervisory duration, adjusted notional, delta, maturity factors, effective
 notionals and the stand-alone add-on.
+
+**Export evidence** then writes the run to one CSV file, separated by `;`
+with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
+run's identity and input fingerprint, the parameters, supervisory-factor and
+FX tables, Results, both reconciliations, Checks and the report's
+limitations, each line starting with its section. It refuses while the
+results or a reconciliation are out of date, so the file always describes
+the inputs as they are.
 
 ## 4. Test (development workbook)
 
@@ -264,7 +273,8 @@ Trades ─┘                │                                           │
    input reports `INCOMPLETE` or `INVALID` and no EAD.
 6. **Reconciliation.** When `BankNettingSets` holds figures, each is compared
    with the same figure on Results, netting sets matched by ID and never
-   across regimes (#45).
+   across regimes (#45). **Export evidence** writes the run and its
+   reconciliations to a CSV file.
 
 | Sheet | Role |
 | --- | --- |

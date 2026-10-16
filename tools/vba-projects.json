@@ -34,6 +34,7 @@
       "modules": [
         "src/core/CORE_Config.bas",
         "src/core/CORE_Engine.bas",
+        "src/core/CORE_Export.bas",
         "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
@@ -46,6 +47,7 @@
       "modules": [
         "src/core/CORE_Config.bas",
         "src/core/CORE_Engine.bas",
+        "src/core/CORE_Export.bas",
         "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",

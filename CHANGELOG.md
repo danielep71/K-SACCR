@@ -98,6 +98,24 @@ Use only the categories needed by a release.
 
 ### Added
 
+- An evidence report of the run (#45). **Export evidence**, a new button on
+  `Reconciliation`, writes one CSV file, separated by `;` with a `.` decimal
+  point, CR LF line ends and UTF-8 without a byte-order mark in every
+  locale. Each line starts with its section: `RUN` (format, workbook, run
+  summary, input fingerprint, reporting date and currency, default regime,
+  parameter set, totals per regime, the counts on Checks, and for each
+  reconciliation its fingerprint, summary, scale and tolerances), `PARAMS`,
+  `SF_TABLE`, `FX_TABLE`, `RESULTS`, `RECONCILIATION`,
+  `TRADE_RECONCILIATION`, `CHECKS` and a fixed `LIMITATIONS` section. The
+  export refuses while the results are not current or a reconciliation no
+  longer matches its bank figures, so a file always describes the inputs as
+  they are; two exports of the same run are identical. The encoding is in
+  the new module `CORE_Export`, which reads no sheet; `M_Main` adds
+  `ExportEvidence` and `ExportEvidence_Silent`, and
+  `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
+  write their tolerances with a decimal point in every locale.
+  `TEST_Reconcile`: 18 cases, 117 checks.
+
 - Reconciliation with a bank's own figures per trade leg (#45). The new input
   sheet `BankTrades` takes, per Trade ID, any of the notional and MtM in the
   reporting currency, M, the supervisory duration, the adjusted notional, the
