@@ -169,7 +169,6 @@ Icon?
 *.nppBackup
 session.xml
 
-.claude/
 .cursor/
 .aider*
 .continue/

@@ -49,13 +49,13 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --inventory
 
 The policy changes together with the suites: adding a case or a check to a
 test module updates `.github/excel-evidence-policy.json`, and the test counts
-the root `README.md` shows, in the same pull request. `python tools/check.py` (gate `excel-evidence-policy`) fails when the
-policy's counts differ from those the modules declare (`EXPECTED_CASES`,
-`EXPECTED_CHECKS`, `CASES`, `CHECKS`, `BeginSuite`; per bitness where a
-count is declared under `#If Win64`), when a header or `MODE`
-line differs, when `Test_RunAll` runs other suites, or when the README's
-badges, suite table or `Test_RunAll` output show other suites or counts. A module that declares
-no check count (`TEST_MainState`) is held only by its evidence log.
+the root `README.md` shows, in the same pull request. The
+`excel-evidence-policy` gate of `python tools/check.py` holds the policy to
+the test modules and the README; what it compares is listed in its row of the
+[gate table](../tools/README.md#gates). The gate runs
+`python tools/check_excel_evidence.py --check-policy`, which checks the
+working tree of the repository given by `--root` (default: the current
+directory) and needs no candidate or bundle.
 
 <a id="manual-procedure"></a>
 
@@ -91,10 +91,19 @@ clone, to print the inventory and validate the bundle.
    default references, every VBA component the `--inventory` output lists (all
    of `src/` and `tests/modules/`: a **development** workbook) imported in
    order from this checkout, with the document modules pasted as
-   `INSTALLATION.md` describes, or with `tools/Sync-SACCR-VBA.ps1 -Mode
-   Development`, then
-   **Debug → Compile VBAProject**. Write in `session.log` the files imported, the references
-   listed in **Tools → References** and the compile result.
+   `INSTALLATION.md` describes, then **Debug → Compile VBAProject**. Write in
+   `session.log` the files imported, the references listed in
+   **Tools → References** and the compile result.
+
+   The synchronizer can do the import instead, with the workbook closed, but
+   it needs *Trust access to the VBA project object model*. Use it only if
+   step 3 found that access already on; never turn it on for this procedure:
+
+   ```powershell
+   .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Development -IncludeSheets
+   ```
+
+   Then open the workbook and compile as above.
 5. **Run each suite once, on its own.** For the harness and for every suite in
    the policy, in its order: clear the Immediate window (**Ctrl+G**, then
    **Ctrl+A**, **Delete**), run the entry point (`TEST_Harness.RunTests`,
@@ -112,11 +121,13 @@ clone, to print the inventory and validate the bundle.
 7. **Hash the logs**, after their last edit:
 
    ```sh
-   python -c "import hashlib,sys;[print(hashlib.sha256(open(f,'rb').read()).hexdigest(), f) for f in sys.argv[1:]]" *.log
+   python -c "import glob,hashlib;[print(hashlib.sha256(open(f,'rb').read()).hexdigest(), f) for f in sorted(glob.glob('*.log'))]"
    ```
 
-   PowerShell's `Get-FileHash -Algorithm SHA256 harness.log` gives the same
-   value; this is correct for logs but not for sources.
+   Run it in the bundle folder; Python expands `*.log` itself, so the command
+   works the same in cmd, PowerShell and a POSIX shell. PowerShell's
+   `Get-FileHash -Algorithm SHA256 harness.log` gives the same value; this is
+   correct for logs but not for sources.
 8. **Write `host.json`** in the bundle from the [record template](#record-template),
    with the inventory from the command above and the observed values.
 9. **Validate** as in [Validating a bundle](#validating-a-bundle) and keep the
@@ -249,8 +260,11 @@ Rules the validator applies:
   cannot run after a failed import, nor the regression after a failed compile.
   When the regression did not run or timed out, `harness` is `null`; when it
   did not run, no suite ran either.
-- Every log of a test run starts with `CANDIDATE=` and the full candidate SHA;
-  a log naming another commit, or none, fails.
+- Every log of a test run (harness, suites, summary, and a hung run's log)
+  must contain exactly one line that starts with `CANDIDATE=`, and its value
+  must be the full candidate SHA; a log naming another commit, none, or more
+  than one fails. The validator does not check where the line is; step 5
+  puts it first.
 - `suites` lists every suite of the policy once, in its order. A suite that
   ran is `PASS` or `FAIL` with the counts its `RESULT` line shows, and as many
   `CASE` lines as cases. A `PASS` needs the policy's case count and its check
@@ -346,26 +360,44 @@ Keep non-passing bundles too until the finding is resolved.
   need each log to name its suite.
 - The summary of `TEST_Suite.Test_RunAll` is an index, not a report: it is
   checked against the suites' own logs and never replaces them.
+- Logs are copied from the VBE Immediate window, which keeps only about the
+  last 200 lines; the suites print there and nowhere else. A run that prints
+  more loses its first lines, starting with the header and the first `CASE`
+  lines, and its log fails validation (`EVIDENCE_INVALID`).
+  `TEST_InputValidation` prints 139 lines on a pass (header, `MODE`, 133
+  `CASE` lines and four result lines), so a failing run with more than about
+  60 `FAILURE=` lines overflows; other suites can too when many checks fail.
+  Before copying, check that the first line in the window is the suite's
+  header. If it is not, the output cannot be recovered and the run cannot be
+  repeated in its place (step 5): keep the partial copy as the suite's log,
+  note the truncation in `session.log`, and expect the record to be
+  `EVIDENCE_INVALID`, never a pass.
 - Keep logs free of credentials, client data and unredacted screenshots; see
   [`SECURITY.md`](../SECURITY.md#data-and-secrets).
 
 ## 🧪 Validator tests
 
 `tools/test_excel_evidence.py` runs inside `python tools/check.py`
-(`tool-tests`). It uses synthetic records and a temporary Git repository to
-cover a valid record and wrong source identity, a different candidate,
-logs without or with another `CANDIDATE=` line, a missing or reordered suite,
-stale suite counts, suite records that contradict their logs, injected-mode or
-repeated suite runs, a suite that did not restore its state, failed, not-run and
-hung suites, summaries that contradict the suites' reports, the policy check
-against the test modules,
-incomplete and interrupted execution, failed cleanup, import, compile and test
-failures, failure records that contradict their logs, timeouts that claim
-results or cite a finished log,
-injected-failure or repeated logs, tampered, missing, escaping or
-symlinked logs, environment and reference mismatches, a non-Windows host,
-unavailable records and
-the command-line exit codes. Those tests are not Excel evidence.
+(`tool-tests`), with synthetic records and a temporary Git repository. Those
+tests are not Excel evidence. They cover:
+
+- a valid record, wrong source identity and a different candidate;
+- logs without a `CANDIDATE=` line or with another one;
+- tampered, missing, escaping, symlinked, injected-failure or repeated logs;
+- a missing or reordered suite, stale suite counts, and suite records that
+  contradict their logs;
+- injected-mode or repeated suite runs, and a suite that did not restore its
+  state;
+- failed, not-run and hung suites, and summaries that contradict the suites'
+  reports;
+- incomplete and interrupted execution, failed cleanup, and import, compile
+  and test failures;
+- failure records that contradict their logs, and timeouts that claim
+  results or cite a finished log;
+- environment and reference mismatches, and a non-Windows host;
+- unavailable records;
+- the policy check against the test modules;
+- the command-line exit codes.
 
 The validator and policy are adapted from EXCEL-VBA-PROJECT-TEMPLATE at commit
 `b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR keeps manual execution only,
