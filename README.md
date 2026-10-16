@@ -373,13 +373,13 @@ netting set whose EAD is withheld as a result:
 
 <p align="center">
   <img width="100%"
-       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and one row per netting set with the bank's regime and figures"
+       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set"
        src="docs/assets/SACCR_BankNettingSets.png">
 </p>
 
 <p align="center">
   <img width="100%"
-       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 matches the calculator, a bank row without a regime is INVALID INPUT, and every other netting set is NOT IN BANK FILE, each with its note"
+       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 4.62 (0.0855%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
        src="docs/assets/SACCR_Reconciliation.png">
 </p>
 
