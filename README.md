@@ -453,7 +453,7 @@ them in the workbook.
 
 <p align="center">
   <img width="100%"
-       alt="Basel_vs_CRR sheet, first 14 rows: for each area the Basel CRE52 rule, the EU CRR rule, whether they differ, the effect on the numbers, the workbook treatment, the tests that cover it and the source check"
+       alt="Basel_vs_CRR sheet, first 11 comparison rows: for each area the Basel CRE52 rule, the EU CRR rule, whether they differ, the effect on the numbers, the workbook treatment, the tests that cover it and the source check"
        src="docs/assets/SACCR_Basel_vs_CRR.png">
 </p>
 

@@ -15,7 +15,7 @@ took them in Excel for Windows on 2026-10-16.
 | `SACCR_Checks.png` | The errors of that run: excluded trades and withheld netting sets |
 | `SACCR_BankNettingSets.png`, `SACCR_Reconciliation.png` | A reconciliation: the bank's EAD for BCBS-EX1, copied from Results (MATCH), 5,400 for BCBS-EX3 (DIFFERENCE), a netting set the calculator does not have (MISSING IN CALCULATOR), and the netting sets not in the bank file |
 | `SACCR_TestCatalogue.png`, `SACCR_FormulaTest.png` | The reference-test catalogue and the worksheet-function unit tests, all passing |
-| `SACCR_Basel_vs_CRR.png` | The first 14 rows of the regime comparison |
+| `SACCR_Basel_vs_CRR.png` | The first 11 rows of the regime comparison |
 | `SACCR_Evidence_CSV.png` | The start of the evidence CSV of that run, opened in Notepad: the RUN and PARAMS sections and the start of SF_TABLE |
 
 The input sheets show the template's own content; the output sheets show a run
