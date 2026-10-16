@@ -112,7 +112,9 @@ Public Function CsvField( _
 '   "" for an empty cell; NumberText for a number; TRUE or FALSE; the Excel
 '   name of an error value (#N/A, #VALUE!, ...); text as it is, in double
 '   quotes with each quote doubled when it holds ";", a quote or a line
-'   break.
+'   break. Text that Excel would read as a formula when the file is opened
+'   (starting with =, +, -, @, a tab or a carriage return) is written with
+'   a leading apostrophe; numbers are not text and keep their sign.
 '
 ' UPDATED
 '   2026-10-16
@@ -138,6 +140,11 @@ Public Function CsvField( _
                 CsvField = NumberText(CDbl(v))
             Case Else
                 s = CStr(v)
+                If Len(s) > 0 Then
+                    If InStr("=+-@" & vbTab & vbCr, Left$(s, 1)) > 0 Then
+                        s = "'" & s
+                    End If
+                End If
                 If InStr(s, SEP) > 0 Or InStr(s, QUOTE_CHR) > 0 Or InStr(s, vbCr) > 0 Or InStr(s, vbLf) > 0 Then
                     s = QUOTE_CHR & Replace(s, QUOTE_CHR, QUOTE_CHR & QUOTE_CHR) & QUOTE_CHR
                 End If

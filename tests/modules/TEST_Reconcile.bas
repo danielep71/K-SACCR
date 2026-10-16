@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 122              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 124              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1050,7 +1050,8 @@ Private Sub CaseExportFields()
 '==============================================================================
 ' PURPOSE
 '   The evidence CSV writes numbers with a decimal point and no thousands
-'   separator in every locale, quotes only text that needs it, names error
+'   separator in every locale, quotes only text that needs it, writes text
+'   Excel would read as a formula with a leading apostrophe, names error
 '   values as Excel does, ends lines with CR LF and encodes UTF-8 without a
 '   byte-order mark, including characters outside the BMP.
 '==============================================================================
@@ -1072,6 +1073,8 @@ Private Sub CaseExportFields()
         CheckText "text with a separator", CORE_Export.CsvField("a;b"), """a;b"""
         CheckText "text with a quote", CORE_Export.CsvField("say ""x"""), """say """"x"""""""
         CheckText "plain text", CORE_Export.CsvField("NS-ALPHA"), "NS-ALPHA"
+        CheckText "text read as a formula", CORE_Export.CsvField("=1+1"), "'=1+1"
+        CheckText "text starting with a minus", CORE_Export.CsvField("-x;y"), """'-x;y"""
         CheckText "logical value", CORE_Export.CsvField(True), "TRUE"
         CheckText "error value", CORE_Export.CsvField(CVErr(xlErrNA)), "#N/A"
         CheckText "empty cell", CORE_Export.CsvField(Empty), ""

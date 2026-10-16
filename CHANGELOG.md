@@ -112,14 +112,15 @@ Use only the categories needed by a release.
   after an output cell was edited: a completed run stores the fingerprint of
   the exported outputs in the hidden name `SACCR_RunOutputs`. `SF_TABLE`
   and `FX_TABLE` hold the rows the run read, also those added below the
-  table's named range. A file
+  table's named range. Text that Excel would read as a formula is written
+  with a leading apostrophe. A file
   therefore describes the inputs as they are and what the run wrote; two
   exports of the same run are identical. The encoding is in
   the new module `CORE_Export`, which reads no sheet; `M_Main` adds
   `ExportEvidence` and `ExportEvidence_Silent`, and
   `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
   write their tolerances with a decimal point in every locale.
-  `TEST_Reconcile`: 18 cases, 122 checks.
+  `TEST_Reconcile`: 18 cases, 124 checks.
 
 - Reconciliation with a bank's own figures per trade leg (#45). The new input
   sheet `BankTrades` takes, per Trade ID, any of the notional and MtM in the
