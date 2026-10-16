@@ -1658,7 +1658,7 @@ Private Sub RememberRunOutputs()
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""" & OutputFingerprint() & """"", _
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""" & OutputFingerprint() & """", _
                                Visible:=False
         Exit Sub
 
