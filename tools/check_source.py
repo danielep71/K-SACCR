@@ -43,6 +43,11 @@ SYNC_ENTRY = re.compile(r'\(Join-Path\s+\$repoFullPath\s+"([^"]+)"\),?')
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 DOCUMENT_HOME = "src/workbook/"
 CODE_NAME = re.compile(r'<(?:sheetPr|workbookPr)\b[^>]*\bcodeName="([^"]+)"')
+# A VBA string literal ends on its own line: "" inside it is one quote
+# character, and a line continuation cannot sit inside it. A literal left
+# open is a compile error the VBE reports only on import.
+REM_STATEMENT = re.compile(r"Rem(?=[ \t]|$)", re.I)
+LINE_NUMBER = re.compile(r"[ \t]*\d+(?=[ \t])")
 
 
 def index_eol(root: Path) -> dict[str, tuple[str, str]]:
@@ -96,6 +101,7 @@ def check_component(root: Path, path: str, tracked: set[str], names: dict[str, s
     for home, prefix in ROLE_PREFIXES:
         if path.startswith(home) and path.lower().endswith(".bas") and not Path(path).stem.startswith(prefix):
             findings.append(f"{path}: standard modules in {home} must be named {prefix}<subject>")
+    findings.extend(f"{path}:{number}: string literal not closed" for number in unclosed_literals(text))
     if path.lower().endswith(".frm"):
         companions = FRX_REFERENCE.findall(text)
         if not companions:
@@ -107,6 +113,49 @@ def check_component(root: Path, path: str, tracked: set[str], names: dict[str, s
             elif (root / companion).stat().st_size <= int(offset, 16):
                 findings.append(f"{path}: resource offset is outside {filename}")
     return findings
+
+
+def unclosed_literals(text: str) -> list[int]:
+    """Return the numbers of the lines whose code leaves a string literal open.
+
+    A ' outside a literal and outside [...], where it quotes a sheet name as
+    in ['Sheet 1'!A1], or Rem at the start of a statement, also after a
+    numeric line label, begins a comment; a comment line ending in a space
+    and an underscore continues on the next line, which is then comment as
+    well.
+    """
+    lines: list[int] = []
+    in_comment = False
+    for number, line in enumerate(text.split("\n"), start=1):
+        if in_comment:
+            in_comment = line.rstrip().endswith(" _")
+            continue
+        quoted = False
+        statement_start = True
+        brackets = 0
+        label = LINE_NUMBER.match(line)
+        i = label.end() if label else 0
+        while i < len(line):
+            char = line[i]
+            if quoted:
+                quoted = char != '"'
+            elif char == '"':
+                quoted = True
+            elif (char == "'" and not brackets) or (statement_start and REM_STATEMENT.match(line, i)):
+                in_comment = line.rstrip().endswith(" _")
+                break
+            elif char == "[":
+                brackets += 1
+            elif char == "]" and brackets:
+                brackets -= 1
+            if char == ":" and not quoted:
+                statement_start = True
+            elif not char.isspace():
+                statement_start = False
+            i += 1
+        if quoted:
+            lines.append(number)
+    return lines
 
 
 def check_workbook(root: Path, path: str) -> list[str]:
