@@ -339,7 +339,7 @@ Use only the categories needed by a release.
   GitHub controls.
 - Twenty-label issue catalogue from the Excel VBA project template, with a
   workflow that reconciles live labels from `.github/labels.json` and a
-  read-only daily drift check. See [`docs/LABELS.md`](docs/LABELS.md).
+  read-only daily drift check. See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#labels).
 - Root project documents in the same form as the other Excel/VBA repositories:
   [`CONTRIBUTING.md`](CONTRIBUTING.md), [`INSTALLATION.md`](INSTALLATION.md),
   [`SECURITY.md`](SECURITY.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and
