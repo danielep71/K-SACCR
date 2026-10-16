@@ -46,3 +46,7 @@ verification tag supplied by the owner to the page's `head` through the normal
 PR workflow; never insert an invented token. After verification, the owner can
 submit `sitemap.xml` and request indexing of the landing page. Do not put a
 project-level `robots.txt` here: crawlers use the host-root `/robots.txt`.
+
+The owner-supplied HTML verification tag is maintained in `index.html`. Keep
+it in the page after verification so Google can recheck ownership. Its presence
+does not establish that the owner has completed verification in Search Console.

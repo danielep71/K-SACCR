@@ -106,6 +106,9 @@ pull requests.
 
 ### Added
 
+- Add the owner-supplied Google Search Console verification tag to the project
+  website, enabling ownership verification after deployment (#287).
+
 - Public GitHub Pages project website with a workflow overview, workbook
   screenshot, published Basel example, explicit validation limits, and links
   to source and documentation (#279).
