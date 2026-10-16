@@ -432,6 +432,18 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.record["harness"]["expected_errors"][0]["status"] = "FAIL"
         self.assertInvalid("a passing harness needs every expected-error result")
 
+    def test_one_failed_log_cannot_serve_two_suites(self) -> None:
+        self.record["stages"]["regression"]["status"] = "FAIL"
+        failed = self.suite_log(self.spec("TEST_Cases"), verdict="FAIL", cases=3, checks=5, failures=1)
+        for module in ("TEST_Cases", "TEST_Invariants"):
+            self.record["suites"][self.index(module)] = self.suite(
+                self.spec(module), failed, status="FAIL", cases=3, checks=5, failures=1)
+        self.assertInvalid("the same log is cited for two test runs")
+        too_many = self.suite_log(self.spec("TEST_Invariants"), verdict="FAIL", cases=5, failures=1)
+        self.record["suites"][self.index("TEST_Invariants")] = self.suite(
+            self.spec("TEST_Invariants"), too_many, status="FAIL", cases=5, failures=1)
+        self.assertInvalid("more cases than the policy")
+
     def test_unfinished_suites(self) -> None:
         position = self.index("TEST_Aggregation")
         self.record["suites"][position].update(status="NOT_RUN", cases=None, checks=None,

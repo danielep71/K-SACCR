@@ -360,6 +360,8 @@ def validate_suite_log(spec: dict[str, Any], item: dict[str, Any], log: str,
             f"{label} RESULT counts differ from the record")
     if item["status"] == "FAIL":
         require(verdict == "FAIL", f"{label} FAIL contradicts a passing report")
+        # A failed run may stop early, but never runs more cases than its suite has.
+        require(item["cases"] <= spec["cases"], f"{label} reports more cases than the policy has")
         return
     checks = spec["checks"][record["environment"]["office_bitness"]]
     require(verdict == "PASS" and item["failures"] == 0, f"{label} PASS contradicts its report")
@@ -477,6 +479,9 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
     if regression in ("PASS", "FAIL"):
         suite_logs[policy["entry_point"]] = logs["regression"]
     validate_summary(record, policy, directory, suite_logs)
+    # The case-runner suites share a header: one log cited for two of them, for
+    # example a failed one whose counts the policy does not check, is one run.
+    require(len(set(suite_logs.values())) == len(suite_logs), "the same log is cited for two test runs")
     return list(dict.fromkeys(outcomes + suite_outcomes))
 
 

@@ -256,7 +256,10 @@ Rules the validator applies:
   the restoration field (`restore=PASS`, `caller_state=RESTORED`); counts of an
   older commit fail. A suite that did not run is `NOT_RUN` with `null` counts
   and log; one abandoned as hung is `TIMEOUT` with `null` counts and a log
-  without a `RESULT=` line.
+  without a `RESULT=` line. A failed suite may stop early, but cannot report
+  more cases than the policy gives it.
+- Each test run has its own log: the same log cannot be cited for two suites,
+  which matters for the four case-runner suites that share one header.
 - The regression stage is `FAIL` when the harness or a suite failed, and
   `PASS` otherwise; a suite that did not finish makes the record `INCOMPLETE`
   or `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
