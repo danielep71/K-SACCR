@@ -1,40 +1,60 @@
 # Repository governance
 
-Owner and maintainer: **@danielep71**. Active release branch: **`release/1.0.0`**.
-Setup milestone v0.0.1 is closed; its baseline is recorded in
-[issue #13](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/13).
-This policy implements the owner's working-branch decision of 2026-10-06 and
-the scope of [issue #2](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/2).
+Owner and maintainer: **@danielep71**. This document is the single home for
+the branch model, issue metadata and triage, the GitHub settings and the issue
+labels. Contribution steps are in [`CONTRIBUTING.md`](../CONTRIBUTING.md); the
+release runbook is in [`RELEASING.md`](../RELEASING.md).
 
-## Branch policy
+<a id="branches"></a>
+
+## Branches
+
+The active release branch is `release/1.0.0`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.0.0` | Active integration branch for all development, opened at the v0.0.1 closeout and recreated from `main` after each integration. |
+| `release/1.0.0` | Active integration branch for all development. Recreated from `main` after each integration. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
 | Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
 
 The default branch remains `main`; this does not make it the active development
-branch. Check the PR base explicitly. Closing a milestone does not publish a
-tag, release or workbook, or authorize an automatic merge into main. The owner
-must agree the final integration and subsequent working branch.
+branch. Check the PR base explicitly. Nothing is committed directly to the
+release branch or to main, and nothing is integrated, versioned, tagged or
+released without the owner's explicit authorization. Closing a milestone does
+not publish a tag, release or workbook, or authorize a merge into main. Never
+force-push or reset shared branches.
 
-Task PRs into the release branch are squash-merged. Integration of the release
-branch into main uses a PR merged with a merge commit once hosted checks are
-green, so provenance remains visible. Automatic head-branch deletion removes the
-release branch when that PR merges; recreate it from main at the merge commit,
-or, at a milestone closeout, open the next release branch there instead, so the
-active branch and main start level. Never force-push or reset shared branches.
-Do not open a release-to-main PR just to record progress.
+When a new release branch is created, update this section and
+`target-branch` in `.github/dependabot.yml`, which Dependabot reads from
+`main`.
+
+<a id="integrating-the-release-branch-into-main"></a>
+
+### Integrating the release branch into main
+
+Done only when the owner asks. This is an integration, not a release, and it is
+not opened just to record progress.
+
+1. Confirm the release branch is green and has no open review findings.
+2. Open a PR from the release branch into `main`.
+3. Merge it with a **merge commit**, not a squash, once the hosted checks are
+   green, so provenance remains visible.
+4. Bring the release branch back level with `main`. Automatic head-branch
+   deletion removes it when the PR merges: recreate it from `main` at the merge
+   commit. If it still exists, fast-forward it to `main`. At a milestone
+   closeout, open the next `release/X.Y.Z` branch from the merge commit
+   instead, and update [Branches](#branches) and Dependabot's `target-branch`.
+5. Verify both branches point to the merge commit and that CI passed on it.
+
+<a id="ownership-authorization-and-review"></a>
 
 ## Ownership, authorization and review
 
 The owner sets scope, priorities, exceptions and release decisions. Contributors
 work within the authorized issue. Every change reaches the active release
-branch through a PR; nothing is committed directly to the release branch or
-main. Inspect the diff and run the applicable checks before pushing. An
-author's self-check is not an independent review.
+branch through a PR. Inspect the diff and run the applicable checks before
+pushing. An author's self-check is not an independent review.
 
 No change to visibility, paid subscriptions, security-sensitive access or
 main-branch scope is implied by an ordinary development task. Raise a concrete
@@ -42,36 +62,28 @@ exception when needed rather than bypassing a requirement. Keep unresolved
 review findings and failed checks visible; do not call unavailable validation
 successful.
 
-Minimum review checklist, before integration or recording completion:
-
-- [ ] The issue is assigned to danielep71, has a priority and the right milestone.
-- [ ] Scope and acceptance criteria match the diff; the destination is the active release branch.
-- [ ] Interfaces, units, error behavior, cleanup and compatibility impact are explained where relevant.
-- [ ] Applicable local tests pass and the exact committed candidate is identified.
-- [ ] Applicable hosted checks pass; PR validation covers the proposed range and reports are retained.
-- [ ] Review findings are resolved or explicitly accepted with a reason and owner decision where needed.
-- [ ] Documentation and Unreleased entries reflect actual behavior and validation.
-- [ ] No credentials, client data, unrelated binary outputs or undeclared dependencies are introduced.
-- [ ] Static results are separated from real Excel compilation/execution evidence.
-
-Local validation (`python tools/check.py`) precedes every push; run
+The review checklist is in the
+[pull request template](../.github/PULL_REQUEST_TEMPLATE.md); it is the only
+one. Local validation (`python tools/check.py`) precedes every push; run
 `python tools/check.py --ci` on the clean committed candidate, with
 `--base <base-sha>` for a PR. Hosted checks must be green before a PR is
-merged. Report static checks and real Excel runs separately. If a hosted run fails after a
-merge, record the failure and fix or revert it through a new PR before closing
-the issue. Never rewrite shared history to conceal the failed candidate.
+merged. Report static checks and real Excel runs separately. If a hosted run
+fails after a merge, record the failure and fix or revert it through a new PR
+before closing the issue. Never rewrite shared history to conceal the failed
+candidate.
+
+<a id="issue-metadata-and-completion"></a>
 
 ## Issue metadata and completion
 
-Every issue must have assignee **danielep71**, at least one priority label
-**P1/P2/P3**, and a reference milestone; use one clear priority unless a
-documented reason requires otherwise. Each issue belongs to the milestone of the release branch it targets.
+Every issue has assignee **danielep71**, exactly one priority label
+(**P1**, **P2** or **P3**; see [Labels](#labels)) and the milestone of the
+release branch it targets. Include objective, acceptance checklist,
+dependencies and required evidence.
+
 Exception: traffic alert issues opened by the daily traffic export get the
 assignee and **P3** automatically and no milestone; they are operational
 analytics, not development work, and are closed once reviewed.
-Include objective, acceptance checklist, dependencies and required evidence.
-
-### What is automatic and what is not
 
 | Field | How it is set |
 | --- | --- |
@@ -84,96 +96,139 @@ Forms apply to web issues created through a form. `blank_issues_enabled: false`
 hides ordinary blank issues, but users with Write, Maintain or Admin access
 can still use the **Maintainers only** blank-issue option. Those issues, and
 issues created through the API, CLI or another tool, bypass the forms and get
-no metadata automatically. Nothing blocks an issue that lacks
-metadata: this is a **manual rule backed by the check below**, not enforcement.
+no metadata automatically. Nothing blocks an issue that lacks metadata: this is
+a **manual rule backed by the triage check**, not enforcement. The issue forms
+and the pull-request template are read by GitHub from the default branch, so a
+change to them takes effect after the next integration into `main`.
 
 ### Triage check
 
-Run these state-independent searches at issue triage and before milestone
-closeout. Each must return no results. Closed issues are included because the
-metadata rule applies to every issue, not only ongoing work. Keep the missing-
-milestone search repository-wide: filtering by milestone would hide orphans.
+Run these searches at issue triage and before milestone closeout. Each must
+return no results. Closed issues are included because the metadata rule applies
+to every issue. Keep the missing-milestone search repository-wide: filtering by
+milestone would hide orphans.
 
 - [Issues without a milestone](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20no%3Amilestone%20-author%3Aapp%2Fgithub-actions), excluding traffic alerts, which the workflow opens as `github-actions`
 - [Issues without an assignee](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20no%3Aassignee)
 - [Issues without a priority label](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20-label%3AP1%20-label%3AP2%20-label%3AP3)
 
-The issue forms and the pull-request template are read by GitHub from the
-default branch, so a change to them takes effect after the next integration
-into `main`.
-
 ### Closing an issue
 
 Close an issue only when every acceptance criterion has linked evidence: the
 merged PR, the green check run and, for VBA, the Excel result. Record that
-evidence in a closing comment. A blocked Excel run keeps the issue open.
-Each milestone closes through its own closeout issue; v0.0.1 closed in
-[issue #13](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/13).
+evidence in a closing comment. A blocked Excel run keeps the issue open. Each
+milestone closes through its own closeout issue.
 
-## Current GitHub controls and limitations
+<a id="github-settings"></a>
 
-Observed for this personal repository on 2026-10-06; it has since been made
-public. During issue #2, the owner upgraded the account: GitHub's Licensing
-page now confirms **Current GitHub base plan: GitHub Pro**. The earlier
-Free-plan restriction is historical, not a current blocker. Availability and
-activation are distinct.
+## GitHub settings
 
-| Control | Observed state and working response |
+Settings is authoritative; recheck it before relying on a row or changing a
+configuration.
+
+| Control | State and working response |
 | --- | --- |
 | Repository visibility | Public. |
-| Branch rulesets | Configured by the owner on 2026-10-06. `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. Release branches: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion; repository admins may always bypass, which is what lets automatic head-branch deletion remove a release branch when it is merged into main. Settings → Rules is authoritative; keep following the review checklist for what rulesets cannot check. |
-| Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. Added by the owner at the v0.0.1 closeout. |
-| Automatic head-branch deletion | Enabled by the owner on 2026-10-06. Merged PR branches are deleted automatically. |
-| Wiki | Enabled on 2026-10-06 and editable by collaborators only. Since 2026-10-12 maintained directly in the Wiki repository, self-contained and outside this repository's source and checks (owner decision). Authoritative documentation stays in versioned docs/. |
+| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. Release branches: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion; repository admins may always bypass, which is what lets automatic head-branch deletion remove a release branch when it is merged into main. Keep following the review checklist for what rulesets cannot check. |
+| Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
+| Automatic head-branch deletion | Enabled. Merged PR branches are deleted automatically. |
+| Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, self-contained and outside this repository's source and checks (owner decision). Authoritative documentation stays in versioned `docs/`. |
+| Private vulnerability reporting | The primary reporting channel in [`SECURITY.md`](../SECURITY.md); confirm in Settings → Code security that it is enabled. |
 | Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
 | Dependency graph and Dependabot alerts | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. |
 | Low-impact development-dependency alert auto-dismissal | Disabled by explicit owner decision. Keep those alerts visible. |
-| Automatic Dependabot updates | Weekly update PRs for GitHub Actions, aimed at the active release branch, from `.github/dependabot.yml`; Dependabot reads it from `main`. Every update is reviewed and merged manually; see [tools/README.md](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
-| Automated review | Codex reviews every pull request automatically; its review conversations must be resolved before merge (ruleset), like any other finding; it does not replace the owner's review. |
-| Repository integrity CI | Runs on main/release pushes and PRs, read-only token and full-SHA action pins. Also lints the Python tooling (Ruff, strict mypy) and the workflows (actionlint). Reports are retained for 30 days. Static checks only; no Excel execution. |
-| Labels | Twenty-label catalogue with sync and read-only drift workflows. See [LABELS.md](LABELS.md) for permissions and triggers. |
-| Traffic history | Daily export of GitHub's 14-day traffic data to the orphan `traffic-history` branch, from `.github/workflows/daily-traffic.yml`, with an alert issue on a spike or new referrer. Needs `TRAFFIC_TOKEN` in the `analytics` environment and runs from main daily at 06:00 UTC. Analytics only, never CI. |
+| Automatic Dependabot updates | See [Dependency updates](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
+| Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
+| Repository integrity CI | See [GitHub Actions](../tools/README.md#github-actions). Static checks only; no Excel execution. |
+| Labels | See [Labels](#labels). |
+| Traffic history | See [Traffic history](../tools/README.md#traffic-history). Analytics only, never CI. |
 
-The repository was private, under GitHub Pro, when these controls were first
-configured; it is now public.
-Reference: [GitHub plans](https://docs.github.com/en/get-started/learning-about-github/githubs-plans).
-Recheck feature availability before future configuration changes. The ruleset
-configuration above is the one accepted at the v0.0.1 closeout in issue #13;
-the Wiki arrangement changed on 2026-10-12 (#170).
+<a id="labels"></a>
 
-## Label workflows
+## Labels
 
-Both branches carry the same label catalogue. Workflow/script revisions can
-differ while release work awaits integration into main. PRs affecting them run offline validation. The automatic live sync
-is triggered by changes to its inputs on main; scheduled drift uses the default
-branch. Changes merged into the release branch alone do not trigger live sync.
+K-SACCR uses the 20-label core catalogue from
+danielep71/EXCEL-VBA-PROJECT-TEMPLATE at commit
+b903fe44ef6a032c4689870b83745afa1c22490d. Names, colours and descriptions are
+defined in `.github/labels.json`; its `prune: true` policy removes labels
+outside the catalogue during reconciliation.
 
-If an authorized label-policy change is developed on release, validate it
+### When to use each label
+
+Every issue carries exactly one priority label:
+
+| Label | Use when |
+| --- | --- |
+| `P1` | Critical release blocker or serious correctness, data, or application-state risk |
+| `P2` | Material correctness, robustness, or maintainability defect |
+| `P3` | Non-blocking quality, testing, documentation, or technical-debt improvement |
+
+The forms default to `P2` (bug, feature) and `P3` (documentation); Dependabot
+update PRs and traffic alerts get `P3`. Triage confirms or changes it.
+
+Type labels say what kind of work an issue or PR is. The forms set `bug`,
+`enhancement` or `documentation`; add others where they apply.
+
+| Label | Use for |
+| --- | --- |
+| `bug` | Confirmed defect in behavior, correctness, error handling, or a documented contract |
+| `enhancement` | New capability or meaningful improvement to supported behavior |
+| `documentation` | User-facing or maintainer-facing documentation |
+| `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
+| `refactor` | Internal restructuring intended to preserve supported behavior |
+| `behavior-change` | Intentional externally observable behavior change |
+| `ci` | Automated quality checks, workflow maintenance, or release certification |
+| `repository` | Repository structure, governance, metadata, tooling, or maintenance |
+| `release` | Release preparation, certification, evidence, packaging, or publication |
+| `security` | Security boundary, vulnerability handling, supply chain, or hardening; never for undisclosed vulnerabilities, which follow `SECURITY.md` |
+
+Status and triage labels:
+
+| Label | Use when |
+| --- | --- |
+| `blocked` | Cannot proceed until a named dependency is complete |
+| `question` | Further information or a maintainer decision is required |
+| `help wanted` | Maintainer welcomes external investigation, implementation, validation, or review |
+| `good first issue` | Well-scoped task suitable for a first contribution |
+| `duplicate` | An existing issue or pull request already covers this work |
+| `invalid` | Report is incomplete, unsupported, or not actionable as submitted |
+| `wontfix` | Maintainers have decided not to implement or continue this work |
+
+Labels do not assign priorities or milestones automatically.
+
+### Label workflows
+
+The label manifest and both reconciliation scripts are copied unchanged from
+the template. The two workflows are copied from the same revision with two
+integration adjustments: they pass `--policy .github/label-policy.json` and
+watch that file instead of the template-wide repository profile, and every
+checkout sets `persist-credentials: false`, so code under review never receives
+Git credentials. The policy selects the generated application profile with no
+domain overlays; all profile overlays are empty, so the result is exactly the
+template's 20 core labels.
+
+- **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
+  or `release/**` without write permission. Pushes to main affecting its inputs,
+  and manual runs, reconcile live labels and verify an exact match. Only the
+  reconciliation job receives `issues: write`.
+- **Detect issue-label drift** (`labels-drift.yml`) checks deterministic
+  fixtures on pull requests and compares live labels daily at 05:17 UTC or on
+  manual request. It is read-only and uploads JSON/Markdown evidence for 30
+  days. Drift causes failure; detection does not silently repair it.
+- Both workflows use full-SHA-pinned actions.
+
+Changes merged into the release branch alone do not trigger live sync. If an
+authorized label-policy change is developed on the release branch, validate it
 locally and via PR checks, review removals and their issue associations, then
-use an explicitly requested manual sync on that reviewed release ref when
-live reconciliation is needed. Do not modify main solely to trigger sync.
-The label workflows do not automatically assign priorities or milestones.
+use an explicitly requested manual sync on that reviewed release ref when live
+reconciliation is needed. Do not modify main solely to trigger sync.
 
-## Reconciled setup baseline
+To update the catalogue, edit the manifest through a pull request. Review
+removals carefully: deleting a label also removes its issue/PR associations.
+Optional local checks, with Node.js:
 
-Before this reconciliation:
-
-- main: `28af65c007b55434c1f95b7035e72b03ecdffe8e`;
-- release/0.0.1: `2f8ef9d89702185c2afc1762157b71c07fe70d02`.
-
-Both contained the same tooling and static workflow. Release lacked seven
-label-policy, script, workflow and documentation files present in main.
-The governance integration preserves both commits as parents, first the
-release tip and then main, and imports those seven files unchanged into
-release. Main stayed at the recorded tip at that point. The changelog states
-release is the active setup branch, and the README links this policy.
-
-PR #14 later merged the release branch into main with merge commit
-`ff714896eabfb32a91659b7d80aa9ad9b5607496`. Immediately after that merge both
-branches pointed to that commit, and hosted checks passed on it for both; the
-release branch has moved on since.
-
-The accepted integration commit, hosted run, branch comparison and settings
-observations are recorded in issue #2. The final setup baseline is merge commit
-`69209c4386733e934da5bbb1f8b2c2c6ae7bb059` (PR #48), recorded with its
-evidence in issue #13; `release/1.0.0` was opened from it.
+```sh
+node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --self-test
+node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --mode validate
+node .github/scripts/labels-drift.mjs --policy .github/label-policy.json --self-test
+```

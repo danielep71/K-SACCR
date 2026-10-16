@@ -654,7 +654,7 @@ hold the current scope of each release.
 | [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record for every suite, procedure and validator |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
-| [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
+| [`docs/GOVERNANCE.md#labels`](docs/GOVERNANCE.md#labels) | Issue-label catalogue and its workflows |
 | [`RELEASING.md`](RELEASING.md) | Integration into `main` and the release sequence |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behaviour and conduct reporting |

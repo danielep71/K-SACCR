@@ -1,221 +1,83 @@
-<div align="center">
+# Contributor Covenant Code of Conduct
 
-# 🧭 K-SACCR Code of Conduct
+## Our Pledge
 
-### Counterparty credit risk under SA-CCR, built in Excel/VBA
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
 
-[![Applies to](https://img.shields.io/badge/Applies_to-Everyone-217346?style=for-the-badge)](#scope)
-[![Standard](https://img.shields.io/badge/Standard-Respectful_%2B_Evidence--Led-6f42c1?style=for-the-badge)](#technical-collaboration)
-[![Reporting](https://img.shields.io/badge/Reporting-Private-d97706?style=for-the-badge)](#reporting)
-[![Enforcement](https://img.shields.io/badge/Enforcement-Fair_%2B_Proportionate-d73a49?style=for-the-badge)](#enforcement)
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
-<br>
+## Our Standards
 
-**Respect people · Challenge ideas with evidence · State uncertainty · Protect data**
+Examples of behavior that contributes to a positive environment for our community include:
 
-</div>
+* Demonstrating empathy and kindness toward other people
+* Being respectful of differing opinions, viewpoints, and experiences
+* Giving and gracefully accepting constructive feedback
+* Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience
+* Focusing on what is best not just for us as individuals, but for the overall community
 
----
+Examples of unacceptable behavior include:
 
-This document is authoritative for **participant behavior, conduct reporting and
-enforcement**. Technical change and evidence requirements are owned by
-[`CONTRIBUTING.md`](CONTRIBUTING.md); software vulnerability reports are owned by
-[`SECURITY.md`](SECURITY.md).
+* The use of sexualized language or imagery, and sexual attention or advances of any kind
+* Trolling, insulting or derogatory comments, and personal or political attacks
+* Public or private harassment
+* Publishing others' private information, such as a physical or email address, without their explicit permission
+* Other conduct which could reasonably be considered inappropriate in a professional setting
 
-Technical rigor and respectful interaction are complementary. Neither excuses
-the absence of the other.
+## Enforcement Responsibilities
 
-## 🤝 Our pledge
+Community leaders are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior that they deem inappropriate, threatening, offensive, or harmful.
 
-Everyone who participates through code, issues, pull requests, reviews,
-documentation, examples, releases or project email is expected to help create a
-harassment-free, inclusive and healthy environment.
+Community leaders have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, and will communicate reasons for moderation decisions when appropriate.
 
-We welcome participants regardless of personal characteristics unrelated to the
-contribution, including age, disability, ethnicity, gender identity/expression,
-experience level, nationality, race, religion, socioeconomic status or sexual
-identity/orientation.
+## Scope
 
-## ✅ Expected behavior
+This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public spaces. Examples of representing our community include using an official e-mail address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
 
-| Principle | Expected practice |
-| --- | --- |
-| Respect | Address the work rather than the person and assume good faith where reasonable. |
-| Precision | Distinguish observation, requirement, assumption, inference and opinion. |
-| Evidence | Support technical claims with reproducible information where practical. |
-| Transparency | State uncertainty, limitations, conflicts of interest and material dependencies. |
-| Correction | Acknowledge mistakes when better evidence changes the conclusion. |
-| Inclusion | Welcome different backgrounds and levels of expertise. |
-| Stewardship | Respect privacy, confidentiality, security, licensing and intellectual property. |
-| Coherence | Accept that the maintainer may revise, defer, split or decline contributions. |
+## Enforcement
 
-<a id="technical-collaboration"></a>
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at danielep71@gmail.com. All complaints will be reviewed and investigated promptly and fairly.
 
-## 🧪 Technical collaboration
+All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
-Useful disagreement is specific, testable and directed at the work. Personal
-judgments, credential-based arguments and attacks are not substitutes for
-technical evidence. This applies with particular force to regulatory
-interpretation: cite the provision, example or source being relied on rather
-than asserting what the standard "obviously" means.
+## Enforcement Guidelines
 
-Exact reproduction, environment, validation and pull-request evidence
-requirements are maintained only in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Community leaders will follow these Community Impact Guidelines in determining the consequences for any action they deem in violation of this Code of Conduct:
 
-## 🚫 Unacceptable behavior
+### 1. Correction
 
-Unacceptable behavior includes:
+**Community Impact**: Use of inappropriate language or other behavior deemed unprofessional or unwelcome in the community.
 
-- harassment, intimidation, discrimination, threats or personal attacks;
-- trolling, insulting/derogatory comments or deliberately inflammatory language;
-- unwelcome sexual attention or sexualized language/imagery;
-- publishing private/confidential information without permission;
-- fabricating or materially misrepresenting results, sources, authorship,
-  evidence or another participant's statements;
-- pressuring others to disclose employer, client, counterparty or proprietary
-  information;
-- using title, reputation or institutional status to silence a technical
-  challenge instead of addressing its substance;
-- spam, unrelated promotion, solicitation or sustained disruption;
-- public disclosure of a suspected vulnerability before reasonable coordinated
-  handling;
-- repeated disruption after the maintainer asks participants to stop; and
-- retaliation against a reporter, witness or investigation participant.
+**Consequence**: A private, written warning from community leaders, providing clarity around the nature of the violation and an explanation of why the behavior was inappropriate. A public apology may be requested.
 
-Disagreement is allowed. Abuse is not.
+### 2. Warning
 
-## 🔐 Data, privacy and confidentiality
+**Community Impact**: A violation through a single incident or series of actions.
 
-K-SACCR computes exposure for derivative portfolios, so real inputs are almost
-always confidential. Do not upload such material to support a discussion or
-contribution, including:
+**Consequence**: A warning with consequences for continued behavior. No interaction with the people involved, including unsolicited interaction with those enforcing the Code of Conduct, for a specified period of time. This includes avoiding interactions in community spaces as well as external channels like social media. Violating these terms may lead to a temporary or permanent ban.
 
-- trades, netting sets, counterparties, collateral or margin agreements, or
-  portfolio extracts from any real institution;
-- client, employer or personal data;
-- credentials, tokens, signing material, connection strings or internal URLs;
-- proprietary code, models, workbooks, data or business assumptions;
-- licensed content that cannot be redistributed; or
-- material the contributor is not authorized to share.
+### 3. Temporary Ban
 
-Use the smallest synthetic example that preserves the behavior. Excel workbooks
-can contain hidden names, links, connections, cached values, queries, metadata,
-hidden sheets and VBA beyond the visible worksheet.
+**Community Impact**: A serious violation of community standards, including sustained inappropriate behavior.
 
-Software vulnerabilities follow [`SECURITY.md`](SECURITY.md). Conduct reporting
-and vulnerability reporting are separate processes even when an incident touches
-both.
+**Consequence**: A temporary ban from any sort of interaction or public communication with the community for a specified period of time. No public or private interaction with the people involved, including unsolicited interaction with those enforcing the Code of Conduct, is allowed during this period. Violating these terms may lead to a permanent ban.
 
-<a id="scope"></a>
+### 4. Permanent Ban
 
-## 🌐 Scope
+**Community Impact**: Demonstrating a pattern of violation of community standards, including sustained inappropriate behavior, harassment of an individual, or aggression toward or disparagement of classes of individuals.
 
-This Code of Conduct applies to project-controlled and project-related spaces,
-including source, issues, pull requests, reviews, documentation, examples,
-releases, project email and public spaces where someone represents the project.
+**Consequence**: A permanent ban from any sort of public interaction within the community.
 
-It applies to the maintainer, contributors, reviewers, users and visitors alike.
+## Attribution
 
-<a id="reporting"></a>
+This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 2.1, available at [https://www.contributor-covenant.org/version/2/1/code_of_conduct.html][v2.1].
 
-## 📣 Reporting unacceptable behavior
+Community Impact Guidelines were inspired by [Mozilla's code of conduct enforcement ladder][Mozilla CoC].
 
-Report conduct concerns **privately** to:
+For answers to common questions about this code of conduct, see the FAQ at [https://www.contributor-covenant.org/faq][FAQ]. Translations are available at [https://www.contributor-covenant.org/translations][translations].
 
-**danielep71@gmail.com**
-
-Do not publish sensitive personal information in an issue. Where useful, include
-what happened, where and approximately when, relevant links or screenshots,
-whether it is ongoing, witnesses and immediate safety or privacy concerns.
-
-Reports are reviewed as promptly, fairly and discreetly as reasonably possible.
-Information is shared only as needed to understand the report, protect
-participants, enforce this policy or comply with applicable requirements.
-
-A good-faith report is not misconduct merely because no violation is ultimately
-found.
-
-<a id="enforcement"></a>
-
-## ⚖️ Enforcement
-
-The maintainer may clarify and enforce this policy and remove, edit or reject
-project content inconsistent with it. Responses depend on seriousness,
-frequency, context, prior behavior and risk and may include:
-
-1. clarification or private reminder;
-2. formal warning or conditions for continued participation;
-3. editing or removing project content;
-4. closing or locking a discussion;
-5. rejecting or reverting a contribution;
-6. temporary participation restriction;
-7. permanent exclusion; or
-8. escalation to GitHub or another relevant platform.
-
-Enforcement should be fair, proportionate, consistent and protective of both
-participants and the technical record. Retaliation is itself a violation.
-
-## 🧩 Conflicts of interest
-
-Disclose a material interest when it could reasonably affect technical review,
-including commercial interests, employer or client restrictions, uncertainty
-about the origin or license of submitted material, or reviewing one's own work
-under another identity.
-
-A conflict is not automatically disqualifying; undisclosed material influence is
-the concern.
-
-## 📜 Source and licensing integrity
-
-Contributors must have the right to submit every code fragment, document,
-screenshot, workbook, dataset, benchmark, image and reference they provide.
-Identify adapted material and its license. Regulatory texts and published
-examples are cited, not copied wholesale. Detailed contribution and provenance
-rules belong to [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## 🧱 Maintainer decisions
-
-The maintainer may decline a technically valid contribution because of scope,
-compatibility, maintenance burden, testability, platform risk, API stability,
-duplication, architecture or release timing. When practical, the technical
-reason is recorded.
-
-A declined contribution is not a judgment about the contributor. Decisions may
-be challenged respectfully with new evidence; repeatedly reopening the same
-argument without new evidence is not constructive.
-
-## 🙏 Project scale and response expectations
-
-K-SACCR is maintained by one person. Response times are best-effort. Complex
-matters may require a particular Office/Windows environment or manual
-validation. Reasonable delay is not dismissal, and demands for immediate action
-do not replace evidence.
-
-GitHub's platform policies and community standards also apply where relevant.
-
-## 📜 Attribution
-
-This Code of Conduct is informed by and adapted from the
-[Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).
-Its project-specific conduct and confidentiality provisions are maintained for
-this repository.
-
-## 📚 Related documents
-
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — technical contribution and review contract
-- [`SECURITY.md`](SECURITY.md) — vulnerability reporting and disclosure
-- [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) — branches, issues and review process
-
----
-
-<div align="center">
-
-### Practical principle
-
-**Be precise about the work · Be generous toward the person · Show the evidence · State the boundary · Protect the data**
-
-<br>
-
-Maintained by **Daniele Penza**
-
-</div>
+[homepage]: https://www.contributor-covenant.org
+[v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
+[Mozilla CoC]: https://github.com/mozilla/diversity
+[FAQ]: https://www.contributor-covenant.org/faq
+[translations]: https://www.contributor-covenant.org/translations
