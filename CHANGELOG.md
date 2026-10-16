@@ -120,7 +120,7 @@ Use only the categories needed by a release.
   adds `ExportEvidence` and `ExportEvidence_Silent`, and
   `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
   write their tolerances with a decimal point in every locale, and the run
-  summary on Results its run time. `TEST_Reconcile`: 18 cases, 136 checks.
+  summary on Results its run time. `TEST_Reconcile`: 18 cases, 137 checks.
 
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,

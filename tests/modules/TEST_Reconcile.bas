@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 136              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 137              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1055,6 +1055,8 @@ Private Sub CaseTradeWorkbook()
                       SafeStr(CellOf(outcomes, "NO-SUCH-LEG", "Notional", TRC_ECON)), ""
             econCell.Formula = savedEcon
             mtmLegCell.Formula = savedMtmLeg
+            Check UBound(ColumnValues(wsTrades, tradeRow, tradeRow, TR_ID), 1) = 1, _
+                  "a one-row Trades column is not read as an array"
         End If
 
 '------------------------------------------------------------------------------

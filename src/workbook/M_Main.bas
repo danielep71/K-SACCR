@@ -1112,8 +1112,8 @@ Private Function WithEconomicTradeIds( _
         firstR = TableFirstRow(SH_TRADES)
         lastR = LastDataRow(ws, firstR, TR_ID)
         If lastR >= firstR Then
-            legIds = TableRange(ws, firstR, TR_ID, lastR, TR_ID).Value2
-            econ = TableRange(ws, firstR, TR_ECON, lastR, TR_ECON).Value2
+            legIds = ColumnValues(ws, firstR, lastR, TR_ID)
+            econ = ColumnValues(ws, firstR, lastR, TR_ECON)
             For r = 1 To UBound(legIds, 1)
                 If Len(UTxt(legIds(r, 1))) > 0 Then
                     If KeyIndex(legIndex, UTxt(legIds(r, 1))) = 0 Then

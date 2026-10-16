@@ -1055,7 +1055,7 @@ Public Function UsedLastRow( _
 End Function
 
 
-Private Function ColumnValues( _
+Public Function ColumnValues( _
     ByVal ws As Worksheet, _
     ByVal firstRow As Long, _
     ByVal lastRow As Long, _
@@ -1066,7 +1066,9 @@ Private Function ColumnValues( _
 '                                 ColumnValues
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read one column range in a single call, always as a 2-D array.
+'   Read one column range in a single call, always as a 2-D array, also
+'   for a single row, where Range.Value2 gives a scalar. Public for
+'   M_Main, which reads the Trades IDs with it (#45).
 '
 ' INPUTS
 '   ws: the worksheet to read.
