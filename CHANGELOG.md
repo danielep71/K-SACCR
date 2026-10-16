@@ -98,6 +98,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- `python tools/check.py` reports a VBA string literal left open on its
+  line, with the file and line number: `""` inside a literal is one quote,
+  and quotes in comments (after `'` or `Rem`, also on a continued comment
+  line) do not count. The VBE reports such a line only as a syntax error
+  when the module is imported, as happened during the review of #45.
+
 - Reconciliation with a bank's own figures per trade leg (#45). The new input
   sheet `BankTrades` takes, per Trade ID, any of the notional and MtM in the
   reporting currency, M, the supervisory duration, the adjusted notional, the
