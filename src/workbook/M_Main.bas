@@ -1214,6 +1214,14 @@ Private Function EvidenceProblem() As String
 ' CHECK
 '------------------------------------------------------------------------------
         On Error GoTo Failed
+    'In manual calculation a formula input may still show the value from
+    'before its precedents changed, and the fingerprints would read it as
+    'current.
+        If Application.CalculationState <> xlDone Then
+            EvidenceProblem = "Excel has not finished recalculating; press F9, then Run SA-CCR if the results " & _
+                              "are out of date"
+            Exit Function
+        End If
         If ResultsStatus() <> "CURRENT" Then
             EvidenceProblem = "the results are not those of the current inputs; press Run SA-CCR first"
             Exit Function
@@ -1545,7 +1553,9 @@ Private Function DefaultEvidenceName() As String
 '==============================================================================
 '
         DefaultEvidenceName = "K-SACCR_evidence_" & Format$(Now, "yyyymmdd-hhnnss") & ".csv"
-        If Len(ThisWorkbook.Path) > 0 Then
+    'A workbook opened from OneDrive or SharePoint has a URL as its path,
+    'which the save dialog cannot start from.
+        If Len(ThisWorkbook.Path) > 0 And InStr(ThisWorkbook.Path, "://") = 0 Then
             DefaultEvidenceName = ThisWorkbook.Path & Application.PathSeparator & DefaultEvidenceName
         End If
 

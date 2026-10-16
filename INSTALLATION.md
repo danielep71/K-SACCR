@@ -515,7 +515,7 @@ after an input edit, bank figures entered after the run, every bank figure
 removed after a reconciliation, or an edited Results cell, and listing a
 currency added below the FX table; the cells and files are put back or
 removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=18; checks=129; failures=0`.
+`RESULT=PASS; cases=18; checks=131; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
@@ -552,7 +552,8 @@ TradeReconciliation C5 does the same through
 
 `ExportEvidence_Silent(filePath)` writes the evidence report without a
 dialog and returns `RESULT=OK; lines=...; file=...`, or
-`RESULT=REFUSED; reason=...` when `ResultsStatus()` is not `CURRENT`, when
+`RESULT=REFUSED; reason=...` while Excel has a recalculation pending (manual
+calculation: press F9), when `ResultsStatus()` is not `CURRENT`, when
 a reconciliation does not match its bank figures, settings and inputs as
 they are now (also after every bank figure was removed), or when an output
 cell on Results, Checks or a reconciliation sheet differs from what the run

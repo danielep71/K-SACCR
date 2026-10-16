@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 129              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 131              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1102,7 +1102,8 @@ Private Sub CaseExportWorkbook()
 '   sections, and a second export of the same run is identical byte for
 '   byte, also over a longer hidden file of that name; an edited input, bank figures entered after the run, bank
 '   figures removed after a reconciliation and an edited output cell each
-'   make the export refuse; undoing them, or a new run, allows it again. A
+'   make the export refuse, as does a recalculation pending in manual
+'   calculation; undoing them, or a new run, allows it again. A
 '   currency added below the FX table's named range is in the report.
 '   The edited cells and the files are put back or removed.
 '
@@ -1180,6 +1181,17 @@ Private Sub CaseExportWorkbook()
         mtmCell.Formula = savedMtm
         result = M_Main.ExportEvidence_Silent(fileB)
         Check Left$(result, 9) = "RESULT=OK", "export after undoing the edit: " & result
+    'In manual calculation the same value written again leaves the status
+    'formulas to recalculate: the export waits for F9.
+        Application.Calculation = xlCalculationManual
+        mtmCell.Formula = savedMtm
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "recalculating") > 0, _
+              "export with a recalculation pending: " & result
+        Application.Calculate
+        Application.Calculation = xlCalculationAutomatic
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK", "export after the recalculation: " & result
         Set bankCell = TableCell(GetSheet(SH_BANK_NS), NamedRow(NM_BN_HEADER) + 1, BN_ID)
         savedBank = bankCell.Formula
         bankCell.Value = "NEW-AFTER-RUN"
@@ -1240,6 +1252,7 @@ Private Sub CaseExportWorkbook()
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Application.Calculation = xlCalculationAutomatic
         RestoreCell mtmCell, savedMtm
         RestoreCell bankCell, savedBank
         If Not outCell Is Nothing Then

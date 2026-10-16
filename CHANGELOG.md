@@ -106,20 +106,20 @@ Use only the categories needed by a release.
   set, totals per regime, the counts on Checks, and for each reconciliation
   its fingerprint, summary, scale and tolerances), `PARAMS`, `SF_TABLE`,
   `FX_TABLE`, `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`
-  and a fixed `LIMITATIONS` section. The export refuses while the results are
-  not current, while a reconciliation no longer matches its bank figures (also
-  after they were all removed), or after an output cell was edited: a
-  completed run stores the fingerprint of the exported outputs in the hidden
-  name `SACCR_RunOutputs`. `SF_TABLE` and `FX_TABLE` hold the rows the run
-  read, also those added below the table's named range. Text that Excel would
-  read as a formula is written with a leading apostrophe. A file therefore
-  describes the inputs as they are and what the run wrote; two exports of the
-  same run are identical. The encoding is in the new module `CORE_Export`,
-  which reads no sheet; `M_Main` adds `ExportEvidence` and
-  `ExportEvidence_Silent`, and `CORE_Engine.ParameterCodes` is now public. The
-  reconciliation summaries write their tolerances with a decimal point in
-  every locale, and the run summary on Results its run time. `TEST_Reconcile`:
-  18 cases, 129 checks.
+  and a fixed `LIMITATIONS` section. The export refuses while Excel has a
+  recalculation pending, while the results are not current, while a
+  reconciliation no longer matches its bank figures (also after they were all
+  removed), or after an output cell was edited: a completed run stores the
+  fingerprint of the exported outputs in the hidden name `SACCR_RunOutputs`.
+  `SF_TABLE` and `FX_TABLE` hold the rows the run read, also those added below
+  the table's named range. Text that Excel would read as a formula is written
+  with a leading apostrophe. A file therefore describes the inputs as they are
+  and what the run wrote; two exports of the same run are identical. The
+  encoding is in the new module `CORE_Export`, which reads no sheet; `M_Main`
+  adds `ExportEvidence` and `ExportEvidence_Silent`, and
+  `CORE_Engine.ParameterCodes` is now public. The reconciliation summaries
+  write their tolerances with a decimal point in every locale, and the run
+  summary on Results its run time. `TEST_Reconcile`: 18 cases, 131 checks.
 
 - `python tools/check.py` reports a VBA string literal left open on its
   line, with the file and line number: `""` inside a literal is one quote,
