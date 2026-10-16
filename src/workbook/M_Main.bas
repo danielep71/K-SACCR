@@ -1399,9 +1399,13 @@ Private Function EvidenceText() As String
                 s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NONE"))
                 s = s & RunLine(prefix & "_inputs", StoredText(InputsNameOf(i)))
                 s = s & RunLine(prefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
-                s = s & RunLine(prefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
-                s = s & RunLine(prefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
-                s = s & RunLine(prefix & "_rel_tol", NamedCell(SettingNameOf(i, 3)).Value2)
+            'The settings are part of a reconciliation's fingerprint; without
+            'one they were not used, and could change after the run.
+                If Len(StoredText(InputsNameOf(i))) > 0 Then
+                    s = s & RunLine(prefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
+                    s = s & RunLine(prefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
+                    s = s & RunLine(prefix & "_rel_tol", NamedCell(SettingNameOf(i, 3)).Value2)
+                End If
             End If
         Next i
 

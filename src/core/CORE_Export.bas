@@ -412,6 +412,20 @@ Private Function ErrorName( _
             ErrorName = "#NUM!"
         ElseIf v = CVErr(2042) Then
             ErrorName = "#N/A"
+        ElseIf v = CVErr(2043) Then
+            ErrorName = "#GETTING_DATA"
+        ElseIf v = CVErr(2045) Then
+            ErrorName = "#SPILL!"
+        ElseIf v = CVErr(2046) Then
+            ErrorName = "#CONNECT!"
+        ElseIf v = CVErr(2047) Then
+            ErrorName = "#BLOCKED!"
+        ElseIf v = CVErr(2048) Then
+            ErrorName = "#UNKNOWN!"
+        ElseIf v = CVErr(2049) Then
+            ErrorName = "#FIELD!"
+        ElseIf v = CVErr(2050) Then
+            ErrorName = "#CALC!"
         Else
             ErrorName = "#" & CStr(v)
         End If

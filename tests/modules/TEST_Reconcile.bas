@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 126              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 129              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1077,6 +1077,7 @@ Private Sub CaseExportFields()
         CheckText "text starting with a minus", CORE_Export.CsvField("-x;y"), """'-x;y"""
         CheckText "logical value", CORE_Export.CsvField(True), "TRUE"
         CheckText "error value", CORE_Export.CsvField(CVErr(xlErrNA)), "#N/A"
+        CheckText "newer error value", CORE_Export.CsvField(CVErr(2045)), "#SPILL!"
         CheckText "empty cell", CORE_Export.CsvField(Empty), ""
         CheckText "line", CORE_Export.CsvLine("RUN", Array("alpha", 1.4)), "RUN;alpha;1.4" & vbCrLf
         b = CORE_Export.Utf8Bytes("A" & ChrW(&HE9) & ChrW(&H20AC))
@@ -1150,6 +1151,8 @@ Private Sub CaseExportWorkbook()
         textA = FileText(fileA)
         Check Left$(textA, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(textA, 40)
         Check InStr(textA, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
+        Check InStr(textA, vbCrLf & "RUN;reconciliation;NONE" & vbCrLf) > 0 And _
+              InStr(textA, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
         Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
               "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
         Check InStr(textA, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
@@ -1186,6 +1189,7 @@ Private Sub CaseExportWorkbook()
         result = M_Main.RunSACCR_Silent()
         result = M_Main.ExportEvidence_Silent(fileB)
         Check Left$(result, 9) = "RESULT=OK", "export with a reconciliation: " & result
+        Check InStr(FileText(fileB), vbCrLf & "RUN;reconciliation_scale;") > 0, "settings of the reconciliation missing"
         bankCell.Formula = savedBank
         result = M_Main.ExportEvidence_Silent(fileB)
         Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, SH_BANK_NS) > 0, _
