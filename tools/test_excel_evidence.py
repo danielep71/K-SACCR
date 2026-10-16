@@ -482,7 +482,13 @@ class ExcelEvidenceTests(unittest.TestCase):
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         problems = " ".join(evidence.policy_problems(copy_root))
         self.assertIn("TEST_Reconcile.RunReconcileTests: policy cases differ", problems)
-        self.assertIn("TEST_Formulas.RunFormulaTests: policy checks differ", problems)
+        self.assertIn("TEST_Formulas.RunFormulaTests: policy 64-bit checks differ", problems)
+        policy = copy.deepcopy(self.policy)
+        policy["suites"][0]["checks"] = {"32-bit": 82, "64-bit": 80}
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        swapped = " ".join(evidence.policy_problems(copy_root))
+        self.assertIn("policy 32-bit checks differ", swapped)
+        self.assertIn("policy 64-bit checks differ", swapped)
         policy = copy.deepcopy(self.policy)
         del policy["suites"][1]
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))

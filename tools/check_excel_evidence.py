@@ -492,6 +492,26 @@ def declared(text: str, names: str, position: int) -> set[int]:
     return values | {int(pair[position]) for pair in begin}
 
 
+def checks_by_bitness(text: str) -> dict[str, set[int]]:
+    """Check counts a module declares for each bitness: under #If Win64 for 64-bit,
+    under its #Else for 32-bit, and outside such a block for both."""
+    found: dict[str, set[int]] = {bits: set() for bits in BITNESS}
+    branch: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if re.match(r"#If\s+Win64\s+Then\b", stripped, re.IGNORECASE):
+            branch = "64-bit"
+        elif branch and re.match(r"#Else\b", stripped, re.IGNORECASE):
+            branch = "32-bit"
+        elif branch and re.match(r"#End\s+If\b", stripped, re.IGNORECASE):
+            branch = None
+        else:
+            values = declared(line, "EXPECTED_CHECKS|CHECKS", 1)
+            for bits in ([branch] if branch else BITNESS):
+                found[bits] |= values
+    return found
+
+
 def module_text(root: Path, entry_point: str) -> str:
     module, _, procedure = entry_point.partition(".")
     path = root / "tests" / "modules" / f"{module}.bas"
@@ -508,10 +528,10 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     problems = []
     if declared(text, "EXPECTED_CASES|CASES", 0) != {spec["cases"]}:
         problems.append(f"{spec['entry_point']}: policy cases differ from the module")
-    checks = declared(text, "EXPECTED_CHECKS|CHECKS", 1)
     # A module that declares no check count (MainState) is held only by the evidence logs.
-    if checks and checks != set(spec["checks"].values()):
-        problems.append(f"{spec['entry_point']}: policy checks differ from the module")
+    for bits, checks in checks_by_bitness(text).items():
+        if checks and checks != {spec["checks"][bits]}:
+            problems.append(f"{spec['entry_point']}: policy {bits} checks differ from the module")
     # The case-runner suites print the runner's header and MODE line.
     runner = "TEST_CaseRunner.BeginSuite" in text
     if runner:
