@@ -38,6 +38,8 @@ def main() -> int:
             if args.ci and args.base:
                 command += ["--base", args.base]
         commands.append((name, command))
+    commands.append(("excel-evidence-policy",
+                     [sys.executable, "tools/check_excel_evidence.py", "--root", str(root), "--check-policy"]))
     commands.append(("generated-case-tests",
                      [sys.executable, "tools/generate_case_tests.py", "--root", str(root), "--check"]))
     results = []

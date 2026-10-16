@@ -149,7 +149,7 @@ Record only environments actually used. One bitness never proves the other.
 - [ ] Existing cases cover the changed path.
 - [ ] New or amended cases cover each corrected defect.
 - [ ] Boundary, invalid-input and cleanup paths are covered as applicable.
-- [ ] Harness counts and `.github/excel-evidence-policy.json` are updated together.
+- [ ] Suite counts, `.github/excel-evidence-policy.json` and the README's test counts are updated together (`check.py` gate `excel-evidence-policy`).
 - [ ] Every expected value carries a reference class per `docs/methodology/TEST_CASES.md`; only `published` and `independent` values count as validation, and none is produced by running this code.
 - [ ] No regression change needed: rationale below.
 

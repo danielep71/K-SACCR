@@ -12,7 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-7%2F7_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-227_cases_%C2%B7_975_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -124,7 +125,8 @@ inspected. This toolkit is the opposite:
 
 | Need | How the toolkit meets it |
 | --- | --- |
-| Reconcile a production EAD | Trade-, hedging-set- and bucket-level outputs to compare line by line |
+| Reconcile a production EAD | Enter the bank's own figures per netting set and per trade leg; each is compared with the engine's, `MATCH` or `DIFFERENCE` within tolerances, and every row that cannot be compared says why |
+| Keep evidence of a run | **Export evidence** writes the run's identity, input fingerprint, parameters, results and reconciliations to one CSV file, and refuses while anything is out of date |
 | Compare EU CRR and Basel | Regime chosen per netting set; both rule sets in one engine |
 | Know whether a run is regulatory | Every run is classified `REGULATORY` or `WHAT-IF`, with each difference from the regulatory parameter set listed |
 | Trust the inputs | Malformed dates, codes, pairs, duplicates and Excel errors reject the trade or stop the run; nothing is silently read as blank |
@@ -146,8 +148,10 @@ inspected. This toolkit is the opposite:
 | CRR specifics | Other-risks class (8%), climatic commodity hedging set (18%), credit quality steps, lambda-shifted option delta (`CRR-RTS` Art. 5) |
 | Run classification | `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
 | Input validation | Unreadable or locale-dependent dates, 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names |
+| Reconciliation | Bank figures per netting set (`BankNettingSets`) and per trade leg (`BankTrades`), compared with Results and TradeCalc within an absolute or a relative tolerance |
+| Evidence export | One CSV file per run, `;`-separated with a `.` decimal point and UTF-8 whatever the regional settings |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
-| Testing | Seven Excel suites, `Test_RunAll` summary, and static checks in CI |
+| Testing | Eight Excel suites (227 cases, 975 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -227,15 +231,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-13 08:28:48
-  PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0
-  PASS  TEST_MainState        cases=20; checks=381; failures=0; caller_state=RESTORED
-  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS
-  PASS  TEST_InputValidation  cases=111; checks=158; failures=0; restore=PASS
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS
-RESULT=PASS; suites=7; passed=7; failed=0; seconds=24,1
+SACCR TEST SUMMARY 2026-10-16 09:10:15
+  PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,5 s)
+  PASS  TEST_MainState        cases=27; checks=465; failures=0; caller_state=RESTORED  (49,6 s)
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (11,5 s)
+  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (35,6 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (3,6 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,8 s)
+  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (9,1 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=111,8
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -255,7 +260,12 @@ Trades ─┘                │                                           │
                          ▼                                           ▼
                       Checks                         Results · HedgingSets
                  (errors, warnings,                  Buckets · TradeCalc
-                  what-if differences)
+                  what-if differences)                       │
+                                                             ▼
+BankNettingSets · BankTrades ─────────────────► Reconciliation · TradeReconciliation
+                                                             │
+                                                             ▼
+                                                  Export evidence (CSV)
 ```
 
 1. **Parameters.** Reporting date and currency, regime, supervisory factors,
@@ -275,8 +285,9 @@ Trades ─┘                │                                           │
    input reports `INCOMPLETE` or `INVALID` and no EAD.
 6. **Reconciliation.** When `BankNettingSets` holds figures, each is compared
    with the same figure on Results, netting sets matched by ID and never
-   across regimes (#45). **Export evidence** writes the run and its
-   reconciliations to a CSV file.
+   across regimes; `BankTrades` legs are compared with TradeCalc by Trade ID
+   (#45). **Export evidence** writes the run and its reconciliations to a CSV
+   file.
 
 | Sheet | Role |
 | --- | --- |
@@ -291,12 +302,6 @@ Trades ─┘                │                                           │
 | `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs, `NOT APPLICABLE` figures and each leg's Economic trade ID |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
-
-<p align="center">
-  <img width="62%"
-       alt="SA-CCR interest-rate add-on: from trade selection to the aggregate add-on, with CRE52 and CRR locators"
-       src="docs/assets/SACCR_IR_AddOn_flow.png">
-</p>
 
 ---
 
@@ -349,21 +354,27 @@ wrote the code under test (#100).
 
 ## Test suites
 
-| Suite | Checks |
-| --- | --- |
-| `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict |
-| `TEST_Formulas` | Domain and Excel-error contract of every worksheet function |
-| `TEST_MainState` | Excel state, stale-result detection and failure paths of the workbook macros |
-| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` |
-| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions |
-| `TEST_Aggregation` | Row-order independence and offsets |
-| `TEST_Invariants` | Relations every result must satisfy |
-| `TEST_Reconcile` | Comparison of bank figures with Results, and the Reconciliation sheet |
+| Suite | Covers | Cases | Checks |
+| --- | --- | ---: | ---: |
+| `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
+| `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
+| `TEST_MainState` | Excel state, stale-result detection and failure paths of the workbook macros | 27 | 465 |
+| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 20 | 39 |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 133 | 209 |
+| `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
+| `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 19 | 140 |
+| **Total** | | **227** | **975** |
+
+The harness counts assertions as its checks. The counts are those of 64-bit
+Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
 
 `python tools/check.py` runs the static gates (source layout, house style,
 public API, test-case schema, generated tests and tooling tests) locally and
 in CI. Static checks never stand in for Excel evidence; the
-[Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show.
+[Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
+suite by suite, and `tools/check_excel_evidence.py` validates a record against
+the exact commit it claims.
 
 ---
 
@@ -405,7 +416,8 @@ tests/
   expected/    expected results with their evidence class
 docs/
   methodology/ regulatory basis, sources, support matrix, traceability
-tools/         static checks, case generator, VBA synchronizer
+tools/         static checks, case generator, VBA synchronizer and exporter,
+               Excel evidence validator
 ```
 
 The layout and its rules are in
@@ -487,7 +499,7 @@ hold the current scope of each release.
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
-| [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record, procedure and validator |
+| [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) | Manual Excel run record for every suite, procedure and validator |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Branches, issue metadata, review checklist, GitHub controls |
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
 | [`docs/LABELS.md`](docs/LABELS.md) | Issue-label catalogue and its workflows |
@@ -506,9 +518,9 @@ hold the current scope of each release.
 branches and pull requests; `main` receives it on the owner's instruction.
 Nothing is versioned or tagged until a release is prepared.
 
-The latest recorded Excel run, `Test_RunAll` with seven of seven suites
-passing, was made by the owner on 2026-10-13 on the source merged as
-[`4d449e7`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/4d449e7350bafa224c8d190d953a115b00cd9b7a).
+The latest recorded Excel run, `Test_RunAll` with eight of eight suites
+passing, was made by the owner on 2026-10-16 on the source merged as
+[`9722b30`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/9722b30c7ffde81a2234e3f9b494fb5ce6ec1828).
 It is development evidence, not release certification.
 
 ---
