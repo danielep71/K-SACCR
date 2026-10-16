@@ -18,7 +18,7 @@
         "source": "CRR",
         "locator": "CRE99 ex.5 + CRR Art. 274(3)",
         "derivation": "Prototype TestCatalogue T15 (Example 5 under CRR: Art. 274(3) cap not binding, same EAD; CRE99 ex.5 + CRR Art. 274(3); derived - independent python implementation; workbook reference CRR-EX5, EAD). Catalogue note: Common core reproduces the Basel result. Value from an independent Python implementation that is not in the repository; illustrative until an independent derivation is committed and reviewed. Amounts in USD: the template figure in thousands times 1,000.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },

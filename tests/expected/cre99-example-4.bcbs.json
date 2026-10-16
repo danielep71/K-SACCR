@@ -18,7 +18,7 @@
         "source": "CRE99",
         "locator": "Example 4, CRE99.77; BCBS 279 Annex 4a, page 29",
         "derivation": "Printed in CRE99 Example 4, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T08.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -38,7 +38,7 @@
         "source": "CRE99",
         "locator": "Example 4, CRE99.78; BCBS 279 Annex 4a, page 29",
         "derivation": "Printed in CRE99 Example 4, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T09.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -58,7 +58,7 @@
         "source": "CRE99",
         "locator": "Example 4, CRE99.79; BCBS 279 Annex 4a, page 29",
         "derivation": "Printed in CRE99 Example 4, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T10.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },

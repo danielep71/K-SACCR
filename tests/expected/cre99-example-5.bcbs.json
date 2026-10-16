@@ -18,7 +18,7 @@
         "source": "CRE99",
         "locator": "Example 5, CRE99.83",
         "derivation": "Printed in CRE99 Example 5, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. Weekly remargining with VM 50, NICA 150, threshold 0 and MTA 5, as printed in CRE99.80-82. Ported from prototype TestCatalogue T11.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -38,7 +38,7 @@
         "source": "CRE99",
         "locator": "Example 5, CRE99.95",
         "derivation": "Printed in CRE99 Example 5, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T12.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -58,7 +58,7 @@
         "source": "CRE99",
         "locator": "Example 5, CRE99.96",
         "derivation": "Printed in CRE99 Example 5, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. Ported from prototype TestCatalogue T13.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
@@ -78,7 +78,7 @@
         "source": "CRE99",
         "locator": "Example 5, CRE99.97",
         "derivation": "Printed in CRE99 Example 5, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Ported from prototype TestCatalogue T14.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },

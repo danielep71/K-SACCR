@@ -18,7 +18,7 @@
         "source": "CRE99",
         "locator": "Example 3, CRE99.76",
         "derivation": "Printed in CRE99 Example 3, rounded to the printed digit; checked against the text, tables and equation images on 2026-10-09. CRE99.20 keeps intermediate results unrounded and rounds the displayed results and the final EAD. The source prints USD thousands; the value here is that figure times 1,000. Trade 1 (WTI) has a residual maturity of 9 months as printed (CRE99.59); the fixture enters 270 days with DaysPerYear 360, which gives exactly 0.75 years. Ported from prototype TestCatalogue T07.",
-        "derived_by": "Daniele Penza",
+        "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-09"
       },
