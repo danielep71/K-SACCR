@@ -510,9 +510,10 @@ evidence export: the CSV fields (decimal point, quoting, error values, CR LF,
 UTF-8 without a byte-order mark, including characters outside the BMP) and,
 in the workbook, an export written twice byte for byte the same and refused
 after an input edit, bank figures entered after the run, every bank figure
-removed after a reconciliation, or an edited Results cell; the files are
+removed after a reconciliation, or an edited Results cell, and listing a
+currency added below the FX table; the cells and files are put back or
 removed. Run `TEST_Reconcile.RunReconcileTests`; it ends with
-`RESULT=PASS; cases=18; checks=121; failures=0`.
+`RESULT=PASS; cases=18; checks=122; failures=0`.
 
 For automation, `RunSACCR_Silent` returns a result line such as
 `RESULT=OK; operation=run; errors=0; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=...; total_ead_bcbs=...; inputs=...; run_class=REGULATORY; reconciliation=NONE; trade_reconciliation=NONE; cleanup=PASS`
@@ -560,6 +561,9 @@ line ends and UTF-8 without a byte-order mark; the first field of every
 line names its section (`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`,
 `RESULTS`, `RECONCILIATION`, `TRADE_RECONCILIATION`, `CHECKS`,
 `LIMITATIONS`), and the first line is `RUN;format;K-SACCR evidence 1`.
+`SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
+`SF_Table` or `FX_Table` down to the first blank key, also below the
+name's range.
 
 <a id="validation-record"></a>
 

@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 121              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 122              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1098,7 +1098,8 @@ Private Sub CaseExportWorkbook()
 '   sections, and a second export of the same run is identical byte for
 '   byte; an edited input, bank figures entered after the run, bank
 '   figures removed after a reconciliation and an edited output cell each
-'   make the export refuse; undoing them, or a new run, allows it again.
+'   make the export refuse; undoing them, or a new run, allows it again. A
+'   currency added below the FX table's named range is in the report.
 '   The edited cells and the files are put back or removed.
 '
 ' UPDATED
@@ -1120,6 +1121,11 @@ Private Sub CaseExportWorkbook()
     Dim savedBank   As Variant      'Its formula
     Dim outCell     As Range        'An output edited and restored
     Dim savedOut    As Variant      'Its value
+    Dim wsParams    As Worksheet    'Params
+    Dim fxCol       As Long         'Key column of the FX table
+    Dim fxRow       As Long         'First blank row below it
+    Dim fxCells     As Range        'A currency added and removed
+    Dim savedFx     As Variant      'Their formulas
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1186,6 +1192,28 @@ Private Sub CaseExportWorkbook()
         Check Left$(result, 9) = "RESULT=OK", "export after restoring the output cell: " & result
 
 '------------------------------------------------------------------------------
+' EXPORT A CURRENCY ADDED BELOW THE FX TABLE
+'------------------------------------------------------------------------------
+    'The template asks for new currencies directly below the last row,
+    'outside the range of the name FX_Table; the run reads them, so the
+    'report must list them.
+        Set wsParams = GetSheet(SH_PARAMS)
+        fxCol = NamedTableCol(NM_FX_TABLE)
+        fxRow = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(wsParams, fxRow, fxCol).Value)
+            fxRow = fxRow + 1
+        Loop
+        Set fxCells = TableRange(wsParams, fxRow, fxCol, fxRow, fxCol + 2)
+        savedFx = fxCells.Formula
+        fxCells.Value = Array("ZZX", "Test currency", 2)
+        result = M_Main.RunSACCR_Silent()
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check InStr(FileText(fileB), vbCrLf & "FX_TABLE;ZZX;Test currency;2" & vbCrLf) > 0, _
+              "a currency added below the FX table is missing from the report: " & result
+        fxCells.Formula = savedFx
+        result = M_Main.RunSACCR_Silent()
+
+'------------------------------------------------------------------------------
 ' CLEAN UP
 '------------------------------------------------------------------------------
         RemoveFile fileA
@@ -1196,6 +1224,9 @@ Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell mtmCell, savedMtm
         RestoreCell bankCell, savedBank
+        If Not fxCells Is Nothing Then
+            fxCells.Formula = savedFx
+        End If
         RemoveFile fileA
         RemoveFile fileB
 

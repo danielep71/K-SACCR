@@ -1402,8 +1402,8 @@ Private Function EvidenceText() As String
         For i = LBound(codes) To UBound(codes)
             s = s & CORE_Export.CsvLine("PARAMS", Array(codes(i), NamedCell(CStr(codes(i))).Value2))
         Next i
-        s = s & CORE_Export.TableLines("SF_TABLE", ThisWorkbook.Names(NM_SF_TABLE).RefersToRange.Value2)
-        s = s & CORE_Export.TableLines("FX_TABLE", ThisWorkbook.Names(NM_FX_TABLE).RefersToRange.Value2)
+        s = s & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
+        s = s & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
 
 '------------------------------------------------------------------------------
 ' TABLES
@@ -1411,6 +1411,56 @@ Private Function EvidenceText() As String
         s = s & OutputTableLines()
         s = s & CORE_Export.LimitationLines()
         EvidenceText = s
+
+End Function
+
+
+Private Function ParamsTableLines( _
+    ByVal section As String, _
+    ByVal nameText As String, _
+    ByVal headers As String) _
+    As String
+'
+'==============================================================================
+'                               ParamsTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A Params table as the engine reads it: from the header row of its
+'   workbook name down to the first blank key, across its header columns.
+'   Rows added below the named range are read by the run, so they are
+'   exported too.
+'
+' ERROR POLICY
+'   Raises when the name does not locate a header row.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet    'Params
+    Dim headRow   As Long         'Header row
+    Dim keyCol    As Long         'Key column
+    Dim r         As Long         'Row read
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_PARAMS)
+        headRow = NamedRow(nameText)
+        keyCol = NamedTableCol(nameText)
+        If headRow = 0 Then
+            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ParamsTableLines", "The name " & nameText & " is missing."
+        End If
+        r = headRow + 1
+        Do While Not IsBlankCell(TableCell(ws, r, keyCol).Value)
+            r = r + 1
+        Loop
+        ParamsTableLines = CORE_Export.TableLines(section, TableRange(ws, headRow, keyCol, r - 1, _
+                                                  keyCol + UBound(Split(headers, "|"))).Value2)
 
 End Function
 
