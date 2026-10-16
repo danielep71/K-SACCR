@@ -289,7 +289,7 @@ mypy
 ### Label workflows
 
 `.github/workflows/labels-sync.yml` and `labels-drift.yml` keep the issue
-labels equal to `.github/labels.json`; [`docs/GOVERNANCE.md`](../docs/GOVERNANCE.md#labels)
+labels equal to `.github/labels.json`; [`docs/GOVERNANCE.md`](../docs/GOVERNANCE.md#label-workflows)
 describes them. Their token defaults to `contents: read`:
 
 | Workflow | Job | Runs on | Permissions |

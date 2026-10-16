@@ -140,6 +140,7 @@ raises `ERR_CLEANUP_FAILED` (`src/core/CORE_Config.bas`), never success, and
 error is re-raised.
 
 ```vb
+'In a standard module named M_Example
 Public Sub RunOperation(ByRef cleanupDetails As String)
     Dim savedCalculation   As XlCalculation    'Calculation mode before the operation
     Dim savedScreen        As Boolean          'ScreenUpdating before the operation
@@ -165,7 +166,7 @@ CleanUp:
         End If
         If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
         If Len(cleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "RunOperation", cleanupDetails
+            Err.Raise ERR_CLEANUP_FAILED, "M_Example.RunOperation", cleanupDetails
         End If
         Exit Sub
 
