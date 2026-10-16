@@ -544,6 +544,8 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge"),
                 ("Eight Excel suites (227", "Seven Excel suites (**226** cases, 975 checks); eight (227",
                  "Testing capability"),
+                ("| `TEST_Formulas` |", "   | `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
+                 "suite table rows differ"),
                 ("  PASS  TEST_MainState", "  PASS  TEST_MainState        cases=20; checks=381; failures=0; "
                  "caller_state=RESTORED\n  PASS  TEST_MainState", "lines all parse"),
                 ("SACCR TEST SUMMARY 2026", "SACCR TEST SUMMARY 2026-10-13 08:28:48\nSACCR TEST SUMMARY 2026",
@@ -552,7 +554,9 @@ class ExcelEvidenceTests(unittest.TestCase):
                 self.assertIn(old, readme)
                 (copy_root / "README.md").write_text(readme.replace(old, new), encoding="utf-8")
                 self.assertIn(message, " ".join(evidence.policy_problems(copy_root)))
-        (copy_root / "README.md").write_text(readme, encoding="utf-8")
+        # Counts in other prose are not the Testing capability.
+        prose = readme.replace("## Test suites", "Benchmarks (3 cases and 4 checks) differ.\n\n## Test suites")
+        (copy_root / "README.md").write_text(prose, encoding="utf-8")
         self.assertEqual(evidence.policy_problems(copy_root), [])
 
     def test_cli_exit_codes_inventory_and_output_guard(self) -> None:
