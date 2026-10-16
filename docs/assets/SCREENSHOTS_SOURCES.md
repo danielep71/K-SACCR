@@ -15,19 +15,21 @@ took them in Excel for Windows on 2026-10-16.
 | `SACCR_Checks.png` | The errors of that run: excluded trades and withheld netting sets |
 | `SACCR_BankNettingSets.png`, `SACCR_Reconciliation.png` | A reconciliation: the bank's EAD for BCBS-EX1, copied from Results (MATCH), 5,400 for BCBS-EX3 (DIFFERENCE), a netting set the calculator does not have (MISSING IN CALCULATOR), and the netting sets not in the bank file |
 | `SACCR_TestCatalogue.png`, `SACCR_FormulaTest.png` | The reference-test catalogue and the worksheet-function unit tests, all passing |
+| `SACCR_Basel_vs_CRR.png` | The first 14 rows of the regime comparison |
+| `SACCR_Evidence_CSV.png` | The start of the evidence CSV of that run, opened in Notepad: the RUN and PARAMS sections and the start of SF_TABLE |
 
 The input sheets show the template's own content; the output sheets show a run
 of that portfolio on that day.
 
 - **Processing:** cropped to the sheet area (no window title, sheet tabs or
-  status bar) and reduced to a 256-colour PNG palette without dithering. They
+  status bar; for the CSV, no menu bar or scroll bar) and reduced to a 256-colour PNG palette without dithering. They
   are not otherwise edited.
-- **Number format:** the values follow the regional settings of the machine
-  that took them (decimal comma, thousands point); the workbook itself reads
-  and writes locale-independent values.
+- **Number format:** the sheet values follow the regional settings of the
+  machine that took them (decimal comma, thousands point); the workbook itself
+  reads and writes locale-independent values, as the CSV shows.
 - **Use:** the root README shows both Results images and Checks, and the
-  calculation detail, the reconciliation, the input sheets and the two test
-  sheets in collapsible sections; the Wiki can reference any of them.
+  calculation detail, the reconciliation, the evidence file, the input sheets,
+  the regime comparison and the two test sheets in collapsible sections; the Wiki can reference any of them.
 - **CRE99 Example 3:** the demonstration workbook shows an EAD of 5,405
   (thousands), the published figure 5,406. The demo enters the WTI trade with
   actual dates over 365 days a year (TradeCalc shows M = 0.7507); the
