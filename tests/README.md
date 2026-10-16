@@ -3,21 +3,21 @@
 `tests/` holds all verification source and stable test data. Layout rules are in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md).
 
-| Location | Contents | Defined in |
-| --- | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Invariants`, `TEST_Aggregation` and `TEST_Reconcile` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all | #7 |
-| `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
-| `expected/` | Expected values per regime, each with its reference class and source | [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md) |
+| Location | Contents |
+| --- | --- |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all |
+| `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
+| `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 
-`TEST_Suite.Test_RunAll` runs every suite and prints a summary. The entry
-points of the single suites are `TEST_Harness.RunTests`,
-`TEST_Formulas.RunFormulaTests`,
+`TEST_Suite.Test_RunAll` runs the harness and every suite and prints a
+summary. In the order it runs them, the entry points of the single suites are
+`TEST_Harness.RunTests`, `TEST_Formulas.RunFormulaTests`,
 `TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
 `TEST_InputValidation.RunInputValidationTests`,
-`TEST_Invariants.RunInvariantTests`,
-`TEST_Aggregation.RunAggregationTests` and
-`TEST_Reconcile.RunReconcileTests`; `TEST_Cases`, `TEST_InputValidation`,
-`TEST_Invariants` and `TEST_Aggregation` need `TEST_CaseRunner`. How to run them and what a passing log looks like is in
+`TEST_Aggregation.RunAggregationTests`, `TEST_Invariants.RunInvariantTests`
+and `TEST_Reconcile.RunReconcileTests`; `TEST_Cases`, `TEST_InputValidation`,
+`TEST_Aggregation` and `TEST_Invariants` need `TEST_CaseRunner`. How to run
+them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
 
 Rules:
