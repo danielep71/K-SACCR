@@ -158,7 +158,7 @@ Record the **40-character SHA** shown by `git rev-parse HEAD`. It identifies a s
 
 1. From the **same checkout**, open `src/workbook/SACCR_Template.xlsx` in desktop Excel.
 2. Use **File > Save As** and choose **Excel Macro-Enabled Workbook (`*.xlsm`)**. Save in a local working directory **outside the source checkout**. Do not overwrite the macro-free template.
-3. In Excel, enable **Trust access to the VBA project object model** only if the macro synchronization operation needs it and policy allows it. Close the workbook before synchronization.
+3. The synchronizer requires **Trust access to the VBA project object model** in Excel; enable it only if your policy allows it, or use the manual import below, which does not need it. Close the workbook before synchronization.
 4. Drag your saved `.xlsm` onto `tools/Sync-SACCR-VBA.cmd`, or invoke the launcher with that workbook path. There is intentionally **no default workbook**.
 5. At the prompt choose **P (Production)**. Production imports the seven standard VBA modules and relies on the 17 workbook/document components. Do **not** choose Development for a workbook containing business inputs: development tests overwrite inputs and outputs during execution.
 6. The launcher may ask whether to refresh `ThisWorkbook` and worksheet code modules; their source contains only `Option Explicit`, so either answer works for the current template. Read the synchronization log and resolve any errors.
@@ -239,10 +239,10 @@ The following are **published CRE99 target results** used in the numerical catal
 | Published case | Selected printed target in unscaled USD | What it helps check |
 |:--|--:|:--|
 | CRE99 Example 1 | EAD **569,000** | Interest-rate components, including option delta and add-on. |
-| CRE99 Example 2 | EAD **381,000** | Collateral and multiplier behavior. |
-| CRE99 Example 3 | EAD **5,406,000** | Cross-asset/add-on and maturity precision. |
+| CRE99 Example 2 | EAD **381,000** | Credit add-on and multiplier (negative MtM, no collateral). |
+| CRE99 Example 3 | EAD **5,406,000** | Commodity add-on and maturity precision. |
 | CRE99 Example 4 | EAD **936,000** | Replacement cost and aggregation. |
-| CRE99 Example 5 | EAD **1,879,000** | Margined MPOR, add-ons, multiplier and cap context. |
+| CRE99 Example 5 | EAD **1,879,000** | Margined MPOR (weekly remargining, 14 business days), aggregate add-on and multiplier. |
 
 A reference comparison is meaningful only when **regime, reporting currency, unit scale, dates, market inputs and netting terms** match the reference. Rounded values should be checked against their printed precision and published tolerance, not mistaken for machine-precision oracle values.
 
@@ -254,7 +254,7 @@ A reference comparison is meaningful only when **regime, reporting currency, uni
 | Displayed button | VBA entry point | Safe operating interpretation |
 |:--|:--|:--|
 | **Run SA-CCR** | `RunSACCR` | Validate inputs, calculate accepted netting sets and populate all relevant output sheets; update reconciliations where possible. |
-| **Validate inputs** | `ValidateInputs` | Examine data and write findings to Checks **without calculating exposure**. |
+| **Validate inputs** | `ValidateInputs` | Examine data and write findings to Checks **without calculating exposure**. It clears the previous run's outputs and reconciliations, so press **Run SA-CCR** again before reviewing or exporting. |
 | **Clear outputs** | `ClearOutputs` | Clear calculated output areas and invalidate the previous completed run; do not assume an error while clearing leaves no residual values. |
 | **Export evidence** | `ExportEvidence` | Interactive CSV export of a **current and unmodified** run; refuse if freshness/integrity requirements fail. |
 
@@ -307,7 +307,7 @@ The source records the regulatory reference set **`CRE52-CRR-2026-10-09`**. The 
 
 ## SF_Table: supervisory-factor register
 
-The supervisory lookup contains the following columns, in this order: `SF_Key`; `Asset class`; `Category`; `Supervisory factor`; `Correlation`; `Supervisory option vol`; `Commodity hedging set`; `Regimes`. A key's classification and eligible regimes determine what the engine may use. The table extends from its named header to the **first blank key**, including rows below the originally named range. Do not leave a blank key in the middle of the intended data.
+The supervisory lookup contains the following columns, in this order: `SF_Key`; `Asset class`; `Category`; `Supervisory factor`; `Correlation`; `Supervisory option vol`; `Commodity hedging set`; `Regimes`, followed by a descriptive `Reference` column that the engine does not read. A key's classification and eligible regimes determine what the engine may use. The table extends from its named header to the **first blank key**, including rows below the originally named range. Do not leave a blank key in the middle of the intended data.
 
 Selected **regulatory** reference values are shown below. This is a navigation aid, not permission to overwrite the workbook's complete table without an independent review.
 
@@ -331,7 +331,7 @@ Selected **regulatory** reference values are shown below. This is a navigation a
 
 ## FX_Table: conversion into reporting currency
 
-The FX lookup has header fields `FX_Ccy`, a spacer, and `Units of reporting ccy per 1 unit`. Enter each relevant three-letter currency key and the number of units of **reporting currency per one unit** of that currency. Example: when reporting in EUR, a hypothetical `USD -> 0.92` means one USD is converted into 0.92 EUR. The rate for EUR itself **must be 1**. The code and direction matter: entering reciprocal quotes changes amounts.
+The FX lookup has header fields `FX_Ccy`, a descriptive `Currency` column (not read by the engine), and `Units of reporting ccy per 1 unit`. Enter each relevant three-letter currency key and the number of units of **reporting currency per one unit** of that currency. Example: when reporting in EUR, a hypothetical `USD -> 0.92` means one USD is converted into 0.92 EUR. The rate for EUR itself **must be 1**. The code and direction matter: entering reciprocal quotes changes amounts.
 
 **Example (illustrative only):** a USD 1,000,000 trade amount multiplied by a user-supplied USD/EUR conversion rate of 0.92 produces EUR 920,000. This is a **currency conversion example**, not an SA-CCR EAD prediction. The engine does not retrieve spot prices or market FX rates; the user must establish the correct as-of prices and reconcile them with the bank's data.
 
@@ -367,7 +367,7 @@ The `NettingSets` input table has **15 fields** in an exact sequence. Each row r
 | 5 | `Remargin frequency N (BD)` | Whole number of business days; `0` is interpreted as daily **with a warning**; accepted maximum 10,000. Used in MPOR `F + N - 1`. |
 | 6 | `>5,000 trades or illiquid collateral (Y/N)` | `Y` triggers relevant 20-business-day MPOR floor; the business definition also covers hard-to-replace OTC transactions. Confirm actual eligibility and threshold. |
 | 7 | `Margin disputes (Y/N)` | `Y` triggers the toolkit's doubled MPOR treatment; verify whether dispute conditions actually apply. |
-| 8 | `MPOR override (BD)` | Optional strictly positive whole-business-day override; may not be **below** the computed MPOR. |
+| 8 | `MPOR override (BD)` | Optional strictly positive whole number of business days. It is applied only if not below the computed MPOR; a lower value is ignored with a warning and the computed MPOR is used. A non-whole or non-positive value makes the netting set `INVALID`. |
 | 9 | `Net VM held (+) / posted (-)` | Net variation margin. Held is **positive**; posted is **negative**. VM treatment differs for unmargined one-way agreements by regime. |
 | 10 | `NICA` | Net independent collateral amount; its regulatory definition includes eligible independent collateral held less relevant posted independent collateral, subject to eligibility, haircut and segregation rules. |
 | 11 | `Threshold TH` | Margin threshold, expressed as an unscaled amount in the calculation currency. |
@@ -414,7 +414,7 @@ The Margin Period of Risk (MPOR) is measured in **business days**. The engine ca
 | Large/illiquid conditions | Relevant 20-business-day floor, with frequency treatment. |
 | Remargin every N business days | MPOR floor plus `N-1`. |
 | Margin dispute | Doubled calculated period under toolkit's deliberately conservative rule. |
-| User MPOR override | Allowed only when not below the calculated MPOR. |
+| User MPOR override | Applied only when not below the calculated MPOR; a lower override is ignored with a warning. |
 
 **Important:** `CM`/`CLIENT` is a bank-role declaration, **not** evidence that a transaction qualifies for special client-clearing treatment. The user must separately establish regulatory eligibility and documentation.
 
@@ -436,10 +436,10 @@ The engine assigns the following status, in this precedence order:
 |:--|:--|:--|
 | `INVALID` | Netting-set-level error, duplicate netting-set ID, inconsistent trade reference/sub-class combination, or a CRR IR netting set with unsupported `IRBucketOffset=FALSE`. | The netting set is represented on Results, but no EAD is calculated. |
 | `INCOMPLETE` | The netting set is otherwise structurally valid, but at least one associated trade leg is rejected. | EAD is **withheld** rather than calculated on a partial portfolio. |
-| `NO TRADES` | The netting set contains no accepted/relevant trades. | No EAD; it is not counted as a withheld incomplete set. |
+| `NO TRADES` | No trade rows refer to the netting set (a set whose trades were all rejected is `INCOMPLETE`). | No EAD; it is not counted as a withheld incomplete set. |
 | `VALID` | Netting set and all of its trades satisfy the supported input contract. | Calculation figures and EAD can be used for further review. |
 
-The order matters: a netting set with both an invalid netting field and an excluded trade is `INVALID`. An excluded trade is listed on `TradeCalc` and `Checks` with its reason. In a portfolio total, only `VALID` sets contribute, and withheld sets must be identified separately. **A reported total of valid netting sets is not necessarily the exposure of the full input portfolio.**
+The status cell starts with the code; `INVALID` and `INCOMPLETE` are followed by a count, for example `INCOMPLETE: 1 of 3 trade(s) rejected`. The order matters: a netting set with both an invalid netting field and an excluded trade is `INVALID`. An excluded trade is listed on `TradeCalc` and `Checks` with its reason (a row without a TradeID appears only on `Checks`, by its sheet row). In a portfolio total, only `VALID` sets contribute, and withheld sets must be identified separately. **A reported total of valid netting sets is not necessarily the exposure of the full input portfolio.**
 
 
 \Needspace{12\baselineskip}
@@ -475,12 +475,12 @@ The order matters: a netting set with both an invalid netting field and an exclu
 | 18 | `Option expiry (T)` | Required option expiry; must be after the reporting date and not after M. |
 | 19 | `Underlying price P` | Option underlying price/rate (including FX quote conventions). |
 | 20 | `Strike K` | Option strike in the same market convention as price. |
-| 21 | `Lambda shift` | Where appropriate, the input/derived shift used by the CRR IR/commodity option treatment. Follow the documented rule; do not use it as an arbitrary delta adjustment. |
+| 21 | `Lambda shift` | Optional shift added to P and K when they are negative or near zero (BCBS, CRE52.40 FAQ). For CRR interest-rate and commodity options the engine computes the RTS lambda from `LambdaThresholdIR`/`LambdaThresholdCO` and ignores this value, with a warning if it differs. Do not use it as an arbitrary delta adjustment. |
 | 22 | `Attachment A` | CDO tranche attachment point as a decimal fraction. |
 | 23 | `Detachment D` | CDO tranche detachment point as a decimal fraction; greater than A. |
 | 24 | `Economic trade ID` | Optional group key identifying legs belonging to the same economic instrument. Blank means this row is a whole trade. |
 | 25 | `MtM leg (Y/N)` | Exactly one leg of a grouped economic trade carries the full MtM (`Y`); other legs hold zero MtM. |
-| 26 | Unnamed free-text `Comment` column | Operator note; not read into calculations. Do not rely on this field for mandatory machine-readable inputs. |
+| 26 | `Comment` | Free-text operator note; not read by the engine (its header is not checked). Do not rely on this field for mandatory machine-readable inputs. |
 
 **Safety distinction:** a trade being accepted means its **declared** instrument, dates, rates and structure comply with the engine's supported field contract; it does not prove that its declared underlying risk drivers, decomposition or model inputs are economically correct.
 
@@ -703,7 +703,7 @@ The implementation handles input domains and exceptional cases; the user should 
 
 ## Output field guide: TradeCalc, HedgingSets and Buckets
 
-`TradeCalc` shows one row per input trade leg. Review at least: TradeID, netting set, asset class, `OK` or `EXCLUDED`, hedging set, bucket, supervisory factor, converted notional, converted MtM, S/E/M/T, supervisory duration, adjusted notional, supervisory delta, unmargined/margined maturity factors, effective notionals, stand-alone add-on, lambda and messages. Some fields are legitimately **not applicable** (for example option expiry for a linear trade; supervisory duration outside IR/credit; margined MF in an unmargined set).
+`TradeCalc` shows one row per input trade leg that has a TradeID (a row without one is reported only on `Checks`). Review at least: TradeID, netting set, asset class, `OK` or `EXCLUDED`, hedging set, bucket, supervisory factor, converted notional, converted MtM, S/E/M/T, supervisory duration, adjusted notional, supervisory delta, unmargined/margined maturity factors, effective notionals, stand-alone add-on, lambda and messages. Some fields are legitimately **not applicable** (for example option expiry for a linear trade; supervisory duration outside IR/credit; margined MF in an unmargined set).
 
 `HedgingSets` summarizes effective notionals, component add-ons and regulatory aggregation, including the three IR buckets where relevant. `Buckets` exposes the finer underlying, maturity or commodity-category contributions. Reconcile these data against the identifiers supplied on Trades before treating any numerical difference as a calculation bug.
 
@@ -757,7 +757,7 @@ Before populating bank figures, enter the **amount scale** and two tolerances in
 | `AddOn CO` | Commodity component | Amount. |
 | `AddOn OT` | Other-risk component | Amount; meaningful under CRR where supported. |
 | `Multiplier` | PFE multiplier | **Dimensionless; not scaled.** |
-| Unnamed `Comment` | Analyst annotation | Not read as a numerical comparison. |
+| `Comment` | Analyst annotation; not read by the engine (its header is not checked) | Not read as a numerical comparison. |
 
 Blank bank figures are **not compared**, and are different from an explicit zero. The calculator creates comparison rows and population findings rather than silently assuming missing measurements equal zero.
 
@@ -782,7 +782,7 @@ The analogous settings on `BankTrades` are `BankTR_Scale`, `BankTR_AbsTol` and `
 | `Effective notional unmargined` | Unmargined effective notional | **Yes** |
 | `Effective notional margined` | Margined effective notional | **Yes** |
 | `Stand-alone add-on` | Trade-level amount | **Yes** |
-| Unnamed `Comment` | Analyst explanation | No |
+| `Comment` | Analyst explanation; not read by the engine (its header is not checked) | No |
 
 The `TradeReconciliation` output carries the **Economic trade ID** so that several legs can be examined together without incorrectly comparing one aggregate bank trade to only one calculator leg. If an input leg is `EXCLUDED`, do not force a numerical `MATCH`: first investigate the exclusion.
 
@@ -807,9 +807,9 @@ A figure outside the applicable tolerance is a `DIFFERENCE`.
 | `DUPLICATE` | Duplicate identifiers make an unambiguous bank population comparison impossible. | Correct the duplicate-ID issue; do not select an arbitrary first row. |
 | `REGIME MISMATCH` | Bank and calculator use different regulatory regimes. | Align CRR/BCBS before comparing amounts. |
 | `WITHHELD` | Netting-set EAD is not usable because calculator status is not VALID. | Resolve input errors and rerun. |
-| `INVALID INPUT` | Bank figure or comparison setting is unusable. | Correct scale, tolerance, measurement or key. |
+| `INVALID INPUT` | A bank row or figure is unusable: missing ID, regime not `BCBS`/`CRR`, a figure that is not a number, or a row without figures. (An unusable scale, tolerance or header stops that reconciliation altogether: `FAILED`, with the reason in the sheet's C4.) | Correct the bank row or figure. |
 | `EXCLUDED` | Calculator rejected the trade leg. | Resolve trade validation; do not treat blank figures as zero. |
-| `NOT APPLICABLE` | A calculator quantity has no meaning for the trade (for example a non-option's T). | Do not turn legitimate blanks into zero-valued comparisons. |
+| `NOT APPLICABLE` | The bank entered a figure the calculator does not have for that row (for example a supervisory duration for an FX or equity leg, or a margined maturity factor in an unmargined netting set). | Do not turn legitimate blanks into zero-valued comparisons. |
 
 **Illustrative tolerance example:** bank EAD = 1,000,000; calculator EAD = 1,000,050; absolute tolerance = 100 reporting-currency units; relative tolerance = 0.001 (0.1%). The difference of 50 is within the **absolute** tolerance and is also within the relative tolerance; the result is `MATCH`. If the absolute tolerance were 10 but relative tolerance 0.001, it would still be `MATCH` because the relative criterion is satisfied. This example explains the classification rule, not a prescribed tolerance policy.
 
@@ -1203,7 +1203,7 @@ The repository also retains dated regulator-source extracts for reproducibility.
 | **CRR / BCBS** | EU CRR / Basel CRE52 calculation regimes. |
 | **REGULATORY / WHAT-IF** | Parameter-reference classification; not a certification grade. |
 | **CURRENT / STALE / NONE** | Completed-run input freshness status. |
-| **INVALID / INCOMPLETE / NO TRADES / VALID** | Netting-set calculation status; only VALID produces EAD. |
+| **INVALID / INCOMPLETE / NO TRADES / VALID** | Netting-set calculation status (INVALID and INCOMPLETE are followed by a count); only VALID produces EAD. |
 | **Economic trade ID** | Shared identifier linking modeled legs of one economic trade. |
 | **TradeID** | Unique input **leg** identifier and trade comparison key. |
 | **Evidence CSV** | Semicolon-delimited versioned run report; not a release-certification report. |
