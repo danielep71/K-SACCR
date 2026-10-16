@@ -641,13 +641,17 @@ Private Function ReconcileAfterRun( _
             summary = CORE_Reconcile.TradeSummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), _
                                                       CDbl(settings(3)))
         End If
-        ClearOutputBlock wsRecon, FIRST_DATA_ROW, RC_NCOLS
+        ClearOutputBlock wsRecon, FIRST_DATA_ROW, ReconColsOf(kind)
         If IsArray(found) Then
-            outRows = found
+            If kind = RECON_NS Then
+                outRows = found
+            Else
+                outRows = WithEconomicTradeIds(found)
+            End If
             nRows = UBound(outRows, 1)
-            WriteBlock wsRecon, FIRST_DATA_ROW, outRows, nRows, RC_NCOLS
+            WriteBlock wsRecon, FIRST_DATA_ROW, outRows, nRows, ReconColsOf(kind)
             FormatColumns wsRecon, FIRST_DATA_ROW, nRows, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
-                          "#,##0.00########|0.0000%|@|@"
+                          "#,##0.00########|0.0000%|@|@" & IIf(kind = RECON_NS, "", "|@")
         End If
         wsRecon.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                                                " | " & summary
@@ -734,7 +738,7 @@ Private Sub ClearReconciliation( _
                 ForgetReconInputs k
                 If ReconciliationSheetsPresent(k) Then
                     Set ws = GetSheet(ReconSheetOf(k))
-                    ClearOutputBlock ws, FIRST_DATA_ROW, RC_NCOLS
+                    ClearOutputBlock ws, FIRST_DATA_ROW, ReconColsOf(k)
                     ws.Range(RECON_INFO_CELL).Value = infoText
                 End If
             End If
@@ -1045,6 +1049,101 @@ Private Function BankColsOf( _
 '==============================================================================
 '
         BankColsOf = IIf(kind = RECON_NS, BN_NCOLS, BT_NCOLS)
+
+End Function
+
+
+Private Function ReconColsOf( _
+    ByVal kind As Long) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   The number of columns of a reconciliation sheet.
+'==============================================================================
+'
+        ReconColsOf = IIf(kind = RECON_NS, RC_NCOLS, TRC_NCOLS)
+
+End Function
+
+
+Private Function WithEconomicTradeIds( _
+    ByVal found As Variant) _
+    As Variant
+'
+'==============================================================================
+'                             WithEconomicTradeIds
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add to the rows of a trade reconciliation the Economic trade ID of each
+'   leg as on Trades (#45), matched by Trade ID as the comparison matches
+'   it; blank for a whole trade and for a leg that is not on Trades.
+'
+' INPUTS
+'   found: the rows from CORE_Reconcile.CompareTrades, RC_NCOLS wide.
+'
+' RETURNS
+'   The same rows, TRC_NCOLS wide.
+'
+' UPDATED
+'   2026-10-16
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ws        As Worksheet     'Trades
+    Dim firstR    As Long          'First data row of Trades
+    Dim lastR     As Long          'Last data row of Trades
+    Dim legIds    As Variant       'Trade IDs on Trades
+    Dim econ      As Variant       'Economic trade IDs
+    Dim legIndex  As Collection    'Trade ID to row on Trades
+    Dim out()     As Variant       'The widened rows
+    Dim r         As Long          'Row
+    Dim c         As Long          'Column
+    Dim k         As Long          'Row on Trades
+
+'------------------------------------------------------------------------------
+' INDEX TRADES
+'------------------------------------------------------------------------------
+        Set ws = GetSheet(SH_TRADES)
+        Set legIndex = New Collection
+        firstR = TableFirstRow(SH_TRADES)
+        lastR = LastDataRow(ws, firstR, TR_ID)
+        If lastR >= firstR Then
+            legIds = TableRange(ws, firstR, TR_ID, lastR, TR_ID).Value2
+            econ = TableRange(ws, firstR, TR_ECON, lastR, TR_ECON).Value2
+            For r = 1 To UBound(legIds, 1)
+                If Len(UTxt(legIds(r, 1))) > 0 Then
+                    If KeyIndex(legIndex, UTxt(legIds(r, 1))) = 0 Then
+                        KeyAdd legIndex, UTxt(legIds(r, 1)), r
+                    End If
+                End If
+            Next r
+        End If
+
+'------------------------------------------------------------------------------
+' WIDEN
+'------------------------------------------------------------------------------
+        ReDim out(1 To UBound(found, 1), 1 To TRC_NCOLS)
+        For r = 1 To UBound(found, 1)
+            For c = 1 To RC_NCOLS
+                out(r, c) = found(r, c)
+            Next c
+            k = 0
+            If Len(UTxt(found(r, RC_ID))) > 0 Then
+                k = KeyIndex(legIndex, UTxt(found(r, RC_ID)))
+            End If
+            If k > 0 Then
+                If Not IsError(econ(k, 1)) Then
+                    If Len(Trim$(CStr(econ(k, 1)))) > 0 Then
+                        out(r, TRC_ECON) = Trim$(CStr(econ(k, 1)))
+                    End If
+                End If
+            End If
+        Next r
+        WithEconomicTradeIds = out
 
 End Function
 
@@ -1673,7 +1772,7 @@ Private Function OutputTableLines() As String
             s = s & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
         End If
         If ReconciliationSheetsPresent(RECON_TR) Then
-            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, RC_NCOLS)
+            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, TRC_NCOLS)
         End If
         OutputTableLines = s & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
 

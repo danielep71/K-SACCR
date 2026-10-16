@@ -206,7 +206,8 @@ tolerance or `DIFFERENCE`, and a row for every netting set that cannot be
 compared, with the reason. `BankTrades` and `TradeReconciliation` do the same
 per trade leg, by Trade ID, against `TradeCalc`: notional, MtM, M,
 supervisory duration, adjusted notional, delta, maturity factors, effective
-notionals and the stand-alone add-on.
+notionals and the stand-alone add-on. Each leg's row also shows its Economic
+trade ID from Trades, so legs can be grouped as the bank groups its trades.
 
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
@@ -287,7 +288,7 @@ Trades ─┘                │                                           │
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
 | `Checks` | Errors, warnings and what-if differences |
 | `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results: `MATCH` or `DIFFERENCE` per figure, and every netting set missing on either side, listed twice, of another regime, withheld or unusable |
-| `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs and `NOT APPLICABLE` figures |
+| `BankTrades` · `TradeReconciliation` | The same per trade leg against TradeCalc, with `EXCLUDED` legs, `NOT APPLICABLE` figures and each leg's Economic trade ID |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
