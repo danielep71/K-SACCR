@@ -155,18 +155,17 @@ counterparties, collateral agreements or portfolio extracts.
 }
 ```
 
-An invalid-input case replaces `value`, `unit` and `tolerance` with the error
-the facade must raise, by its public constant name. The name below is an
-example; no such constant exists yet:
+An output is a number (`value`, `unit`, `tolerance`) or a text result
+(`text`, compared exactly, no unit or tolerance). It may also carry
+`catalogue`, the prototype TestCatalogue test it was ported from, such as
+`T01`. An invalid input is expected as a rejection status, `trade_status` or
+`netting_set_status`.
 
-```json
-{"quantity": "exposure_value", "rule": "CRR.274.2", "error": "SACCR_ERROR_INVALID_NOTIONAL", "reference": {"class": "illustrative", "...": "..."}}
-```
-
-An output is one of three forms: a number (`value`, `unit`, `tolerance`), a
-text result (`text`, compared exactly, no unit or tolerance) or an error
-(`error`). It may also carry `catalogue`, the prototype TestCatalogue test it
-was ported from, such as `T01`.
+A third form, `error`, is reserved and not supported. It would replace
+`value`, `unit` and `tolerance` with the name of a public `SACCR_ERROR_*`
+constant. `tools/check_test_cases.py` accepts that form, but no such constant
+exists, no expected file uses it, and `tools/generate_case_tests.py` refuses it
+because the engine runner cannot check it.
 
 Quantities use stable names, each with one meaning only:
 
@@ -246,7 +245,7 @@ Each fixture declares one `category`:
 | --- | --- |
 | `nominal` | Typical inputs within the domain |
 | `boundary` | Values on a domain edge: zero notional or market value, results that should be exactly zero (fully offsetting trades, negative net value floored at zero), maturity at a regulatory floor or cap, a single trade, a single hedging set |
-| `invalid` | Inputs the facade must reject: missing or unknown fields, negative amounts where not allowed, end date before start date, unknown asset class or currency. Expected results are errors or rejection statuses (`trade_status`, `netting_set_status`), not values. JSON cannot hold NaN or infinity, so non-finite inputs are tested directly in a VBA test module instead of a fixture |
+| `invalid` | Inputs the engine must reject: missing or unknown fields, negative amounts where not allowed, end date before start date, unknown asset class or currency. Expected results are rejection statuses (`trade_status`, `netting_set_status`), not values. JSON cannot hold NaN or infinity, so non-finite inputs are tested directly in a VBA test module instead of a fixture |
 | `regime` | Inputs chosen to show a recorded [regime difference](README.md#regime-differences), normally with a `crr` and a `bcbs` expected file |
 
 <a id="completeness-policy"></a>
@@ -256,10 +255,16 @@ Each fixture declares one `category`:
 - A rule in the [traceability table](README.md#traceability) is **validated**
   for a regime only when at least one `published` or `independent` case passes
   for it in that regime.
-- Each implemented rule also has at least one `boundary` case, and each public
-  input domain has at least one `invalid` case, as a fixture or, for inputs
-  JSON cannot express, as a direct test in a VBA test module.
-- Every recorded regime difference has a `regime` case.
+- Each implemented rule also needs at least one boundary case, and each public
+  input domain at least one invalid case. Such a case is a fixture or a case
+  of a VBA test suite, mostly `TEST_InputValidation`, which also covers inputs
+  JSON cannot express. There are no fixtures of category `boundary`: the
+  boundary cases are suite cases, such as `ir-bucket-boundaries-crr` and
+  `ir-bucket-boundaries-bcbs`. No tool checks that every rule has one; the
+  [traceability](README.md#traceability) table lists the cases of each rule.
+- Every recorded regime difference has a case that shows it, as a fixture or
+  a suite case. The table below lists them; where only one regime has a case,
+  it says so.
 - A release states which rules are validated, for which regime, and lists
   every rule that is implemented but not validated. Illustrative cases never
   count toward any of this.
@@ -269,6 +274,24 @@ Each fixture declares one `category`:
   ([decision 8](README.md#assumptions-and-scope)); `independent` values
   start in a later release, with a reviewer other than the author of the
   code under test.
+
+Where each [regime difference](README.md#regime-differences) is covered:
+
+| Regime difference | Covered by |
+| --- | --- |
+| Interest-rate aggregation across maturity buckets | Fixture `illustrative-ir-sum-of-absolutes` (`BCBS`); `TEST_InputValidation` cases `params-ir-sum-of-absolutes-crr` and `params-ir-sum-of-absolutes-bcbs` |
+| Asset classes (other risks) | Fixture `illustrative-other-risks`, both regimes (T24–T26) |
+| Commodity hedging sets (climatic conditions) | Fixture `illustrative-climatic-commodity`, `CRR` only (T27) |
+| Single-name credit factor | Fixture `illustrative-credit-quality-step`, `CRR` only (T28) |
+| Supervisory delta of interest-rate and commodity options | Fixture `illustrative-negative-ir-forward`, both regimes (T20–T22); fixture `illustrative-negative-commodity-price`, `CRR` only (T23) |
+| Interest-rate maturity bucket 1 | `TEST_InputValidation` cases `ir-bucket-boundaries-crr`, `ir-bucket-boundaries-bcbs`, `ir-bucket-offset-crr` and `ir-bucket-offset-bcbs` |
+| MPOR floor of a client facing its clearing member | `TEST_InputValidation` cases `netting-set-clearing-client-crr` and `netting-set-clearing-client-bcbs` |
+| Variation margin posted under a one-way margin agreement | `TEST_InputValidation` cases `netting-set-unmargined-vm-posted-crr` and `netting-set-unmargined-vm-posted-bcbs` |
+
+The fixture `illustrative-posted-vm-cap` has category `regime`, but the cap of
+a margined netting set that it tests is not a regime difference: both regimes
+give the same capped EAD (T16, T17), as the note under
+[Regime differences](README.md#regime-differences) explains.
 
 <a id="consumption"></a>
 

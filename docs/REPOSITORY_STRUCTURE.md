@@ -42,23 +42,40 @@ label catalogue; this document makes it the architecture decision as well.
 ## 📁 Repository layout
 
 ```text
-src/        production VBA source: the only input to the workbook
-tests/      regression modules, synthetic fixtures and expected results
-examples/   runnable examples of the supported API
-docs/       contracts, architecture and methodology
-tools/      static checks and evidence tooling; later, build tooling
-.github/    workflows, label catalogue and scripts
+.github/            workflows, issue and pull-request templates, label catalogue
+                    and its scripts, Excel evidence policy
+docs/               contracts, architecture, governance, evidence record
+  assets/           images and diagrams of the documentation, with their sources
+  methodology/      regulatory basis, support matrix, traceability, test-case format
+    sources/        regulatory source documents
+src/                production VBA source: the only input to the workbook
+  core/             calculation engine (internal)
+  modules/          public worksheet functions
+  workbook/         template, M_Main and the document modules
+tests/              verification source and test data
+  modules/          harness, case runner, suites and Test_RunAll
+  fixtures/         synthetic case inputs
+  expected/         expected results with their reference class
+tools/              static checks, case generator, VBA synchronizer and
+                    exporter, Excel evidence validator
 ```
+
+The root holds the project documents (`README.md`, `INSTALLATION.md`,
+`CONTRIBUTING.md`, `RELEASING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
+`CHANGELOG.md`, `LICENSE`) and the repository configuration (`.editorconfig`,
+`.gitattributes`, `.gitignore`, `pyproject.toml`). `src/classes/`,
+`src/forms/` and `examples/` are reserved locations: none exists yet, and each
+is created with its first file.
 
 | Directory | Owns | Must not own |
 | --- | --- | --- |
 | `src/` | Production components that go into the workbook, and the workbook template | Tests, examples, built workbooks |
 | `tests/` | Test modules, synthetic fixtures, reviewed expected values | Production entry points, run output |
-| `examples/` | Examples that use only the public API | Tests, real data |
+| `examples/` | Examples that use only the public API; created with the first example | Tests, real data |
 | `docs/` | Contracts, architecture, [methodology](methodology/README.md) | Copies of root documents, Wiki pages |
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
-`src/`, `tests/`, `examples/` and `tools/` each have a `README.md`, as do
+`src/`, `tests/` and `tools/` each have a `README.md`, as do `docs/assets/`,
 `docs/methodology/` and `docs/methodology/sources/`.
 Subdirectories are created with their first real file, never empty.
 
@@ -66,11 +83,11 @@ Subdirectories are created with their first real file, never empty.
 
 | Location | Holds | Visibility |
 | --- | --- | --- |
-| `src/core/` | Calculation engine: SA-CCR formulas, validation, parsing, shared helpers | In-project only. Every module declares `Option Private Module`. |
+| `src/core/` | Calculation engine: configuration, validation, parsing, aggregation, reconciliation, evidence encoding, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
-| `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx` | Host glue only; no calculation logic |
-| `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed | — |
+| `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers; reserved, none yet | Status stated in each class header |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx`; also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
+| `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed; reserved, none yet | — |
 
 ### Wiki
 
@@ -83,10 +100,10 @@ versioned documents here, the versioned documents govern.
 
 | Location | Holds |
 | --- | --- |
-| `tests/modules/` | Regression modules and the harness entry point (#7) |
+| `tests/modules/` | The harness, the case runner, the suites and `TEST_Suite` |
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
-| `examples/modules/` | Example modules calling the public facade |
+| `examples/modules/` | Example modules calling the public facade; created with the first example |
 
 `tools/check_source.py` enforces the placement rules below on every run of
 `python tools/check.py`.
@@ -135,7 +152,7 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs` and `ClearOutputs`, and reads and writes the reconciliation sheets |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs` and `ExportEvidence`, and reads and writes the reconciliation sheets |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
@@ -169,7 +186,7 @@ enforced by `tools/check_source.py`; the others by review.
 
 - [`../src/README.md`](../src/README.md)
 - [`../tests/README.md`](../tests/README.md)
-- [`../examples/README.md`](../examples/README.md)
+- [`assets/README.md`](assets/README.md)
 - [`methodology/README.md`](methodology/README.md)
 - [`../tools/README.md`](../tools/README.md)
 

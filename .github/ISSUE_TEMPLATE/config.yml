@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: "🔒 Report a security vulnerability privately"
     url: "https://github.com/danielep71/VBA-SACCR-Toolkit/security/policy"
-    about: "Do not open an issue. Follow SECURITY.md and report by email."
+    about: "Do not open an issue. Report it privately from the Security tab, as SECURITY.md describes."
   - name: "📦 Installation and import help"
     url: "https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md"
     about: "Building the workbook from source, running the harness and troubleshooting."
