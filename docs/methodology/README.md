@@ -181,7 +181,7 @@ CRE52.72 values, which equal the CRR values wherever both texts give one.
 | Alpha | 1.4 | CRR | Art. 274(2) | `Alpha` |
 | Multiplier floor | 5% | CRR | Art. 278(3) | `MultiplierFloor` |
 | Supervisory discount rate R | 5% | CRR | Art. 279b(1)(a) | `SACCR_SupervisoryDuration` |
-| Business days per year (OneBusinessYear) | 250, the convention of [decision 5](#assumptions-and-scope) | CRR | Art. 279c(1); CRE52.48 | `BusinessDaysPerYear` |
+| Business days per year (OneBusinessYear) | 250, the convention of [decision 5](#assumptions-and-scope) | CRR | Art. 279c(1); CRE52.49, CRE52.53 | `BusinessDaysPerYear` |
 | Supervisory duration floor | 10 / OneBusinessYear | CRR | Art. 279b(1)(a) | `SDFloorBD` |
 | Maturity floor, unmargined | 10 / OneBusinessYear | CRR | Art. 279c(1)(a) | `MinMaturityBD` |
 | Maturity factor, margined | 3/2 x sqrt(MPOR / OneBusinessYear) | CRR | Art. 279c(1)(b) | `SACCR_MaturityFactor` |
