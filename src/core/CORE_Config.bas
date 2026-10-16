@@ -444,6 +444,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
+        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file not replaced whole
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

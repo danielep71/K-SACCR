@@ -1262,14 +1262,16 @@ Private Function WriteEvidence( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write the evidence report to filePath as UTF-8 without a byte-order
-'   mark, replacing any file of that name.
+'   mark, replacing any file of that name, hidden ones included; a
+'   read-only file is left as it is and the write fails.
 '
 ' RETURNS
 '   The number of lines written.
 '
 ' ERROR POLICY
-'   Raises when the file cannot be written; the file number is closed
-'   first.
+'   Raises when the file cannot be written, or when it holds more than
+'   the report afterwards (an old file that could not be removed); the
+'   file number is closed first.
 '
 ' UPDATED
 '   2026-10-16
@@ -1290,13 +1292,21 @@ Private Function WriteEvidence( _
 '------------------------------------------------------------------------------
         text = EvidenceText()
         bytes = CORE_Export.Utf8Bytes(text)
+    'Open For Binary does not truncate: an old file must go first, also
+    'when it is hidden, or a shorter report would keep its tail.
         On Error GoTo Failed
-        If Len(Dir$(filePath)) > 0 Then
+        If Len(Dir$(filePath, vbHidden Or vbSystem)) > 0 Then
+            If (GetAttr(filePath) And vbReadOnly) = 0 Then
+                SetAttr filePath, vbNormal
+            End If
             Kill filePath
         End If
         fileNo = FreeFile
         Open filePath For Binary Access Write As #fileNo
         Put #fileNo, , bytes
+        If LOF(fileNo) <> UBound(bytes) - LBound(bytes) + 1 Then
+            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "an older file of that name could not be replaced"
+        End If
         Close #fileNo
         WriteEvidence = (Len(text) - Len(Replace(text, vbCrLf, ""))) \ 2
         Exit Function

@@ -66,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 18              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 124              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 125              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1099,7 +1099,7 @@ Private Sub CaseExportWorkbook()
 ' PURPOSE
 '   In the workbook: after a run the evidence report is written with its
 '   sections, and a second export of the same run is identical byte for
-'   byte; an edited input, bank figures entered after the run, bank
+'   byte, also over a longer hidden file of that name; an edited input, bank figures entered after the run, bank
 '   figures removed after a reconciliation and an edited output cell each
 '   make the export refuse; undoing them, or a new run, allows it again. A
 '   currency added below the FX table's named range is in the report.
@@ -1129,6 +1129,7 @@ Private Sub CaseExportWorkbook()
     Dim fxRow       As Long         'First blank row below it
     Dim fxCells     As Range        'A currency added and removed
     Dim savedFx     As Variant      'Their formulas
+    Dim fileNo      As Integer      'File number of a file written by the case
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1154,6 +1155,14 @@ Private Sub CaseExportWorkbook()
               InStr(textA, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
         result = M_Main.ExportEvidence_Silent(fileB)
         Check FileText(fileB) = textA, "a second export of the same run differs"
+        fileNo = FreeFile
+        Open fileB For Output As #fileNo
+        Print #fileNo, String$(Len(textA) + 100, "x")
+        Close #fileNo
+        SetAttr fileB, vbHidden
+        result = M_Main.ExportEvidence_Silent(fileB)
+        Check Left$(result, 9) = "RESULT=OK" And FileText(fileB) = textA, _
+              "a longer hidden file is not replaced whole: " & result
 
 '------------------------------------------------------------------------------
 ' REFUSE WHEN NOT CURRENT
@@ -1281,7 +1290,8 @@ Private Sub RemoveFile( _
 '
         On Error Resume Next
         If Len(filePath) > 0 Then
-            If Len(Dir$(filePath)) > 0 Then
+            If Len(Dir$(filePath, vbHidden)) > 0 Then
+                SetAttr filePath, vbNormal
                 Kill filePath
             End If
         End If
