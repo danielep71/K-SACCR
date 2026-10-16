@@ -179,8 +179,11 @@ removal is planned in #220 (v1.3.0).
    `src/workbook/SACCR_Template.xlsx`, the macro-free template that holds the
    sheets, formulas, named ranges and buttons; it contains no VBA project and
    no document properties (`docProps/`).
-6. A new location becomes contractual only when this document, the directory
-   README, `INSTALLATION.md` and the checks are updated together.
+6. A new location for VBA components, fixtures or the workbook becomes
+   contractual only when this document, the directory README,
+   `INSTALLATION.md` and the checks are updated together. Documentation
+   folders such as `docs/assets/` and `docs/user-manual/` need only this
+   document and their own README.
 
 Rules 1 and 2, and the content of a committed workbook under rule 5, are
 enforced by `tools/check_source.py`; the others by review.

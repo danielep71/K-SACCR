@@ -1217,4 +1217,4 @@ The repository also retains dated regulator-source extracts for reproducibility.
 
 ---
 
-**Document control:** K-SACCR v1.0.0 candidate user manual; drafted from the public `release/1.0.0` branch at `1152170c842d52acad166f93dbc84ea4f6546669` (commit date 16 October 2026). Prepared as a downloadable PDF/manual source, not committed to the repository or attached to a GitHub Release. Validate applicability again when the candidate is frozen and published.
+**Document control:** K-SACCR v1.0.0 candidate user manual; drafted from the public `release/1.0.0` branch at `1152170c842d52acad166f93dbc84ea4f6546669` (commit date 16 October 2026). This Markdown source is kept in the repository under `docs/user-manual/v1.0.0/`; the PDF built from it is not committed and is not yet attached to a GitHub Release. Validate applicability again when the candidate is frozen and published.
