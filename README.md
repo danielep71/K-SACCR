@@ -303,8 +303,19 @@ BankNettingSets · BankTrades ────────────────�
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
 
-The input sheets of the demonstration portfolio, as Excel shows them (yellow
-cells are inputs):
+Results after a run of the demonstration portfolio, with the run summary,
+the stale-result indicator and a TOTAL row per regime:
+
+<p align="center">
+  <img width="100%"
+       alt="Results sheet after a run: one row per netting set with regime, margining, trade count, MPOR, V, C, RC, add-ons by asset class, aggregate add-on and multiplier, and TOTAL CRR and TOTAL BCBS rows"
+       src="docs/assets/SACCR_Results.png">
+</p>
+
+<details>
+<summary><b>Input sheets</b>: NettingSets, Trades and Params (yellow cells are inputs)</summary>
+
+<br>
 
 <p align="center">
   <img width="100%"
@@ -313,10 +324,18 @@ cells are inputs):
 </p>
 
 <p align="center">
+  <img width="100%"
+       alt="Trades sheet: one row per trade leg with netting set, asset class, sub-class, risk factor, instrument, direction, option type, nature, notional, MtM and dates"
+       src="docs/assets/SACCR_Trades.png">
+</p>
+
+<p align="center">
   <img width="62%"
        alt="Params sheet: reporting date and currency, alpha, multiplier floor, MPOR floors, IR correlations, default regime and CRR lambda thresholds, each with its CRE52 or CRR reference"
        src="docs/assets/SACCR_Params.png">
 </p>
+
+</details>
 
 ---
 
