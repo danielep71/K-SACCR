@@ -123,6 +123,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `RELEASING.md` makes two checks deferred from the 1.0.0 release standing
+  steps of every release (#308): the source round trip of the certified
+  development workbook, beside the production one, and the published
+  workbook used as a user would, from download and hash check to a refused
+  export after an edit. They are first carried out on 1.0.1.
 - A diagram of where the CRR uses the SA-CCR exposure value (counterparty
   credit risk, CCPs, large exposures, leverage ratio, CVA risk, output floor),
   with the K-SACCR milestone or scope of each, in the README roadmap and
