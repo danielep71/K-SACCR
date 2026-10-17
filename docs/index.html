@@ -119,9 +119,10 @@
         <div class="actions">
           <a class="button primary" href="https://github.com/danielep71/VBA-SACCR-Toolkit">Explore the source ↗</a>
           <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0">Download 1.0.0 ↗</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md">Build the workbook</a>
+          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#building-a-workbook-from-source">Build from source</a>
         </div>
         <p class="status">Release 1.0.0 · Windows desktop Excel · No real portfolio data</p>
+        <p class="status">Downloaded the workbook? <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#released-workbook">Check its SHA-256 and unblock it</a> before you open it.</p>
       </div>
       <aside class="example" aria-labelledby="example-title">
         <div class="eyebrow">A published benchmark</div>
@@ -178,8 +179,22 @@
         </div>
       </div>
     </section>
-    <section class="wrap" id="documentation">
-      <div class="eyebrow">03 / Start with the source</div>
+    <section class="wrap" id="regulatory-use">
+      <div class="eyebrow">03 / Where SA-CCR is used</div>
+      <h2>One method, six uses.</h2>
+      <p class="intro">In the EU CRR, the SA-CCR exposure value of a netting set feeds counterparty credit risk under the standardised approach, exposures to CCPs, large exposures, and CVA risk. The leverage ratio and the output floor recalculate SA-CCR with their own adjustments. K-SACCR calculates the risk-based exposure value at the centre; the diagram marks which uses are on its roadmap and which are out of scope.</p>
+      <ul class="scope-list">
+        <li><strong>Leverage ratio:</strong> α stays 1.4, the PFE multiplier is 1, and replacement cost recognises only eligible cash variation margin, with exceptions for client trades cleared through a QCCP (Art. 429c).</li>
+        <li><strong>Output floor:</strong> until 31 December 2029, α = 1 only for exposures whose un-floored value comes from the internal model method (Art. 465(4)).</li>
+      </ul>
+      <figure class="screen">
+        <a href="assets/SACCR_uses_in_CRR.svg" aria-label="Open the full-size diagram of where SA-CCR is used in the EU CRR"><img src="assets/SACCR_uses_in_CRR.svg" width="1600" height="1040" loading="lazy" alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the K-SACCR milestone or scope of each"></a>
+        <figcaption>An orientation picture, not a source. <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/assets/README.md#saccr-uses-in-crr">Articles, sources and calculation contexts</a>.</figcaption>
+      </figure>
+    </section>
+    <section class="tint" id="documentation">
+      <div class="wrap">
+      <div class="eyebrow">04 / Start with the source</div>
       <h2>Explore. Build. Review.</h2>
       <p class="intro">The workbook is built from a macro-free template and exported VBA modules. Start with the installation guide, then use the methodology and tests to understand its behavior.</p>
       <div class="resources">
@@ -192,6 +207,7 @@
         <summary>What should I know before using K-SACCR?</summary>
         <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/VBA-SACCR-Toolkit#limitations">repository README</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
       </details>
+      </div>
     </section>
   </main>
   <footer><div class="wrap"><span>K-SACCR · An independent project by <a href="https://github.com/danielep71">Daniele Penza</a></span><span><a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/LICENSE">MPL 2.0</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/SECURITY.md">Security</a></span></div></footer>
