@@ -24,8 +24,7 @@ def fixture(name: str) -> dict[str, Any]:
 
 class TranslateTests(unittest.TestCase):
     def test_margined_example_becomes_one_counterparty_with_csa(self) -> None:
-        netting_set, notes = xc.translate_fixture(fixture("cre99-example-5"))
-        self.assertEqual(notes, [])
+        netting_set = xc.translate_fixture(fixture("cre99-example-5"))
         classes = [t["class"] for t in netting_set["trades"]]
         self.assertEqual(classes, ["IRDSwap", "IRDSwap", "IRDSwaption", "Commodity", "Commodity", "Commodity"])
         swaption = netting_set["trades"][2]["args"]
@@ -41,7 +40,7 @@ class TranslateTests(unittest.TestCase):
         data = fixture("cre99-example-5")
         data["netting_set"]["variation_margin_net_amount"] = 0
         data["netting_set"]["independent_collateral_net_amount"] = 0
-        netting_set, _ = xc.translate_fixture(data)
+        netting_set = xc.translate_fixture(data)
         self.assertEqual(netting_set["collateral"],
                          [{"id": "csa_EX5_vm", "csa_id": "csa_EX5", "type": "VariationMargin", "amount": 0}])
 
@@ -49,17 +48,17 @@ class TranslateTests(unittest.TestCase):
         data = fixture("cre99-example-5")
         for period in (None, 0):
             data["netting_set"]["remargin_period_business_days"] = period
-            netting_set, _ = xc.translate_fixture(data)
+            netting_set = xc.translate_fixture(data)
             self.assertEqual(netting_set["csa"]["remargin_freq"], 1)
 
     def test_days_per_year_and_commodity_hedging_set(self) -> None:
-        netting_set, _ = xc.translate_fixture(fixture("cre99-example-3"))
+        netting_set = xc.translate_fixture(fixture("cre99-example-3"))
         first = netting_set["trades"][0]["args"]
         self.assertAlmostEqual(first["Ei"], 0.75)
         self.assertEqual((first["SubClass"], first["commodity_type"]), ("Energy", "CRUDE OIL"))
 
     def test_credit_quality_step_maps_to_rating_with_same_factor(self) -> None:
-        netting_set, _ = xc.translate_fixture(fixture("illustrative-credit-quality-step"))
+        netting_set = xc.translate_fixture(fixture("illustrative-credit-quality-step"))
         self.assertEqual(netting_set["trades"][0]["args"]["SubClass"], "A")
 
     def test_credit_distinct_maturity_is_unsupported(self) -> None:
@@ -68,10 +67,9 @@ class TranslateTests(unittest.TestCase):
         with self.assertRaisesRegex(xc.Unsupported, "maturity differs"):
             xc.translate_fixture(data)
 
-    def test_matured_trade_is_left_out_with_a_note(self) -> None:
-        netting_set, notes = xc.translate_fixture(fixture("illustrative-partly-rejected"))
-        self.assertEqual([t["id"] for t in netting_set["trades"]], ["PR-1"])
-        self.assertEqual(len(notes), 1)
+    def test_matured_trade_makes_the_netting_set_not_run(self) -> None:
+        with self.assertRaisesRegex(xc.Unsupported, "PR-2 has matured"):
+            xc.translate_fixture(fixture("illustrative-partly-rejected"))
 
     def test_unsupported_cases_raise(self) -> None:
         with self.assertRaisesRegex(xc.Unsupported, "commodity option"):

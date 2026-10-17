@@ -182,8 +182,8 @@ def fixture_classes(fixture: dict[str, Any]) -> set[str]:
     return {t["asset_class"] for t in fixture["trades"]}
 
 
-def translate_fixture(fixture: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """The package's netting set for one fixture, and notes on trades left out."""
+def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
+    """The package's netting set for one fixture."""
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
     days_per_year = float(fixture["parameters"].get("DaysPerYear", 365))
     for name, value in fixture["parameters"].items():
@@ -192,12 +192,14 @@ def translate_fixture(fixture: dict[str, Any]) -> tuple[dict[str, Any], list[str
     if fixture["netting_set"]["alpha_factor"] not in (None, 1.4):
         raise Unsupported("the package's alpha is always 1.4")
     ns_id = fixture["netting_set"]["id"]
-    trades, notes = [], []
+    trades = []
     for trade in fixture["trades"]:
         _, _, maturity = trade_times(trade, valuation, days_per_year)
+        # The engine excludes a matured trade and withholds the netting set's
+        # EAD as INCOMPLETE; running the other trades would compare a
+        # different netting set.
         if maturity <= 0:
-            notes.append(f"{trade['id']} left out: matured, as the engine excludes it")
-            continue
+            raise Unsupported(f"{trade['id']} has matured: the engine withholds the netting set's EAD")
         name, args = translate_trade(trade, valuation, days_per_year, fixture["calculation_currency"])
         trades.append({"id": trade["id"], "class": name, "args": {**args, "Counterparty": ns_id}})
     netting_set: dict[str, Any] = {"fixture": fixture["id"], "id": ns_id, "trades": trades,
@@ -207,21 +209,20 @@ def translate_fixture(fixture: dict[str, Any]) -> tuple[dict[str, Any], list[str
     elif fixture["netting_set"]["variation_margin_net_amount"] or \
             fixture["netting_set"]["independent_collateral_net_amount"]:
         raise Unsupported("collateral on an unmargined netting set has no package counterpart")
-    return netting_set, notes
+    return netting_set
 
 
 def build_inputs(root: Path) -> dict[str, Any]:
-    netting_sets, skipped, notes = [], [], []
+    netting_sets, skipped = [], []
     for path in sorted((root / "tests" / "fixtures").glob("*.json")):
         fixture = json.loads(path.read_text(encoding="utf-8"))
         try:
-            netting_set, fixture_notes = translate_fixture(fixture)
+            netting_set = translate_fixture(fixture)
         except Unsupported as reason:
             skipped.append({"fixture": fixture["id"], "reason": str(reason)})
             continue
         netting_sets.append(netting_set)
-        notes += [f"{fixture['id']}: {note}" for note in fixture_notes]
-    return {"netting_sets": netting_sets, "skipped": skipped, "notes": notes}
+    return {"netting_sets": netting_sets, "skipped": skipped}
 
 
 def package_value(result: dict[str, Any], output: dict[str, Any]) -> float | None:
@@ -279,7 +280,6 @@ def report(inputs: dict[str, Any], package: dict[str, Any], rows: list[dict[str,
     lines += [f"  {r['fixture']}: EAD={r['EAD']:.10g}; RC={r['RC']:.10g}; add_on={r['add_on']:.10g}"
               for r in package["results"] if r["fixture"] not in compared]
     lines += ["", "Not run:"] + [f"  {s['fixture']}: {s['reason']}" for s in inputs["skipped"]]
-    lines += ["", "Notes:"] + [f"  {n}" for n in inputs["notes"]]
     differs = sum(1 for row in rows if not row["agrees"])
     lines += ["", f"RESULT compared={len(rows)}; differ={differs}; fixtures_run={len(inputs['netting_sets'])}; "
               f"fixtures_not_run={len(inputs['skipped'])}"]
