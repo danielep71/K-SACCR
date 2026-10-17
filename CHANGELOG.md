@@ -96,6 +96,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The comments of every core, workbook and test module were checked against
+  the code and corrected where stale, wrong or unclear; local variables and
+  parameters follow the house-style naming (descriptive PascalCase, single
+  lower-case letters for loop counters only). No behaviour changes: each
+  module's change reproduces its previous code under the rename map, and the
+  eight suites pass unchanged. The evidence-policy gate reads the case-ID
+  parameter of `TEST_InputValidation.StartCase` and the `Test_RunAll` suite
+  list regardless of the names' letter case.
 - Results C5 says what it checks when the inputs match the last run:
   "Inputs unchanged since the last run (inputs …); outputs are checked when
   evidence is exported", instead of "Results current". `ResultsStatus()`
