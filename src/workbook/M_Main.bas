@@ -279,24 +279,36 @@ Public Function ResultsStatus() As String
 '   inputs as they are now (#36).
 '
 ' RETURNS
-'   CURRENT: the inputs match the last completed run.
+'   CURRENT: the inputs match the last completed run, and so do the
+'   outputs it recorded.
+'   EDITED: the inputs match, but an output cell on Results, Checks or a
+'   reconciliation sheet was changed after the run (#315); the evidence
+'   export refuses such outputs.
 '   STALE: the inputs changed after it; the results are out of date.
 '   NONE: no valid completed-run fingerprint. Protected output cells may
 '   remain after failed cleanup; the run error reports that separately.
 '
+' METHOD
+'   The outputs are compared only when the inputs match, and only here:
+'   the status formula in Results C5 does not watch the output sheets,
+'   whose fingerprint would be recomputed after every edit (#315). A run
+'   whose outputs were not recorded is CURRENT when its inputs match.
+'
 ' ERROR POLICY
 '   Raises ERR_PARAMS_LAYOUT from CORE_Engine.InputFingerprint when a
-'   Params workbook name is missing or broken (#152).
+'   Params workbook name is missing or broken (#152), and the error of
+'   OutputFingerprint when an output sheet cannot be read.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim stored   As String    'Fingerprint stored by the last completed run
+    Dim stored    As String    'Fingerprint stored by the last completed run
+    Dim outputs   As String    'Fingerprint of the outputs it wrote
 
 '------------------------------------------------------------------------------
 ' COMPARE
@@ -304,10 +316,15 @@ Public Function ResultsStatus() As String
         stored = CORE_Engine.LastRunInputs()
         If Len(stored) = 0 Then
             ResultsStatus = "NONE"
-        ElseIf stored = CORE_Engine.InputFingerprint() Then
-            ResultsStatus = "CURRENT"
-        Else
+        ElseIf stored <> CORE_Engine.InputFingerprint() Then
             ResultsStatus = "STALE"
+        Else
+            outputs = StoredText(RUN_OUTPUTS_NAME)
+            If Len(outputs) > 0 And outputs <> OutputFingerprint() Then
+                ResultsStatus = "EDITED"
+            Else
+                ResultsStatus = "CURRENT"
+            End If
         End If
 
 End Function
@@ -341,9 +358,11 @@ Public Function ResultsStatusText( _
 '   engine reads them.
 '
 ' RETURNS
-'   "Results current (inputs XXXXXXXX)", "OUT OF DATE - inputs changed
+'   "Inputs unchanged since the last run (inputs XXXXXXXX); outputs are
+'   checked when evidence is exported", "OUT OF DATE - inputs changed
 '   since the last run; press Run SA-CCR." or "No results: press Run
-'   SA-CCR."
+'   SA-CCR." The cell checks the inputs only: an edited output cell is
+'   reported by ResultsStatus() and refused by the evidence export (#315).
 '
 ' ERROR POLICY
 '   Returns "Status unavailable: " and the reason instead of raising, for
@@ -368,7 +387,8 @@ Public Function ResultsStatusText( _
         If Len(stored) = 0 Then
             ResultsStatusText = "No results: press Run SA-CCR."
         ElseIf stored = CORE_Engine.InputFingerprint() Then
-            ResultsStatusText = "Results current (inputs " & stored & ")"
+            ResultsStatusText = "Inputs unchanged since the last run (inputs " & stored & _
+                                "); outputs are checked when evidence is exported"
         Else
             ResultsStatusText = "OUT OF DATE - inputs changed since the last run; press Run SA-CCR."
         End If
@@ -1309,9 +1329,10 @@ Private Function EvidenceProblem() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell why no evidence report may be written now: the results are not
-'   those of the current inputs, or a sheet of bank figures holds figures
-'   whose reconciliation is missing or out of date. An evidence report
-'   must never describe results that do not match the inputs.
+'   those of the current inputs, an output cell was changed after the run,
+'   or a sheet of bank figures holds figures whose reconciliation is
+'   missing or out of date. An evidence report must never describe
+'   results that do not match the inputs.
 '
 ' RETURNS
 '   "" when the report may be written; otherwise the reason.
@@ -1320,7 +1341,7 @@ Private Function EvidenceProblem() As String
 '   Never raises: an error is itself the reason.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1330,6 +1351,7 @@ Private Function EvidenceProblem() As String
     Dim kind      As Long       'Reconciliation checked
     Dim stored    As String     'A stored fingerprint
     Dim current   As Boolean    'True when the reconciliation is current
+    Dim status    As String     'ResultsStatus()
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -1343,7 +1365,12 @@ Private Function EvidenceProblem() As String
                               "are out of date"
             Exit Function
         End If
-        If ResultsStatus() <> "CURRENT" Then
+        status = ResultsStatus()
+        If status = "EDITED" Then
+            EvidenceProblem = "an output cell on Results, Checks or a reconciliation sheet was changed after " & _
+                              "the run; press Run SA-CCR first"
+            Exit Function
+        ElseIf status <> "CURRENT" Then
             EvidenceProblem = "the results are not those of the current inputs; press Run SA-CCR first"
             Exit Function
         End If
@@ -1365,14 +1392,11 @@ Private Function EvidenceProblem() As String
                 End If
             End If
         Next kind
-    'The output sheets are not protected: what the report copies from them
-    'must still be what the run wrote.
+    'The output sheets are not protected: ResultsStatus has compared them
+    'with what the run wrote, which a run that recorded nothing cannot be.
         stored = StoredText(RUN_OUTPUTS_NAME)
         If Len(stored) = 0 Then
             EvidenceProblem = "the outputs of the last run were not recorded; press Run SA-CCR first"
-        ElseIf stored <> OutputFingerprint() Then
-            EvidenceProblem = "an output cell on Results, Checks or a reconciliation sheet was changed after " & _
-                              "the run; press Run SA-CCR first"
         End If
         Exit Function
 

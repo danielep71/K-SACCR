@@ -12,7 +12,9 @@ Attribute VB_Name = "TEST_MainState"
 '   changes (issue #36), also on Params after its tables have moved
 '   (issue #152), when a number becomes the same digits as text, a header
 '   is renamed or the date system changes, but not after a formatting
-'   change (issue #197); that a run summary that cannot be composed does
+'   change (issue #197); that an output cell edited after a run is
+'   reported as EDITED, refused by the evidence export and cleared by a
+'   new run (issue #315); that a run summary that cannot be composed does
 '   not fail the run (issue #60); that a run in manual calculation recalculates
 '   its formula inputs before reading them, and stops without reporting
 '   old results as current when that recalculation does not finish (issue
@@ -75,7 +77,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 28   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 29   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -163,6 +165,7 @@ Public Sub RunMainStateTests()
         CaseProtectedOutput SH_BUCKETS, SH_RESULTS
         CaseProtectedOutput SH_TRADECALC, SH_RESULTS, True
         CaseStaleResults
+        CaseEditedOutput
         CaseStaleParams False
         CaseStaleParams True
         CaseStaleValueType
@@ -841,7 +844,7 @@ Private Sub CaseStaleResults()
         result = M_Main.RunSACCR_Silent()
         Check InStr(result, "; inputs=") > 0 And InStr(result, "; inputs=;") = 0, "result line names no inputs: " & result
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a run"
+        CheckStatusCell "Inputs unchanged", "after a run"
 
     'Edit one input, as a user would: the formula recalculates by itself.
         Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
@@ -853,7 +856,7 @@ Private Sub CaseStaleResults()
     'Undoing the edit brings the results back in line.
         mtmCell.Formula = saved
         Check M_Main.ResultsStatus() = "CURRENT", "after undoing the edit: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after undoing the edit"
+        CheckStatusCell "Inputs unchanged", "after undoing the edit"
 
     'Clear outputs leaves no results; a new run makes them current again.
         M_Main.ClearOutputs
@@ -861,7 +864,7 @@ Private Sub CaseStaleResults()
         CheckStatusCell "No results", "after Clear outputs"
         result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a new run: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a new run"
+        CheckStatusCell "Inputs unchanged", "after a new run"
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -871,6 +874,86 @@ Private Sub CaseStaleResults()
 Unexpected:
         Fail "results.stale-after-input-change", "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell mtmCell, saved
+
+End Sub
+
+
+Private Sub CaseEditedOutput()
+'
+'==============================================================================
+'                               CaseEditedOutput
+'------------------------------------------------------------------------------
+' PURPOSE
+'   An EAD edited on Results after a run, with the inputs unchanged, makes
+'   ResultsStatus() EDITED while Results C5, which checks the inputs only,
+'   still says the inputs are unchanged; the evidence export refuses it.
+'   An input edited as well makes the results STALE. Restoring the value
+'   makes them CURRENT, and so does a new run after another edit (#315).
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim result     As String     'Result line of a run or an export
+    Dim outCell    As Range      'EAD of the first netting set, edited
+    Dim savedOut   As Variant    'Its value
+    Dim mtmCell    As Range      'MtM of the first trade, edited and restored
+    Dim savedMtm   As Variant    'Its formula
+    Dim target     As String     'Export file, never written
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "results.edited-output"
+        SetState xlCalculationAutomatic, False, False
+        result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
+
+    'Edit an output, as a user could: C5 checks the inputs only.
+        Set outCell = TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_EAD)
+        savedOut = outCell.Value2
+        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
+        Check M_Main.ResultsStatus() = "EDITED", "after an output edit: " & M_Main.ResultsStatus()
+        CheckStatusCell "Inputs unchanged", "after an output edit"
+        target = Environ$("TEMP")
+        If Len(target) = 0 Then
+            target = ThisWorkbook.Path
+        End If
+        target = target & Application.PathSeparator & "K-SACCR_evidence_test_edited.csv"
+        result = M_Main.ExportEvidence_Silent(target)
+        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "output cell") > 0, _
+              "export after an output edit: " & result
+
+    'An input edited as well: the inputs decide first.
+        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        savedMtm = mtmCell.Formula
+        mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
+        Check M_Main.ResultsStatus() = "STALE", "after an output and an input edit: " & M_Main.ResultsStatus()
+        mtmCell.Formula = savedMtm
+
+    'Restoring the output, or a new run, makes the results current again.
+        outCell.Value2 = savedOut
+        Check M_Main.ResultsStatus() = "CURRENT", "after restoring the output: " & M_Main.ResultsStatus()
+        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
+        result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a new run: " & M_Main.ResultsStatus()
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "results.edited-output", "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell mtmCell, savedMtm
+        If Not outCell Is Nothing Then
+            outCell.Value2 = savedOut
+        End If
 
 End Sub
 
@@ -921,7 +1004,7 @@ Private Sub CaseStaleValueType()
         CheckStatusCell "OUT OF DATE", "number as text"
         mtmCell.Formula = saved
         Check M_Main.ResultsStatus() = "CURRENT", "number restored: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "number restored"
+        CheckStatusCell "Inputs unchanged", "number restored"
 
     'Two error values.
         mtmCell.Value = CVErr(xlErrNA)
@@ -934,7 +1017,7 @@ Private Sub CaseStaleValueType()
     'Formatting only.
         mtmCell.NumberFormat = "0.000%"
         Check M_Main.ResultsStatus() = "CURRENT", "after a number format: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a number format"
+        CheckStatusCell "Inputs unchanged", "after a number format"
         mtmCell.NumberFormat = savedFormat
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
@@ -991,14 +1074,14 @@ Private Sub CaseStaleHeaders()
         savedBold = headerCell.Font.Bold
         headerCell.Font.Bold = Not CBool(savedBold)
         Check M_Main.ResultsStatus() = "CURRENT", "after a bold header: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a bold header"
+        CheckStatusCell "Inputs unchanged", "after a bold header"
         headerCell.Font.Bold = savedBold
 
     'Case and spacing only: "MtM" as " m tM ".
         savedText = headerCell.Formula
         headerCell.Value = " " & LCase$(Left$(CStr(savedText), 1)) & " " & Mid$(CStr(savedText), 2) & " "
         Check M_Main.ResultsStatus() = "CURRENT", "after a case and spacing edit: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a case and spacing edit"
+        CheckStatusCell "Inputs unchanged", "after a case and spacing edit"
         headerCell.Formula = savedText
         Set headerCell = Nothing
         CheckState xlCalculationAutomatic, False, False
@@ -1062,7 +1145,7 @@ Private Sub CaseStaleDateSystem()
         switched = False
         Check M_Main.ResultsStatus() = "CURRENT", "date system restored: " & M_Main.ResultsStatus()
         GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
-        CheckStatusCell "Results current", "date system restored"
+        CheckStatusCell "Inputs unchanged", "date system restored"
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -1258,7 +1341,7 @@ Private Sub CaseRecalculationError()
         result = M_Main.RunSACCR_Silent()
         Check Left$(result, 9) = "RESULT=OK", "set-up run: " & result
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a run in manual calculation"
+        CheckStatusCell "Inputs unchanged", "after a run in manual calculation"
 
     'The precedent changes but nothing recalculates: the cached MtM is the
     'value the run used, so only the withdrawn fingerprint can show that
@@ -1284,7 +1367,7 @@ Private Sub CaseRecalculationError()
         Check ToDbl(TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value, 0#) = 2000#, _
               "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value & ", expected 2000"
         Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after the follow-up run"
+        CheckStatusCell "Inputs unchanged", "after the follow-up run"
         CheckState xlCalculationManual, False, False
         RestoreCell mtmCell, savedMtm
         RestoreCell noteCell, savedNote
@@ -1354,7 +1437,7 @@ Private Sub CaseStaleParams( _
         Check sfCol = IIf(shifted, 2, 1), "factor table in table column " & sfCol
         result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus() & " (" & result & ")"
-        CheckStatusCell "Results current", "after a run"
+        CheckStatusCell "Inputs unchanged", "after a run"
         If shifted Then
             Check result = mParamsRunLine, "shifted run differs: " & result & " | unshifted: " & mParamsRunLine
         Else
@@ -1379,14 +1462,14 @@ Private Sub CaseStaleParams( _
         descSaved = descCell.Formula
         descCell.Value = SafeStr(descCell.Value) & " (edited)"
         Check M_Main.ResultsStatus() = "CURRENT", "after a description edit: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a description edit"
+        CheckStatusCell "Inputs unchanged", "after a description edit"
         descCell.Formula = descSaved
         Set descCell = Nothing
         Set colorCell = NamedCell(PRM_ALPHA)
         colorSaved = colorCell.Interior.Color
         colorCell.Interior.Color = RGB(255, 0, 0)
         Check M_Main.ResultsStatus() = "CURRENT", "after a colour change: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", "after a colour change"
+        CheckStatusCell "Inputs unchanged", "after a colour change"
         colorCell.Interior.Color = colorSaved
         Set colorCell = Nothing
 
@@ -1456,7 +1539,7 @@ Private Sub EditAndUndo( _
         CheckStatusCell "OUT OF DATE", what & " edited"
         target.Formula = saved
         Check M_Main.ResultsStatus() = "CURRENT", what & " restored: " & M_Main.ResultsStatus()
-        CheckStatusCell "Results current", what & " restored"
+        CheckStatusCell "Inputs unchanged", what & " restored"
         Exit Sub
 
 '------------------------------------------------------------------------------
