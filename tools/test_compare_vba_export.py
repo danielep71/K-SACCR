@@ -33,6 +33,11 @@ class CompareExportTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.folder = Path(temp.name)
+        # The stand-in workbooks live beside the export, in a folder of this
+        # test's own, so that parallel runs cannot remove each other's files.
+        books = tempfile.TemporaryDirectory()
+        self.addCleanup(books.cleanup)
+        self.books = Path(books.name)
 
     def export(self, mode: str) -> None:
         for path in [*MANIFEST["configurations"][mode]["modules"], *MANIFEST["document_modules"]]:
@@ -46,11 +51,10 @@ class CompareExportTests(unittest.TestCase):
 
     def workbook(self, name: str, project: bytes = b"vba project") -> Path:
         """A stand-in for a built .xlsm: a zip holding a VBA project part."""
-        path = self.folder.parent / name
+        path = self.books / name
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("[Content_Types].xml", "<Types/>")
             archive.writestr("xl/vbaProject.bin", project)
-        self.addCleanup(path.unlink, missing_ok=True)
         return path
 
     def write_manifest(self, workbook: Path) -> None:
