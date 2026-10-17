@@ -516,6 +516,33 @@ class ExcelEvidenceTests(unittest.TestCase):
         policy["suites"][self.index("TEST_Aggregation")]["first_case"] = "invariants-demo-repeat"
         with self.assertRaisesRegex(ValueError, "distinct first cases"):
             evidence.parse_policy(json.dumps(policy).encode())
+        # TEST_InputValidation prints its first case behind StartCase's "input-" prefix.
+        policy = copy.deepcopy(self.policy)
+        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "trade-middle-row-without-id"
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
+        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "input-trade-middle-row-without-id"
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
+        # The prefix is read from StartCase's own body, not from another helper.
+        module = copy_root / "tests" / "modules" / "TEST_InputValidation.bas"
+        source = module.read_text(encoding="cp1252")
+        start = source.index("Sub StartCase(")
+        end = source.index("End Sub", start)
+        for old, new in (('"input-" & caseId', "caseId"), ('"input-" & caseId', '"input-" & caseId & "-x"')):
+            changed = source[:start] + source[start:end].replace(old, new) + source[end:]
+            self.assertNotEqual(changed, source)
+            module.write_text(changed, encoding="cp1252")
+            self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                          " ".join(evidence.policy_problems(copy_root)), new)
+        # The first call's argument must end with its literal, too.
+        call = 'StartCase "trade-middle-row-without-id", "N"'
+        self.assertIn(call, source)
+        module.write_text(source.replace(call, 'StartCase "trade-middle-row-without-id" & "-x", "N"', 1),
+                          encoding="cp1252")
+        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"

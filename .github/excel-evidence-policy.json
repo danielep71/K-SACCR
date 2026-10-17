@@ -53,7 +53,7 @@
       "cases": 133,
       "checks": {"32-bit": 209, "64-bit": 209},
       "restoration": "restore=PASS",
-      "first_case": "trade-middle-row-without-id"
+      "first_case": "input-trade-middle-row-without-id"
     },
     {
       "entry_point": "TEST_Aggregation.RunAggregationTests",

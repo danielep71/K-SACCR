@@ -94,7 +94,13 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The Excel evidence policy names `TEST_InputValidation`'s first case as its
+  log prints it, `input-trade-middle-row-without-id`, and the policy gate
+  reads it from `StartCase` in the same way. With the 1.0.0 policy the
+  validator rejected every real log of that suite; the 1.0.0 certification
+  records this as its deviation.
 
 ## [1.0.0] - 2026-10-17
 
