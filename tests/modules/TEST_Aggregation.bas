@@ -30,7 +30,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -70,16 +70,16 @@ Public Sub RunAggregationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim original   As Variant    'Results rows of the demo portfolio in its own order
-    Dim irSingle   As Double     'IR add-on of one swap
-    Dim crSingle   As Double     'Credit add-on of one credit default swap
+    Dim OriginalRows    As Variant    'Results rows of the demo portfolio in its own order
+    Dim IRSingleAddOn   As Double     'IR add-on of one swap
+    Dim CRSingleAddOn   As Double     'Credit add-on of one credit default swap
 
 '------------------------------------------------------------------------------
 ' ROW ORDER
@@ -90,20 +90,20 @@ Public Sub RunAggregationTests()
         TEST_CaseRunner.BeginCase "aggregation-demo-original-order", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         TEST_CaseRunner.RunCase
-        original = ResultsRows()
-        TEST_CaseRunner.ExpectTrue "results", RowCount(original) > 0, "no Results rows", "illustrative"
+        OriginalRows = ResultsRows()
+        TEST_CaseRunner.ExpectTrue "results", RowCount(OriginalRows) > 0, "no Results rows", "illustrative"
 
         TEST_CaseRunner.BeginCase "aggregation-demo-reversed-order", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         ReorderTrades 0
         TEST_CaseRunner.RunCase
-        ExpectSameResults original
+        ExpectSameResults OriginalRows
 
         TEST_CaseRunner.BeginCase "aggregation-demo-rotated-order", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         ReorderTrades 7
         TEST_CaseRunner.RunCase
-        ExpectSameResults original
+        ExpectSameResults OriginalRows
 
 '------------------------------------------------------------------------------
 ' OFFSETS
@@ -113,26 +113,26 @@ Public Sub RunAggregationTests()
         StartCase "aggregation-ir-single-swap"
         AddSwap "S1", "EUR", "Long", "Standard"
         TEST_CaseRunner.RunCase
-        irSingle = TEST_CaseRunner.OutputNumber("NS1", IR_ADDON)
-        TEST_CaseRunner.ExpectTrue "add-on", irSingle > 0#, "single swap add-on is " & irSingle, "illustrative"
+        IRSingleAddOn = TEST_CaseRunner.OutputNumber("NS1", IR_ADDON)
+        TEST_CaseRunner.ExpectTrue "add-on", IRSingleAddOn > 0#, "single swap add-on is " & IRSingleAddOn, "illustrative"
 
         StartCase "aggregation-ir-exact-offset"
         AddSwap "S1", "EUR", "Long", "Standard"
         AddSwap "S2", "EUR", "Short", "Standard"
         TEST_CaseRunner.RunCase
-        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 0#, irSingle
+        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 0#, IRSingleAddOn
 
         StartCase "aggregation-ir-no-offset-across-currencies"
         AddSwap "S1", "EUR", "Long", "Standard"
         AddSwap "S2", "USD", "Short", "Standard"
         TEST_CaseRunner.RunCase
-        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 2# * irSingle, irSingle
+        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 2# * IRSingleAddOn, IRSingleAddOn
 
         StartCase "aggregation-ir-no-offset-with-inflation"
         AddSwap "S1", "EUR", "Long", "Standard"
         AddSwap "S2", "EUR-INFL", "Short", "Standard"
         TEST_CaseRunner.RunCase
-        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 2# * irSingle, irSingle
+        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 2# * IRSingleAddOn, IRSingleAddOn
 
         StartCase "aggregation-ir-no-offset-across-netting-sets"
         AddSwap "S1", "EUR", "Long", "Standard"
@@ -141,7 +141,7 @@ Public Sub RunAggregationTests()
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NS, "NS2"
         TEST_CaseRunner.RunCase
         ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON) + _
-                   TEST_CaseRunner.OutputNumber("NS2", IR_ADDON), 2# * irSingle, irSingle
+                   TEST_CaseRunner.OutputNumber("NS2", IR_ADDON), 2# * IRSingleAddOn, IRSingleAddOn
 
     'A basis hedging set takes half the factor (BasisFactor 0.5) and never
     'offsets the standard one.
@@ -149,7 +149,7 @@ Public Sub RunAggregationTests()
         AddSwap "S1", "EUR", "Long", "Standard"
         AddSwap "S2", "EUR", "Short", "Basis"
         TEST_CaseRunner.RunCase
-        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 1.5 * irSingle, irSingle
+        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", IR_ADDON), 1.5 * IRSingleAddOn, IRSingleAddOn
 
     'Credit (CRE52.61): two entities of opposite sign keep the
     'idiosyncratic part, sqrt(1 - rho^2) * sqrt(2) times one entity's
@@ -157,14 +157,14 @@ Public Sub RunAggregationTests()
         StartCase "aggregation-cr-single-entity"
         AddCredit "C1", "FIRM A", "Long"
         TEST_CaseRunner.RunCase
-        crSingle = TEST_CaseRunner.OutputNumber("NS1", CR_ADDON)
-        TEST_CaseRunner.ExpectTrue "add-on", crSingle > 0#, "single entity add-on is " & crSingle, "illustrative"
+        CRSingleAddOn = TEST_CaseRunner.OutputNumber("NS1", CR_ADDON)
+        TEST_CaseRunner.ExpectTrue "add-on", CRSingleAddOn > 0#, "single entity add-on is " & CRSingleAddOn, "illustrative"
 
         StartCase "aggregation-cr-no-offset-across-entities"
         AddCredit "C1", "FIRM A", "Long"
         AddCredit "C2", "FIRM B", "Short"
         TEST_CaseRunner.RunCase
-        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", CR_ADDON), Sqr(1.5) * crSingle, crSingle
+        ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", CR_ADDON), Sqr(1.5) * CRSingleAddOn, CRSingleAddOn
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub
@@ -184,7 +184,7 @@ End Sub
 '
 
 Private Sub StartCase( _
-    ByVal caseId As String)
+    ByVal CaseId As String)
 '
 '==============================================================================
 '                                  StartCase
@@ -194,20 +194,20 @@ Private Sub StartCase( _
 '   no collateral.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.BeginCase caseId, "CRR", VALUATION, "EUR"
+        TEST_CaseRunner.BeginCase CaseId, "CRR", VALUATION, "EUR"
         TEST_CaseRunner.AddNettingSet "NS1", "N", "N", "", "N", "N", "", "0", "0", "0", "0", ""
 
 End Sub
 
 
 Private Sub AddSwap( _
-    ByVal tradeId As String, _
-    ByVal currencyCode As String, _
-    ByVal direction As String, _
-    ByVal nature As String)
+    ByVal TradeId As String, _
+    ByVal CurrencyCode As String, _
+    ByVal Direction As String, _
+    ByVal Nature As String)
 '
 '==============================================================================
 '                                   AddSwap
@@ -217,31 +217,31 @@ Private Sub AddSwap( _
 '   given currency's hedging set; a basis swap gets the label EURIBOR/ESTR.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim hsLabel   As String    'Basis hedging-set label; blank for a standard swap
+    Dim HedgingSetLabel   As String    'Basis hedging-set label; blank for a standard swap
 
 '------------------------------------------------------------------------------
 ' ADD
 '------------------------------------------------------------------------------
-        If nature = "Basis" Then
-            hsLabel = "EURIBOR/ESTR"
+        If Nature = "Basis" Then
+            HedgingSetLabel = "EURIBOR/ESTR"
         End If
-        TEST_CaseRunner.AddTrade tradeId, "IR", "", currencyCode, "Linear", direction, "", nature, hsLabel, _
+        TEST_CaseRunner.AddTrade TradeId, "IR", "", CurrencyCode, "Linear", Direction, "", Nature, HedgingSetLabel, _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub AddCredit( _
-    ByVal tradeId As String, _
-    ByVal reference As String, _
-    ByVal direction As String)
+    ByVal TradeId As String, _
+    ByVal Reference As String, _
+    ByVal Direction As String)
 '
 '==============================================================================
 '                                  AddCredit
@@ -251,93 +251,93 @@ Private Sub AddCredit( _
 '   notional 10,000, to NS1.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "CR", "AA", reference, "Linear", direction, "", "Standard", "", _
+        TEST_CaseRunner.AddTrade TradeId, "CR", "AA", Reference, "Linear", Direction, "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub ExpectNear( _
-    ByVal label As String, _
-    ByVal actual As Double, _
-    ByVal expected As Double, _
-    ByVal magnitude As Double)
+    ByVal Label As String, _
+    ByVal Actual As Double, _
+    ByVal Expected As Double, _
+    ByVal Magnitude As Double)
 '
 '==============================================================================
 '                                  ExpectNear
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Record that actual equals expected within REL_TOL of magnitude, the
+'   Record that Actual equals Expected within REL_TOL of Magnitude, the
 '   size of the quantities compared (a zero expected value has no size of
 '   its own).
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.ExpectTrue label, Abs(actual - expected) <= REL_TOL * Abs(magnitude), _
-                                   "expected " & expected & ", actual " & actual, "illustrative"
+        TEST_CaseRunner.ExpectTrue Label, Abs(Actual - Expected) <= REL_TOL * Abs(Magnitude), _
+                                   "expected " & Expected & ", actual " & Actual, "illustrative"
 
 End Sub
 
 
 Private Sub ReorderTrades( _
-    ByVal shift As Long)
+    ByVal RotationRows As Long)
 '
 '==============================================================================
 '                                ReorderTrades
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Rewrite the trade rows in another order: reversed when shift is 0,
-'   otherwise rotated by shift rows. Formulas are moved as they are, so a
-'   trade keeps every input.
+'   Rewrite the trade rows in another order: reversed when RotationRows is
+'   0, otherwise rotated by RotationRows rows. Formulas are moved as they
+'   are, so a trade keeps every input.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws       As Worksheet    'Trades sheet
-    Dim lastR    As Long         'Last used row
-    Dim n        As Long         'Trade rows
-    Dim block    As Range        'Trade rows, columns A to TR_NCOLS
-    Dim src      As Variant      'Formulas in the original order
-    Dim dst      As Variant      'Formulas in the new order
-    Dim r        As Long         'Row of dst
-    Dim from     As Long         'Row of src that goes to r
-    Dim c        As Long         'Column
-    Dim topRow   As Long         'First data row
+    Dim TradesSheet      As Worksheet    'Trades sheet
+    Dim LastRow          As Long         'Last used row
+    Dim TradeRowCount    As Long         'Trade rows
+    Dim TradeBlock       As Range        'Trade rows, table columns 1 to TR_NCOLS
+    Dim SourceFormulas   As Variant      'Formulas in the original order
+    Dim TargetFormulas   As Variant      'Formulas in the new order
+    Dim r                As Long         'Row of TargetFormulas
+    Dim SourceRow        As Long         'Row of SourceFormulas that goes to r
+    Dim c                As Long         'Column
+    Dim FirstRow         As Long         'First data row
 
 '------------------------------------------------------------------------------
 ' REORDER
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_TRADES)
-        topRow = TableFirstRow(SH_TRADES)
-        lastR = UsedLastRow(ws)
-        n = lastR - topRow + 1
-        If n < 2 Then
+        Set TradesSheet = GetSheet(SH_TRADES)
+        FirstRow = TableFirstRow(SH_TRADES)
+        LastRow = UsedLastRow(TradesSheet)
+        TradeRowCount = LastRow - FirstRow + 1
+        If TradeRowCount < 2 Then
             Exit Sub
         End If
-        Set block = TableRange(ws, topRow, 1, lastR, TR_NCOLS)
-        src = block.Formula
-        dst = block.Formula
-        For r = 1 To n
-            If shift = 0 Then
-                from = n - r + 1
+        Set TradeBlock = TableRange(TradesSheet, FirstRow, 1, LastRow, TR_NCOLS)
+        SourceFormulas = TradeBlock.Formula
+        TargetFormulas = TradeBlock.Formula
+        For r = 1 To TradeRowCount
+            If RotationRows = 0 Then
+                SourceRow = TradeRowCount - r + 1
             Else
-                from = ((r - 1 + shift) Mod n) + 1
+                SourceRow = ((r - 1 + RotationRows) Mod TradeRowCount) + 1
             End If
             For c = 1 To TR_NCOLS
-                dst(r, c) = src(from, c)
+                TargetFormulas(r, c) = SourceFormulas(SourceRow, c)
             Next c
         Next r
-        block.Formula = dst
+        TradeBlock.Formula = TargetFormulas
 
 End Sub
 
@@ -349,33 +349,33 @@ Private Function ResultsRows() As Variant
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Return the Results rows of the last run, from the first data row to the
-'   last used row, columns A to RS_NCOLS; Empty when there are none.
+'   last used row, table columns 1 to RS_NCOLS; Empty when there are none.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'Results sheet
-    Dim lastR   As Long         'Last used row
+    Dim ResultsSheet   As Worksheet    'Results sheet
+    Dim LastRow        As Long         'Last used row
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_RESULTS)
-        lastR = UsedLastRow(ws)
-        If lastR >= OutputFirstRow(SH_RESULTS) Then
-            ResultsRows = TableRange(ws, OutputFirstRow(SH_RESULTS), 1, lastR, RS_NCOLS).Value
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        LastRow = UsedLastRow(ResultsSheet)
+        If LastRow >= OutputFirstRow(SH_RESULTS) Then
+            ResultsRows = TableRange(ResultsSheet, OutputFirstRow(SH_RESULTS), 1, LastRow, RS_NCOLS).Value
         End If
 
 End Function
 
 
 Private Function RowCount( _
-    ByVal outputRows As Variant) _
+    ByVal RowsBlock As Variant) _
     As Long
 '
 '==============================================================================
@@ -385,88 +385,89 @@ Private Function RowCount( _
 '   Number of rows in a ResultsRows array; 0 when it is Empty.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        If IsArray(outputRows) Then
-            RowCount = UBound(outputRows, 1)
+        If IsArray(RowsBlock) Then
+            RowCount = UBound(RowsBlock, 1)
         End If
 
 End Function
 
 
 Private Sub ExpectSameResults( _
-    ByVal original As Variant)
+    ByVal Original As Variant)
 '
 '==============================================================================
 '                              ExpectSameResults
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Record one check that the Results rows of the last run match original
+'   Record one check that the Results rows of the last run match Original
 '   cell by cell: numbers within REL_TOL, other values exactly. Rows are
 '   matched by netting-set ID, so the comparison does not rely on the
 '   order of the Results rows either.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim current   As Variant    'Results rows of the last run
-    Dim r         As Long       'Row of original
-    Dim q         As Long       'Matching row of current
-    Dim c         As Long       'Column
-    Dim a         As Variant    'Original value
-    Dim b         As Variant    'New value
-    Dim detail    As String     'First difference; "" when none
+    Dim CurrentRows     As Variant    'Results rows of the last run
+    Dim r               As Long       'Row of Original
+    Dim MatchRow        As Long       'Matching row of CurrentRows
+    Dim c               As Long       'Column
+    Dim OriginalValue   As Variant    'Original value
+    Dim NewValue        As Variant    'New value
+    Dim Detail          As String     'First difference; "" when none
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        current = ResultsRows()
-        If RowCount(current) <> RowCount(original) Then
-            detail = "Results has " & RowCount(current) & " rows, expected " & RowCount(original)
+        CurrentRows = ResultsRows()
+        If RowCount(CurrentRows) <> RowCount(Original) Then
+            Detail = "Results has " & RowCount(CurrentRows) & " rows, expected " & RowCount(Original)
         End If
-        For r = 1 To RowCount(original)
-            If Len(detail) > 0 Then
+        For r = 1 To RowCount(Original)
+            If Len(Detail) > 0 Then
                 Exit For
             End If
-            q = MatchingRow(current, SafeStr(original(r, 1)))
-            If q = 0 Then
-                detail = "netting set " & SafeStr(original(r, 1)) & " missing"
+            MatchRow = MatchingRow(CurrentRows, SafeStr(Original(r, 1)))
+            If MatchRow = 0 Then
+                Detail = "netting set " & SafeStr(Original(r, 1)) & " missing"
             Else
                 For c = 1 To RS_NCOLS
-                    a = original(r, c)
-                    b = current(q, c)
-                    If Not SameOutput(a, b) Then
-                        detail = SafeStr(original(r, 1)) & " column " & c & ": " & SafeStr(a) & _
-                                 " became " & SafeStr(b)
+                    OriginalValue = Original(r, c)
+                    NewValue = CurrentRows(MatchRow, c)
+                    If Not SameOutput(OriginalValue, NewValue) Then
+                        Detail = SafeStr(Original(r, 1)) & " column " & c & ": " & SafeStr(OriginalValue) & _
+                                 " became " & SafeStr(NewValue)
                         Exit For
                     End If
                 Next c
             End If
         Next r
-        TEST_CaseRunner.ExpectTrue "same-results", Len(detail) = 0, detail, "illustrative"
+        TEST_CaseRunner.ExpectTrue "same-results", Len(Detail) = 0, Detail, "illustrative"
 
 End Sub
 
 
 Private Function MatchingRow( _
-    ByVal outputRows As Variant, _
-    ByVal rowId As String) _
+    ByVal RowsBlock As Variant, _
+    ByVal RowId As String) _
     As Long
 '
 '==============================================================================
 '                                 MatchingRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Position of the row whose first column is rowId; 0 when absent.
+'   Position of the row of RowsBlock whose first column is RowId; 0 when
+'   absent.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
@@ -478,8 +479,8 @@ Private Function MatchingRow( _
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
-        For r = 1 To RowCount(outputRows)
-            If SafeStr(outputRows(r, 1)) = rowId Then
+        For r = 1 To RowCount(RowsBlock)
+            If SafeStr(RowsBlock(r, 1)) = RowId Then
                 MatchingRow = r
                 Exit Function
             End If
@@ -489,8 +490,8 @@ End Function
 
 
 Private Function SameOutput( _
-    ByVal a As Variant, _
-    ByVal b As Variant) _
+    ByVal FirstValue As Variant, _
+    ByVal SecondValue As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -502,15 +503,15 @@ Private Function SameOutput( _
 '   last bits.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(a) Or IsError(b) Then
-            SameOutput = IsError(a) And IsError(b)
-        ElseIf IsNum(a) And IsNum(b) Then
-            SameOutput = Abs(CDbl(a) - CDbl(b)) <= REL_TOL * Max2(1#, Abs(CDbl(a)))
+        If IsError(FirstValue) Or IsError(SecondValue) Then
+            SameOutput = IsError(FirstValue) And IsError(SecondValue)
+        ElseIf IsNum(FirstValue) And IsNum(SecondValue) Then
+            SameOutput = Abs(CDbl(FirstValue) - CDbl(SecondValue)) <= REL_TOL * Max2(1#, Abs(CDbl(FirstValue)))
         Else
-            SameOutput = (SafeStr(a) = SafeStr(b))
+            SameOutput = (SafeStr(FirstValue) = SafeStr(SecondValue))
         End If
 
 End Function
