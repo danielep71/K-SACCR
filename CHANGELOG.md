@@ -124,6 +124,16 @@ Use only the categories needed by a release.
   their fingerprint would be recomputed after every edit. `TEST_MainState`
   gains the case `results.edited-output`: 28 to 29 cases, 491 to 501 checks.
 
+- The benchmark `TEST_Benchmark` covers all six CRR asset classes (#309):
+  its mix of 21 legs adds an other-risks (OT) forward on three indices, long
+  and short, to the interest-rate, FX, credit, equity and commodity legs.
+  On the owner's Windows Excel host, 1,000 and 10,000 legs and the
+  inflated used range passed with every leg used and every netting set
+  `VALID` (23 checks, restoration PASS). `INSTALLATION.md` gives those
+  timings, states that the published larger sizes were measured on the
+  five-class mix, and that the timings measure the engine with all its
+  outputs, not the reconciliation or the evidence export.
+
 - The source round trip binds an export to its workbook (#313).
   `Export-SACCR-VBA.ps1` writes `export-manifest.json` with the workbook's
   SHA-256, taken before opening and checked after closing, and the SHA-256 of
