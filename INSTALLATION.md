@@ -89,10 +89,17 @@ set was `VALID` at each size.
 | 1,000 | 2 | 0.04 s | 0.31 s |
 | 10,000 | 20 | 0.28 s | 1.62 s |
 | 50,000 | 100 | 1.85 s | 8.50 s |
+| 500,000 | 1,000 | 15.58 s | 113.93 s |
 | 1,000, used range inflated to row 100,005 | 2 | 0.05 s | 2.20 s |
 
-- The engine has no fixed trade limit: 50,000 legs is the largest size
-  measured, not a cap. Times depend on the machine.
+- The engine has no fixed trade limit: 500,000 legs, calculated in under two
+  minutes, is the largest size measured, not a cap. The run time grows about
+  linearly with the legs (0.16 to 0.23 ms per leg here), and memory with it.
+  Times depend on the machine.
+- The 500,000-leg run used the benchmark at `8d14e30`, which differs from
+  the merged module only in restoring the sheets' used range between
+  scenarios; its used-range scenario, distorted by that leftover range, is
+  not reported.
 - The template's Trades dropdowns, input validation and formatting cover
   rows 5 to 5,000. Rows below are read and calculated the same way, but are
   entered without dropdowns or validation messages.

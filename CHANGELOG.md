@@ -276,8 +276,9 @@ pull requests.
   legs, or other sizes up to 1,000,000, and on 1,000 legs with an
   inflated Trades used range, and checks that every leg is used and every
   netting set is `VALID`. It is not a suite: `Test_RunAll` and the Excel
-  evidence do not include it. Measured on 2026-10-17: 50,000 legs in 8.5 s;
-  the results are in INSTALLATION under Portfolio size.
+  evidence do not include it. Measured on 2026-10-17: 50,000 legs in 8.5 s
+  and 500,000 legs in 114 s; the results are in INSTALLATION under Portfolio
+  size.
 - Numerical test cases as JSON fixtures, from which `TEST_Cases` is generated
   (#59, #44): the CRE99 examples are published references, the others
   illustrative. A failure-injection mode proves the suites catch a wrong value.
