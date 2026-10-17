@@ -102,11 +102,14 @@ exposure value of a netting set:
 - exposures to CCPs (Art. 301–311);
 - large exposures (Art. 390);
 - the leverage ratio, with RC net of eligible cash variation margin only and a
-  PFE multiplier of 1 (Art. 429c);
+  PFE multiplier of 1, except for client trades cleared through a QCCP
+  (Art. 429c);
 - CVA risk, through the standardised method under CRR2 and BA-CVA under CRR3
   (Art. 382–386);
-- the output floor of CRR3, 50% of standardised RWA in 2025 rising to 72.5%,
-  with α = 1 for institutions with IMM permission until 2029 (Art. 92(3), 465).
+- the output floor of CRR3, 50% of standardised RWA in 2025 rising to 72.5%;
+  until 31 December 2029, contracts whose un-floored exposure value comes from
+  the internal model method may use α = 1 in SA-CCR for the floor
+  (Art. 92(3), 465(4)).
 
 Each part is coloured by the regulation that brought it in, CRR2 (Regulation
 (EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
