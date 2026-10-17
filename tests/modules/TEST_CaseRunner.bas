@@ -7,7 +7,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   against the engine. The generated module TEST_Cases calls these
 '   procedures: for each case it writes the fixture into the input sheets,
 '   runs the engine, and compares the output cells with the expected values
-'   (methodology decision 7, #44).
+'   (methodology, running test cases; #44).
 '
 ' PUBLIC SURFACE
 '   InjectFailure, BeginSuite, BeginCase, LoadSavedInputs, SetParameter,

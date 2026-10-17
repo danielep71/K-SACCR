@@ -90,7 +90,7 @@ counterparties, collateral agreements or portfolio extracts.
 | --- | --- |
 | Envelope | `schema_version`, `kind`, `id` (equal to the file name), `synthetic: true`, `description` and `category` are required |
 | Units | In `netting_set` and `trades`, a field's suffix states its unit: `_amount` in `calculation_currency`, unscaled; `_date` as ISO `YYYY-MM-DD`; `_years` in years; `_business_days` in business days; `_rate` and `_factor` as decimals; `underlying_price`, `strike_price` and `lambda_price` share the underlying's unit, a decimal rate for an interest-rate option and a price otherwise. A quantity there never lacks a unit suffix. Envelope fields such as `schema_version` are metadata, not quantities |
-| Currencies | Every amount is in `calculation_currency`; amounts in other currencies are converted before they enter a fixture ([decision 6](README.md#assumptions-and-scope)). `risk_factor` names what the trade is exposed to: the interest-rate currency, the FX pair, the credit or equity reference, or the commodity |
+| Currencies | Every amount is in `calculation_currency`; amounts in other currencies are converted before they enter a fixture ([currency](README.md#assumptions-and-scope)). `risk_factor` names what the trade is exposed to: the interest-rate currency, the FX pair, the credit or equity reference, or the commodity |
 | Signs | Market values are from the bank's side: positive is an asset. `variation_margin_net_amount` and `independent_collateral_net_amount` are held minus posted. `notional_amount` is unsigned; `direction` gives the sign |
 | Parameters | A fixture runs with the default parameters of the workbook template's Params sheet (for example 365 days and 250 business days a year). `parameters` lists the Params values the case runs with instead, by code; `{}` for none. Accepted: `DaysPerYear` (a number from 360 to 366, the engine's range), so that a published maturity such as 0.75 years can be entered as dates, and `IRBucketOffset` (Boolean), so that a BCBS case can use the sum of absolute bucket values; a case that needs another parameter adds it to the format first |
 | Fields | Every field below is present in every fixture; `null` means not applicable or the default. `tools/check_test_cases.py` rejects an unknown, missing or mistyped field |
@@ -271,7 +271,7 @@ Each fixture declares one `category`:
 - The harness keeps its own completeness check: a run that does not execute
   every expected case and assertion is incomplete, not a pass.
 - v1.0.0 validates rules with `published` values only
-  ([decision 8](README.md#assumptions-and-scope)); `independent` values
+  ([evidence for v1.0.0](README.md#assumptions-and-scope)); `independent` values
   start in a later release, with a reviewer other than the author of the
   code under test.
 
@@ -297,7 +297,6 @@ give the same capped EAD (T16, T17), as the note under
 
 ## ⚙️ Consumption
 
-Decided by the owner on 2026-10-06 (decision 7, #44):
 `tools/generate_case_tests.py` generates `tests/modules/TEST_Cases.bas` from the
 JSON files, and `python tools/check.py` fails when the committed module is out
 of date. The generated module holds data only; the hand-written
