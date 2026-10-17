@@ -1140,11 +1140,11 @@ The release record summarizes evidence retained by the project owner; it does no
 
 This summary is for reviewers; a user does not need to repeat it. The maintainer runbook is [`RELEASING.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/RELEASING.md).
 
-1. One candidate commit was frozen, with `python tools/check.py` and the hosted **Repository integrity** check green on it.
-2. A development workbook was built from that commit's template and source on the owner's 64-bit Windows Excel host, and compiled.
-3. All eight suites were run, each on its own, and their logs recorded with the host details in an evidence record bound to the commit and to the SHA-256 of every source file; `tools/check_excel_evidence.py` validated it.
-4. The production workbook `K-SACCR_1.0.0.xlsm` was built from the same commit, compiled, run on the demonstration portfolio, cleared and saved, and its code compared with the source by the source round trip.
-5. The release branch was merged into `main`, the annotated tag `v1.0.0` was created on `main`, and the workbook, this manual's PDF and `SHA256SUMS.txt` were attached to the GitHub Release.
+1. The release branch was merged into `main`; that merge commit is the candidate, and `python tools/check.py` and the hosted **Repository integrity** check were green on it.
+2. A development workbook was built from the candidate's template and source on the owner's 64-bit Windows Excel host, and compiled.
+3. All eight suites were run, each on its own, and their logs recorded with the host details in an evidence record bound to the candidate and to the SHA-256 of every source file; `tools/check_excel_evidence.py` validated it.
+4. The production workbook `K-SACCR_1.0.0.xlsm` was built from the candidate, compiled, run on the demonstration portfolio, cleared and saved, and its code compared with the source by the source round trip. This manual's PDF was built from the same commit.
+5. The annotated tag `v1.0.0` was created on the candidate, and the workbook, this manual's PDF and `SHA256SUMS.txt` were attached to the GitHub Release.
 
 A published release is never changed: a correction comes as a new patch version.
 
