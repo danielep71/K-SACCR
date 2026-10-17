@@ -67,7 +67,7 @@
 > Unreleased in the [changelog](CHANGELOG.md). The engine
 > implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
 > v1.0.0, by the published CRE99 examples. CRR rules are implemented and tested
-> against illustrative values, not validated ([decision 8](docs/methodology/README.md#assumptions-and-scope)).
+> against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
 
 > [!NOTE]
 > The workbook is **not stored in the repository as a macro-enabled file**. It
