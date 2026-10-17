@@ -104,6 +104,19 @@ set was `VALID` at each size.
   scenarios; its used-range scenario, distorted by that leftover range, is
   not reported. The used-range row comes from the run of the merged module,
   in which 1,000 legs took 0.33 s without the stray row.
+- These timings were measured on the five-class mix of #291: interest
+  rates, FX, credit, equity and commodities. The benchmark now adds an
+  other-risks leg to every 21 legs (#309); on that six-class mix the owner
+  measured, on the same host on 2026-10-17 with the benchmark at `beff699`,
+  1,000 legs in 0.06 s and 0.49 s (writing, engine run), 10,000 legs in
+  0.34 s and 1.84 s, and 1,000 legs with the used range inflated to row
+  105,005 in 0.03 s and 2.10 s, every leg used and every netting set
+  `VALID`. The 50,000- and 500,000-leg sizes have not been rerun on it.
+- The timings measure the engine: reading the inputs, calculating and
+  writing all its outputs (TradeCalc, Buckets, HedgingSets, Results, Checks
+  and the run information). They do not include what **Run SA-CCR** does
+  around it, such as the reconciliation against bank figures, nor the
+  evidence export. Their time on large portfolios has not been measured.
 - The template's Trades dropdowns, input validation and formatting cover
   rows 5 to 5,000. Rows below are read and calculated the same way, but are
   entered without dropdowns or validation messages.
@@ -473,8 +486,9 @@ include it, because its timings depend on the machine. Needs
 CRR portfolios of the given numbers of legs (1,000 and 10,000 by default; up
 to 1,000,000, which needs memory and time in proportion), in netting sets of
 500 legs, alternately unmargined and margined, with interest-rate swaps, FX
-forwards and options, credit default swaps, equity forwards and options and
-commodity forwards, all valid; then, last, a portfolio of 1,000 legs with a
+forwards and options, credit default swaps, equity forwards and options,
+commodity forwards and other-risks forwards, all valid; then, last, a
+portfolio of 1,000 legs with a
 stray comment 100,000 rows below the end of the Trades used range, which
 inflates the sheet's used range. For each it times the writing of the inputs
 and the engine run, prints a `BENCH` line such as this one, with the seconds
