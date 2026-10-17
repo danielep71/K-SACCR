@@ -14,6 +14,14 @@ attributes of a document module are not compared either: the synchronizer
 replaces only its code, and Excel writes its attributes. Everything else must
 match. The source is read from Git at the candidate commit, not from the
 working tree. The tool never runs Excel. See docs/EXCEL_EVIDENCE.md.
+
+Source parity says nothing about which workbook the files came from. The
+exporter writes export-manifest.json (#313): the SHA-256 of the workbook it
+opened and of every file it exported. With --workbook the tool checks the
+workbook and the files against it and reports the binding as VERIFIED, as
+FAIL, or as UNVERIFIED for an export without a manifest. A manifest is a
+record, not a signature: it binds an export to a workbook, but it does not
+attest who made either.
 """
 from __future__ import annotations
 
@@ -23,12 +31,16 @@ import hashlib
 import json
 import re
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from _gatelib import git_bytes
 
 MANIFEST = "tools/vba-projects.json"
+EXPORT_MANIFEST = "export-manifest.json"
+EXPORT_FORMAT = "k-saccr-vba-export-1"
+VBA_PROJECT_PART = "xl/vbaProject.bin"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 VBA_ENCODING = "cp1252"
 SUFFIXES = (".bas", ".cls", ".frm")
@@ -179,13 +191,74 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def check_binding(folder: Path, workbook: Path | None) -> tuple[str, list[str]]:
+    """The binding of the export to the workbook, VERIFIED, UNVERIFIED or
+    FAIL, and the findings that make it FAIL.
+
+    A manifest that does not match the exported files fails even without
+    --workbook; without either, or without a manifest, the binding is
+    UNVERIFIED."""
+    path = folder / EXPORT_MANIFEST
+    if not path.is_file():
+        return "UNVERIFIED", []
+    try:
+        record = json.loads(path.read_bytes().decode("utf-8-sig"))
+        if not isinstance(record, dict) or record.get("format") != EXPORT_FORMAT:
+            raise ValueError(f"format is not {EXPORT_FORMAT}")
+        expected_workbook = record["workbook"]["sha256"].lower()
+        listed = {item["file"].lower(): (item["file"], item["name"], item["sha256"].lower())
+                  for item in record["components"]}
+        if len(listed) != len(record["components"]):
+            raise ValueError("a file is listed twice")
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        return "FAIL", [f"{EXPORT_MANIFEST} is not a valid export manifest: {error}"]
+    findings: list[str] = []
+    present = {item.name.lower(): item for item in folder.iterdir()
+               if item.is_file() and item.suffix.lower() in SUFFIXES}
+    findings += [f"{EXPORT_MANIFEST} lists {listed[key][0]}, which is not in the export"
+                 for key in sorted(set(listed) - set(present))]
+    findings += [f"{present[key].name} is in the export but not in {EXPORT_MANIFEST}"
+                 for key in sorted(set(present) - set(listed))]
+    for key in sorted(set(listed) & set(present)):
+        name, component, digest = listed[key]
+        data = present[key].read_bytes()
+        if sha256(data) != digest:
+            findings.append(f"{name} changed after the export: its SHA-256 is not the one in {EXPORT_MANIFEST}")
+            continue
+        try:
+            exported_name = parse(data, name).name
+        except ValueError:
+            continue  # reported by the source comparison
+        if exported_name != component:
+            findings.append(f"{name} declares VB_Name {exported_name}, {EXPORT_MANIFEST} names {component}")
+    if workbook is not None:
+        data = workbook.read_bytes()
+        if sha256(data) != expected_workbook:
+            findings.append(f"{workbook.name} is not the workbook the export was made from: "
+                            f"sha256 {sha256(data)}, {EXPORT_MANIFEST} records {expected_workbook}")
+        if not is_macro_workbook(workbook):
+            findings.append(f"{workbook.name} is not a macro-enabled workbook ({VBA_PROJECT_PART} not found)")
+    if findings:
+        return "FAIL", findings
+    return ("VERIFIED" if workbook is not None else "UNVERIFIED"), []
+
+
+def is_macro_workbook(path: Path) -> bool:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return VBA_PROJECT_PART in archive.namelist()
+    except (zipfile.BadZipFile, OSError):
+        return False
+
+
 def main(arguments: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--export", type=Path, required=True, help="folder written by Export-SACCR-VBA.ps1")
     parser.add_argument("--mode", choices=("production", "development"), required=True)
     parser.add_argument("--candidate-sha", default="HEAD", help="commit the workbook was built from")
-    parser.add_argument("--workbook", type=Path, help="built .xlsm, whose SHA-256 is printed")
+    parser.add_argument("--workbook", type=Path,
+                        help="built .xlsm the export was made from, checked against export-manifest.json")
     options = parser.parse_args(arguments)
     try:
         resolved = git_bytes(options.root, "rev-parse", "--verify", f"{options.candidate_sha}^{{commit}}")
@@ -197,6 +270,9 @@ def main(arguments: list[str] | None = None) -> int:
         expected = expected_components(options.root, sha, options.mode)
         exported = exported_components(options.export)
         findings, recased = compare(expected, exported)
+        if options.workbook is not None and not options.workbook.is_file():
+            raise ValueError(f"workbook not found: {options.workbook}")
+        binding, binding_findings = check_binding(options.export, options.workbook)
         template = sha256(committed(options.root, sha, TEMPLATE))
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
@@ -207,10 +283,23 @@ def main(arguments: list[str] | None = None) -> int:
     if options.workbook is not None:
         print(f"Workbook:  {options.workbook.name} sha256 {sha256(options.workbook.read_bytes())}")
     print(f"Re-cased:  {recased} line(s) differ only in the letter case of code (ignored)")
-    for finding in findings:
+    print(f"Binding:   {binding} - {binding_note(binding, options.export, options.workbook)}")
+    for finding in findings + binding_findings:
         print(f"  FAIL {finding}")
-    print(f"RESULT={'PASS' if not findings else 'FAIL'}; components={len(expected)}; differences={len(findings)}")
-    return 0 if not findings else 1
+    passed = not findings and binding != "FAIL"
+    print(f"RESULT={'PASS' if passed else 'FAIL'}; components={len(expected)}; "
+          f"differences={len(findings)}; binding={binding}")
+    return 0 if passed else 1
+
+
+def binding_note(binding: str, folder: Path, workbook: Path | None) -> str:
+    if binding == "VERIFIED":
+        return f"{EXPORT_MANIFEST} records this workbook and every exported file"
+    if binding == "FAIL":
+        return f"the export, {EXPORT_MANIFEST} and the workbook do not agree"
+    if not (folder / EXPORT_MANIFEST).is_file():
+        return f"no {EXPORT_MANIFEST}: the export is not bound to a workbook"
+    return "no --workbook given: the export is not checked against a workbook"
 
 
 if __name__ == "__main__":

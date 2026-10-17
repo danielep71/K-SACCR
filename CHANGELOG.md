@@ -94,6 +94,17 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Changed
+
+- The source round trip binds an export to its workbook (#313).
+  `Export-SACCR-VBA.ps1` writes `export-manifest.json` with the workbook's
+  SHA-256, taken before opening and checked after closing, and the SHA-256 of
+  every exported file. `compare_vba_export.py --workbook` checks both against
+  it and reports `binding=VERIFIED`, `FAIL` (which fails the result) or
+  `UNVERIFIED` for an export without a manifest. Before, `--workbook` only
+  printed a digest, so an export from one workbook could be presented with
+  another. A release workbook now needs `binding=VERIFIED`.
+
 ### Fixed
 
 - A failed reconciliation now keeps its cause in the run message: the

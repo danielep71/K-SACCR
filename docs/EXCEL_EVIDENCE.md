@@ -162,7 +162,9 @@ project object model* enabled, and Python on the same machine.
    VBAProject**, then **Run SA-CCR** on the demonstration portfolio (and, in a
    development workbook, `TEST_Suite.Test_RunAll`). Save and close.
 4. **Export** to a new folder; the workbook is opened read-only and not
-   changed:
+   changed. Beside the components the script writes `export-manifest.json`:
+   the workbook's file name and SHA-256, taken before opening and checked
+   again after closing, and the SHA-256 of every exported file:
 
    ```powershell
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -OutDir "C:\path\export"
@@ -175,9 +177,20 @@ project object model* enabled, and Python on the same machine.
    ```
 
    It prints the candidate, the template and workbook SHA-256 digests, the
-   number of re-cased lines, one `FAIL` line per difference and
-   `RESULT=PASS` or `RESULT=FAIL`. Code and the `Attribute` lines of standard
-   modules must match. Ignored:
+   number of re-cased lines, the binding, one `FAIL` line per difference and
+   `RESULT=PASS` or `RESULT=FAIL` with `binding=...`. It checks two things:
+   - **source parity:** the exported components against the source of the
+     candidate;
+   - **workbook binding:** the workbook and the exported files against
+     `export-manifest.json`. `VERIFIED` means the manifest records this
+     workbook and every file in the folder, unchanged; `FAIL` means they do
+     not agree, or `--workbook` is not a macro-enabled workbook, and fails the
+     result; `UNVERIFIED` means there is no manifest (an export made before
+     it existed) or no `--workbook`, and only source parity was checked.
+
+   A manifest is a record, not a signature: it ties the export to one
+   workbook file, but does not attest who made either. Code and the
+   `Attribute` lines of standard modules must match. Ignored:
    - line endings, trailing blank lines and the `VERSION`/`BEGIN`/`END` block
      of a class file;
    - letter case in code outside string literals and comments. VBA names are

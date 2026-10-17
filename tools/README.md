@@ -37,9 +37,12 @@ See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
 The script opens a built workbook read-only in Excel and exports every VBA
-component to a new folder; the comparison checks that folder against the
-source of one commit for a production or development workbook, and prints the
-template and workbook digests. It ignores the letter case of code outside
+component to a new folder, with `export-manifest.json` recording the
+workbook's SHA-256 and every exported file's; the comparison checks that
+folder against the source of one commit for a production or development
+workbook, prints the template and workbook digests, and with `--workbook`
+checks the workbook binding against the manifest (`VERIFIED`, `FAIL`, or
+`UNVERIFIED` without a manifest). It ignores the letter case of code outside
 strings and comments, which the VBE re-cases on import, and the attributes of
 document modules, which Excel writes. Its tests run in `tool-tests`, without
 Excel.
