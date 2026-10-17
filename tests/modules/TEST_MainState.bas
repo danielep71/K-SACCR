@@ -15,40 +15,44 @@ Attribute VB_Name = "TEST_MainState"
 '   change (issue #197); that an output cell edited after a run is
 '   reported as EDITED, refused by the evidence export and cleared by a
 '   new run (issue #315); that a run summary that cannot be composed does
-'   not fail the run (issue #60); that a run in manual calculation recalculates
-'   its formula inputs before reading them, and stops without reporting
-'   old results as current when that recalculation does not finish (issue
-'   #195) or raises an error (issue #204); and that every output table is
-'   located through the workbook name of its first header cell, so that it
-'   can move.
+'   not fail the run (issue #60); that a run in manual calculation
+'   recalculates its formula inputs before reading them, and stops without
+'   reporting old results as current when that recalculation does not
+'   finish (issue #195) or raises an error (issue #204); and that every
+'   output table is located through the workbook name of its first header
+'   cell, so that it can move.
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
 '   of the external workbook automation API.
 '
 ' DEPENDENCIES
-'   M_Main and its test seam gTestFault, the CORE_Engine test seam
-'   gEngineFault, the error numbers in CORE_Config, and TEST_Suite.Say for
-'   the log lines. The workbook must be built from the template with the
-'   full source, because the macros calculate and write the output sheets.
+'   M_Main, its flags gSilent and gQuietLog and its test seam gTestFault,
+'   the CORE_Engine test seam gEngineFault, the sheet and table helpers of
+'   CORE_Util, the names, columns and error numbers in CORE_Config, and
+'   TEST_Suite.Say for the log lines. The workbook must be built from the
+'   template with the full source, because the macros calculate and write
+'   the output sheets.
 '
 ' WORKSHEET SAFETY
 '   Unlike TEST_Harness, this module runs the real macros: they clear and
-'   rewrite TradeCalc, Buckets, HedgingSets, Results and Checks, and
-'   activate the Checks sheet. One case protects the Checks sheet for one
-'   run and unprotects it again, also after an unexpected error. One case
-'   inserts a column before the Params tables for its run and deletes it
-'   again, also after an unexpected error. One case switches the workbook
-'   to the 1904 date system and back, also after an unexpected error. One
-'   case inserts a row above the HedgingSets table for its run and deletes
-'   it again, and breaks the Checks_Header name and restores it, also after
-'   an unexpected error. The last case leaves the
-'   outputs of a normal run. Use a development workbook only.
+'   rewrite TradeCalc, Buckets, HedgingSets, Results, Checks and the
+'   reconciliation sheets, and activate the Checks sheet. Several cases
+'   edit an input or output cell and put it back. Some cases protect the
+'   Checks sheet or output sheets for one run and unprotect them again. One
+'   case inserts a column before the Params tables for its run and deletes
+'   it again. One case switches the workbook to the 1904 date system and
+'   back. One case inserts a row above the HedgingSets table for its run
+'   and deletes it again, and breaks the Checks_Header name and restores
+'   it. Each of these is undone also after an unexpected error. The last
+'   case leaves the outputs of a normal run. Use a development workbook
+'   only.
 '
 ' STATE OWNERSHIP
 '   Sets calculation mode, events and screen updating to known values for
-'   each case and restores the caller's values, gSilent, gQuietLog,
-'   gTestFault and gEngineFault at the end, also after an unexpected error.
+'   each case. At the end it restores the caller's values, gSilent and
+'   gQuietLog, and leaves gTestFault and gEngineFault empty; a case that
+'   fails unexpectedly does not stop the others from running.
 '   gQuietLog is set for the run: the macros' run messages would push the
 '   report out of the Immediate window, which keeps about 200 lines.
 '
@@ -108,7 +112,8 @@ Public Sub RunMainStateTests()
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, screen updating,
-'   gSilent, gQuietLog and gTestFault before printing the result.
+'   gSilent and gQuietLog, and empties gTestFault and gEngineFault, before
+'   printing the result.
 '
 ' UPDATED
 '   2026-10-17
@@ -118,12 +123,12 @@ Public Sub RunMainStateTests()
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim callerCalculation   As XlCalculation    'Caller's calculation mode
-    Dim callerEvents        As Boolean          'Caller's EnableEvents
-    Dim callerScreen        As Boolean          'Caller's ScreenUpdating
-    Dim callerSilent        As Boolean          'Caller's M_Main.gSilent
-    Dim callerQuiet         As Boolean          'Caller's M_Main.gQuietLog
-    Dim restored            As Boolean          'Caller's settings read back equal
+    Dim CallerCalculation   As XlCalculation    'Caller's calculation mode
+    Dim CallerEvents        As Boolean          'Caller's EnableEvents
+    Dim CallerScreen        As Boolean          'Caller's ScreenUpdating
+    Dim CallerSilent        As Boolean          'Caller's M_Main.gSilent
+    Dim CallerQuiet         As Boolean          'Caller's M_Main.gQuietLog
+    Dim Restored            As Boolean          'Caller's settings read back equal
 
 '------------------------------------------------------------------------------
 ' START
@@ -131,11 +136,11 @@ Public Sub RunMainStateTests()
         mCaseCount = 0
         mCheckCount = 0
         mFailureCount = 0
-        callerCalculation = Application.Calculation
-        callerEvents = Application.EnableEvents
-        callerScreen = Application.ScreenUpdating
-        callerSilent = M_Main.gSilent
-        callerQuiet = M_Main.gQuietLog
+        CallerCalculation = Application.Calculation
+        CallerEvents = Application.EnableEvents
+        CallerScreen = Application.ScreenUpdating
+        CallerSilent = M_Main.gSilent
+        CallerQuiet = M_Main.gQuietLog
         TEST_Suite.Say "SACCR MAIN STATE TESTS"
 
 '------------------------------------------------------------------------------
@@ -182,21 +187,21 @@ Public Sub RunMainStateTests()
 '------------------------------------------------------------------------------
         M_Main.gTestFault = ""
         CORE_Engine.gEngineFault = ""
-        M_Main.gSilent = callerSilent
-        M_Main.gQuietLog = callerQuiet
-        Application.Calculation = callerCalculation
-        Application.EnableEvents = callerEvents
-        Application.ScreenUpdating = callerScreen
-        restored = (Application.Calculation = callerCalculation) And _
-                   (Application.EnableEvents = callerEvents) And _
-                   (Application.ScreenUpdating = callerScreen)
+        M_Main.gSilent = CallerSilent
+        M_Main.gQuietLog = CallerQuiet
+        Application.Calculation = CallerCalculation
+        Application.EnableEvents = CallerEvents
+        Application.ScreenUpdating = CallerScreen
+        Restored = (Application.Calculation = CallerCalculation) And _
+                   (Application.EnableEvents = CallerEvents) And _
+                   (Application.ScreenUpdating = CallerScreen)
         If mCaseCount <> EXPECTED_CASES Then
             Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
         End If
         TEST_Suite.Say "CASES=" & mCaseCount & "; CHECKS=" & mCheckCount & "; FAILURES=" & mFailureCount
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And restored, "PASS", "FAIL") & _
+        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And Restored, "PASS", "FAIL") & _
                     "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount & "; caller_state=" & IIf(restored, "RESTORED", "CHANGED")
+                    "; failures=" & mFailureCount & "; caller_state=" & IIf(Restored, "RESTORED", "CHANGED")
 
 End Sub
 
@@ -210,11 +215,11 @@ End Sub
 '
 
 Private Sub CaseRestoresState( _
-    ByVal caseName As String, _
-    ByVal operation As String, _
-    ByVal calcMode As XlCalculation, _
-    ByVal eventsOn As Boolean, _
-    ByVal screenOn As Boolean)
+    ByVal CaseName As String, _
+    ByVal Operation As String, _
+    ByVal CalcMode As XlCalculation, _
+    ByVal EventsOn As Boolean, _
+    ByVal ScreenOn As Boolean)
 '
 '==============================================================================
 '                              CaseRestoresState
@@ -224,43 +229,43 @@ Private Sub CaseRestoresState( _
 '   back to its value, including settings that were off before the run.
 '
 ' INPUTS
-'   caseName: case identifier.
-'   operation: "clear", "validate" or "run".
-'   calcMode, eventsOn, screenOn: the settings before the operation.
+'   CaseName: case identifier.
+'   Operation: "clear", "validate" or "run".
+'   CalcMode, EventsOn, ScreenOn: the settings before the operation.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result   As String    'Result line of a run
+    Dim Result   As String    'Result line of a run
 
 '------------------------------------------------------------------------------
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase caseName
-        SetState calcMode, eventsOn, screenOn
-        Select Case operation
+        BeginCase CaseName
+        SetState CalcMode, EventsOn, ScreenOn
+        Select Case Operation
             Case "clear"
                 M_Main.ClearOutputs
             Case "validate"
                 M_Main.ValidateInputs
             Case "run"
-                result = M_Main.RunSACCR_Silent()
-                Check Left$(result, 9) = "RESULT=OK", "run result: " & result
+                Result = M_Main.RunSACCR_Silent()
+                Check Left$(Result, 9) = "RESULT=OK", "run result: " & Result
         End Select
-        CheckState calcMode, eventsOn, screenOn
+        CheckState CalcMode, EventsOn, ScreenOn
         Exit Sub
 
 '------------------------------------------------------------------------------
 ' HANDLE UNEXPECTED ERROR
 '------------------------------------------------------------------------------
 Unexpected:
-        Fail caseName, "unexpected error " & Err.Number & ": " & Err.Description
+        Fail CaseName, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -275,16 +280,16 @@ Private Sub CaseOperationFailure()
 '   restored, and the next run works.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String    'Result line of the follow-up run
-    Dim errNumber   As Long      'Error raised by the failed run
-    Dim errText     As String    'Its description
+    Dim Result        As String    'Result line of the follow-up run
+    Dim ErrorNumber   As Long      'Error raised by the failed run
+    Dim ErrorText     As String    'Its description
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -294,17 +299,17 @@ Private Sub CaseOperationFailure()
         SetState xlCalculationAutomatic, False, False
         M_Main.gTestFault = "operation"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check errNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & errNumber & ": " & errText
+        Check ErrorNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & ErrorNumber & ": " & ErrorText
         CheckState xlCalculationAutomatic, False, False
 
     'The re-entry flag must have been cleared: the next run completes.
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -327,16 +332,16 @@ Private Sub CaseCleanupFailure()
 '   settings are still restored, and the next run works.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String    'Result line of the follow-up run
-    Dim errNumber   As Long      'Error raised by the failed run
-    Dim errText     As String    'Its description
+    Dim Result        As String    'Result line of the follow-up run
+    Dim ErrorNumber   As Long      'Error raised by the failed run
+    Dim ErrorText     As String    'Its description
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -348,20 +353,20 @@ Private Sub CaseCleanupFailure()
         SetState xlCalculationAutomatic, False, False
         M_Main.gTestFault = "cleanup"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check errNumber = ERR_CLEANUP_FAILED, "expected the cleanup error, got " & errNumber & ": " & errText
-        Check InStr(errText, "Calculation:") > 0, "cleanup detail names calculation: " & errText
-        Check InStr(errText, "RESULT=OK") > 0, "cleanup error keeps the run result: " & errText
+        Check ErrorNumber = ERR_CLEANUP_FAILED, "expected the cleanup error, got " & ErrorNumber & ": " & ErrorText
+        Check InStr(ErrorText, "Calculation:") > 0, "cleanup detail names calculation: " & ErrorText
+        Check InStr(ErrorText, "RESULT=OK") > 0, "cleanup error keeps the run result: " & ErrorText
         CheckState xlCalculationManual, False, False
 
     'After the user restores the mode by hand, the next run works.
         Application.Calculation = xlCalculationAutomatic
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -386,17 +391,17 @@ Private Sub CaseChecksUnwritable()
 '   writable again (#36).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim results     As Worksheet    'Results sheet
-    Dim result      As String       'Result line of the follow-up run
-    Dim errNumber   As Long         'Error raised by the failed run
-    Dim errText     As String       'Its description
+    Dim ResultsSheet   As Worksheet    'Results sheet
+    Dim Result         As String       'Result line of the follow-up run
+    Dim ErrorNumber    As Long         'Error raised by the failed run
+    Dim ErrorText      As String       'Its description
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -404,23 +409,23 @@ Private Sub CaseChecksUnwritable()
         On Error GoTo Unexpected
         BeginCase "run.checks-unwritable"
         SetState xlCalculationAutomatic, False, False
-        Set results = GetSheet(SH_RESULTS)
+        Set ResultsSheet = GetSheet(SH_RESULTS)
         GetSheet(SH_CHECKS).Protect
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         GetSheet(SH_CHECKS).Unprotect
-        Check errNumber = ERR_CHECKS_WRITE, "expected the Checks write error, got " & errNumber & ": " & errText
-        Check IsBlankCell(TableCell(results, OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
-        Check InStr(1, SafeStr(results.Range(RUNINFO_CELL).Value), "Checks sheet could not be written", _
-                    vbTextCompare) > 0, "run summary does not say why: " & SafeStr(results.Range(RUNINFO_CELL).Value)
+        Check ErrorNumber = ERR_CHECKS_WRITE, "expected the Checks write error, got " & ErrorNumber & ": " & ErrorText
+        Check IsBlankCell(TableCell(ResultsSheet, OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
+        Check InStr(1, SafeStr(ResultsSheet.Range(RUNINFO_CELL).Value), "Checks sheet could not be written", _
+                    vbTextCompare) > 0, "run summary does not say why: " & SafeStr(ResultsSheet.Range(RUNINFO_CELL).Value)
         CheckState xlCalculationAutomatic, False, False
 
     'With the sheet writable again, the next run works.
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -472,18 +477,18 @@ Private Sub CaseOutputWriteFailure()
 '   why, Excel is restored, and the next run works (#36).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String    'Result line of the follow-up run
-    Dim errNumber   As Long      'Error raised by the failed run
-    Dim errSource   As String    'Original error source
-    Dim errText     As String    'Its description
-    Dim summary     As String    'Results C4 after the failed run
+    Dim Result        As String    'Result line of the follow-up run
+    Dim ErrorNumber   As Long      'Error raised by the failed run
+    Dim ErrorSource   As String    'Original error source
+    Dim ErrorText     As String    'Its description
+    Dim Summary       As String    'Results C4 after the failed run
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -493,27 +498,27 @@ Private Sub CaseOutputWriteFailure()
         SetState xlCalculationAutomatic, False, False
         CORE_Engine.gEngineFault = "outputs"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
-        errSource = Err.Source
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
+        ErrorSource = Err.Source
         On Error GoTo Unexpected
         CORE_Engine.gEngineFault = ""
-        Check errNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & errNumber & ": " & errText
-        Check errSource = "CORE_Engine.Calculate", "injected error source was replaced: " & errSource
-        Check errText = "Injected output failure.", "injected error description was replaced: " & errText
+        Check ErrorNumber = ERR_INJECTED_FAULT, "expected the injected error, got " & ErrorNumber & ": " & ErrorText
+        Check ErrorSource = "CORE_Engine.Calculate", "injected error source was replaced: " & ErrorSource
+        Check ErrorText = "Injected output failure.", "injected error description was replaced: " & ErrorText
         Check IsBlankCell(TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 1).Value), "TradeCalc rows were not withdrawn"
         Check IsBlankCell(TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
         Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), 1).Value), "Buckets rows were not withdrawn"
-        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
-        Check InStr(1, summary, "results withdrawn", vbTextCompare) > 0, "run summary does not say why: " & summary
+        Summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check InStr(1, Summary, "results withdrawn", vbTextCompare) > 0, "run summary does not say why: " & Summary
         Check ChecksMention("Injected output failure"), "Checks does not show the error"
         Check M_Main.ResultsStatus() = "NONE", "results status after a failed run: " & M_Main.ResultsStatus()
         CheckState xlCalculationAutomatic, False, False
 
     'The next run works and writes every sheet again.
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -539,15 +544,15 @@ Private Sub CaseRunInfoFailure()
 '   writes the full summary again (#60).
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result    As String    'Result line of a run
-    Dim summary   As String    'Results C4
+    Dim Result    As String    'Result line of a run
+    Dim Summary   As String    'Results C4
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -556,21 +561,21 @@ Private Sub CaseRunInfoFailure()
         BeginCase "run.summary-unavailable"
         SetState xlCalculationAutomatic, False, False
         CORE_Engine.gEngineFault = "runinfo"
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         CORE_Engine.gEngineFault = ""
-        Check Left$(result, 9) = "RESULT=OK", "run with a failed summary: " & result
+        Check Left$(Result, 9) = "RESULT=OK", "run with a failed summary: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "results status: " & M_Main.ResultsStatus()
-        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
-        Check InStr(1, summary, "run summary unavailable", vbTextCompare) > 0 And _
-              InStr(1, summary, "Injected run-summary failure", vbTextCompare) > 0, _
-              "Results C4 does not say the summary is unavailable: " & summary
+        Summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check InStr(1, Summary, "run summary unavailable", vbTextCompare) > 0 And _
+              InStr(1, Summary, "Injected run-summary failure", vbTextCompare) > 0, _
+              "Results C4 does not say the summary is unavailable: " & Summary
         CheckState xlCalculationAutomatic, False, False
 
     'The next run writes the full summary again.
-        result = M_Main.RunSACCR_Silent()
-        summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
-        Check InStr(1, summary, " | inputs ", vbBinaryCompare) > 0, "follow-up summary: " & summary
+        Result = M_Main.RunSACCR_Silent()
+        Summary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
+        Check InStr(1, Summary, " | inputs ", vbBinaryCompare) > 0, "follow-up summary: " & Summary
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -595,31 +600,31 @@ Private Sub CaseOutputCleanupFailure()
 ' ERROR POLICY
 '   Always reset the fault seam; the normal recovery run clears retained data.
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
-    Dim result As String       'Silent result
-    Dim errNumber As Long      'Raised primary error
-    Dim errSource As String    'Raised source
-    Dim errText As String      'Primary text with appended cleanup diagnostics
+    Dim Result        As String    'Silent result
+    Dim ErrorNumber   As Long      'Raised primary error
+    Dim ErrorSource   As String    'Raised source
+    Dim ErrorText     As String    'Primary text with appended cleanup diagnostics
         On Error GoTo Unexpected
         BeginCase "run.output-and-cleanup-failure"
         SetState xlCalculationAutomatic, False, False
         CORE_Engine.gEngineFault = "outputs+cleanup"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errSource = Err.Source
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         CORE_Engine.gEngineFault = ""
-        Check errNumber = ERR_INJECTED_FAULT, "cleanup replaced the primary error number"
-        Check errSource = "CORE_Engine.Calculate", "cleanup replaced the primary source"
-        Check Left$(errText, Len("Injected output failure.")) = "Injected output failure.", "primary text lost"
-        Check InStr(errText, SH_TRADECALC & " [error " & CStr(ERR_CLEANUP_FAILED)) > 0, "first cleanup error lost"
-        Check InStr(errText, SH_RESULTS & " [error " & CStr(ERR_CLEANUP_FAILED)) > 0, "second cleanup error lost"
-        Check InStr(errText, "source=CORE_Engine.TryClearOutput]: Injected output cleanup failure.") > 0, _
+        Check ErrorNumber = ERR_INJECTED_FAULT, "cleanup replaced the primary error number"
+        Check ErrorSource = "CORE_Engine.Calculate", "cleanup replaced the primary source"
+        Check Left$(ErrorText, Len("Injected output failure.")) = "Injected output failure.", "primary text lost"
+        Check InStr(ErrorText, SH_TRADECALC & " [error " & CStr(ERR_CLEANUP_FAILED)) > 0, "first cleanup error lost"
+        Check InStr(ErrorText, SH_RESULTS & " [error " & CStr(ERR_CLEANUP_FAILED)) > 0, "second cleanup error lost"
+        Check InStr(ErrorText, "source=CORE_Engine.TryClearOutput]: Injected output cleanup failure.") > 0, _
               "cleanup source/description lost"
-        Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "incomplete cleanup reported as withdrawn"
+        Check InStr(1, ErrorText, "results withdrawn", vbTextCompare) = 0, "incomplete cleanup reported as withdrawn"
         Check Not IsBlankCell(TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), 1).Value), "expected retained partial Results"
         Check IsBlankCell(TableCell(GetSheet(SH_BUCKETS), OutputFirstRow(SH_BUCKETS), 1).Value), "Buckets skipped after first cleanup failure"
         Check IsBlankCell(TableCell(GetSheet(SH_HEDGING), OutputFirstRow(SH_HEDGING), 1).Value), "HedgingSets not cleared"
@@ -627,8 +632,8 @@ Private Sub CaseOutputCleanupFailure()
         Check ChecksMention("Injected output cleanup failure."), "Checks lost cleanup failure"
         Check M_Main.ResultsStatus() = "NONE", "failed run left valid results"
         CheckState xlCalculationAutomatic, False, False
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "recovery run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "recovery run: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "recovery fingerprint missing"
         Check Not ChecksMention("Injected output cleanup failure."), "recovery retained cleanup diagnostic"
         CheckState xlCalculationAutomatic, False, False
@@ -640,9 +645,9 @@ End Sub
 
 
 Private Sub CaseProtectedOutput( _
-    ByVal protectedSheet As String, _
-    Optional ByVal secondSheet As String = "", _
-    Optional ByVal protectChecks As Boolean = False)
+    ByVal ProtectedSheet As String, _
+    Optional ByVal SecondSheet As String = "", _
+    Optional ByVal ProtectChecks As Boolean = False)
 '
 '==============================================================================
 '                             CaseProtectedOutput
@@ -652,163 +657,164 @@ Private Sub CaseProtectedOutput( _
 '   protected. Every writable output must clear, all cleanup failures must
 '   be named, the primary error must survive, and an unprotected rerun works.
 ' INPUTS
-'   protectedSheet, secondSheet: outputs to protect (second may be empty).
-'   protectChecks: also make the diagnostic sheet unwritable.
+'   ProtectedSheet, SecondSheet: outputs to protect (SecondSheet may be
+'   empty).
+'   ProtectChecks: also make the Checks sheet unwritable.
 ' ERROR POLICY
 '   Undo only protection owned by this case, including on unexpected errors.
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
-    Dim result As String              'Run result
-    Dim errNumber As Long             'Reported run error
-    Dim errSource As String           'Reported error source
-    Dim errText As String             'Reported error description
-    Dim primaryNumber As Long         'First failing clear, before running engine
-    Dim primarySource As String       'Expected primary source
-    Dim primaryText As String         'Expected primary description
-    Dim probeNumber As Long           'One protected clear's error
-    Dim probeSource As String         'One protected clear's source
-    Dim probeText As String           'One protected clear's description
-    Dim detail(0 To 3) As String       'Expected exact cleanup detail per sheet
-    Dim lastRows(0 To 3) As Long       'Bounds before clearing (UsedRange may shrink)
-    Dim ownsProtection(0 To 3) As Boolean
-    Dim ownsChecks As Boolean         'Only undo protection set by this case
-    Dim sheetNames As Variant         'Output names in engine clear order
-    Dim widths As Variant             'Corresponding output table widths
-    Dim i As Long                     'Output index
-    Dim oldSummary As String          'Successful summary before protection
-    Dim statusFormula As Variant      'C5 formula/text must not be overwritten
-    Dim caseName As String            'Distinct regression identifier
+    Dim Result                    As String     'Run result
+    Dim ErrorNumber               As Long       'Reported run error
+    Dim ErrorSource               As String     'Reported error source
+    Dim ErrorText                 As String     'Reported error description
+    Dim PrimaryNumber             As Long       'Error of the first protected clear, probed before the run
+    Dim PrimarySource             As String     'Expected primary source
+    Dim PrimaryText               As String     'Expected primary description
+    Dim ProbeNumber               As Long       'One protected clear's error
+    Dim ProbeSource               As String     'One protected clear's source
+    Dim ProbeText                 As String     'One protected clear's description
+    Dim ExpectedDetails(0 To 3)   As String     'Expected exact cleanup detail per sheet
+    Dim LastRows(0 To 3)          As Long       'Last used row before clearing (UsedRange may shrink)
+    Dim OwnsProtection(0 To 3)    As Boolean    'Protection set by this case, per output
+    Dim OwnsChecks                As Boolean    'Only undo protection set by this case
+    Dim SheetNames                As Variant    'Output names in engine clear order
+    Dim Widths                    As Variant    'Corresponding output table widths
+    Dim i                         As Long       'Output index
+    Dim OldSummary                As String     'Successful summary before protection
+    Dim StatusFormula             As Variant    'C5 formula/text must not be overwritten
+    Dim CaseName                  As String     'Distinct regression identifier
         On Error GoTo Unexpected
-        caseName = "run.protected-output." & protectedSheet
-        If Len(secondSheet) > 0 Then caseName = caseName & "+" & secondSheet
-        If protectChecks Then caseName = caseName & "+Checks"
-        BeginCase caseName
+        CaseName = "run.protected-output." & ProtectedSheet
+        If Len(SecondSheet) > 0 Then CaseName = CaseName & "+" & SecondSheet
+        If ProtectChecks Then CaseName = CaseName & "+Checks"
+        BeginCase CaseName
         SetState xlCalculationAutomatic, False, False
-        sheetNames = Array(SH_TRADECALC, SH_BUCKETS, SH_HEDGING, SH_RESULTS)
-        widths = Array(TC_NCOLS, BK_NCOLS, HS_NCOLS, RS_NCOLS)
+        SheetNames = Array(SH_TRADECALC, SH_BUCKETS, SH_HEDGING, SH_RESULTS)
+        Widths = Array(TC_NCOLS, BK_NCOLS, HS_NCOLS, RS_NCOLS)
         For i = 0 To 3
-            If GetSheet(CStr(sheetNames(i))).ProtectContents Then
-                Fail caseName, "test requires initially unprotected " & CStr(sheetNames(i))
+            If GetSheet(CStr(SheetNames(i))).ProtectContents Then
+                Fail CaseName, "test requires initially unprotected " & CStr(SheetNames(i))
                 Exit Sub
             End If
         Next i
         If GetSheet(SH_CHECKS).ProtectContents Then
-            Fail caseName, "test requires initially unprotected Checks"
+            Fail CaseName, "test requires initially unprotected Checks"
             Exit Sub
         End If
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "setup run: " & result
-        oldSummary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
-        statusFormula = GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "setup run: " & Result
+        OldSummary = SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value)
+        StatusFormula = GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula
         For i = 0 To 3
-            TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value = "OLD-OUTPUT"
-            lastRows(i) = UsedLastRow(GetSheet(CStr(sheetNames(i))))
-            If CStr(sheetNames(i)) = protectedSheet Or CStr(sheetNames(i)) = secondSheet Then
-                GetSheet(CStr(sheetNames(i))).Protect
-                ownsProtection(i) = True
+            TableCell(GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), 1).Value = "OLD-OUTPUT"
+            LastRows(i) = UsedLastRow(GetSheet(CStr(SheetNames(i))))
+            If CStr(SheetNames(i)) = ProtectedSheet Or CStr(SheetNames(i)) = SecondSheet Then
+                GetSheet(CStr(SheetNames(i))).Protect
+                OwnsProtection(i) = True
                 'Capture Excel's localized error independently, before the run.
                 On Error Resume Next
-                ClearOutputBlock GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), CLng(widths(i))
-                probeNumber = Err.Number
-                probeSource = Err.Source
-                probeText = Err.Description
+                ClearOutputBlock GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), CLng(Widths(i))
+                ProbeNumber = Err.Number
+                ProbeSource = Err.Source
+                ProbeText = Err.Description
                 On Error GoTo Unexpected
-                Check probeNumber <> 0, "protected clear probe did not fail"
-                If primaryNumber = 0 Then
-                    primaryNumber = probeNumber
-                    primarySource = probeSource
-                    primaryText = probeText
+                Check ProbeNumber <> 0, "protected clear probe did not fail"
+                If PrimaryNumber = 0 Then
+                    PrimaryNumber = ProbeNumber
+                    PrimarySource = ProbeSource
+                    PrimaryText = ProbeText
                 End If
-                detail(i) = CStr(sheetNames(i)) & " [error " & CStr(probeNumber) & _
-                            "; source=" & probeSource & "]: " & probeText
+                ExpectedDetails(i) = CStr(SheetNames(i)) & " [error " & CStr(ProbeNumber) & _
+                            "; source=" & ProbeSource & "]: " & ProbeText
             End If
         Next i
-        If protectChecks Then
+        If ProtectChecks Then
             GetSheet(SH_CHECKS).Protect
-            ownsChecks = True
+            OwnsChecks = True
         End If
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errSource = Err.Source
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
         On Error GoTo Unexpected
-        Check errNumber = primaryNumber And errNumber <> 0, "primary error number was replaced"
-        Check errSource = primarySource, "primary error source was replaced: " & errSource
-        Check Left$(errText, Len(primaryText)) = primaryText, "original error description was lost: " & errText
-        Check InStr(1, errText, "output cleanup incomplete", vbTextCompare) > 0, "missing incomplete cleanup warning"
-        Check InStr(1, errText, "results withdrawn", vbTextCompare) = 0, "reported withdrawal despite retained outputs"
+        Check ErrorNumber = PrimaryNumber And ErrorNumber <> 0, "primary error number was replaced"
+        Check ErrorSource = PrimarySource, "primary error source was replaced: " & ErrorSource
+        Check Left$(ErrorText, Len(PrimaryText)) = PrimaryText, "original error description was lost: " & ErrorText
+        Check InStr(1, ErrorText, "output cleanup incomplete", vbTextCompare) > 0, "missing incomplete cleanup warning"
+        Check InStr(1, ErrorText, "results withdrawn", vbTextCompare) = 0, "reported withdrawal despite retained outputs"
         For i = 0 To 3
-            If ownsProtection(i) Then
-                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value) = "OLD-OUTPUT", _
-                      CStr(sheetNames(i)) & " protected sentinel unexpectedly changed"
-                Check InStr(1, errText, detail(i), vbBinaryCompare) > 0, "missing cleanup detail: " & detail(i)
-                If Not protectChecks Then Check ChecksMention(detail(i)), "Checks lacks detail: " & detail(i)
+            If OwnsProtection(i) Then
+                Check SafeStr(TableCell(GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), 1).Value) = "OLD-OUTPUT", _
+                      CStr(SheetNames(i)) & " protected sentinel unexpectedly changed"
+                Check InStr(1, ErrorText, ExpectedDetails(i), vbBinaryCompare) > 0, "missing cleanup detail: " & ExpectedDetails(i)
+                If Not ProtectChecks Then Check ChecksMention(ExpectedDetails(i)), "Checks lacks detail: " & ExpectedDetails(i)
             Else
-                Check Application.CountA(GetSheet(CStr(sheetNames(i))).Range( _
-                      TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1), _
-                      TableCell(GetSheet(CStr(sheetNames(i))), lastRows(i), CLng(widths(i))))) = 0, _
-                      CStr(sheetNames(i)) & " retained output cells"
+                Check Application.CountA(GetSheet(CStr(SheetNames(i))).Range( _
+                      TableCell(GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), 1), _
+                      TableCell(GetSheet(CStr(SheetNames(i))), LastRows(i), CLng(Widths(i))))) = 0, _
+                      CStr(SheetNames(i)) & " retained output cells"
             End If
         Next i
-        If ownsProtection(3) Then
-            Check SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value) = oldSummary, _
+        If OwnsProtection(3) Then
+            Check SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value) = OldSummary, _
                   "protected Results summary unexpectedly changed"
-            Check InStr(1, errText, "old results may remain", vbTextCompare) > 0, "retained Results not disclosed"
+            Check InStr(1, ErrorText, "old results may remain", vbTextCompare) > 0, "retained Results not disclosed"
         Else
             Check InStr(1, SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value), _
                   "output cleanup incomplete", vbTextCompare) > 0, "Results summary hides cleanup failure"
         End If
-        If protectChecks Then
-            Check InStr(1, errText, "Checks could not be updated", vbTextCompare) > 0, "Checks failure was not reported"
+        If ProtectChecks Then
+            Check InStr(1, ErrorText, "Checks could not be updated", vbTextCompare) > 0, "Checks failure was not reported"
         Else
             Check ChecksMention("output cleanup incomplete"), "Checks did not report incomplete cleanup"
         End If
-        Check GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula = statusFormula, "cleanup overwrote the status formula"
+        Check GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Formula = StatusFormula, "cleanup overwrote the status formula"
         Check M_Main.ResultsStatus() = "NONE", "failed run retained a current fingerprint"
         Check Len(CORE_Engine.RunInputs) = 0, "failed run retained in-memory run inputs"
         CheckState xlCalculationAutomatic, False, False
         For i = 0 To 3
-            If ownsProtection(i) Then
-                GetSheet(CStr(sheetNames(i))).Unprotect
-                ownsProtection(i) = False
+            If OwnsProtection(i) Then
+                GetSheet(CStr(SheetNames(i))).Unprotect
+                OwnsProtection(i) = False
             End If
         Next i
-        If ownsChecks Then
+        If OwnsChecks Then
             GetSheet(SH_CHECKS).Unprotect
-            ownsChecks = False
+            OwnsChecks = False
         End If
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "recovery run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "recovery run: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "recovery did not publish a valid fingerprint"
         Check Not ChecksMention("output cleanup incomplete"), "recovery retained obsolete failure diagnostics"
         For i = 0 To 3
-            Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), OutputFirstRow(CStr(sheetNames(i))), 1).Value) <> "OLD-OUTPUT", _
-                  CStr(sheetNames(i)) & " retained the old sentinel after recovery"
+            Check SafeStr(TableCell(GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), 1).Value) <> "OLD-OUTPUT", _
+                  CStr(SheetNames(i)) & " retained the old sentinel after recovery"
         Next i
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 Unexpected:
-        Fail caseName, "unexpected error " & Err.Number & ": " & Err.Description
+        Fail CaseName, "unexpected error " & Err.Number & ": " & Err.Description
         For i = 0 To 3
-            If ownsProtection(i) Then UnprotectOutput CStr(sheetNames(i))
+            If OwnsProtection(i) Then UnprotectOutput CStr(SheetNames(i))
         Next i
-        If ownsChecks Then UnprotectOutput SH_CHECKS
+        If OwnsChecks Then UnprotectOutput SH_CHECKS
 End Sub
 
 
-Private Sub UnprotectOutput(ByVal sheetName As String)
+Private Sub UnprotectOutput(ByVal SheetName As String)
 '
 '==============================================================================
 ' PURPOSE
 '   Release protection owned by CaseProtectedOutput after an unexpected error.
 '==============================================================================
         On Error GoTo Failed
-        GetSheet(sheetName).Unprotect
+        GetSheet(SheetName).Unprotect
         Exit Sub
 Failed:
-        Fail "protected-output", "could not unprotect " & sheetName & ": " & Err.Description
+        Fail "protected-output", "could not unprotect " & SheetName & ": " & Err.Description
 End Sub
 
 
@@ -824,16 +830,16 @@ Private Sub CaseStaleResults()
 '   status is checked both through ResultsStatus and in the cell.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result    As String     'Result line of a run
-    Dim mtmCell   As Range      'MtM of the first trade, edited and restored
-    Dim saved     As Variant    'Its formula
+    Dim Result         As String     'Result line of a run
+    Dim MtmCell        As Range      'MtM of the first trade, edited and restored
+    Dim SavedFormula   As Variant    'Its formula
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -841,20 +847,20 @@ Private Sub CaseStaleResults()
         On Error GoTo Unexpected
         BeginCase "results.stale-after-input-change"
         SetState xlCalculationAutomatic, False, False
-        result = M_Main.RunSACCR_Silent()
-        Check InStr(result, "; inputs=") > 0 And InStr(result, "; inputs=;") = 0, "result line names no inputs: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check InStr(Result, "; inputs=") > 0 And InStr(Result, "; inputs=;") = 0, "result line names no inputs: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a run"
 
     'Edit one input, as a user would: the formula recalculates by itself.
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
-        saved = mtmCell.Formula
-        mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
+        Set MtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        SavedFormula = MtmCell.Formula
+        MtmCell.Value = ToDbl(MtmCell.Value, 0#) + 1#
         Check M_Main.ResultsStatus() = "STALE", "after an edit: " & M_Main.ResultsStatus()
         CheckStatusCell "OUT OF DATE", "after an edit"
 
     'Undoing the edit brings the results back in line.
-        mtmCell.Formula = saved
+        MtmCell.Formula = SavedFormula
         Check M_Main.ResultsStatus() = "CURRENT", "after undoing the edit: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after undoing the edit"
 
@@ -862,7 +868,7 @@ Private Sub CaseStaleResults()
         M_Main.ClearOutputs
         Check M_Main.ResultsStatus() = "NONE", "after Clear outputs: " & M_Main.ResultsStatus()
         CheckStatusCell "No results", "after Clear outputs"
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a new run: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a new run"
         CheckState xlCalculationAutomatic, False, False
@@ -873,7 +879,7 @@ Private Sub CaseStaleResults()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail "results.stale-after-input-change", "unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell mtmCell, saved
+        RestoreCell MtmCell, SavedFormula
 
 End Sub
 
@@ -898,12 +904,12 @@ Private Sub CaseEditedOutput()
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result     As String     'Result line of a run or an export
-    Dim outCell    As Range      'EAD of the first netting set, edited
-    Dim savedOut   As Variant    'Its value
-    Dim mtmCell    As Range      'MtM of the first trade, edited and restored
-    Dim savedMtm   As Variant    'Its formula
-    Dim target     As String     'Export file, never written
+    Dim Result        As String     'Result line of a run or an export
+    Dim OutputCell    As Range      'EAD of the first netting set, edited
+    Dim SavedOutput   As Variant    'Its value
+    Dim MtmCell       As Range      'MtM of the first trade, edited and restored
+    Dim SavedMtm      As Variant    'Its formula
+    Dim ExportPath    As String     'Export file, never written
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -911,36 +917,36 @@ Private Sub CaseEditedOutput()
         On Error GoTo Unexpected
         BeginCase "results.edited-output"
         SetState xlCalculationAutomatic, False, False
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
 
     'Edit an output, as a user could: C5 checks the inputs only.
-        Set outCell = TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_EAD)
-        savedOut = outCell.Value2
-        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
+        Set OutputCell = TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_EAD)
+        SavedOutput = OutputCell.Value2
+        OutputCell.Value2 = ToDbl(SavedOutput, 0#) + 1#
         Check M_Main.ResultsStatus() = "EDITED", "after an output edit: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after an output edit"
-        target = Environ$("TEMP")
-        If Len(target) = 0 Then
-            target = ThisWorkbook.Path
+        ExportPath = Environ$("TEMP")
+        If Len(ExportPath) = 0 Then
+            ExportPath = ThisWorkbook.Path
         End If
-        target = target & Application.PathSeparator & "K-SACCR_evidence_test_edited.csv"
-        result = M_Main.ExportEvidence_Silent(target)
-        Check Left$(result, 14) = "RESULT=REFUSED" And InStr(result, "output cell") > 0, _
-              "export after an output edit: " & result
+        ExportPath = ExportPath & Application.PathSeparator & "K-SACCR_evidence_test_edited.csv"
+        Result = M_Main.ExportEvidence_Silent(ExportPath)
+        Check Left$(Result, 14) = "RESULT=REFUSED" And InStr(Result, "output cell") > 0, _
+              "export after an output edit: " & Result
 
     'An input edited as well: the inputs decide first.
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
-        savedMtm = mtmCell.Formula
-        mtmCell.Value = ToDbl(mtmCell.Value, 0#) + 1#
+        Set MtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        SavedMtm = MtmCell.Formula
+        MtmCell.Value = ToDbl(MtmCell.Value, 0#) + 1#
         Check M_Main.ResultsStatus() = "STALE", "after an output and an input edit: " & M_Main.ResultsStatus()
-        mtmCell.Formula = savedMtm
+        MtmCell.Formula = SavedMtm
 
     'Restoring the output, or a new run, makes the results current again.
-        outCell.Value2 = savedOut
+        OutputCell.Value2 = SavedOutput
         Check M_Main.ResultsStatus() = "CURRENT", "after restoring the output: " & M_Main.ResultsStatus()
-        outCell.Value2 = ToDbl(savedOut, 0#) + 1#
-        result = M_Main.RunSACCR_Silent()
+        OutputCell.Value2 = ToDbl(SavedOutput, 0#) + 1#
+        Result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a new run: " & M_Main.ResultsStatus()
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
@@ -950,9 +956,9 @@ Private Sub CaseEditedOutput()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail "results.edited-output", "unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell mtmCell, savedMtm
-        If Not outCell Is Nothing Then
-            outCell.Value2 = savedOut
+        RestoreCell MtmCell, SavedMtm
+        If Not OutputCell Is Nothing Then
+            OutputCell.Value2 = SavedOutput
         End If
 
 End Sub
@@ -971,18 +977,18 @@ Private Sub CaseStaleValueType()
 '   leaves the results CURRENT (#197).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim mtmCell       As Range      'MtM of the first trade
-    Dim saved         As Variant    'Its formula
-    Dim savedFormat   As Variant    'Its number format
-    Dim naPrint       As String     'Fingerprint with #N/A in the cell
-    Dim valuePrint    As String     'Fingerprint with #VALUE! in the cell
+    Dim MtmCell            As Range      'MtM of the first trade
+    Dim SavedFormula       As Variant    'Its formula
+    Dim SavedFormat        As Variant    'Its number format
+    Dim NaFingerprint      As String     'Fingerprint with #N/A in the cell
+    Dim ValueFingerprint   As String     'Fingerprint with #VALUE! in the cell
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -990,35 +996,35 @@ Private Sub CaseStaleValueType()
         On Error GoTo Unexpected
         BeginCase "results.stale-value-type"
         SetState xlCalculationAutomatic, False, False
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
-        saved = mtmCell.Formula
-        savedFormat = mtmCell.NumberFormat
-        Check VarType(mtmCell.Value2) = vbDouble, "the first trade's MtM is not a number"
+        Set MtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        SavedFormula = MtmCell.Formula
+        SavedFormat = MtmCell.NumberFormat
+        Check VarType(MtmCell.Value2) = vbDouble, "the first trade's MtM is not a number"
         M_Main.RunSACCR_Silent
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
 
     'The same digits, entered as text.
-        mtmCell.Value = "'" & CStr(mtmCell.Value2)
-        Check VarType(mtmCell.Value2) = vbString, "the MtM was not stored as text"
+        MtmCell.Value = "'" & CStr(MtmCell.Value2)
+        Check VarType(MtmCell.Value2) = vbString, "the MtM was not stored as text"
         Check M_Main.ResultsStatus() = "STALE", "number as text: " & M_Main.ResultsStatus()
         CheckStatusCell "OUT OF DATE", "number as text"
-        mtmCell.Formula = saved
+        MtmCell.Formula = SavedFormula
         Check M_Main.ResultsStatus() = "CURRENT", "number restored: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "number restored"
 
     'Two error values.
-        mtmCell.Value = CVErr(xlErrNA)
-        naPrint = CORE_Engine.InputFingerprint()
-        mtmCell.Value = CVErr(xlErrValue)
-        valuePrint = CORE_Engine.InputFingerprint()
-        Check naPrint <> valuePrint, "#N/A and #VALUE! give the same fingerprint " & naPrint
-        mtmCell.Formula = saved
+        MtmCell.Value = CVErr(xlErrNA)
+        NaFingerprint = CORE_Engine.InputFingerprint()
+        MtmCell.Value = CVErr(xlErrValue)
+        ValueFingerprint = CORE_Engine.InputFingerprint()
+        Check NaFingerprint <> ValueFingerprint, "#N/A and #VALUE! give the same fingerprint " & NaFingerprint
+        MtmCell.Formula = SavedFormula
 
     'Formatting only.
-        mtmCell.NumberFormat = "0.000%"
+        MtmCell.NumberFormat = "0.000%"
         Check M_Main.ResultsStatus() = "CURRENT", "after a number format: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a number format"
-        mtmCell.NumberFormat = savedFormat
+        MtmCell.NumberFormat = SavedFormat
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -1027,9 +1033,9 @@ Private Sub CaseStaleValueType()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell mtmCell, saved
+        RestoreCell MtmCell, SavedFormula
         On Error Resume Next
-        If Not mtmCell Is Nothing Then mtmCell.NumberFormat = savedFormat
+        If Not MtmCell Is Nothing Then MtmCell.NumberFormat = SavedFormat
 
 End Sub
 
@@ -1047,16 +1053,16 @@ Private Sub CaseStaleHeaders()
 '   (#197).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headerCell   As Range      'Header edited, Nothing once restored
-    Dim savedBold    As Variant    'Its bold setting
-    Dim savedText    As Variant    'Its formula
+    Dim HeaderCell   As Range      'Header edited, Nothing once restored
+    Dim SavedBold    As Variant    'Its bold setting
+    Dim SavedText    As Variant    'Its formula
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -1070,20 +1076,20 @@ Private Sub CaseStaleHeaders()
         EditAndUndo TableCell(GetSheet(SH_NS), TableHeaderRow(SH_NS), NS_ID), "NettingSets ID header"
 
     'Formatting only.
-        Set headerCell = TableCell(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_MTM)
-        savedBold = headerCell.Font.Bold
-        headerCell.Font.Bold = Not CBool(savedBold)
+        Set HeaderCell = TableCell(GetSheet(SH_TRADES), TableHeaderRow(SH_TRADES), TR_MTM)
+        SavedBold = HeaderCell.Font.Bold
+        HeaderCell.Font.Bold = Not CBool(SavedBold)
         Check M_Main.ResultsStatus() = "CURRENT", "after a bold header: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a bold header"
-        headerCell.Font.Bold = savedBold
+        HeaderCell.Font.Bold = SavedBold
 
     'Case and spacing only: "MtM" as " m tM ".
-        savedText = headerCell.Formula
-        headerCell.Value = " " & LCase$(Left$(CStr(savedText), 1)) & " " & Mid$(CStr(savedText), 2) & " "
+        SavedText = HeaderCell.Formula
+        HeaderCell.Value = " " & LCase$(Left$(CStr(SavedText), 1)) & " " & Mid$(CStr(SavedText), 2) & " "
         Check M_Main.ResultsStatus() = "CURRENT", "after a case and spacing edit: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a case and spacing edit"
-        headerCell.Formula = savedText
-        Set headerCell = Nothing
+        HeaderCell.Formula = SavedText
+        Set HeaderCell = Nothing
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -1093,9 +1099,9 @@ Private Sub CaseStaleHeaders()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
-        If Not headerCell Is Nothing Then
-            headerCell.Font.Bold = savedBold
-            If Not IsEmpty(savedText) Then headerCell.Formula = savedText
+        If Not HeaderCell Is Nothing Then
+            HeaderCell.Font.Bold = SavedBold
+            If Not IsEmpty(SavedText) Then HeaderCell.Formula = SavedText
         End If
 
 End Sub
@@ -1117,15 +1123,15 @@ Private Sub CaseStaleDateSystem()
 '   itself, as the next input edit would.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim saved      As Boolean    'Date system of the workbook
-    Dim switched   As Boolean    'The date system is switched
+    Dim SavedDateSystem   As Boolean    'Date system of the workbook
+    Dim Switched          As Boolean    'The date system is switched
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -1133,16 +1139,16 @@ Private Sub CaseStaleDateSystem()
         On Error GoTo Unexpected
         BeginCase "results.stale-date-system"
         SetState xlCalculationAutomatic, False, False
-        saved = ThisWorkbook.Date1904
+        SavedDateSystem = ThisWorkbook.Date1904
         M_Main.RunSACCR_Silent
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
-        ThisWorkbook.Date1904 = Not saved
-        switched = True
+        ThisWorkbook.Date1904 = Not SavedDateSystem
+        Switched = True
         Check M_Main.ResultsStatus() = "STALE", "date system switched: " & M_Main.ResultsStatus()
         GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
         CheckStatusCell "OUT OF DATE", "date system switched"
-        ThisWorkbook.Date1904 = saved
-        switched = False
+        ThisWorkbook.Date1904 = SavedDateSystem
+        Switched = False
         Check M_Main.ResultsStatus() = "CURRENT", "date system restored: " & M_Main.ResultsStatus()
         GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Calculate
         CheckStatusCell "Inputs unchanged", "date system restored"
@@ -1155,7 +1161,7 @@ Private Sub CaseStaleDateSystem()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
-        If switched Then ThisWorkbook.Date1904 = saved
+        If Switched Then ThisWorkbook.Date1904 = SavedDateSystem
         If Err.Number <> 0 Then
             Fail mCurrentCase, "could not restore the date system: " & Err.Description
         End If
@@ -1178,49 +1184,49 @@ Private Sub CaseManualRecalculation()
 '   then current, and the caller's manual mode is kept.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String     'Result line of the run
-    Dim mtmCell     As Range      'MtM of the first trade, made a formula
-    Dim noteCell    As Range      'Comment of the first trade, its precedent
-    Dim savedMtm    As Variant    'Formula of mtmCell before the case
-    Dim savedNote   As Variant    'Formula of noteCell before the case
-    Dim calcRow     As Long       'TradeCalc row of the first trade
+    Dim Result      As String     'Result line of the run
+    Dim MtmCell     As Range      'MtM of the first trade, made a formula
+    Dim NoteCell    As Range      'Comment of the first trade, its precedent
+    Dim SavedMtm    As Variant    'Formula of MtmCell before the case
+    Dim SavedNote   As Variant    'Formula of NoteCell before the case
+    Dim CalcRow     As Long       'TradeCalc row of the first trade
 
 '------------------------------------------------------------------------------
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "run.manual-recalculates-inputs"
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
-        Set noteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
-        savedMtm = mtmCell.Formula
-        savedNote = noteCell.Formula
+        Set MtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        Set NoteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
+        SavedMtm = MtmCell.Formula
+        SavedNote = NoteCell.Formula
         SetState xlCalculationManual, False, False
-        noteCell.Value = 1000
-        mtmCell.Formula = "=" & noteCell.Address(False, False)
+        NoteCell.Value = 1000
+        MtmCell.Formula = "=" & NoteCell.Address(False, False)
         Application.Calculate
-        noteCell.Value = 2000
-        Check ToDbl(mtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated before the run"
-        result = M_Main.RunSACCR_Silent()
+        NoteCell.Value = 2000
+        Check ToDbl(MtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated before the run"
+        Result = M_Main.RunSACCR_Silent()
 
     'The first trade is the first TradeCalc row; column 9 is its MtM in
     'the reporting currency.
-        calcRow = OutputFirstRow(SH_TRADECALC)
-        Check UTxt(TableCell(GetSheet(SH_TRADECALC), calcRow, 1).Value) = _
+        CalcRow = OutputFirstRow(SH_TRADECALC)
+        Check UTxt(TableCell(GetSheet(SH_TRADECALC), CalcRow, 1).Value) = _
               UTxt(TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_ID).Value), _
               "the first TradeCalc row is not the first trade"
-        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value, 0#) = 2000#, _
-              "the run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), calcRow, 9).Value & ", expected 2000"
+        Check ToDbl(TableCell(GetSheet(SH_TRADECALC), CalcRow, 9).Value, 0#) = 2000#, _
+              "the run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), CalcRow, 9).Value & ", expected 2000"
         Check M_Main.ResultsStatus() = "CURRENT", "after the run: " & M_Main.ResultsStatus()
         CheckState xlCalculationManual, False, False
-        RestoreCell mtmCell, savedMtm
-        RestoreCell noteCell, savedNote
+        RestoreCell MtmCell, SavedMtm
+        RestoreCell NoteCell, SavedNote
         Exit Sub
 
 '------------------------------------------------------------------------------
@@ -1228,8 +1234,8 @@ Private Sub CaseManualRecalculation()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail "run.manual-recalculates-inputs", "unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell mtmCell, savedMtm
-        RestoreCell noteCell, savedNote
+        RestoreCell MtmCell, SavedMtm
+        RestoreCell NoteCell, SavedNote
 
 End Sub
 
@@ -1246,16 +1252,16 @@ Private Sub CaseRecalculationPending()
 '   and the next run works.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String    'Result line of a run
-    Dim errNumber   As Long      'Error raised by the stopped run
-    Dim errText     As String    'Its description
+    Dim Result        As String    'Result line of a run
+    Dim ErrorNumber   As Long      'Error raised by the stopped run
+    Dim ErrorText     As String    'Its description
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -1263,22 +1269,22 @@ Private Sub CaseRecalculationPending()
         On Error GoTo Unexpected
         BeginCase "run.recalculation-pending"
         SetState xlCalculationManual, False, False
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
         M_Main.gTestFault = "recalc"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check errNumber = ERR_RECALC_PENDING, "expected ERR_RECALC_PENDING, got " & errNumber & ": " & errText
+        Check ErrorNumber = ERR_RECALC_PENDING, "expected ERR_RECALC_PENDING, got " & ErrorNumber & ": " & ErrorText
         Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the stopped run"
         CheckState xlCalculationManual, False, False
 
     'The next run completes and its results are current again.
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
         CheckState xlCalculationManual, False, False
         Exit Sub
@@ -1311,66 +1317,66 @@ Private Sub CaseRecalculationError()
 '   calculation stays manual.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result      As String     'Result line of a run
-    Dim errNumber   As Long       'Error raised by the stopped run
-    Dim errText     As String     'Its description
-    Dim mtmCell     As Range      'MtM of the first trade, made a formula
-    Dim noteCell    As Range      'Comment of the first trade, its precedent
-    Dim savedMtm    As Variant    'Formula of mtmCell before the case
-    Dim savedNote   As Variant    'Formula of noteCell before the case
+    Dim Result        As String     'Result line of a run
+    Dim ErrorNumber   As Long       'Error raised by the stopped run
+    Dim ErrorText     As String     'Its description
+    Dim MtmCell       As Range      'MtM of the first trade, made a formula
+    Dim NoteCell      As Range      'Comment of the first trade, its precedent
+    Dim SavedMtm      As Variant    'Formula of MtmCell before the case
+    Dim SavedNote     As Variant    'Formula of NoteCell before the case
 
 '------------------------------------------------------------------------------
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "run.recalculation-error"
-        Set mtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
-        Set noteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
-        savedMtm = mtmCell.Formula
-        savedNote = noteCell.Formula
+        Set MtmCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM)
+        Set NoteCell = TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT)
+        SavedMtm = MtmCell.Formula
+        SavedNote = NoteCell.Formula
         SetState xlCalculationManual, False, False
-        noteCell.Value = 1000
-        mtmCell.Formula = "=" & noteCell.Address(False, False)
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "set-up run: " & result
+        NoteCell.Value = 1000
+        MtmCell.Formula = "=" & NoteCell.Address(False, False)
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "set-up run: " & Result
         Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a run in manual calculation"
 
     'The precedent changes but nothing recalculates: the cached MtM is the
     'value the run used, so only the withdrawn fingerprint can show that
     'the results may be out of date.
-        noteCell.Value = 2000
-        Check ToDbl(mtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated too early"
+        NoteCell.Value = 2000
+        Check ToDbl(MtmCell.Value, 0#) = 1000#, "set-up: the MtM formula was recalculated too early"
         M_Main.gTestFault = "recalc-error"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
-        errNumber = Err.Number
-        errText = Err.Description
+        Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check errNumber = ERR_INJECTED_FAULT, "expected ERR_INJECTED_FAULT, got " & errNumber & ": " & errText
-        Check ToDbl(mtmCell.Value, 0#) = 1000#, "the cached MtM changed although the recalculation failed"
+        Check ErrorNumber = ERR_INJECTED_FAULT, "expected ERR_INJECTED_FAULT, got " & ErrorNumber & ": " & ErrorText
+        Check ToDbl(MtmCell.Value, 0#) = 1000#, "the cached MtM changed although the recalculation failed"
         Check M_Main.ResultsStatus() <> "CURRENT", "results still reported as current after the failed recalculation"
         CheckStatusCell "No results", "after the failed recalculation"
         CheckState xlCalculationManual, False, False
 
     'The next run recalculates, reads the new MtM and is current again.
-        result = M_Main.RunSACCR_Silent()
-        Check Left$(result, 9) = "RESULT=OK", "follow-up run: " & result
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "follow-up run: " & Result
         Check ToDbl(TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value, 0#) = 2000#, _
               "the follow-up run read an MtM of " & TableCell(GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), 9).Value & ", expected 2000"
         Check M_Main.ResultsStatus() = "CURRENT", "after the follow-up run: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after the follow-up run"
         CheckState xlCalculationManual, False, False
-        RestoreCell mtmCell, savedMtm
-        RestoreCell noteCell, savedNote
+        RestoreCell MtmCell, SavedMtm
+        RestoreCell NoteCell, SavedNote
         Exit Sub
 
 '------------------------------------------------------------------------------
@@ -1379,14 +1385,14 @@ Private Sub CaseRecalculationError()
 Unexpected:
         M_Main.gTestFault = ""
         Fail "run.recalculation-error", "unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell mtmCell, savedMtm
-        RestoreCell noteCell, savedNote
+        RestoreCell MtmCell, SavedMtm
+        RestoreCell NoteCell, SavedNote
 
 End Sub
 
 
 Private Sub CaseStaleParams( _
-    ByVal shifted As Boolean)
+    ByVal Shifted As Boolean)
 '
 '==============================================================================
 '                               CaseStaleParams
@@ -1396,52 +1402,54 @@ Private Sub CaseStaleParams( _
 '   to a parameter value or to an FX rate makes the results STALE and
 '   Results C5 OUT OF DATE, and undoing it makes them CURRENT again; a
 '   changed parameter description or cell colour leaves them CURRENT
-'   (#152). With shifted
-'   True a column is first inserted before the Params tables, which moves
-'   every Params input and workbook name one column to the right, as the
-'   issue describes; the run must then give the same result line,
-'   fingerprint included, as the unshifted run, and the column is deleted
-'   again at the end.
+'   (#152). With Shifted True a column is first inserted before the Params
+'   tables, which moves every Params input and workbook name one column to
+'   the right, as the issue describes; the run must then give the same
+'   result line, fingerprint included, as the unshifted run, and the
+'   column is deleted again at the end.
+'
+' INPUTS
+'   Shifted: run the case with a column inserted before the Params tables.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws           As Worksheet    'Params sheet
-    Dim inserted     As Boolean      'The extra column is on Params
-    Dim result       As String       'Result line of the run
-    Dim sfCol        As Long         'Table column of the factor keys
-    Dim fxCol        As Long         'Table column of the FX currencies
-    Dim descCell     As Range        'Description edited, Nothing once restored
-    Dim descSaved    As Variant      'Its formula
-    Dim colorCell    As Range        'Cell recoloured, Nothing once restored
-    Dim colorSaved   As Variant      'Its fill colour
+    Dim ParamsSheet        As Worksheet    'Params sheet
+    Dim Inserted           As Boolean      'The extra column is on Params
+    Dim Result             As String       'Result line of the run
+    Dim FactorColumn       As Long         'Table column of the factor keys
+    Dim FxColumn           As Long         'Table column of the FX currencies
+    Dim DescriptionCell    As Range        'Description edited, Nothing once restored
+    Dim SavedDescription   As Variant      'Its formula
+    Dim ColorCell          As Range        'Cell recoloured, Nothing once restored
+    Dim SavedColor         As Variant      'Its fill colour
 
 '------------------------------------------------------------------------------
 ' LAYOUT AND RUN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase IIf(shifted, "results.stale-params-shifted", "results.stale-params")
+        BeginCase IIf(Shifted, "results.stale-params-shifted", "results.stale-params")
         SetState xlCalculationAutomatic, False, False
-        Set ws = GetSheet(SH_PARAMS)
-        If shifted Then
-            ws.Columns(COL_OFFSET + 1).Insert
-            inserted = True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        If Shifted Then
+            ParamsSheet.Columns(COL_OFFSET + 1).Insert
+            Inserted = True
         End If
-        sfCol = NamedTableCol(NM_SF_TABLE)
-        fxCol = NamedTableCol(NM_FX_TABLE)
-        Check sfCol = IIf(shifted, 2, 1), "factor table in table column " & sfCol
-        result = M_Main.RunSACCR_Silent()
-        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus() & " (" & result & ")"
+        FactorColumn = NamedTableCol(NM_SF_TABLE)
+        FxColumn = NamedTableCol(NM_FX_TABLE)
+        Check FactorColumn = IIf(Shifted, 2, 1), "factor table in table column " & FactorColumn
+        Result = M_Main.RunSACCR_Silent()
+        Check M_Main.ResultsStatus() = "CURRENT", "after a run: " & M_Main.ResultsStatus() & " (" & Result & ")"
         CheckStatusCell "Inputs unchanged", "after a run"
-        If shifted Then
-            Check result = mParamsRunLine, "shifted run differs: " & result & " | unshifted: " & mParamsRunLine
+        If Shifted Then
+            Check Result = mParamsRunLine, "shifted run differs: " & Result & " | unshifted: " & mParamsRunLine
         Else
-            mParamsRunLine = result
+            mParamsRunLine = Result
         End If
 
 '------------------------------------------------------------------------------
@@ -1449,36 +1457,36 @@ Private Sub CaseStaleParams( _
 '------------------------------------------------------------------------------
     'Regimes is the eighth factor column: K once shifted, outside the
     'C:J block fingerprinted before #152.
-        EditAndUndo TableCell(ws, NamedRow(NM_SF_TABLE) + 1, sfCol + 7), "factor Regimes"
-        EditAndUndo TableCell(ws, NamedRow(NM_SF_TABLE), sfCol + 7), "factor Regimes header"
+        EditAndUndo TableCell(ParamsSheet, NamedRow(NM_SF_TABLE) + 1, FactorColumn + 7), "factor Regimes"
+        EditAndUndo TableCell(ParamsSheet, NamedRow(NM_SF_TABLE), FactorColumn + 7), "factor Regimes header"
         EditAndUndo NamedCell(PRM_ALPHA), "parameter Alpha"
-        EditAndUndo TableCell(ws, NamedRow(NM_FX_TABLE) + 1, fxCol + 2), "FX rate"
+        EditAndUndo TableCell(ParamsSheet, NamedRow(NM_FX_TABLE) + 1, FxColumn + 2), "FX rate"
 
 '------------------------------------------------------------------------------
 ' NOT INPUTS: STILL CURRENT
 '------------------------------------------------------------------------------
     'The description beside a parameter code, then a fill colour.
-        Set descCell = TableCell(ws, NamedRow(PRM_ALPHA), ParamsCodeCol() + 1)
-        descSaved = descCell.Formula
-        descCell.Value = SafeStr(descCell.Value) & " (edited)"
+        Set DescriptionCell = TableCell(ParamsSheet, NamedRow(PRM_ALPHA), ParamsCodeCol() + 1)
+        SavedDescription = DescriptionCell.Formula
+        DescriptionCell.Value = SafeStr(DescriptionCell.Value) & " (edited)"
         Check M_Main.ResultsStatus() = "CURRENT", "after a description edit: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a description edit"
-        descCell.Formula = descSaved
-        Set descCell = Nothing
-        Set colorCell = NamedCell(PRM_ALPHA)
-        colorSaved = colorCell.Interior.Color
-        colorCell.Interior.Color = RGB(255, 0, 0)
+        DescriptionCell.Formula = SavedDescription
+        Set DescriptionCell = Nothing
+        Set ColorCell = NamedCell(PRM_ALPHA)
+        SavedColor = ColorCell.Interior.Color
+        ColorCell.Interior.Color = RGB(255, 0, 0)
         Check M_Main.ResultsStatus() = "CURRENT", "after a colour change: " & M_Main.ResultsStatus()
         CheckStatusCell "Inputs unchanged", "after a colour change"
-        colorCell.Interior.Color = colorSaved
-        Set colorCell = Nothing
+        ColorCell.Interior.Color = SavedColor
+        Set ColorCell = Nothing
 
 '------------------------------------------------------------------------------
 ' RESTORE THE LAYOUT
 '------------------------------------------------------------------------------
-        If inserted Then
-            ws.Columns(COL_OFFSET + 1).Delete
-            inserted = False
+        If Inserted Then
+            ParamsSheet.Columns(COL_OFFSET + 1).Delete
+            Inserted = False
             Check NamedTableCol(NM_SF_TABLE) = 1, "factor table not back in table column 1"
             Check M_Main.ResultsStatus() = "CURRENT", "after deleting the column: " & M_Main.ResultsStatus()
         End If
@@ -1493,9 +1501,9 @@ Private Sub CaseStaleParams( _
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
-        If Not descCell Is Nothing Then descCell.Formula = descSaved
-        If Not colorCell Is Nothing Then colorCell.Interior.Color = colorSaved
-        If inserted Then ws.Columns(COL_OFFSET + 1).Delete
+        If Not DescriptionCell Is Nothing Then DescriptionCell.Formula = SavedDescription
+        If Not ColorCell Is Nothing Then ColorCell.Interior.Color = SavedColor
+        If Inserted Then ParamsSheet.Columns(COL_OFFSET + 1).Delete
         If Err.Number <> 0 Then
             Fail mCurrentCase, "could not restore Params: " & Err.Description
         End If
@@ -1504,8 +1512,8 @@ End Sub
 
 
 Private Sub EditAndUndo( _
-    ByVal target As Range, _
-    ByVal what As String)
+    ByVal EditedCell As Range, _
+    ByVal InputLabel As String)
 '
 '==============================================================================
 '                                 EditAndUndo
@@ -1515,105 +1523,119 @@ Private Sub EditAndUndo( _
 '   says OUT OF DATE, put the cell back, and check that they are CURRENT
 '   again. A number is raised by 1; any other value gets an X appended.
 '
+' INPUTS
+'   EditedCell: the input cell to change.
+'   InputLabel: what the cell is, for the failure messages.
+'
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim saved   As Variant    'The cell's formula
+    Dim SavedFormula   As Variant    'The cell's formula
 
 '------------------------------------------------------------------------------
 ' EDIT AND UNDO
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        saved = target.Formula
-        If VarType(target.Value2) = vbDouble Then
-            target.Value = target.Value2 + 1#
+        SavedFormula = EditedCell.Formula
+        If VarType(EditedCell.Value2) = vbDouble Then
+            EditedCell.Value = EditedCell.Value2 + 1#
         Else
-            target.Value = SafeStr(target.Value2) & "X"
+            EditedCell.Value = SafeStr(EditedCell.Value2) & "X"
         End If
-        Check M_Main.ResultsStatus() = "STALE", what & " edited: " & M_Main.ResultsStatus()
-        CheckStatusCell "OUT OF DATE", what & " edited"
-        target.Formula = saved
-        Check M_Main.ResultsStatus() = "CURRENT", what & " restored: " & M_Main.ResultsStatus()
-        CheckStatusCell "Inputs unchanged", what & " restored"
+        Check M_Main.ResultsStatus() = "STALE", InputLabel & " edited: " & M_Main.ResultsStatus()
+        CheckStatusCell "OUT OF DATE", InputLabel & " edited"
+        EditedCell.Formula = SavedFormula
+        Check M_Main.ResultsStatus() = "CURRENT", InputLabel & " restored: " & M_Main.ResultsStatus()
+        CheckStatusCell "Inputs unchanged", InputLabel & " restored"
         Exit Sub
 
 '------------------------------------------------------------------------------
 ' HANDLE UNEXPECTED ERROR
 '------------------------------------------------------------------------------
 Unexpected:
-        Fail mCurrentCase, what & ": unexpected error " & Err.Number & ": " & Err.Description
-        RestoreCell target, saved
+        Fail mCurrentCase, InputLabel & ": unexpected error " & Err.Number & ": " & Err.Description
+        RestoreCell EditedCell, SavedFormula
 
 End Sub
 
 
 Private Sub CheckStatusCell( _
-    ByVal expectedStart As String, _
-    ByVal moment As String)
+    ByVal ExpectedStart As String, _
+    ByVal Moment As String)
 '
 '==============================================================================
 '                               CheckStatusCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that the status formula in Results C5 starts with expectedStart,
+'   Check that the status formula in Results C5 starts with ExpectedStart,
 '   after Excel has recalculated what changed.
 '
+' INPUTS
+'   ExpectedStart: the start of the expected text.
+'   Moment: when the check is made, for the failure message.
+'
 ' METHOD
-'   DoEvents first lets Excel process the recalculation that an edit or a
-'   changed workbook name has queued, as it does when a macro returns to a
-'   user; without it the cell could still show the previous state. The
-'   cell is not forced to recalculate, so the check still shows that Excel
-'   updates the status by itself.
+'   DoEvents and Application.Calculate let Excel recalculate the cells an
+'   edit or a changed workbook name has marked as changed, as Excel does
+'   when a macro returns to a user, or on F9 in manual calculation; without
+'   them the cell could still show the previous state. The cell itself is
+'   not forced to recalculate (Range.Calculate), so the check still shows
+'   that Excel marks the status as changed by itself.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim shown   As String    'Text in Results C5
+    Dim Shown   As String    'Text in Results C5
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
         DoEvents
         Application.Calculate
-        shown = SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
-        Check Left$(shown, Len(expectedStart)) = expectedStart, _
-              "Results C5 " & moment & ": expected """ & expectedStart & "..."", found """ & shown & """"
+        Shown = SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
+        Check Left$(Shown, Len(ExpectedStart)) = ExpectedStart, _
+              "Results C5 " & Moment & ": expected """ & ExpectedStart & "..."", found """ & Shown & """"
 
 End Sub
 
 
 Private Sub RestoreCell( _
-    ByVal target As Range, _
-    ByVal saved As Variant)
+    ByVal EditedCell As Range, _
+    ByVal SavedFormula As Variant)
 '
 '==============================================================================
 '                                 RestoreCell
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Put back an input cell edited by CaseStaleResults, CaseStaleValueType
-'   or EditAndUndo after an unexpected error.
+'   Put back a cell edited by a case (CaseStaleResults, CaseEditedOutput,
+'   CaseStaleValueType, CaseManualRecalculation, CaseRecalculationError or
+'   EditAndUndo), at its end or after an unexpected error.
+'
+' INPUTS
+'   EditedCell: the cell, or Nothing when the case had not reached it.
+'   SavedFormula: its formula before the edit.
 '
 ' ERROR POLICY
 '   Contained: a failure is reported as a test failure of the current
 '   case.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
         On Error GoTo Failed
-        If Not target Is Nothing Then
-            target.Formula = saved
+        If Not EditedCell Is Nothing Then
+            EditedCell.Formula = SavedFormula
         End If
         Exit Sub
 
@@ -1624,34 +1646,34 @@ End Sub
 
 
 Private Function ChecksMention( _
-    ByVal fragment As String) _
+    ByVal Fragment As String) _
     As Boolean
 '
 '==============================================================================
 '                                ChecksMention
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell whether a message on the Checks sheet contains fragment, ignoring
+'   Tell whether a message on the Checks sheet contains Fragment, ignoring
 '   case.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws   As Worksheet    'Checks sheet
-    Dim r    As Long         'Row being read
+    Dim ChecksSheet   As Worksheet    'Checks sheet
+    Dim r             As Long         'Row being read
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
     'Checks column 5 holds the message.
-        Set ws = GetSheet(SH_CHECKS)
-        For r = OutputFirstRow(SH_CHECKS) To UsedLastRow(ws)
-            If InStr(1, SafeStr(TableCell(ws, r, 5).Value), fragment, vbTextCompare) > 0 Then
+        Set ChecksSheet = GetSheet(SH_CHECKS)
+        For r = OutputFirstRow(SH_CHECKS) To UsedLastRow(ChecksSheet)
+            If InStr(1, SafeStr(TableCell(ChecksSheet, r, 5).Value), Fragment, vbTextCompare) > 0 Then
                 ChecksMention = True
                 Exit Function
             End If
@@ -1673,23 +1695,23 @@ Private Sub CaseOutputHeaderNames()
 '   Checks_Header stops OutputFirstRow with ERR_OUTPUT_LAYOUT, naming it.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim sheetNames   As Variant      'Output sheets
-    Dim firstHeads   As Variant      'Their first headers
-    Dim i            As Long         'Output sheet
-    Dim r            As Long         'A header row
-    Dim ws           As Worksheet    'HedgingSets
-    Dim insertAt     As Long         'Row inserted above HedgingSets; 0 when none
-    Dim nm           As Name         'Checks_Header, Nothing once restored
-    Dim savedRef     As String       'Its reference
-    Dim errNumber    As Long         'Error raised by OutputFirstRow
-    Dim errText      As String       'Its description
+    Dim SheetNames         As Variant      'Output sheets
+    Dim FirstHeaders       As Variant      'Their first headers
+    Dim i                  As Long         'Output sheet
+    Dim LocatedRow         As Long         'A header row, or OutputFirstRow's result
+    Dim HedgingSheet       As Worksheet    'HedgingSets
+    Dim InsertedRow        As Long         'Row inserted above HedgingSets; 0 when none
+    Dim ChecksHeaderName   As Name         'Checks_Header, Nothing once restored
+    Dim SavedReference     As String       'Its reference
+    Dim ErrorNumber        As Long         'Error raised by OutputFirstRow
+    Dim ErrorText          As String       'Its description
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -1699,46 +1721,46 @@ Private Sub CaseOutputHeaderNames()
         SetState xlCalculationAutomatic, False, False
 
     'Each name is on the first header of its table, in column C.
-        sheetNames = Array(SH_RESULTS, SH_HEDGING, SH_BUCKETS, SH_TRADECALC, SH_CHECKS, SH_RECON, SH_TRADE_RECON)
-        firstHeads = Array("NettingSetID", "NettingSetID", "NettingSetID", "TradeID", "Severity", "NettingSetID", "TradeID")
-        For i = 0 To UBound(sheetNames)
-            r = TableHeaderRow(CStr(sheetNames(i)))
-            Check r > 0, CStr(sheetNames(i)) & ": " & TableHeaderName(CStr(sheetNames(i))) & " does not locate the table"
-            If r > 0 Then
-                Check SafeStr(TableCell(GetSheet(CStr(sheetNames(i))), r, 1).Value) = CStr(firstHeads(i)), _
-                      CStr(sheetNames(i)) & ": the named cell is not the first header"
+        SheetNames = Array(SH_RESULTS, SH_HEDGING, SH_BUCKETS, SH_TRADECALC, SH_CHECKS, SH_RECON, SH_TRADE_RECON)
+        FirstHeaders = Array("NettingSetID", "NettingSetID", "NettingSetID", "TradeID", "Severity", "NettingSetID", "TradeID")
+        For i = 0 To UBound(SheetNames)
+            LocatedRow = TableHeaderRow(CStr(SheetNames(i)))
+            Check LocatedRow > 0, CStr(SheetNames(i)) & ": " & TableHeaderName(CStr(SheetNames(i))) & " does not locate the table"
+            If LocatedRow > 0 Then
+                Check SafeStr(TableCell(GetSheet(CStr(SheetNames(i))), LocatedRow, 1).Value) = CStr(FirstHeaders(i)), _
+                      CStr(SheetNames(i)) & ": the named cell is not the first header"
             End If
         Next i
 
     'A row inserted above HedgingSets moves the table with its name.
-        Set ws = GetSheet(SH_HEDGING)
-        r = TableHeaderRow(SH_HEDGING)
-        ws.Rows(r).Insert
-        insertAt = r
-        Check TableHeaderRow(SH_HEDGING) = r + 1, "the HedgingSets header name did not move with the inserted row"
+        Set HedgingSheet = GetSheet(SH_HEDGING)
+        LocatedRow = TableHeaderRow(SH_HEDGING)
+        HedgingSheet.Rows(LocatedRow).Insert
+        InsertedRow = LocatedRow
+        Check TableHeaderRow(SH_HEDGING) = LocatedRow + 1, "the HedgingSets header name did not move with the inserted row"
         M_Main.RunSACCR_Silent
-        Check SafeStr(TableCell(ws, r + 1, 1).Value) = "NettingSetID", "the HedgingSets headers were overwritten"
-        Check Not IsBlankCell(TableCell(ws, r + 2, 1).Value), "HedgingSets was not written below the moved headers"
-        Check Application.CountA(ws.Rows(r)) = 0, "the run wrote into the row inserted above the headers"
-        ws.Rows(r).Delete
-        insertAt = 0
-        Check TableHeaderRow(SH_HEDGING) = r, "the HedgingSets header name did not move back"
+        Check SafeStr(TableCell(HedgingSheet, LocatedRow + 1, 1).Value) = "NettingSetID", "the HedgingSets headers were overwritten"
+        Check Not IsBlankCell(TableCell(HedgingSheet, LocatedRow + 2, 1).Value), "HedgingSets was not written below the moved headers"
+        Check Application.CountA(HedgingSheet.Rows(LocatedRow)) = 0, "the run wrote into the row inserted above the headers"
+        HedgingSheet.Rows(LocatedRow).Delete
+        InsertedRow = 0
+        Check TableHeaderRow(SH_HEDGING) = LocatedRow, "the HedgingSets header name did not move back"
         M_Main.RunSACCR_Silent
-        Check Not IsBlankCell(TableCell(ws, r + 1, 1).Value), "HedgingSets was not written below its headers"
+        Check Not IsBlankCell(TableCell(HedgingSheet, LocatedRow + 1, 1).Value), "HedgingSets was not written below its headers"
 
     'A broken name stops OutputFirstRow, naming the name.
-        Set nm = ThisWorkbook.Names(NM_CK_HEADER)
-        savedRef = nm.RefersTo
-        nm.RefersTo = "=#REF!"
+        Set ChecksHeaderName = ThisWorkbook.Names(NM_CK_HEADER)
+        SavedReference = ChecksHeaderName.RefersTo
+        ChecksHeaderName.RefersTo = "=#REF!"
         On Error Resume Next
-        r = OutputFirstRow(SH_CHECKS)
-        errNumber = Err.Number
-        errText = Err.Description
+        LocatedRow = OutputFirstRow(SH_CHECKS)
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo Unexpected
-        nm.RefersTo = savedRef
-        Set nm = Nothing
-        Check errNumber = ERR_OUTPUT_LAYOUT, "a broken " & NM_CK_HEADER & " raised error " & errNumber
-        Check InStr(1, errText, NM_CK_HEADER, vbBinaryCompare) > 0, "the error does not name " & NM_CK_HEADER & ": " & errText
+        ChecksHeaderName.RefersTo = SavedReference
+        Set ChecksHeaderName = Nothing
+        Check ErrorNumber = ERR_OUTPUT_LAYOUT, "a broken " & NM_CK_HEADER & " raised error " & ErrorNumber
+        Check InStr(1, ErrorText, NM_CK_HEADER, vbBinaryCompare) > 0, "the error does not name " & NM_CK_HEADER & ": " & ErrorText
         Check OutputFirstRow(SH_CHECKS) = TableHeaderRow(SH_CHECKS) + 1, "Checks_Header was not restored"
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
@@ -1749,8 +1771,8 @@ Private Sub CaseOutputHeaderNames()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
-        If Not nm Is Nothing Then nm.RefersTo = savedRef
-        If insertAt > 0 Then ws.Rows(insertAt).Delete
+        If Not ChecksHeaderName Is Nothing Then ChecksHeaderName.RefersTo = SavedReference
+        If InsertedRow > 0 Then HedgingSheet.Rows(InsertedRow).Delete
 
 End Sub
 
@@ -1765,14 +1787,14 @@ Private Sub CaseSilentFlagPreserved()
 '   on success and when the run raises.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result   As String    'Result line
+    Dim Result   As String    'Result line
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -1781,19 +1803,19 @@ Private Sub CaseSilentFlagPreserved()
         BeginCase "silent.flag-preserved"
         SetState xlCalculationAutomatic, True, True
         M_Main.gSilent = False
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         Check M_Main.gSilent = False, "gSilent was False before a successful run"
         M_Main.gSilent = True
         M_Main.gTestFault = "operation"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
         Check M_Main.gSilent = True, "gSilent was True before a failed run"
         M_Main.gSilent = False
         M_Main.gTestFault = "operation"
         On Error Resume Next
-        result = M_Main.RunSACCR_Silent()
+        Result = M_Main.RunSACCR_Silent()
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
         Check M_Main.gSilent = False, "gSilent was False before a failed run"
@@ -1821,7 +1843,7 @@ End Sub
 '
 
 Private Sub BeginCase( _
-    ByVal caseName As String)
+    ByVal CaseName As String)
 '
 '==============================================================================
 '                                  BeginCase
@@ -1830,20 +1852,20 @@ Private Sub BeginCase( _
 '   Count a case and print its CASE line.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
         mCaseCount = mCaseCount + 1
-        mCurrentCase = caseName
-        TEST_Suite.Say "CASE=" & caseName
+        mCurrentCase = CaseName
+        TEST_Suite.Say "CASE=" & CaseName
 
 End Sub
 
 
 Private Sub SetState( _
-    ByVal calcMode As XlCalculation, _
-    ByVal eventsOn As Boolean, _
-    ByVal screenOn As Boolean)
+    ByVal CalcMode As XlCalculation, _
+    ByVal EventsOn As Boolean, _
+    ByVal ScreenOn As Boolean)
 '
 '==============================================================================
 '                                   SetState
@@ -1852,20 +1874,20 @@ Private Sub SetState( _
 '   Put the three settings into a known state before an operation.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        Application.Calculation = calcMode
-        Application.EnableEvents = eventsOn
-        Application.ScreenUpdating = screenOn
+        Application.Calculation = CalcMode
+        Application.EnableEvents = EventsOn
+        Application.ScreenUpdating = ScreenOn
 
 End Sub
 
 
 Private Sub CheckState( _
-    ByVal calcMode As XlCalculation, _
-    ByVal eventsOn As Boolean, _
-    ByVal screenOn As Boolean)
+    ByVal CalcMode As XlCalculation, _
+    ByVal EventsOn As Boolean, _
+    ByVal ScreenOn As Boolean)
 '
 '==============================================================================
 '                                  CheckState
@@ -1874,22 +1896,22 @@ Private Sub CheckState( _
 '   Check each of the three settings against its expected value.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        Check Application.Calculation = calcMode, _
-              "Calculation expected " & calcMode & ", found " & Application.Calculation
-        Check Application.EnableEvents = eventsOn, _
-              "EnableEvents expected " & eventsOn & ", found " & Application.EnableEvents
-        Check Application.ScreenUpdating = screenOn, _
-              "ScreenUpdating expected " & screenOn & ", found " & Application.ScreenUpdating
+        Check Application.Calculation = CalcMode, _
+              "Calculation expected " & CalcMode & ", found " & Application.Calculation
+        Check Application.EnableEvents = EventsOn, _
+              "EnableEvents expected " & EventsOn & ", found " & Application.EnableEvents
+        Check Application.ScreenUpdating = ScreenOn, _
+              "ScreenUpdating expected " & ScreenOn & ", found " & Application.ScreenUpdating
 
 End Sub
 
 
 Private Sub Check( _
-    ByVal passed As Boolean, _
-    ByVal detail As String)
+    ByVal Passed As Boolean, _
+    ByVal Detail As String)
 '
 '==============================================================================
 '                                    Check
@@ -1898,20 +1920,20 @@ Private Sub Check( _
 '   Count one check and record it when it fails.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
         mCheckCount = mCheckCount + 1
-        If Not passed Then
-            Fail mCurrentCase, detail
+        If Not Passed Then
+            Fail mCurrentCase, Detail
         End If
 
 End Sub
 
 
 Private Sub Fail( _
-    ByVal caseName As String, _
-    ByVal detail As String)
+    ByVal CaseName As String, _
+    ByVal Detail As String)
 '
 '==============================================================================
 '                                     Fail
@@ -1920,10 +1942,10 @@ Private Sub Fail( _
 '   Count a failure and print it.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
         mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & caseName & ": " & detail
+        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
 
 End Sub
