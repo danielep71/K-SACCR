@@ -16,17 +16,20 @@ Attribute VB_Name = "CORE_Reconcile"
 '
 '   Ratios and times (the multiplier, M, the supervisory duration, the
 '   delta and the maturity factors) are not scaled, and only the relative
-'   tolerance applies to them.
+'   tolerance applies to them: such a figure matches when it is equal or
+'   within the relative tolerance.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. CompareNettingSets, CompareTrades,
 '   HasBankRows, SettingsProblem, HeadersProblem, SummaryText and
-'   TradeSummaryText, with the RCN_ count indexes, are Public for M_Main;
-'   Option Private Module keeps them off the supported external surface.
+'   TradeSummaryText, with the RCN_ count indexes, are Public for M_Main
+'   and TEST_Reconcile; Option Private Module keeps them off the supported
+'   external surface.
 '
 ' DEPENDENCIES
-'   CORE_Config for the column layout and the result labels; CORE_Util for
-'   text conversion and the Collection index (KeyIndex, KeyAdd);
+'   CORE_Config for the column layout, the result labels, the regime codes
+'   and the workbook names of the settings; CORE_Util for text conversion
+'   and the Collection index (KeyIndex, KeyAdd);
 '   CORE_Export for numbers written the same in every locale.
 '
 ' STATE OWNERSHIP
@@ -41,7 +44,7 @@ Attribute VB_Name = "CORE_Reconcile"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -103,13 +106,13 @@ Attribute VB_Name = "CORE_Reconcile"
 '
 
 Public Function CompareNettingSets( _
-    ByVal bank As Variant, _
-    ByVal bankFirstRow As Long, _
-    ByVal calc As Variant, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef counts() As Long) _
+    ByVal Bank As Variant, _
+    ByVal BankFirstRow As Long, _
+    ByVal Calc As Variant, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef Counts() As Long) _
     As Variant
 '
 '==============================================================================
@@ -122,36 +125,36 @@ Public Function CompareNettingSets( _
 '   then one row for each Results netting set that is not in the bank file.
 '
 ' INPUTS
-'   bank: the BankNettingSets rows, (row, 1 To BN_NCOLS), as Value2; Empty
+'   Bank: the BankNettingSets rows, (row, 1 To BN_NCOLS), as Value2; Empty
 '   when there are none. Rows with no value before the comment are skipped.
-'   bankFirstRow: the sheet row of the first bank row, for the Bank row
+'   BankFirstRow: the sheet row of the first bank row, for the Bank row
 '   column.
-'   calc: the Results rows, (row, 1 To RS_NCOLS); Empty when there are
+'   Calc: the Results rows, (row, 1 To RS_NCOLS); Empty when there are
 '   none. The reserved TOTAL rows are skipped.
-'   scaleFactor: units per bank amount, greater than zero.
-'   absTol, relTol: the tolerances, zero or more.
-'   counts: receives the counts, (1 To RCN_COUNT).
+'   ScaleFactor: units per bank amount, greater than zero.
+'   AbsTolerance, RelTolerance: the tolerances, zero or more.
+'   Counts: receives the counts, (1 To RCN_COUNT).
 '
 ' RETURNS
 '   The rows, (row, 1 To RC_NCOLS); Empty when there are none.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        CompareNettingSets = CompareTable(KIND_NS, bank, bankFirstRow, calc, scaleFactor, absTol, relTol, counts)
+        CompareNettingSets = CompareTable(KIND_NS, Bank, BankFirstRow, Calc, ScaleFactor, AbsTolerance, RelTolerance, Counts)
 
 End Function
 
 
 Public Function CompareTrades( _
-    ByVal bank As Variant, _
-    ByVal bankFirstRow As Long, _
-    ByVal calc As Variant, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef counts() As Long) _
+    ByVal Bank As Variant, _
+    ByVal BankFirstRow As Long, _
+    ByVal Calc As Variant, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef Counts() As Long) _
     As Variant
 '
 '==============================================================================
@@ -164,28 +167,28 @@ Public Function CompareTrades( _
 '   the two regime columns (TRC_NS, TRC_AC).
 '
 ' INPUTS
-'   bank: the BankTrades rows, (row, 1 To BT_NCOLS), as Value2; Empty when
-'   there are none.
-'   calc: the TradeCalc rows, (row, 1 To TC_NCOLS); Empty when there are
+'   Bank: the BankTrades rows, (row, 1 To BT_NCOLS), as Value2; Empty when
+'   there are none. Rows with no value before the comment are skipped.
+'   Calc: the TradeCalc rows, (row, 1 To TC_NCOLS); Empty when there are
 '   none.
-'   bankFirstRow, scaleFactor, absTol, relTol, counts: as
+'   BankFirstRow, ScaleFactor, AbsTolerance, RelTolerance, Counts: as
 '   CompareNettingSets.
 '
 ' RETURNS
 '   The rows, (row, 1 To RC_NCOLS); Empty when there are none.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        CompareTrades = CompareTable(KIND_TR, bank, bankFirstRow, calc, scaleFactor, absTol, relTol, counts)
+        CompareTrades = CompareTable(KIND_TR, Bank, BankFirstRow, Calc, ScaleFactor, AbsTolerance, RelTolerance, Counts)
 
 End Function
 
 
 Public Function HasBankRows( _
-    ByVal bank As Variant, _
-    Optional ByVal commentCol As Long = BN_COMMENT) _
+    ByVal Bank As Variant, _
+    Optional ByVal CommentColumn As Long = BN_COMMENT) _
     As Boolean
 '
 '==============================================================================
@@ -197,11 +200,12 @@ Public Function HasBankRows( _
 '   calculator row NOT IN BANK FILE.
 '
 ' INPUTS
-'   bank: as CompareNettingSets or CompareTrades.
-'   commentCol: the comment column: BN_COMMENT or BT_COMMENT.
+'   Bank: as CompareNettingSets or CompareTrades.
+'   CommentColumn: the comment column: BN_COMMENT (the default) or
+'   BT_COMMENT.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
@@ -213,8 +217,8 @@ Public Function HasBankRows( _
 '------------------------------------------------------------------------------
 ' TEST
 '------------------------------------------------------------------------------
-        For r = 1 To RowCount(bank)
-            If BankRowHasData(bank, r, commentCol) Then
+        For r = 1 To RowCount(Bank)
+            If BankRowHasData(Bank, r, CommentColumn) Then
                 HasBankRows = True
                 Exit Function
             End If
@@ -224,14 +228,14 @@ End Function
 
 
 Private Function CompareTable( _
-    ByVal kind As Long, _
-    ByRef bank As Variant, _
-    ByVal bankFirstRow As Long, _
-    ByRef calc As Variant, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef counts() As Long) _
+    ByVal Kind As Long, _
+    ByRef Bank As Variant, _
+    ByVal BankFirstRow As Long, _
+    ByRef Calc As Variant, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef Counts() As Long) _
     As Variant
 '
 '==============================================================================
@@ -247,53 +251,53 @@ Private Function CompareTable( _
 '   told.
 '
 ' INPUTS
-'   kind: KIND_NS or KIND_TR; the other arguments as CompareNettingSets.
+'   Kind: KIND_NS or KIND_TR; the other arguments as CompareNettingSets.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim calcIndex    As Collection    'Calculator ID to calculator row
-    Dim calcUsed()   As Boolean       'The calculator row is in the bank file
-    Dim calcTimes()  As Long          'Rows of each calculator ID, by its first row
-    Dim listed       As Long          'Calculator rows of a bank ID
-    Dim bankIndex    As Collection    'Bank ID to position in bankSeen
-    Dim bankSeen()   As Long          'Bank rows of each distinct ID
-    Dim commentCol   As Long          'Comment column of the bank table
-    Dim nCalc        As Long          'Calculator rows
-    Dim nBank        As Long          'Bank rows
-    Dim outArr()     As Variant       'Rows being built
-    Dim nOut         As Long          'Rows filled
-    Dim r            As Long          'Bank or calculator row
-    Dim k            As Long          'Position of an ID
-    Dim id           As String        'ID, upper case
-    Dim result       As Variant       'The rows returned
+    Dim CalcIndex           As Collection    'Calculator ID to calculator row
+    Dim CalcUsed()          As Boolean       'The calculator row is in the bank file
+    Dim CalcTimesListed()   As Long          'Rows of each calculator ID, by its first row
+    Dim CalcListed          As Long          'Calculator rows of a bank ID
+    Dim BankIndex           As Collection    'Bank ID to position in BankTimesListed
+    Dim BankTimesListed()   As Long          'Bank rows of each distinct ID
+    Dim CommentColumn       As Long          'Comment column of the bank table
+    Dim CalcRowCount        As Long          'Calculator rows
+    Dim BankRowCount        As Long          'Bank rows
+    Dim OutRows()           As Variant       'Rows being built
+    Dim OutCount            As Long          'Rows filled
+    Dim r                   As Long          'Bank or calculator row
+    Dim IdPosition          As Long          'Position of an ID
+    Dim RowId               As String        'ID, upper case
+    Dim Result              As Variant       'The rows returned
 
 '------------------------------------------------------------------------------
 ' INDEX THE CALCULATOR ROWS
 '------------------------------------------------------------------------------
-        ReDim counts(1 To RCN_COUNT)
-        commentCol = IIf(kind = KIND_NS, BN_COMMENT, BT_COMMENT)
-        nCalc = RowCount(calc)
-        nBank = RowCount(bank)
-        Set calcIndex = New Collection
-        If nCalc > 0 Then
-            ReDim calcUsed(1 To nCalc)
-            ReDim calcTimes(1 To nCalc)
+        ReDim Counts(1 To RCN_COUNT)
+        CommentColumn = IIf(Kind = KIND_NS, BN_COMMENT, BT_COMMENT)
+        CalcRowCount = RowCount(Calc)
+        BankRowCount = RowCount(Bank)
+        Set CalcIndex = New Collection
+        If CalcRowCount > 0 Then
+            ReDim CalcUsed(1 To CalcRowCount)
+            ReDim CalcTimesListed(1 To CalcRowCount)
         End If
-        For r = 1 To nCalc
-            id = CalcId(kind, calc, r)
-            If Len(id) > 0 Then
-                k = KeyIndex(calcIndex, id)
-                If k = 0 Then
-                    KeyAdd calcIndex, id, r
-                    calcTimes(r) = 1
+        For r = 1 To CalcRowCount
+            RowId = CalcId(Kind, Calc, r)
+            If Len(RowId) > 0 Then
+                IdPosition = KeyIndex(CalcIndex, RowId)
+                If IdPosition = 0 Then
+                    KeyAdd CalcIndex, RowId, r
+                    CalcTimesListed(r) = 1
                 Else
-                    calcTimes(k) = calcTimes(k) + 1
+                    CalcTimesListed(IdPosition) = CalcTimesListed(IdPosition) + 1
                 End If
             End If
         Next r
@@ -303,57 +307,57 @@ Private Function CompareTable( _
 '------------------------------------------------------------------------------
     'An ID listed twice is not compared at all: which row is the bank's
     'figure cannot be told.
-        Set bankIndex = New Collection
-        If nBank > 0 Then
-            ReDim bankSeen(1 To nBank)
+        Set BankIndex = New Collection
+        If BankRowCount > 0 Then
+            ReDim BankTimesListed(1 To BankRowCount)
         End If
-        For r = 1 To nBank
-            If BankRowHasData(bank, r, commentCol) Then
-                id = UTxt(bank(r, 1))
-                If Len(id) > 0 Then
-                    k = KeyIndex(bankIndex, id)
-                    If k = 0 Then
-                        k = bankIndex.Count + 1
-                        KeyAdd bankIndex, id, k
+        For r = 1 To BankRowCount
+            If BankRowHasData(Bank, r, CommentColumn) Then
+                RowId = UTxt(Bank(r, 1))
+                If Len(RowId) > 0 Then
+                    IdPosition = KeyIndex(BankIndex, RowId)
+                    If IdPosition = 0 Then
+                        IdPosition = BankIndex.Count + 1
+                        KeyAdd BankIndex, RowId, IdPosition
                     End If
-                    bankSeen(k) = bankSeen(k) + 1
+                    BankTimesListed(IdPosition) = BankTimesListed(IdPosition) + 1
                 End If
             End If
         Next r
-        counts(RCN_SETS) = bankIndex.Count
+        Counts(RCN_SETS) = BankIndex.Count
 
 '------------------------------------------------------------------------------
 ' COMPARE THE BANK ROWS
 '------------------------------------------------------------------------------
     'At most one row per measure for each bank row, plus one row for each
     'calculator row.
-        ReDim outArr(1 To nBank * MEASURE_COUNT + nCalc + 1, 1 To RC_NCOLS)
-        For r = 1 To nBank
-            If BankRowHasData(bank, r, commentCol) Then
-                id = UTxt(bank(r, 1))
-                If Len(id) = 0 Then
-                    AddRow outArr, nOut, "", bankFirstRow + r - 1, _
-                           IIf(kind = KIND_NS, UTxt(bank(r, BN_REGIME)), ""), "", "", "", _
-                           Empty, Empty, RES_INVALID, IIf(kind = KIND_NS, "NettingSetID", "TradeID") & _
+        ReDim OutRows(1 To BankRowCount * MEASURE_COUNT + CalcRowCount + 1, 1 To RC_NCOLS)
+        For r = 1 To BankRowCount
+            If BankRowHasData(Bank, r, CommentColumn) Then
+                RowId = UTxt(Bank(r, 1))
+                If Len(RowId) = 0 Then
+                    AddRow OutRows, OutCount, "", BankFirstRow + r - 1, _
+                           IIf(Kind = KIND_NS, UTxt(Bank(r, BN_REGIME)), ""), "", "", "", _
+                           Empty, Empty, RES_INVALID, IIf(Kind = KIND_NS, "NettingSetID", "TradeID") & _
                            " missing: the row is not compared."
-                    counts(RCN_INVALID) = counts(RCN_INVALID) + 1
+                    Counts(RCN_INVALID) = Counts(RCN_INVALID) + 1
                 Else
-                    k = KeyIndex(calcIndex, id)
-                    If k > 0 Then
-                        calcUsed(k) = True
+                    IdPosition = KeyIndex(CalcIndex, RowId)
+                    If IdPosition > 0 Then
+                        CalcUsed(IdPosition) = True
                     End If
-                    If kind = KIND_NS Then
-                        CompareNettingSetRow bank, r, bankFirstRow + r - 1, calc, k, _
-                                             bankSeen(KeyIndex(bankIndex, id)), _
-                                             scaleFactor, absTol, relTol, outArr, nOut, counts
+                    If Kind = KIND_NS Then
+                        CompareNettingSetRow Bank, r, BankFirstRow + r - 1, Calc, IdPosition, _
+                                             BankTimesListed(KeyIndex(BankIndex, RowId)), _
+                                             ScaleFactor, AbsTolerance, RelTolerance, OutRows, OutCount, Counts
                     Else
-                        listed = 0
-                        If k > 0 Then
-                            listed = calcTimes(k)
+                        CalcListed = 0
+                        If IdPosition > 0 Then
+                            CalcListed = CalcTimesListed(IdPosition)
                         End If
-                        CompareTradeRow bank, r, bankFirstRow + r - 1, calc, k, _
-                                        bankSeen(KeyIndex(bankIndex, id)), listed, _
-                                        scaleFactor, absTol, relTol, outArr, nOut, counts
+                        CompareTradeRow Bank, r, BankFirstRow + r - 1, Calc, IdPosition, _
+                                        BankTimesListed(KeyIndex(BankIndex, RowId)), CalcListed, _
+                                        ScaleFactor, AbsTolerance, RelTolerance, OutRows, OutCount, Counts
                     End If
                 End If
             End If
@@ -363,28 +367,28 @@ Private Function CompareTable( _
 ' LIST THE CALCULATOR ROWS NOT IN THE BANK FILE
 '------------------------------------------------------------------------------
     'With the EAD of a netting set, or the notional of a trade, for scale.
-        For r = 1 To nCalc
-            id = CalcId(kind, calc, r)
-            If Len(id) > 0 Then
-                If KeyIndex(calcIndex, id) = r And Not calcUsed(r) Then
-                    If kind = KIND_TR And calcTimes(r) > 1 Then
-                        AddRow outArr, nOut, SafeStr(calc(r, TC_ID)), Empty, SafeStr(calc(r, TC_NS)), _
-                               SafeStr(calc(r, TC_AC)), "", "", Empty, Empty, RES_DUPLICATE, _
-                               "Listed " & calcTimes(r) & " times on TradeCalc (Trade ID repeated on Trades): " & _
+        For r = 1 To CalcRowCount
+            RowId = CalcId(Kind, Calc, r)
+            If Len(RowId) > 0 Then
+                If KeyIndex(CalcIndex, RowId) = r And Not CalcUsed(r) Then
+                    If Kind = KIND_TR And CalcTimesListed(r) > 1 Then
+                        AddRow OutRows, OutCount, SafeStr(Calc(r, TC_ID)), Empty, SafeStr(Calc(r, TC_NS)), _
+                               SafeStr(Calc(r, TC_AC)), "", "", Empty, Empty, RES_DUPLICATE, _
+                               "Listed " & CalcTimesListed(r) & " times on TradeCalc (Trade ID repeated on Trades): " & _
                                "none of its rows is compared."
-                        counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
-                    ElseIf kind = KIND_NS Then
-                        AddRow outArr, nOut, id, Empty, "", UTxt(calc(r, RS_REGIME)), _
-                               SafeStr(calc(r, RS_STATUS_COL)), "EAD", Empty, NumberOrEmpty(calc(r, RS_EAD)), _
+                        Counts(RCN_DUPLICATE) = Counts(RCN_DUPLICATE) + 1
+                    ElseIf Kind = KIND_NS Then
+                        AddRow OutRows, OutCount, RowId, Empty, "", UTxt(Calc(r, RS_REGIME)), _
+                               SafeStr(Calc(r, RS_STATUS_COL)), "EAD", Empty, NumberOrEmpty(Calc(r, RS_EAD)), _
                                RES_NOTINBANK, "No row for this netting set on BankNettingSets."
                     Else
-                        AddRow outArr, nOut, SafeStr(calc(r, TC_ID)), Empty, SafeStr(calc(r, TC_NS)), _
-                               SafeStr(calc(r, TC_AC)), SafeStr(calc(r, TC_STATUS)), "Notional", Empty, _
-                               NumberOrEmpty(calc(r, TC_NOTIONAL)), RES_NOTINBANK, _
+                        AddRow OutRows, OutCount, SafeStr(Calc(r, TC_ID)), Empty, SafeStr(Calc(r, TC_NS)), _
+                               SafeStr(Calc(r, TC_AC)), SafeStr(Calc(r, TC_STATUS)), "Notional", Empty, _
+                               NumberOrEmpty(Calc(r, TC_NOTIONAL)), RES_NOTINBANK, _
                                "No row for this trade leg on BankTrades."
                     End If
-                    If Not (kind = KIND_TR And calcTimes(r) > 1) Then
-                        counts(RCN_NOTINBANK) = counts(RCN_NOTINBANK) + 1
+                    If Not (Kind = KIND_TR And CalcTimesListed(r) > 1) Then
+                        Counts(RCN_NOTINBANK) = Counts(RCN_NOTINBANK) + 1
                     End If
                 End If
             End If
@@ -393,27 +397,27 @@ Private Function CompareTable( _
 '------------------------------------------------------------------------------
 ' RETURN THE ROWS FILLED
 '------------------------------------------------------------------------------
-        If nOut > 0 Then
-            result = TrimRows(outArr, nOut)
+        If OutCount > 0 Then
+            Result = TrimRows(OutRows, OutCount)
         End If
-        CompareTable = result
+        CompareTable = Result
 
 End Function
 
 
 Private Sub CompareNettingSetRow( _
-    ByRef bank As Variant, _
-    ByVal r As Long, _
-    ByVal sheetRow As Long, _
-    ByRef calc As Variant, _
-    ByVal calcRow As Long, _
-    ByVal timesListed As Long, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef outArr() As Variant, _
-    ByRef nOut As Long, _
-    ByRef counts() As Long)
+    ByRef Bank As Variant, _
+    ByVal BankRow As Long, _
+    ByVal SheetRow As Long, _
+    ByRef Calc As Variant, _
+    ByVal CalcRow As Long, _
+    ByVal TimesListed As Long, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef OutRows() As Variant, _
+    ByRef OutCount As Long, _
+    ByRef Counts() As Long)
 '
 '==============================================================================
 '                             CompareNettingSetRow
@@ -423,91 +427,93 @@ Private Sub CompareNettingSetRow( _
 '   why the netting set is not compared, or one row per figure entered.
 '
 ' INPUTS
-'   bank, r: the bank rows and this row's position; sheetRow: its sheet row.
-'   calc, calcRow: the Results rows and the matching row; 0 when none.
-'   timesListed: rows of this ID in the bank file.
-'   scaleFactor, absTol, relTol: as CompareNettingSets.
-'   outArr, nOut, counts: the rows and counts being built.
+'   Bank, BankRow: the bank rows and this row's position; SheetRow: its
+'   sheet row.
+'   Calc, CalcRow: the Results rows and the matching row; 0 when none.
+'   TimesListed: rows of this ID in the bank file.
+'   ScaleFactor, AbsTolerance, RelTolerance: as CompareNettingSets.
+'   OutRows, OutCount, Counts: the rows and counts being built.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim id            As String     'Netting-set ID, upper case
-    Dim bankRegime    As String     'Regime given by the bank
-    Dim calcRegime    As String     'Regime on Results
-    Dim calcStatus    As String     'Status on Results
+    Dim BankId       As String    'Netting-set ID, upper case
+    Dim BankRegime   As String    'Regime given by the bank
+    Dim CalcRegime   As String    'Regime on Results
+    Dim CalcStatus   As String    'Status on Results
 
 '------------------------------------------------------------------------------
 ' NETTING-SET CHECKS
 '------------------------------------------------------------------------------
     'One reason per netting set, in this order: a figure of an ID listed
     'twice, of another regime or of a withheld netting set means nothing.
-        id = UTxt(bank(r, BN_ID))
-        bankRegime = UTxt(bank(r, BN_REGIME))
-        If calcRow > 0 Then
-            calcRegime = UTxt(calc(calcRow, RS_REGIME))
-            calcStatus = SafeStr(calc(calcRow, RS_STATUS_COL))
+        BankId = UTxt(Bank(BankRow, BN_ID))
+        BankRegime = UTxt(Bank(BankRow, BN_REGIME))
+        If CalcRow > 0 Then
+            CalcRegime = UTxt(Calc(CalcRow, RS_REGIME))
+            CalcStatus = SafeStr(Calc(CalcRow, RS_STATUS_COL))
         End If
-        If timesListed > 1 Then
-            AddRow outArr, nOut, id, sheetRow, bankRegime, calcRegime, calcStatus, "", Empty, Empty, _
-                   RES_DUPLICATE, "Listed " & timesListed & " times on BankNettingSets: none of its rows is compared."
-            counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
+        If TimesListed > 1 Then
+            AddRow OutRows, OutCount, BankId, SheetRow, BankRegime, CalcRegime, CalcStatus, "", Empty, Empty, _
+                   RES_DUPLICATE, "Listed " & TimesListed & " times on BankNettingSets: none of its rows is compared."
+            Counts(RCN_DUPLICATE) = Counts(RCN_DUPLICATE) + 1
             Exit Sub
         End If
-        If bankRegime <> RG_BCBS And bankRegime <> RG_CRR Then
-            AddRow outArr, nOut, id, sheetRow, bankRegime, calcRegime, calcStatus, "", Empty, Empty, _
+        If BankRegime <> RG_BCBS And BankRegime <> RG_CRR Then
+            AddRow OutRows, OutCount, BankId, SheetRow, BankRegime, CalcRegime, CalcStatus, "", Empty, Empty, _
                    RES_INVALID, "Regime must be BCBS or CRR: the row is not compared."
-            counts(RCN_INVALID) = counts(RCN_INVALID) + 1
+            Counts(RCN_INVALID) = Counts(RCN_INVALID) + 1
             Exit Sub
         End If
-        If calcRow = 0 Then
-            AddRow outArr, nOut, id, sheetRow, bankRegime, "", "", "EAD", BankAmount(bank(r, BN_EAD), scaleFactor), _
+        If CalcRow = 0 Then
+            AddRow OutRows, OutCount, BankId, SheetRow, BankRegime, "", "", "EAD", _
+                   BankAmount(Bank(BankRow, BN_EAD), ScaleFactor), _
                    Empty, RES_MISSING, "No netting set with this ID on Results."
-            counts(RCN_MISSING) = counts(RCN_MISSING) + 1
+            Counts(RCN_MISSING) = Counts(RCN_MISSING) + 1
             Exit Sub
         End If
-        If bankRegime <> calcRegime Then
-            AddRow outArr, nOut, id, sheetRow, bankRegime, calcRegime, calcStatus, "", Empty, Empty, _
-                   RES_REGIME, "Bank regime " & bankRegime & ", Results regime " & calcRegime & _
+        If BankRegime <> CalcRegime Then
+            AddRow OutRows, OutCount, BankId, SheetRow, BankRegime, CalcRegime, CalcStatus, "", Empty, Empty, _
+                   RES_REGIME, "Bank regime " & BankRegime & ", Results regime " & CalcRegime & _
                    ": figures of different regimes are not compared."
-            counts(RCN_REGIME) = counts(RCN_REGIME) + 1
+            Counts(RCN_REGIME) = Counts(RCN_REGIME) + 1
             Exit Sub
         End If
-        If calcStatus <> "VALID" Then
-            AddRow outArr, nOut, id, sheetRow, bankRegime, calcRegime, calcStatus, "", Empty, Empty, _
+        If CalcStatus <> "VALID" Then
+            AddRow OutRows, OutCount, BankId, SheetRow, BankRegime, CalcRegime, CalcStatus, "", Empty, Empty, _
                    RES_WITHHELD, "No EAD on Results for this netting set: see its status and the Checks sheet."
-            counts(RCN_WITHHELD) = counts(RCN_WITHHELD) + 1
+            Counts(RCN_WITHHELD) = Counts(RCN_WITHHELD) + 1
             Exit Sub
         End If
 
 '------------------------------------------------------------------------------
 ' COMPARE EACH FIGURE ENTERED
 '------------------------------------------------------------------------------
-        CompareFigures KIND_NS, bank, r, BN_EAD, id, sheetRow, bankRegime, calcRegime, calcStatus, _
-                       calc, calcRow, scaleFactor, absTol, relTol, outArr, nOut, counts
+        CompareFigures KIND_NS, Bank, BankRow, BN_EAD, BankId, SheetRow, BankRegime, CalcRegime, CalcStatus, _
+                       Calc, CalcRow, ScaleFactor, AbsTolerance, RelTolerance, OutRows, OutCount, Counts
 
 End Sub
 
 
 Private Sub CompareTradeRow( _
-    ByRef bank As Variant, _
-    ByVal r As Long, _
-    ByVal sheetRow As Long, _
-    ByRef calc As Variant, _
-    ByVal calcRow As Long, _
-    ByVal timesListed As Long, _
-    ByVal calcListed As Long, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef outArr() As Variant, _
-    ByRef nOut As Long, _
-    ByRef counts() As Long)
+    ByRef Bank As Variant, _
+    ByVal BankRow As Long, _
+    ByVal SheetRow As Long, _
+    ByRef Calc As Variant, _
+    ByVal CalcRow As Long, _
+    ByVal TimesListed As Long, _
+    ByVal CalcListed As Long, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef OutRows() As Variant, _
+    ByRef OutCount As Long, _
+    ByRef Counts() As Long)
 '
 '==============================================================================
 '                               CompareTradeRow
@@ -519,85 +525,85 @@ Private Sub CompareTradeRow( _
 '   regime check here.
 '
 ' INPUTS
-'   As CompareNettingSetRow, with the TradeCalc rows as calc; calcListed:
+'   As CompareNettingSetRow, with the TradeCalc rows as Calc; CalcListed:
 '   the TradeCalc rows with this Trade ID, 0 when there is none.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim id           As String    'TradeID as entered, trimmed
-    Dim calcNs       As String    'Netting set on TradeCalc
-    Dim calcAc       As String    'Asset class on TradeCalc
-    Dim calcStatus   As String    'OK or EXCLUDED
+    Dim BankId           As String    'TradeID as entered, trimmed
+    Dim CalcNettingSet   As String    'Netting set on TradeCalc
+    Dim CalcAssetClass   As String    'Asset class on TradeCalc
+    Dim CalcStatus       As String    'OK or EXCLUDED
 
 '------------------------------------------------------------------------------
 ' TRADE CHECKS
 '------------------------------------------------------------------------------
-        id = SafeStr(bank(r, BT_ID))
-        If calcRow > 0 Then
-            calcNs = SafeStr(calc(calcRow, TC_NS))
-            calcAc = SafeStr(calc(calcRow, TC_AC))
-            calcStatus = SafeStr(calc(calcRow, TC_STATUS))
+        BankId = SafeStr(Bank(BankRow, BT_ID))
+        If CalcRow > 0 Then
+            CalcNettingSet = SafeStr(Calc(CalcRow, TC_NS))
+            CalcAssetClass = SafeStr(Calc(CalcRow, TC_AC))
+            CalcStatus = SafeStr(Calc(CalcRow, TC_STATUS))
         End If
-        If timesListed > 1 Then
-            AddRow outArr, nOut, id, sheetRow, calcNs, calcAc, calcStatus, "", Empty, Empty, _
-                   RES_DUPLICATE, "Listed " & timesListed & " times on BankTrades: none of its rows is compared."
-            counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
+        If TimesListed > 1 Then
+            AddRow OutRows, OutCount, BankId, SheetRow, CalcNettingSet, CalcAssetClass, CalcStatus, "", Empty, Empty, _
+                   RES_DUPLICATE, "Listed " & TimesListed & " times on BankTrades: none of its rows is compared."
+            Counts(RCN_DUPLICATE) = Counts(RCN_DUPLICATE) + 1
             Exit Sub
         End If
-        If calcListed > 1 Then
-            AddRow outArr, nOut, id, sheetRow, calcNs, calcAc, "", "", Empty, Empty, RES_DUPLICATE, _
-                   "Listed " & calcListed & " times on TradeCalc (Trade ID repeated on Trades): none of its rows " & _
+        If CalcListed > 1 Then
+            AddRow OutRows, OutCount, BankId, SheetRow, CalcNettingSet, CalcAssetClass, "", "", Empty, Empty, RES_DUPLICATE, _
+                   "Listed " & CalcListed & " times on TradeCalc (Trade ID repeated on Trades): none of its rows " & _
                    "is compared."
-            counts(RCN_DUPLICATE) = counts(RCN_DUPLICATE) + 1
+            Counts(RCN_DUPLICATE) = Counts(RCN_DUPLICATE) + 1
             Exit Sub
         End If
-        If calcRow = 0 Then
-            AddRow outArr, nOut, id, sheetRow, "", "", "", "Notional", _
-                   BankAmount(bank(r, BT_NOTIONAL), scaleFactor), Empty, RES_MISSING, _
+        If CalcRow = 0 Then
+            AddRow OutRows, OutCount, BankId, SheetRow, "", "", "", "Notional", _
+                   BankAmount(Bank(BankRow, BT_NOTIONAL), ScaleFactor), Empty, RES_MISSING, _
                    "No trade leg with this ID on TradeCalc."
-            counts(RCN_MISSING) = counts(RCN_MISSING) + 1
+            Counts(RCN_MISSING) = Counts(RCN_MISSING) + 1
             Exit Sub
         End If
-        If UCase$(calcStatus) = "EXCLUDED" Then
-            AddRow outArr, nOut, id, sheetRow, calcNs, calcAc, calcStatus, "", Empty, Empty, _
-                   RES_EXCLUDED, "Excluded on TradeCalc: " & Left$(SafeStr(calc(calcRow, TC_MESSAGES)), 250)
-            counts(RCN_EXCLUDED) = counts(RCN_EXCLUDED) + 1
+        If UCase$(CalcStatus) = "EXCLUDED" Then
+            AddRow OutRows, OutCount, BankId, SheetRow, CalcNettingSet, CalcAssetClass, CalcStatus, "", Empty, Empty, _
+                   RES_EXCLUDED, "Excluded on TradeCalc: " & Left$(SafeStr(Calc(CalcRow, TC_MESSAGES)), 250)
+            Counts(RCN_EXCLUDED) = Counts(RCN_EXCLUDED) + 1
             Exit Sub
         End If
 
 '------------------------------------------------------------------------------
 ' COMPARE EACH FIGURE ENTERED
 '------------------------------------------------------------------------------
-        CompareFigures KIND_TR, bank, r, BT_NOTIONAL, id, sheetRow, calcNs, calcAc, calcStatus, _
-                       calc, calcRow, scaleFactor, absTol, relTol, outArr, nOut, counts
+        CompareFigures KIND_TR, Bank, BankRow, BT_NOTIONAL, BankId, SheetRow, CalcNettingSet, CalcAssetClass, CalcStatus, _
+                       Calc, CalcRow, ScaleFactor, AbsTolerance, RelTolerance, OutRows, OutCount, Counts
 
 End Sub
 
 
 Private Sub CompareFigures( _
-    ByVal kind As Long, _
-    ByRef bank As Variant, _
-    ByVal r As Long, _
-    ByVal firstCol As Long, _
-    ByVal id As String, _
-    ByVal sheetRow As Long, _
-    ByVal col3 As String, _
-    ByVal col4 As String, _
-    ByVal calcStatus As String, _
-    ByRef calc As Variant, _
-    ByVal calcRow As Long, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double, _
-    ByRef outArr() As Variant, _
-    ByRef nOut As Long, _
-    ByRef counts() As Long)
+    ByVal Kind As Long, _
+    ByRef Bank As Variant, _
+    ByVal BankRow As Long, _
+    ByVal FirstColumn As Long, _
+    ByVal RowId As String, _
+    ByVal SheetRow As Long, _
+    ByVal ThirdColumn As String, _
+    ByVal FourthColumn As String, _
+    ByVal CalcStatus As String, _
+    ByRef Calc As Variant, _
+    ByVal CalcRow As Long, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double, _
+    ByRef OutRows() As Variant, _
+    ByRef OutCount As Long, _
+    ByRef Counts() As Long)
 '
 '==============================================================================
 '                                CompareFigures
@@ -609,82 +615,85 @@ Private Sub CompareFigures( _
 '   INVALID INPUT row.
 '
 ' INPUTS
-'   kind: KIND_NS or KIND_TR; firstCol: the bank column of the first
-'   measure; col3, col4: what the third and fourth output columns show
+'   Kind: KIND_NS or KIND_TR; FirstColumn: the bank column of the first
+'   measure; ThirdColumn, FourthColumn: what the third and fourth output
+'   columns show
 '   (the two regimes, or the trade's netting set and asset class); the
 '   other arguments as CompareNettingSetRow.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim measureNames   As Variant    'Measure names
-    Dim m              As Long       'Measure, 0-based
-    Dim v              As Variant    'Bank figure as entered
-    Dim calcCell       As Variant    'Calculator figure as written
-    Dim isRatio        As Boolean    'Not scaled; relative tolerance only
-    Dim bankValue      As Double     'Bank figure, in units for an amount
-    Dim calcValue      As Double     'Calculator figure
-    Dim diff           As Double     'Calculator minus bank
-    Dim rel            As Variant    'Relative difference; Empty when the bank figure is 0
-    Dim isMatch        As Boolean    'Within a tolerance
-    Dim entered        As Long       'Figures entered on the row
+    Dim MeasureNames         As Variant    'Measure names
+    Dim m                    As Long       'Measure, 0-based
+    Dim BankCell             As Variant    'Bank figure as entered
+    Dim CalcCell             As Variant    'Calculator figure as written
+    Dim IsRatio              As Boolean    'Not scaled; relative tolerance only
+    Dim BankValue            As Double     'Bank figure, in units for an amount
+    Dim CalcValue            As Double     'Calculator figure
+    Dim Difference           As Double     'Calculator minus bank
+    Dim RelativeDifference   As Variant    'Relative difference; Empty when the bank figure is 0
+    Dim IsMatch              As Boolean    'Within a tolerance
+    Dim EnteredCount         As Long       'Figures entered on the row
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        measureNames = Split(IIf(kind = KIND_NS, NS_MEASURES, TR_MEASURES), "|")
+        MeasureNames = Split(IIf(Kind = KIND_NS, NS_MEASURES, TR_MEASURES), "|")
         For m = 0 To MEASURE_COUNT - 1
-            v = bank(r, firstCol + m)
-            If Not IsBlankBankCell(v) Then
-                entered = entered + 1
-                calcCell = calc(calcRow, CalcColumn(kind, m))
-                isRatio = InStr(IIf(kind = KIND_NS, NS_RATIOS, TR_RATIOS), "|" & m & "|") > 0
-                If Not IsNumberValue(v) Then
-                    AddRow outArr, nOut, id, sheetRow, col3, col4, calcStatus, CStr(measureNames(m)), _
-                           Empty, Empty, RES_INVALID, "Not a number: " & DescribeValue(v) & "."
-                    counts(RCN_INVALID) = counts(RCN_INVALID) + 1
-                ElseIf Not IsNumberValue(calcCell) Then
-                    AddRow outArr, nOut, id, sheetRow, col3, col4, calcStatus, CStr(measureNames(m)), _
-                           BankFigure(v, isRatio, scaleFactor), Empty, RES_NA, _
-                           "The calculator has no " & measureNames(m) & " for this row."
-                    counts(RCN_NA) = counts(RCN_NA) + 1
+            BankCell = Bank(BankRow, FirstColumn + m)
+            If Not IsBlankBankCell(BankCell) Then
+                EnteredCount = EnteredCount + 1
+                CalcCell = Calc(CalcRow, CalcColumn(Kind, m))
+                IsRatio = InStr(IIf(Kind = KIND_NS, NS_RATIOS, TR_RATIOS), "|" & m & "|") > 0
+                If Not IsNumberValue(BankCell) Then
+                    AddRow OutRows, OutCount, RowId, SheetRow, ThirdColumn, FourthColumn, CalcStatus, CStr(MeasureNames(m)), _
+                           Empty, Empty, RES_INVALID, "Not a number: " & DescribeValue(BankCell) & "."
+                    Counts(RCN_INVALID) = Counts(RCN_INVALID) + 1
+                ElseIf Not IsNumberValue(CalcCell) Then
+                    AddRow OutRows, OutCount, RowId, SheetRow, ThirdColumn, FourthColumn, CalcStatus, CStr(MeasureNames(m)), _
+                           BankFigure(BankCell, IsRatio, ScaleFactor), Empty, RES_NA, _
+                           "The calculator has no " & MeasureNames(m) & " for this row."
+                    Counts(RCN_NA) = Counts(RCN_NA) + 1
                 Else
-                    bankValue = BankFigure(v, isRatio, scaleFactor)
-                    calcValue = CDbl(calcCell)
-                    diff = calcValue - bankValue
-                    If bankValue <> 0# Then
-                        rel = diff / Abs(bankValue)
+                    BankValue = BankFigure(BankCell, IsRatio, ScaleFactor)
+                    CalcValue = CDbl(CalcCell)
+                    Difference = CalcValue - BankValue
+                    If BankValue <> 0# Then
+                        RelativeDifference = Difference / Abs(BankValue)
                     Else
-                        rel = Empty
+                        RelativeDifference = Empty
                     End If
-                    If isRatio Then
-                        isMatch = (diff = 0#)
+                'A ratio or time matches only when equal or within the relative
+                'tolerance: the absolute tolerance is for amounts.
+                    If IsRatio Then
+                        IsMatch = (Difference = 0#)
                     Else
-                        isMatch = (Abs(diff) <= absTol)
+                        IsMatch = (Abs(Difference) <= AbsTolerance)
                     End If
-                    If Not IsEmpty(rel) Then
-                        isMatch = isMatch Or (Abs(rel) <= relTol)
+                    If Not IsEmpty(RelativeDifference) Then
+                        IsMatch = IsMatch Or (Abs(RelativeDifference) <= RelTolerance)
                     End If
-                    AddRow outArr, nOut, id, sheetRow, col3, col4, calcStatus, CStr(measureNames(m)), _
-                           bankValue, calcValue, IIf(isMatch, RES_MATCH, RES_DIFF), "", diff, rel
-                    counts(RCN_COMPARED) = counts(RCN_COMPARED) + 1
-                    If isMatch Then
-                        counts(RCN_MATCH) = counts(RCN_MATCH) + 1
+                    AddRow OutRows, OutCount, RowId, SheetRow, ThirdColumn, FourthColumn, CalcStatus, CStr(MeasureNames(m)), _
+                           BankValue, CalcValue, IIf(IsMatch, RES_MATCH, RES_DIFF), "", Difference, RelativeDifference
+                    Counts(RCN_COMPARED) = Counts(RCN_COMPARED) + 1
+                    If IsMatch Then
+                        Counts(RCN_MATCH) = Counts(RCN_MATCH) + 1
                     Else
-                        counts(RCN_DIFF) = counts(RCN_DIFF) + 1
+                        Counts(RCN_DIFF) = Counts(RCN_DIFF) + 1
                     End If
                 End If
             End If
         Next m
-        If entered = 0 Then
-            AddRow outArr, nOut, id, sheetRow, col3, col4, calcStatus, "", Empty, Empty, _
+        If EnteredCount = 0 Then
+            AddRow OutRows, OutCount, RowId, SheetRow, ThirdColumn, FourthColumn, CalcStatus, "", Empty, Empty, _
                    RES_INVALID, "No bank figure entered on the row."
-            counts(RCN_INVALID) = counts(RCN_INVALID) + 1
+            Counts(RCN_INVALID) = Counts(RCN_INVALID) + 1
         End If
 
 End Sub
@@ -699,12 +708,12 @@ End Sub
 '
 
 Public Function SettingsProblem( _
-    ByVal scaleValue As Variant, _
-    ByVal absValue As Variant, _
-    ByVal relValue As Variant, _
-    Optional ByVal scaleName As String = NM_BN_SCALE, _
-    Optional ByVal absName As String = NM_BN_ABSTOL, _
-    Optional ByVal relName As String = NM_BN_RELTOL) _
+    ByVal ScaleValue As Variant, _
+    ByVal AbsToleranceValue As Variant, _
+    ByVal RelToleranceValue As Variant, _
+    Optional ByVal ScaleName As String = NM_BN_SCALE, _
+    Optional ByVal AbsToleranceName As String = NM_BN_ABSTOL, _
+    Optional ByVal RelToleranceName As String = NM_BN_RELTOL) _
     As String
 '
 '==============================================================================
@@ -714,9 +723,10 @@ Public Function SettingsProblem( _
 '   Check the amount scale and the tolerances read from a bank sheet.
 '
 ' INPUTS
-'   scaleValue, absValue, relValue: the values of the three named cells,
-'   as Value2.
-'   scaleName, absName, relName: their workbook names, for the message;
+'   ScaleValue, AbsToleranceValue, RelToleranceValue: the values of the
+'   three named cells, as Value2.
+'   ScaleName, AbsToleranceName, RelToleranceName: their workbook names,
+'   for the message;
 '   those of BankNettingSets by default.
 '
 ' RETURNS
@@ -724,29 +734,29 @@ Public Function SettingsProblem( _
 '   are numbers of zero or more; otherwise what is wrong.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If Not IsNumberValue(scaleValue) Then
-            SettingsProblem = "the amount scale (" & scaleName & ") is not a number"
-        ElseIf CDbl(scaleValue) <= 0# Then
-            SettingsProblem = "the amount scale (" & scaleName & ") must be greater than zero"
-        ElseIf Not IsNumberValue(absValue) Then
-            SettingsProblem = "the absolute tolerance (" & absName & ") is not a number"
-        ElseIf CDbl(absValue) < 0# Then
-            SettingsProblem = "the absolute tolerance (" & absName & ") must not be negative"
-        ElseIf Not IsNumberValue(relValue) Then
-            SettingsProblem = "the relative tolerance (" & relName & ") is not a number"
-        ElseIf CDbl(relValue) < 0# Then
-            SettingsProblem = "the relative tolerance (" & relName & ") must not be negative"
+        If Not IsNumberValue(ScaleValue) Then
+            SettingsProblem = "the amount scale (" & ScaleName & ") is not a number"
+        ElseIf CDbl(ScaleValue) <= 0# Then
+            SettingsProblem = "the amount scale (" & ScaleName & ") must be greater than zero"
+        ElseIf Not IsNumberValue(AbsToleranceValue) Then
+            SettingsProblem = "the absolute tolerance (" & AbsToleranceName & ") is not a number"
+        ElseIf CDbl(AbsToleranceValue) < 0# Then
+            SettingsProblem = "the absolute tolerance (" & AbsToleranceName & ") must not be negative"
+        ElseIf Not IsNumberValue(RelToleranceValue) Then
+            SettingsProblem = "the relative tolerance (" & RelToleranceName & ") is not a number"
+        ElseIf CDbl(RelToleranceValue) < 0# Then
+            SettingsProblem = "the relative tolerance (" & RelToleranceName & ") must not be negative"
         End If
 
 End Function
 
 
 Public Function HeadersProblem( _
-    ByVal headers As Variant, _
-    ByVal expected As String) _
+    ByVal Headers As Variant, _
+    ByVal ExpectedText As String) _
     As String
 '
 '==============================================================================
@@ -758,33 +768,33 @@ Public Function HeadersProblem( _
 '   found before any figure is read from the wrong column.
 '
 ' INPUTS
-'   headers: the header cells, (1, 1 To n), as Value2.
-'   expected: the headers separated by "|"; an empty entry accepts any
+'   Headers: the header cells, (1, 1 To n), as Value2.
+'   ExpectedText: the headers separated by "|"; an empty entry accepts any
 '   header.
 '
 ' RETURNS
 '   "" when every header matches; otherwise the first that does not.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim want   As Variant    'Expected headers
-    Dim c      As Long       'Column, 0-based
+    Dim ExpectedHeaders   As Variant    'Expected headers
+    Dim c                 As Long       'Column, 0-based
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        want = Split(expected, "|")
-        For c = 0 To UBound(want)
-            If Len(want(c)) > 0 Then
-                If HeaderKey(headers(1, c + 1)) <> HeaderKey(want(c)) Then
-                    HeadersProblem = "column " & (c + 1) & " of the table is headed '" & SafeStr(headers(1, c + 1)) & _
-                                     "', expected '" & want(c) & "'"
+        ExpectedHeaders = Split(ExpectedText, "|")
+        For c = 0 To UBound(ExpectedHeaders)
+            If Len(ExpectedHeaders(c)) > 0 Then
+                If HeaderKey(Headers(1, c + 1)) <> HeaderKey(ExpectedHeaders(c)) Then
+                    HeadersProblem = "column " & (c + 1) & " of the table is headed '" & SafeStr(Headers(1, c + 1)) & _
+                                     "', expected '" & ExpectedHeaders(c) & "'"
                     Exit Function
                 End If
             End If
@@ -794,10 +804,10 @@ End Function
 
 
 Public Function SummaryText( _
-    ByRef counts() As Long, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double) _
+    ByRef Counts() As Long, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double) _
     As String
 '
 '==============================================================================
@@ -810,34 +820,35 @@ Public Function SummaryText( _
 '   and the tolerances.
 '
 ' INPUTS
-'   counts: as filled by CompareNettingSets.
-'   scaleFactor, absTol, relTol: as used.
+'   Counts: as filled by CompareNettingSets.
+'   ScaleFactor, AbsTolerance, RelTolerance: as used.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        SummaryText = "bank netting sets " & counts(RCN_SETS) & _
-                      " | figures compared " & counts(RCN_COMPARED) & ": MATCH " & counts(RCN_MATCH) & _
-                      ", DIFFERENCE " & counts(RCN_DIFF) & _
-                      " | missing in calculator " & counts(RCN_MISSING) & _
-                      " | not in bank file " & counts(RCN_NOTINBANK) & _
-                      " | duplicate rows " & counts(RCN_DUPLICATE) & _
-                      " | regime mismatch " & counts(RCN_REGIME) & _
-                      " | withheld " & counts(RCN_WITHHELD) & _
-                      " | invalid input " & counts(RCN_INVALID) & _
-                      " | not applicable " & counts(RCN_NA) & _
-                      " | scale " & CORE_Export.NumberText(scaleFactor) & _
-                      " | tolerance " & CORE_Export.NumberText(absTol) & " or " & CORE_Export.NumberText(relTol * 100#) & "%"
+        SummaryText = "bank netting sets " & Counts(RCN_SETS) & _
+                      " | figures compared " & Counts(RCN_COMPARED) & ": MATCH " & Counts(RCN_MATCH) & _
+                      ", DIFFERENCE " & Counts(RCN_DIFF) & _
+                      " | missing in calculator " & Counts(RCN_MISSING) & _
+                      " | not in bank file " & Counts(RCN_NOTINBANK) & _
+                      " | duplicate rows " & Counts(RCN_DUPLICATE) & _
+                      " | regime mismatch " & Counts(RCN_REGIME) & _
+                      " | withheld " & Counts(RCN_WITHHELD) & _
+                      " | invalid input " & Counts(RCN_INVALID) & _
+                      " | not applicable " & Counts(RCN_NA) & _
+                      " | scale " & CORE_Export.NumberText(ScaleFactor) & _
+                      " | tolerance " & CORE_Export.NumberText(AbsTolerance) & " or " & _
+                      CORE_Export.NumberText(RelTolerance * 100#) & "%"
 
 End Function
 
 
 Public Function TradeSummaryText( _
-    ByRef counts() As Long, _
-    ByVal scaleFactor As Double, _
-    ByVal absTol As Double, _
-    ByVal relTol As Double) _
+    ByRef Counts() As Long, _
+    ByVal ScaleFactor As Double, _
+    ByVal AbsTolerance As Double, _
+    ByVal RelTolerance As Double) _
     As String
 '
 '==============================================================================
@@ -848,24 +859,25 @@ Public Function TradeSummaryText( _
 '   TradeReconciliation summary cell, as SummaryText.
 '
 ' INPUTS
-'   counts: as filled by CompareTrades.
-'   scaleFactor, absTol, relTol: as used.
+'   Counts: as filled by CompareTrades.
+'   ScaleFactor, AbsTolerance, RelTolerance: as used.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        TradeSummaryText = "bank trade legs " & counts(RCN_SETS) & _
-                           " | figures compared " & counts(RCN_COMPARED) & ": MATCH " & counts(RCN_MATCH) & _
-                           ", DIFFERENCE " & counts(RCN_DIFF) & _
-                           " | not applicable " & counts(RCN_NA) & _
-                           " | missing in calculator " & counts(RCN_MISSING) & _
-                           " | not in bank file " & counts(RCN_NOTINBANK) & _
-                           " | duplicate rows " & counts(RCN_DUPLICATE) & _
-                           " | excluded " & counts(RCN_EXCLUDED) & _
-                           " | invalid input " & counts(RCN_INVALID) & _
-                           " | scale " & CORE_Export.NumberText(scaleFactor) & _
-                           " | tolerance " & CORE_Export.NumberText(absTol) & " or " & CORE_Export.NumberText(relTol * 100#) & "%"
+        TradeSummaryText = "bank trade legs " & Counts(RCN_SETS) & _
+                           " | figures compared " & Counts(RCN_COMPARED) & ": MATCH " & Counts(RCN_MATCH) & _
+                           ", DIFFERENCE " & Counts(RCN_DIFF) & _
+                           " | not applicable " & Counts(RCN_NA) & _
+                           " | missing in calculator " & Counts(RCN_MISSING) & _
+                           " | not in bank file " & Counts(RCN_NOTINBANK) & _
+                           " | duplicate rows " & Counts(RCN_DUPLICATE) & _
+                           " | excluded " & Counts(RCN_EXCLUDED) & _
+                           " | invalid input " & Counts(RCN_INVALID) & _
+                           " | scale " & CORE_Export.NumberText(ScaleFactor) & _
+                           " | tolerance " & CORE_Export.NumberText(AbsTolerance) & " or " & _
+                           CORE_Export.NumberText(RelTolerance * 100#) & "%"
 
 End Function
 
@@ -879,55 +891,56 @@ End Function
 '
 
 Private Sub AddRow( _
-    ByRef outArr() As Variant, _
-    ByRef nOut As Long, _
-    ByVal id As String, _
-    ByVal bankRow As Variant, _
-    ByVal col3 As String, _
-    ByVal col4 As String, _
-    ByVal calcStatus As String, _
-    ByVal measure As String, _
-    ByVal bankValue As Variant, _
-    ByVal calcValue As Variant, _
-    ByVal result As String, _
-    ByVal note As String, _
-    Optional ByVal diff As Variant, _
-    Optional ByVal rel As Variant)
+    ByRef OutRows() As Variant, _
+    ByRef OutCount As Long, _
+    ByVal RowId As String, _
+    ByVal BankRow As Variant, _
+    ByVal ThirdColumn As String, _
+    ByVal FourthColumn As String, _
+    ByVal CalcStatus As String, _
+    ByVal Measure As String, _
+    ByVal BankValue As Variant, _
+    ByVal CalcValue As Variant, _
+    ByVal ResultLabel As String, _
+    ByVal Note As String, _
+    Optional ByVal Difference As Variant, _
+    Optional ByVal RelativeDifference As Variant)
 '
 '==============================================================================
 '                                    AddRow
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Append one output row. Blank fields are left Empty, so that the sheet
-'   shows empty cells rather than zeros. col3 and col4 are the bank and
-'   calculator regimes of a netting set, or the netting set and asset
-'   class of a trade.
+'   shows empty cells rather than zeros. ThirdColumn and FourthColumn are
+'   the bank and calculator regimes of a netting set, or the netting set
+'   and asset class of a trade; Difference and RelativeDifference are left
+'   Empty when they are not passed.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        nOut = nOut + 1
-        outArr(nOut, RC_ID) = id
-        outArr(nOut, RC_BANKROW) = bankRow
-        If Len(col3) > 0 Then outArr(nOut, RC_BANKREGIME) = col3
-        If Len(col4) > 0 Then outArr(nOut, RC_CALCREGIME) = col4
-        If Len(calcStatus) > 0 Then outArr(nOut, RC_CALCSTATUS) = calcStatus
-        If Len(measure) > 0 Then outArr(nOut, RC_MEASURE) = measure
-        outArr(nOut, RC_BANK) = bankValue
-        outArr(nOut, RC_CALC) = calcValue
-        If Not IsMissing(diff) Then outArr(nOut, RC_DIFF) = diff
-        If Not IsMissing(rel) Then outArr(nOut, RC_REL) = rel
-        outArr(nOut, RC_RESULT) = result
-        If Len(note) > 0 Then outArr(nOut, RC_NOTE) = note
+        OutCount = OutCount + 1
+        OutRows(OutCount, RC_ID) = RowId
+        OutRows(OutCount, RC_BANKROW) = BankRow
+        If Len(ThirdColumn) > 0 Then OutRows(OutCount, RC_BANKREGIME) = ThirdColumn
+        If Len(FourthColumn) > 0 Then OutRows(OutCount, RC_CALCREGIME) = FourthColumn
+        If Len(CalcStatus) > 0 Then OutRows(OutCount, RC_CALCSTATUS) = CalcStatus
+        If Len(Measure) > 0 Then OutRows(OutCount, RC_MEASURE) = Measure
+        OutRows(OutCount, RC_BANK) = BankValue
+        OutRows(OutCount, RC_CALC) = CalcValue
+        If Not IsMissing(Difference) Then OutRows(OutCount, RC_DIFF) = Difference
+        If Not IsMissing(RelativeDifference) Then OutRows(OutCount, RC_REL) = RelativeDifference
+        OutRows(OutCount, RC_RESULT) = ResultLabel
+        If Len(Note) > 0 Then OutRows(OutCount, RC_NOTE) = Note
 
 End Sub
 
 
 Private Function CalcId( _
-    ByVal kind As Long, _
-    ByRef calc As Variant, _
-    ByVal r As Long) _
+    ByVal Kind As Long, _
+    ByRef Calc As Variant, _
+    ByVal CalcRow As Long) _
     As String
 '
 '==============================================================================
@@ -938,39 +951,39 @@ Private Function CalcId( _
 '   row of Results, which is not a netting set.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If kind = KIND_NS Then
-            CalcId = UTxt(calc(r, RS_ID))
+        If Kind = KIND_NS Then
+            CalcId = UTxt(Calc(CalcRow, RS_ID))
             If IsTotalRow(CalcId) Then
                 CalcId = ""
             End If
         Else
-            CalcId = UTxt(calc(r, TC_ID))
+            CalcId = UTxt(Calc(CalcRow, TC_ID))
         End If
 
 End Function
 
 
 Private Function CalcColumn( _
-    ByVal kind As Long, _
-    ByVal m As Long) _
+    ByVal Kind As Long, _
+    ByVal Measure As Long) _
     As Long
 '
 '==============================================================================
 '                                  CalcColumn
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the Results or TradeCalc column of measure m, 0-based in the
-'   order of NS_MEASURES or TR_MEASURES.
+'   Return the Results or TradeCalc column of a measure, given by its
+'   0-based position in NS_MEASURES or TR_MEASURES.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If kind = KIND_NS Then
-            Select Case m
+        If Kind = KIND_NS Then
+            Select Case Measure
                 Case 0
                     CalcColumn = RS_EAD
                 Case 1
@@ -982,10 +995,10 @@ Private Function CalcColumn( _
                 Case 10
                     CalcColumn = RS_MULT
                 Case Else
-                    CalcColumn = RS_ADDON_IR + m - 4
+                    CalcColumn = RS_ADDON_IR + Measure - 4
             End Select
         Else
-            CalcColumn = Choose(m + 1, TC_NOTIONAL, TC_MTM, TC_M, TC_SD, TC_ADJN, TC_DELTA, TC_MFU, TC_MFM, _
+            CalcColumn = Choose(Measure + 1, TC_NOTIONAL, TC_MTM, TC_M, TC_SD, TC_ADJN, TC_DELTA, TC_MFU, TC_MFM, _
                                 TC_ENU, TC_ENM, TC_ADDON)
         End If
 
@@ -993,9 +1006,9 @@ End Function
 
 
 Private Function BankFigure( _
-    ByVal v As Variant, _
-    ByVal isRatio As Boolean, _
-    ByVal scaleFactor As Double) _
+    ByVal Figure As Variant, _
+    ByVal IsRatio As Boolean, _
+    ByVal ScaleFactor As Double) _
     As Double
 '
 '==============================================================================
@@ -1006,21 +1019,21 @@ Private Function BankFigure( _
 '   amount times the scale, a ratio or time as entered.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If isRatio Then
-            BankFigure = CDbl(v)
+        If IsRatio Then
+            BankFigure = CDbl(Figure)
         Else
-            BankFigure = CDbl(v) * scaleFactor
+            BankFigure = CDbl(Figure) * ScaleFactor
         End If
 
 End Function
 
 
 Private Function BankAmount( _
-    ByVal v As Variant, _
-    ByVal scaleFactor As Double) _
+    ByVal Amount As Variant, _
+    ByVal ScaleFactor As Double) _
     As Variant
 '
 '==============================================================================
@@ -1030,18 +1043,18 @@ Private Function BankAmount( _
 '   Return a bank amount scaled to units, or Empty when it is not a number.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If IsNumberValue(v) Then
-            BankAmount = CDbl(v) * scaleFactor
+        If IsNumberValue(Amount) Then
+            BankAmount = CDbl(Amount) * ScaleFactor
         End If
 
 End Function
 
 
 Private Function NumberOrEmpty( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Variant
 '
 '==============================================================================
@@ -1051,18 +1064,18 @@ Private Function NumberOrEmpty( _
 '   Return a Results figure as a number, or Empty when the cell has none.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If IsNumberValue(v) Then
-            NumberOrEmpty = CDbl(v)
+        If IsNumberValue(Content) Then
+            NumberOrEmpty = CDbl(Content)
         End If
 
 End Function
 
 
 Private Function IsNumberValue( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -1074,10 +1087,10 @@ Private Function IsNumberValue( _
 '   not either.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        Select Case VarType(v)
+        Select Case VarType(Content)
             Case vbDouble, vbSingle, vbLong, vbInteger, vbCurrency, vbDecimal, vbByte
                 IsNumberValue = True
         End Select
@@ -1086,7 +1099,7 @@ End Function
 
 
 Private Function IsBlankBankCell( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -1098,22 +1111,22 @@ Private Function IsBlankBankCell( _
 '   figure.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(v) Then
+        If IsError(Content) Then
             IsBlankBankCell = False
         Else
-            IsBlankBankCell = (Len(SafeStr(v)) = 0)
+            IsBlankBankCell = (Len(SafeStr(Content)) = 0)
         End If
 
 End Function
 
 
 Private Function BankRowHasData( _
-    ByRef bank As Variant, _
-    ByVal r As Long, _
-    ByVal commentCol As Long) _
+    ByRef Bank As Variant, _
+    ByVal BankRow As Long, _
+    ByVal CommentColumn As Long) _
     As Boolean
 '
 '==============================================================================
@@ -1121,10 +1134,10 @@ Private Function BankRowHasData( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell whether a bank row has a value in any column before the comment
-'   column commentCol.
+'   column CommentColumn.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1136,8 +1149,8 @@ Private Function BankRowHasData( _
 '------------------------------------------------------------------------------
 ' TEST
 '------------------------------------------------------------------------------
-        For c = 1 To commentCol - 1
-            If Not IsBlankBankCell(bank(r, c)) Then
+        For c = 1 To CommentColumn - 1
+            If Not IsBlankBankCell(Bank(BankRow, c)) Then
                 BankRowHasData = True
                 Exit Function
             End If
@@ -1147,7 +1160,7 @@ End Function
 
 
 Private Function DescribeValue( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As String
 '
 '==============================================================================
@@ -1157,22 +1170,22 @@ Private Function DescribeValue( _
 '   Describe a bank value that is not a number, for a note.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(v) Then
+        If IsError(Content) Then
             DescribeValue = "an error value"
-        ElseIf VarType(v) = vbBoolean Then
-            DescribeValue = "the logical value " & UCase$(CStr(v))
+        ElseIf VarType(Content) = vbBoolean Then
+            DescribeValue = "the logical value " & UCase$(CStr(Content))
         Else
-            DescribeValue = "the text '" & SafeStr(v) & "'"
+            DescribeValue = "the text '" & SafeStr(Content) & "'"
         End If
 
 End Function
 
 
 Private Function HeaderKey( _
-    ByVal v As Variant) _
+    ByVal Header As Variant) _
     As String
 '
 '==============================================================================
@@ -1182,16 +1195,16 @@ Private Function HeaderKey( _
 '   Reduce a header to lower case without spaces or line breaks.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        HeaderKey = LCase$(Replace(Replace(Replace(SafeStr(v), " ", ""), vbCr, ""), vbLf, ""))
+        HeaderKey = LCase$(Replace(Replace(Replace(SafeStr(Header), " ", ""), vbCr, ""), vbLf, ""))
 
 End Function
 
 
 Private Function IsTotalRow( _
-    ByVal id As String) _
+    ByVal RowId As String) _
     As Boolean
 '
 '==============================================================================
@@ -1203,16 +1216,16 @@ Private Function IsTotalRow( _
 '   such as TOTAL DESK is still compared.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        IsTotalRow = (id = "TOTAL" Or id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS)
+        IsTotalRow = (RowId = "TOTAL" Or RowId = "TOTAL " & RG_CRR Or RowId = "TOTAL " & RG_BCBS)
 
 End Function
 
 
 Private Function RowCount( _
-    ByVal block As Variant) _
+    ByVal Block As Variant) _
     As Long
 '
 '==============================================================================
@@ -1222,48 +1235,48 @@ Private Function RowCount( _
 '   Return the number of rows of a 2-D block; 0 when it is not an array.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        If IsArray(block) Then
-            RowCount = UBound(block, 1) - LBound(block, 1) + 1
+        If IsArray(Block) Then
+            RowCount = UBound(Block, 1) - LBound(Block, 1) + 1
         End If
 
 End Function
 
 
 Private Function TrimRows( _
-    ByRef outArr() As Variant, _
-    ByVal nOut As Long) _
+    ByRef OutRows() As Variant, _
+    ByVal OutCount As Long) _
     As Variant
 '
 '==============================================================================
 '                                   TrimRows
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the first nOut rows of outArr as a new array.
+'   Return the first OutCount rows of OutRows as a new array.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result()   As Variant    'The rows returned
+    Dim Result()   As Variant    'The rows returned
     Dim r          As Long       'Row
     Dim c          As Long       'Column
 
 '------------------------------------------------------------------------------
 ' COPY
 '------------------------------------------------------------------------------
-        ReDim result(1 To nOut, 1 To RC_NCOLS)
-        For r = 1 To nOut
+        ReDim Result(1 To OutCount, 1 To RC_NCOLS)
+        For r = 1 To OutCount
             For c = 1 To RC_NCOLS
-                result(r, c) = outArr(r, c)
+                Result(r, c) = OutRows(r, c)
             Next c
         Next r
-        TrimRows = result
+        TrimRows = Result
 
 End Function
