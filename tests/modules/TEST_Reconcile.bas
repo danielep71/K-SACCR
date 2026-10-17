@@ -37,7 +37,10 @@ Attribute VB_Name = "TEST_Reconcile"
 '   outputs of a normal run. Use a development workbook.
 '
 ' STATE OWNERSHIP
-'   Restores the caller's calculation mode and M_Main.gSilent.
+'   Restores the caller's calculation mode, M_Main.gSilent and
+'   M_Main.gQuietLog. gQuietLog is set for the run: the macros' run messages
+'   would push the report out of the Immediate window, which keeps about
+'   200 lines.
 '
 ' ERROR POLICY
 '   An unexpected error is recorded against its case and the remaining
@@ -49,7 +52,7 @@ Attribute VB_Name = "TEST_Reconcile"
 '   with RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -97,7 +100,7 @@ Public Sub RunReconcileTests()
 '   and a final RESULT line.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
@@ -106,6 +109,7 @@ Public Sub RunReconcileTests()
 '------------------------------------------------------------------------------
     Dim callerCalculation   As XlCalculation    'Caller's calculation mode
     Dim callerSilent        As Boolean          'Caller's M_Main.gSilent
+    Dim callerQuiet         As Boolean          'Caller's M_Main.gQuietLog
 
 '------------------------------------------------------------------------------
 ' RUN
@@ -115,6 +119,8 @@ Public Sub RunReconcileTests()
         mFailureCount = 0
         callerCalculation = Application.Calculation
         callerSilent = M_Main.gSilent
+        callerQuiet = M_Main.gQuietLog
+        M_Main.gQuietLog = True
         TEST_Suite.Say "SACCR RECONCILIATION TESTS"
 
         CaseTolerances
@@ -139,6 +145,7 @@ Public Sub RunReconcileTests()
 
         Application.Calculation = callerCalculation
         M_Main.gSilent = callerSilent
+        M_Main.gQuietLog = callerQuiet
         If mCaseCount <> EXPECTED_CASES Then
             Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
         End If

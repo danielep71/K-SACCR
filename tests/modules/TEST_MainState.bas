@@ -45,8 +45,10 @@ Attribute VB_Name = "TEST_MainState"
 '
 ' STATE OWNERSHIP
 '   Sets calculation mode, events and screen updating to known values for
-'   each case and restores the caller's values, gSilent, gTestFault and
-'   gEngineFault at the end, also after an unexpected error.
+'   each case and restores the caller's values, gSilent, gQuietLog,
+'   gTestFault and gEngineFault at the end, also after an unexpected error.
+'   gQuietLog is set for the run: the macros' run messages would push the
+'   report out of the Immediate window, which keeps about 200 lines.
 '
 ' ERROR POLICY
 '   Expected errors are captured and asserted. An unexpected error is
@@ -57,7 +59,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -104,10 +106,10 @@ Public Sub RunMainStateTests()
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, screen updating,
-'   gSilent and gTestFault before printing the result.
+'   gSilent, gQuietLog and gTestFault before printing the result.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -118,6 +120,7 @@ Public Sub RunMainStateTests()
     Dim callerEvents        As Boolean          'Caller's EnableEvents
     Dim callerScreen        As Boolean          'Caller's ScreenUpdating
     Dim callerSilent        As Boolean          'Caller's M_Main.gSilent
+    Dim callerQuiet         As Boolean          'Caller's M_Main.gQuietLog
     Dim restored            As Boolean          'Caller's settings read back equal
 
 '------------------------------------------------------------------------------
@@ -130,14 +133,17 @@ Public Sub RunMainStateTests()
         callerEvents = Application.EnableEvents
         callerScreen = Application.ScreenUpdating
         callerSilent = M_Main.gSilent
+        callerQuiet = M_Main.gQuietLog
         TEST_Suite.Say "SACCR MAIN STATE TESTS"
 
 '------------------------------------------------------------------------------
 ' RUN CASES
 '------------------------------------------------------------------------------
     'Silent mode keeps message boxes from blocking the run and makes the
-    'macros raise their errors.
+    'macros raise their errors; gQuietLog keeps their run messages out of
+    'the report.
         M_Main.gSilent = True
+        M_Main.gQuietLog = True
         M_Main.gTestFault = ""
         CaseRestoresState "clear.automatic-on", "clear", xlCalculationAutomatic, True, True
         CaseRestoresState "clear.manual-off", "clear", xlCalculationManual, False, False
@@ -174,6 +180,7 @@ Public Sub RunMainStateTests()
         M_Main.gTestFault = ""
         CORE_Engine.gEngineFault = ""
         M_Main.gSilent = callerSilent
+        M_Main.gQuietLog = callerQuiet
         Application.Calculation = callerCalculation
         Application.EnableEvents = callerEvents
         Application.ScreenUpdating = callerScreen

@@ -368,6 +368,10 @@ Keep non-passing bundles too until the finding is resolved.
   `TEST_InputValidation` prints 139 lines on a pass (header, `MODE`, 133
   `CASE` lines and four result lines), so a failing run with more than about
   60 `FAILURE=` lines overflows; other suites can too when many checks fail.
+  `TEST_MainState` and `TEST_Reconcile` run the workbook macros, whose run
+  messages would overflow the window on their own; both suites set
+  `M_Main.gQuietLog` for their run, as `Test_RunAll` does, so their report
+  holds only its own lines.
   Before copying, check that the first line in the window is the suite's
   header. If it is not, the output cannot be recovered and the run cannot be
   repeated in its place (step 5): keep the partial copy as the suite's log,
