@@ -42,7 +42,8 @@ NETTING_SET_QUANTITY = {"exposure_value": "EAD", "replacement_cost": "RC", "aggr
                         "multiplier": "multiplier", "margin_period_of_risk": "mpor_business_days"}
 CLASS_QUANTITY = {"add_on.interest_rate": "IRD", "add_on.foreign_exchange": "FX", "add_on.credit": "Credit",
                   "add_on.equity": "EQ", "add_on.commodity": "Commodity", "add_on.other": "OtherExposure"}
-TRADE_QUANTITY = {"adjusted_notional": "adjusted_notional", "supervisory_delta": "supervisory_delta"}
+TRADE_QUANTITY = {"adjusted_notional": "adjusted_notional", "supervisory_delta": "supervisory_delta",
+                  "supervisory_factor": "supervisory_factor"}
 
 
 class Unsupported(Exception):
@@ -155,10 +156,13 @@ def margin(fixture: dict[str, Any], trades: list[dict[str, Any]]) -> tuple[dict[
     if ns["clearing_role"] != "none" or ns["large_or_illiquid"] or ns["margin_disputes"] \
             or ns["mpor_override_business_days"] is not None:
         raise Unsupported("the package's MPOR is 10 + remargining period - 1 business days only")
+    # The engine reads a blank remargining period as 1 business day and
+    # raises 0 to 1.
+    remargin = max(1, ns["remargin_period_business_days"] or 1)
     csa_id = "csa_" + ns["id"]
     csa = {"id": csa_id, "counterparty": ns["id"], "threshold": ns["threshold_amount"] or 0,
            "mta": ns["minimum_transfer_amount"] or 0, "nica": ns["independent_collateral_net_amount"] or 0,
-           "remargin_freq": ns["remargin_period_business_days"], "mpor_days": 0,
+           "remargin_freq": remargin, "mpor_days": 0,
            "currencies": sorted({t["args"]["Currency"] for t in trades}),
            "trade_groups": sorted({TRADE_GROUP[a] for a in fixture_classes(fixture)})}
     # The package applies the threshold and MTA floor only when the CSA has
@@ -182,6 +186,8 @@ def translate_fixture(fixture: dict[str, Any]) -> tuple[dict[str, Any], list[str
     for name, value in fixture["parameters"].items():
         if name != "DaysPerYear":
             raise Unsupported(f"parameter {name}={value} has no package counterpart")
+    if fixture["netting_set"]["alpha_factor"] not in (None, 1.4):
+        raise Unsupported("the package's alpha is always 1.4")
     ns_id = fixture["netting_set"]["id"]
     trades, notes = [], []
     for trade in fixture["trades"]:

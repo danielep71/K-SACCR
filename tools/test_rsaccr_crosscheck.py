@@ -45,6 +45,13 @@ class TranslateTests(unittest.TestCase):
         self.assertEqual(netting_set["collateral"],
                          [{"id": "csa_EX5_vm", "csa_id": "csa_EX5", "type": "VariationMargin", "amount": 0}])
 
+    def test_remargining_period_defaults_to_one_business_day(self) -> None:
+        data = fixture("cre99-example-5")
+        for period in (None, 0):
+            data["netting_set"]["remargin_period_business_days"] = period
+            netting_set, _ = xc.translate_fixture(data)
+            self.assertEqual(netting_set["csa"]["remargin_freq"], 1)
+
     def test_days_per_year_and_commodity_hedging_set(self) -> None:
         netting_set, _ = xc.translate_fixture(fixture("cre99-example-3"))
         first = netting_set["trades"][0]["args"]
@@ -72,6 +79,10 @@ class TranslateTests(unittest.TestCase):
         data = fixture("cre99-example-5")
         data["netting_set"]["large_or_illiquid"] = True
         with self.assertRaisesRegex(xc.Unsupported, "MPOR"):
+            xc.translate_fixture(data)
+        data = fixture("cre99-example-1")
+        data["netting_set"]["alpha_factor"] = 1.0
+        with self.assertRaisesRegex(xc.Unsupported, "alpha"):
             xc.translate_fixture(data)
 
 

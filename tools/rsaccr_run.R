@@ -40,18 +40,21 @@ first_tree <- function(result) {
     stop("the package returned no exposure tree")
 }
 
+# The package stores the supervisory factor on the hedging set or reference
+# entity above a trade, so each trade takes the nearest one above it.
 trade_details <- function(tree) {
     details <- list()
-    walk <- function(node) {
+    walk <- function(node, factor) {
+        if (!is.null(node$supervisory_factor)) factor <- node$supervisory_factor
         if (!is.null(node$exposure_details)) {
             e <- node$exposure_details
             details[[node$name]] <<- list(adjusted_notional = e$AdjNotional, supervisory_delta = e$superv_delta,
                                           maturity_factor = e$maturity_factor,
-                                          effective_notional = e$effective_notional)
+                                          effective_notional = e$effective_notional, supervisory_factor = factor)
         }
-        for (child in node$children) walk(child)
+        for (child in node$children) walk(child, factor)
     }
-    walk(tree)
+    walk(tree, NULL)
     details
 }
 

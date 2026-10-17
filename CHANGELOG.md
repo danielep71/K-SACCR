@@ -99,7 +99,7 @@ Use only the categories needed by a release.
 - `tools/rsaccr_crosscheck.py` and `tools/rsaccr_run.R` compare the expected
   values of the test cases with the CRAN package `SACCR` 3.4, an independent
   CRR2 implementation (#352). With R 4.3.3, `SACCR` 3.4 and `Trading` 3.2, the
-  23 numeric values it can compute, from 13 of the 15 fixtures, agree within
+  24 numeric values it can compute, from 13 of the 15 fixtures, agree within
   each expected file's tolerance. The two not run need a commodity option and
   the `IRBucketOffset` parameter, which the package lacks. It is not a gate:
   it needs R, and agreement between two implementations does not show that
