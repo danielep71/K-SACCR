@@ -92,8 +92,11 @@ Follow [integrating the release branch into main](docs/GOVERNANCE.md#integrating
 which leaves the release branch level with `main`. The merge commit on `main`
 is the candidate: record its full SHA, the previous tag (if any) and the
 intended version, and verify that the rulesets are still active in
-Settings → Rules. Nothing is merged into the release branch until the tag
-exists.
+Settings → Rules. Until the tag exists, the release branch takes only fixes
+for a gate that failed on the candidate (steps 4 to 6). Such a fix records its
+change in the dated `## [X.Y.Z]` section being released, not under
+`[Unreleased]`; each is integrated again and the new merge commit becomes the
+candidate.
 
 ### 4. Run the static gates
 
@@ -115,7 +118,8 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bund
 ```
 
 Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
-task PR, integrate again and certify the new merge commit.
+task PR into the release branch, integrate again and certify the new merge
+commit.
 
 ### 6. Build artifacts
 
