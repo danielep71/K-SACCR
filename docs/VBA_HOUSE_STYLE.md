@@ -27,7 +27,8 @@ prefixes for core, facade and test modules.
 | Example module (`examples/`) | `Example` + subject | `ExampleSingleNettingSet` |
 | Worksheet function (`src/modules/`) | `SACCR_` + quantity; arguments use the regulatory symbols | `SACCR_ReplacementCost(V, C, ...)` |
 | Procedure | PascalCase verb phrase | `CalculateAddOn` |
-| Parameter, local variable | camelCase noun | `notionalAmount` |
+| Parameter, local variable | PascalCase noun, spelled out | `NotionalAmount` |
+| Loop counter | one lower-case letter | `i`, `j`, `r`, `c` |
 | Module-level variable | `m` + PascalCase | `mRunClass` |
 | Public variable | `g` + PascalCase | `gEngineFault` |
 | Constant | UPPER_SNAKE_CASE | `ALPHA_FACTOR` |
@@ -40,13 +41,22 @@ Names are English and spelled out; avoid abbreviations other than established
 SA-CCR terms (`EAD`, `RC`, `PFE`, `MPOR`), written in full in the procedure's
 comment the first time.
 
+A single letter is reserved for a loop counter, the variable a `For` loop, or
+a `Do` loop that steps through positions, counts with; it stays lower case.
+Every other variable and parameter names what it holds, also in a short
+helper (`Formatted`, not `s`; `CodePoint`, not `cp`). Worksheet functions
+are the exception the table gives: their arguments are the regulatory
+symbols. VBA names are case-insensitive and the VBE shows one spelling per
+name across the project, so the source files, not the editor, carry the
+convention.
+
 ## ⚙️ Module rules
 
 - Every module declares `Option Explicit` (enforced by `tools/check_source.py`).
 - Every module in `src/core/` and `tests/modules/` declares
   `Option Private Module` (enforced for `src/core/` by `tools/check_source.py`).
 - No `Option Base 1`: arrays are declared with explicit bounds
-  (`Dim values(1 To n)`).
+  (`Dim Values(1 To ValueCount)`).
 - No `Variant` where a specific type works. Arguments are `ByVal` unless the
   procedure's contract is to write an output parameter.
 - No global mutable state in `src/core/`. Core procedures depend only on their
@@ -79,8 +89,8 @@ signature. Omit sections that are empty.
   (no thousands or millions).
 - Rates, factors and correlations are decimals: `0.05`, never `5` meaning 5%.
 - Time periods are `Double` in years unless the name says otherwise
-  (`mporBusinessDays`). Dates are VBA `Date`.
-- Every numeric input states its valid domain, for example `notionalAmount >= 0`
+  (`MporBusinessDays`). Dates are VBA `Date`.
+- Every numeric input states its valid domain, for example `NotionalAmount >= 0`
   or `0 < correlation <= 1`. For an input with no meaningful result, the
   facade's worksheet functions return a worksheet error value (`CVErr`) or
   apply a documented floor.
@@ -136,24 +146,24 @@ The reference implementation is `M_Main.ExecuteOperation` in
 returns what failed as text, empty on success, so every restoration is
 attempted. The sketch below follows the same pattern; a cleanup-only failure
 raises `ERR_CLEANUP_FAILED` (`src/core/CORE_Config.bas`), never success, and
-`cleanupDetails` returns the failures to the caller also when the primary
+`CleanupDetails` returns the failures to the caller also when the primary
 error is re-raised.
 
 ```vb
 'In a standard module named M_Example
-Public Sub RunOperation(ByRef cleanupDetails As String)
-    Dim savedCalculation   As XlCalculation    'Calculation mode before the operation
-    Dim savedScreen        As Boolean          'ScreenUpdating before the operation
-    Dim stateCaptured      As Boolean          'True once both were read
-    Dim errNumber          As Long             'Primary error number; 0 for none
-    Dim errSource          As String           'Primary error source
-    Dim errDescription     As String           'Primary error description
+Public Sub RunOperation(ByRef CleanupDetails As String)
+    Dim SavedCalculation   As XlCalculation    'Calculation mode before the operation
+    Dim SavedScreen        As Boolean          'ScreenUpdating before the operation
+    Dim StateCaptured      As Boolean          'True once both were read
+    Dim ErrNumber          As Long             'Primary error number; 0 for none
+    Dim ErrSource          As String           'Primary error source
+    Dim ErrDescription     As String           'Primary error description
 
-        cleanupDetails = vbNullString
+        CleanupDetails = vbNullString
         On Error GoTo Failed
-        savedCalculation = Application.Calculation
-        savedScreen = Application.ScreenUpdating
-        stateCaptured = True
+        SavedCalculation = Application.Calculation
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
         Application.ScreenUpdating = False
         Application.Calculation = xlCalculationManual
 
@@ -161,20 +171,20 @@ Public Sub RunOperation(ByRef cleanupDetails As String)
 
 CleanUp:
         On Error GoTo 0
-        If stateCaptured Then
-            cleanupDetails = AppendDetail(RestoreCalculation(savedCalculation), _
-                                          RestoreScreenUpdating(savedScreen))
+        If StateCaptured Then
+            CleanupDetails = AppendDetail(RestoreCalculation(SavedCalculation), _
+                                          RestoreScreenUpdating(SavedScreen))
         End If
-        If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
-        If Len(cleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "M_Example.RunOperation", cleanupDetails
+        If ErrNumber <> 0 Then Err.Raise ErrNumber, ErrSource, ErrDescription
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Example.RunOperation", CleanupDetails
         End If
         Exit Sub
 
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
+        ErrNumber = Err.Number
+        ErrSource = Err.Source
+        ErrDescription = Err.Description
         Resume CleanUp
 End Sub
 ```
@@ -215,8 +225,8 @@ generated and must not be edited by hand.
 
   ```vb
   Public Function CalculateAddOn( _
-      ByVal notionalAmount As Double, _
-      ByVal supervisoryFactor As Double) _
+      ByVal NotionalAmount As Double, _
+      ByVal SupervisoryFactor As Double) _
       As Double
   ```
 
@@ -248,7 +258,17 @@ generated and must not be edited by hand.
 
 - A formatting-only change must leave names, signatures, visibility, constants,
   calculations, tests and error behavior unchanged; a discovered defect goes in
-  a separate change.
+  a separate change. Renaming local variables and parameters to the
+  [naming](#naming) rules is the one exception for names: it changes no
+  logic or string, and in comments only the renamed names (in `INPUTS` and
+  wherever a comment names them). Its pull request shows that applying the
+  map of old to new names to the previous file reproduces every code line.
+  The exception does not cover the parameters of a declaration listed in
+  [`PUBLIC_API.txt`](PUBLIC_API.txt): a caller may pass them by name, so
+  renaming one is a [contract change](#public-api-changes).
+- Comments are kept true. A change updates every module header, procedure
+  header, `INPUTS` name and line comment it makes stale, and the `UPDATED`
+  date of each procedure and module it touches.
 - `python tools/check.py` must pass. Its gates are listed in
   [`tools/README.md`](../tools/README.md); it does not compile VBA.
 - Changed VBA is merged only after it has been compiled and tested in Excel, as
