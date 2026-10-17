@@ -85,6 +85,12 @@
     footer { padding-block: 2rem; background: var(--ink); color: #d4e7fa; font-size: .8rem; }
     footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
     footer a { color: white; }
+    .banner { position: relative; height: 300px; overflow: hidden; color: #fff; background: #0b1d3f url(assets/SACCR_banner.webp) center 45% / cover no-repeat; }
+    .banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #001a48eb 0%, #001a48bf 38%, #001a481a 75%); }
+    .banner .wrap { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: .4rem; }
+    .banner .kicker { font-size: .78rem; font-weight: 750; letter-spacing: .18em; text-transform: uppercase; color: #9ed9ff; }
+    .banner .title { font-size: clamp(1.7rem, 3.6vw, 2.9rem); font-weight: 780; letter-spacing: -.04em; line-height: 1.05; margin: 0; }
+    .banner .sub { font-size: 1rem; color: #d4e7fa; }
     @media (max-width: 760px) {
       nav { align-items: flex-start; padding-block: 1.2rem; flex-direction: column; }
       .navlinks { gap: .6rem 1.2rem; }
@@ -94,6 +100,8 @@
       section { padding-block: 42px; }
       .example { padding: 1.5rem; }
       .strip { gap: .6rem 1.5rem; }
+      .banner { height: 190px; }
+      .banner .sub { font-size: .85rem; }
       .screen.diagram img { width: 1000px; max-width: none; }
       .narrow-hint { display: inline; }
     }
@@ -113,6 +121,9 @@
       </div>
     </nav>
   </header>
+  <div class="banner">
+    <div class="wrap"><div class="kicker">Counterparty credit risk</div><p class="title">SA-CCR for derivatives</p><div class="sub">Basel CRE52 &middot; EU CRR</div></div>
+  </div>
   <main id="main">
     <div class="wrap hero">
       <div>
