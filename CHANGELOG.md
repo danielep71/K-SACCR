@@ -289,7 +289,9 @@ linked issues and pull requests.
   suites and counts, and `tools/check_excel_evidence.py` validates a record.
   `TEST_MainState` and `TEST_Reconcile`, run on their own, keep the macros'
   run messages out of their report, which otherwise overran the VBE
-  Immediate window's 200 lines and lost its header and first cases.
+  Immediate window's 200 lines and lost its header and first cases. The
+  policy names `TEST_InputValidation`'s first case as its log prints it,
+  `input-trade-middle-row-without-id`, and the policy gate reads it so.
   A source round trip (`Export-SACCR-VBA.ps1`, `compare_vba_export.py`) checks
   a built workbook's code against a commit (#34).
 

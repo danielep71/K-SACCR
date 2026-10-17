@@ -516,6 +516,15 @@ class ExcelEvidenceTests(unittest.TestCase):
         policy["suites"][self.index("TEST_Aggregation")]["first_case"] = "invariants-demo-repeat"
         with self.assertRaisesRegex(ValueError, "distinct first cases"):
             evidence.parse_policy(json.dumps(policy).encode())
+        # TEST_InputValidation prints its first case behind StartCase's "input-" prefix.
+        policy = copy.deepcopy(self.policy)
+        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "trade-middle-row-without-id"
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
+        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "input-trade-middle-row-without-id"
+        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+        self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"
