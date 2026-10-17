@@ -15,16 +15,18 @@ Attribute VB_Name = "TEST_Benchmark"
 ' PORTFOLIO
 '   The legs are spread over netting sets of 500 legs, alternately
 '   unmargined and margined (daily remargining, VM, NICA and MTA, not large
-'   or illiquid), all under CRR, valued on 2026-09-30 in EUR. Every 20 legs
+'   or illiquid), all under CRR, valued on 2026-09-30 in EUR. Every 21 legs
 '   repeat one mix, with references, maturities, notionals and market
 '   values cycling without randomness: seven interest-rate swaps in EUR and
 '   USD ending in all three maturity buckets; three FX forwards and one FX
 '   option on EUR/USD, EUR/GBP, EUR/JPY and EUR/CHF; three single-name
 '   credit default swaps on 50 entities rated AAA to CCC; an equity forward
-'   on a single name, one on an index and an option on a single name; and
-'   three commodity forwards on oil and gas and on metals. A reference
-'   always has the same sub-class, no leg belongs to an economic trade, and
-'   every leg is valid, so the engine must use them all.
+'   on a single name, one on an index and an option on a single name;
+'   three commodity forwards on oil and gas and on metals; and one
+'   other-risks (OT) forward, a class only CRR has, on one of three
+'   indices, long or short. A reference always has the same sub-class, no
+'   leg belongs to an economic trade, and every leg is valid, so the
+'   engine must use them all.
 '
 ' PUBLIC SURFACE
 '   RunBenchmark is the entry point. Option Private Module keeps it out of
@@ -98,9 +100,10 @@ Attribute VB_Name = "TEST_Benchmark"
 
     'Portfolio.
         Private Const LEGS_PER_SET    As Long = 500    'Legs per netting set
-        Private Const MIX_LENGTH      As Long = 20     'Legs in one repetition of the mix
+        Private Const MIX_LENGTH      As Long = 21     'Legs in one repetition of the mix
         Private Const CREDIT_NAMES    As Long = 50     'Credit entities
         Private Const EQUITY_NAMES    As Long = 40     'Single-name equities
+        Private Const OTHER_INDICES   As Long = 3      'Other-risks indices
 
     'Inflated used range.
         Private Const USED_RANGE_LEGS   As Long = 1000      'Legs of the used-range scenario
@@ -754,7 +757,10 @@ Private Sub FillLeg( _
     'bucket edges of 1 and 5 years. FX pairs all hold EUR, the notional
     'currency, and are in market quote order, as an FX option requires. A
     'credit, equity or commodity reference is always given the same
-    'sub-class, as the engine requires within a netting set.
+    'sub-class, as the engine requires within a netting set. An other-risks
+    'leg has no sub-class; its index is its hedging set (Art. 277a CRR), and
+    'cycling the indices every 3 mixes while the direction alternates every
+    'mix puts long and short legs in each.
         Select Case Slot
             Case 0 To 6
                 Block(Leg, TR_AC) = "IR"
@@ -795,11 +801,16 @@ Private Sub FillLeg( _
                 Block(Leg, TR_SUB) = "OIL_GAS"
                 Block(Leg, TR_RF) = Choose(((Cycle + Slot) Mod 3) + 1, "BRENT", "WTI", "NATURAL GAS")
                 SetMaturity Block, Leg, Choose(((Cycle + Slot) Mod 4) + 1, 3, 6, 12, 24), False
-            Case Else
+            Case 18
                 Block(Leg, TR_AC) = "CO"
                 Block(Leg, TR_SUB) = "METALS"
                 Block(Leg, TR_RF) = Choose((Cycle Mod 3) + 1, "GOLD", "SILVER", "COPPER")
                 SetMaturity Block, Leg, Choose(((Cycle + 2) Mod 4) + 1, 3, 6, 12, 24), False
+            Case Else
+                Block(Leg, TR_AC) = "OT"
+                Block(Leg, TR_RF) = Choose((Cycle Mod OTHER_INDICES) + 1, "LONGEVITY INDEX", "CAT LOSS INDEX", _
+                                           "WEATHER INDEX")
+                SetMaturity Block, Leg, Choose(((Cycle + 1) Mod 5) + 1, 6, 12, 24, 36, 60), False
         End Select
 
 End Sub

@@ -104,6 +104,15 @@ set was `VALID` at each size.
   scenarios; its used-range scenario, distorted by that leftover range, is
   not reported. The used-range row comes from the run of the merged module,
   in which 1,000 legs took 0.33 s without the stray row.
+- These timings were measured on the five-class mix of #291: interest
+  rates, FX, credit, equity and commodities. The benchmark now adds an
+  other-risks leg to every 21 legs (#309); the sizes above have not been
+  rerun on that mix.
+- The timings measure the engine: reading the inputs, calculating and
+  writing Results, TradeCalc and Checks. They do not include what **Run
+  SA-CCR** does around it, such as the reconciliation against bank figures,
+  nor the evidence export. Their time on large portfolios has not been
+  measured.
 - The template's Trades dropdowns, input validation and formatting cover
   rows 5 to 5,000. Rows below are read and calculated the same way, but are
   entered without dropdowns or validation messages.
@@ -473,8 +482,9 @@ include it, because its timings depend on the machine. Needs
 CRR portfolios of the given numbers of legs (1,000 and 10,000 by default; up
 to 1,000,000, which needs memory and time in proportion), in netting sets of
 500 legs, alternately unmargined and margined, with interest-rate swaps, FX
-forwards and options, credit default swaps, equity forwards and options and
-commodity forwards, all valid; then, last, a portfolio of 1,000 legs with a
+forwards and options, credit default swaps, equity forwards and options,
+commodity forwards and other-risks forwards, all valid; then, last, a
+portfolio of 1,000 legs with a
 stray comment 100,000 rows below the end of the Trades used range, which
 inflates the sheet's used range. For each it times the writing of the inputs
 and the engine run, prints a `BENCH` line such as this one, with the seconds
