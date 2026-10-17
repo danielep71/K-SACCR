@@ -48,12 +48,13 @@ Attribute VB_Name = "CORE_Engine"
 ' PUBLIC SURFACE
 '   None outside this VBA project. Calculate, the run counters (with the
 '   per-regime totals TotalEAD, RegimeSetCount, RegimeValidCount,
-'   RegimeWithheldCount and TotalStatusText) and the run-fingerprint
-'   procedures (InputFingerprint, LastRunInputs, ForgetRunInputs, and
-'   BlockText, which M_Main also uses for the reconciliation fingerprint)
-'   and ParameterCodes, which it uses for the evidence report,
-'   are Public for M_Main; Option Private Module keeps them off the
-'   supported external surface.
+'   RegimeWithheldCount, TotalStatusText and WithheldByRegimeText), the
+'   run-fingerprint procedures (InputFingerprint, LastRunInputs,
+'   ForgetRunInputs, and BlockText, which M_Main also uses for the
+'   reconciliation fingerprint) and ParameterCodes, which M_Main uses for
+'   the evidence report, are Public for M_Main and the tests; the test seam
+'   gEngineFault is Public for the tests. Option Private Module keeps them
+'   off the supported external surface.
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access,
@@ -86,7 +87,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -349,7 +350,7 @@ Attribute VB_Name = "CORE_Engine"
 '
 
 Public Function Calculate( _
-    ByVal writeOutputs As Boolean) _
+    ByVal WriteOutputs As Boolean) _
     As Boolean
 '
 '==============================================================================
@@ -360,7 +361,7 @@ Public Function Calculate( _
 '   and netting set, and write the outputs.
 '
 ' INPUTS
-'   writeOutputs: True writes every output sheet; False validates only and
+'   WriteOutputs: True writes every output sheet; False validates only and
 '   writes the Checks sheet alone.
 '
 ' RETURNS
@@ -383,20 +384,20 @@ Public Function Calculate( _
 '   Resets all module state, then fills it for this run.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim t0               As Double     'Timer value at the start, for the run duration
-    Dim checksFailure    As String     'Why the Checks sheet could not be written; "" if written
-    Dim errNumber        As Long       'Unexpected error: number
-    Dim errSource        As String     'Unexpected error: source
-    Dim withdrawalDetails As String    'Failures by sheet, distinct from the primary error
-    Dim withdrawalStatus As String     'Whether every output could be withdrawn
-    Dim errDescription   As String     'Unexpected error: description
+    Dim StartTime           As Double    'Timer value at the start, for the run duration
+    Dim ChecksFailure       As String    'Why the Checks sheet could not be written; "" if written
+    Dim ErrNumber           As Long      'Unexpected error: number
+    Dim ErrSource           As String    'Unexpected error: source
+    Dim WithdrawalDetails   As String    'Failures by sheet, distinct from the primary error
+    Dim WithdrawalStatus    As String    'Whether every output could be withdrawn
+    Dim ErrDescription      As String    'Unexpected error: description
 
 '------------------------------------------------------------------------------
 ' LOAD INPUTS
@@ -404,7 +405,7 @@ Public Function Calculate( _
     'Old outputs are cleared first, for validation too, so that a failed or
     'validation-only run can never leave earlier results looking current
     '(#36). Any loader that fails has logged why; skip to the Checks output.
-        t0 = Timer
+        StartTime = Timer
         ResetState
         On Error GoTo Failed
         ClearOutputSheets
@@ -419,10 +420,10 @@ Public Function Calculate( _
 '------------------------------------------------------------------------------
 ' CALCULATE
 '------------------------------------------------------------------------------
-        ProcessTrades writeOutputs
+        ProcessTrades WriteOutputs
         ComputeHedgingSets
-        ComputeNettingSets writeOutputs
-        If writeOutputs Then
+        ComputeNettingSets WriteOutputs
+        If WriteOutputs Then
             WriteBuckets
             If gEngineFault = "outputs" Or gEngineFault = "outputs+cleanup" Then
                 Err.Raise ERR_INJECTED_FAULT, "CORE_Engine.Calculate", "Injected output failure."
@@ -437,31 +438,31 @@ Public Function Calculate( _
     'Reached on success and after a failed load. If the Checks sheet cannot
     'be written, the results are withdrawn and the failure raised.
 Finish:
-        If Not WriteChecks(checksFailure) Then
+        If Not WriteChecks(ChecksFailure) Then
             Calculate = False
-            withdrawalStatus = "results withdrawn"
-            If Not WithdrawOutputs(withdrawalDetails) Then
-                withdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
-                                   withdrawalDetails
+            WithdrawalStatus = "results withdrawn"
+            If Not WithdrawOutputs(WithdrawalDetails) Then
+                WithdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
+                                   WithdrawalDetails
             End If
             ForgetRunInputs
-            WriteRunInfo Timer - t0, False, writeOutputs, "the Checks sheet could not be written (" & _
-                         checksFailure & "); " & withdrawalStatus & ", and Checks may show an earlier run"
+            WriteRunInfo Timer - StartTime, False, WriteOutputs, "the Checks sheet could not be written (" & _
+                         ChecksFailure & "); " & WithdrawalStatus & ", and Checks may show an earlier run"
             On Error GoTo 0
             Err.Raise ERR_CHECKS_WRITE, "CORE_Engine.Calculate", "The Checks sheet could not be written (" & _
-                      checksFailure & "); " & withdrawalStatus & ". Unprotect or repair the Checks " & _
+                      ChecksFailure & "); " & WithdrawalStatus & ". Unprotect or repair the Checks " & _
                       "sheet and run again."
         End If
 
     'Only a completed run that wrote its outputs leaves results; remember
     'its inputs so that later edits show the results as out of date.
-        If Calculate And writeOutputs Then
+        If Calculate And WriteOutputs Then
             mRunInputs = InputFingerprint()
             RememberRunInputs mRunInputs
         Else
             ForgetRunInputs
         End If
-        WriteRunInfo Timer - t0, Calculate, writeOutputs, ""
+        WriteRunInfo Timer - StartTime, Calculate, WriteOutputs, ""
         Exit Function
 
 '------------------------------------------------------------------------------
@@ -471,30 +472,31 @@ Finish:
     'error on Checks and in the run summary, both best effort. Preserve its
     'number/source/text and append any secondary failure for M_Main to report.
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
+        ErrNumber = Err.Number
+        ErrSource = Err.Source
+        ErrDescription = Err.Description
         Calculate = False
         mRunInputs = ""
-        'NONE means no valid run; protected output cells may still remain.
+    'With the fingerprint forgotten the results read NONE (no valid run),
+    'although protected output cells may still hold old values.
         ForgetRunInputs
-        withdrawalStatus = "results withdrawn"
-        If Not WithdrawOutputs(withdrawalDetails) Then
-            withdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
-                               withdrawalDetails
+        WithdrawalStatus = "results withdrawn"
+        If Not WithdrawOutputs(WithdrawalDetails) Then
+            WithdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
+                               WithdrawalDetails
         End If
-        LogMsg SEV_ERROR, "", "", "Run stopped by error " & errNumber & ": " & errDescription & _
-               " - " & withdrawalStatus & "."
-        If Not WriteChecks(checksFailure) Then
-            withdrawalStatus = withdrawalStatus & "; Checks could not be updated (" & checksFailure & _
+        LogMsg SEV_ERROR, "", "", "Run stopped by error " & ErrNumber & ": " & ErrDescription & _
+               " - " & WithdrawalStatus & "."
+        If Not WriteChecks(ChecksFailure) Then
+            WithdrawalStatus = WithdrawalStatus & "; Checks could not be updated (" & ChecksFailure & _
                                "); Checks may show an earlier run."
         End If
-        WriteRunInfo Timer - t0, False, writeOutputs, "error " & errNumber & ": " & errDescription & _
-                     "; " & withdrawalStatus
-        If Len(withdrawalDetails) > 0 Or Len(checksFailure) > 0 Then
-            errDescription = errDescription & " " & withdrawalStatus & "."
+        WriteRunInfo Timer - StartTime, False, WriteOutputs, "error " & ErrNumber & ": " & ErrDescription & _
+                     "; " & WithdrawalStatus
+        If Len(WithdrawalDetails) > 0 Or Len(ChecksFailure) > 0 Then
+            ErrDescription = ErrDescription & " " & WithdrawalStatus & "."
         End If
-        Err.Raise errNumber, errSource, errDescription
+        Err.Raise ErrNumber, ErrSource, ErrDescription
 
 End Function
 
@@ -534,7 +536,7 @@ End Property
 
 
 Public Property Get TotalEAD( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As Double
 '
 '==============================================================================
@@ -546,19 +548,19 @@ Public Property Get TotalEAD( _
 '   added together (#198).
 '
 ' INPUTS
-'   regimeCode: RG_CRR or RG_BCBS.
+'   RegimeCode: RG_CRR or RG_BCBS.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        TotalEAD = mRegEAD(RegimeIndex(regimeCode))
+        TotalEAD = mRegEAD(RegimeIndex(RegimeCode))
 
 End Property
 
 
 Public Property Get RegimeSetCount( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As Long
 '
 '==============================================================================
@@ -568,16 +570,16 @@ Public Property Get RegimeSetCount( _
 '   Netting sets of one regime in the last run, whatever their status.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        RegimeSetCount = mRegSets(RegimeIndex(regimeCode))
+        RegimeSetCount = mRegSets(RegimeIndex(RegimeCode))
 
 End Property
 
 
 Public Property Get RegimeValidCount( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As Long
 '
 '==============================================================================
@@ -588,16 +590,16 @@ Public Property Get RegimeValidCount( _
 '   in TotalEAD.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        RegimeValidCount = mRegValid(RegimeIndex(regimeCode))
+        RegimeValidCount = mRegValid(RegimeIndex(RegimeCode))
 
 End Property
 
 
 Public Property Get RegimeWithheldCount( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As Long
 '
 '==============================================================================
@@ -608,16 +610,16 @@ Public Property Get RegimeWithheldCount( _
 '   (INVALID or INCOMPLETE).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        RegimeWithheldCount = mRegWithheld(RegimeIndex(regimeCode))
+        RegimeWithheldCount = mRegWithheld(RegimeIndex(RegimeCode))
 
 End Property
 
 
 Public Function TotalStatusText( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As String
 '
 '==============================================================================
@@ -629,11 +631,11 @@ Public Function TotalStatusText( _
 '   A NO TRADES netting set is counted but neither VALID nor withheld.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        TotalStatusText = RegimeValidCount(regimeCode) & " of " & RegimeSetCount(regimeCode) & _
-                          " netting set(s) VALID; " & RegimeWithheldCount(regimeCode) & " withheld"
+        TotalStatusText = RegimeValidCount(RegimeCode) & " of " & RegimeSetCount(RegimeCode) & _
+                          " netting set(s) VALID; " & RegimeWithheldCount(RegimeCode) & " withheld"
 
 End Function
 
@@ -667,7 +669,7 @@ End Function
 
 
 Private Function RegimeIndex( _
-    ByVal regimeCode As String) _
+    ByVal RegimeCode As String) _
     As Long
 '
 '==============================================================================
@@ -677,10 +679,10 @@ Private Function RegimeIndex( _
 '   Position of a regime in the per-regime totals: 1 CRR, 2 BCBS.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        If regimeCode = RG_BCBS Then
+        If RegimeCode = RG_BCBS Then
             RegimeIndex = 2
         Else
             RegimeIndex = 1
@@ -901,11 +903,11 @@ End Sub
 
 
 Private Sub LogMsg( _
-    ByVal severity As String, _
-    ByVal sheetName As String, _
-    ByVal ref As String, _
-    ByVal msg As String, _
-    Optional ByVal rowNum As Long = 0)
+    ByVal Severity As String, _
+    ByVal SheetName As String, _
+    ByVal Reference As String, _
+    ByVal Message As String, _
+    Optional ByVal RowNumber As Long = 0)
 '
 '==============================================================================
 '                                    LogMsg
@@ -914,14 +916,14 @@ Private Sub LogMsg( _
 '   Add one message for the Checks sheet and count errors and warnings.
 '
 ' INPUTS
-'   severity: SEV_ERROR, SEV_WARN or SEV_INFO.
-'   sheetName: sheet the message refers to.
-'   ref: the ID or parameter code concerned; may be empty.
-'   msg: the message text.
-'   rowNum: sheet row concerned; 0 leaves the Row column blank.
+'   Severity: SEV_ERROR, SEV_WARN or SEV_INFO.
+'   SheetName: sheet the message refers to.
+'   Reference: the ID or parameter code concerned; may be empty.
+'   Message: the message text.
+'   RowNumber: sheet row concerned; 0 leaves the Row column blank.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -934,23 +936,23 @@ Private Sub LogMsg( _
         If mLogCount > UBound(mLog, 2) Then
             ReDim Preserve mLog(1 To CK_NCOLS, 1 To mLogCount * 2)
         End If
-        mLog(1, mLogCount) = severity
-        mLog(2, mLogCount) = sheetName
-        If rowNum > 0 Then
-            mLog(3, mLogCount) = rowNum
+        mLog(1, mLogCount) = Severity
+        mLog(2, mLogCount) = SheetName
+        If RowNumber > 0 Then
+            mLog(3, mLogCount) = RowNumber
         Else
             mLog(3, mLogCount) = Empty
         End If
-        mLog(4, mLogCount) = ref
-        mLog(5, mLogCount) = msg
+        mLog(4, mLogCount) = Reference
+        mLog(5, mLogCount) = Message
 
 '------------------------------------------------------------------------------
 ' COUNT
 '------------------------------------------------------------------------------
-        If severity = SEV_ERROR Then
+        If Severity = SEV_ERROR Then
             mErrCount = mErrCount + 1
         End If
-        If severity = SEV_WARN Then
+        If Severity = SEV_WARN Then
             mWarnCount = mWarnCount + 1
         End If
 
@@ -982,34 +984,34 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws         As Worksheet    'Params sheet
-    Dim ok         As Boolean      'No problem found so far
-    Dim layoutOk   As Boolean      'Params names and headers are valid
-    Dim codeCol    As Long         'Table column of the parameter codes
-    Dim valueCol   As Long         'Table column of the parameter values
-    Dim lastR      As Long         'Last used row of Params
-    Dim grid       As Variant      'Parameter codes, rows 1 to lastR
-    Dim values     As Variant      'Parameter values, rows 1 to lastR
-    Dim codes      As Variant      'Every parameter code
-    Dim i          As Long         'Index into codes
-    Dim r          As Long         'Params row being compared
-    Dim firstRow   As Long         'First Params row holding the code; 0 if none
+    Dim ParamsSheet   As Worksheet    'Params sheet
+    Dim AllValid      As Boolean      'No problem found so far
+    Dim LayoutValid   As Boolean      'Params names and headers are valid
+    Dim CodeColumn    As Long         'Table column of the parameter codes
+    Dim ValueColumn   As Long         'Table column of the parameter values
+    Dim LastRow       As Long         'Last used row of Params
+    Dim CodeCells     As Variant      'Parameter codes, rows 1 to LastRow
+    Dim ValueCells    As Variant      'Parameter values, rows 1 to LastRow
+    Dim Codes         As Variant      'Every parameter code
+    Dim i             As Long         'Index into Codes
+    Dim r             As Long         'Params row being compared
+    Dim FirstRow      As Long         'First Params row holding the code; 0 if none
 
 '------------------------------------------------------------------------------
 ' INPUT SHEETS
 '------------------------------------------------------------------------------
     'A missing output sheet has already raised in ClearOutputSheets.
-        ok = SheetPresent(SH_PARAMS)
-        ok = SheetPresent(SH_NS) And ok
-        ok = SheetPresent(SH_TRADES) And ok
-        If Not ok Then
+        AllValid = SheetPresent(SH_PARAMS)
+        AllValid = SheetPresent(SH_NS) And AllValid
+        AllValid = SheetPresent(SH_TRADES) And AllValid
+        If Not AllValid Then
             Exit Function
         End If
 
@@ -1019,12 +1021,12 @@ Private Function ValidateSchema() As Boolean
     'The input sheets are located through workbook names: a missing or
     'broken name stops the run, and the headers are checked where the names
     'point.
-        Set ws = GetSheet(SH_PARAMS)
-        ok = InputHeadersMatch(SH_NS, NM_NS_HEADER, NS_HEADERS) And ok
-        ok = InputHeadersMatch(SH_TRADES, NM_TR_HEADER, TR_HEADERS) And ok
-        layoutOk = ParamsLayoutValid(ws)
-        ok = layoutOk And ok
-        If Not layoutOk Then
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        AllValid = InputHeadersMatch(SH_NS, NM_NS_HEADER, NS_HEADERS) And AllValid
+        AllValid = InputHeadersMatch(SH_TRADES, NM_TR_HEADER, TR_HEADERS) And AllValid
+        LayoutValid = ParamsLayoutValid(ParamsSheet)
+        AllValid = LayoutValid And AllValid
+        If Not LayoutValid Then
             Exit Function
         End If
 
@@ -1035,38 +1037,38 @@ Private Function ValidateSchema() As Boolean
     '(CORE_Util.GetParam), so a missing or broken name stops the run. A
     'code listed twice on Params with the same value is harmless and warned
     'about; with different values it is ambiguous.
-        codes = ParameterCodes()
-        codeCol = ParamsCodeCol()
-        valueCol = ParamsValueCol()
-        lastR = UsedLastRow(ws)
-        If lastR >= 1 Then
-            grid = TableRange(ws, 1, codeCol, lastR, codeCol).Value2
-            values = TableRange(ws, 1, valueCol, lastR, valueCol).Value2
+        Codes = ParameterCodes()
+        CodeColumn = ParamsCodeCol()
+        ValueColumn = ParamsValueCol()
+        LastRow = UsedLastRow(ParamsSheet)
+        If LastRow >= 1 Then
+            CodeCells = TableRange(ParamsSheet, 1, CodeColumn, LastRow, CodeColumn).Value2
+            ValueCells = TableRange(ParamsSheet, 1, ValueColumn, LastRow, ValueColumn).Value2
         End If
-        For i = LBound(codes) To UBound(codes)
-            If NamedCell(CStr(codes(i))) Is Nothing Then
-                ok = False
-                LogMsg SEV_ERROR, SH_PARAMS, codes(i), "Workbook name '" & codes(i) & _
+        For i = LBound(Codes) To UBound(Codes)
+            If NamedCell(CStr(Codes(i))) Is Nothing Then
+                AllValid = False
+                LogMsg SEV_ERROR, SH_PARAMS, Codes(i), "Workbook name '" & Codes(i) & _
                        "' is missing or no longer refers to a cell (#REF!); every parameter is read " & _
                        "through its name."
             End If
-            firstRow = 0
-            For r = 1 To lastR
-                If StrComp(SafeStr(grid(r, 1)), codes(i), vbTextCompare) = 0 Then
-                    If firstRow = 0 Then
-                        firstRow = r
-                    ElseIf SameValue(values(firstRow, 1), values(r, 1)) Then
-                        LogMsg SEV_WARN, SH_PARAMS, codes(i), "Parameter listed twice with the same value (rows " & _
-                               firstRow & " and " & r & ").", r
+            FirstRow = 0
+            For r = 1 To LastRow
+                If StrComp(SafeStr(CodeCells(r, 1)), Codes(i), vbTextCompare) = 0 Then
+                    If FirstRow = 0 Then
+                        FirstRow = r
+                    ElseIf SameValue(ValueCells(FirstRow, 1), ValueCells(r, 1)) Then
+                        LogMsg SEV_WARN, SH_PARAMS, Codes(i), "Parameter listed twice with the same value (rows " & _
+                               FirstRow & " and " & r & ").", r
                     Else
-                        ok = False
-                        LogMsg SEV_ERROR, SH_PARAMS, codes(i), "Parameter listed twice with different values (rows " & _
-                               firstRow & " and " & r & ").", r
+                        AllValid = False
+                        LogMsg SEV_ERROR, SH_PARAMS, Codes(i), "Parameter listed twice with different values (rows " & _
+                               FirstRow & " and " & r & ").", r
                     End If
                 End If
             Next r
         Next i
-        ValidateSchema = ok
+        ValidateSchema = AllValid
 
 End Function
 
@@ -1075,10 +1077,13 @@ Public Function ParameterCodes() As Variant
 '
 '==============================================================================
 ' PURPOSE
-'   The parameter vocabulary shared by schema and table validation, and
-'   by the evidence report of M_Main (#45).
+'   The parameter vocabulary shared by the schema check (ValidateSchema),
+'   the table loaders (IsParameterCode), the input fingerprint
+'   (ParamsText) and the evidence report of M_Main (#45).
 ' RETURNS
 '   An array of the supported parameter codes.
+' UPDATED
+'   2026-10-17
 '==============================================================================
         ParameterCodes = Array(PRM_ASOF, PRM_REPCCY, PRM_ALPHA, PRM_FLOOR, PRM_DAYSYEAR, PRM_BDYEAR, _
                       PRM_MINMAT, PRM_SDFLOOR, PRM_MPOR_BIL, PRM_MPOR_CLR, PRM_MPOR_LARGE, _
@@ -1087,24 +1092,28 @@ Public Function ParameterCodes() As Variant
 End Function
 
 
-Private Function IsParameterCode(ByVal key As String) As Boolean
+Private Function IsParameterCode(ByVal Candidate As String) As Boolean
 '
 '==============================================================================
 ' PURPOSE
-'   Distinguish parameter rows from FX rows, including below table gaps.
+'   Tell whether Candidate is a supported parameter code, ignoring case, so
+'   that ValuesAfterEnd can tell a parameter row below a table from a
+'   table row that would not be read.
+' UPDATED
+'   2026-10-17
 '==============================================================================
-    Dim code As Variant    'A supported parameter code
-        For Each code In ParameterCodes()
-            If StrComp(key, CStr(code), vbTextCompare) = 0 Then
+    Dim Code As Variant    'A supported parameter code
+        For Each Code In ParameterCodes()
+            If StrComp(Candidate, CStr(Code), vbTextCompare) = 0 Then
                 IsParameterCode = True
                 Exit Function
             End If
-        Next code
+        Next Code
 End Function
 
 
 Private Function SheetPresent( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Boolean
 '
 '==============================================================================
@@ -1115,31 +1124,31 @@ Private Function SheetPresent( _
 '   log an error when it has not.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws   As Worksheet    'Worksheet being compared
+    Dim CandidateSheet   As Worksheet    'Worksheet being compared
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
-        For Each ws In ThisWorkbook.Worksheets
-            If StrComp(ws.Name, sheetName, vbTextCompare) = 0 Then
+        For Each CandidateSheet In ThisWorkbook.Worksheets
+            If StrComp(CandidateSheet.Name, SheetName, vbTextCompare) = 0 Then
                 SheetPresent = True
                 Exit Function
             End If
-        Next ws
-        LogMsg SEV_ERROR, sheetName, "", "Sheet '" & sheetName & "' not found."
+        Next CandidateSheet
+        LogMsg SEV_ERROR, SheetName, "", "Sheet '" & SheetName & "' not found."
 
 End Function
 
 
 Private Function ParamsLayoutValid( _
-    ByVal ws As Worksheet) _
+    ByVal ParamsSheet As Worksheet) _
     As Boolean
 '
 '==============================================================================
@@ -1155,36 +1164,36 @@ Private Function ParamsLayoutValid( _
 '   True when Params can be read through its names.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim layoutNames   As Variant    'The layout names
-    Dim i             As Long       'Index into layoutNames
-    Dim c             As Range      'Top-left cell of a name
-    Dim ok            As Boolean    'No problem found so far
+    Dim LayoutNames   As Variant    'The layout names
+    Dim i             As Long       'Index into LayoutNames
+    Dim NameCell      As Range      'Top-left cell of a name
+    Dim AllValid      As Boolean    'No problem found so far
 
 '------------------------------------------------------------------------------
 ' NAMES
 '------------------------------------------------------------------------------
-        ok = True
-        layoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
-        For i = LBound(layoutNames) To UBound(layoutNames)
-            Set c = NamedCell(CStr(layoutNames(i)))
-            If c Is Nothing Then
-                ok = False
-                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+        AllValid = True
+        LayoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(LayoutNames) To UBound(LayoutNames)
+            Set NameCell = NamedCell(CStr(LayoutNames(i)))
+            If NameCell Is Nothing Then
+                AllValid = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
                        "' is missing or no longer refers to a cell - rebuild the workbook from the template."
-            ElseIf c.Worksheet.Name <> ws.Name Then
-                ok = False
-                LogMsg SEV_ERROR, SH_PARAMS, CStr(layoutNames(i)), "Workbook name '" & layoutNames(i) & _
+            ElseIf NameCell.Worksheet.Name <> ParamsSheet.Name Then
+                AllValid = False
+                LogMsg SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
                        "' must refer to a cell on " & SH_PARAMS & "."
             End If
         Next i
-        If Not ok Then
+        If Not AllValid Then
             Exit Function
         End If
 
@@ -1192,23 +1201,23 @@ Private Function ParamsLayoutValid( _
 ' HEADERS
 '------------------------------------------------------------------------------
         If NamedRow(NM_PRM_CODE) <> NamedRow(NM_PRM_VALUE) Then
-            ok = False
+            AllValid = False
             LogMsg SEV_ERROR, SH_PARAMS, NM_PRM_VALUE, "Workbook names '" & NM_PRM_CODE & "' and '" & _
                    NM_PRM_VALUE & "' must be on the same row."
         End If
-        ok = HeadersMatch(ws, NamedRow(NM_PRM_CODE), PRM_CODE_HEADER, ParamsCodeCol()) And ok
-        ok = HeadersMatch(ws, NamedRow(NM_PRM_VALUE), PRM_VALUE_HEADER, ParamsValueCol()) And ok
-        ok = HeadersMatch(ws, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And ok
-        ok = HeadersMatch(ws, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And ok
-        ParamsLayoutValid = ok
+        AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_PRM_CODE), PRM_CODE_HEADER, ParamsCodeCol()) And AllValid
+        AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_PRM_VALUE), PRM_VALUE_HEADER, ParamsValueCol()) And AllValid
+        AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And AllValid
+        AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And AllValid
+        ParamsLayoutValid = AllValid
 
 End Function
 
 
 Private Function InputHeadersMatch( _
-    ByVal sheetName As String, _
-    ByVal headerName As String, _
-    ByVal expectedHeaders As String) _
+    ByVal SheetName As String, _
+    ByVal HeaderName As String, _
+    ByVal ExpectedHeaders As String) _
     As Boolean
 '
 '==============================================================================
@@ -1219,44 +1228,44 @@ Private Function InputHeadersMatch( _
 '   first header cell and compare the headers there (HeadersMatch).
 '
 ' INPUTS
-'   sheetName: SH_NS or SH_TRADES.
-'   headerName: NM_NS_HEADER or NM_TR_HEADER.
-'   expectedHeaders: NS_HEADERS or TR_HEADERS.
+'   SheetName: SH_NS or SH_TRADES.
+'   HeaderName: NM_NS_HEADER or NM_TR_HEADER.
+'   ExpectedHeaders: NS_HEADERS or TR_HEADERS.
 '
 ' RETURNS
 '   True when the name locates the header row and every header matches;
 '   False, with an error logged, otherwise.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Header row; 0 when the name cannot locate it
+    Dim HeaderRow   As Long    'Header row; 0 when the name cannot locate it
 
 '------------------------------------------------------------------------------
 ' LOCATE AND COMPARE
 '------------------------------------------------------------------------------
-        r = TableHeaderRow(sheetName)
-        If r = 0 Then
-            LogMsg SEV_ERROR, sheetName, headerName, "Workbook name '" & headerName & _
+        HeaderRow = TableHeaderRow(SheetName)
+        If HeaderRow = 0 Then
+            LogMsg SEV_ERROR, SheetName, HeaderName, "Workbook name '" & HeaderName & _
                    "' is missing or no longer refers to the first header cell, in column C, of " & _
-                   sheetName & " - rebuild the workbook from the template."
+                   SheetName & " - rebuild the workbook from the template."
             Exit Function
         End If
-        InputHeadersMatch = HeadersMatch(GetSheet(sheetName), r, expectedHeaders)
+        InputHeadersMatch = HeadersMatch(GetSheet(SheetName), HeaderRow, ExpectedHeaders)
 
 End Function
 
 
 Private Function HeadersMatch( _
-    ByVal ws As Worksheet, _
-    ByVal rowNum As Long, _
-    ByVal expectedHeaders As String, _
-    Optional ByVal firstCol As Long = 1) _
+    ByVal HeaderSheet As Worksheet, _
+    ByVal HeaderRow As Long, _
+    ByVal ExpectedHeaders As String, _
+    Optional ByVal FirstColumn As Long = 1) _
     As Boolean
 '
 '==============================================================================
@@ -1269,39 +1278,39 @@ Private Function HeadersMatch( _
 '   that differs.
 '
 ' INPUTS
-'   ws, rowNum: the sheet and its header row.
-'   expectedHeaders: one of the _HEADERS constants in CORE_Config; an empty
+'   HeaderSheet, HeaderRow: the sheet and its header row.
+'   ExpectedHeaders: one of the _HEADERS constants in CORE_Config; an empty
 '   entry is not checked.
-'   firstCol: the table column of the first header, 1 by default.
+'   FirstColumn: the table column of the first header, 1 by default.
 '
 ' RETURNS
 '   True when every checked header matches.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headers   As Variant    'Expected headers, from index 0 for table column 1
-    Dim c         As Long       'Index into headers
-    Dim found     As Variant    'Header cell value
+    Dim Headers       As Variant    'Expected headers, from index 0 for table column 1
+    Dim c             As Long       'Index into Headers
+    Dim FoundHeader   As Variant    'Header cell value
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
         HeadersMatch = True
-        headers = Split(expectedHeaders, "|")
-        For c = 0 To UBound(headers)
-            If Len(headers(c)) > 0 Then
-                found = TableCell(ws, rowNum, firstCol + c).Value
-                If StrComp(HeaderKey(SafeStr(found)), HeaderKey(CStr(headers(c))), vbTextCompare) <> 0 Then
+        Headers = Split(ExpectedHeaders, "|")
+        For c = 0 To UBound(Headers)
+            If Len(Headers(c)) > 0 Then
+                FoundHeader = TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Value
+                If StrComp(HeaderKey(SafeStr(FoundHeader)), HeaderKey(CStr(Headers(c))), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg SEV_ERROR, ws.Name, TableCell(ws, rowNum, firstCol + c).Address(False, False), _
-                           "Header must be '" & headers(c) & "' (found " & DescribeValue(found) & _
-                           ") - a column was inserted, deleted or moved, or the header renamed.", rowNum
+                    LogMsg SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
+                           "Header must be '" & Headers(c) & "' (found " & DescribeValue(FoundHeader) & _
+                           ") - a column was inserted, deleted or moved, or the header renamed.", HeaderRow
                 End If
             End If
         Next c
@@ -1310,7 +1319,7 @@ End Function
 
 
 Private Function HeaderKey( _
-    ByVal headerText As String) _
+    ByVal RawHeader As String) _
     As String
 '
 '==============================================================================
@@ -1321,21 +1330,21 @@ Private Function HeaderKey( _
 '   for HeadersMatch.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        headerText = Replace(headerText, " ", "")
-        headerText = Replace(headerText, Chr$(160), "")
-        headerText = Replace(headerText, vbTab, "")
-        headerText = Replace(headerText, vbCr, "")
-        HeaderKey = Replace(headerText, vbLf, "")
+        RawHeader = Replace(RawHeader, " ", "")
+        RawHeader = Replace(RawHeader, Chr$(160), "")
+        RawHeader = Replace(RawHeader, vbTab, "")
+        RawHeader = Replace(RawHeader, vbCr, "")
+        HeaderKey = Replace(RawHeader, vbLf, "")
 
 End Function
 
 
 Private Function SameValue( _
-    ByVal a As Variant, _
-    ByVal b As Variant) _
+    ByVal FirstValue As Variant, _
+    ByVal SecondValue As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -1346,15 +1355,15 @@ Private Function SameValue( _
 '   surrounding spaces. An error value is never the same as anything.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(a) Or IsError(b) Then
+        If IsError(FirstValue) Or IsError(SecondValue) Then
             SameValue = False
-        ElseIf IsNum(a) And IsNum(b) Then
-            SameValue = (CDbl(a) = CDbl(b))
+        ElseIf IsNum(FirstValue) And IsNum(SecondValue) Then
+            SameValue = (CDbl(FirstValue) = CDbl(SecondValue))
         Else
-            SameValue = (StrComp(SafeStr(a), SafeStr(b), vbTextCompare) = 0)
+            SameValue = (StrComp(SafeStr(FirstValue), SafeStr(SecondValue), vbTextCompare) = 0)
         End If
 
 End Function
@@ -1369,61 +1378,61 @@ End Function
 '
 
 Private Sub ParamInRange( _
-    ByVal code As String, _
-    ByVal amount As Double, _
-    ByVal lowest As Double, _
-    ByVal highest As Double, _
-    ByVal highestAllowed As Boolean, _
-    ByVal wholeOnly As Boolean)
+    ByVal Code As String, _
+    ByVal Amount As Double, _
+    ByVal Lowest As Double, _
+    ByVal Highest As Double, _
+    ByVal HighestAllowed As Boolean, _
+    ByVal WholeOnly As Boolean)
 '
 '==============================================================================
 '                                ParamInRange
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check a numeric parameter against its range: at least lowest, and at
-'   most highest (highestAllowed) or below it; a whole number when
-'   wholeOnly. The ranges are those of the data validation on Params.
+'   Check a numeric parameter against its range: at least Lowest, and at
+'   most Highest (HighestAllowed) or below it; a whole number when
+'   WholeOnly. The ranges are those of the data validation on Params.
 '
 ' STATE OWNERSHIP
 '   Sets mParamError and logs an error naming the parameter when the value
 '   is outside the range, so that LoadParams stops the run (#147).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim inRange   As Boolean    'The value satisfies the range
-    Dim rule      As String     'The range, in words
+    Dim InRange     As Boolean    'The value satisfies the range
+    Dim RangeText   As String     'The range, in words
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-        If highestAllowed Then
-            inRange = (amount >= lowest And amount <= highest)
-            rule = "from " & CStr(lowest) & " to " & CStr(highest)
+        If HighestAllowed Then
+            InRange = (Amount >= Lowest And Amount <= Highest)
+            RangeText = "from " & CStr(Lowest) & " to " & CStr(Highest)
         Else
-            inRange = (amount >= lowest And amount < highest)
-            rule = "at least " & CStr(lowest) & " and below " & CStr(highest)
+            InRange = (Amount >= Lowest And Amount < Highest)
+            RangeText = "at least " & CStr(Lowest) & " and below " & CStr(Highest)
         End If
-        If wholeOnly Then
-            inRange = inRange And (amount = Int(amount))
-            rule = "a whole number " & rule
+        If WholeOnly Then
+            InRange = InRange And (Amount = Int(Amount))
+            RangeText = "a whole number " & RangeText
         End If
-        If Not inRange Then
+        If Not InRange Then
             mParamError = True
-            LogMsg SEV_ERROR, SH_PARAMS, code, code & " must be " & rule & " (found " & CStr(amount) & ")."
+            LogMsg SEV_ERROR, SH_PARAMS, Code, Code & " must be " & RangeText & " (found " & CStr(Amount) & ")."
         End If
 
 End Sub
 
 
 Private Function NumParam( _
-    ByVal code As String, _
-    ByVal dflt As Double) _
+    ByVal Code As String, _
+    ByVal DefaultValue As Double) _
     As Double
 '
 '==============================================================================
@@ -1433,39 +1442,39 @@ Private Function NumParam( _
 '   Read a numeric parameter, falling back to its regulatory default.
 '
 ' INPUTS
-'   code: a PRM_ code from CORE_Config.
-'   dflt: value used, with a warning, when the parameter is blank.
+'   Code: a PRM_ code from CORE_Config.
+'   DefaultValue: value used, with a warning, when the parameter is blank.
 '
 ' RETURNS
-'   The parameter value, or dflt.
+'   The parameter value, or DefaultValue.
 '
 ' ERROR POLICY
 '   A value that is present but not a number is an error and sets
 '   mParamError, so that LoadParams stops the run (#35).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim v   As Variant    'Raw parameter value
+    Dim RawValue   As Variant    'Raw parameter value
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        v = GetParam(code)
-        If IsNum(v) Then
-            NumParam = CDbl(v)
-        ElseIf IsBlankCell(v) And Not IsError(v) Then
-            NumParam = dflt
-            LogMsg SEV_WARN, SH_PARAMS, code, "Parameter missing - default " & CStr(dflt) & " used."
+        RawValue = GetParam(Code)
+        If IsNum(RawValue) Then
+            NumParam = CDbl(RawValue)
+        ElseIf IsBlankCell(RawValue) And Not IsError(RawValue) Then
+            NumParam = DefaultValue
+            LogMsg SEV_WARN, SH_PARAMS, Code, "Parameter missing - default " & CStr(DefaultValue) & " used."
         Else
-            NumParam = dflt
+            NumParam = DefaultValue
             mParamError = True
-            LogMsg SEV_ERROR, SH_PARAMS, code, "Parameter must be a number (found " & DescribeValue(v) & ")."
+            LogMsg SEV_ERROR, SH_PARAMS, Code, "Parameter must be a number (found " & DescribeValue(RawValue) & ")."
         End If
 
 End Function
@@ -1484,16 +1493,18 @@ Private Function LoadParams() As Boolean
 ' RETURNS
 '   True when the parameters are usable. False, with an error logged, when
 '   the workbook uses the 1904 date system, the reporting date or currency
-'   is missing, the regime is not BCBS or CRR, a numeric parameter is
-'   outside the range of its data validation (ParamInRange), or the IR
-'   bucket correlations do not form a valid correlation matrix (#147).
+'   is missing or the currency is not three letters, alpha is not above
+'   zero, a numeric parameter is not a number (NumParam) or is outside the
+'   range of its data validation (ParamInRange), IRBucketOffset is not
+'   TRUE or FALSE, the regime is not BCBS or CRR, or the IR bucket
+'   correlations do not form a valid correlation matrix (#147).
 '
 ' ERROR POLICY
 '   An unexpected error while reading is logged as an error and returns
 '   False.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1644,32 +1655,32 @@ Private Function LoadSFTable() As Boolean
 '   column is stored as blank.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws       As Worksheet      'Params sheet
-    Dim r        As Long           'Row being read
-    Dim r0       As Long           'Header row of the table
-    Dim c0       As Long           'Table column of the keys
-    Dim k        As String         'Key of the row, upper case
-    Dim bad      As Boolean        'Some row is unusable or conflicts
-    Dim rowBad   As Boolean        'This row has a value that is not a number
-    Dim entry    As tSupervisory   'This row
-    Dim idx      As Long           'Position of an earlier row with the key; 0 if none
-    Dim lastR    As Long           'Last row searched for rows after the end
-    Dim fxRow    As Long           'Header row of the FX table; 0 if absent
+    Dim ParamsSheet       As Worksheet       'Params sheet
+    Dim r                 As Long            'Row being read
+    Dim HeaderRow         As Long            'Header row of the table
+    Dim KeyColumn         As Long            'Table column of the keys
+    Dim RowKey            As String          'Key of the row, upper case
+    Dim TableInvalid      As Boolean         'Some row is unusable or conflicts
+    Dim RowInvalid        As Boolean         'This row has a value that is not a number
+    Dim FactorRow         As tSupervisory    'This row
+    Dim EarlierPosition   As Long            'Position of an earlier row with the key; 0 if none
+    Dim LastRow           As Long            'Last row searched for rows after the end
+    Dim FXHeaderRow       As Long            'Header row of the FX table; 0 if absent
 
 '------------------------------------------------------------------------------
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        r0 = NamedRow(NM_SF_TABLE)
-        c0 = NamedTableCol(NM_SF_TABLE)
-        If r0 = 0 Then
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_SF_TABLE)
+        KeyColumn = NamedTableCol(NM_SF_TABLE)
+        If HeaderRow = 0 Then
             LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (workbook name '" & _
                    NM_SF_TABLE & "')."
             Exit Function
@@ -1680,50 +1691,50 @@ Private Function LoadSFTable() As Boolean
 '------------------------------------------------------------------------------
     'Columns: 1 key, 2 asset class, 3 category, 4 factor, 5 correlation,
     '6 option volatility, 7 commodity hedging set, 8 regimes.
-        r = r0 + 1
-        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
-            k = UTxt(TableCell(ws, r, c0).Value)
-            entry.Key = k
-            entry.AssetClass = UTxt(TableCell(ws, r, c0 + 1).Value2)
-            entry.Category = UTxt(TableCell(ws, r, c0 + 2).Value2)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 3).Value2, 0#, entry.SF)
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 4).Value2, 0#, entry.Corr) Or rowBad
-            rowBad = Not TryDbl(TableCell(ws, r, c0 + 5).Value2, 0#, entry.Vol) Or rowBad
-            entry.Group = UTxt(TableCell(ws, r, c0 + 6).Value2)
-            entry.Regimes = UTxt(TableCell(ws, r, c0 + 7).Value2)
-            If entry.Regimes = "BOTH" Then
-                entry.Regimes = ""
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            RowKey = UTxt(TableCell(ParamsSheet, r, KeyColumn).Value)
+            FactorRow.Key = RowKey
+            FactorRow.AssetClass = UTxt(TableCell(ParamsSheet, r, KeyColumn + 1).Value2)
+            FactorRow.Category = UTxt(TableCell(ParamsSheet, r, KeyColumn + 2).Value2)
+            RowInvalid = Not TryDbl(TableCell(ParamsSheet, r, KeyColumn + 3).Value2, 0#, FactorRow.SF)
+            RowInvalid = Not TryDbl(TableCell(ParamsSheet, r, KeyColumn + 4).Value2, 0#, FactorRow.Corr) Or RowInvalid
+            RowInvalid = Not TryDbl(TableCell(ParamsSheet, r, KeyColumn + 5).Value2, 0#, FactorRow.Vol) Or RowInvalid
+            FactorRow.Group = UTxt(TableCell(ParamsSheet, r, KeyColumn + 6).Value2)
+            FactorRow.Regimes = UTxt(TableCell(ParamsSheet, r, KeyColumn + 7).Value2)
+            If FactorRow.Regimes = "BOTH" Then
+                FactorRow.Regimes = ""
             End If
-            If rowBad Then
-                bad = True
-                LogMsg SEV_ERROR, SH_PARAMS, k, "Supervisory factor, correlation and volatility must be numbers.", r
-            ElseIf entry.SF < 0# Or entry.SF > 1# Or entry.Corr < 0# Or entry.Corr > 1# _
-                   Or entry.Vol < 0# Or entry.Vol > 5# Then
-                rowBad = True
-                bad = True
-                LogMsg SEV_ERROR, SH_PARAMS, k, "Supervisory factor and correlation must be from 0 to 1 and " & _
-                       "the option volatility from 0 to 5 (found " & CStr(entry.SF) & ", " & CStr(entry.Corr) & _
-                       ", " & CStr(entry.Vol) & ").", r
+            If RowInvalid Then
+                TableInvalid = True
+                LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor, correlation and volatility must be numbers.", r
+            ElseIf FactorRow.SF < 0# Or FactorRow.SF > 1# Or FactorRow.Corr < 0# Or FactorRow.Corr > 1# _
+                   Or FactorRow.Vol < 0# Or FactorRow.Vol > 5# Then
+                RowInvalid = True
+                TableInvalid = True
+                LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor and correlation must be from 0 to 1 and " & _
+                       "the option volatility from 0 to 5 (found " & CStr(FactorRow.SF) & ", " & CStr(FactorRow.Corr) & _
+                       ", " & CStr(FactorRow.Vol) & ").", r
             End If
 
     'A key seen before: the same values are harmless, different values are
     'ambiguous and stop the run. A row with a value that is not a number has
     'already been reported.
-            idx = KeyIndex(mSFIndex, k)
-            If idx = 0 Then
+            EarlierPosition = KeyIndex(mSFIndex, RowKey)
+            If EarlierPosition = 0 Then
                 mSFCount = mSFCount + 1
                 If mSFCount > UBound(mSF) Then
                     ReDim Preserve mSF(1 To mSFCount * 2)
                 End If
-                mSF(mSFCount) = entry
-                KeyAdd mSFIndex, k, mSFCount
-            ElseIf Not rowBad Then
-                If SameFactorRow(mSF(idx), entry) Then
-                    LogMsg SEV_WARN, SH_PARAMS, k, "Supervisory factor key listed twice with the same values - " & _
+                mSF(mSFCount) = FactorRow
+                KeyAdd mSFIndex, RowKey, mSFCount
+            ElseIf Not RowInvalid Then
+                If SameFactorRow(mSF(EarlierPosition), FactorRow) Then
+                    LogMsg SEV_WARN, SH_PARAMS, RowKey, "Supervisory factor key listed twice with the same values - " & _
                            "first occurrence used.", r
                 Else
-                    bad = True
-                    LogMsg SEV_ERROR, SH_PARAMS, k, "Supervisory factor key listed twice with different values.", r
+                    TableInvalid = True
+                    LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor key listed twice with different values.", r
                 End If
             End If
             r = r + 1
@@ -1735,13 +1746,13 @@ Private Function LoadSFTable() As Boolean
     'The table ends at the first blank key. A row further down with a
     'factor would be dropped silently, so it is an error. The search stops
     'at the FX table when that follows.
-        lastR = UsedLastRow(ws)
-        fxRow = NamedRow(NM_FX_TABLE)
-        If fxRow > r Then
-            lastR = fxRow - 1
+        LastRow = UsedLastRow(ParamsSheet)
+        FXHeaderRow = NamedRow(NM_FX_TABLE)
+        If FXHeaderRow > r Then
+            LastRow = FXHeaderRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 3, "Supervisory factor") Then
-            bad = True
+        If ValuesAfterEnd(ParamsSheet, r, LastRow, KeyColumn, KeyColumn + 3, "Supervisory factor") Then
+            TableInvalid = True
         End If
 
 '------------------------------------------------------------------------------
@@ -1751,7 +1762,7 @@ Private Function LoadSFTable() As Boolean
             LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table is empty."
             Exit Function
         End If
-        If bad Then
+        If TableInvalid Then
             Exit Function
         End If
         LoadSFTable = True
@@ -1760,8 +1771,8 @@ End Function
 
 
 Private Function SameFactorRow( _
-    ByRef first As tSupervisory, _
-    ByRef other As tSupervisory) _
+    ByRef FirstEntry As tSupervisory, _
+    ByRef OtherEntry As tSupervisory) _
     As Boolean
 '
 '==============================================================================
@@ -1772,12 +1783,12 @@ Private Function SameFactorRow( _
 '   values in every column the engine reads.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        SameFactorRow = (first.AssetClass = other.AssetClass) And (first.Category = other.Category) And _
-                        (first.SF = other.SF) And (first.Corr = other.Corr) And (first.Vol = other.Vol) And _
-                        (first.Group = other.Group) And (first.Regimes = other.Regimes)
+        SameFactorRow = (FirstEntry.AssetClass = OtherEntry.AssetClass) And (FirstEntry.Category = OtherEntry.Category) And _
+                        (FirstEntry.SF = OtherEntry.SF) And (FirstEntry.Corr = OtherEntry.Corr) And (FirstEntry.Vol = OtherEntry.Vol) And _
+                        (FirstEntry.Group = OtherEntry.Group) And (FirstEntry.Regimes = OtherEntry.Regimes)
 
 End Function
 
@@ -1789,8 +1800,8 @@ Private Function LoadFXTable() As Boolean
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Read the FX table on Params: the rows below the FX_Ccy header, down to
-'   the first blank currency. Column C holds the units of reporting currency
-'   per one unit of the currency.
+'   the first blank currency. The third column of the table holds the
+'   units of reporting currency per one unit of the currency.
 '
 ' RETURNS
 '   True when the table was read. False, with an error logged, when the
@@ -1806,31 +1817,31 @@ Private Function LoadFXTable() As Boolean
 '   is an error (#41).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws     As Worksheet    'Params sheet
-    Dim r      As Long         'Row being read
-    Dim r0     As Long         'Header row of the table
-    Dim c0     As Long         'Table column of the currencies
-    Dim k      As String       'Currency code, upper case
-    Dim rate   As Double       'Rate of the row; -1 when missing
-    Dim idx    As Long         'Position of an earlier row with the currency; 0 if none
-    Dim bad    As Boolean      'A currency conflicts or a rate would not be read
-    Dim lastR  As Long         'Last row searched for rows after the end
-    Dim sfRow  As Long         'Header row of the factor table; 0 if absent
+    Dim ParamsSheet       As Worksheet    'Params sheet
+    Dim r                 As Long         'Row being read
+    Dim HeaderRow         As Long         'Header row of the table
+    Dim CurrencyColumn    As Long         'Table column of the currencies
+    Dim CurrencyCode      As String       'Currency code, upper case
+    Dim RowRate           As Double       'Rate of the row; -1 when missing
+    Dim EarlierPosition   As Long         'Position of an earlier row with the currency; 0 if none
+    Dim TableInvalid      As Boolean      'A currency conflicts or a rate would not be read
+    Dim LastRow           As Long         'Last row searched for rows after the end
+    Dim SFHeaderRow       As Long         'Header row of the factor table; 0 if absent
 
 '------------------------------------------------------------------------------
 ' FIND THE TABLE
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        r0 = NamedRow(NM_FX_TABLE)
-        c0 = NamedTableCol(NM_FX_TABLE)
-        If r0 = 0 Then
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        CurrencyColumn = NamedTableCol(NM_FX_TABLE)
+        If HeaderRow = 0 Then
             LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (workbook name '" & NM_FX_TABLE & "')."
             Exit Function
         End If
@@ -1840,25 +1851,25 @@ Private Function LoadFXTable() As Boolean
 '------------------------------------------------------------------------------
     'A currency seen before: the same rate is harmless, a different rate is
     'ambiguous and stops the run.
-        r = r0 + 1
-        Do While Not IsBlankCell(TableCell(ws, r, c0).Value)
-            k = UTxt(TableCell(ws, r, c0).Value)
-            rate = ToDbl(TableCell(ws, r, c0 + 2).Value2, -1#)
-            idx = KeyIndex(mFXIndex, k)
-            If rate <= 0# Then
-                LogMsg SEV_WARN, SH_PARAMS, k, "FX rate missing or not positive - currency ignored.", r
-            ElseIf idx = 0 Then
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, CurrencyColumn).Value)
+            CurrencyCode = UTxt(TableCell(ParamsSheet, r, CurrencyColumn).Value)
+            RowRate = ToDbl(TableCell(ParamsSheet, r, CurrencyColumn + 2).Value2, -1#)
+            EarlierPosition = KeyIndex(mFXIndex, CurrencyCode)
+            If RowRate <= 0# Then
+                LogMsg SEV_WARN, SH_PARAMS, CurrencyCode, "FX rate missing or not positive - currency ignored.", r
+            ElseIf EarlierPosition = 0 Then
                 mFXCount = mFXCount + 1
                 If mFXCount > UBound(mFXRate) Then
                     ReDim Preserve mFXRate(1 To mFXCount * 2)
                 End If
-                mFXRate(mFXCount) = rate
-                KeyAdd mFXIndex, k, mFXCount
-            ElseIf mFXRate(idx) = rate Then
-                LogMsg SEV_WARN, SH_PARAMS, k, "Currency listed twice with the same rate - first row used.", r
+                mFXRate(mFXCount) = RowRate
+                KeyAdd mFXIndex, CurrencyCode, mFXCount
+            ElseIf mFXRate(EarlierPosition) = RowRate Then
+                LogMsg SEV_WARN, SH_PARAMS, CurrencyCode, "Currency listed twice with the same rate - first row used.", r
             Else
-                bad = True
-                LogMsg SEV_ERROR, SH_PARAMS, k, "Currency listed twice with different rates.", r
+                TableInvalid = True
+                LogMsg SEV_ERROR, SH_PARAMS, CurrencyCode, "Currency listed twice with different rates.", r
             End If
             r = r + 1
         Loop
@@ -1869,15 +1880,15 @@ Private Function LoadFXTable() As Boolean
     'As for the factor table: a rate below the first blank currency would be
     'dropped silently. The search stops at the factor table when that
     'follows.
-        lastR = UsedLastRow(ws)
-        sfRow = NamedRow(NM_SF_TABLE)
-        If sfRow > r Then
-            lastR = sfRow - 1
+        LastRow = UsedLastRow(ParamsSheet)
+        SFHeaderRow = NamedRow(NM_SF_TABLE)
+        If SFHeaderRow > r Then
+            LastRow = SFHeaderRow - 1
         End If
-        If ValuesAfterEnd(ws, r, lastR, c0, c0 + 2, "FX") Then
-            bad = True
+        If ValuesAfterEnd(ParamsSheet, r, LastRow, CurrencyColumn, CurrencyColumn + 2, "FX") Then
+            TableInvalid = True
         End If
-        If bad Then
+        If TableInvalid Then
             Exit Function
         End If
 
@@ -1903,8 +1914,8 @@ End Function
 
 
 Private Function FormulaNumber( _
-    ByVal result As Variant, _
-    ByVal functionName As String) _
+    ByVal Result As Variant, _
+    ByVal FunctionName As String) _
     As Double
 '
 '==============================================================================
@@ -1917,29 +1928,29 @@ Private Function FormulaNumber( _
 '   that names the function, not with a type mismatch.
 '
 ' ERROR POLICY
-'   Raises ERR_FORMULA_DOMAIN when result is an error value; Calculate
+'   Raises ERR_FORMULA_DOMAIN when Result is an error value; Calculate
 '   withdraws the results and reports it.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(result) Then
-            Err.Raise ERR_FORMULA_DOMAIN, "CORE_Engine." & functionName, functionName & " returned " & _
-                      CStr(result) & " for inputs the engine had accepted (#42)."
+        If IsError(Result) Then
+            Err.Raise ERR_FORMULA_DOMAIN, "CORE_Engine." & FunctionName, FunctionName & " returned " & _
+                      CStr(Result) & " for inputs the engine had accepted (#42)."
         End If
-        FormulaNumber = CDbl(result)
+        FormulaNumber = CDbl(Result)
 
 End Function
 
 
 Private Function ValuesAfterEnd( _
-    ByVal ws As Worksheet, _
-    ByVal endRow As Long, _
-    ByVal lastR As Long, _
-    ByVal keyCol As Long, _
-    ByVal valueCol As Long, _
-    ByVal tableName As String) _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal EndRow As Long, _
+    ByVal LastRow As Long, _
+    ByVal KeyColumn As Long, _
+    ByVal ValueColumn As Long, _
+    ByVal TableName As String) _
     As Boolean
 '
 '==============================================================================
@@ -1947,47 +1958,47 @@ Private Function ValuesAfterEnd( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Find rows of a Params table that its loader will not read: from the
-'   blank key that ends the table down to lastR, any row with a number in
-'   the table's value column. Each is logged as an error (#35).
+'   blank key that ends the table down to LastRow, any row with a number
+'   in the table's value column. Each is logged as an error (#35). A row
+'   whose Params code cell holds a parameter code is a parameter row, not
+'   a table row, and is skipped.
 '
 ' INPUTS
-'   ws: Params sheet.
-'   endRow: the row with the blank key that ended the table.
-'   lastR: last row to search.
-'   keyCol: the table column of the table's keys.
-'   valueCol: the table column that always holds a number in a table row:
-'   the factor or the rate.
-'   A row whose Params code cell holds a parameter code is a parameter row,
-'   not a table row, and is skipped.
-'   tableName: for the messages.
+'   ParamsSheet: Params sheet.
+'   EndRow: the row with the blank key that ended the table.
+'   LastRow: last row to search.
+'   KeyColumn: the table column of the table's keys.
+'   ValueColumn: the table column that always holds a number in a table
+'   row: the factor or the rate.
+'   TableName: for the messages.
 '
 ' RETURNS
 '   True when such a row was found.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r     As Long      'Row being checked
-    Dim k     As String    'Key in the key column, upper case
-    Dim pc    As Long      'Table column of the parameter codes
+    Dim r            As Long      'Row being checked
+    Dim RowKey       As String    'Key in the key column, upper case
+    Dim CodeColumn   As Long      'Table column of the parameter codes
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
-        pc = ParamsCodeCol()
-        For r = endRow To lastR
-            k = UTxt(TableCell(ws, r, keyCol).Value)
-            If IsNum(TableCell(ws, r, valueCol).Value) And Not IsParameterCode(UTxt(TableCell(ws, r, pc).Value)) Then
+        CodeColumn = ParamsCodeCol()
+        For r = EndRow To LastRow
+            RowKey = UTxt(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If IsNum(TableCell(ParamsSheet, r, ValueColumn).Value) And Not IsParameterCode(UTxt(TableCell(ParamsSheet, r, CodeColumn).Value)) Then
                 ValuesAfterEnd = True
-                If Len(k) = 0 Then
-                    LogMsg SEV_ERROR, SH_PARAMS, "", tableName & " row has a value but no key - not read.", r
+                If Len(RowKey) = 0 Then
+                    LogMsg SEV_ERROR, SH_PARAMS, "", TableName & " row has a value but no key - not read.", r
                 Else
-                    LogMsg SEV_ERROR, SH_PARAMS, k, tableName & " row below a blank row - not read; " & _
+                    LogMsg SEV_ERROR, SH_PARAMS, RowKey, TableName & " row below a blank row - not read; " & _
                            "remove the blank row.", r
                 End If
             End If
@@ -1997,7 +2008,7 @@ End Function
 
 
 Private Function FXRate( _
-    ByVal ccy As String) _
+    ByVal CurrencyCode As String) _
     As Double
 '
 '==============================================================================
@@ -2007,32 +2018,34 @@ Private Function FXRate( _
 '   Look up the conversion rate of a currency.
 '
 ' INPUTS
-'   ccy: currency code, upper case; blank means the reporting currency.
+'   CurrencyCode: currency code, upper case; blank means the reporting
+'   currency.
 '
 ' RETURNS
-'   Units of reporting currency per one unit of ccy; -1 when unknown.
+'   Units of reporting currency per one unit of the currency; -1 when
+'   unknown.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim i   As Long    'Position of the currency in mFXRate; 0 when unknown
+    Dim Position   As Long    'Position of the currency in mFXRate; 0 when unknown
 
 '------------------------------------------------------------------------------
 ' LOOK UP
 '------------------------------------------------------------------------------
-        If Len(ccy) = 0 Then
-            ccy = pRepCcy
+        If Len(CurrencyCode) = 0 Then
+            CurrencyCode = pRepCcy
         End If
-        i = KeyIndex(mFXIndex, ccy)
-        If i = 0 Then
+        Position = KeyIndex(mFXIndex, CurrencyCode)
+        If Position = 0 Then
             FXRate = -1#
         Else
-            FXRate = mFXRate(i)
+            FXRate = mFXRate(Position)
         End If
 
 End Function
@@ -2059,20 +2072,20 @@ Private Sub ClassifyRun()
 '   CRR-RTS Art. 5. Values listed in docs/methodology/README.md.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim partA     As Variant    'Regulatory factor rows, first half
-    Dim partB     As Variant    'Regulatory factor rows, second half
-    Dim refRows   As Collection 'Every regulatory factor row, by key
-    Dim refRow    As Variant    'One row: key|class|category|SF|corr|vol|group|regimes
-    Dim f         As Variant    'Fields of the row
-    Dim idx       As Long       'Position of the key in mSF; 0 if absent
-    Dim k         As Long       'Netting set or factor row
+    Dim RegulatoryRowsA   As Variant       'Regulatory factor rows, first half
+    Dim RegulatoryRowsB   As Variant       'Regulatory factor rows, second half
+    Dim RegulatoryRows    As Collection    'Every regulatory factor row, by key
+    Dim RegulatoryRow     As Variant       'One row: key|class|category|SF|corr|vol|group|regimes
+    Dim Fields            As Variant       'Fields of the row
+    Dim Position          As Long          'Position of the key in mSF; 0 if absent
+    Dim k                 As Long          'Netting set or factor row
 
 '------------------------------------------------------------------------------
 ' PARAMETERS
@@ -2100,7 +2113,7 @@ Private Sub ClassifyRun()
     'Fields: key, asset class, category, factor, correlation, volatility,
     'commodity hedging set, regimes (blank for both), as the engine stores
     'them. A row missing, different or added makes the run what-if.
-        partA = Array( _
+        RegulatoryRowsA = Array( _
             "IR|IR||0.005||0.5||", _
             "FX|FX||0.04||0.15||", _
             "CR_AAA|CR|AAA|0.0038|0.5|1||", _
@@ -2114,7 +2127,7 @@ Private Sub ClassifyRun()
             "CR_CQS2|CR|CQS2|0.0042|0.5|1||", _
             "CR_CQS3|CR|CQS3|0.0054|0.5|1||", _
             "CR_CQS4|CR|CQS4|0.0106|0.5|1||")
-        partB = Array( _
+        RegulatoryRowsB = Array( _
             "CR_CQS5|CR|CQS5|0.016|0.5|1||", _
             "CR_CQS6|CR|CQS6|0.06|0.5|1||", _
             "CR_IG_INDEX|CR|IG_INDEX|0.0038|0.8|0.8||", _
@@ -2128,29 +2141,29 @@ Private Sub ClassifyRun()
             "CO_OTHER|CO|OTHER|0.18|0.4|0.7|OTHER|", _
             "CO_CLIMATIC|CO|CLIMATIC|0.18|0.4|0.7|CLIMATIC|CRR", _
             "OT|OT||0.08||1.5||CRR")
-        Set refRows = New Collection
-        For Each refRow In partA
-            refRows.Add refRow, Split(refRow, "|")(0)
-        Next refRow
-        For Each refRow In partB
-            refRows.Add refRow, Split(refRow, "|")(0)
-        Next refRow
-        For Each refRow In refRows
-            f = Split(refRow, "|")
-            idx = KeyIndex(mSFIndex, CStr(f(0)))
-            If idx = 0 Then
-                Deviation SH_PARAMS, CStr(f(0)), "factor row " & f(0) & " is missing from the factor table."
-            ElseIf mSF(idx).AssetClass <> f(1) Or mSF(idx).Category <> f(2) Or mSF(idx).Group <> f(6) _
-                   Or mSF(idx).Regimes <> f(7) Or Not SameAmount(mSF(idx).SF, Val(f(3))) _
-                   Or Not SameAmount(mSF(idx).Corr, Val(f(4))) Or Not SameAmount(mSF(idx).Vol, Val(f(5))) Then
-                Deviation SH_PARAMS, CStr(f(0)), "factor row " & f(0) & " differs from the regulatory set " & _
-                          "(factor " & CStr(mSF(idx).SF) & ", correlation " & CStr(mSF(idx).Corr) & _
-                          ", volatility " & CStr(mSF(idx).Vol) & "; regulatory " & f(3) & ", " & _
-                          IIf(Len(f(4)) = 0, "-", f(4)) & ", " & f(5) & ")."
+        Set RegulatoryRows = New Collection
+        For Each RegulatoryRow In RegulatoryRowsA
+            RegulatoryRows.Add RegulatoryRow, Split(RegulatoryRow, "|")(0)
+        Next RegulatoryRow
+        For Each RegulatoryRow In RegulatoryRowsB
+            RegulatoryRows.Add RegulatoryRow, Split(RegulatoryRow, "|")(0)
+        Next RegulatoryRow
+        For Each RegulatoryRow In RegulatoryRows
+            Fields = Split(RegulatoryRow, "|")
+            Position = KeyIndex(mSFIndex, CStr(Fields(0)))
+            If Position = 0 Then
+                Deviation SH_PARAMS, CStr(Fields(0)), "factor row " & Fields(0) & " is missing from the factor table."
+            ElseIf mSF(Position).AssetClass <> Fields(1) Or mSF(Position).Category <> Fields(2) Or mSF(Position).Group <> Fields(6) _
+                   Or mSF(Position).Regimes <> Fields(7) Or Not SameAmount(mSF(Position).SF, Val(Fields(3))) _
+                   Or Not SameAmount(mSF(Position).Corr, Val(Fields(4))) Or Not SameAmount(mSF(Position).Vol, Val(Fields(5))) Then
+                Deviation SH_PARAMS, CStr(Fields(0)), "factor row " & Fields(0) & " differs from the regulatory set " & _
+                          "(factor " & CStr(mSF(Position).SF) & ", correlation " & CStr(mSF(Position).Corr) & _
+                          ", volatility " & CStr(mSF(Position).Vol) & "; regulatory " & Fields(3) & ", " & _
+                          IIf(Len(Fields(4)) = 0, "-", Fields(4)) & ", " & Fields(5) & ")."
             End If
-        Next refRow
+        Next RegulatoryRow
         For k = 1 To mSFCount
-            If Not InCollection(refRows, mSF(k).Key) Then
+            If Not InCollection(RegulatoryRows, mSF(k).Key) Then
                 Deviation SH_PARAMS, mSF(k).Key, "factor row " & mSF(k).Key & " is not in the regulatory set."
             End If
         Next k
@@ -2171,9 +2184,9 @@ End Sub
 
 
 Private Sub CompareParam( _
-    ByVal code As String, _
-    ByVal amount As Double, _
-    ByVal regulatory As Double)
+    ByVal Code As String, _
+    ByVal Amount As Double, _
+    ByVal RegulatoryAmount As Double)
 '
 '==============================================================================
 '                                CompareParam
@@ -2183,20 +2196,20 @@ Private Sub CompareParam( _
 '   the regulatory set.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        If Not SameAmount(amount, regulatory) Then
-            Deviation SH_PARAMS, code, code & " is " & CStr(amount) & " (regulatory " & CStr(regulatory) & ")."
+        If Not SameAmount(Amount, RegulatoryAmount) Then
+            Deviation SH_PARAMS, Code, Code & " is " & CStr(Amount) & " (regulatory " & CStr(RegulatoryAmount) & ")."
         End If
 
 End Sub
 
 
 Private Sub Deviation( _
-    ByVal sheetName As String, _
-    ByVal key As String, _
-    ByVal detail As String)
+    ByVal SheetName As String, _
+    ByVal Reference As String, _
+    ByVal Detail As String)
 '
 '==============================================================================
 '                                  Deviation
@@ -2206,18 +2219,18 @@ Private Sub Deviation( _
 '   a warning starting "What-if:".
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
         mDeviations = mDeviations + 1
-        LogMsg SEV_WARN, sheetName, key, "What-if: " & detail
+        LogMsg SEV_WARN, SheetName, Reference, "What-if: " & Detail
 
 End Sub
 
 
 Private Function SameAmount( _
-    ByVal a As Double, _
-    ByVal b As Double) _
+    ByVal Amount As Double, _
+    ByVal RegulatoryAmount As Double) _
     As Boolean
 '
 '==============================================================================
@@ -2228,17 +2241,17 @@ Private Function SameAmount( _
 '   representation of decimals entered on the sheet.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        SameAmount = Abs(a - b) <= 0.000000001 * Max2(1#, Abs(b))
+        SameAmount = Abs(Amount - RegulatoryAmount) <= 0.000000001 * Max2(1#, Abs(RegulatoryAmount))
 
 End Function
 
 
 Private Function InCollection( _
-    ByVal items As Collection, _
-    ByVal key As String) _
+    ByVal Items As Collection, _
+    ByVal ItemKey As String) _
     As Boolean
 '
 '==============================================================================
@@ -2248,21 +2261,21 @@ Private Function InCollection( _
 '   Tell whether a collection holds an item under a key.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim probe   As Variant    'The item, when present
+    Dim Probe   As Variant    'The item, when present
 
 '------------------------------------------------------------------------------
 ' LOOK UP
 '------------------------------------------------------------------------------
-    'Item(key) raises when the key is absent.
+    'Item(ItemKey) raises when the key is absent.
         On Error Resume Next
-        probe = items.Item(key)
+        Probe = Items.Item(ItemKey)
         InCollection = (Err.Number = 0)
         Err.Clear
         On Error GoTo 0
@@ -2297,39 +2310,39 @@ Private Function LoadNettingSets() As Boolean
 '   274(4), 275(3).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'NettingSets sheet
-    Dim lastR     As Long         'Last row with a netting-set ID
-    Dim topRow    As Long         'First data row, below the headers
-    Dim n         As Long         'Number of rows to read
-    Dim i         As Long         'Row within data
-    Dim rowNum    As Long         'Sheet row of data row i
-    Dim data      As Variant      'Input block, (row, column)
-    Dim id        As String       'Netting-set ID, upper case
-    Dim floorBD   As Double       'MPOR floor before remargining, business days
-    Dim mpor      As Double       'Effective MPOR, business days
-    Dim ovr       As Double       'MPOR override entered; 0 when none
-    Dim rg        As String       'Regime of the netting set
-    Dim nsErrors  As Long         'Invalid fields found on the row
+    Dim NettingSetsSheet   As Worksheet    'NettingSets sheet
+    Dim LastRow            As Long         'Last row with a netting-set ID
+    Dim TopRow             As Long         'First data row, below the headers
+    Dim DataRowCount       As Long         'Number of rows to read
+    Dim i                  As Long         'Row within InputBlock
+    Dim RowNumber          As Long         'Sheet row of InputBlock row i
+    Dim InputBlock         As Variant      'Input block, (row, column)
+    Dim NettingSetRef      As String       'Netting-set ID, upper case
+    Dim FloorBD            As Double       'MPOR floor before remargining, business days
+    Dim EffectiveMPOR      As Double       'Effective MPOR, business days
+    Dim MPOROverride       As Double       'MPOR override entered; 0 when none
+    Dim NettingSetRegime   As String       'Regime of the netting set
+    Dim FieldErrors        As Long         'Invalid fields found on the row
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_NS)
-        topRow = TableFirstRow(SH_NS)
-        lastR = LastDataRowAny(ws, topRow, NS_NCOLS, 0)
-        If lastR < topRow Then
+        Set NettingSetsSheet = GetSheet(SH_NS)
+        TopRow = TableFirstRow(SH_NS)
+        LastRow = LastDataRowAny(NettingSetsSheet, TopRow, NS_NCOLS, 0)
+        If LastRow < TopRow Then
             LogMsg SEV_ERROR, SH_NS, "", "No netting sets defined."
             Exit Function
         End If
-        n = lastR - topRow + 1
-        data = TableRange(ws, topRow, 1, lastR, NS_NCOLS).Value2
+        DataRowCount = LastRow - TopRow + 1
+        InputBlock = TableRange(NettingSetsSheet, TopRow, 1, LastRow, NS_NCOLS).Value2
 
 '------------------------------------------------------------------------------
 ' READ EACH NETTING SET
@@ -2340,24 +2353,24 @@ Private Function LoadNettingSets() As Boolean
     'its trades is ambiguous, so its EAD is withheld. TOTAL, TOTAL CRR and
     'TOTAL BCBS label the TOTAL rows on Results (#198), so a netting set
     'with one of them would be mistaken for a total; its row is ignored.
-        For i = 1 To n
-            rowNum = topRow + i - 1
-            id = UTxt(data(i, NS_ID))
-            If Len(id) = 0 Then
-                If RowHasData(data, i, NS_NCOLS, 0) Then
-                    LogMsg SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", rowNum
+        For i = 1 To DataRowCount
+            RowNumber = TopRow + i - 1
+            NettingSetRef = UTxt(InputBlock(i, NS_ID))
+            If Len(NettingSetRef) = 0 Then
+                If RowHasData(InputBlock, i, NS_NCOLS, 0) Then
+                    LogMsg SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", RowNumber
                 End If
                 GoTo NextRow
             End If
-            If id = "TOTAL" Or id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
-                LogMsg SEV_ERROR, SH_NS, id, "Netting set ID " & id & " is reserved for a TOTAL row on Results - row ignored.", rowNum
+            If NettingSetRef = "TOTAL" Or NettingSetRef = "TOTAL " & RG_CRR Or NettingSetRef = "TOTAL " & RG_BCBS Then
+                LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID " & NettingSetRef & " is reserved for a TOTAL row on Results - row ignored.", RowNumber
                 GoTo NextRow
             End If
-            If KeyIndex(mNSIndex, id) > 0 Then
-                With mNS(KeyIndex(mNSIndex, id))
+            If KeyIndex(mNSIndex, NettingSetRef) > 0 Then
+                With mNS(KeyIndex(mNSIndex, NettingSetRef))
                     .InputErrors = .InputErrors + 1
                 End With
-                LogMsg SEV_ERROR, SH_NS, id, "Netting set ID listed twice - row ignored and EAD withheld.", rowNum
+                LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID listed twice - row ignored and EAD withheld.", RowNumber
                 GoTo NextRow
             End If
             mNSCount = mNSCount + 1
@@ -2372,58 +2385,58 @@ Private Function LoadNettingSets() As Boolean
     'number of business days from 0 to 10000, an alpha override at or below
     'zero, or an MPOR override that is not a whole number above zero
     '(#147). A remargining frequency of 0 is raised to 1 with a warning.
-                nsErrors = 0
-                .ID = id
-                .Counterparty = SafeStr(data(i, NS_CPTY))
-                .Margined = NsFlag(data(i, NS_MARGINED), False, "Margined", id, rowNum, nsErrors)
-                .ClearingRole = NsCode(data(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
-                                       "Client clearing role", id, rowNum, nsErrors)
-                .RemarginBD = NsNumber(data(i, NS_FREQ), 1#, "Remargin frequency", id, rowNum, nsErrors)
+                FieldErrors = 0
+                .ID = NettingSetRef
+                .Counterparty = SafeStr(InputBlock(i, NS_CPTY))
+                .Margined = NsFlag(InputBlock(i, NS_MARGINED), False, "Margined", NettingSetRef, RowNumber, FieldErrors)
+                .ClearingRole = NsCode(InputBlock(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
+                                       "Client clearing role", NettingSetRef, RowNumber, FieldErrors)
+                .RemarginBD = NsNumber(InputBlock(i, NS_FREQ), 1#, "Remargin frequency", NettingSetRef, RowNumber, FieldErrors)
                 If .RemarginBD < 0# Or .RemarginBD > 10000# Or .RemarginBD <> Int(.RemarginBD) Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "Remargin frequency must be a whole number of business days " & _
-                           "from 0 to 10000 (found " & CStr(.RemarginBD) & ").", rowNum
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Remargin frequency must be a whole number of business days " & _
+                           "from 0 to 10000 (found " & CStr(.RemarginBD) & ").", RowNumber
                     .RemarginBD = 1#
                 ElseIf .RemarginBD < 1# Then
-                    LogMsg SEV_WARN, SH_NS, id, "Remargin frequency " & CStr(.RemarginBD) & _
-                           " BD is below 1 - daily remargining (1 BD) used.", rowNum
+                    LogMsg SEV_WARN, SH_NS, NettingSetRef, "Remargin frequency " & CStr(.RemarginBD) & _
+                           " BD is below 1 - daily remargining (1 BD) used.", RowNumber
                     .RemarginBD = 1#
                 End If
-                .LargeOrIlliquid = NsFlag(data(i, NS_LARGE), False, "Large or illiquid", id, rowNum, nsErrors)
-                .Disputes = NsFlag(data(i, NS_DISPUTE), False, "Margin disputes", id, rowNum, nsErrors)
-                .VM = NsNumber(data(i, NS_VM), 0#, "Net VM", id, rowNum, nsErrors)
-                .NICA = NsNumber(data(i, NS_NICA), 0#, "NICA", id, rowNum, nsErrors)
-                .TH = NsNumber(data(i, NS_TH), 0#, "Threshold", id, rowNum, nsErrors)
-                .MTA = NsNumber(data(i, NS_MTA), 0#, "MTA", id, rowNum, nsErrors)
+                .LargeOrIlliquid = NsFlag(InputBlock(i, NS_LARGE), False, "Large or illiquid", NettingSetRef, RowNumber, FieldErrors)
+                .Disputes = NsFlag(InputBlock(i, NS_DISPUTE), False, "Margin disputes", NettingSetRef, RowNumber, FieldErrors)
+                .VM = NsNumber(InputBlock(i, NS_VM), 0#, "Net VM", NettingSetRef, RowNumber, FieldErrors)
+                .NICA = NsNumber(InputBlock(i, NS_NICA), 0#, "NICA", NettingSetRef, RowNumber, FieldErrors)
+                .TH = NsNumber(InputBlock(i, NS_TH), 0#, "Threshold", NettingSetRef, RowNumber, FieldErrors)
+                .MTA = NsNumber(InputBlock(i, NS_MTA), 0#, "MTA", NettingSetRef, RowNumber, FieldErrors)
                 If .TH < 0# Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "Threshold TH must not be negative (found " & CStr(.TH) & ").", rowNum
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Threshold TH must not be negative (found " & CStr(.TH) & ").", RowNumber
                 End If
                 If .MTA < 0# Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "MTA must not be negative (found " & CStr(.MTA) & ").", rowNum
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "MTA must not be negative (found " & CStr(.MTA) & ").", RowNumber
                 End If
-                .Alpha = NsNumber(data(i, NS_ALPHA), pAlpha, "Alpha override", id, rowNum, nsErrors)
+                .Alpha = NsNumber(InputBlock(i, NS_ALPHA), pAlpha, "Alpha override", NettingSetRef, RowNumber, FieldErrors)
                 If .Alpha <= 0# Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "Alpha override must be greater than zero (found " & _
-                           CStr(.Alpha) & ") - leave it blank to use the Params alpha.", rowNum
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Alpha override must be greater than zero (found " & _
+                           CStr(.Alpha) & ") - leave it blank to use the Params alpha.", RowNumber
                     .Alpha = pAlpha
                 End If
 
     'Regime: blank takes the Params default; any other value than BCBS or
     'CRR, or an Excel error value, is an input error (#194).
-                rg = UTxt(data(i, NS_REGIME))
-                If Len(rg) = 0 And Not IsError(data(i, NS_REGIME)) Then
-                    rg = pRegime
-                ElseIf rg <> RG_BCBS And rg <> RG_CRR Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "Regime override must be BCBS or CRR (found " & _
-                           DescribeValue(data(i, NS_REGIME)) & ").", rowNum
-                    rg = pRegime
+                NettingSetRegime = UTxt(InputBlock(i, NS_REGIME))
+                If Len(NettingSetRegime) = 0 And Not IsError(InputBlock(i, NS_REGIME)) Then
+                    NettingSetRegime = pRegime
+                ElseIf NettingSetRegime <> RG_BCBS And NettingSetRegime <> RG_CRR Then
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Regime override must be BCBS or CRR (found " & _
+                           DescribeValue(InputBlock(i, NS_REGIME)) & ").", RowNumber
+                    NettingSetRegime = pRegime
                 End If
-                .Regime = rg
-                .IsCRR = (rg = RG_CRR)
+                .Regime = NettingSetRegime
+                .IsCRR = (NettingSetRegime = RG_CRR)
 
     'VM on an unmargined netting set. VM received means the counterparty
     'posts VM, so the set is margined [CRE52.2; CRR Art. 272(7)]. VM
@@ -2432,45 +2445,45 @@ Private Function LoadNettingSets() As Boolean
     '[CRE52.2, CRE52.10 footnote 2]; under CRR a one-way agreement is a
     'margin agreement [Art. 272(7a), 275(2)], so the set must be margined.
                 If Not .Margined And .VM > 0# Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "VM received on an unmargined netting set: a counterparty " & _
-                           "that posts VM makes the netting set margined - set Margined = Y.", rowNum
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "VM received on an unmargined netting set: a counterparty " & _
+                           "that posts VM makes the netting set margined - set Margined = Y.", RowNumber
                 ElseIf Not .Margined And .VM < 0# Then
                     If .IsCRR Then
-                        nsErrors = nsErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, id, "VM posted on an unmargined CRR netting set: under CRR " & _
-                               "a one-way margin agreement is a margin agreement (Art. 272(7a)) - set Margined = Y.", rowNum
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "VM posted on an unmargined CRR netting set: under CRR " & _
+                               "a one-way margin agreement is a margin agreement (Art. 272(7a)) - set Margined = Y.", RowNumber
                     Else
-                        LogMsg SEV_INFO, SH_NS, id, "VM posted under a one-way margin agreement: unmargined " & _
-                               "netting set, posted VM included in C with a negative sign (CRE52.10).", rowNum
+                        LogMsg SEV_INFO, SH_NS, NettingSetRef, "VM posted under a one-way margin agreement: unmargined " & _
+                               "netting set, posted VM included in C with a negative sign (CRE52.10).", RowNumber
                     End If
                 End If
 
     'Margin-agreement structures the engine does not model are declared, so
     'that the netting set is rejected rather than calculated as one with a
     'single agreement of its own.
-                Select Case NsCode(data(i, NS_STRUCT), "", MS_MIXED & "|" & MS_SHARED, _
-                                   "Margin agreements", id, rowNum, nsErrors)
+                Select Case NsCode(InputBlock(i, NS_STRUCT), "", MS_MIXED & "|" & MS_SHARED, _
+                                   "Margin agreements", NettingSetRef, RowNumber, FieldErrors)
                     Case MS_MIXED
-                        nsErrors = nsErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, id, "Several margin agreements, or margined and unmargined " & _
-                               "trades, in one netting set are not supported (CRE52.74; CRR Art. 274(4)).", rowNum
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Several margin agreements, or margined and unmargined " & _
+                               "trades, in one netting set are not supported (CRE52.74; CRR Art. 274(4)).", RowNumber
                     Case MS_SHARED
-                        nsErrors = nsErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, id, "One margin agreement over several netting sets is not " & _
-                               "supported (CRE52.75; CRR Art. 275(3), 278(2)).", rowNum
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "One margin agreement over several netting sets is not " & _
+                               "supported (CRE52.75; CRR Art. 275(3), 278(2)).", RowNumber
                 End Select
                 .V = 0#
                 .Trades = 0
                 .Rejected = 0
                 .EconTrades = 0
-                ovr = NsNumber(data(i, NS_MPOR), 0#, "MPOR override", id, rowNum, nsErrors)
-                If IsNum(data(i, NS_MPOR)) And (ovr <= 0# Or ovr <> Int(ovr)) Then
-                    nsErrors = nsErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, id, "MPOR override must be a whole number of business days " & _
-                           "greater than zero (found " & CStr(ovr) & ") - leave it blank for none.", rowNum
+                MPOROverride = NsNumber(InputBlock(i, NS_MPOR), 0#, "MPOR override", NettingSetRef, RowNumber, FieldErrors)
+                If IsNum(InputBlock(i, NS_MPOR)) And (MPOROverride <= 0# Or MPOROverride <> Int(MPOROverride)) Then
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "MPOR override must be a whole number of business days " & _
+                           "greater than zero (found " & CStr(MPOROverride) & ") - leave it blank for none.", RowNumber
                 End If
-                .InputErrors = nsErrors
+                .InputErrors = FieldErrors
                 .MPOR = 0#
                 .MFMargined = 0#
 
@@ -2485,39 +2498,39 @@ Private Function LoadNettingSets() As Boolean
                 If .Margined Then
                     Select Case .ClearingRole
                         Case CL_CM
-                            floorBD = pMPORClr
+                            FloorBD = pMPORClr
                         Case CL_CLIENT
                             If .IsCRR Then
-                                floorBD = pMPORClr
+                                FloorBD = pMPORClr
                             Else
-                                floorBD = pMPORBil
-                                LogMsg SEV_INFO, SH_NS, id, "Client facing its clearing member under BCBS: " & _
+                                FloorBD = pMPORBil
+                                LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client facing its clearing member under BCBS: " & _
                                        "bilateral MPOR floor; the client-clearing floor is for the clearing " & _
-                                       "member (CRE54.12).", rowNum
+                                       "member (CRE54.12).", RowNumber
                             End If
                         Case Else
-                            floorBD = pMPORBil
+                            FloorBD = pMPORBil
                     End Select
                     If .LargeOrIlliquid Then
-                        floorBD = Max2(floorBD, pMPORLarge)
+                        FloorBD = Max2(FloorBD, pMPORLarge)
                     End If
-                    mpor = floorBD + .RemarginBD - 1#
+                    EffectiveMPOR = FloorBD + .RemarginBD - 1#
                     If .Disputes Then
-                        mpor = 2# * mpor
+                        EffectiveMPOR = 2# * EffectiveMPOR
                     End If
-                    If ovr > 0# Then
-                        If ovr < mpor Then
-                            LogMsg SEV_WARN, SH_NS, id, "MPOR override " & CStr(ovr) & _
-                                   " BD is below the regulatory floor - " & CStr(mpor) & " BD applied.", rowNum
+                    If MPOROverride > 0# Then
+                        If MPOROverride < EffectiveMPOR Then
+                            LogMsg SEV_WARN, SH_NS, NettingSetRef, "MPOR override " & CStr(MPOROverride) & _
+                                   " BD is below the regulatory floor - " & CStr(EffectiveMPOR) & " BD applied.", RowNumber
                         Else
-                            mpor = ovr
+                            EffectiveMPOR = MPOROverride
                         End If
                     End If
-                    .MPOR = mpor
+                    .MPOR = EffectiveMPOR
                     .MFMargined = FormulaNumber(SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 End If
             End With
-            KeyAdd mNSIndex, id, mNSCount
+            KeyAdd mNSIndex, NettingSetRef, mNSCount
 NextRow:
         Next i
 
@@ -2544,12 +2557,12 @@ End Function
 '
 
 Private Function NsFlag( _
-    ByVal v As Variant, _
-    ByVal dflt As Boolean, _
-    ByVal fieldName As String, _
-    ByVal nsId As String, _
-    ByVal rowNum As Long, _
-    ByRef nsErrors As Long) _
+    ByVal RawValue As Variant, _
+    ByVal DefaultValue As Boolean, _
+    ByVal FieldName As String, _
+    ByVal NettingSetRef As String, _
+    ByVal RowNumber As Long, _
+    ByRef FieldErrors As Long) _
     As Boolean
 '
 '==============================================================================
@@ -2560,35 +2573,35 @@ Private Function NsFlag( _
 '   unrecognised value is logged and counted as an input error (#35).
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result   As Boolean    'Value read
+    Dim Result   As Boolean    'Value read
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        If Not TryBool(v, dflt, result) Then
-            nsErrors = nsErrors + 1
-            LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be Y or N (found " & DescribeValue(v) & ").", rowNum
+        If Not TryBool(RawValue, DefaultValue, Result) Then
+            FieldErrors = FieldErrors + 1
+            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be Y or N (found " & DescribeValue(RawValue) & ").", RowNumber
         End If
-        NsFlag = result
+        NsFlag = Result
 
 End Function
 
 
 Private Function NsCode( _
-    ByVal v As Variant, _
-    ByVal dflt As String, _
-    ByVal allowed As String, _
-    ByVal fieldName As String, _
-    ByVal nsId As String, _
-    ByVal rowNum As Long, _
-    ByRef nsErrors As Long) _
+    ByVal RawValue As Variant, _
+    ByVal DefaultValue As String, _
+    ByVal AllowedCodes As String, _
+    ByVal FieldName As String, _
+    ByVal NettingSetRef As String, _
+    ByVal RowNumber As Long, _
+    ByRef FieldErrors As Long) _
     As String
 '
 '==============================================================================
@@ -2600,46 +2613,46 @@ Private Function NsCode( _
 '   is logged and counted as an input error (#35).
 '
 ' INPUTS
-'   allowed: the accepted codes, upper case, separated by "|".
+'   AllowedCodes: the accepted codes, upper case, separated by "|".
 '
 ' RETURNS
 '   The code in upper case, or the default.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim code   As String    'Value read, upper case
+    Dim Code   As String    'Value read, upper case
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        code = UTxt(v)
-        If IsError(v) Or (Len(code) > 0 And InStr(1, "|" & allowed & "|", "|" & code & "|") = 0) Then
-            nsErrors = nsErrors + 1
-            LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be " & Replace(allowed, "|", ", ") & _
-                   " or blank (found " & DescribeValue(v) & ").", rowNum
-            NsCode = dflt
-        ElseIf Len(code) = 0 Then
-            NsCode = dflt
+        Code = UTxt(RawValue)
+        If IsError(RawValue) Or (Len(Code) > 0 And InStr(1, "|" & AllowedCodes & "|", "|" & Code & "|") = 0) Then
+            FieldErrors = FieldErrors + 1
+            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be " & Replace(AllowedCodes, "|", ", ") & _
+                   " or blank (found " & DescribeValue(RawValue) & ").", RowNumber
+            NsCode = DefaultValue
+        ElseIf Len(Code) = 0 Then
+            NsCode = DefaultValue
         Else
-            NsCode = code
+            NsCode = Code
         End If
 
 End Function
 
 
 Private Function NsNumber( _
-    ByVal v As Variant, _
-    ByVal dflt As Double, _
-    ByVal fieldName As String, _
-    ByVal nsId As String, _
-    ByVal rowNum As Long, _
-    ByRef nsErrors As Long) _
+    ByVal RawValue As Variant, _
+    ByVal DefaultValue As Double, _
+    ByVal FieldName As String, _
+    ByVal NettingSetRef As String, _
+    ByVal RowNumber As Long, _
+    ByRef FieldErrors As Long) _
     As Double
 '
 '==============================================================================
@@ -2647,36 +2660,36 @@ Private Function NsNumber( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Read a numeric field of a netting set strictly: blank takes the
-'   default; text that is not a number is logged and counted as an input
-'   error (#35).
+'   default; a value that is not a number, text or an Excel error value,
+'   is logged and counted as an input error (#35).
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim result   As Double    'Value read
+    Dim Result   As Double    'Value read
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        If Not TryDbl(v, dflt, result) Then
-            nsErrors = nsErrors + 1
-            LogMsg SEV_ERROR, SH_NS, nsId, fieldName & " must be a number (found " & DescribeValue(v) & ").", rowNum
+        If Not TryDbl(RawValue, DefaultValue, Result) Then
+            FieldErrors = FieldErrors + 1
+            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be a number (found " & DescribeValue(RawValue) & ").", RowNumber
         End If
-        NsNumber = result
+        NsNumber = Result
 
 End Function
 
 
 Private Function TradeDate( _
-    ByVal v As Variant, _
-    ByVal fieldName As String, _
-    ByRef ok As Boolean, _
-    ByRef msg As String) _
+    ByVal RawValue As Variant, _
+    ByVal FieldName As String, _
+    ByRef IsValid As Boolean, _
+    ByRef Reasons As String) _
     As Double
 '
 '==============================================================================
@@ -2690,17 +2703,17 @@ Private Function TradeDate( _
 '   The date serial, or -1 when blank or unreadable.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        TradeDate = ToSerial(v)
+        TradeDate = ToSerial(RawValue)
         If TradeDate < 0# Then
-            If IsError(v) Or Not IsBlankCell(v) Then
-                AddErr ok, msg, fieldName & " is not a date (found " & DescribeValue(v) & ")"
+            If IsError(RawValue) Or Not IsBlankCell(RawValue) Then
+                AddErr IsValid, Reasons, FieldName & " is not a date (found " & DescribeValue(RawValue) & ")"
             End If
             TradeDate = -1#
         End If
@@ -2709,10 +2722,10 @@ End Function
 
 
 Private Function TradeText( _
-    ByVal v As Variant, _
-    ByVal fieldName As String, _
-    ByRef ok As Boolean, _
-    ByRef msg As String) _
+    ByVal RawValue As Variant, _
+    ByVal FieldName As String, _
+    ByRef IsValid As Boolean, _
+    ByRef Reasons As String) _
     As String
 '
 '==============================================================================
@@ -2728,23 +2741,23 @@ Private Function TradeText( _
 '   The trimmed upper-case text; "" when blank or an error value.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        If IsError(v) Then
-            AddErr ok, msg, fieldName & " must be text or blank (found an error value)"
+        If IsError(RawValue) Then
+            AddErr IsValid, Reasons, FieldName & " must be text or blank (found an error value)"
         End If
-        TradeText = UTxt(v)
+        TradeText = UTxt(RawValue)
 
 End Function
 
 
 Private Function DescribeValue( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As String
 '
 '==============================================================================
@@ -2755,22 +2768,22 @@ Private Function DescribeValue( _
 '   value" for #N/A and the like.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        If IsError(v) Then
+        If IsError(Content) Then
             DescribeValue = "an error value"
         Else
-            DescribeValue = "'" & SafeStr(v) & "'"
+            DescribeValue = "'" & SafeStr(Content) & "'"
         End If
 
 End Function
 
 
 Private Sub AddErr( _
-    ByRef ok As Boolean, _
-    ByRef msg As String, _
-    ByVal txt As String)
+    ByRef IsValid As Boolean, _
+    ByRef Reasons As String, _
+    ByVal Reason As String)
 '
 '==============================================================================
 '                                    AddErr
@@ -2779,30 +2792,30 @@ Private Sub AddErr( _
 '   Mark the current trade as invalid and append the reason.
 '
 ' INPUTS
-'   ok: set to False.
-'   msg: the trade's reasons so far; txt is appended after "; ".
-'   txt: the reason.
+'   IsValid: set to False.
+'   Reasons: the trade's reasons so far; Reason is appended after "; ".
+'   Reason: the reason.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' APPEND
 '------------------------------------------------------------------------------
-        ok = False
-        If Len(msg) > 0 Then
-            msg = msg & "; "
+        IsValid = False
+        If Len(Reasons) > 0 Then
+            Reasons = Reasons & "; "
         End If
-        msg = msg & txt
+        Reasons = Reasons & Reason
 
 End Sub
 
 
 Private Sub AddWarn( _
-    ByRef warn As String, _
-    ByVal txt As String)
+    ByRef Warnings As String, _
+    ByVal Warning As String)
 '
 '==============================================================================
 '                                   AddWarn
@@ -2811,29 +2824,29 @@ Private Sub AddWarn( _
 '   Append a warning for the current trade; the trade stays valid.
 '
 ' INPUTS
-'   warn: the trade's warnings so far; txt is appended after "; ".
-'   txt: the warning.
+'   Warnings: the trade's warnings so far; Warning is appended after "; ".
+'   Warning: the warning.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' APPEND
 '------------------------------------------------------------------------------
-        If Len(warn) > 0 Then
-            warn = warn & "; "
+        If Len(Warnings) > 0 Then
+            Warnings = Warnings & "; "
         End If
-        warn = warn & txt
+        Warnings = Warnings & Warning
 
 End Sub
 
 
 Private Sub CheckEconomicTrades( _
-    ByVal data As Variant, _
-    ByVal n As Long, _
-    ByVal topRow As Long)
+    ByVal InputBlock As Variant, _
+    ByVal DataRowCount As Long, _
+    ByVal TopRow As Long)
 '
 '==============================================================================
 '                             CheckEconomicTrades
@@ -2856,9 +2869,9 @@ Private Sub CheckEconomicTrades( _
 '   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N.
 '
 ' INPUTS
-'   data: the Trades block read by ProcessTrades, (row, column).
-'   n: rows in data.
-'   topRow: sheet row of data row 1, for the messages.
+'   InputBlock: the Trades block read by ProcessTrades, (row, column).
+'   DataRowCount: rows in InputBlock.
+'   TopRow: sheet row of InputBlock row 1, for the messages.
 '
 ' STATE OWNERSHIP
 '   Fills mRowGroup, mGrpError and mGrpRejected (zeroed) and sets
@@ -2866,115 +2879,115 @@ Private Sub CheckEconomicTrades( _
 '   EconTrades.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim groups      As Collection    'Group number by key: E|economic ID or L|trade ID
-    Dim classes     As Collection    'Per group and asset class: index into acLegs
-    Dim grpName()   As String        'Economic trade ID, or the Trade ID of a whole trade
-    Dim grpNS()     As String        'Netting set of the first leg
-    Dim grpLegs()   As Long          'Legs of the group
-    Dim grpMtmLegs() As Long         'Legs flagged Y
-    Dim grpGrouped() As Boolean      'The group has an Economic trade ID
-    Dim acLegs()    As Long          'Legs in one asset class of one group
-    Dim acLinear()  As Long          'Of those, legs that are not options
-    Dim acGroup()   As Long          'Group of each asset-class entry
-    Dim acName()    As String        'Asset class of each entry
-    Dim nAc         As Long          'Asset-class entries
-    Dim i           As Long          'Data row
-    Dim g           As Long          'Group number
-    Dim a           As Long          'Asset-class entry
-    Dim tid         As String        'Trade ID of the row
-    Dim econ        As String        'Economic trade ID of the row
-    Dim groupKey    As String        'Key of the row's group
-    Dim flag        As String        'MtM leg flag of the row
-    Dim nsIdx       As Long          'Netting set of a new group; 0 if unknown
+    Dim Groups                 As Collection    'Group number by key: E|economic ID or L|trade ID
+    Dim ClassEntries           As Collection    'Per group and asset class: index into ClassLegs
+    Dim GroupName()            As String        'Economic trade ID, or the Trade ID of a whole trade
+    Dim GroupNS()              As String        'Netting set of the first leg
+    Dim GroupLegs()            As Long          'Legs of the group
+    Dim GroupMtmLegs()         As Long          'Legs flagged Y
+    Dim GroupHasEconomicID()   As Boolean       'The group has an Economic trade ID
+    Dim ClassLegs()            As Long          'Legs in one asset class of one group
+    Dim ClassLinearLegs()      As Long          'Of those, legs that are not options
+    Dim ClassGroup()           As Long          'Group of each asset-class entry
+    Dim ClassName()            As String        'Asset class of each entry
+    Dim ClassCount             As Long          'Asset-class entries
+    Dim i                      As Long          'Data row
+    Dim g                      As Long          'Group number
+    Dim a                      As Long          'Asset-class entry
+    Dim TradeID                As String        'Trade ID of the row
+    Dim EconomicID             As String        'Economic trade ID of the row
+    Dim GroupKey               As String        'Key of the row's group
+    Dim MtmLegFlag             As String        'MtM leg flag of the row
+    Dim NSPosition             As Long          'Netting set of a new group; 0 if unknown
 
 '------------------------------------------------------------------------------
 ' GROUP THE LEGS
 '------------------------------------------------------------------------------
-        ReDim mRowGroup(0 To n)
-        ReDim mGrpError(0 To n)
-        ReDim mGrpRejected(0 To n)
-        ReDim grpName(0 To n)
-        ReDim grpNS(0 To n)
-        ReDim grpLegs(0 To n)
-        ReDim grpMtmLegs(0 To n)
-        ReDim grpGrouped(0 To n)
-        ReDim acLegs(1 To n + 1)
-        ReDim acLinear(1 To n + 1)
-        ReDim acGroup(1 To n + 1)
-        ReDim acName(1 To n + 1)
-        Set groups = New Collection
-        Set classes = New Collection
+        ReDim mRowGroup(0 To DataRowCount)
+        ReDim mGrpError(0 To DataRowCount)
+        ReDim mGrpRejected(0 To DataRowCount)
+        ReDim GroupName(0 To DataRowCount)
+        ReDim GroupNS(0 To DataRowCount)
+        ReDim GroupLegs(0 To DataRowCount)
+        ReDim GroupMtmLegs(0 To DataRowCount)
+        ReDim GroupHasEconomicID(0 To DataRowCount)
+        ReDim ClassLegs(1 To DataRowCount + 1)
+        ReDim ClassLinearLegs(1 To DataRowCount + 1)
+        ReDim ClassGroup(1 To DataRowCount + 1)
+        ReDim ClassName(1 To DataRowCount + 1)
+        Set Groups = New Collection
+        Set ClassEntries = New Collection
         mEconRead = 0
-        nAc = 0
-        For i = 1 To n
-            tid = SafeStr(data(i, TR_ID))
-            If Len(tid) > 0 Then
-                econ = SafeStr(data(i, TR_ECON))
-                If Len(econ) = 0 Then
-                    groupKey = "L|" & UCase$(tid)
+        ClassCount = 0
+        For i = 1 To DataRowCount
+            TradeID = SafeStr(InputBlock(i, TR_ID))
+            If Len(TradeID) > 0 Then
+                EconomicID = SafeStr(InputBlock(i, TR_ECON))
+                If Len(EconomicID) = 0 Then
+                    GroupKey = "L|" & UCase$(TradeID)
                 Else
-                    groupKey = "E|" & UCase$(econ)
+                    GroupKey = "E|" & UCase$(EconomicID)
                 End If
-                g = KeyIndex(groups, groupKey)
+                g = KeyIndex(Groups, GroupKey)
                 If g = 0 Then
                     mEconRead = mEconRead + 1
                     g = mEconRead
-                    KeyAdd groups, groupKey, g
-                    grpName(g) = IIf(Len(econ) = 0, tid, econ)
-                    grpGrouped(g) = (Len(econ) > 0)
-                    grpNS(g) = UTxt(data(i, TR_NS))
-                    nsIdx = KeyIndex(mNSIndex, grpNS(g))
-                    If nsIdx > 0 Then
-                        mNS(nsIdx).EconTrades = mNS(nsIdx).EconTrades + 1
+                    KeyAdd Groups, GroupKey, g
+                    GroupName(g) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
+                    GroupHasEconomicID(g) = (Len(EconomicID) > 0)
+                    GroupNS(g) = UTxt(InputBlock(i, TR_NS))
+                    NSPosition = KeyIndex(mNSIndex, GroupNS(g))
+                    If NSPosition > 0 Then
+                        mNS(NSPosition).EconTrades = mNS(NSPosition).EconTrades + 1
                     End If
-                ElseIf grpGrouped(g) And UTxt(data(i, TR_NS)) <> grpNS(g) Then
-                    AddGroupError g, "its legs are in different netting sets (" & grpNS(g) & ", " & _
-                                  UTxt(data(i, TR_NS)) & ")"
+                ElseIf GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
+                    AddGroupError g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
+                                  UTxt(InputBlock(i, TR_NS)) & ")"
                 End If
                 mRowGroup(i) = g
-                grpLegs(g) = grpLegs(g) + 1
-                If IsError(data(i, TR_ECON)) Then
+                GroupLegs(g) = GroupLegs(g) + 1
+                If IsError(InputBlock(i, TR_ECON)) Then
                     AddGroupError g, "Economic trade ID must be text or blank (found an error value on row " & _
-                                  (topRow + i - 1) & ")"
+                                  (TopRow + i - 1) & ")"
                 End If
 
     'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade).
     'An error value is not read as blank.
-                flag = UTxt(data(i, TR_MTMLEG))
-                If IsError(data(i, TR_MTMLEG)) Then
+                MtmLegFlag = UTxt(InputBlock(i, TR_MTMLEG))
+                If IsError(InputBlock(i, TR_MTMLEG)) Then
                     AddGroupError g, "MtM leg must be Y or N (found an error value on row " & _
-                                  (topRow + i - 1) & ")"
-                ElseIf flag = "Y" Then
-                    grpMtmLegs(g) = grpMtmLegs(g) + 1
-                ElseIf flag = "N" Then
-                    If Not grpGrouped(g) Then
+                                  (TopRow + i - 1) & ")"
+                ElseIf MtmLegFlag = "Y" Then
+                    GroupMtmLegs(g) = GroupMtmLegs(g) + 1
+                ElseIf MtmLegFlag = "N" Then
+                    If Not GroupHasEconomicID(g) Then
                         AddGroupError g, "a trade without an Economic trade ID carries its own MtM, so " & _
                                       "MtM leg must be Y or blank"
                     End If
-                ElseIf Len(flag) > 0 Then
-                    AddGroupError g, "MtM leg must be Y or N (found " & DescribeValue(data(i, TR_MTMLEG)) & _
-                                  " on row " & (topRow + i - 1) & ")"
+                ElseIf Len(MtmLegFlag) > 0 Then
+                    AddGroupError g, "MtM leg must be Y or N (found " & DescribeValue(InputBlock(i, TR_MTMLEG)) & _
+                                  " on row " & (TopRow + i - 1) & ")"
                 End If
 
     'Asset classes of the group's legs, for the decomposition rule.
-                a = KeyIndex(classes, g & "|" & UTxt(data(i, TR_AC)))
+                a = KeyIndex(ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)))
                 If a = 0 Then
-                    nAc = nAc + 1
-                    a = nAc
-                    KeyAdd classes, g & "|" & UTxt(data(i, TR_AC)), a
-                    acGroup(a) = g
-                    acName(a) = UTxt(data(i, TR_AC))
+                    ClassCount = ClassCount + 1
+                    a = ClassCount
+                    KeyAdd ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)), a
+                    ClassGroup(a) = g
+                    ClassName(a) = UTxt(InputBlock(i, TR_AC))
                 End If
-                acLegs(a) = acLegs(a) + 1
-                If UTxt(data(i, TR_INSTR)) <> "OPTION" Then
-                    acLinear(a) = acLinear(a) + 1
+                ClassLegs(a) = ClassLegs(a) + 1
+                If UTxt(InputBlock(i, TR_INSTR)) <> "OPTION" Then
+                    ClassLinearLegs(a) = ClassLinearLegs(a) + 1
                 End If
             End If
         Next i
@@ -2984,17 +2997,17 @@ Private Sub CheckEconomicTrades( _
 '------------------------------------------------------------------------------
     'The MtM is counted once: exactly one MtM leg, and 0 on every other leg.
         For g = 1 To mEconRead
-            If grpGrouped(g) And grpMtmLegs(g) <> 1 Then
-                AddGroupError g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & grpMtmLegs(g)
+            If GroupHasEconomicID(g) And GroupMtmLegs(g) <> 1 Then
+                AddGroupError g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(g)
             End If
         Next g
-        For i = 1 To n
+        For i = 1 To DataRowCount
             g = mRowGroup(i)
             If g > 0 Then
-                If grpGrouped(g) And UTxt(data(i, TR_MTMLEG)) <> "Y" And IsNum(data(i, TR_MTM)) Then
-                    If CDbl(data(i, TR_MTM)) <> 0# Then
-                        AddGroupError g, "leg " & SafeStr(data(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
-                                      "must be 0 (found " & DescribeValue(data(i, TR_MTM)) & ")"
+                If GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_MTMLEG)) <> "Y" And IsNum(InputBlock(i, TR_MTM)) Then
+                    If CDbl(InputBlock(i, TR_MTM)) <> 0# Then
+                        AddGroupError g, "leg " & SafeStr(InputBlock(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
+                                      "must be 0 (found " & DescribeValue(InputBlock(i, TR_MTM)) & ")"
                     End If
                 End If
             End If
@@ -3003,9 +3016,9 @@ Private Sub CheckEconomicTrades( _
     'Legs in one asset class must all be options: a linear product is not
     'split into legs of the same class. A Trade ID repeated without an
     'Economic trade ID is not a group: ProcessTrades rejects the repeat.
-        For a = 1 To nAc
-            If grpGrouped(acGroup(a)) And acLegs(a) > 1 And acLinear(a) > 0 Then
-                AddGroupError acGroup(a), "it has " & acLegs(a) & " legs in asset class " & acName(a) & _
+        For a = 1 To ClassCount
+            If GroupHasEconomicID(ClassGroup(a)) And ClassLegs(a) > 1 And ClassLinearLegs(a) > 0 Then
+                AddGroupError ClassGroup(a), "it has " & ClassLegs(a) & " legs in asset class " & ClassName(a) & _
                               " that are not all options: only an option structure may be split into " & _
                               "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
                               "one leg (CRR Art. 277(3))"
@@ -3013,7 +3026,7 @@ Private Sub CheckEconomicTrades( _
         Next a
         For g = 1 To mEconRead
             If Len(mGrpError(g)) > 0 Then
-                mGrpError(g) = "economic trade " & grpName(g) & ": " & mGrpError(g)
+                mGrpError(g) = "economic trade " & GroupName(g) & ": " & mGrpError(g)
             End If
         Next g
 
@@ -3021,31 +3034,31 @@ End Sub
 
 
 Private Sub AddGroupError( _
-    ByVal g As Long, _
-    ByVal reason As String)
+    ByVal GroupNumber As Long, _
+    ByVal Reason As String)
 '
 '==============================================================================
 '                                AddGroupError
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Add a reason why economic trade g is rejected, once.
+'   Add a reason why economic trade GroupNumber is rejected, once.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        If InStr(1, mGrpError(g), reason, vbBinaryCompare) = 0 Then
-            If Len(mGrpError(g)) > 0 Then
-                mGrpError(g) = mGrpError(g) & "; "
+        If InStr(1, mGrpError(GroupNumber), Reason, vbBinaryCompare) = 0 Then
+            If Len(mGrpError(GroupNumber)) > 0 Then
+                mGrpError(GroupNumber) = mGrpError(GroupNumber) & "; "
             End If
-            mGrpError(g) = mGrpError(g) & reason
+            mGrpError(GroupNumber) = mGrpError(GroupNumber) & Reason
         End If
 
 End Sub
 
 
 Private Sub ProcessTrades( _
-    ByVal writeOutputs As Boolean)
+    ByVal WriteOutputs As Boolean)
 '
 '==============================================================================
 '                                ProcessTrades
@@ -3061,101 +3074,102 @@ Private Sub ProcessTrades( _
 '   TradeCalcRow (#60).
 '
 ' INPUTS
-'   writeOutputs: True writes the TradeCalc sheet.
+'   WriteOutputs: True writes the TradeCalc sheet.
 '
 ' STATE OWNERSHIP
 '   Adds to mBk through AddToBucket, adds MtM and trade counts to mNS, and
-'   updates mTradesRead and mTradesUsed. An invalid trade is logged with all
-'   its reasons and left out of the calculation.
+'   updates mTradesRead, mTradesUsed, mGrpRejected and mEconUsed;
+'   CheckEconomicTrades fills the economic-trade arrays first. An invalid
+'   trade is logged with all its reasons and left out of the calculation.
 '
 ' REFERENCE
 '   CRE52.30 to CRE52.52 for the trade-level quantities; CRR Art. 277 to
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'Trades sheet
-    Dim wsOut     As Worksheet    'TradeCalc sheet
-    Dim outTop    As Long         'First TradeCalc data row
-    Dim lastR     As Long         'Last row with a trade ID
-    Dim topRow    As Long         'First data row, below the headers
-    Dim n         As Long         'Number of rows to read
-    Dim i         As Long         'Row within data
-    Dim rowNum    As Long         'Sheet row of data row i
-    Dim data      As Variant      'Input block, (row, column)
-    Dim outArr()  As Variant      'TradeCalc rows, (row, column)
-    Dim nOut      As Long         'TradeCalc rows filled
-    Dim seenIds   As Collection   'Trade IDs seen so far, mapped to their sheet row
-    Dim nsIdx     As Long         'Netting set of a row without a trade ID
-    Dim t         As tTrade       'The trade being processed
-    Dim fresh     As tTrade       'Every field at its default, to reset t
+    Dim TradesSheet      As Worksheet     'Trades sheet
+    Dim TradeCalcSheet   As Worksheet     'TradeCalc sheet
+    Dim OutputTop        As Long          'First TradeCalc data row
+    Dim LastRow          As Long          'Last row with a trade ID
+    Dim TopRow           As Long          'First data row, below the headers
+    Dim DataRowCount     As Long          'Number of rows to read
+    Dim i                As Long          'Row within InputBlock
+    Dim RowNumber        As Long          'Sheet row of InputBlock row i
+    Dim InputBlock       As Variant       'Input block, (row, column)
+    Dim OutputBlock()    As Variant       'TradeCalc rows, (row, column)
+    Dim OutputCount      As Long          'TradeCalc rows filled
+    Dim SeenIDs          As Collection    'Trade IDs seen so far, mapped to their sheet row
+    Dim NSPosition       As Long          'Netting set of a row without a trade ID
+    Dim Trade            As tTrade        'The trade being processed
+    Dim FreshTrade       As tTrade        'Every field at its default, to reset Trade
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
     'With no trades there is nothing to calculate; the old TradeCalc rows
     'are cleared so they cannot be mistaken for results.
-        Set ws = GetSheet(SH_TRADES)
-        topRow = TableFirstRow(SH_TRADES)
-        lastR = LastDataRowAny(ws, topRow, TR_NCOLS, TR_COMMENT)
-        If lastR < topRow Then
+        Set TradesSheet = GetSheet(SH_TRADES)
+        TopRow = TableFirstRow(SH_TRADES)
+        LastRow = LastDataRowAny(TradesSheet, TopRow, TR_NCOLS, TR_COMMENT)
+        If LastRow < TopRow Then
             LogMsg SEV_ERROR, SH_TRADES, "", "No trades found."
-            If writeOutputs Then
+            If WriteOutputs Then
                 ClearOutputBlock GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), TC_NCOLS
             End If
             Exit Sub
         End If
-        n = lastR - topRow + 1
+        DataRowCount = LastRow - TopRow + 1
     'Value2 gives the stored values: a Currency or Accounting format would
     'otherwise round a price or rate to four decimals, and dates come as
     'serials, which ToSerial reads (#196).
-        data = TableRange(ws, topRow, 1, lastR, TR_NCOLS).Value2
-        ReDim outArr(1 To n, 1 To TC_NCOLS)
-        nOut = 0
+        InputBlock = TableRange(TradesSheet, TopRow, 1, LastRow, TR_NCOLS).Value2
+        ReDim OutputBlock(1 To DataRowCount, 1 To TC_NCOLS)
+        OutputCount = 0
 
 '------------------------------------------------------------------------------
 ' PROCESS EACH TRADE
 '------------------------------------------------------------------------------
     'An empty row is skipped. A row with data but no trade ID is rejected,
     'and so is a repeated trade ID; either makes its netting set INCOMPLETE
-    '(#35). t starts from fresh for every trade, so nothing leaks from the
-    'previous trade into the output row.
-        CheckEconomicTrades data, n, topRow
-        Set seenIds = New Collection
-        For i = 1 To n
-            rowNum = topRow + i - 1
-            t = fresh
-            t.tid = SafeStr(data(i, TR_ID))
-            If Len(t.tid) = 0 Then
-                If RowHasData(data, i, TR_NCOLS, TR_COMMENT) Then
+    '(#35). Trade starts from FreshTrade for every trade, so nothing leaks
+    'from the previous trade into the output row.
+        CheckEconomicTrades InputBlock, DataRowCount, TopRow
+        Set SeenIDs = New Collection
+        For i = 1 To DataRowCount
+            RowNumber = TopRow + i - 1
+            Trade = FreshTrade
+            Trade.tid = SafeStr(InputBlock(i, TR_ID))
+            If Len(Trade.tid) = 0 Then
+                If RowHasData(InputBlock, i, TR_NCOLS, TR_COMMENT) Then
                     mTradesRead = mTradesRead + 1
-                    LogMsg SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", rowNum
-                    nsIdx = KeyIndex(mNSIndex, UTxt(data(i, TR_NS)))
-                    If nsIdx > 0 Then mNS(nsIdx).Rejected = mNS(nsIdx).Rejected + 1
+                    LogMsg SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", RowNumber
+                    NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(i, TR_NS)))
+                    If NSPosition > 0 Then mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
                 End If
                 GoTo NextTrade
             End If
             mTradesRead = mTradesRead + 1
-            t.ok = True
-            t.pairSign = 1#
-            ReadTradeClass t, data, i, rowNum, seenIds
-            ReadTradeAmounts t, data, i
-            ReadTradeDates t, data, i
-            TradeDelta t, data, i
-            TradeHedgingSet t
-            UseTrade t, rowNum
-            If Not t.ok Then LogMsg SEV_ERROR, SH_TRADES, t.tid, "Trade excluded: " & t.msg, rowNum
-            If Not t.ok And t.nsIdx > 0 Then mNS(t.nsIdx).Rejected = mNS(t.nsIdx).Rejected + 1
-            If Not t.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
-            If Len(t.warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, t.tid, t.warn, rowNum
-            nOut = nOut + 1
-            TradeCalcRow t, outArr, nOut
+            Trade.ok = True
+            Trade.pairSign = 1#
+            ReadTradeClass Trade, InputBlock, i, RowNumber, SeenIDs
+            ReadTradeAmounts Trade, InputBlock, i
+            ReadTradeDates Trade, InputBlock, i
+            TradeDelta Trade, InputBlock, i
+            TradeHedgingSet Trade
+            UseTrade Trade, RowNumber
+            If Not Trade.ok Then LogMsg SEV_ERROR, SH_TRADES, Trade.tid, "Trade excluded: " & Trade.msg, RowNumber
+            If Not Trade.ok And Trade.nsIdx > 0 Then mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
+            If Not Trade.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
+            If Len(Trade.warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, Trade.tid, Trade.warn, RowNumber
+            OutputCount = OutputCount + 1
+            TradeCalcRow Trade, OutputBlock, OutputCount
 NextTrade:
         Next i
         For i = 1 To mEconRead
@@ -3167,12 +3181,12 @@ NextTrade:
 '------------------------------------------------------------------------------
 ' WRITE TRADECALC
 '------------------------------------------------------------------------------
-        If writeOutputs Then
-            Set wsOut = GetSheet(SH_TRADECALC)
-            outTop = OutputFirstRow(SH_TRADECALC)
-            ClearOutputBlock wsOut, outTop, TC_NCOLS
-            WriteBlock wsOut, outTop, outArr, nOut, TC_NCOLS
-            FormatColumns wsOut, outTop, nOut, _
+        If WriteOutputs Then
+            Set TradeCalcSheet = GetSheet(SH_TRADECALC)
+            OutputTop = OutputFirstRow(SH_TRADECALC)
+            ClearOutputBlock TradeCalcSheet, OutputTop, TC_NCOLS
+            WriteBlock TradeCalcSheet, OutputTop, OutputBlock, OutputCount, TC_NCOLS
+            FormatColumns TradeCalcSheet, OutputTop, OutputCount, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
         End If
 
@@ -3180,11 +3194,11 @@ End Sub
 
 
 Private Sub ReadTradeClass( _
-    ByRef t As tTrade, _
-    ByRef data As Variant, _
-    ByVal i As Long, _
-    ByVal rowNum As Long, _
-    ByVal seenIds As Collection)
+    ByRef Trade As tTrade, _
+    ByRef InputBlock As Variant, _
+    ByVal DataRow As Long, _
+    ByVal RowNumber As Long, _
+    ByVal SeenIDs As Collection)
 '
 '==============================================================================
 '                                ReadTradeClass
@@ -3196,20 +3210,20 @@ Private Sub ReadTradeClass( _
 '   the regime rules for OT and for regime-limited factor rows (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   data, i: the Trades input block and the trade's row in it.
-'   rowNum: the trade's sheet row; seenIds: Trade IDs seen so far.
+'   Trade: the trade being processed, from ProcessTrades.
+'   InputBlock, DataRow: the Trades input block and the trade's row in it.
+'   RowNumber: the trade's sheet row; SeenIDs: Trade IDs seen so far.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim firstRow   As Long      'Sheet row where a duplicate ID first appeared
-    Dim dirTxt     As String    'Direction text, upper case
+    Dim FirstRow        As Long      'Sheet row where a duplicate ID first appeared
+    Dim DirectionText   As String    'Direction text, upper case
 
 '------------------------------------------------------------------------------
 ' CLASSIFICATION
@@ -3218,102 +3232,102 @@ Private Sub ReadTradeClass( _
     'nature. Basis and volatility trades form their own hedging sets, one
     'per label, with the factor multiplied by BasisFactor or
     'VolatilityFactor [CRE52.46, CRE52.47].
-        firstRow = KeyIndex(seenIds, t.tid)
-        If firstRow > 0 Then
-            AddErr t.ok, t.msg, "duplicate Trade ID (first used on row " & firstRow & ")"
+        FirstRow = KeyIndex(SeenIDs, Trade.tid)
+        If FirstRow > 0 Then
+            AddErr Trade.ok, Trade.msg, "duplicate Trade ID (first used on row " & FirstRow & ")"
         Else
-            KeyAdd seenIds, t.tid, rowNum
+            KeyAdd SeenIDs, Trade.tid, RowNumber
         End If
 
-        t.nsId = UTxt(data(i, TR_NS))
-        t.nsIdx = KeyIndex(mNSIndex, t.nsId)
-        If t.nsIdx = 0 Then AddErr t.ok, t.msg, "unknown netting set '" & t.nsId & "'"
-        If Len(mGrpError(mRowGroup(i))) > 0 Then AddErr t.ok, t.msg, mGrpError(mRowGroup(i))
+        Trade.nsId = UTxt(InputBlock(DataRow, TR_NS))
+        Trade.nsIdx = KeyIndex(mNSIndex, Trade.nsId)
+        If Trade.nsIdx = 0 Then AddErr Trade.ok, Trade.msg, "unknown netting set '" & Trade.nsId & "'"
+        If Len(mGrpError(mRowGroup(DataRow))) > 0 Then AddErr Trade.ok, Trade.msg, mGrpError(mRowGroup(DataRow))
 
-        t.acTxt = UTxt(data(i, TR_AC))
-        t.ac = ACIndex(t.acTxt)
-        If t.ac = 0 Then AddErr t.ok, t.msg, "asset class must be IR, FX, CR, EQ, CO or OT"
+        Trade.acTxt = UTxt(InputBlock(DataRow, TR_AC))
+        Trade.ac = ACIndex(Trade.acTxt)
+        If Trade.ac = 0 Then AddErr Trade.ok, Trade.msg, "asset class must be IR, FX, CR, EQ, CO or OT"
 
-        t.subCls = TradeText(data(i, TR_SUB), "Sub-class", t.ok, t.msg)
-        t.rf = UTxt(data(i, TR_RF))
-        If Len(t.rf) = 0 Then AddErr t.ok, t.msg, "risk factor / reference missing"
-        If InStr(t.rf, "|") > 0 Or InStr(t.rf, "#") > 0 Then
-            AddErr t.ok, t.msg, "risk factor / reference must not contain '|' or '#'"
+        Trade.subCls = TradeText(InputBlock(DataRow, TR_SUB), "Sub-class", Trade.ok, Trade.msg)
+        Trade.rf = UTxt(InputBlock(DataRow, TR_RF))
+        If Len(Trade.rf) = 0 Then AddErr Trade.ok, Trade.msg, "risk factor / reference missing"
+        If InStr(Trade.rf, "|") > 0 Or InStr(Trade.rf, "#") > 0 Then
+            AddErr Trade.ok, Trade.msg, "risk factor / reference must not contain '|' or '#'"
         End If
-        If t.ac = AC_IR And Len(t.rf) > 0 And _
-           Not (t.rf Like "[A-Z][A-Z][A-Z]" Or t.rf Like "[A-Z][A-Z][A-Z]-INFL") Then
-            AddErr t.ok, t.msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
+        If Trade.ac = AC_IR And Len(Trade.rf) > 0 And _
+           Not (Trade.rf Like "[A-Z][A-Z][A-Z]" Or Trade.rf Like "[A-Z][A-Z][A-Z]-INFL") Then
+            AddErr Trade.ok, Trade.msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
                    "or EUR-INFL for inflation"
         End If
 
-        t.instType = TradeText(data(i, TR_INSTR), "Instrument", t.ok, t.msg)
-        If Len(t.instType) = 0 Then t.instType = "LINEAR"
-        If t.instType <> "LINEAR" And t.instType <> "OPTION" And t.instType <> "CDO" Then
-            AddErr t.ok, t.msg, "instrument type must be Linear, Option or CDO"
+        Trade.instType = TradeText(InputBlock(DataRow, TR_INSTR), "Instrument", Trade.ok, Trade.msg)
+        If Len(Trade.instType) = 0 Then Trade.instType = "LINEAR"
+        If Trade.instType <> "LINEAR" And Trade.instType <> "OPTION" And Trade.instType <> "CDO" Then
+            AddErr Trade.ok, Trade.msg, "instrument type must be Linear, Option or CDO"
         End If
-        If t.instType = "CDO" And t.ac <> AC_CR Then AddErr t.ok, t.msg, "CDO tranches are credit (CR) trades"
+        If Trade.instType = "CDO" And Trade.ac <> AC_CR Then AddErr Trade.ok, Trade.msg, "CDO tranches are credit (CR) trades"
 
-        dirTxt = UTxt(data(i, TR_DIR))
-        Select Case dirTxt
+        DirectionText = UTxt(InputBlock(DataRow, TR_DIR))
+        Select Case DirectionText
             Case "LONG", "BUY", "BOUGHT", "L", "B"
-                t.isLong = True
+                Trade.isLong = True
             Case "SHORT", "SELL", "SOLD", "S"
-                t.isLong = False
+                Trade.isLong = False
             Case Else
-                AddErr t.ok, t.msg, "direction must be Long or Short"
+                AddErr Trade.ok, Trade.msg, "direction must be Long or Short"
         End Select
 
-        t.nature = TradeText(data(i, TR_NATURE), "Nature", t.ok, t.msg)
-        If Len(t.nature) = 0 Then t.nature = "STANDARD"
-        t.lbl = TradeText(data(i, TR_LABEL), "Hedging-set label", t.ok, t.msg)
-        If InStr(t.lbl, "|") > 0 Or InStr(t.lbl, "#") > 0 Then
-            AddErr t.ok, t.msg, "hedging-set label must not contain '|' or '#'"
+        Trade.nature = TradeText(InputBlock(DataRow, TR_NATURE), "Nature", Trade.ok, Trade.msg)
+        If Len(Trade.nature) = 0 Then Trade.nature = "STANDARD"
+        Trade.lbl = TradeText(InputBlock(DataRow, TR_LABEL), "Hedging-set label", Trade.ok, Trade.msg)
+        If InStr(Trade.lbl, "|") > 0 Or InStr(Trade.lbl, "#") > 0 Then
+            AddErr Trade.ok, Trade.msg, "hedging-set label must not contain '|' or '#'"
         End If
-        Select Case t.nature
+        Select Case Trade.nature
             Case "STANDARD"
-                t.natFactor = 1#
-                t.natTag = "STD"
+                Trade.natFactor = 1#
+                Trade.natTag = "STD"
             Case "BASIS"
-                t.natFactor = pBasisF
-                t.natTag = "BASIS:" & t.lbl
-                If Len(t.lbl) = 0 Then AddErr t.ok, t.msg, "basis trade needs a hedging-set label"
+                Trade.natFactor = pBasisF
+                Trade.natTag = "BASIS:" & Trade.lbl
+                If Len(Trade.lbl) = 0 Then AddErr Trade.ok, Trade.msg, "basis trade needs a hedging-set label"
             Case "VOLATILITY"
-                t.natFactor = pVolF
-                t.natTag = "VOL:" & t.lbl
-                If Len(t.lbl) = 0 Then AddErr t.ok, t.msg, "volatility trade needs a hedging-set label"
+                Trade.natFactor = pVolF
+                Trade.natTag = "VOL:" & Trade.lbl
+                If Len(Trade.lbl) = 0 Then AddErr Trade.ok, Trade.msg, "volatility trade needs a hedging-set label"
             Case Else
-                AddErr t.ok, t.msg, "nature must be Standard, Basis or Volatility"
+                AddErr Trade.ok, Trade.msg, "nature must be Standard, Basis or Volatility"
         End Select
 
     'IR, FX and OT have one factor each; the other classes are looked up by
     'class and sub-class, for example CR_AAA.
-        If t.ac > 0 Then
-            Select Case t.ac
+        If Trade.ac > 0 Then
+            Select Case Trade.ac
                 Case AC_IR
-                    t.sfKey = "IR"
+                    Trade.sfKey = "IR"
                 Case AC_FX
-                    t.sfKey = "FX"
+                    Trade.sfKey = "FX"
                 Case AC_OT
-                    t.sfKey = "OT"
+                    Trade.sfKey = "OT"
                 Case Else
-                    t.sfKey = t.acTxt & "_" & t.subCls
+                    Trade.sfKey = Trade.acTxt & "_" & Trade.subCls
             End Select
-            t.sfIdx = KeyIndex(mSFIndex, t.sfKey)
-            If t.sfIdx = 0 Then AddErr t.ok, t.msg, "no supervisory factor for '" & t.sfKey & "' (check sub-class)"
+            Trade.sfIdx = KeyIndex(mSFIndex, Trade.sfKey)
+            If Trade.sfIdx = 0 Then AddErr Trade.ok, Trade.msg, "no supervisory factor for '" & Trade.sfKey & "' (check sub-class)"
         End If
 
     'OT exists only under CRR, and a factor-table row limited to one regime
     'cannot be used by a netting set under the other.
-        If t.nsIdx > 0 And t.ac = AC_OT Then
-            If Not mNS(t.nsIdx).IsCRR Then
-                AddErr t.ok, t.msg, "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
+        If Trade.nsIdx > 0 And Trade.ac = AC_OT Then
+            If Not mNS(Trade.nsIdx).IsCRR Then
+                AddErr Trade.ok, Trade.msg, "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
                        "under BCBS map the trade to the class of its primary risk driver (CRE52)"
             End If
         End If
-        If t.nsIdx > 0 And t.sfIdx > 0 Then
-            If Len(mSF(t.sfIdx).Regimes) > 0 And mSF(t.sfIdx).Regimes <> mNS(t.nsIdx).Regime Then
-                AddErr t.ok, t.msg, "'" & t.sfKey & "' is defined only for regime " & mSF(t.sfIdx).Regimes & _
-                       " (netting set uses " & mNS(t.nsIdx).Regime & ")"
+        If Trade.nsIdx > 0 And Trade.sfIdx > 0 Then
+            If Len(mSF(Trade.sfIdx).Regimes) > 0 And mSF(Trade.sfIdx).Regimes <> mNS(Trade.nsIdx).Regime Then
+                AddErr Trade.ok, Trade.msg, "'" & Trade.sfKey & "' is defined only for regime " & mSF(Trade.sfIdx).Regimes & _
+                       " (netting set uses " & mNS(Trade.nsIdx).Regime & ")"
             End If
         End If
 
@@ -3321,9 +3335,9 @@ End Sub
 
 
 Private Sub ReadTradeAmounts( _
-    ByRef t As tTrade, _
-    ByRef data As Variant, _
-    ByVal i As Long)
+    ByRef Trade As tTrade, _
+    ByRef InputBlock As Variant, _
+    ByVal DataRow As Long)
 '
 '==============================================================================
 '                               ReadTradeAmounts
@@ -3333,11 +3347,11 @@ Private Sub ReadTradeAmounts( _
 '   both to the reporting currency when the trade is still valid (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   data, i: the Trades input block and the trade's row in it.
+'   Trade: the trade being processed, from ProcessTrades.
+'   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
@@ -3348,43 +3362,43 @@ Private Sub ReadTradeAmounts( _
     'error, not an assumed 0 (#35); a blank notional currency means the
     'reporting currency, and a blank MtM currency the notional currency.
     'Both amounts are converted to the reporting currency.
-        If IsNum(data(i, TR_NOTIONAL)) Then
-            t.notional = CDbl(data(i, TR_NOTIONAL))
-            If t.notional < 0# Then AddErr t.ok, t.msg, "notional must be positive (use Direction for the sign)"
-        ElseIf IsBlankCell(data(i, TR_NOTIONAL)) And Not IsError(data(i, TR_NOTIONAL)) Then
-            AddErr t.ok, t.msg, "notional missing"
+        If IsNum(InputBlock(DataRow, TR_NOTIONAL)) Then
+            Trade.notional = CDbl(InputBlock(DataRow, TR_NOTIONAL))
+            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must be positive (use Direction for the sign)"
+        ElseIf IsBlankCell(InputBlock(DataRow, TR_NOTIONAL)) And Not IsError(InputBlock(DataRow, TR_NOTIONAL)) Then
+            AddErr Trade.ok, Trade.msg, "notional missing"
         Else
-            AddErr t.ok, t.msg, "notional must be a number (found " & DescribeValue(data(i, TR_NOTIONAL)) & ")"
+            AddErr Trade.ok, Trade.msg, "notional must be a number (found " & DescribeValue(InputBlock(DataRow, TR_NOTIONAL)) & ")"
         End If
-        t.nccy = TradeText(data(i, TR_NCCY), "Notional currency", t.ok, t.msg)
-        If Len(t.nccy) = 0 Then t.nccy = pRepCcy
-        t.fxN = FXRate(t.nccy)
-        If t.fxN < 0# Then AddErr t.ok, t.msg, "no FX rate for notional currency '" & t.nccy & "'"
-        If IsNum(data(i, TR_MTM)) Then
-            t.mtm = CDbl(data(i, TR_MTM))
-        ElseIf IsBlankCell(data(i, TR_MTM)) And Not IsError(data(i, TR_MTM)) Then
-            t.mtm = 0#
-            AddErr t.ok, t.msg, "MtM missing (enter 0 if the trade has no value)"
+        Trade.nccy = TradeText(InputBlock(DataRow, TR_NCCY), "Notional currency", Trade.ok, Trade.msg)
+        If Len(Trade.nccy) = 0 Then Trade.nccy = pRepCcy
+        Trade.fxN = FXRate(Trade.nccy)
+        If Trade.fxN < 0# Then AddErr Trade.ok, Trade.msg, "no FX rate for notional currency '" & Trade.nccy & "'"
+        If IsNum(InputBlock(DataRow, TR_MTM)) Then
+            Trade.mtm = CDbl(InputBlock(DataRow, TR_MTM))
+        ElseIf IsBlankCell(InputBlock(DataRow, TR_MTM)) And Not IsError(InputBlock(DataRow, TR_MTM)) Then
+            Trade.mtm = 0#
+            AddErr Trade.ok, Trade.msg, "MtM missing (enter 0 if the trade has no value)"
         Else
-            t.mtm = 0#
-            AddErr t.ok, t.msg, "MtM must be a number (found " & DescribeValue(data(i, TR_MTM)) & ")"
+            Trade.mtm = 0#
+            AddErr Trade.ok, Trade.msg, "MtM must be a number (found " & DescribeValue(InputBlock(DataRow, TR_MTM)) & ")"
         End If
-        t.mccy = TradeText(data(i, TR_MCCY), "MtM currency", t.ok, t.msg)
-        If Len(t.mccy) = 0 Then t.mccy = t.nccy
-        t.fxM = FXRate(t.mccy)
-        If t.fxM < 0# Then AddErr t.ok, t.msg, "no FX rate for MtM currency '" & t.mccy & "'"
-        If t.ok Then
-            t.notionalRep = t.notional * t.fxN
-            t.mtmRep = t.mtm * t.fxM
+        Trade.mccy = TradeText(InputBlock(DataRow, TR_MCCY), "MtM currency", Trade.ok, Trade.msg)
+        If Len(Trade.mccy) = 0 Then Trade.mccy = Trade.nccy
+        Trade.fxM = FXRate(Trade.mccy)
+        If Trade.fxM < 0# Then AddErr Trade.ok, Trade.msg, "no FX rate for MtM currency '" & Trade.mccy & "'"
+        If Trade.ok Then
+            Trade.notionalRep = Trade.notional * Trade.fxN
+            Trade.mtmRep = Trade.mtm * Trade.fxM
         End If
 
 End Sub
 
 
 Private Sub ReadTradeDates( _
-    ByRef t As tTrade, _
-    ByRef data As Variant, _
-    ByVal i As Long)
+    ByRef Trade As tTrade, _
+    ByRef InputBlock As Variant, _
+    ByVal DataRow As Long)
 '
 '==============================================================================
 '                                ReadTradeDates
@@ -3394,11 +3408,11 @@ Private Sub ReadTradeDates( _
 '   the years S, E and M from the reporting date (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   data, i: the Trades input block and the trade's row in it.
+'   Trade: the trade being processed, from ProcessTrades.
+'   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
@@ -3410,27 +3424,27 @@ Private Sub ReadTradeDates( _
     'then from the option expiry; the end date from the maturity. S, E and M
     'are years from the reporting date on the DaysPerYear basis, with S
     'floored at 0.
-        t.dStart = TradeDate(data(i, TR_START), "start date", t.ok, t.msg)
-        t.dEnd = TradeDate(data(i, TR_END), "end date", t.ok, t.msg)
-        t.dMat = TradeDate(data(i, TR_MAT), "maturity date", t.ok, t.msg)
-        t.dExp = TradeDate(data(i, TR_EXPIRY), "option expiry", t.ok, t.msg)
-        If t.dMat < 0# Then t.dMat = t.dEnd
-        If t.dMat < 0# Then t.dMat = t.dExp
-        If t.dEnd < 0# Then t.dEnd = t.dMat
-        If t.dMat < 0# Then
-            AddErr t.ok, t.msg, "maturity / end date missing"
+        Trade.dStart = TradeDate(InputBlock(DataRow, TR_START), "start date", Trade.ok, Trade.msg)
+        Trade.dEnd = TradeDate(InputBlock(DataRow, TR_END), "end date", Trade.ok, Trade.msg)
+        Trade.dMat = TradeDate(InputBlock(DataRow, TR_MAT), "maturity date", Trade.ok, Trade.msg)
+        Trade.dExp = TradeDate(InputBlock(DataRow, TR_EXPIRY), "option expiry", Trade.ok, Trade.msg)
+        If Trade.dMat < 0# Then Trade.dMat = Trade.dEnd
+        If Trade.dMat < 0# Then Trade.dMat = Trade.dExp
+        If Trade.dEnd < 0# Then Trade.dEnd = Trade.dMat
+        If Trade.dMat < 0# Then
+            AddErr Trade.ok, Trade.msg, "maturity / end date missing"
         Else
-            t.M = (t.dMat - pAsOf) / pDaysYear
-            t.E = (t.dEnd - pAsOf) / pDaysYear
-            If t.dStart >= 0# Then
-                t.S = Max2(0#, (t.dStart - pAsOf) / pDaysYear)
+            Trade.M = (Trade.dMat - pAsOf) / pDaysYear
+            Trade.E = (Trade.dEnd - pAsOf) / pDaysYear
+            If Trade.dStart >= 0# Then
+                Trade.S = Max2(0#, (Trade.dStart - pAsOf) / pDaysYear)
             Else
-                t.S = 0#
+                Trade.S = 0#
             End If
-            If t.M <= 0# Then
-                AddErr t.ok, t.msg, "trade has matured (maturity <= reporting date)"
-            ElseIf (t.ac = AC_IR Or t.ac = AC_CR) And t.E <= t.S Then
-                AddErr t.ok, t.msg, "end date must be after start date"
+            If Trade.M <= 0# Then
+                AddErr Trade.ok, Trade.msg, "trade has matured (maturity <= reporting date)"
+            ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.E <= Trade.S Then
+                AddErr Trade.ok, Trade.msg, "end date must be after start date"
             End If
         End If
 
@@ -3440,9 +3454,9 @@ Private Sub ReadTradeDates( _
     '[CRE52.42(2)], for a cap or floor the start of its first period. A
     'blank start date would read as 0, the duration of a swap starting
     'today, so it is an error (#40).
-        If t.instType = "OPTION" And (t.ac = AC_IR Or t.ac = AC_CR) And t.dStart < 0# Then
-            If IsBlankCell(data(i, TR_START)) And Not IsError(data(i, TR_START)) Then
-                AddErr t.ok, t.msg, "an interest-rate or credit option needs the start date S of its underlying " & _
+        If Trade.instType = "OPTION" And (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.dStart < 0# Then
+            If IsBlankCell(InputBlock(DataRow, TR_START)) And Not IsError(InputBlock(DataRow, TR_START)) Then
+                AddErr Trade.ok, Trade.msg, "an interest-rate or credit option needs the start date S of its underlying " & _
                        "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
                        "start of the first period)"
             End If
@@ -3452,9 +3466,9 @@ End Sub
 
 
 Private Sub TradeDelta( _
-    ByRef t As tTrade, _
-    ByRef data As Variant, _
-    ByVal i As Long)
+    ByRef Trade As tTrade, _
+    ByRef InputBlock As Variant, _
+    ByVal DataRow As Long)
 '
 '==============================================================================
 '                                  TradeDelta
@@ -3464,23 +3478,23 @@ Private Sub TradeDelta( _
 '   its expiry T and lambda shift) or CDO tranche (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   data, i: the Trades input block and the trade's row in it.
+'   Trade: the trade being processed, from ProcessTrades.
+'   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim P        As Double     'Underlying price
-    Dim K        As Double     'Strike
-    Dim attA     As Double     'CDO attachment point
-    Dim detD     As Double     'CDO detachment point
-    Dim lamIn    As Variant    'Lambda as entered
-    Dim vDelta   As Variant    'Option delta as returned by SACCR_OptionDelta
+    Dim Price         As Double     'Underlying price
+    Dim Strike        As Double     'Strike
+    Dim Attachment    As Double     'CDO attachment point
+    Dim Detachment    As Double     'CDO detachment point
+    Dim LambdaInput   As Variant    'Lambda as entered
+    Dim DeltaResult   As Variant    'Option delta as returned by SACCR_OptionDelta
 
 '------------------------------------------------------------------------------
 ' SUPERVISORY DELTA
@@ -3489,73 +3503,73 @@ Private Sub TradeDelta( _
     'with the lambda shift; under CRR the regulatory lambda replaces any
     'entered value for IR and commodity options [CRE52.40]. CDO tranches:
     'the tranche delta [CRE52.41].
-        If t.ok Then
-            Select Case t.instType
+        If Trade.ok Then
+            Select Case Trade.instType
                 Case "LINEAR"
-                    If t.isLong Then
-                        t.delta = 1#
+                    If Trade.isLong Then
+                        Trade.delta = 1#
                     Else
-                        t.delta = -1#
+                        Trade.delta = -1#
                     End If
                 Case "OPTION"
-                    t.optTxt = UTxt(data(i, TR_OPT))
-                    If t.optTxt <> "CALL" And t.optTxt <> "PUT" Then AddErr t.ok, t.msg, "option type must be Call or Put"
-                    If t.dExp < 0# Then
-                        AddErr t.ok, t.msg, "option expiry missing"
+                    Trade.optTxt = UTxt(InputBlock(DataRow, TR_OPT))
+                    If Trade.optTxt <> "CALL" And Trade.optTxt <> "PUT" Then AddErr Trade.ok, Trade.msg, "option type must be Call or Put"
+                    If Trade.dExp < 0# Then
+                        AddErr Trade.ok, Trade.msg, "option expiry missing"
                     Else
-                        t.T = (t.dExp - pAsOf) / pDaysYear
-                        If t.T <= 0# Then
-                            AddErr t.ok, t.msg, "option has expired"
-                        ElseIf t.dExp > t.dMat Then
-                            AddErr t.ok, t.msg, "option expiry is after the maturity date (M is the latest " & _
+                        Trade.T = (Trade.dExp - pAsOf) / pDaysYear
+                        If Trade.T <= 0# Then
+                            AddErr Trade.ok, Trade.msg, "option has expired"
+                        ElseIf Trade.dExp > Trade.dMat Then
+                            AddErr Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
                                    "date the contract may still be active)"
                         End If
                     End If
-                    If Not IsNum(data(i, TR_PRICE)) Or Not IsNum(data(i, TR_STRIKE)) Then
-                        AddErr t.ok, t.msg, "option needs underlying price and strike"
+                    If Not IsNum(InputBlock(DataRow, TR_PRICE)) Or Not IsNum(InputBlock(DataRow, TR_STRIKE)) Then
+                        AddErr Trade.ok, Trade.msg, "option needs underlying price and strike"
                     End If
-                    If t.ok Then
-                        P = CDbl(data(i, TR_PRICE))
-                        K = CDbl(data(i, TR_STRIKE))
-                        lamIn = data(i, TR_LAMBDA)
-                        If Not IsNum(lamIn) And Not (IsBlankCell(lamIn) And Not IsError(lamIn)) Then
-                            AddErr t.ok, t.msg, "lambda must be a number (found " & DescribeValue(lamIn) & ")"
+                    If Trade.ok Then
+                        Price = CDbl(InputBlock(DataRow, TR_PRICE))
+                        Strike = CDbl(InputBlock(DataRow, TR_STRIKE))
+                        LambdaInput = InputBlock(DataRow, TR_LAMBDA)
+                        If Not IsNum(LambdaInput) And Not (IsBlankCell(LambdaInput) And Not IsError(LambdaInput)) Then
+                            AddErr Trade.ok, Trade.msg, "lambda must be a number (found " & DescribeValue(LambdaInput) & ")"
                         End If
-                        If mNS(t.nsIdx).IsCRR And (t.ac = AC_IR Or t.ac = AC_CO) Then
+                        If mNS(Trade.nsIdx).IsCRR And (Trade.ac = AC_IR Or Trade.ac = AC_CO) Then
                             'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
-                            If t.ac = AC_IR Then
-                                t.lam = FormulaNumber(SACCR_LambdaCRR(P, K, True, pLamThrIR), "SACCR_LambdaCRR")
+                            If Trade.ac = AC_IR Then
+                                Trade.lam = FormulaNumber(SACCR_LambdaCRR(Price, Strike, True, pLamThrIR), "SACCR_LambdaCRR")
                             Else
-                                t.lam = FormulaNumber(SACCR_LambdaCRR(P, K, False, pLamThrCO), "SACCR_LambdaCRR")
+                                Trade.lam = FormulaNumber(SACCR_LambdaCRR(Price, Strike, False, pLamThrCO), "SACCR_LambdaCRR")
                             End If
-                            If IsNum(lamIn) Then
-                                If Abs(CDbl(lamIn) - t.lam) > 0.000000001 Then
-                                    AddWarn t.warn, "lambda input ignored under CRR - RTS lambda applied"
+                            If IsNum(LambdaInput) Then
+                                If Abs(CDbl(LambdaInput) - Trade.lam) > 0.000000001 Then
+                                    AddWarn Trade.warn, "lambda input ignored under CRR - RTS lambda applied"
                                 End If
                             End If
                         Else
-                            t.lam = ToDbl(lamIn, 0#)
+                            Trade.lam = ToDbl(LambdaInput, 0#)
                         End If
-                        t.lamOut = t.lam
-                        If P + t.lam <= 0# Or K + t.lam <= 0# Then
-                            AddErr t.ok, t.msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
-                        ElseIf mSF(t.sfIdx).Vol <= 0# Then
-                            AddErr t.ok, t.msg, "supervisory volatility missing for '" & t.sfKey & "'"
+                        Trade.lamOut = Trade.lam
+                        If Price + Trade.lam <= 0# Or Strike + Trade.lam <= 0# Then
+                            AddErr Trade.ok, Trade.msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
+                        ElseIf mSF(Trade.sfIdx).Vol <= 0# Then
+                            AddErr Trade.ok, Trade.msg, "supervisory volatility missing for '" & Trade.sfKey & "'"
                         Else
-                            vDelta = SACCR_OptionDelta(P, K, t.T, mSF(t.sfIdx).Vol, (t.optTxt = "CALL"), t.isLong, t.lam)
-                            t.delta = FormulaNumber(vDelta, "SACCR_OptionDelta")
+                            DeltaResult = SACCR_OptionDelta(Price, Strike, Trade.T, mSF(Trade.sfIdx).Vol, (Trade.optTxt = "CALL"), Trade.isLong, Trade.lam)
+                            Trade.delta = FormulaNumber(DeltaResult, "SACCR_OptionDelta")
                         End If
                     End If
                 Case "CDO"
-                    If Not IsNum(data(i, TR_ATTACH)) Or Not IsNum(data(i, TR_DETACH)) Then
-                        AddErr t.ok, t.msg, "CDO tranche needs attachment and detachment points"
+                    If Not IsNum(InputBlock(DataRow, TR_ATTACH)) Or Not IsNum(InputBlock(DataRow, TR_DETACH)) Then
+                        AddErr Trade.ok, Trade.msg, "CDO tranche needs attachment and detachment points"
                     Else
-                        attA = CDbl(data(i, TR_ATTACH))
-                        detD = CDbl(data(i, TR_DETACH))
-                        If attA < 0# Or detD > 1# Or attA >= detD Then
-                            AddErr t.ok, t.msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
+                        Attachment = CDbl(InputBlock(DataRow, TR_ATTACH))
+                        Detachment = CDbl(InputBlock(DataRow, TR_DETACH))
+                        If Attachment < 0# Or Detachment > 1# Or Attachment >= Detachment Then
+                            AddErr Trade.ok, Trade.msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
                         Else
-                            t.delta = FormulaNumber(SACCR_CDODelta(attA, detD, t.isLong), "SACCR_CDODelta")
+                            Trade.delta = FormulaNumber(SACCR_CDODelta(Attachment, Detachment, Trade.isLong), "SACCR_CDODelta")
                         End If
                     End If
             End Select
@@ -3565,7 +3579,7 @@ End Sub
 
 
 Private Sub TradeHedgingSet( _
-    ByRef t As tTrade)
+    ByRef Trade As tTrade)
 '
 '==============================================================================
 '                               TradeHedgingSet
@@ -3575,10 +3589,10 @@ Private Sub TradeHedgingSet( _
 '   the FX pair checks (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
+'   Trade: the trade being processed, from ProcessTrades.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
@@ -3598,66 +3612,67 @@ Private Sub TradeHedgingSet( _
     'legs (#40). An FX option must be entered in market quote order
     '(MarketPair): a call on one order and the put on the other give
     'different deltas, so the order must be one and the same for every
-    'trade [CRE52.59 FAQ1] (#40). CR: d = notional * SD, one hedging set, bucket per entity
-    '[CRE52.60, CRE52.64]. EQ: one hedging set, bucket per entity
-    '[CRE52.66]. CO: hedging set per commodity group, bucket per commodity
-    '[CRE52.70]. OT: hedging set per primary risk driver [CRR Art. 277a].
-        If t.ok Then
-            Select Case t.ac
+    'trade [CRE52.59 FAQ1] (#40). CR: d = notional * SD, one hedging set,
+    'bucket per entity [CRE52.60, CRE52.64]. EQ: one hedging set, bucket
+    'per entity [CRE52.66]. CO: hedging set per commodity group, bucket per
+    'commodity [CRE52.70]. OT: hedging set per primary risk driver [CRR
+    'Art. 277a].
+        If Trade.ok Then
+            Select Case Trade.ac
                 Case AC_IR
-                    t.sd = FormulaNumber(SACCR_SupervisoryDuration(t.S, t.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
-                    t.adjN = t.notionalRep * t.sd
-                    If t.E < 1# Or (mNS(t.nsIdx).IsCRR And t.E <= 1#) Then
-                        t.bucketNo = 1
-                        t.subKey = "<1Y"
-                    ElseIf t.E <= 5# Then
-                        t.bucketNo = 2
-                        t.subKey = "1-5Y"
+                    Trade.sd = FormulaNumber(SACCR_SupervisoryDuration(Trade.S, Trade.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
+                    Trade.adjN = Trade.notionalRep * Trade.sd
+                    If Trade.E < 1# Or (mNS(Trade.nsIdx).IsCRR And Trade.E <= 1#) Then
+                        Trade.bucketNo = 1
+                        Trade.subKey = "<1Y"
+                    ElseIf Trade.E <= 5# Then
+                        Trade.bucketNo = 2
+                        Trade.subKey = "1-5Y"
                     Else
-                        t.bucketNo = 3
-                        t.subKey = ">5Y"
+                        Trade.bucketNo = 3
+                        Trade.subKey = ">5Y"
                     End If
-                    t.hsKey = "IR|" & t.rf & "|" & t.natTag
+                    Trade.hsKey = "IR|" & Trade.rf & "|" & Trade.natTag
                 Case AC_FX
-                    t.rf = NormalizePair(t.rf, t.pairSign)
-                    If t.pairSign = 0# Then
-                        AddErr t.ok, t.msg, "FX risk factor must be a currency pair such as EUR/USD"
-                    ElseIf FXRate(Left$(t.rf, 3)) < 0# Then
-                        AddErr t.ok, t.msg, "no FX rate for currency '" & Left$(t.rf, 3) & "' of the pair " & t.rf
-                    ElseIf FXRate(Right$(t.rf, 3)) < 0# Then
-                        AddErr t.ok, t.msg, "no FX rate for currency '" & Right$(t.rf, 3) & "' of the pair " & t.rf
-                    ElseIf t.nccy <> Left$(t.rf, 3) And t.nccy <> Right$(t.rf, 3) Then
-                        AddErr t.ok, t.msg, "notional currency '" & t.nccy & "' is not a currency of the pair " & t.rf
-                    ElseIf t.instType = "OPTION" And t.pairSign * MarketSign(t.rf) < 0# Then
-                        AddErr t.ok, t.msg, "FX option must be entered in market quote order as " & MarketPair(t.rf) & _
-                               ", with price and strike in " & Right$(MarketPair(t.rf), 3) & " per " & _
-                               Left$(MarketPair(t.rf), 3) & " (CRE52.59 FAQ1)"
+                    Trade.rf = NormalizePair(Trade.rf, Trade.pairSign)
+                    If Trade.pairSign = 0# Then
+                        AddErr Trade.ok, Trade.msg, "FX risk factor must be a currency pair such as EUR/USD"
+                    ElseIf FXRate(Left$(Trade.rf, 3)) < 0# Then
+                        AddErr Trade.ok, Trade.msg, "no FX rate for currency '" & Left$(Trade.rf, 3) & "' of the pair " & Trade.rf
+                    ElseIf FXRate(Right$(Trade.rf, 3)) < 0# Then
+                        AddErr Trade.ok, Trade.msg, "no FX rate for currency '" & Right$(Trade.rf, 3) & "' of the pair " & Trade.rf
+                    ElseIf Trade.nccy <> Left$(Trade.rf, 3) And Trade.nccy <> Right$(Trade.rf, 3) Then
+                        AddErr Trade.ok, Trade.msg, "notional currency '" & Trade.nccy & "' is not a currency of the pair " & Trade.rf
+                    ElseIf Trade.instType = "OPTION" And Trade.pairSign * MarketSign(Trade.rf) < 0# Then
+                        AddErr Trade.ok, Trade.msg, "FX option must be entered in market quote order as " & MarketPair(Trade.rf) & _
+                               ", with price and strike in " & Right$(MarketPair(Trade.rf), 3) & " per " & _
+                               Left$(MarketPair(Trade.rf), 3) & " (CRE52.59 FAQ1)"
                     End If
-                    t.delta = t.delta * t.pairSign
-                    t.adjN = t.notionalRep
-                    t.hsKey = "FX|" & t.rf & "|" & t.natTag
-                    t.subKey = t.rf
+                    Trade.delta = Trade.delta * Trade.pairSign
+                    Trade.adjN = Trade.notionalRep
+                    Trade.hsKey = "FX|" & Trade.rf & "|" & Trade.natTag
+                    Trade.subKey = Trade.rf
                 Case AC_CR
-                    t.sd = FormulaNumber(SACCR_SupervisoryDuration(t.S, t.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
-                    t.adjN = t.notionalRep * t.sd
-                    t.hsKey = "CR|" & t.natTag
-                    t.subKey = t.rf
+                    Trade.sd = FormulaNumber(SACCR_SupervisoryDuration(Trade.S, Trade.E, pSDFloorBD / pBDYear), "SACCR_SupervisoryDuration")
+                    Trade.adjN = Trade.notionalRep * Trade.sd
+                    Trade.hsKey = "CR|" & Trade.natTag
+                    Trade.subKey = Trade.rf
                 Case AC_EQ
-                    t.adjN = t.notionalRep
-                    t.hsKey = "EQ|" & t.natTag
-                    t.subKey = t.rf
+                    Trade.adjN = Trade.notionalRep
+                    Trade.hsKey = "EQ|" & Trade.natTag
+                    Trade.subKey = Trade.rf
                 Case AC_CO
-                    t.adjN = t.notionalRep
-                    If Len(mSF(t.sfIdx).Group) = 0 Then
-                        AddErr t.ok, t.msg, "commodity hedging group missing for '" & t.sfKey & "'"
+                    Trade.adjN = Trade.notionalRep
+                    If Len(mSF(Trade.sfIdx).Group) = 0 Then
+                        AddErr Trade.ok, Trade.msg, "commodity hedging group missing for '" & Trade.sfKey & "'"
                     End If
-                    t.hsKey = "CO|" & mSF(t.sfIdx).Group & "|" & t.natTag
-                    t.subKey = t.rf
+                    Trade.hsKey = "CO|" & mSF(Trade.sfIdx).Group & "|" & Trade.natTag
+                    Trade.subKey = Trade.rf
                 Case AC_OT
                     'Art. 277a: same hedging set only for an identical primary risk driver.
-                    t.adjN = t.notionalRep
-                    t.hsKey = "OT|" & t.rf & "|" & t.natTag
-                    t.subKey = t.rf
+                    Trade.adjN = Trade.notionalRep
+                    Trade.hsKey = "OT|" & Trade.rf & "|" & Trade.natTag
+                    Trade.subKey = Trade.rf
             End Select
         End If
 
@@ -3665,8 +3680,8 @@ End Sub
 
 
 Private Sub UseTrade( _
-    ByRef t As tTrade, _
-    ByVal rowNum As Long)
+    ByRef Trade As tTrade, _
+    ByVal RowNumber As Long)
 '
 '==============================================================================
 '                                   UseTrade
@@ -3677,14 +3692,15 @@ Private Sub UseTrade( _
 '   (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   rowNum: the trade's sheet row.
+'   Trade: the trade being processed, from ProcessTrades.
+'   RowNumber: the trade's sheet row.
 '
 ' STATE OWNERSHIP
-'   Adds to mBk through AddToBucket, to mNS and to mTradesUsed.
+'   Adds to mBk through AddToBucket, to mNS and to mTradesUsed, and to the
+'   reference sub-classes through CheckReferenceClass.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
@@ -3694,23 +3710,23 @@ Private Sub UseTrade( _
     'The effective notional is kept on both bases: unmargined MF from the
     'trade's maturity, and margined MF from the netting set's MPOR. The
     'margined basis equals the unmargined one for an unmargined set.
-        If t.ok Then
-            t.sfEff = mSF(t.sfIdx).SF * t.natFactor
-            t.corrEff = mSF(t.sfIdx).Corr
-            t.mfU = FormulaNumber(SACCR_MaturityFactor(t.M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
-            If mNS(t.nsIdx).Margined Then
-                t.mfM = mNS(t.nsIdx).MFMargined
+        If Trade.ok Then
+            Trade.sfEff = mSF(Trade.sfIdx).SF * Trade.natFactor
+            Trade.corrEff = mSF(Trade.sfIdx).Corr
+            Trade.mfU = FormulaNumber(SACCR_MaturityFactor(Trade.M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
+            If mNS(Trade.nsIdx).Margined Then
+                Trade.mfM = mNS(Trade.nsIdx).MFMargined
             Else
-                t.mfM = t.mfU
+                Trade.mfM = Trade.mfU
             End If
-            t.enU = t.delta * t.adjN * t.mfU
-            t.enM = t.delta * t.adjN * t.mfM
-            If t.ac = AC_CR Or t.ac = AC_EQ Or t.ac = AC_CO Then
-                CheckReferenceClass t.nsIdx, t.ac, t.rf, t.sfKey, t.tid, rowNum
+            Trade.enU = Trade.delta * Trade.adjN * Trade.mfU
+            Trade.enM = Trade.delta * Trade.adjN * Trade.mfM
+            If Trade.ac = AC_CR Or Trade.ac = AC_EQ Or Trade.ac = AC_CO Then
+                CheckReferenceClass Trade.nsIdx, Trade.ac, Trade.rf, Trade.sfKey, Trade.tid, RowNumber
             End If
-            AddToBucket t.nsIdx, t.ac, t.hsKey, t.subKey, t.sfEff, t.corrEff, t.enU, t.enM, t.tid, rowNum
-            mNS(t.nsIdx).V = mNS(t.nsIdx).V + t.mtmRep
-            mNS(t.nsIdx).Trades = mNS(t.nsIdx).Trades + 1
+            AddToBucket Trade.nsIdx, Trade.ac, Trade.hsKey, Trade.subKey, Trade.sfEff, Trade.corrEff, Trade.enU, Trade.enM, Trade.tid, RowNumber
+            mNS(Trade.nsIdx).V = mNS(Trade.nsIdx).V + Trade.mtmRep
+            mNS(Trade.nsIdx).Trades = mNS(Trade.nsIdx).Trades + 1
             mTradesUsed = mTradesUsed + 1
         End If
 
@@ -3718,23 +3734,23 @@ End Sub
 
 
 Private Sub TradeCalcRow( _
-    ByRef t As tTrade, _
-    ByRef outArr() As Variant, _
-    ByVal nOut As Long)
+    ByRef Trade As tTrade, _
+    ByRef OutputBlock() As Variant, _
+    ByVal OutputRow As Long)
 '
 '==============================================================================
 '                                 TradeCalcRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Fill row nOut of the TradeCalc block with a trade's results, or with its
-'   rejection reasons (#60).
+'   Fill row OutputRow of the TradeCalc block with a trade's results, or
+'   with its rejection reasons (#60).
 '
 ' INPUTS
-'   t: the trade being processed, from ProcessTrades.
-'   outArr, nOut: the TradeCalc block and the row to fill.
+'   Trade: the trade being processed, from ProcessTrades.
+'   OutputBlock, OutputRow: the TradeCalc block and the row to fill.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
@@ -3747,46 +3763,46 @@ Private Sub TradeCalcRow( _
     'notional unmargined, 20 effective notional margined, 21 IR bucket,
     '22 stand-alone add-on, 23 lambda, 24 regime, 25 messages. Columns that
     'do not apply to the trade stay blank.
-        outArr(nOut, 1) = t.tid
-        outArr(nOut, 2) = t.nsId
-        outArr(nOut, 3) = t.acTxt
-        If t.ok Then
-            outArr(nOut, 4) = "OK"
-            outArr(nOut, 5) = t.hsKey
-            outArr(nOut, 6) = t.subKey
-            outArr(nOut, 7) = t.sfEff
-            outArr(nOut, 8) = t.notionalRep
-            outArr(nOut, 9) = t.mtmRep
-            outArr(nOut, 10) = t.S
-            outArr(nOut, 11) = t.E
-            outArr(nOut, 12) = t.M
-            If t.instType = "OPTION" Then outArr(nOut, 13) = t.T
-            If t.ac = AC_IR Or t.ac = AC_CR Then outArr(nOut, 14) = t.sd
-            outArr(nOut, 15) = t.adjN
-            outArr(nOut, 16) = t.delta
-            outArr(nOut, 17) = t.mfU
-            If mNS(t.nsIdx).Margined Then outArr(nOut, 18) = t.mfM
-            outArr(nOut, 19) = t.enU
-            If mNS(t.nsIdx).Margined Then outArr(nOut, 20) = t.enM
-            If t.ac = AC_IR Then outArr(nOut, 21) = t.bucketNo
-            outArr(nOut, 22) = t.sfEff * Abs(t.enU)
-            outArr(nOut, 23) = t.lamOut
-            outArr(nOut, 24) = mNS(t.nsIdx).Regime
-            outArr(nOut, 25) = t.warn
+        OutputBlock(OutputRow, 1) = Trade.tid
+        OutputBlock(OutputRow, 2) = Trade.nsId
+        OutputBlock(OutputRow, 3) = Trade.acTxt
+        If Trade.ok Then
+            OutputBlock(OutputRow, 4) = "OK"
+            OutputBlock(OutputRow, 5) = Trade.hsKey
+            OutputBlock(OutputRow, 6) = Trade.subKey
+            OutputBlock(OutputRow, 7) = Trade.sfEff
+            OutputBlock(OutputRow, 8) = Trade.notionalRep
+            OutputBlock(OutputRow, 9) = Trade.mtmRep
+            OutputBlock(OutputRow, 10) = Trade.S
+            OutputBlock(OutputRow, 11) = Trade.E
+            OutputBlock(OutputRow, 12) = Trade.M
+            If Trade.instType = "OPTION" Then OutputBlock(OutputRow, 13) = Trade.T
+            If Trade.ac = AC_IR Or Trade.ac = AC_CR Then OutputBlock(OutputRow, 14) = Trade.sd
+            OutputBlock(OutputRow, 15) = Trade.adjN
+            OutputBlock(OutputRow, 16) = Trade.delta
+            OutputBlock(OutputRow, 17) = Trade.mfU
+            If mNS(Trade.nsIdx).Margined Then OutputBlock(OutputRow, 18) = Trade.mfM
+            OutputBlock(OutputRow, 19) = Trade.enU
+            If mNS(Trade.nsIdx).Margined Then OutputBlock(OutputRow, 20) = Trade.enM
+            If Trade.ac = AC_IR Then OutputBlock(OutputRow, 21) = Trade.bucketNo
+            OutputBlock(OutputRow, 22) = Trade.sfEff * Abs(Trade.enU)
+            OutputBlock(OutputRow, 23) = Trade.lamOut
+            OutputBlock(OutputRow, 24) = mNS(Trade.nsIdx).Regime
+            OutputBlock(OutputRow, 25) = Trade.warn
         Else
-            outArr(nOut, 4) = "EXCLUDED"
-            If t.nsIdx > 0 Then
-                outArr(nOut, 24) = mNS(t.nsIdx).Regime
+            OutputBlock(OutputRow, 4) = "EXCLUDED"
+            If Trade.nsIdx > 0 Then
+                OutputBlock(OutputRow, 24) = mNS(Trade.nsIdx).Regime
             End If
-            outArr(nOut, 25) = t.msg
+            OutputBlock(OutputRow, 25) = Trade.msg
         End If
 
 End Sub
 
 
 Private Function NormalizePair( _
-    ByVal txt As String, _
-    ByRef pairSgn As Double) _
+    ByVal PairText As String, _
+    ByRef OrderSign As Double) _
     As String
 '
 '==============================================================================
@@ -3797,54 +3813,55 @@ Private Function NormalizePair( _
 '   USD/EUR fall in the same hedging set.
 '
 ' INPUTS
-'   txt: the pair as entered, for example "EUR/USD", "EURUSD" or "eur-usd".
+'   PairText: the pair as entered, for example "EUR/USD", "EURUSD" or
+'   "eur-usd".
 '
 ' RETURNS
-'   The pair as "AAA/BBB" with the two codes in alphabetical order; txt
-'   unchanged when it is not a valid pair.
-'   pairSgn: +1 when the order was kept, -1 when it was inverted, 0 when txt
-'   is not two different three-letter codes.
+'   The pair as "AAA/BBB" with the two codes in alphabetical order;
+'   PairText unchanged when it is not a valid pair.
+'   OrderSign: +1 when the order was kept, -1 when it was inverted, 0 when
+'   PairText is not two different three-letter codes.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s    As String    'Pair without separators, upper case
-    Dim c1   As String    'First currency
-    Dim c2   As String    'Second currency
+    Dim Letters          As String    'Pair without separators, upper case
+    Dim FirstCurrency    As String    'First currency
+    Dim SecondCurrency   As String    'Second currency
 
 '------------------------------------------------------------------------------
 ' NORMALIZE
 '------------------------------------------------------------------------------
     'Remove the separators "/", "-", " " and "." and expect six letters.
-        s = UCase$(Replace(Replace(Replace(Replace(txt, "/", ""), "-", ""), " ", ""), ".", ""))
-        If Len(s) <> 6 Then
-            pairSgn = 0#
-            NormalizePair = txt
+        Letters = UCase$(Replace(Replace(Replace(Replace(PairText, "/", ""), "-", ""), " ", ""), ".", ""))
+        If Len(Letters) <> 6 Then
+            OrderSign = 0#
+            NormalizePair = PairText
             Exit Function
         End If
-        c1 = Left$(s, 3)
-        c2 = Right$(s, 3)
-        If c1 = c2 Then
-            pairSgn = 0#
-            NormalizePair = txt
-        ElseIf c1 < c2 Then
-            pairSgn = 1#
-            NormalizePair = c1 & "/" & c2
+        FirstCurrency = Left$(Letters, 3)
+        SecondCurrency = Right$(Letters, 3)
+        If FirstCurrency = SecondCurrency Then
+            OrderSign = 0#
+            NormalizePair = PairText
+        ElseIf FirstCurrency < SecondCurrency Then
+            OrderSign = 1#
+            NormalizePair = FirstCurrency & "/" & SecondCurrency
         Else
-            pairSgn = -1#
-            NormalizePair = c2 & "/" & c1
+            OrderSign = -1#
+            NormalizePair = SecondCurrency & "/" & FirstCurrency
         End If
 
 End Function
 
 
 Private Function MarketPair( _
-    ByVal pair As String) _
+    ByVal Pair As String) _
     As String
 '
 '==============================================================================
@@ -3857,36 +3874,36 @@ Private Function MarketPair( _
 '   (#40).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c1   As String    'First currency of pair
-    Dim c2   As String    'Second currency of pair
-    Dim r1   As Long      'Rank of c1
-    Dim r2   As Long      'Rank of c2
+    Dim FirstCurrency    As String    'First currency of pair
+    Dim SecondCurrency   As String    'Second currency of pair
+    Dim FirstRank        As Long      'Rank of FirstCurrency
+    Dim SecondRank       As Long      'Rank of SecondCurrency
 
 '------------------------------------------------------------------------------
 ' ORDER
 '------------------------------------------------------------------------------
-        c1 = Left$(pair, 3)
-        c2 = Right$(pair, 3)
-        r1 = QuoteRank(c1)
-        r2 = QuoteRank(c2)
-        If r1 < r2 Or (r1 = r2 And c1 < c2) Then
-            MarketPair = c1 & "/" & c2
+        FirstCurrency = Left$(Pair, 3)
+        SecondCurrency = Right$(Pair, 3)
+        FirstRank = QuoteRank(FirstCurrency)
+        SecondRank = QuoteRank(SecondCurrency)
+        If FirstRank < SecondRank Or (FirstRank = SecondRank And FirstCurrency < SecondCurrency) Then
+            MarketPair = FirstCurrency & "/" & SecondCurrency
         Else
-            MarketPair = c2 & "/" & c1
+            MarketPair = SecondCurrency & "/" & FirstCurrency
         End If
 
 End Function
 
 
 Private Function MarketSign( _
-    ByVal pair As String) _
+    ByVal Pair As String) _
     As Double
 '
 '==============================================================================
@@ -3899,10 +3916,10 @@ Private Function MarketSign( _
 '   gives, it tells whether a pair was entered in market order (#40).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        If MarketPair(pair) = pair Then
+        If MarketPair(Pair) = Pair Then
             MarketSign = 1#
         Else
             MarketSign = -1#
@@ -3912,7 +3929,7 @@ End Function
 
 
 Private Function QuoteRank( _
-    ByVal ccy As String) _
+    ByVal CurrencyCode As String) _
     As Long
 '
 '==============================================================================
@@ -3923,10 +3940,10 @@ Private Function QuoteRank( _
 '   listed ranks after every listed one (#40).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        QuoteRank = InStr(1, " " & FX_QUOTE_ORDER & " ", " " & ccy & " ", vbBinaryCompare)
+        QuoteRank = InStr(1, " " & FX_QUOTE_ORDER & " ", " " & CurrencyCode & " ", vbBinaryCompare)
         If QuoteRank = 0 Then
             QuoteRank = Len(FX_QUOTE_ORDER) + 2
         End If
@@ -3935,12 +3952,12 @@ End Function
 
 
 Private Sub CheckReferenceClass( _
-    ByVal nsIdx As Long, _
-    ByVal ac As Long, _
-    ByVal rf As String, _
-    ByVal sfKey As String, _
-    ByVal tid As String, _
-    ByVal rowNum As Long)
+    ByVal NSPosition As Long, _
+    ByVal ClassIndex As Long, _
+    ByVal Reference As String, _
+    ByVal FactorKey As String, _
+    ByVal TradeID As String, _
+    ByVal RowNumber As Long)
 '
 '==============================================================================
 '                             CheckReferenceClass
@@ -3952,9 +3969,11 @@ Private Sub CheckReferenceClass( _
 '   trade comes first (#37).
 '
 ' INPUTS
-'   nsIdx, ac, rf: netting set, asset class and reference of the trade.
-'   sfKey: the factor-table key the trade's sub-class gives, such as CR_AA.
-'   tid, rowNum: trade ID and sheet row, for the message.
+'   NSPosition, ClassIndex, Reference: netting set, asset class and
+'   reference of the trade.
+'   FactorKey: the factor-table key the trade's sub-class gives, such as
+'   CR_AA.
+'   TradeID, RowNumber: trade ID and sheet row, for the message.
 '
 ' STATE OWNERSHIP
 '   Adds to mRefClass, mRefCount and mRefIndex. On the first conflict for a
@@ -3962,52 +3981,52 @@ Private Sub CheckReferenceClass( _
 '   which makes it INVALID with its EAD withheld whatever the row order.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim key   As String    'Netting set | asset class | reference
-    Dim k     As Long      'Position of the reference; 0 when new
+    Dim ReferenceKey   As String    'Netting set | asset class | reference
+    Dim Position       As Long      'Position of the reference; 0 when new
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-    'References contain no "|" (checked in ProcessTrades), so the key is
+    'References contain no "|" (checked in ReadTradeClass), so the key is
     'unambiguous.
-        key = CStr(nsIdx) & "|" & CStr(ac) & "|" & rf
-        k = KeyIndex(mRefIndex, key)
-        If k = 0 Then
+        ReferenceKey = CStr(NSPosition) & "|" & CStr(ClassIndex) & "|" & Reference
+        Position = KeyIndex(mRefIndex, ReferenceKey)
+        If Position = 0 Then
             mRefCount = mRefCount + 1
             If mRefCount > UBound(mRefClass) Then
                 ReDim Preserve mRefClass(1 To mRefCount * 2)
                 ReDim Preserve mRefConflict(1 To mRefCount * 2)
             End If
-            mRefClass(mRefCount) = sfKey
-            KeyAdd mRefIndex, key, mRefCount
-        ElseIf mRefClass(k) <> sfKey And Not mRefConflict(k) Then
-            mRefConflict(k) = True
-            mNS(nsIdx).InputErrors = mNS(nsIdx).InputErrors + 1
-            LogMsg SEV_ERROR, SH_TRADES, tid, "Reference '" & rf & "' is " & sfKey & " here but " & _
-                   mRefClass(k) & " on another trade of the netting set - netting set INVALID, EAD withheld.", rowNum
+            mRefClass(mRefCount) = FactorKey
+            KeyAdd mRefIndex, ReferenceKey, mRefCount
+        ElseIf mRefClass(Position) <> FactorKey And Not mRefConflict(Position) Then
+            mRefConflict(Position) = True
+            mNS(NSPosition).InputErrors = mNS(NSPosition).InputErrors + 1
+            LogMsg SEV_ERROR, SH_TRADES, TradeID, "Reference '" & Reference & "' is " & FactorKey & " here but " & _
+                   mRefClass(Position) & " on another trade of the netting set - netting set INVALID, EAD withheld.", RowNumber
         End If
 
 End Sub
 
 
 Private Sub AddToBucket( _
-    ByVal nsIdx As Long, _
-    ByVal ac As Long, _
-    ByVal hsKey As String, _
-    ByVal subKey As String, _
-    ByVal sfEff As Double, _
-    ByVal corr As Double, _
-    ByVal enU As Double, _
-    ByVal enM As Double, _
-    ByVal tid As String, _
-    ByVal rowNum As Long)
+    ByVal NSPosition As Long, _
+    ByVal ClassIndex As Long, _
+    ByVal HedgingSetKey As String, _
+    ByVal BucketKey As String, _
+    ByVal EffectiveSF As Double, _
+    ByVal Correlation As Double, _
+    ByVal EffectiveNotionalU As Double, _
+    ByVal EffectiveNotionalM As Double, _
+    ByVal TradeID As String, _
+    ByVal RowNumber As Long)
 '
 '==============================================================================
 '                                 AddToBucket
@@ -4017,11 +4036,15 @@ Private Sub AddToBucket( _
 '   its first trade.
 '
 ' INPUTS
-'   nsIdx, ac, hsKey, subKey: netting set, asset class, hedging set and
-'      bucket of the trade; together they identify the bucket.
-'   sfEff, corr: the trade's effective supervisory factor and correlation.
-'   enU, enM: the trade's effective notional, unmargined and margined.
-'   tid, rowNum: trade ID and sheet row, for messages.
+'   NSPosition, ClassIndex, HedgingSetKey, BucketKey: netting set, asset
+'      class, hedging set and bucket of the trade; the netting set, hedging
+'      set and bucket identify the bucket.
+'   EffectiveSF, Correlation: the trade's effective supervisory factor and
+'      correlation.
+'   EffectiveNotionalU, EffectiveNotionalM: the trade's effective
+'      notional, unmargined and margined.
+'   TradeID, RowNumber: trade ID and sheet row; not used at present, as
+'      nothing is logged here.
 '
 ' STATE OWNERSHIP
 '   Adds to mBk, mBkCount and mBkIndex. Every trade of a bucket has the
@@ -4031,45 +4054,45 @@ Private Sub AddToBucket( _
 '   (#37).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim key   As String    'Bucket key: netting set # hedging set # bucket
-    Dim b     As Long      'Position of the bucket in mBk
+    Dim FullKey    As String    'Bucket key: netting set # hedging set # bucket
+    Dim Position   As Long      'Position of the bucket in mBk
 
 '------------------------------------------------------------------------------
 ' FIND OR CREATE THE BUCKET
 '------------------------------------------------------------------------------
-        key = CStr(nsIdx) & "#" & hsKey & "#" & subKey
-        b = KeyIndex(mBkIndex, key)
-        If b = 0 Then
+        FullKey = CStr(NSPosition) & "#" & HedgingSetKey & "#" & BucketKey
+        Position = KeyIndex(mBkIndex, FullKey)
+        If Position = 0 Then
             mBkCount = mBkCount + 1
             If mBkCount > UBound(mBk) Then
                 ReDim Preserve mBk(1 To mBkCount * 2)
             End If
-            b = mBkCount
-            mBk(b).NSIdx = nsIdx
-            mBk(b).AC = ac
-            mBk(b).HSKey = hsKey
-            mBk(b).SubKey = subKey
-            mBk(b).SF = sfEff
-            mBk(b).Corr = corr
-            mBk(b).ENU = 0#
-            mBk(b).ENM = 0#
-            mBk(b).Trades = 0
-            KeyAdd mBkIndex, key, b
+            Position = mBkCount
+            mBk(Position).NSIdx = NSPosition
+            mBk(Position).AC = ClassIndex
+            mBk(Position).HSKey = HedgingSetKey
+            mBk(Position).SubKey = BucketKey
+            mBk(Position).SF = EffectiveSF
+            mBk(Position).Corr = Correlation
+            mBk(Position).ENU = 0#
+            mBk(Position).ENM = 0#
+            mBk(Position).Trades = 0
+            KeyAdd mBkIndex, FullKey, Position
         End If
 
 '------------------------------------------------------------------------------
 ' ACCUMULATE
 '------------------------------------------------------------------------------
-        mBk(b).ENU = mBk(b).ENU + enU
-        mBk(b).ENM = mBk(b).ENM + enM
-        mBk(b).Trades = mBk(b).Trades + 1
+        mBk(Position).ENU = mBk(Position).ENU + EffectiveNotionalU
+        mBk(Position).ENM = mBk(Position).ENM + EffectiveNotionalM
+        mBk(Position).Trades = mBk(Position).Trades + 1
 
 End Sub
 
@@ -4104,20 +4127,20 @@ Private Sub ComputeHedgingSets()
 '   CRR netting set with interest-rate trades is INVALID.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim b           As Long       'Bucket, position in mBk
-    Dim h           As Long       'Hedging set, position in mHS
-    Dim key         As String     'Hedging-set key: netting set # hedging set
-    Dim aU          As Double     'Entity or type add-on, unmargined
-    Dim aM          As Double     'Entity or type add-on, margined
-    Dim sfH         As Double     'Supervisory factor of an IR, FX or OT hedging set
-    Dim refused()   As Boolean    'Per netting set: CRR set refused the IR alternative
+    Dim b               As Long       'Bucket, position in mBk
+    Dim h               As Long       'Hedging set, position in mHS
+    Dim HedgingSetKey   As String     'Hedging-set key: netting set # hedging set
+    Dim EntityAddOnU    As Double     'Entity or type add-on, unmargined
+    Dim EntityAddOnM    As Double     'Entity or type add-on, margined
+    Dim HedgingSetSF    As Double     'Supervisory factor of an IR, FX or OT hedging set
+    Dim IRRefused()     As Boolean    'Per netting set: CRR set refused the IR alternative
 
 '------------------------------------------------------------------------------
 ' COLLECT BUCKETS INTO HEDGING SETS
@@ -4127,8 +4150,8 @@ Private Sub ComputeHedgingSets()
     'entity or type add-on (SF * EN), then add it to the systematic and
     'idiosyncratic sums of the single-factor model.
         For b = 1 To mBkCount
-            key = CStr(mBk(b).NSIdx) & "#" & mBk(b).HSKey
-            h = KeyIndex(mHSIndex, key)
+            HedgingSetKey = CStr(mBk(b).NSIdx) & "#" & mBk(b).HSKey
+            h = KeyIndex(mHSIndex, HedgingSetKey)
             If h = 0 Then
                 mHSCount = mHSCount + 1
                 If mHSCount > UBound(mHS) Then
@@ -4138,7 +4161,7 @@ Private Sub ComputeHedgingSets()
                 mHS(h).NSIdx = mBk(b).NSIdx
                 mHS(h).AC = mBk(b).AC
                 mHS(h).Key = mBk(b).HSKey
-                KeyAdd mHSIndex, key, h
+                KeyAdd mHSIndex, HedgingSetKey, h
             End If
             mBk(b).HSIdx = h
             mHS(h).Trades = mHS(h).Trades + mBk(b).Trades
@@ -4159,12 +4182,12 @@ Private Sub ComputeHedgingSets()
                     mHS(h).ENU = mHS(h).ENU + mBk(b).ENU
                     mHS(h).ENM = mHS(h).ENM + mBk(b).ENM
                 Case Else
-                    aU = mBk(b).SF * mBk(b).ENU
-                    aM = mBk(b).SF * mBk(b).ENM
-                    mHS(h).SysU = mHS(h).SysU + mBk(b).Corr * aU
-                    mHS(h).IdioU = mHS(h).IdioU + (1# - mBk(b).Corr ^ 2) * aU * aU
-                    mHS(h).SysM = mHS(h).SysM + mBk(b).Corr * aM
-                    mHS(h).IdioM = mHS(h).IdioM + (1# - mBk(b).Corr ^ 2) * aM * aM
+                    EntityAddOnU = mBk(b).SF * mBk(b).ENU
+                    EntityAddOnM = mBk(b).SF * mBk(b).ENM
+                    mHS(h).SysU = mHS(h).SysU + mBk(b).Corr * EntityAddOnU
+                    mHS(h).IdioU = mHS(h).IdioU + (1# - mBk(b).Corr ^ 2) * EntityAddOnU * EntityAddOnU
+                    mHS(h).SysM = mHS(h).SysM + mBk(b).Corr * EntityAddOnM
+                    mHS(h).IdioM = mHS(h).IdioM + (1# - mBk(b).Corr ^ 2) * EntityAddOnM * EntityAddOnM
             End Select
         Next b
 
@@ -4177,15 +4200,15 @@ Private Sub ComputeHedgingSets()
     'commodity: sqrt(systematic^2 + idiosyncratic). Each add-on is then
     'added to its netting set's asset-class total.
         If mNSCount > 0 Then
-            ReDim refused(1 To mNSCount)
+            ReDim IRRefused(1 To mNSCount)
         End If
         For h = 1 To mHSCount
             Select Case mHS(h).AC
                 Case AC_IR
-                    sfH = BucketSF(h)
+                    HedgingSetSF = BucketSF(h)
                     If Not pIRFull And mNS(mHS(h).NSIdx).IsCRR Then
-                        If Not refused(mHS(h).NSIdx) Then
-                            refused(mHS(h).NSIdx) = True
+                        If Not IRRefused(mHS(h).NSIdx) Then
+                            IRRefused(mHS(h).NSIdx) = True
                             mNS(mHS(h).NSIdx).InputErrors = mNS(mHS(h).NSIdx).InputErrors + 1
                             LogMsg SEV_ERROR, SH_NS, mNS(mHS(h).NSIdx).ID, "IRBucketOffset is FALSE, but the " & _
                                    "CRR allows only the formula with offsets across maturity buckets " & _
@@ -4201,12 +4224,12 @@ Private Sub ComputeHedgingSets()
                         mHS(h).ENU = Abs(mHS(h).D1U) + Abs(mHS(h).D2U) + Abs(mHS(h).D3U)
                         mHS(h).ENM = Abs(mHS(h).D1M) + Abs(mHS(h).D2M) + Abs(mHS(h).D3M)
                     End If
-                    mHS(h).AddOnU = sfH * mHS(h).ENU
-                    mHS(h).AddOnM = sfH * mHS(h).ENM
+                    mHS(h).AddOnU = HedgingSetSF * mHS(h).ENU
+                    mHS(h).AddOnM = HedgingSetSF * mHS(h).ENM
                 Case AC_FX, AC_OT
-                    sfH = BucketSF(h)
-                    mHS(h).AddOnU = sfH * Abs(mHS(h).ENU)
-                    mHS(h).AddOnM = sfH * Abs(mHS(h).ENM)
+                    HedgingSetSF = BucketSF(h)
+                    mHS(h).AddOnU = HedgingSetSF * Abs(mHS(h).ENU)
+                    mHS(h).AddOnM = HedgingSetSF * Abs(mHS(h).ENM)
                 Case Else
                     mHS(h).AddOnU = Sqr(mHS(h).SysU ^ 2 + mHS(h).IdioU)
                     mHS(h).AddOnM = Sqr(mHS(h).SysM ^ 2 + mHS(h).IdioM)
@@ -4219,7 +4242,7 @@ End Sub
 
 
 Private Function IsFactorClass( _
-    ByVal ac As Long) _
+    ByVal ClassIndex As Long) _
     As Boolean
 '
 '==============================================================================
@@ -4230,20 +4253,20 @@ Private Function IsFactorClass( _
 '   single-factor aggregation: credit, equity and commodity.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' TEST
 '------------------------------------------------------------------------------
-        IsFactorClass = (ac = AC_CR Or ac = AC_EQ Or ac = AC_CO)
+        IsFactorClass = (ClassIndex = AC_CR Or ClassIndex = AC_EQ Or ClassIndex = AC_CO)
 
 End Function
 
 
 Private Function BucketSF( _
-    ByVal h As Long) _
+    ByVal HedgingSetPosition As Long) _
     As Double
 '
 '==============================================================================
@@ -4255,13 +4278,14 @@ Private Function BucketSF( _
 '   factor.
 '
 ' INPUTS
-'   h: hedging set, position in mHS.
+'   HedgingSetPosition: hedging set, position in mHS.
 '
 ' RETURNS
-'   The factor of the first bucket linked to h; 0 when there is none.
+'   The factor of the first bucket linked to the hedging set; 0 when there
+'   is none.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -4274,7 +4298,7 @@ Private Function BucketSF( _
 ' SEARCH
 '------------------------------------------------------------------------------
         For b = 1 To mBkCount
-            If mBk(b).HSIdx = h Then
+            If mBk(b).HSIdx = HedgingSetPosition Then
                 BucketSF = mBk(b).SF
                 Exit Function
             End If
@@ -4292,7 +4316,7 @@ End Function
 '
 
 Private Sub ComputeNettingSets( _
-    ByVal writeOutputs As Boolean)
+    ByVal WriteOutputs As Boolean)
 '
 '==============================================================================
 '                              ComputeNettingSets
@@ -4306,7 +4330,7 @@ Private Sub ComputeNettingSets( _
 '   (#36). One without trades is NO TRADES.
 '
 ' INPUTS
-'   writeOutputs: True writes the Results sheet.
+'   WriteOutputs: True writes the Results sheet.
 '
 ' STATE OWNERSHIP
 '   Adds each VALID EAD to the total of its regime (mRegEAD) and counts
@@ -4322,7 +4346,7 @@ Private Sub ComputeNettingSets( _
 '   CRR Art. 285(3)(a).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
@@ -4335,37 +4359,37 @@ Private Sub ComputeNettingSets( _
     '20 EAD margined, 21 EAD cap, 22 EAD, 23 cap applied, 24 C (cap basis),
     '25 RC (cap basis), 26 add-on unmargined, 27 multiplier (cap basis),
     '28 status.
-    Dim ws       As Worksheet    'Results sheet
-    Dim k        As Long         'Netting set, position in mNS
-    Dim a        As Long         'Asset class, or Results column in loops
-    Dim outArr() As Variant      'Results rows, (row, column)
-    Dim nOut     As Long         'Results rows filled
-    Dim C        As Double       'Collateral C = VM + NICA
-    Dim cCap     As Double       'Collateral used for the unmargined basis
-    Dim addU     As Double       'Aggregate add-on, unmargined
-    Dim addM     As Double       'Aggregate add-on, margined
-    Dim rcU      As Double       'RC, unmargined basis
-    Dim rcM      As Double       'RC, margined
-    Dim mU       As Double       'Multiplier, unmargined basis
-    Dim mM       As Double       'Multiplier, margined
-    Dim pfeU     As Double       'PFE, unmargined basis
-    Dim pfeM     As Double       'PFE, margined
-    Dim eadU     As Double       'EAD, unmargined basis: the EAD or the cap
-    Dim eadM     As Double       'EAD, margined, before the cap
-    Dim ead      As Double       'EAD reported
-    Dim ri       As Long         'Regime of the netting set: 1 CRR, 2 BCBS
-    Dim firstTotal As Long       'Results row of the first TOTAL row
-    Dim outTop   As Long         'First Results data row
-    Dim tot(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
+    Dim ResultsSheet       As Worksheet    'Results sheet
+    Dim k                  As Long         'Netting set, position in mNS
+    Dim a                  As Long         'Asset class, or Results column in loops
+    Dim OutputBlock()      As Variant      'Results rows, (row, column)
+    Dim OutputCount        As Long         'Results rows filled
+    Dim Collateral         As Double       'Collateral C = VM + NICA
+    Dim CapCollateral      As Double       'Collateral used for the unmargined basis
+    Dim AggregateU         As Double       'Aggregate add-on, unmargined
+    Dim AggregateM         As Double       'Aggregate add-on, margined
+    Dim ReplacementCostU   As Double       'RC, unmargined basis
+    Dim ReplacementCostM   As Double       'RC, margined
+    Dim MultiplierU        As Double       'Multiplier, unmargined basis
+    Dim MultiplierM        As Double       'Multiplier, margined
+    Dim PFEU               As Double       'PFE, unmargined basis
+    Dim PFEM               As Double       'PFE, margined
+    Dim EADU               As Double       'EAD, unmargined basis: the EAD or the cap
+    Dim EADM               As Double       'EAD, margined, before the cap
+    Dim ReportedEAD        As Double       'EAD reported
+    Dim RegimePosition     As Long         'Regime of the netting set: 1 CRR, 2 BCBS
+    Dim FirstTotalRow      As Long         'Results row of the first TOTAL row
+    Dim OutputTop          As Long         'First Results data row
+    Dim Totals(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
 
 '------------------------------------------------------------------------------
 ' CALCULATE EACH NETTING SET
 '------------------------------------------------------------------------------
-        ReDim outArr(1 To mNSCount + 2, 1 To RS_NCOLS)
-        nOut = 0
+        ReDim OutputBlock(1 To mNSCount + 2, 1 To RS_NCOLS)
+        OutputCount = 0
         For k = 1 To mNSCount
-            ri = RegimeIndex(mNS(k).Regime)
-            mRegSets(ri) = mRegSets(ri) + 1
+            RegimePosition = RegimeIndex(mNS(k).Regime)
+            mRegSets(RegimePosition) = mRegSets(RegimePosition) + 1
 
     'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
     'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
@@ -4381,38 +4405,38 @@ Private Sub ComputeNettingSets( _
             End With
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
-                mRegWithheld(ri) = mRegWithheld(ri) + 1
+                mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
-                nOut = nOut + 1
-                WriteStatusRow outArr, nOut, k, "INVALID: " & mNS(k).InputErrors & " input error(s)"
+                OutputCount = OutputCount + 1
+                WriteStatusRow OutputBlock, OutputCount, k, "INVALID: " & mNS(k).InputErrors & " input error(s)"
                 GoTo NextNS
             End If
             If mNS(k).Rejected > 0 Then
                 mIncomplete = mIncomplete + 1
-                mRegWithheld(ri) = mRegWithheld(ri) + 1
+                mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).Rejected & _
                        " trade(s) rejected - see the Trades messages."
-                nOut = nOut + 1
-                WriteStatusRow outArr, nOut, k, "INCOMPLETE: " & mNS(k).Rejected & " of " & _
+                OutputCount = OutputCount + 1
+                WriteStatusRow OutputBlock, OutputCount, k, "INCOMPLETE: " & mNS(k).Rejected & " of " & _
                                (mNS(k).Trades + mNS(k).Rejected) & " trade(s) rejected"
                 GoTo NextNS
             End If
             If mNS(k).Trades = 0 Then
                 LogMsg SEV_INFO, SH_NS, mNS(k).ID, "Netting set has no trades - no EAD."
-                nOut = nOut + 1
-                WriteStatusRow outArr, nOut, k, "NO TRADES"
+                OutputCount = OutputCount + 1
+                WriteStatusRow OutputBlock, OutputCount, k, "NO TRADES"
                 GoTo NextNS
             End If
             With mNS(k)
 
     'Collateral and aggregate add-ons on both bases.
-                C = .VM + .NICA
-                addU = 0#
-                addM = 0#
+                Collateral = .VM + .NICA
+                AggregateU = 0#
+                AggregateM = 0#
                 For a = 1 To AC_COUNT
-                    addU = addU + mAddOnU(k, a)
-                    addM = addM + mAddOnM(k, a)
+                    AggregateU = AggregateU + mAddOnU(k, a)
+                    AggregateM = AggregateM + mAddOnM(k, a)
                 Next a
 
     'Unmargined basis: the EAD of an unmargined netting set, or the cap of
@@ -4421,79 +4445,79 @@ Private Sub ComputeNettingSets( _
     'CRE52.10; CRR Art. 274(3), 275(1); EBA-QA-2023_6962]. An unmargined
     'set uses C: NICA, plus VM posted under a one-way agreement under BCBS.
                 If .Margined Then
-                    cCap = .NICA
+                    CapCollateral = .NICA
                 Else
-                    cCap = C
+                    CapCollateral = Collateral
                 End If
-                rcU = FormulaNumber(SACCR_ReplacementCost(.V, cCap, False), "SACCR_ReplacementCost")
-                mU = FormulaNumber(SACCR_Multiplier(.V - cCap, addU, pFloor), "SACCR_Multiplier")
-                pfeU = mU * addU
-                eadU = .Alpha * (rcU + pfeU)
+                ReplacementCostU = FormulaNumber(SACCR_ReplacementCost(.V, CapCollateral, False), "SACCR_ReplacementCost")
+                MultiplierU = FormulaNumber(SACCR_Multiplier(.V - CapCollateral, AggregateU, pFloor), "SACCR_Multiplier")
+                PFEU = MultiplierU * AggregateU
+                EADU = .Alpha * (ReplacementCostU + PFEU)
 
     'Margined basis, then the cap: the EAD is the lower of the two.
                 If .Margined Then
-                    rcM = FormulaNumber(SACCR_ReplacementCost(.V, C, True, .TH, .MTA, .NICA), "SACCR_ReplacementCost")
-                    mM = FormulaNumber(SACCR_Multiplier(.V - C, addM, pFloor), "SACCR_Multiplier")
-                    pfeM = mM * addM
-                    eadM = .Alpha * (rcM + pfeM)
-                    ead = Min2(eadM, eadU)
+                    ReplacementCostM = FormulaNumber(SACCR_ReplacementCost(.V, Collateral, True, .TH, .MTA, .NICA), "SACCR_ReplacementCost")
+                    MultiplierM = FormulaNumber(SACCR_Multiplier(.V - Collateral, AggregateM, pFloor), "SACCR_Multiplier")
+                    PFEM = MultiplierM * AggregateM
+                    EADM = .Alpha * (ReplacementCostM + PFEM)
+                    ReportedEAD = Min2(EADM, EADU)
                 Else
-                    ead = eadU
+                    ReportedEAD = EADU
                 End If
-                mRegEAD(ri) = mRegEAD(ri) + ead
-                mRegValid(ri) = mRegValid(ri) + 1
+                mRegEAD(RegimePosition) = mRegEAD(RegimePosition) + ReportedEAD
+                mRegValid(RegimePosition) = mRegValid(RegimePosition) + 1
 
     'Results row. A margined netting set shows its margined figures in
     'columns 9 to 18 and the cap figures in 21 and 24 to 27.
-                nOut = nOut + 1
-                outArr(nOut, 1) = .ID
-                outArr(nOut, 2) = .Counterparty
-                outArr(nOut, 3) = .Regime
-                outArr(nOut, 4) = IIf(.Margined, "Y", "N")
-                outArr(nOut, 5) = .Trades
+                OutputCount = OutputCount + 1
+                OutputBlock(OutputCount, 1) = .ID
+                OutputBlock(OutputCount, 2) = .Counterparty
+                OutputBlock(OutputCount, 3) = .Regime
+                OutputBlock(OutputCount, 4) = IIf(.Margined, "Y", "N")
+                OutputBlock(OutputCount, 5) = .Trades
                 If .Margined Then
-                    outArr(nOut, 6) = .MPOR
+                    OutputBlock(OutputCount, 6) = .MPOR
                 End If
-                outArr(nOut, 7) = .V
-                outArr(nOut, 8) = C
+                OutputBlock(OutputCount, 7) = .V
+                OutputBlock(OutputCount, 8) = Collateral
                 For a = 1 To AC_COUNT
                     If .Margined Then
-                        outArr(nOut, 9 + a) = mAddOnM(k, a)
+                        OutputBlock(OutputCount, 9 + a) = mAddOnM(k, a)
                     Else
-                        outArr(nOut, 9 + a) = mAddOnU(k, a)
+                        OutputBlock(OutputCount, 9 + a) = mAddOnU(k, a)
                     End If
                 Next a
                 If .Margined Then
-                    outArr(nOut, 9) = rcM
-                    outArr(nOut, 16) = addM
-                    outArr(nOut, 17) = mM
-                    outArr(nOut, 18) = pfeM
-                    outArr(nOut, 20) = eadM
-                    outArr(nOut, 21) = eadU
-                    outArr(nOut, 23) = IIf(eadU < eadM, "Y", "N")
-                    outArr(nOut, 24) = cCap
-                    outArr(nOut, 25) = rcU
-                    outArr(nOut, 26) = addU
-                    outArr(nOut, 27) = mU
+                    OutputBlock(OutputCount, 9) = ReplacementCostM
+                    OutputBlock(OutputCount, 16) = AggregateM
+                    OutputBlock(OutputCount, 17) = MultiplierM
+                    OutputBlock(OutputCount, 18) = PFEM
+                    OutputBlock(OutputCount, 20) = EADM
+                    OutputBlock(OutputCount, 21) = EADU
+                    OutputBlock(OutputCount, 23) = IIf(EADU < EADM, "Y", "N")
+                    OutputBlock(OutputCount, 24) = CapCollateral
+                    OutputBlock(OutputCount, 25) = ReplacementCostU
+                    OutputBlock(OutputCount, 26) = AggregateU
+                    OutputBlock(OutputCount, 27) = MultiplierU
                 Else
-                    outArr(nOut, 9) = rcU
-                    outArr(nOut, 16) = addU
-                    outArr(nOut, 17) = mU
-                    outArr(nOut, 18) = pfeU
-                    outArr(nOut, 23) = "n/a"
+                    OutputBlock(OutputCount, 9) = ReplacementCostU
+                    OutputBlock(OutputCount, 16) = AggregateU
+                    OutputBlock(OutputCount, 17) = MultiplierU
+                    OutputBlock(OutputCount, 18) = PFEU
+                    OutputBlock(OutputCount, 23) = "n/a"
                 End If
-                outArr(nOut, 19) = .Alpha
-                outArr(nOut, 22) = ead
-                outArr(nOut, RS_STATUS_COL) = "VALID"
+                OutputBlock(OutputCount, 19) = .Alpha
+                OutputBlock(OutputCount, 22) = ReportedEAD
+                OutputBlock(OutputCount, RS_STATUS_COL) = "VALID"
 
     'Running totals of the regime for V, C, RC, the add-ons, PFE and EAD.
-                tot(ri, 7) = tot(ri, 7) + .V
-                tot(ri, 8) = tot(ri, 8) + C
+                Totals(RegimePosition, 7) = Totals(RegimePosition, 7) + .V
+                Totals(RegimePosition, 8) = Totals(RegimePosition, 8) + Collateral
                 For a = 9 To 16
-                    tot(ri, a) = tot(ri, a) + ToDbl(outArr(nOut, a))
+                    Totals(RegimePosition, a) = Totals(RegimePosition, a) + ToDbl(OutputBlock(OutputCount, a))
                 Next a
-                tot(ri, 18) = tot(ri, 18) + ToDbl(outArr(nOut, 18))
-                tot(ri, 22) = tot(ri, 22) + ead
+                Totals(RegimePosition, 18) = Totals(RegimePosition, 18) + ToDbl(OutputBlock(OutputCount, 18))
+                Totals(RegimePosition, 22) = Totals(RegimePosition, 22) + ReportedEAD
             End With
 NextNS:
         Next k
@@ -4506,30 +4530,30 @@ NextNS:
     'columns 7 to 18 except the multiplier (17), and the EAD (22); its
     'status column says how many netting sets it covers and how many were
     'withheld. There is no total across regimes. The rows are in bold.
-        If writeOutputs Then
-            Set ws = GetSheet(SH_RESULTS)
-            outTop = OutputFirstRow(SH_RESULTS)
-            ClearOutputBlock ws, outTop, RS_NCOLS
-            If nOut > 0 Then
-                firstTotal = nOut + 1
-                For ri = 1 To 2
-                    If mRegSets(ri) > 0 Then
-                        nOut = nOut + 1
-                        outArr(nOut, 1) = "TOTAL " & Choose(ri, RG_CRR, RG_BCBS)
-                        outArr(nOut, 3) = Choose(ri, RG_CRR, RG_BCBS)
+        If WriteOutputs Then
+            Set ResultsSheet = GetSheet(SH_RESULTS)
+            OutputTop = OutputFirstRow(SH_RESULTS)
+            ClearOutputBlock ResultsSheet, OutputTop, RS_NCOLS
+            If OutputCount > 0 Then
+                FirstTotalRow = OutputCount + 1
+                For RegimePosition = 1 To 2
+                    If mRegSets(RegimePosition) > 0 Then
+                        OutputCount = OutputCount + 1
+                        OutputBlock(OutputCount, 1) = "TOTAL " & Choose(RegimePosition, RG_CRR, RG_BCBS)
+                        OutputBlock(OutputCount, 3) = Choose(RegimePosition, RG_CRR, RG_BCBS)
                         For a = 7 To 18
                             If a <> 17 Then
-                                outArr(nOut, a) = tot(ri, a)
+                                OutputBlock(OutputCount, a) = Totals(RegimePosition, a)
                             End If
                         Next a
-                        outArr(nOut, 22) = tot(ri, 22)
-                        outArr(nOut, RS_STATUS_COL) = TotalStatusText(Choose(ri, RG_CRR, RG_BCBS))
+                        OutputBlock(OutputCount, 22) = Totals(RegimePosition, 22)
+                        OutputBlock(OutputCount, RS_STATUS_COL) = TotalStatusText(Choose(RegimePosition, RG_CRR, RG_BCBS))
                     End If
-                Next ri
-                WriteBlock ws, outTop, outArr, nOut, RS_NCOLS
-                FormatColumns ws, outTop, nOut, _
+                Next RegimePosition
+                WriteBlock ResultsSheet, OutputTop, OutputBlock, OutputCount, RS_NCOLS
+                FormatColumns ResultsSheet, OutputTop, OutputCount, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
-                TableRange(ws, outTop + firstTotal - 1, 1, outTop + nOut - 1, RS_NCOLS).Font.Bold = True
+                TableRange(ResultsSheet, OutputTop + FirstTotalRow - 1, 1, OutputTop + OutputCount - 1, RS_NCOLS).Font.Bold = True
             End If
         End If
 
@@ -4545,10 +4569,10 @@ End Sub
 '
 
 Private Sub WriteStatusRow( _
-    ByRef outArr() As Variant, _
-    ByVal r As Long, _
-    ByVal k As Long, _
-    ByVal status As String)
+    ByRef OutputBlock() As Variant, _
+    ByVal OutputRow As Long, _
+    ByVal NSPosition As Long, _
+    ByVal Status As String)
 '
 '==============================================================================
 '                                WriteStatusRow
@@ -4558,19 +4582,20 @@ Private Sub WriteStatusRow( _
 '   valid-trade count and its status. The exposure columns stay blank.
 '
 ' INPUTS
-'   outArr: the Results rows; r: the row to fill; k: the netting set,
-'   position in mNS; status: the text for the status column.
+'   OutputBlock: the Results rows; OutputRow: the row to fill; NSPosition:
+'   the netting set, position in mNS; Status: the text for the status
+'   column.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        outArr(r, 1) = mNS(k).ID
-        outArr(r, 2) = mNS(k).Counterparty
-        outArr(r, 3) = mNS(k).Regime
-        outArr(r, 4) = IIf(mNS(k).Margined, "Y", "N")
-        outArr(r, 5) = mNS(k).Trades
-        outArr(r, RS_STATUS_COL) = status
+        OutputBlock(OutputRow, 1) = mNS(NSPosition).ID
+        OutputBlock(OutputRow, 2) = mNS(NSPosition).Counterparty
+        OutputBlock(OutputRow, 3) = mNS(NSPosition).Regime
+        OutputBlock(OutputRow, 4) = IIf(mNS(NSPosition).Margined, "Y", "N")
+        OutputBlock(OutputRow, 5) = mNS(NSPosition).Trades
+        OutputBlock(OutputRow, RS_STATUS_COL) = Status
 
 End Sub
 
@@ -4629,34 +4654,34 @@ Public Function InputFingerprint() As String
 '   is given.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts(1 To 6)   As String    'Text of each input block
+    Dim Parts(1 To 6)   As String    'Text of each input block
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
     'The run stops in a 1904 workbook (#185), and a renamed header stops
     'it too (#35), so both are part of what the results depend on.
-        parts(1) = FP_FORMAT & "|1904=" & IIf(ThisWorkbook.Date1904, "1", "0")
-        parts(2) = HeaderText(SH_NS, NS_NCOLS)
-        parts(3) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
-        parts(4) = HeaderText(SH_TRADES, TR_COMMENT - 1)
-        parts(5) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
-        parts(6) = ParamsText()
-        InputFingerprint = TextHash(Join(parts, Chr$(29)))
+        Parts(1) = FP_FORMAT & "|1904=" & IIf(ThisWorkbook.Date1904, "1", "0")
+        Parts(2) = HeaderText(SH_NS, NS_NCOLS)
+        Parts(3) = BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        Parts(4) = HeaderText(SH_TRADES, TR_COMMENT - 1)
+        Parts(5) = BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        Parts(6) = ParamsText()
+        InputFingerprint = TextHash(Join(Parts, Chr$(29)))
 
 End Function
 
 
 Private Function HeaderText( _
-    ByVal sheetName As String, _
-    ByVal nCols As Long) _
+    ByVal SheetName As String, _
+    ByVal ColumnCount As Long) _
     As String
 '
 '==============================================================================
@@ -4675,37 +4700,37 @@ Private Function HeaderText( _
 '   same broken name.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'Input sheet
-    Dim r         As Long         'Header row; 0 when it cannot be located
-    Dim pieces()  As String       'One text per header
-    Dim c         As Long         'Table column
-    Dim v         As Variant      'Header cell value
+    Dim InputSheet    As Worksheet    'Input sheet
+    Dim HeaderRow     As Long         'Header row; 0 when it cannot be located
+    Dim Pieces()      As String       'One text per header
+    Dim c             As Long         'Table column
+    Dim HeaderValue   As Variant      'Header cell value
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        r = TableHeaderRow(sheetName)
-        If r = 0 Then
+        HeaderRow = TableHeaderRow(SheetName)
+        If HeaderRow = 0 Then
             Exit Function
         End If
-        Set ws = GetSheet(sheetName)
-        ReDim pieces(1 To nCols)
-        For c = 1 To nCols
-            v = TableCell(ws, r, c).Value2
-            If VarType(v) = vbString Then
-                pieces(c) = "T" & UCase$(HeaderKey(CStr(v)))
+        Set InputSheet = GetSheet(SheetName)
+        ReDim Pieces(1 To ColumnCount)
+        For c = 1 To ColumnCount
+            HeaderValue = TableCell(InputSheet, HeaderRow, c).Value2
+            If VarType(HeaderValue) = vbString Then
+                Pieces(c) = "T" & UCase$(HeaderKey(CStr(HeaderValue)))
             Else
-                pieces(c) = CellToken(v)
+                Pieces(c) = CellToken(HeaderValue)
             End If
         Next c
-        HeaderText = Join(pieces, Chr$(31))
+        HeaderText = Join(Pieces, Chr$(31))
 
 End Function
 
@@ -4730,37 +4755,37 @@ Private Function ParamsText() As String
 '   of the four layout names is not on Params.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws         As Worksheet    'Params sheet
-    Dim nameList   As Variant      'Layout names, then parameter codes
-    Dim i          As Long         'Index into nameList
-    Dim c          As Range        'A name's top-left cell
-    Dim pieces()   As String       'Parameters, then the blocks
-    Dim k          As Long         'Position in pieces
-    Dim sfRow      As Long         'Header row of the factor table
-    Dim fxRow      As Long         'Header row of the FX table
-    Dim sfLast     As Long         'Last row of the factor block; 0 = last used
-    Dim fxLast     As Long         'Last row of the FX block; 0 = last used
+    Dim ParamsSheet   As Worksheet    'Params sheet
+    Dim NameList      As Variant      'Layout names, then parameter codes
+    Dim i             As Long         'Index into NameList
+    Dim TopLeftCell   As Range        'A name's top-left cell
+    Dim Pieces()      As String       'Parameters, then the blocks
+    Dim PieceCount    As Long         'Position in Pieces
+    Dim SFHeaderRow   As Long         'Header row of the factor table
+    Dim FXHeaderRow   As Long         'Header row of the FX table
+    Dim SFLastRow     As Long         'Last row of the factor block; 0 = last used
+    Dim FXLastRow     As Long         'Last row of the FX block; 0 = last used
 
 '------------------------------------------------------------------------------
 ' CHECK THE LAYOUT NAMES
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        nameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
-        For i = LBound(nameList) To UBound(nameList)
-            Set c = NamedCell(CStr(nameList(i)))
-            If c Is Nothing Then
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        NameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        For i = LBound(NameList) To UBound(NameList)
+            Set TopLeftCell = NamedCell(CStr(NameList(i)))
+            If TopLeftCell Is Nothing Then
                 Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
-                          nameList(i) & "' is missing or no longer refers to a cell."
-            ElseIf c.Worksheet.Name <> ws.Name Then
+                          NameList(i) & "' is missing or no longer refers to a cell."
+            ElseIf TopLeftCell.Worksheet.Name <> ParamsSheet.Name Then
                 Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
-                          nameList(i) & "' must refer to a cell on " & SH_PARAMS & "."
+                          NameList(i) & "' must refer to a cell on " & SH_PARAMS & "."
             End If
         Next i
 
@@ -4768,16 +4793,16 @@ Private Function ParamsText() As String
 ' PARAMETERS
 '------------------------------------------------------------------------------
     'Code=value of each named cell, in the order of ParameterCodes.
-        nameList = ParameterCodes()
-        ReDim pieces(1 To UBound(nameList) - LBound(nameList) + 5)
-        For i = LBound(nameList) To UBound(nameList)
-            Set c = NamedCell(CStr(nameList(i)))
-            If c Is Nothing Then
+        NameList = ParameterCodes()
+        ReDim Pieces(1 To UBound(NameList) - LBound(NameList) + 5)
+        For i = LBound(NameList) To UBound(NameList)
+            Set TopLeftCell = NamedCell(CStr(NameList(i)))
+            If TopLeftCell Is Nothing Then
                 Err.Raise ERR_PARAMS_LAYOUT, "CORE_Engine.InputFingerprint", "Workbook name '" & _
-                          nameList(i) & "' is missing or no longer refers to a cell."
+                          NameList(i) & "' is missing or no longer refers to a cell."
             End If
-            k = k + 1
-            pieces(k) = nameList(i) & "=" & CellToken(c.Value2)
+            PieceCount = PieceCount + 1
+            Pieces(PieceCount) = NameList(i) & "=" & CellToken(TopLeftCell.Value2)
         Next i
 
 '------------------------------------------------------------------------------
@@ -4786,30 +4811,30 @@ Private Function ParamsText() As String
     'A table starts at its header row, whose headers ParamsLayoutValid
     'checks, and stops above the other table when that follows it, as the
     'loaders stop; otherwise at its last row with a value.
-        sfRow = NamedRow(NM_SF_TABLE)
-        fxRow = NamedRow(NM_FX_TABLE)
-        If fxRow > sfRow Then
-            sfLast = fxRow - 1
-        ElseIf sfRow > fxRow Then
-            fxLast = sfRow - 1
+        SFHeaderRow = NamedRow(NM_SF_TABLE)
+        FXHeaderRow = NamedRow(NM_FX_TABLE)
+        If FXHeaderRow > SFHeaderRow Then
+            SFLastRow = FXHeaderRow - 1
+        ElseIf SFHeaderRow > FXHeaderRow Then
+            FXLastRow = SFHeaderRow - 1
         End If
-        pieces(k + 1) = BlockText(ws, 1, 1, ParamsCodeCol())
-        pieces(k + 2) = BlockText(ws, 1, 1, ParamsValueCol())
-        pieces(k + 3) = BlockText(ws, sfRow, UBound(Split(SF_HEADERS, "|")) + 1, _
-                                  NamedTableCol(NM_SF_TABLE), sfLast)
-        pieces(k + 4) = BlockText(ws, fxRow, UBound(Split(FX_HEADERS, "|")) + 1, _
-                                  NamedTableCol(NM_FX_TABLE), fxLast)
-        ParamsText = Join(pieces, Chr$(30))
+        Pieces(PieceCount + 1) = BlockText(ParamsSheet, 1, 1, ParamsCodeCol())
+        Pieces(PieceCount + 2) = BlockText(ParamsSheet, 1, 1, ParamsValueCol())
+        Pieces(PieceCount + 3) = BlockText(ParamsSheet, SFHeaderRow, UBound(Split(SF_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_SF_TABLE), SFLastRow)
+        Pieces(PieceCount + 4) = BlockText(ParamsSheet, FXHeaderRow, UBound(Split(FX_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_FX_TABLE), FXLastRow)
+        ParamsText = Join(Pieces, Chr$(30))
 
 End Function
 
 
 Public Function BlockText( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal nCols As Long, _
-    Optional ByVal firstCol As Long = 1, _
-    Optional ByVal lastRow As Long = 0) _
+    ByVal SourceSheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal ColumnCount As Long, _
+    Optional ByVal FirstColumn As Long = 1, _
+    Optional ByVal LastRowLimit As Long = 0) _
     As String
 '
 '==============================================================================
@@ -4817,59 +4842,61 @@ Public Function BlockText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write a block of cells as one text, cell by cell (CellToken), from
-'   firstRow to the last row with a value. Blank rows below it are left
+'   FirstRow to the last row with a value. Blank rows below it are left
 '   out, so that a used range that grew without new values does not
 '   change the text. Public for M_Main, which fingerprints the bank
 '   figures with it (#45).
 '
 ' INPUTS
-'   firstCol: the block's first table column, as TableCell counts it.
-'   lastRow: the last row to read; 0 for the last used row.
+'   SourceSheet, FirstRow, ColumnCount: the sheet, the block's first row
+'   and its width in table columns; FirstRow below 1 gives "".
+'   FirstColumn: the block's first table column, as TableCell counts it.
+'   LastRowLimit: the last row to read; 0 for the last used row.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR    As Long        'Last row read
-    Dim block    As Variant     'Cell values, Value2 (dates as serials)
-    Dim data     As Variant     'The same as a 2-D array, also for one cell
-    Dim nRows    As Long        'Rows up to the last with a value
-    Dim pieces() As String      'One text per cell
-    Dim r        As Long        'Row of data
-    Dim c        As Long        'Column of data
-    Dim k        As Long        'Position in pieces
+    Dim LastRow          As Long       'Last row read
+    Dim RawBlock         As Variant    'Cell values, Value2 (dates as serials)
+    Dim Grid             As Variant    'The same as a 2-D array, also for one cell
+    Dim FilledRowCount   As Long       'Rows up to the last with a value
+    Dim Pieces()         As String     'One text per cell
+    Dim r                As Long       'Row of Grid
+    Dim c                As Long       'Column of Grid
+    Dim PieceCount       As Long       'Position in Pieces
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        If firstRow < 1 Then
+        If FirstRow < 1 Then
             Exit Function
         End If
-        lastR = UsedLastRow(ws)
-        If lastRow > 0 And lastRow < lastR Then
-            lastR = lastRow
+        LastRow = UsedLastRow(SourceSheet)
+        If LastRowLimit > 0 And LastRowLimit < LastRow Then
+            LastRow = LastRowLimit
         End If
-        If lastR < firstRow Then
+        If LastRow < FirstRow Then
             Exit Function
         End If
-        block = TableRange(ws, firstRow, firstCol, lastR, firstCol + nCols - 1).Value2
-        If IsArray(block) Then
-            data = block
+        RawBlock = TableRange(SourceSheet, FirstRow, FirstColumn, LastRow, FirstColumn + ColumnCount - 1).Value2
+        If IsArray(RawBlock) Then
+            Grid = RawBlock
         Else
-            ReDim data(1 To 1, 1 To 1)
-            data(1, 1) = block
+            ReDim Grid(1 To 1, 1 To 1)
+            Grid(1, 1) = RawBlock
         End If
-        For r = UBound(data, 1) To 1 Step -1
-            If RowHasData(data, r, nCols, 0) Then
-                nRows = r
+        For r = UBound(Grid, 1) To 1 Step -1
+            If RowHasData(Grid, r, ColumnCount, 0) Then
+                FilledRowCount = r
                 Exit For
             End If
         Next r
-        If nRows = 0 Then
+        If FilledRowCount = 0 Then
             Exit Function
         End If
 
@@ -4877,20 +4904,20 @@ Public Function BlockText( _
 ' WRITE AS TEXT
 '------------------------------------------------------------------------------
     'Chr$(31) separates cells; the column count fixes where rows end.
-        ReDim pieces(1 To nRows * nCols)
-        For r = 1 To nRows
-            For c = 1 To nCols
-                k = k + 1
-                pieces(k) = CellToken(data(r, c))
+        ReDim Pieces(1 To FilledRowCount * ColumnCount)
+        For r = 1 To FilledRowCount
+            For c = 1 To ColumnCount
+                PieceCount = PieceCount + 1
+                Pieces(PieceCount) = CellToken(Grid(r, c))
             Next c
         Next r
-        BlockText = Join(pieces, Chr$(31))
+        BlockText = Join(Pieces, Chr$(31))
 
 End Function
 
 
 Private Function CellToken( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As String
 '
 '==============================================================================
@@ -4905,20 +4932,20 @@ Private Function CellToken( _
 '   so a formatting-only edit leaves the token unchanged.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        Select Case VarType(v)
+        Select Case VarType(Content)
             Case vbEmpty
                 CellToken = ""
             Case vbString
-                CellToken = "T" & v
+                CellToken = "T" & Content
             Case vbBoolean
-                CellToken = IIf(v, "B1", "B0")
+                CellToken = IIf(Content, "B1", "B0")
             Case vbError
-                CellToken = "E" & CStr(v)
+                CellToken = "E" & CStr(Content)
             Case Else
-                CellToken = "N" & CStr(v)
+                CellToken = "N" & CStr(Content)
         End Select
 
 End Function
@@ -4937,32 +4964,32 @@ Public Function LastRunInputs() As String
 '   Contains the expected error of a missing name.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wbName   As Name    'The stored name, Nothing when absent
+    Dim StoredName   As Name    'The stored name, Nothing when absent
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
     'The name refers to a text constant: ="5A428560".
         On Error Resume Next
-        Set wbName = ThisWorkbook.Names(RUN_INPUTS_NAME)
+        Set StoredName = ThisWorkbook.Names(RUN_INPUTS_NAME)
         Err.Clear
         On Error GoTo 0
-        If Not wbName Is Nothing Then
-            LastRunInputs = Replace(Replace(wbName.RefersTo, "=", ""), """", "")
+        If Not StoredName Is Nothing Then
+            LastRunInputs = Replace(Replace(StoredName.RefersTo, "=", ""), """", "")
         End If
 
 End Function
 
 
 Private Sub RememberRunInputs( _
-    ByVal fingerprint As String)
+    ByVal Fingerprint As String)
 '
 '==============================================================================
 '                              RememberRunInputs
@@ -4973,14 +5000,15 @@ Private Sub RememberRunInputs( _
 '
 ' ERROR POLICY
 '   Best effort: a workbook whose names cannot be changed (protected
-'   structure) still runs; its results are then reported as unknown.
+'   structure) still runs, but its fingerprint is not stored, so its
+'   results are not reported as current.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=RUN_INPUTS_NAME, RefersTo:="=""" & fingerprint & """", Visible:=False
+        ThisWorkbook.Names.Add Name:=RUN_INPUTS_NAME, RefersTo:="=""" & Fingerprint & """", Visible:=False
         Exit Sub
 
 Failed:
@@ -5015,7 +5043,7 @@ Failed:
 End Sub
 
 
-Private Function WithdrawOutputs(ByRef failureDetails As String) As Boolean
+Private Function WithdrawOutputs(ByRef FailureDetails As String) As Boolean
 '
 '==============================================================================
 '                               WithdrawOutputs
@@ -5023,28 +5051,28 @@ Private Function WithdrawOutputs(ByRef failureDetails As String) As Boolean
 ' PURPOSE
 '   Attempt every output independently after a run fails (#36, review #85).
 ' RETURNS
-'   True only if all four clears succeeded. failureDetails is reset on entry
+'   True only if all four clears succeeded. FailureDetails is reset on entry
 '   and contains every failed sheet, error number, source and description.
 ' ERROR POLICY
 '   Each helper contains its own error; a failed clear never skips another.
 '   The caller keeps the original run error and appends cleanup diagnostics.
 ' UPDATED
-'   2026-10-08
+'   2026-10-17
 '==============================================================================
 '
-        failureDetails = ""
+        FailureDetails = ""
         WithdrawOutputs = True
-        If Not TryClearOutput(SH_TRADECALC, TC_NCOLS, failureDetails) Then WithdrawOutputs = False
-        If Not TryClearOutput(SH_BUCKETS, BK_NCOLS, failureDetails) Then WithdrawOutputs = False
-        If Not TryClearOutput(SH_HEDGING, HS_NCOLS, failureDetails) Then WithdrawOutputs = False
-        If Not TryClearOutput(SH_RESULTS, RS_NCOLS, failureDetails) Then WithdrawOutputs = False
+        If Not TryClearOutput(SH_TRADECALC, TC_NCOLS, FailureDetails) Then WithdrawOutputs = False
+        If Not TryClearOutput(SH_BUCKETS, BK_NCOLS, FailureDetails) Then WithdrawOutputs = False
+        If Not TryClearOutput(SH_HEDGING, HS_NCOLS, FailureDetails) Then WithdrawOutputs = False
+        If Not TryClearOutput(SH_RESULTS, RS_NCOLS, FailureDetails) Then WithdrawOutputs = False
 End Function
 
 
 Private Function TryClearOutput( _
-    ByVal sheetName As String, _
-    ByVal nCols As Long, _
-    ByRef failureDetails As String) As Boolean
+    ByVal SheetName As String, _
+    ByVal ColumnCount As Long, _
+    ByRef FailureDetails As String) As Boolean
 '
 '==============================================================================
 '                                TryClearOutput
@@ -5052,35 +5080,35 @@ Private Function TryClearOutput( _
 ' PURPOSE
 '   Clear one output and capture its failure before any other operation.
 ' INPUTS
-'   sheetName, nCols: output sheet and table width, from the first table
-'   column.
+'   SheetName, ColumnCount: output sheet and table width, from the first
+'   table column.
 ' RETURNS
 '   True only when this output was cleared. Appends any failure to
-'   failureDetails, preserving details from earlier sheets.
+'   FailureDetails, preserving details from earlier sheets.
 ' ERROR POLICY
 '   Contains this cleanup failure; the original run error remains primary.
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
-    Dim errNumber As Long         'Cleanup error, captured before formatting
-    Dim errSource As String       'Cleanup error source
-    Dim errDescription As String  'Cleanup error description
+    Dim ErrNumber        As Long      'Cleanup error, captured before formatting
+    Dim ErrSource        As String    'Cleanup error source
+    Dim ErrDescription   As String    'Cleanup error description
         On Error GoTo Failed
         If gEngineFault = "outputs+cleanup" Then
-            If sheetName = SH_TRADECALC Or sheetName = SH_RESULTS Then
+            If SheetName = SH_TRADECALC Or SheetName = SH_RESULTS Then
                 Err.Raise ERR_CLEANUP_FAILED, "CORE_Engine.TryClearOutput", "Injected output cleanup failure."
             End If
         End If
-        ClearOutputBlock GetSheet(sheetName), OutputFirstRow(sheetName), nCols
+        ClearOutputBlock GetSheet(SheetName), OutputFirstRow(SheetName), ColumnCount
         TryClearOutput = True
         Exit Function
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
-        If Len(failureDetails) > 0 Then failureDetails = failureDetails & "; "
-        failureDetails = failureDetails & sheetName & " [error " & CStr(errNumber) & _
-                         "; source=" & errSource & "]: " & errDescription
+        ErrNumber = Err.Number
+        ErrSource = Err.Source
+        ErrDescription = Err.Description
+        If Len(FailureDetails) > 0 Then FailureDetails = FailureDetails & "; "
+        FailureDetails = FailureDetails & SheetName & " [error " & CStr(ErrNumber) & _
+                         "; source=" & ErrSource & "]: " & ErrDescription
 End Function
 
 
@@ -5096,17 +5124,17 @@ Private Sub WriteBuckets()
 '   Clears and rewrites the Buckets sheet.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'Buckets sheet
-    Dim topRow  As Long         'First Buckets data row
-    Dim arr()   As Variant      'Output rows, (row, column)
-    Dim b       As Long         'Bucket, position in mBk
+    Dim BucketsSheet    As Worksheet    'Buckets sheet
+    Dim TopRow          As Long         'First Buckets data row
+    Dim OutputBlock()   As Variant      'Output rows, (row, column)
+    Dim b               As Long         'Bucket, position in mBk
 
 '------------------------------------------------------------------------------
 ' BUILD ROWS
@@ -5116,34 +5144,34 @@ Private Sub WriteBuckets()
     'and margined, 10 and 11 entity or type add-on unmargined and margined.
     'Correlation and add-ons apply to credit, equity and commodity only;
     'margined figures to margined netting sets only.
-        Set ws = GetSheet(SH_BUCKETS)
-        topRow = OutputFirstRow(SH_BUCKETS)
-        ClearOutputBlock ws, topRow, BK_NCOLS
+        Set BucketsSheet = GetSheet(SH_BUCKETS)
+        TopRow = OutputFirstRow(SH_BUCKETS)
+        ClearOutputBlock BucketsSheet, TopRow, BK_NCOLS
         If mBkCount = 0 Then
             Exit Sub
         End If
-        ReDim arr(1 To mBkCount, 1 To BK_NCOLS)
+        ReDim OutputBlock(1 To mBkCount, 1 To BK_NCOLS)
         For b = 1 To mBkCount
-            arr(b, 1) = mNS(mBk(b).NSIdx).ID
-            arr(b, 2) = ACCode(mBk(b).AC)
-            arr(b, 3) = mBk(b).HSKey
-            arr(b, 4) = mBk(b).SubKey
-            arr(b, 5) = mBk(b).Trades
-            arr(b, 6) = mBk(b).SF
-            If IsFactorClass(mBk(b).AC) Then arr(b, 7) = mBk(b).Corr
-            arr(b, 8) = mBk(b).ENU
-            arr(b, 9) = IIf(mNS(mBk(b).NSIdx).Margined, mBk(b).ENM, Empty)
+            OutputBlock(b, 1) = mNS(mBk(b).NSIdx).ID
+            OutputBlock(b, 2) = ACCode(mBk(b).AC)
+            OutputBlock(b, 3) = mBk(b).HSKey
+            OutputBlock(b, 4) = mBk(b).SubKey
+            OutputBlock(b, 5) = mBk(b).Trades
+            OutputBlock(b, 6) = mBk(b).SF
+            If IsFactorClass(mBk(b).AC) Then OutputBlock(b, 7) = mBk(b).Corr
+            OutputBlock(b, 8) = mBk(b).ENU
+            OutputBlock(b, 9) = IIf(mNS(mBk(b).NSIdx).Margined, mBk(b).ENM, Empty)
             If IsFactorClass(mBk(b).AC) Then
-                arr(b, 10) = mBk(b).SF * mBk(b).ENU
-                If mNS(mBk(b).NSIdx).Margined Then arr(b, 11) = mBk(b).SF * mBk(b).ENM
+                OutputBlock(b, 10) = mBk(b).SF * mBk(b).ENU
+                If mNS(mBk(b).NSIdx).Margined Then OutputBlock(b, 11) = mBk(b).SF * mBk(b).ENM
             End If
         Next b
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        WriteBlock ws, topRow, arr, mBkCount, BK_NCOLS
-        FormatColumns ws, topRow, mBkCount, "@|@|@|@|0|0.00%|0%|#,##0|#,##0|#,##0|#,##0"
+        WriteBlock BucketsSheet, TopRow, OutputBlock, mBkCount, BK_NCOLS
+        FormatColumns BucketsSheet, TopRow, mBkCount, "@|@|@|@|0|0.00%|0%|#,##0|#,##0|#,##0|#,##0"
 
 End Sub
 
@@ -5162,18 +5190,18 @@ Private Sub WriteHedgingSets()
 '   Clears and rewrites the HedgingSets sheet.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'HedgingSets sheet
-    Dim topRow  As Long         'First HedgingSets data row
-    Dim arr()   As Variant      'Output rows, (row, column)
-    Dim h       As Long         'Hedging set, position in mHS
-    Dim mg      As Boolean      'Netting set of h is margined
+    Dim HedgingSheet    As Worksheet    'HedgingSets sheet
+    Dim TopRow          As Long         'First HedgingSets data row
+    Dim OutputBlock()   As Variant      'Output rows, (row, column)
+    Dim h               As Long         'Hedging set, position in mHS
+    Dim IsMargined      As Boolean      'Netting set of h is margined
 
 '------------------------------------------------------------------------------
 ' BUILD ROWS
@@ -5182,68 +5210,68 @@ Private Sub WriteHedgingSets()
     'IR buckets D1 to D3, 8 effective notional (IR, FX, OT), 9 systematic
     'and 10 idiosyncratic part (credit, equity, commodity), 11 hedging-set
     'add-on, 12 add-on unmargined, 13 basis, 14 SF (IR, FX, OT).
-        Set ws = GetSheet(SH_HEDGING)
-        topRow = OutputFirstRow(SH_HEDGING)
-        ClearOutputBlock ws, topRow, HS_NCOLS
+        Set HedgingSheet = GetSheet(SH_HEDGING)
+        TopRow = OutputFirstRow(SH_HEDGING)
+        ClearOutputBlock HedgingSheet, TopRow, HS_NCOLS
         If mHSCount = 0 Then
             Exit Sub
         End If
-        ReDim arr(1 To mHSCount, 1 To HS_NCOLS)
+        ReDim OutputBlock(1 To mHSCount, 1 To HS_NCOLS)
         For h = 1 To mHSCount
-            mg = mNS(mHS(h).NSIdx).Margined
-            arr(h, 1) = mNS(mHS(h).NSIdx).ID
-            arr(h, 2) = ACCode(mHS(h).AC)
-            arr(h, 3) = mHS(h).Key
-            arr(h, 4) = mHS(h).Trades
+            IsMargined = mNS(mHS(h).NSIdx).Margined
+            OutputBlock(h, 1) = mNS(mHS(h).NSIdx).ID
+            OutputBlock(h, 2) = ACCode(mHS(h).AC)
+            OutputBlock(h, 3) = mHS(h).Key
+            OutputBlock(h, 4) = mHS(h).Trades
             If mHS(h).AC = AC_IR Then
-                If mg Then
-                    arr(h, 5) = mHS(h).D1M
-                    arr(h, 6) = mHS(h).D2M
-                    arr(h, 7) = mHS(h).D3M
+                If IsMargined Then
+                    OutputBlock(h, 5) = mHS(h).D1M
+                    OutputBlock(h, 6) = mHS(h).D2M
+                    OutputBlock(h, 7) = mHS(h).D3M
                 Else
-                    arr(h, 5) = mHS(h).D1U
-                    arr(h, 6) = mHS(h).D2U
-                    arr(h, 7) = mHS(h).D3U
+                    OutputBlock(h, 5) = mHS(h).D1U
+                    OutputBlock(h, 6) = mHS(h).D2U
+                    OutputBlock(h, 7) = mHS(h).D3U
                 End If
             End If
             If Not IsFactorClass(mHS(h).AC) Then
-                If mg Then
-                    arr(h, 8) = mHS(h).ENM
+                If IsMargined Then
+                    OutputBlock(h, 8) = mHS(h).ENM
                 Else
-                    arr(h, 8) = mHS(h).ENU
+                    OutputBlock(h, 8) = mHS(h).ENU
                 End If
             Else
-                If mg Then
-                    arr(h, 9) = mHS(h).SysM
-                    arr(h, 10) = Sqr(mHS(h).IdioM)
+                If IsMargined Then
+                    OutputBlock(h, 9) = mHS(h).SysM
+                    OutputBlock(h, 10) = Sqr(mHS(h).IdioM)
                 Else
-                    arr(h, 9) = mHS(h).SysU
-                    arr(h, 10) = Sqr(mHS(h).IdioU)
+                    OutputBlock(h, 9) = mHS(h).SysU
+                    OutputBlock(h, 10) = Sqr(mHS(h).IdioU)
                 End If
             End If
-            If mg Then
-                arr(h, 11) = mHS(h).AddOnM
+            If IsMargined Then
+                OutputBlock(h, 11) = mHS(h).AddOnM
             Else
-                arr(h, 11) = mHS(h).AddOnU
+                OutputBlock(h, 11) = mHS(h).AddOnU
             End If
-            arr(h, 12) = mHS(h).AddOnU
-            arr(h, 13) = IIf(mg, "Margined", "Unmargined")
+            OutputBlock(h, 12) = mHS(h).AddOnU
+            OutputBlock(h, 13) = IIf(IsMargined, "Margined", "Unmargined")
             If Not IsFactorClass(mHS(h).AC) Then
-                arr(h, 14) = BucketSF(h)
+                OutputBlock(h, 14) = BucketSF(h)
             End If
         Next h
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        WriteBlock ws, topRow, arr, mHSCount, HS_NCOLS
-        FormatColumns ws, topRow, mHSCount, "@|@|@|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|@|0.00%"
+        WriteBlock HedgingSheet, TopRow, OutputBlock, mHSCount, HS_NCOLS
+        FormatColumns HedgingSheet, TopRow, mHSCount, "@|@|@|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|@|0.00%"
 
 End Sub
 
 
 Private Function WriteChecks( _
-    ByRef failure As String) _
+    ByRef Failure As String) _
     As Boolean
 '
 '==============================================================================
@@ -5255,7 +5283,7 @@ Private Function WriteChecks( _
 '
 ' RETURNS
 '   True when the sheet was written. False when writing failed, with the
-'   reason in failure; Calculate then withdraws the results (#36).
+'   reason in Failure; Calculate then withdraws the results (#36).
 '
 ' STATE OWNERSHIP
 '   Clears and rewrites the Checks sheet.
@@ -5264,46 +5292,46 @@ Private Function WriteChecks( _
 '   Contains any error and reports it through the result, never silently.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'Checks sheet
-    Dim topRow  As Long         'First Checks data row
-    Dim arr()   As Variant      'Output rows, (message, field)
-    Dim i       As Long         'Message
-    Dim j       As Long         'Field
+    Dim ChecksSheet     As Worksheet    'Checks sheet
+    Dim TopRow          As Long         'First Checks data row
+    Dim OutputBlock()   As Variant      'Output rows, (message, field)
+    Dim i               As Long         'Message
+    Dim j               As Long         'Field
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
     'mLog is stored (field, message); it is transposed into sheet rows.
         On Error GoTo Failed
-        failure = ""
-        Set ws = GetSheet(SH_CHECKS)
-        topRow = OutputFirstRow(SH_CHECKS)
-        ClearOutputBlock ws, topRow, CK_NCOLS
+        Failure = ""
+        Set ChecksSheet = GetSheet(SH_CHECKS)
+        TopRow = OutputFirstRow(SH_CHECKS)
+        ClearOutputBlock ChecksSheet, TopRow, CK_NCOLS
         If mLogCount = 0 Then
-            ReDim arr(1 To 1, 1 To CK_NCOLS)
-            arr(1, 1) = SEV_INFO
-            arr(1, 5) = "No issues found."
-            WriteBlock ws, topRow, arr, 1, CK_NCOLS
+            ReDim OutputBlock(1 To 1, 1 To CK_NCOLS)
+            OutputBlock(1, 1) = SEV_INFO
+            OutputBlock(1, 5) = "No issues found."
+            WriteBlock ChecksSheet, TopRow, OutputBlock, 1, CK_NCOLS
             WriteChecks = True
             Exit Function
         End If
-        ReDim arr(1 To mLogCount, 1 To CK_NCOLS)
+        ReDim OutputBlock(1 To mLogCount, 1 To CK_NCOLS)
         For i = 1 To mLogCount
             For j = 1 To CK_NCOLS
-                arr(i, j) = mLog(j, i)
+                OutputBlock(i, j) = mLog(j, i)
             Next j
         Next i
-        WriteBlock ws, topRow, arr, mLogCount, CK_NCOLS
+        WriteBlock ChecksSheet, TopRow, OutputBlock, mLogCount, CK_NCOLS
         For i = 1 To mLogCount
-            If arr(i, 1) = SEV_ERROR Then
-                TableCell(ws, topRow + i - 1, 1).Font.Bold = True
+            If OutputBlock(i, 1) = SEV_ERROR Then
+                TableCell(ChecksSheet, TopRow + i - 1, 1).Font.Bold = True
             End If
         Next i
         WriteChecks = True
@@ -5313,16 +5341,16 @@ Private Function WriteChecks( _
 ' REPORT FAILURE
 '------------------------------------------------------------------------------
 Failed:
-        failure = "error " & Err.Number & ": " & Err.Description
+        Failure = "error " & Err.Number & ": " & Err.Description
 
 End Function
 
 
 Private Sub WriteRunInfo( _
-    ByVal secs As Double, _
-    ByVal completed As Boolean, _
-    ByVal wroteOutputs As Boolean, _
-    ByVal failure As String)
+    ByVal RunSeconds As Double, _
+    ByVal Completed As Boolean, _
+    ByVal WroteOutputs As Boolean, _
+    ByVal Failure As String)
 '
 '==============================================================================
 '                                 WriteRunInfo
@@ -5332,11 +5360,11 @@ Private Sub WriteRunInfo( _
 '   the Results sheet.
 '
 ' INPUTS
-'   secs: run duration in seconds.
-'   completed: the result of Calculate.
-'   wroteOutputs: False for a validation-only run, whose outputs were
+'   RunSeconds: run duration in seconds.
+'   Completed: the result of Calculate.
+'   WroteOutputs: False for a validation-only run, whose outputs were
 '   cleared rather than written.
-'   failure: why the run failed after it started writing, for example the
+'   Failure: why the run failed after it started writing, for example the
 '   Checks sheet could not be written; "" otherwise.
 '
 ' ERROR POLICY
@@ -5348,14 +5376,14 @@ Private Sub WriteRunInfo( _
 '   the run error or Checks then explains (#36, #60).
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim txt   As String    'Summary line
+    Dim Summary   As String    'Summary line
 
 '------------------------------------------------------------------------------
 ' COMPOSE
@@ -5364,14 +5392,14 @@ Private Sub WriteRunInfo( _
         If gEngineFault = "runinfo" Then
             Err.Raise ERR_INJECTED_FAULT, "CORE_Engine.WriteRunInfo", "Injected run-summary failure."
         End If
-        txt = RunInfoText(secs, completed, wroteOutputs, failure)
+        Summary = RunInfoText(RunSeconds, Completed, WroteOutputs, Failure)
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
 WriteText:
         On Error Resume Next
-        GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value = txt
+        GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value = Summary
         On Error GoTo 0
         Exit Sub
 
@@ -5379,7 +5407,7 @@ WriteText:
 ' HANDLE A SUMMARY THAT CANNOT BE COMPOSED
 '------------------------------------------------------------------------------
 NoText:
-        txt = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " - run summary unavailable (error " & _
+        Summary = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " - run summary unavailable (error " & _
               Err.Number & ": " & Err.Description & "); see Checks"
         Resume WriteText
 
@@ -5387,10 +5415,10 @@ End Sub
 
 
 Private Function RunInfoText( _
-    ByVal secs As Double, _
-    ByVal completed As Boolean, _
-    ByVal wroteOutputs As Boolean, _
-    ByVal failure As String) _
+    ByVal RunSeconds As Double, _
+    ByVal Completed As Boolean, _
+    ByVal WroteOutputs As Boolean, _
+    ByVal Failure As String) _
     As String
 '
 '==============================================================================
@@ -5408,17 +5436,17 @@ Private Function RunInfoText( _
 '   Raises any error to WriteRunInfo, which writes a fallback line.
 '
 ' UPDATED
-'   2026-10-14
+'   2026-10-17
 '==============================================================================
 '
-        If Len(failure) > 0 Then
-            RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " FAILED - " & failure
-        ElseIf Not wroteOutputs Then
+        If Len(Failure) > 0 Then
+            RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " FAILED - " & Failure
+        ElseIf Not WroteOutputs Then
             RunInfoText = "Last validation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
                           " | outputs cleared: press Run SA-CCR to calculate"
-        ElseIf completed Then
+        ElseIf Completed Then
             RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                           " | reporting date " & Format$(CDate(pAsOf), "yyyy-mm-dd") & _
                           " | ccy " & pRepCcy & _
@@ -5427,7 +5455,7 @@ Private Function RunInfoText( _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
                           " | inputs " & mRunInputs & _
-                          " | " & CORE_Export.NumberText(Round(secs, 2)) & " s"
+                          " | " & CORE_Export.NumberText(Round(RunSeconds, 2)) & " s"
             If mIncomplete > 0 Then
                 RunInfoText = RunInfoText & " | EAD withheld for " & mIncomplete & " netting set(s): " & _
                               WithheldByRegimeText()

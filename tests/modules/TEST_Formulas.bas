@@ -9,9 +9,8 @@ Attribute VB_Name = "TEST_Formulas"
 '   domain gives the documented error value (#NUM!, #VALUE!, #REF! or the
 '   error passed in) and never a runtime error or a misleading number;
 '   an overflow gives #NUM!; valid inputs at and near the boundaries keep
-'   their results; ranges,
-'   arrays, single values and one-element inputs are handled alike; and
-'   the same results reach worksheet cells.
+'   their results; ranges, arrays, single values and one-element inputs
+'   are handled alike; and the same results reach worksheet cells.
 '
 ' PUBLIC SURFACE
 '   RunFormulaTests is the entry point. Option Private Module keeps it out
@@ -41,7 +40,7 @@ Attribute VB_Name = "TEST_Formulas"
 '   Delegated Regulation (EU) 2021/931 Art. 5.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -93,7 +92,7 @@ Public Sub RunFormulaTests()
 '   and a final RESULT line.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
         mCaseCount = 0
@@ -161,7 +160,9 @@ Private Sub CaseMaturityFactor()
 ' PURPOSE
 '   MF: a business-day year of 0 or less, an MPOR of 0 or less (margined)
 '   and a negative floor (unmargined) are #NUM!; an argument the basis does
-'   not use is not checked; a negative M with a floor of 0 gives 0.
+'   not use is not checked; a negative M with a floor of 0 gives 0; M below
+'   the floor of 10 business days is floored and M above 1 capped; an
+'   overflow of the floor in years is #NUM!.
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -187,9 +188,9 @@ Private Sub CaseLambdaThreshold()
 '
 '==============================================================================
 ' PURPOSE
-'   CRR lambda: a threshold that is text is #VALUE!, a negative one #NUM!,
-'   an error value is passed on; omitted or blank takes the default; 0 is
-'   a valid threshold.
+'   CRR lambda: a threshold that is text or a Boolean is #VALUE!, a
+'   negative one #NUM!, an error value is passed on; omitted or blank takes
+'   the default; 0 is a valid threshold, also as a LongLong on 64-bit VBA.
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -218,10 +219,11 @@ Private Sub CaseIREffectiveNotional()
 '   IR effective notional: a correlation outside 0 to 1 or three that do
 '   not form a correlation matrix are #NUM!, not a zero effective
 '   notional; a negative quadratic form within rounding is 0; the Basel
-'   example 1 USD value is kept.
+'   example 1 USD value is kept; all buckets 0 give 0 and an overflow is
+'   #NUM!.
 '==============================================================================
 '
-    Dim result   As Variant    'A result checked for being a small number
+    Dim EffectiveNotional   As Variant    'A result checked for being a small number
 
         On Error GoTo Unexpected
         BeginCase "ir-effective-notional.correlations"
@@ -234,10 +236,11 @@ Private Sub CaseIREffectiveNotional()
         CheckError "overflow of D1 squared", xlErrNum, SACCR_IREffectiveNotional(1E+200, 0#, 0#)
     'With all correlations 1 the form is (D1 + D2 + D3)^2, here 0 in exact
     'arithmetic but slightly negative in double precision.
-        result = SACCR_IREffectiveNotional(100000.1, 2.2, -100002.3, 1#, 1#, 1#)
-        Check Not IsError(result), "rounding residual returned an error"
-        If Not IsError(result) Then
-            Check CDbl(result) >= 0# And CDbl(result) < 0.01, "rounding residual gave " & CStr(result)
+        EffectiveNotional = SACCR_IREffectiveNotional(100000.1, 2.2, -100002.3, 1#, 1#, 1#)
+        Check Not IsError(EffectiveNotional), "rounding residual returned an error"
+        If Not IsError(EffectiveNotional) Then
+            Check CDbl(EffectiveNotional) >= 0# And CDbl(EffectiveNotional) < 0.01, _
+                  "rounding residual gave " & CStr(EffectiveNotional)
         Else
             Check False, "rounding residual gave no number"
         End If
@@ -252,7 +255,8 @@ Private Sub CaseMultiplier()
 '==============================================================================
 ' PURPOSE
 '   Multiplier: a negative add-on and a floor outside 0 to below 1 are
-'   #NUM!; a zero add-on gives 1; a floor of 0 is valid.
+'   #NUM!; a zero add-on gives 1; a floor of 0 is valid; extreme V - C or a
+'   tiny add-on give the floor or 1 without an overflow.
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -279,7 +283,7 @@ Private Sub CaseReplacementCost()
 ' PURPOSE
 '   RC: a negative threshold or MTA is #NUM! for a margined set and ignored
 '   for an unmargined one, as the formula ignores them; NICA may have any
-'   sign.
+'   sign; an overflow of V - C is #NUM!.
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -305,43 +309,43 @@ Private Sub CaseAggregationShapes()
 '   of more than two dimensions are #REF!.
 '==============================================================================
 '
-    Dim row2    As Variant    '1 x 2 add-ons
-    Dim col2    As Variant    '2 x 1 correlations
-    Dim grid    As Variant    '2 x 2 add-ons
-    Dim gridR   As Variant    '2 x 2 correlations
-    Dim cube    As Variant    '1 x 1 x 1 array
+    Dim RowAddOns            As Variant    '1 x 2 add-ons
+    Dim ColumnCorrelations   As Variant    '2 x 1 correlations
+    Dim GridAddOns           As Variant    '2 x 2 add-ons
+    Dim GridCorrelations     As Variant    '2 x 2 correlations
+    Dim CubeAddOns           As Variant    '1 x 1 x 1 array
 
         On Error GoTo Unexpected
         BeginCase "factor-aggregation.shapes"
-        ReDim row2(1 To 1, 1 To 2)
-        row2(1, 1) = 100#
-        row2(1, 2) = 50#
-        ReDim col2(1 To 2, 1 To 1)
-        col2(1, 1) = 0.5
-        col2(2, 1) = 0.8
-        ReDim grid(1 To 2, 1 To 2)
-        grid(1, 1) = 100#
-        grid(1, 2) = 50#
-        grid(2, 1) = -30#
-        grid(2, 2) = 20#
-        ReDim gridR(1 To 2, 1 To 2)
-        gridR(1, 1) = 0.5
-        gridR(1, 2) = 0.8
-        gridR(2, 1) = 0.4
-        gridR(2, 2) = 0.6
-        ReDim cube(1 To 1, 1 To 1, 1 To 1)
-        cube(1, 1, 1) = 100#
+        ReDim RowAddOns(1 To 1, 1 To 2)
+        RowAddOns(1, 1) = 100#
+        RowAddOns(1, 2) = 50#
+        ReDim ColumnCorrelations(1 To 2, 1 To 1)
+        ColumnCorrelations(1, 1) = 0.5
+        ColumnCorrelations(2, 1) = 0.8
+        ReDim GridAddOns(1 To 2, 1 To 2)
+        GridAddOns(1, 1) = 100#
+        GridAddOns(1, 2) = 50#
+        GridAddOns(2, 1) = -30#
+        GridAddOns(2, 2) = 20#
+        ReDim GridCorrelations(1 To 2, 1 To 2)
+        GridCorrelations(1, 1) = 0.5
+        GridCorrelations(1, 2) = 0.8
+        GridCorrelations(2, 1) = 0.4
+        GridCorrelations(2, 2) = 0.6
+        ReDim CubeAddOns(1 To 1, 1 To 1, 1 To 1)
+        CubeAddOns(1, 1, 1) = 100#
 
         CheckNear "single values", 100#, SACCR_FactorAggregation(100#, 0.5), TOL
         CheckNear "single value and one-element array", 100#, SACCR_FactorAggregation(100#, Array(0.5)), TOL
         CheckNear "one-dimensional arrays", 128.452325786651, _
                   SACCR_FactorAggregation(Array(100#, 50#), Array(0.5, 0.8)), 0.000000001
-        CheckNear "row with column", 128.452325786651, SACCR_FactorAggregation(row2, col2), 0.000000001
-        CheckNear "2 x 2 with 2 x 2", 132.332913517386, SACCR_FactorAggregation(grid, gridR), 0.000000001
+        CheckNear "row with column", 128.452325786651, SACCR_FactorAggregation(RowAddOns, ColumnCorrelations), 0.000000001
+        CheckNear "2 x 2 with 2 x 2", 132.332913517386, SACCR_FactorAggregation(GridAddOns, GridCorrelations), 0.000000001
         CheckError "different sizes", xlErrRef, SACCR_FactorAggregation(Array(100#, 50#), Array(0.5))
         CheckError "single value with two correlations", xlErrRef, SACCR_FactorAggregation(100#, Array(0.5, 0.8))
-        CheckError "2 x 2 with 1 x 4", xlErrRef, SACCR_FactorAggregation(grid, Array(0.5, 0.8, 0.4, 0.6))
-        CheckError "three dimensions", xlErrRef, SACCR_FactorAggregation(cube, 0.5)
+        CheckError "2 x 2 with 1 x 4", xlErrRef, SACCR_FactorAggregation(GridAddOns, Array(0.5, 0.8, 0.4, 0.6))
+        CheckError "three dimensions", xlErrRef, SACCR_FactorAggregation(CubeAddOns, 0.5)
         Exit Sub
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
@@ -354,7 +358,8 @@ Private Sub CaseAggregationElements()
 ' PURPOSE
 '   Factor aggregation: text and Booleans are #VALUE!, an error element is
 '   passed on, a correlation outside 0 to 1 is #NUM!, a blank add-on counts
-'   as 0 and a blank correlation is allowed only beside it.
+'   as 0 and a blank correlation is allowed only beside it; a negative
+'   add-on is valid, and so is a LongLong add-on on 64-bit VBA.
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -395,65 +400,66 @@ Private Sub CaseWorksheetCells()
 '   as arrays, and a cell reference to a threshold is read as its value.
 '==============================================================================
 '
-    Dim ws            As Worksheet    'Temporary sheet; Nothing once deleted
-    Dim callerAlerts  As Boolean      'Caller's DisplayAlerts
-    Dim callerEvents  As Boolean      'Caller's EnableEvents
-    Dim callerActive  As Object       'Sheet active before the case
+    Dim TempSheet      As Worksheet    'Temporary sheet; Nothing once deleted
+    Dim CallerAlerts   As Boolean      'Caller's DisplayAlerts
+    Dim CallerEvents   As Boolean      'Caller's EnableEvents
+    Dim CallerActive   As Object       'Sheet active before the case
 
         On Error GoTo Unexpected
         BeginCase "worksheet.cells"
-        callerAlerts = Application.DisplayAlerts
-        callerEvents = Application.EnableEvents
-        Set callerActive = ThisWorkbook.ActiveSheet
+        CallerAlerts = Application.DisplayAlerts
+        CallerEvents = Application.EnableEvents
+        Set CallerActive = ThisWorkbook.ActiveSheet
         Application.EnableEvents = False
-        Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        Set TempSheet = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
 
-    'A1:A3 add-ons, B1:B3 correlations, C1:C2 a range with an error.
-        ws.Range("A1").Value = 100#
-        ws.Range("A2").Value = 50#
-        ws.Range("B1").Value = 0.5
-        ws.Range("B2").Value = 0.8
-        ws.Range("C1").Value = 100#
-        ws.Range("C2").Formula = "=NA()"
-        ws.Range("D1").Value = "abc"
-        ws.Range("D2").Value = -0.001
-        ws.Range("E1").Formula = "=SACCR_FactorAggregation(A1:A3,B1:B3)"
-        ws.Range("E2").Formula = "=SACCR_FactorAggregation(A1:A2,B1:B3)"
-        ws.Range("E3").Formula = "=SACCR_FactorAggregation(C1:C2,B1:B2)"
-        ws.Range("E4").Formula = "=SACCR_FactorAggregation(A1,B1)"
-        ws.Range("E5").Formula = "=SACCR_Multiplier(-20,282,1)"
-        ws.Range("E6").Formula = "=SACCR_MaturityFactor(0.5,FALSE,10,10,0)"
-        ws.Range("E7").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D1)"
-        ws.Range("E8").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D2)"
-        ws.Range("E9").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D3)"
-        ws.Range("E10").Formula = "=SACCR_IREffectiveNotional(1,1,1,1,1,0)"
-        ws.Calculate
+    'A1:A2 add-ons and B1:B2 correlations, with row 3 blank; C1:C2 a range
+    'with an error; D1:D3 thresholds, D3 blank; E1:E10 the formulas.
+        TempSheet.Range("A1").Value = 100#
+        TempSheet.Range("A2").Value = 50#
+        TempSheet.Range("B1").Value = 0.5
+        TempSheet.Range("B2").Value = 0.8
+        TempSheet.Range("C1").Value = 100#
+        TempSheet.Range("C2").Formula = "=NA()"
+        TempSheet.Range("D1").Value = "abc"
+        TempSheet.Range("D2").Value = -0.001
+        TempSheet.Range("E1").Formula = "=SACCR_FactorAggregation(A1:A3,B1:B3)"
+        TempSheet.Range("E2").Formula = "=SACCR_FactorAggregation(A1:A2,B1:B3)"
+        TempSheet.Range("E3").Formula = "=SACCR_FactorAggregation(C1:C2,B1:B2)"
+        TempSheet.Range("E4").Formula = "=SACCR_FactorAggregation(A1,B1)"
+        TempSheet.Range("E5").Formula = "=SACCR_Multiplier(-20,282,1)"
+        TempSheet.Range("E6").Formula = "=SACCR_MaturityFactor(0.5,FALSE,10,10,0)"
+        TempSheet.Range("E7").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D1)"
+        TempSheet.Range("E8").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D2)"
+        TempSheet.Range("E9").Formula = "=SACCR_LambdaCRR(-0.002,0.001,TRUE,D3)"
+        TempSheet.Range("E10").Formula = "=SACCR_IREffectiveNotional(1,1,1,1,1,0)"
+        TempSheet.Calculate
 
-        CheckNear "cells: blank row in both ranges", 128.452325786651, ws.Range("E1").Value, 0.000000001
-        CheckError "cells: ranges of different sizes", xlErrRef, ws.Range("E2").Value
-        CheckError "cells: error cell passed on", xlErrNA, ws.Range("E3").Value
-        CheckNear "cells: single cells", 100#, ws.Range("E4").Value, TOL
-        CheckError "cells: multiplier floor 1", xlErrNum, ws.Range("E5").Value
-        CheckError "cells: maturity factor BDPerYear 0", xlErrNum, ws.Range("E6").Value
-        CheckError "cells: text threshold", xlErrValue, ws.Range("E7").Value
-        CheckError "cells: negative threshold", xlErrNum, ws.Range("E8").Value
-        CheckNear "cells: blank threshold takes the default", 0.003, ws.Range("E9").Value, TOL
-        CheckError "cells: not a correlation matrix", xlErrNum, ws.Range("E10").Value
-        RemoveTemporarySheet ws, callerAlerts, callerEvents, callerActive
+        CheckNear "cells: blank row in both ranges", 128.452325786651, TempSheet.Range("E1").Value, 0.000000001
+        CheckError "cells: ranges of different sizes", xlErrRef, TempSheet.Range("E2").Value
+        CheckError "cells: error cell passed on", xlErrNA, TempSheet.Range("E3").Value
+        CheckNear "cells: single cells", 100#, TempSheet.Range("E4").Value, TOL
+        CheckError "cells: multiplier floor 1", xlErrNum, TempSheet.Range("E5").Value
+        CheckError "cells: maturity factor BDPerYear 0", xlErrNum, TempSheet.Range("E6").Value
+        CheckError "cells: text threshold", xlErrValue, TempSheet.Range("E7").Value
+        CheckError "cells: negative threshold", xlErrNum, TempSheet.Range("E8").Value
+        CheckNear "cells: blank threshold takes the default", 0.003, TempSheet.Range("E9").Value, TOL
+        CheckError "cells: not a correlation matrix", xlErrNum, TempSheet.Range("E10").Value
+        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive
         Exit Sub
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
-        RemoveTemporarySheet ws, callerAlerts, callerEvents, callerActive
+        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive
 
 End Sub
 
 
 Private Sub RemoveTemporarySheet( _
-    ByVal ws As Worksheet, _
-    ByVal callerAlerts As Boolean, _
-    ByVal callerEvents As Boolean, _
-    ByVal callerActive As Object)
+    ByVal TempSheet As Worksheet, _
+    ByVal CallerAlerts As Boolean, _
+    ByVal CallerEvents As Boolean, _
+    ByVal CallerActive As Object)
 '
 '==============================================================================
 ' PURPOSE
@@ -465,21 +471,21 @@ Private Sub RemoveTemporarySheet( _
 '==============================================================================
 '
         On Error GoTo Failed
-        If Not ws Is Nothing Then
+        If Not TempSheet Is Nothing Then
             Application.DisplayAlerts = False
-            ws.Delete
+            TempSheet.Delete
         End If
-        Application.DisplayAlerts = callerAlerts
-        Application.EnableEvents = callerEvents
-        If Not callerActive Is Nothing Then
-            callerActive.Activate
+        Application.DisplayAlerts = CallerAlerts
+        Application.EnableEvents = CallerEvents
+        If Not CallerActive Is Nothing Then
+            CallerActive.Activate
         End If
         Exit Sub
 
 Failed:
         Fail mCurrentCase, "could not remove the temporary sheet: " & Err.Description
-        Application.DisplayAlerts = callerAlerts
-        Application.EnableEvents = callerEvents
+        Application.DisplayAlerts = CallerAlerts
+        Application.EnableEvents = CallerEvents
 
 End Sub
 
@@ -493,49 +499,49 @@ End Sub
 '
 
 Private Sub CheckError( _
-    ByVal what As String, _
-    ByVal expectedCode As Long, _
-    ByVal actual As Variant)
+    ByVal CheckName As String, _
+    ByVal ExpectedCode As Long, _
+    ByVal Actual As Variant)
 '
 '==============================================================================
 ' PURPOSE
-'   Check that actual is the worksheet error value expectedCode.
+'   Check that Actual is the worksheet error value ExpectedCode.
 '==============================================================================
 '
     'Compare error with error: comparing a number with an error value raises.
-        If IsError(actual) Then
-            Check actual = CVErr(expectedCode), what & ": expected error " & expectedCode & _
-                  ", found " & CStr(actual)
+        If IsError(Actual) Then
+            Check Actual = CVErr(ExpectedCode), CheckName & ": expected error " & ExpectedCode & _
+                  ", found " & CStr(Actual)
         Else
-            Check False, what & ": expected error " & expectedCode & ", found " & DescribeResult(actual)
+            Check False, CheckName & ": expected error " & ExpectedCode & ", found " & DescribeResult(Actual)
         End If
 
 End Sub
 
 
 Private Sub CheckNear( _
-    ByVal what As String, _
-    ByVal expected As Double, _
-    ByVal actual As Variant, _
-    ByVal tolerance As Double)
+    ByVal CheckName As String, _
+    ByVal Expected As Double, _
+    ByVal Actual As Variant, _
+    ByVal Tolerance As Double)
 '
 '==============================================================================
 ' PURPOSE
-'   Check that actual is a number within tolerance of expected.
+'   Check that Actual is a number within Tolerance of Expected.
 '==============================================================================
 '
-        If IsError(actual) Or Not IsNumeric(actual) Or VarType(actual) = vbBoolean Or IsEmpty(actual) Then
-            Check False, what & ": expected " & CStr(expected) & ", found " & DescribeResult(actual)
+        If IsError(Actual) Or Not IsNumeric(Actual) Or VarType(Actual) = vbBoolean Or IsEmpty(Actual) Then
+            Check False, CheckName & ": expected " & CStr(Expected) & ", found " & DescribeResult(Actual)
         Else
-            Check Abs(CDbl(actual) - expected) <= tolerance, what & ": expected " & CStr(expected) & _
-                  ", found " & CStr(actual)
+            Check Abs(CDbl(Actual) - Expected) <= Tolerance, CheckName & ": expected " & CStr(Expected) & _
+                  ", found " & CStr(Actual)
         End If
 
 End Sub
 
 
 Private Function DescribeResult( _
-    ByVal v As Variant) _
+    ByVal Outcome As Variant) _
     As String
 '
 '==============================================================================
@@ -543,19 +549,19 @@ Private Function DescribeResult( _
 '   Describe a result for a failure message.
 '==============================================================================
 '
-        If IsError(v) Then
-            DescribeResult = CStr(v)
-        ElseIf IsEmpty(v) Then
+        If IsError(Outcome) Then
+            DescribeResult = CStr(Outcome)
+        ElseIf IsEmpty(Outcome) Then
             DescribeResult = "(empty)"
         Else
-            DescribeResult = CStr(v)
+            DescribeResult = CStr(Outcome)
         End If
 
 End Function
 
 
 Private Sub BeginCase( _
-    ByVal caseName As String)
+    ByVal CaseName As String)
 '
 '==============================================================================
 ' PURPOSE
@@ -563,15 +569,15 @@ Private Sub BeginCase( _
 '==============================================================================
 '
         mCaseCount = mCaseCount + 1
-        mCurrentCase = caseName
-        TEST_Suite.Say "CASE=" & caseName
+        mCurrentCase = CaseName
+        TEST_Suite.Say "CASE=" & CaseName
 
 End Sub
 
 
 Private Sub Check( _
-    ByVal passed As Boolean, _
-    ByVal detail As String)
+    ByVal Passed As Boolean, _
+    ByVal Detail As String)
 '
 '==============================================================================
 ' PURPOSE
@@ -579,16 +585,16 @@ Private Sub Check( _
 '==============================================================================
 '
         mCheckCount = mCheckCount + 1
-        If Not passed Then
-            Fail mCurrentCase, detail
+        If Not Passed Then
+            Fail mCurrentCase, Detail
         End If
 
 End Sub
 
 
 Private Sub Fail( _
-    ByVal caseName As String, _
-    ByVal detail As String)
+    ByVal CaseName As String, _
+    ByVal Detail As String)
 '
 '==============================================================================
 ' PURPOSE
@@ -596,6 +602,6 @@ Private Sub Fail( _
 '==============================================================================
 '
         mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & caseName & ": " & detail
+        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
 
 End Sub

@@ -96,6 +96,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- The comments of every core, workbook and test module were checked against
+  the code and corrected where stale, wrong or unclear; local variables and
+  parameters follow the house-style naming (descriptive PascalCase, single
+  lower-case letters for loop counters only). No behaviour changes: each
+  module's change reproduces its previous code under the rename map, and the
+  eight suites pass unchanged. The evidence-policy gate reads the case-ID
+  parameter of `TEST_InputValidation.StartCase` and the `Test_RunAll` suite
+  list regardless of the names' letter case.
 - Results C5 says what it checks when the inputs match the last run:
   "Inputs unchanged since the last run (inputs …); outputs are checked when
   evidence is exported", instead of "Results current". `ResultsStatus()`
@@ -140,6 +148,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `docs/VBA_HOUSE_STYLE.md` names local variables and parameters in
+  PascalCase, spelled out (`NotionalAmount`), and keeps a single lower-case
+  letter for loop counters only. A renaming to these rules is the one name
+  change a formatting-only change may make, and comments are kept true: a
+  change updates every header, `INPUTS` name and line comment it makes stale.
 - `RELEASING.md` makes two checks deferred from the 1.0.0 release standing
   steps of every release (#308): the source round trip of the certified
   development workbook, beside the production one, and the published

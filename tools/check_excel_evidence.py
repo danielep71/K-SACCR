@@ -571,7 +571,14 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
         printed = first.group(2)
     elif first is not None:
         body = re.search(r'\bSub\s+StartCase\b(.*?)^\s*End\s+Sub\b', module, re.S | re.M)
-        call = body and re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?caseId\s*,', body.group(1))
+        # The case ID is StartCase's first parameter, whatever its name (VBA
+        # names are case-insensitive).
+        call = None
+        if body is not None:
+            param = re.match(r'\s*\(\s*(?:_\s*)?(?:ByVal\s+)?(\w+)', body.group(1))
+            if param is not None:
+                call = re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?' + re.escape(param.group(1)) + r'\s*,',
+                                 body.group(1), re.IGNORECASE)
         printed = (call.group(1) or "") + first.group(2) if call else None
     if spec["first_case"] is not None and printed != spec["first_case"]:
         problems.append(f"{spec['entry_point']}: policy first_case differs from the module")
@@ -637,7 +644,9 @@ def policy_problems(root: Path) -> list[str]:
         for spec in policy["suites"]:
             problems += suite_problems(root, spec)
         runner = module_text(root, policy["summary_entry_point"])
-        listed = re.findall(r'"(TEST_\w+\.\w+)"', runner.split("suites = Array(", 1)[-1].split(")\n", 1)[0])
+        # VBA names are case-insensitive: the list may be named suites or Suites.
+        array = re.split(r"suites = Array\(", runner, maxsplit=1, flags=re.IGNORECASE)[-1]
+        listed = re.findall(r'"(TEST_\w+\.\w+)"', array.split(")\n", 1)[0])
         entries = [policy["entry_point"]] + [spec["entry_point"] for spec in policy["suites"]]
         if listed != entries:
             problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")
