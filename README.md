@@ -4,7 +4,7 @@
 
 ### Independent SA-CCR exposure calculation and validation in Excel VBA
 
-**EU CRR and Basel CRE52 · Trade-to-EAD audit trail · Regulatory or what-if runs · Published-example regression · Synthetic data only**
+**EU CRR and Basel CRE52 · Trade-to-EAD audit trail · Regulatory or what-if runs · Published-example regression · No real portfolio data**
 
 <br>
 
@@ -18,7 +18,7 @@
 
 <br>
 
-[![Last commit](https://img.shields.io/github/last-commit/danielep71/VBA-SACCR-Toolkit/release%2F1.0.0?style=flat-square&label=last%20commit&color=217346)](https://github.com/danielep71/VBA-SACCR-Toolkit/commits/release/1.0.0)
+[![Last commit](https://img.shields.io/github/last-commit/danielep71/VBA-SACCR-Toolkit/main?style=flat-square&label=last%20commit&color=217346)](https://github.com/danielep71/VBA-SACCR-Toolkit/commits/main)
 [![Clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fclones.json&style=flat-square&label=clones)](https://github.com/danielep71/VBA-SACCR-Toolkit)
 [![Visitors](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisitors.json&style=flat-square&label=visitors%20(14d))](https://github.com/danielep71/VBA-SACCR-Toolkit)
 [![Visits](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisits.json&style=flat-square&label=visits)](https://github.com/danielep71/VBA-SACCR-Toolkit)
@@ -675,7 +675,7 @@ here. It is development evidence, not release certification.
 
 ## 🔐 Data and security
 
-Use synthetic data only. Never commit or attach real trades, netting sets,
+No real portfolio data: never commit or attach real trades, netting sets,
 counterparty or collateral data, or any client or employer material. VBA runs
 with the user's Office permissions: review the source and follow your
 organisation's macro policy. Report suspected vulnerabilities privately as

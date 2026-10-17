@@ -22,7 +22,7 @@ Include:
 
 - the full commit SHA and the affected file, procedure or workflow;
 - the Excel/Office build, bitness and Windows version, where relevant;
-- the impact and minimal reproduction steps using synthetic data; and
+- the impact and minimal reproduction steps, with no real portfolio data; and
 - any tested workaround.
 
 ## Response targets
