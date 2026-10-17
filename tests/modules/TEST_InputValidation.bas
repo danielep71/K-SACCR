@@ -51,9 +51,16 @@ Attribute VB_Name = "TEST_InputValidation"
 '   An Excel error value in an optional text field of a trade, in a
 '   netting set's regime or in the Params regime is an input error, not
 '   a blank that takes a default (#194), and a Currency or Accounting
-'   number format does not round an input (#196). Results has one TOTAL row per regime,
-'   after the netting sets, with the number of VALID and withheld netting
-'   sets it covers (#198).
+'   number format does not round an input (#196). A swaption needs the
+'   start date of its underlying and a Bermudan one takes its earliest and
+'   latest exercise dates (#40), and an FX option must be entered in
+'   market quote order (#40). For economic trades (#38): legs sharing an
+'   Economic trade ID form one trade with exactly one MtM leg, legs in
+'   different risk categories are accepted, legs in one asset class must
+'   be options, and an error value in either leg column is rejected.
+'   Results has one TOTAL row per regime, after the netting sets, with the
+'   number of VALID and withheld netting sets it covers, and a netting set
+'   may not take the label of a TOTAL row (#198).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -77,7 +84,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -114,18 +121,18 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r        As Long       'Params row a table case patches
-    Dim i        As Long       'Trade number in the large netting set
-    Dim fields   As Variant    'Trades column and field name, in pairs
-    Dim f        As Long       'Index of a column in fields
-    Dim savedFormat As String  'Number format of a cell a case changes
+    Dim PatchedRow    As Long       'Params or Trades row a case patches
+    Dim i             As Long       'Trade number in the large netting set
+    Dim TextFields    As Variant    'Trades column and field name, in pairs
+    Dim f             As Long       'Index of a column in TextFields
+    Dim SavedFormat   As String     'Number format of a cell a case changes
 
 '------------------------------------------------------------------------------
 ' RUN CASES
@@ -293,9 +300,9 @@ Public Sub RunInputValidationTests()
 
         StartCase "params-duplicate-below-fx", "N"
         AddSwap "T1"
-        r = UsedLastRow(GetSheet(SH_PARAMS)) + 2
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsCodeCol(), PRM_ALPHA
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsValueCol(), ParamsValue(PRM_ALPHA, ParamsValueCol())
+        PatchedRow = UsedLastRow(GetSheet(SH_PARAMS)) + 2
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, ParamsCodeCol(), PRM_ALPHA
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, ParamsValueCol(), ParamsValue(PRM_ALPHA, ParamsValueCol())
         ExpectStatus "VALID"
 
         StartCase "params-duplicate-same-value", "N"
@@ -307,30 +314,31 @@ Public Sub RunInputValidationTests()
     'hedging set, unless those are patched too.
         StartCase "factor-table-duplicate-different-values", "N"
         AddSwap "T1"
-        r = ParamsRow("CO_OTHER")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 1), "CO_METALS"
+        PatchedRow = ParamsRow("CO_OTHER")
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_SF_TABLE, 1), "CO_METALS"
         ExpectStop "Supervisory factor key listed twice with different values"
 
         StartCase "factor-table-duplicate-same-values", "N"
         AddSwap "T1"
-        r = ParamsRow("CO_OTHER")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 1), "CO_METALS"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 3), "METALS"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_SF_TABLE, 7), "METALS"
+        PatchedRow = ParamsRow("CO_OTHER")
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_SF_TABLE, 1), "CO_METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_SF_TABLE, 3), "METALS"
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_SF_TABLE, 7), "METALS"
         ExpectStatus "VALID"
 
     'CHF becomes a second USD row, at CHF's rate or at USD's.
         StartCase "fx-table-duplicate-different-rates", "N"
         AddSwap "T1"
-        r = ParamsRow("CHF")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 1), "USD"
+        PatchedRow = ParamsRow("CHF")
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_FX_TABLE, 1), "USD"
         ExpectStop "Currency listed twice with different rates"
 
         StartCase "fx-table-duplicate-same-rate", "N"
         AddSwap "T1"
-        r = ParamsRow("CHF")
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 1), "USD"
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, TableCol(NM_FX_TABLE, 3), ParamsValue("USD", TableCol(NM_FX_TABLE, 3))
+        PatchedRow = ParamsRow("CHF")
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_FX_TABLE, 1), "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_FX_TABLE, 3), _
+                                  ParamsValue("USD", TableCol(NM_FX_TABLE, 3))
         ExpectStatus "VALID"
 
     'Gaps: a table ends at its first blank key, so a row below a blank row,
@@ -491,10 +499,10 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
 
-    'Netting-set terms outside their range (#147): negative TH, MTA or
-    'remargining frequency, and an alpha or MPOR override at or below zero,
-    'make the set INVALID; a frequency below 1 day is raised to 1 with a
-    'warning.
+    'Netting-set terms outside their range (#147): a negative TH or MTA, a
+    'negative or fractional remargining frequency or MPOR override and an
+    'alpha override of zero make the set INVALID; a frequency of 0 is
+    'raised to daily (1 business day) with a warning.
         StartCase "netting-set-negative-threshold", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -100#
         AddSwap "T1"
@@ -918,15 +926,15 @@ Public Sub RunInputValidationTests()
     'default (#194): Instrument would become Linear, Nature Standard, the
     'notional currency the reporting currency, the MtM currency the
     'notional currency, and a netting-set or Params regime the default.
-        fields = Array(TR_INSTR, "Instrument", TR_NATURE, "Nature", TR_SUB, "Sub-class", _
+        TextFields = Array(TR_INSTR, "Instrument", TR_NATURE, "Nature", TR_SUB, "Sub-class", _
                        TR_LABEL, "Hedging-set label", TR_NCCY, "Notional currency", TR_MCCY, "MtM currency")
-        For f = LBound(fields) To UBound(fields) Step 2
-            StartCase "text-error-" & LCase$(Replace(CStr(fields(f + 1)), " ", "-")), "N"
+        For f = LBound(TextFields) To UBound(TextFields) Step 2
+            StartCase "text-error-" & LCase$(Replace(CStr(TextFields(f + 1)), " ", "-")), "N"
             AddSwap "T1"
-            TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(fields(f)), CVErr(xlErrNA)
+            TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(TextFields(f)), CVErr(xlErrNA)
             ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
             TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
-                                             CStr(fields(f + 1)) & " must be text or blank (found an error value)", _
+                                             CStr(TextFields(f + 1)) & " must be text or blank (found an error value)", _
                                              "illustrative"
         Next f
 
@@ -959,27 +967,29 @@ Public Sub RunInputValidationTests()
 
         StartCase "number-format-currency", "N"
         AddSmallOption
-        r = TableFirstRow(SH_TRADES)
-        savedFormat = TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat
-        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = "$#,##0.00"
+        PatchedRow = TableFirstRow(SH_TRADES)
+        SavedFormat = TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat
+        TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat = "$#,##0.00"
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
                                      "0.000001", "0", "illustrative"
-        TEST_CaseRunner.ExpectTrue "value-type", VarType(TableCell(GetSheet(SH_TRADES), r, TR_PRICE).Value) = vbCurrency, _
+        TEST_CaseRunner.ExpectTrue "value-type", _
+                                   VarType(TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).Value) = vbCurrency, _
                                    "the Currency format did not make Range.Value return Currency", "illustrative"
-        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
+        TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat = SavedFormat
 
         StartCase "number-format-accounting", "N"
         AddSmallOption
-        r = TableFirstRow(SH_TRADES)
-        savedFormat = TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat
-        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* ""-""??_);_(@_)"
+        PatchedRow = TableFirstRow(SH_TRADES)
+        SavedFormat = TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat
+        TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* ""-""??_);_(@_)"
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectNumber "delta", "T1", "supervisory_delta", "0.726760030216713", _
                                      "0.000001", "0", "illustrative"
-        TEST_CaseRunner.ExpectTrue "value-type", VarType(TableCell(GetSheet(SH_TRADES), r, TR_PRICE).Value) = vbCurrency, _
+        TEST_CaseRunner.ExpectTrue "value-type", _
+                                   VarType(TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).Value) = vbCurrency, _
                                    "the Accounting format did not make Range.Value return Currency", "illustrative"
-        TableCell(GetSheet(SH_TRADES), r, TR_PRICE).NumberFormat = savedFormat
+        TableCell(GetSheet(SH_TRADES), PatchedRow, TR_PRICE).NumberFormat = SavedFormat
 
     'Totals per regime (#198): one TOTAL row for each regime with netting
     'sets, CRR first, after the netting-set rows; each sums the regime's
@@ -1042,47 +1052,55 @@ End Sub
 
 Private Sub StartCase( _
     ByVal caseId As String, _
-    ByVal flagValue As String)
+    ByVal FlagValue As String)
 '
 '==============================================================================
 '                                  StartCase
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Start a CRR case with one unmargined netting set NS1. flagValue is
-'   written to every Y/N field: "N", or "" to leave them blank.
+'   Start a CRR case with one unmargined netting set NS1. FlagValue is
+'   written to the margined, clearing-role, large-or-illiquid and disputes
+'   fields: "N", or "" to leave them blank.
+'
+' NOTE
+'   The parameter keeps the name caseId: tools/check_excel_evidence.py
+'   reads the BeginCase line below by that name to find the prefix the log
+'   prints before the first case.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
         TEST_CaseRunner.BeginCase "input-" & caseId, "CRR", VALUATION, "EUR"
-        TEST_CaseRunner.AddNettingSet "NS1", flagValue, flagValue, "", flagValue, flagValue, "", _
+        TEST_CaseRunner.AddNettingSet "NS1", FlagValue, FlagValue, "", FlagValue, FlagValue, "", _
                                  "0", "0", "0", "0", ""
 
 End Sub
 
 
 Private Sub StartMarginedCase( _
-    ByVal caseId As String, _
-    ByVal regimeCode As String, _
-    ByVal roleCode As String, _
-    ByVal remarginDays As String, _
-    ByVal largeFlag As String, _
-    ByVal disputesFlag As String)
+    ByVal CaseId As String, _
+    ByVal RegimeCode As String, _
+    ByVal RoleCode As String, _
+    ByVal RemarginDays As String, _
+    ByVal LargeFlag As String, _
+    ByVal DisputesFlag As String)
 '
 '==============================================================================
 '                              StartMarginedCase
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Start a case with one margined netting set NS1, without collateral,
-'   threshold or MTA, in the given regime, and add a swap.
+'   threshold or MTA, in RegimeCode, with the clearing role, remargining
+'   frequency and large-or-illiquid and disputes flags given, and add a
+'   swap.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.BeginCase "input-" & caseId, regimeCode, VALUATION, "EUR"
-        TEST_CaseRunner.AddNettingSet "NS1", "Y", roleCode, remarginDays, largeFlag, disputesFlag, "", _
+        TEST_CaseRunner.BeginCase "input-" & CaseId, RegimeCode, VALUATION, "EUR"
+        TEST_CaseRunner.AddNettingSet "NS1", "Y", RoleCode, RemarginDays, LargeFlag, DisputesFlag, "", _
                                  "0", "0", "0", "0", ""
         AddSwap "T1"
 
@@ -1090,7 +1108,7 @@ End Sub
 
 
 Private Sub ExpectMPOR( _
-    ByVal expectedDays As Long)
+    ByVal ExpectedDays As Long)
 '
 '==============================================================================
 '                                  ExpectMPOR
@@ -1100,18 +1118,18 @@ Private Sub ExpectMPOR( _
 '   MPOR in business days.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-17
 '==============================================================================
 '
         ExpectStatus "VALID"
-        TEST_CaseRunner.ExpectNumber "mpor", "", "margin_period_of_risk", CStr(expectedDays), "0", "0", _
+        TEST_CaseRunner.ExpectNumber "mpor", "", "margin_period_of_risk", CStr(ExpectedDays), "0", "0", _
                                      "illustrative"
 
 End Sub
 
 
 Private Sub AddSwap( _
-    ByVal tradeId As String)
+    ByVal TradeId As String)
 '
 '==============================================================================
 '                                   AddSwap
@@ -1120,37 +1138,37 @@ Private Sub AddSwap( _
 '   Add a valid five-year EUR interest-rate swap to NS1.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        AddSwapTo tradeId, "2031-09-30"
+        AddSwapTo TradeId, "2031-09-30"
 
 End Sub
 
 
 Private Sub AddSwapTo( _
-    ByVal tradeId As String, _
-    ByVal endDate As String)
+    ByVal TradeId As String, _
+    ByVal EndDate As String)
 '
 '==============================================================================
 '                                  AddSwapTo
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Add a EUR interest-rate swap to NS1 starting on the reporting date and
-'   ending on endDate (yyyy-mm-dd), which is also its maturity (#40).
+'   ending on EndDate (yyyy-mm-dd), which is also its maturity (#40).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
-                            "10000", "30", "", endDate, endDate, "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade TradeId, "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
+                            "10000", "30", "", EndDate, EndDate, "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub ExpectRunClass( _
-    ByVal expected As String)
+    ByVal ExpectedClass As String)
 '
 '==============================================================================
 '                                ExpectRunClass
@@ -1159,65 +1177,65 @@ Private Sub ExpectRunClass( _
 '   Check the class of the case's run: RUN_REGULATORY or RUN_WHATIF (#41).
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.ExpectTrue "run-class", CORE_Engine.RunClass = expected, _
-                                   "run class " & CORE_Engine.RunClass & ", expected " & expected, "illustrative"
+        TEST_CaseRunner.ExpectTrue "run-class", CORE_Engine.RunClass = ExpectedClass, _
+                                   "run class " & CORE_Engine.RunClass & ", expected " & ExpectedClass, "illustrative"
 
 End Sub
 
 
 Private Sub StartReportingCcyCase( _
-    ByVal caseId As String, _
-    ByVal code As String)
+    ByVal CaseId As String, _
+    ByVal CurrencyCode As String)
 '
 '==============================================================================
 '                            StartReportingCcyCase
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Start a CRR case with one swap and the reporting currency written as
-'   code, bypassing the worksheet validation.
+'   CurrencyCode, bypassing the worksheet validation.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        StartCase caseId, "N"
+        StartCase CaseId, "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REPCCY), ParamsValueCol(), code
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REPCCY), ParamsValueCol(), CurrencyCode
 
 End Sub
 
 
 Private Sub ExpectStop( _
-    ByVal messagePart As String)
+    ByVal MessagePart As String)
 '
 '==============================================================================
 '                                  ExpectStop
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the case and check that the run stopped with an ERROR on Checks
-'   containing messagePart.
+'   containing MessagePart.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.RunCaseExpectingStop "stop", messagePart, "illustrative"
+        TEST_CaseRunner.RunCaseExpectingStop "stop", MessagePart, "illustrative"
 
 End Sub
 
 
 Private Function ParamsRow( _
-    ByVal key As String) _
+    ByVal ParamsKey As String) _
     As Long
 '
 '==============================================================================
 '                                  ParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the Params row that holds key: a parameter code in the code
+'   Return the Params row that holds ParamsKey: a parameter code in the code
 '   column, a supervisory-factor key or a currency in its table's first
 '   column, as the workbook names locate them.
 '
@@ -1233,52 +1251,52 @@ Private Function ParamsRow( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r      As Long       'Row found; 0 when absent
-    Dim cols   As Variant    'Columns searched, as table columns
-    Dim i      As Long       'Index into cols
+    Dim FoundRow        As Long       'Row found; 0 when absent
+    Dim SearchColumns   As Variant    'Columns searched, as table columns
+    Dim i               As Long       'Index into SearchColumns
 
 '------------------------------------------------------------------------------
 ' FIND
 '------------------------------------------------------------------------------
-        cols = Array(ParamsCodeCol(), TableCol(NM_SF_TABLE, 1), TableCol(NM_FX_TABLE, 1))
-        For i = LBound(cols) To UBound(cols)
-            r = FindHeaderRow(GetSheet(SH_PARAMS), CLng(cols(i)), key)
-            If r > 0 Then
+        SearchColumns = Array(ParamsCodeCol(), TableCol(NM_SF_TABLE, 1), TableCol(NM_FX_TABLE, 1))
+        For i = LBound(SearchColumns) To UBound(SearchColumns)
+            FoundRow = FindHeaderRow(GetSheet(SH_PARAMS), CLng(SearchColumns(i)), ParamsKey)
+            If FoundRow > 0 Then
                 Exit For
             End If
         Next i
-        If r = 0 Then
-            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & key & "' not found on Params."
+        If FoundRow = 0 Then
+            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.ParamsRow", "'" & ParamsKey & "' not found on Params."
         End If
-        ParamsRow = r
+        ParamsRow = FoundRow
 
 End Function
 
 
 Private Function ParamsValue( _
-    ByVal key As String, _
-    ByVal col As Long) _
+    ByVal ParamsKey As String, _
+    ByVal ColumnNumber As Long) _
     As Variant
 '
 '==============================================================================
 '                                 ParamsValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return a value from the Params row that holds key (see ParamsRow), at
-'   table column col.
+'   Return a value from the Params row that holds ParamsKey (see
+'   ParamsRow), at table column ColumnNumber.
 '
 ' UPDATED
 '   2026-10-11
 '==============================================================================
 '
-        ParamsValue = TableCell(GetSheet(SH_PARAMS), ParamsRow(key), col).Value
+        ParamsValue = TableCell(GetSheet(SH_PARAMS), ParamsRow(ParamsKey), ColumnNumber).Value
 
 End Function
 
 
 Private Sub AddParamRow( _
-    ByVal code As String, _
-    ByVal newValue As Variant)
+    ByVal ParamCode As String, _
+    ByVal NewValue As Variant)
 '
 '==============================================================================
 '                                 AddParamRow
@@ -1293,44 +1311,44 @@ Private Sub AddParamRow( _
 '   template fails the suite instead of overwriting a row.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'The new row
+    Dim NewRow   As Long    'The new row
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        r = ParamsRow(PRM_LAMCO) + 1
-        If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, ParamsCodeCol()).Value) Or _
-           Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), r, ParamsValueCol()).Value) Then
-            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & r & " is not blank."
+        NewRow = ParamsRow(PRM_LAMCO) + 1
+        If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsCodeCol()).Value) Or _
+           Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsValueCol()).Value) Then
+            Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & NewRow & " is not blank."
         End If
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsCodeCol(), code
-        TEST_CaseRunner.PatchCell SH_PARAMS, r, ParamsValueCol(), newValue
+        TEST_CaseRunner.PatchCell SH_PARAMS, NewRow, ParamsCodeCol(), ParamCode
+        TEST_CaseRunner.PatchCell SH_PARAMS, NewRow, ParamsValueCol(), NewValue
 
 End Sub
 
 
 Private Sub ClearParamsRow( _
-    ByVal rowNum As Long, _
-    ByVal firstCol As Long, _
-    ByVal nCols As Long)
+    ByVal RowNumber As Long, _
+    ByVal FirstColumn As Long, _
+    ByVal ColumnCount As Long)
 '
 '==============================================================================
 '                                ClearParamsRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Blank nCols table columns from firstCol of one Params row, as if a blank
-'   row had been inserted in a table there. Restored with the case's other
-'   patches.
+'   Blank ColumnCount table columns from FirstColumn of one Params row, as
+'   if a blank row had been inserted in a table there. Restored with the
+'   case's other patches.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1342,37 +1360,38 @@ Private Sub ClearParamsRow( _
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        For c = firstCol To firstCol + nCols - 1
-            TEST_CaseRunner.PatchCell SH_PARAMS, rowNum, c, Empty
+        For c = FirstColumn To FirstColumn + ColumnCount - 1
+            TEST_CaseRunner.PatchCell SH_PARAMS, RowNumber, c, Empty
         Next c
 
 End Sub
 
 
 Private Function TableCol( _
-    ByVal nameText As String, _
-    ByVal k As Long) _
+    ByVal NameText As String, _
+    ByVal ColumnIndex As Long) _
     As Long
 '
 '==============================================================================
 '                                   TableCol
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the table column of column k of a Params lookup table, counted
-'   from the top-left cell of its workbook name (1 for the keys).
+'   Return the table column of column ColumnIndex of a Params lookup
+'   table, counted from the top-left cell of its workbook name (1 for the
+'   keys).
 '
 ' UPDATED
 '   2026-10-11
 '==============================================================================
 '
-        TableCol = NamedTableCol(nameText) + k - 1
+        TableCol = NamedTableCol(NameText) + ColumnIndex - 1
 
 End Function
 
 
 Private Sub AddEquityForward( _
-    ByVal tradeId As String, _
-    ByVal marketValue As String)
+    ByVal TradeId As String, _
+    ByVal MarketValue As String)
 '
 '==============================================================================
 '                               AddEquityForward
@@ -1382,18 +1401,18 @@ Private Sub AddEquityForward( _
 '   NS1 (#38).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "EQ", "SINGLE", "ACME", "Linear", "Long", "", "Standard", "", _
-                                 "10000", marketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade TradeId, "EQ", "SINGLE", "ACME", "Linear", "Long", "", "Standard", "", _
+                                 "10000", MarketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub AddFxForward( _
-    ByVal tradeId As String, _
-    ByVal marketValue As String)
+    ByVal TradeId As String, _
+    ByVal MarketValue As String)
 '
 '==============================================================================
 '                                AddFxForward
@@ -1402,11 +1421,11 @@ Private Sub AddFxForward( _
 '   Add a five-year EUR/USD forward, long, notional 10,000, to NS1 (#38).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "FX", "", "EUR/USD", "Linear", "Long", "", "Standard", "", _
-                                 "10000", marketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade TradeId, "FX", "", "EUR/USD", "Linear", "Long", "", "Standard", "", _
+                                 "10000", MarketValue, "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
@@ -1475,8 +1494,8 @@ End Sub
 
 
 Private Sub AddSwaption( _
-    ByVal tradeId As String, _
-    ByVal startDate As String)
+    ByVal TradeId As String, _
+    ByVal StartDate As String)
 '
 '==============================================================================
 '                                 AddSwaption
@@ -1484,73 +1503,74 @@ Private Sub AddSwaption( _
 ' PURPOSE
 '   Add a bought EUR payer swaption on 10,000, struck at the money (P = K
 '   = 5%), with its latest exercise date on 2029-09-30 and the underlying
-'   swap ending on 2036-09-30; startDate is the start of the underlying,
+'   swap ending on 2036-09-30; StartDate is the start of the underlying,
 '   "" for none (#40).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "IR", "", "EUR", "Option", "Long", "Call", "Standard", "", _
-                                 "10000", "0", startDate, "2036-09-30", "2036-09-30", "2029-09-30", "0.05", _
+        TEST_CaseRunner.AddTrade TradeId, "IR", "", "EUR", "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", StartDate, "2036-09-30", "2036-09-30", "2029-09-30", "0.05", _
                                  "0.05", "", "", ""
 
 End Sub
 
 
 Private Sub AddFxOption( _
-    ByVal tradeId As String, _
-    ByVal pair As String, _
-    ByVal price As String, _
-    ByVal strike As String, _
-    ByVal notionalCcy As String)
+    ByVal TradeId As String, _
+    ByVal Pair As String, _
+    ByVal Price As String, _
+    ByVal Strike As String, _
+    ByVal NotionalCurrency As String)
 '
 '==============================================================================
 '                                 AddFxOption
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Add a bought FX call on 10,000 of notionalCcy on the pair as given,
+'   Add a bought FX call on 10,000 of NotionalCurrency on Pair as given,
 '   expiring and maturing on 2027-09-30, one year after the valuation
-'   date (#40).
+'   date (#40). The notional currency is written on Trades row 1, so the
+'   option must be the case's first trade.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "FX", "", pair, "Option", "Long", "Call", "Standard", "", _
-                                 "10000", "0", "", "", "2027-09-30", "2027-09-30", price, strike, "", "", ""
-        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, notionalCcy
+        TEST_CaseRunner.AddTrade TradeId, "FX", "", Pair, "Option", "Long", "Call", "Standard", "", _
+                                 "10000", "0", "", "", "2027-09-30", "2027-09-30", Price, Strike, "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, NotionalCurrency
 
 End Sub
 
 
 Private Sub AddFxForwardOn( _
-    ByVal tradeId As String, _
-    ByVal pair As String, _
-    ByVal direction As String)
+    ByVal TradeId As String, _
+    ByVal Pair As String, _
+    ByVal Direction As String)
 '
 '==============================================================================
 '                                AddFxForwardOn
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Add a five-year FX forward on pair as written, notional 10,000 in the
+'   Add a five-year FX forward on Pair as written, notional 10,000 in the
 '   case currency (EUR), MtM 0, to NS1 (#40).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "FX", "", pair, "Linear", direction, "", "Standard", "", _
+        TEST_CaseRunner.AddTrade TradeId, "FX", "", Pair, "Linear", Direction, "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub AddEquityCall( _
-    ByVal tradeId As String, _
-    ByVal direction As String, _
-    ByVal strikePrice As String, _
-    ByVal marketValue As String)
+    ByVal TradeId As String, _
+    ByVal Direction As String, _
+    ByVal StrikePrice As String, _
+    ByVal MarketValue As String)
 '
 '==============================================================================
 '                                AddEquityCall
@@ -1561,20 +1581,20 @@ Private Sub AddEquityCall( _
 '   spread (#38).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "EQ", "SINGLE", "ACME", "Option", direction, "Call", "Standard", "", _
-                                 "10000", marketValue, "", "2027-09-30", "2027-09-30", "2027-09-30", "100", _
-                                 strikePrice, "", "", ""
+        TEST_CaseRunner.AddTrade TradeId, "EQ", "SINGLE", "ACME", "Option", Direction, "Call", "Standard", "", _
+                                 "10000", MarketValue, "", "2027-09-30", "2027-09-30", "2027-09-30", "100", _
+                                 StrikePrice, "", "", ""
 
 End Sub
 
 
 Private Sub SetLeg( _
-    ByVal dataRow As Long, _
-    ByVal economicTradeId As String, _
-    ByVal mtmLegFlag As String)
+    ByVal DataRow As Long, _
+    ByVal EconomicTradeId As String, _
+    ByVal MtmLegFlag As String)
 '
 '==============================================================================
 '                                    SetLeg
@@ -1583,19 +1603,19 @@ Private Sub SetLeg( _
 '   Make a trade row a leg: its Economic trade ID and its MtM leg flag (#38).
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.SetInputCell SH_TRADES, dataRow, TR_ECON, economicTradeId
-        TEST_CaseRunner.SetInputCell SH_TRADES, dataRow, TR_MTMLEG, mtmLegFlag
+        TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_ECON, EconomicTradeId
+        TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_MTMLEG, MtmLegFlag
 
 End Sub
 
 
 Private Sub AddCredit( _
-    ByVal tradeId As String, _
-    ByVal subClass As String, _
-    ByVal reference As String)
+    ByVal TradeId As String, _
+    ByVal SubClass As String, _
+    ByVal ReferenceName As String)
 '
 '==============================================================================
 '                                  AddCredit
@@ -1605,24 +1625,24 @@ Private Sub AddCredit( _
 '   NS1.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade tradeId, "CR", subClass, reference, "Linear", "Long", "", "Standard", "", _
+        TEST_CaseRunner.AddTrade TradeId, "CR", SubClass, ReferenceName, "Linear", "Long", "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
 
 
 Private Sub ExpectStopIn1904( _
-    ByVal messagePart As String)
+    ByVal MessagePart As String)
 '
 '==============================================================================
 '                               ExpectStopIn1904
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Set the workbook to the 1904 date system, run the case expecting it to
-'   stop with messagePart, and set the workbook back to the 1900 system
+'   stop with MessagePart, and set the workbook back to the 1900 system
 '   (#40). The case's dates shift by 1,462 days while the setting is on;
 '   they return when it is cleared.
 '
@@ -1631,15 +1651,15 @@ Private Sub ExpectStopIn1904( _
 '   failure cannot leave the workbook in the 1904 system.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim errNumber   As Long      'Error raised while the setting was on
-    Dim errText     As String    'Its description
+    Dim ErrorNumber   As Long      'Error raised while the setting was on
+    Dim ErrorText     As String    'Its description
 
 '------------------------------------------------------------------------------
 ' RUN IN THE 1904 SYSTEM
@@ -1650,20 +1670,20 @@ Private Sub ExpectStopIn1904( _
         End If
         ThisWorkbook.Date1904 = True
         On Error Resume Next
-        ExpectStop messagePart
-        errNumber = Err.Number
-        errText = Err.Description
+        ExpectStop MessagePart
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         On Error GoTo 0
         ThisWorkbook.Date1904 = False
-        If errNumber <> 0 Then
-            Err.Raise errNumber, "TEST_InputValidation.ExpectStopIn1904", errText
+        If ErrorNumber <> 0 Then
+            Err.Raise ErrorNumber, "TEST_InputValidation.ExpectStopIn1904", ErrorText
         End If
 
 End Sub
 
 
 Private Function ResultsRow( _
-    ByVal label As String) _
+    ByVal FirstColumnText As String) _
     As Long
 '
 '==============================================================================
@@ -1684,16 +1704,16 @@ Private Function ResultsRow( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws   As Worksheet    'Results sheet
-    Dim r    As Long         'Row being read
+    Dim ResultsSheet   As Worksheet    'Results sheet
+    Dim r              As Long         'Row being read
 
 '------------------------------------------------------------------------------
 ' FIND
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_RESULTS)
+        Set ResultsSheet = GetSheet(SH_RESULTS)
         r = OutputFirstRow(SH_RESULTS)
-        Do While Not IsBlankCell(TableCell(ws, r, 1).Value)
-            If SafeStr(TableCell(ws, r, 1).Value) = label Then
+        Do While Not IsBlankCell(TableCell(ResultsSheet, r, 1).Value)
+            If SafeStr(TableCell(ResultsSheet, r, 1).Value) = FirstColumnText Then
                 ResultsRow = r
                 Exit Function
             End If
@@ -1704,55 +1724,60 @@ End Function
 
 
 Private Sub ExpectTotal( _
-    ByVal regimeCode As String, _
-    ByVal statusText As String, _
-    ByVal nettingSetId As String)
+    ByVal RegimeCode As String, _
+    ByVal StatusText As String, _
+    ByVal ExpectedNettingSet As String)
 '
 '==============================================================================
 '                                 ExpectTotal
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Check the TOTAL row of a regime (#198): it exists, its status is
-'   statusText, its EAD equals the EAD of the regime's one VALID netting
-'   set nettingSetId, and CORE_Engine.TotalEAD reports the same figure.
+'   StatusText, its EAD (column 22) equals the EAD of the regime's one
+'   VALID netting set ExpectedNettingSet, and CORE_Engine.TotalEAD reports
+'   the same figure.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws       As Worksheet    'Results sheet
-    Dim tr       As Long         'Row of the TOTAL row
-    Dim nr       As Long         'Row of the netting set
-    Dim ok       As Boolean      'All conditions hold
-    Dim detail   As String       'Diagnostic
+    Dim ResultsSheet    As Worksheet    'Results sheet
+    Dim TotalRow        As Long         'Row of the TOTAL row
+    Dim NettingSetRow   As Long         'Row of the netting set
+    Dim AllHold         As Boolean      'All conditions hold
+    Dim Detail          As String       'Diagnostic
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_RESULTS)
-        tr = ResultsRow("TOTAL " & regimeCode)
-        nr = ResultsRow(nettingSetId)
-        If tr = 0 Or nr = 0 Then
-            detail = "TOTAL " & regimeCode & " or " & nettingSetId & " is missing from Results"
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        TotalRow = ResultsRow("TOTAL " & RegimeCode)
+        NettingSetRow = ResultsRow(ExpectedNettingSet)
+        If TotalRow = 0 Or NettingSetRow = 0 Then
+            Detail = "TOTAL " & RegimeCode & " or " & ExpectedNettingSet & " is missing from Results"
         Else
-            ok = (SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) = statusText) And _
-                 (Abs(ToDbl(TableCell(ws, tr, 22).Value) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001) And _
-                 (Abs(CORE_Engine.TotalEAD(regimeCode) - ToDbl(TableCell(ws, nr, 22).Value)) < 0.000001)
-            detail = "TOTAL " & regimeCode & " status """ & SafeStr(TableCell(ws, tr, RS_STATUS_COL).Value) & _
-                     """, EAD " & TableCell(ws, tr, 22).Value & "; expected """ & statusText & """ and the EAD of " & _
-                     nettingSetId & ", " & TableCell(ws, nr, 22).Value
+            AllHold = (SafeStr(TableCell(ResultsSheet, TotalRow, RS_STATUS_COL).Value) = StatusText) And _
+                      (Abs(ToDbl(TableCell(ResultsSheet, TotalRow, 22).Value) - _
+                           ToDbl(TableCell(ResultsSheet, NettingSetRow, 22).Value)) < 0.000001) And _
+                      (Abs(CORE_Engine.TotalEAD(RegimeCode) - _
+                           ToDbl(TableCell(ResultsSheet, NettingSetRow, 22).Value)) < 0.000001)
+            Detail = "TOTAL " & RegimeCode & " status """ & _
+                     SafeStr(TableCell(ResultsSheet, TotalRow, RS_STATUS_COL).Value) & _
+                     """, EAD " & TableCell(ResultsSheet, TotalRow, 22).Value & "; expected """ & StatusText & _
+                     """ and the EAD of " & ExpectedNettingSet & ", " & _
+                     TableCell(ResultsSheet, NettingSetRow, 22).Value
         End If
-        TEST_CaseRunner.ExpectTrue "total-" & LCase$(regimeCode), ok, detail, "illustrative"
+        TEST_CaseRunner.ExpectTrue "total-" & LCase$(RegimeCode), AllHold, Detail, "illustrative"
 
 End Sub
 
 
 Private Sub ExpectStatus( _
-    ByVal expected As String)
+    ByVal ExpectedStatus As String)
 '
 '==============================================================================
 '                                 ExpectStatus
@@ -1761,10 +1786,10 @@ Private Sub ExpectStatus( _
 '   Run the case and check the netting set's status on Results.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
         TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectText "status", "", "netting_set_status", expected, "illustrative"
+        TEST_CaseRunner.ExpectText "status", "", "netting_set_status", ExpectedStatus, "illustrative"
 
 End Sub
