@@ -530,12 +530,18 @@ class ExcelEvidenceTests(unittest.TestCase):
         source = module.read_text(encoding="cp1252")
         start = source.index("Sub StartCase(")
         end = source.index("End Sub", start)
-        for old, new in (('"input-" & caseId', "caseId"), ('"input-" & caseId', '"input-" & caseId & "-x"')):
+        for old, new in (('"input-" & CaseId', "CaseId"), ('"input-" & CaseId', '"input-" & CaseId & "-x"')):
             changed = source[:start] + source[start:end].replace(old, new) + source[end:]
             self.assertNotEqual(changed, source)
             module.write_text(changed, encoding="cp1252")
             self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
                           " ".join(evidence.policy_problems(copy_root)), new)
+        # The parameter's name does not matter, nor its letter case.
+        body = source[start:end].replace("ByVal CaseId", "ByVal FixtureName").replace("& CaseId,", "& fixturename,")
+        renamed = source[:start] + body + source[end:]
+        self.assertNotEqual(renamed, source)
+        module.write_text(renamed, encoding="cp1252")
+        self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
         # The first call's argument must end with its literal, too.
         call = 'StartCase "trade-middle-row-without-id", "N"'
         self.assertIn(call, source)

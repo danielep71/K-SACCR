@@ -1051,7 +1051,7 @@ End Sub
 '
 
 Private Sub StartCase( _
-    ByVal caseId As String, _
+    ByVal CaseId As String, _
     ByVal FlagValue As String)
 '
 '==============================================================================
@@ -1062,16 +1062,15 @@ Private Sub StartCase( _
 '   written to the margined, clearing-role, large-or-illiquid and disputes
 '   fields: "N", or "" to leave them blank.
 '
-' NOTE
-'   The parameter keeps the name caseId: tools/check_excel_evidence.py
-'   reads the BeginCase line below by that name to find the prefix the log
-'   prints before the first case.
+' INPUTS
+'   CaseId: the case ID; the log prints it behind "input-", which
+'   tools/check_excel_evidence.py reads from the BeginCase line below.
 '
 ' UPDATED
 '   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.BeginCase "input-" & caseId, "CRR", VALUATION, "EUR"
+        TEST_CaseRunner.BeginCase "input-" & CaseId, "CRR", VALUATION, "EUR"
         TEST_CaseRunner.AddNettingSet "NS1", FlagValue, FlagValue, "", FlagValue, FlagValue, "", _
                                  "0", "0", "0", "0", ""
 
