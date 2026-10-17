@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 19              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 140              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 144              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -649,12 +649,13 @@ Private Sub CaseWorkbook()
 '   In the workbook: a run with no bank figures makes no reconciliation; a
 '   run with figures taken from Results writes MATCH, DIFFERENCE, MISSING
 '   IN CALCULATOR and NOT IN BANK FILE rows, its summary and a current
-'   status; an edited bank figure makes the status OUT OF DATE; a run whose
-'   recalculation does not finish and validation each withdraw the
-'   reconciliation. The bank table and settings are put back.
+'   status; a failed reconciliation keeps its cause in the run message
+'   and the summary (#318); an edited bank figure makes the status OUT OF
+'   DATE; a run whose recalculation does not finish and validation each
+'   withdraw the reconciliation. The bank table and settings are put back.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
@@ -734,6 +735,23 @@ Private Sub CaseWorkbook()
         Check InStr(SafeStr(wsRecon.Range(RECON_INFO_CELL).Value), "Last reconciliation") = 1, _
               "summary: " & SafeStr(wsRecon.Range(RECON_INFO_CELL).Value)
         CheckStatus wsRecon, "Reconciliation current", "after the run"
+
+'------------------------------------------------------------------------------
+' FAILED RECONCILIATION
+'------------------------------------------------------------------------------
+    'Cleaning up a failed reconciliation clears Err: its cause must reach
+    'both the summary and the run message (#318). A normal run follows.
+        M_Main.gTestFault = "reconcile"
+        M_Main.gLastMessage = ""
+        result = M_Main.RunSACCR_Silent()
+        M_Main.gTestFault = ""
+        Check InStr(result, "; reconciliation=FAILED;") > 0, "run with a failed reconciliation: " & result
+        Check InStr(M_Main.gLastMessage, "Reconciliation failed: Injected reconciliation failure.") > 0, _
+              "run message after a failed reconciliation: " & M_Main.gLastMessage
+        Check InStr(SafeStr(wsRecon.Range(RECON_INFO_CELL).Value), "Injected reconciliation failure.") > 0, _
+              "summary after a failed reconciliation: " & SafeStr(wsRecon.Range(RECON_INFO_CELL).Value)
+        result = M_Main.RunSACCR_Silent()
+        Check InStr(result, "; reconciliation=DONE;") > 0, "run after the failed reconciliation: " & result
 
 '------------------------------------------------------------------------------
 ' EDITED BANK FIGURE, STOPPED RUN, THEN VALIDATION

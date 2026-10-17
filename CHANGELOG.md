@@ -96,6 +96,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- A failed reconciliation now keeps its cause in the run message: the
+  message read the error after the cleanup of the reconciliation sheet had
+  cleared it, so it said only "failed:". `TEST_Reconcile` checks it with
+  an injected failure (#318); its checks go from 140 to 144.
 - The PowerShell commands in `docs/EXCEL_EVIDENCE.md`, `tools/README.md` and
   the scripts' own help run through `powershell.exe -ExecutionPolicy Bypass
   -File`, as `Sync-SACCR-VBA.cmd` does: on a machine whose execution policy
