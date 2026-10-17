@@ -7,14 +7,15 @@ Attribute VB_Name = "CORE_Config"
 '   header and first data rows, the column of each input field, the width of
 '   each output table, parameter codes, regime and asset-class codes, the
 '   severity labels written to the Checks sheet, the expected column
-'   headers, the bank-figure and reconciliation layout, and the error
-'   numbers raised by the workbook macros. When a sheet layout changes, it
-'   changes here and nowhere else.
+'   headers, the bank-figure and reconciliation layout, the names of the
+'   hidden fingerprints, the regulatory reference parameter set, the FX
+'   quote order and the error numbers raised by the workbook macros. When
+'   a sheet layout changes, it changes here and nowhere else.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
-'   by CORE_Util, CORE_Engine, CORE_Reconcile and M_Main; Option Private
-'   Module keeps them off the supported external surface.
+'   by CORE_Util, CORE_Engine, CORE_Reconcile, M_Main and the test modules;
+'   Option Private Module keeps them off the supported external surface.
 '
 ' DEPENDENCIES
 '   None. Every value is a literal.
@@ -29,7 +30,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -255,8 +256,8 @@ Attribute VB_Name = "CORE_Config"
     'Header text of every column the engine reads, in column order and
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
-    'case, spaces and line breaks) means a column was inserted, deleted or
-    'moved, and the run stops (#35). The Params, factor and FX headers are
+    'case, spaces, tabs and line breaks) means a column was inserted,
+    'deleted or moved, and the run stops (#35). The Params, factor and FX headers are
     'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
             "Client clearing role (N / CM / CLIENT)|Remargin frequency N (BD)|" & _
@@ -285,7 +286,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const HS_NCOLS   As Long = 14    'HedgingSets
         Public Const RS_NCOLS   As Long = 28    'Results
         Public Const CK_NCOLS   As Long = 5     'Checks
-        Public Const RS_STATUS_COL  As Long = 28    'Results: VALID, INCOMPLETE or NO TRADES
+        Public Const RS_STATUS_COL  As Long = 28    'Results: VALID, INVALID, INCOMPLETE or NO TRADES
 
 '------------------------------------------------------------------------------
 ' RESULTS COLUMNS READ BY THE RECONCILIATION
@@ -453,7 +454,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
-        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file not replaced whole
+        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file read-only or not written whole
         Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
 
 '------------------------------------------------------------------------------
