@@ -49,17 +49,22 @@ Attribute VB_Name = "TEST_Benchmark"
 '   restored at the end. The stray comment's row is deleted at the end of
 '   its scenario and, after an unexpected error, before the workbook is
 '   restored, so the Trades used range shrinks back to its extent before
-'   the comment. Use a development workbook.
+'   the comment. After every scenario, and before the workbook is restored
+'   after an unexpected error, the rows written below each sheet's extent
+'   before the run are deleted, so a large portfolio leaves no used range
+'   behind. Use a development workbook.
 '
 ' STATE OWNERSHIP
-'   Owns mStrayRow, the row of the stray comment while it exists.
-'   TEST_CaseRunner.BeginSuite captures, and EndSuite restores, calculation
-'   mode, events and screen updating; this module changes no other
-'   setting.
+'   Owns mStrayRow and mUsedBefore, the stray comment's row and the end of
+'   the Trades used range before it, and mBaseRows and mHaveBase, each
+'   sheet's last used row before the run. TEST_CaseRunner.BeginSuite
+'   captures, and EndSuite restores, calculation mode, events and screen
+'   updating; this module changes no other setting.
 '
 ' ERROR POLICY
 '   Sizes that cannot be read print a BENCH_REJECTED line and change
-'   nothing. An unexpected error ends the run through
+'   nothing. An unexpected error removes the stray comment and the rows
+'   added below each sheet's extent, then ends the run through
 '   TEST_CaseRunner.EndSuite, which restores the inputs, outputs and Excel
 '   settings and reports RESULT=FAIL.
 '
@@ -69,7 +74,7 @@ Attribute VB_Name = "TEST_Benchmark"
 '   TEST_Benchmark.RunBenchmark "1000,10000,50000".
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -126,7 +131,7 @@ Attribute VB_Name = "TEST_Benchmark"
 '
 
 Public Sub RunBenchmark( _
-    Optional ByVal sizesText As String = "1000,10000")
+    Optional ByVal SizesText As String = "1000,10000")
 '
 '==============================================================================
 '                                 RunBenchmark
@@ -136,43 +141,44 @@ Public Sub RunBenchmark( _
 '   TEST_CaseRunner report.
 '
 ' INPUTS
-'   sizesText: the legs of each scenario, whole numbers from 1 to MAX_LEGS
+'   SizesText: the legs of each scenario, whole numbers from 1 to MAX_LEGS
 '   separated by commas, at most MAX_SCENARIOS of them; 1,000 and 10,000
 '   when omitted.
 '
 ' ERROR POLICY
 '   Sizes that cannot be read print a BENCH_REJECTED line, and nothing is
-'   changed. Any other error ends the suite as failed: the stray comment is
-'   removed first, then EndSuite restores the workbook.
+'   changed. Any other error ends the suite as failed: the stray comment
+'   and the rows added below each sheet's extent are removed first, then
+'   EndSuite restores the workbook.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim sizes()       As Long      'Legs of each size scenario
-    Dim reason        As String    'Why sizesText was rejected; cleanup failure
-    Dim scenarios     As Long      'Size scenarios and the used-range one
-    Dim listed        As String    'Sizes as run, for the log
-    Dim i             As Long      'Index into sizes
-    Dim abortReason   As String    'Unexpected error, for EndSuite
+    Dim Sizes()         As Long      'Legs of each size scenario
+    Dim Reason          As String    'Why SizesText was rejected; cleanup failure
+    Dim ScenarioCount   As Long      'Size scenarios and the used-range one
+    Dim SizesListed     As String    'Sizes as run, for the log
+    Dim i               As Long      'Index into Sizes
+    Dim AbortReason     As String    'Unexpected error, for EndSuite
 
 '------------------------------------------------------------------------------
 ' VALIDATE
 '------------------------------------------------------------------------------
-        If Not ParseSizes(sizesText, sizes, reason) Then
-            TEST_Suite.Say "BENCH_REJECTED=" & reason
+        If Not ParseSizes(SizesText, Sizes, Reason) Then
+            TEST_Suite.Say "BENCH_REJECTED=" & Reason
             Exit Sub
         End If
-        scenarios = UBound(sizes) + 1
-        For i = 1 To UBound(sizes)
+        ScenarioCount = UBound(Sizes) + 1
+        For i = 1 To UBound(Sizes)
             If i > 1 Then
-                listed = listed & ","
+                SizesListed = SizesListed & ","
             End If
-            listed = listed & sizes(i)
+            SizesListed = SizesListed & Sizes(i)
         Next i
         mStrayRow = 0
         RecordExtents
@@ -180,12 +186,12 @@ Public Sub RunBenchmark( _
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        TEST_CaseRunner.BeginSuite scenarios, scenarios * CHECKS_PER_CASE + STRAY_CHECKS
+        TEST_CaseRunner.BeginSuite ScenarioCount, ScenarioCount * CHECKS_PER_CASE + STRAY_CHECKS
         On Error GoTo Failed
-        TEST_Suite.Say "BENCH sizes=" & listed & "; used_range_legs=" & USED_RANGE_LEGS & _
+        TEST_Suite.Say "BENCH sizes=" & SizesListed & "; used_range_legs=" & USED_RANGE_LEGS & _
                        "; legs_per_netting_set=" & LEGS_PER_SET
-        For i = 1 To UBound(sizes)
-            RunScenario "bench-" & sizes(i), sizes(i), False
+        For i = 1 To UBound(Sizes)
+            RunScenario "bench-" & Sizes(i), Sizes(i), False
         Next i
         RunScenario "bench-" & USED_RANGE_LEGS & "-usedrange", USED_RANGE_LEGS, True
         TEST_CaseRunner.EndSuite ""
@@ -194,19 +200,20 @@ Public Sub RunBenchmark( _
 '------------------------------------------------------------------------------
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
-    'The error is copied before the stray comment is removed, which resets
-    'Err; EndSuite then restores the workbook and reports the failure.
+    'The error is copied before the stray comment and the added rows are
+    'removed, which resets Err; EndSuite then restores the workbook and
+    'reports the failure.
 Failed:
-        abortReason = "unexpected error " & Err.Number & ": " & Err.Description
-        reason = ClearStray()
-        If Len(reason) > 0 Then
-            abortReason = abortReason & "; " & reason
+        AbortReason = "unexpected error " & Err.Number & ": " & Err.Description
+        Reason = ClearStray()
+        If Len(Reason) > 0 Then
+            AbortReason = AbortReason & "; " & Reason
         End If
-        reason = ShrinkSheets()
-        If Len(reason) > 0 Then
-            abortReason = abortReason & "; " & reason
+        Reason = ShrinkSheets()
+        If Len(Reason) > 0 Then
+            AbortReason = AbortReason & "; " & Reason
         End If
-        TEST_CaseRunner.EndSuite abortReason
+        TEST_CaseRunner.EndSuite AbortReason
 
 End Sub
 
@@ -220,126 +227,126 @@ End Sub
 '
 
 Private Sub RunScenario( _
-    ByVal caseId As String, _
-    ByVal legs As Long, _
-    ByVal inflateUsedRange As Boolean)
+    ByVal CaseId As String, _
+    ByVal LegCount As Long, _
+    ByVal InflateUsedRange As Boolean)
 '
 '==============================================================================
 '                                 RunScenario
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write a portfolio, time the writing and the engine run, record the
-'   checks and print the BENCH line. In the used-range scenario a stray
+'   checks and print the BENCH line, then delete the rows written below
+'   each sheet's extent before the run. In the used-range scenario a stray
 '   comment is written STRAY_OFFSET rows below the end of the Trades used
-'   range before
-'   the run, and its row deleted after it.
+'   range before the run, and its row deleted after it.
 '
 ' INPUTS
-'   caseId: the case label.
-'   legs: trade legs, 1 to MAX_LEGS.
-'   inflateUsedRange: True for the used-range scenario.
+'   CaseId: the case label.
+'   LegCount: trade legs, 1 to MAX_LEGS.
+'   InflateUsedRange: True for the used-range scenario.
 '
 ' ERROR POLICY
 '   An unexpected error propagates to RunBenchmark, which removes the
-'   stray comment.
+'   stray comment and the added rows.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim nSets          As Long       'Netting sets
-    Dim t0             As Double     'Timer at the start of the writing
-    Dim writeSeconds   As Double     'Seconds to write the inputs
-    Dim runSeconds     As Double     'Seconds of the engine run
-    Dim completed      As Boolean    'CORE_Engine.Calculate returned True
-    Dim detail         As String     'Why the run did not complete; cleanup failure
-    Dim usedLast       As Long       'Last row of the Trades used range before the run
-    Dim legsRead       As Long       'Legs the engine read
-    Dim legsUsed       As Long       'Legs the engine used
-    Dim validSets      As Long       'VALID CRR netting sets
-    Dim withheld       As Long       'Netting sets whose EAD was withheld
-    Dim errorLines     As Long       'ERROR lines on Checks
-    Dim resultsRows    As Long       'Rows on Results
-    Dim tradeRows      As Long       'Rows on TradeCalc
-    Dim lastId         As String     'ID of the last Results row
-    Dim lastTradeId    As String     'ID of the last TradeCalc row
-    Dim report         As String     'BENCH line
+    Dim NettingSetCount     As Long       'Netting sets
+    Dim StartTime           As Double     'Timer at the start of the writing
+    Dim WriteSeconds        As Double     'Seconds to write the inputs
+    Dim RunSeconds          As Double     'Seconds of the engine run
+    Dim Completed           As Boolean    'CORE_Engine.Calculate returned True
+    Dim Detail              As String     'Why the run did not complete; cleanup failure
+    Dim UsedRangeEnd        As Long       'End of the Trades used range with the stray comment
+    Dim LegsRead            As Long       'Legs the engine read
+    Dim LegsUsed            As Long       'Legs the engine used
+    Dim ValidSets           As Long       'VALID CRR netting sets
+    Dim WithheldSets        As Long       'Netting sets whose EAD was withheld
+    Dim ErrorLines          As Long       'ERROR lines on Checks
+    Dim ResultsRowCount     As Long       'Rows on Results
+    Dim TradeCalcRowCount   As Long       'Rows on TradeCalc
+    Dim LastId              As String     'ID of the last Results row
+    Dim LastTradeId         As String     'ID of the last TradeCalc row
+    Dim BenchLine           As String     'BENCH line
 
 '------------------------------------------------------------------------------
 ' WRITE THE INPUTS
 '------------------------------------------------------------------------------
     'One netting set per LEGS_PER_SET legs, the last one possibly smaller.
-        nSets = (legs + LEGS_PER_SET - 1) \ LEGS_PER_SET
-        TEST_CaseRunner.BeginCase caseId, RG_CRR, VALUATION, CALC_CCY
-        t0 = Timer
-        WriteNettingSets nSets
-        WriteTrades legs
-        writeSeconds = SecondsSince(t0)
-        If inflateUsedRange Then
+        NettingSetCount = (LegCount + LEGS_PER_SET - 1) \ LEGS_PER_SET
+        TEST_CaseRunner.BeginCase CaseId, RG_CRR, VALUATION, CALC_CCY
+        StartTime = Timer
+        WriteNettingSets NettingSetCount
+        WriteTrades LegCount
+        WriteSeconds = SecondsSince(StartTime)
+        If InflateUsedRange Then
             mUsedBefore = UsedLastRow(GetSheet(SH_TRADES))
             mStrayRow = mUsedBefore + STRAY_OFFSET
             TableCell(GetSheet(SH_TRADES), mStrayRow, TR_COMMENT).Value = STRAY_TEXT
-            usedLast = UsedLastRow(GetSheet(SH_TRADES))
-            TEST_CaseRunner.ExpectTrue "used-range", usedLast >= mStrayRow, "the Trades used range ends on row " & _
-                                       usedLast & ", above the stray comment on row " & mStrayRow, REFERENCE_CLASS
+            UsedRangeEnd = UsedLastRow(GetSheet(SH_TRADES))
+            TEST_CaseRunner.ExpectTrue "used-range", UsedRangeEnd >= mStrayRow, "the Trades used range ends on row " & _
+                                       UsedRangeEnd & ", above the stray comment on row " & mStrayRow, REFERENCE_CLASS
         End If
 
 '------------------------------------------------------------------------------
 ' RUN THE ENGINE
 '------------------------------------------------------------------------------
-        completed = RunEngine(runSeconds, detail)
+        Completed = RunEngine(RunSeconds, Detail)
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-    'Every leg read and used, every netting set VALID, no ERROR on Checks,
-    'one Results row per netting set and the TOTAL CRR row, one TradeCalc
-    'row per leg.
-        legsRead = CORE_Engine.TradesRead
-        legsUsed = CORE_Engine.TradesUsed
-        validSets = CORE_Engine.RegimeValidCount(RG_CRR)
-        withheld = CORE_Engine.IncompleteCount
-        errorLines = CORE_Engine.ErrorCount
-        resultsRows = OutputRows(SH_RESULTS, RS_ID, lastId)
-        tradeRows = OutputRows(SH_TRADECALC, TC_ID, lastTradeId)
-        TEST_CaseRunner.ExpectTrue "completed", completed, detail, REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "legs-used", (legsRead = legs) And (legsUsed = legs), _
-                                   "read " & legsRead & " and used " & legsUsed & " of " & legs & " legs", _
+    'The run completed, every leg read and used, every netting set VALID,
+    'no ERROR on Checks, one Results row per netting set and the TOTAL CRR
+    'row, one TradeCalc row per leg.
+        LegsRead = CORE_Engine.TradesRead
+        LegsUsed = CORE_Engine.TradesUsed
+        ValidSets = CORE_Engine.RegimeValidCount(RG_CRR)
+        WithheldSets = CORE_Engine.IncompleteCount
+        ErrorLines = CORE_Engine.ErrorCount
+        ResultsRowCount = OutputRows(SH_RESULTS, RS_ID, LastId)
+        TradeCalcRowCount = OutputRows(SH_TRADECALC, TC_ID, LastTradeId)
+        TEST_CaseRunner.ExpectTrue "completed", Completed, Detail, REFERENCE_CLASS
+        TEST_CaseRunner.ExpectTrue "legs-used", (LegsRead = LegCount) And (LegsUsed = LegCount), _
+                                   "read " & LegsRead & " and used " & LegsUsed & " of " & LegCount & " legs", _
                                    REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "netting-sets-valid", (validSets = nSets) And (withheld = 0), _
-                                   validSets & " of " & nSets & " netting sets VALID, " & withheld & " withheld", _
+        TEST_CaseRunner.ExpectTrue "netting-sets-valid", (ValidSets = NettingSetCount) And (WithheldSets = 0), _
+                                   ValidSets & " of " & NettingSetCount & " netting sets VALID, " & WithheldSets & " withheld", _
                                    REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "no-errors", errorLines = 0, errorLines & " ERROR line(s) on Checks", _
+        TEST_CaseRunner.ExpectTrue "no-errors", ErrorLines = 0, ErrorLines & " ERROR line(s) on Checks", _
                                    REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "results-rows", (resultsRows = nSets + 1) And (lastId = "TOTAL " & RG_CRR), _
-                                   resultsRows & " Results rows ending with '" & lastId & "', expected " & _
-                                   (nSets + 1) & " ending with 'TOTAL " & RG_CRR & "'", REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "tradecalc-rows", tradeRows = legs, _
-                                   tradeRows & " TradeCalc rows, expected " & legs, REFERENCE_CLASS
+        TEST_CaseRunner.ExpectTrue "results-rows", (ResultsRowCount = NettingSetCount + 1) And (LastId = "TOTAL " & RG_CRR), _
+                                   ResultsRowCount & " Results rows ending with '" & LastId & "', expected " & _
+                                   (NettingSetCount + 1) & " ending with 'TOTAL " & RG_CRR & "'", REFERENCE_CLASS
+        TEST_CaseRunner.ExpectTrue "tradecalc-rows", TradeCalcRowCount = LegCount, _
+                                   TradeCalcRowCount & " TradeCalc rows, expected " & LegCount, REFERENCE_CLASS
 
 '------------------------------------------------------------------------------
 ' REPORT
 '------------------------------------------------------------------------------
-        report = "BENCH case=" & caseId & "; legs=" & legs & "; netting_sets=" & nSets & _
-                 "; used=" & legsUsed & "; withheld=" & withheld & "; errors=" & errorLines & _
+        BenchLine = "BENCH case=" & CaseId & "; legs=" & LegCount & "; netting_sets=" & NettingSetCount & _
+                 "; used=" & LegsUsed & "; withheld=" & WithheldSets & "; errors=" & ErrorLines & _
                  "; warnings=" & CORE_Engine.WarningCount
-        report = report & "; tradecalc_rows=" & tradeRows & "; results_rows=" & resultsRows
-        If inflateUsedRange Then
-            report = report & "; used_last_row=" & usedLast
+        BenchLine = BenchLine & "; tradecalc_rows=" & TradeCalcRowCount & "; results_rows=" & ResultsRowCount
+        If InflateUsedRange Then
+            BenchLine = BenchLine & "; used_last_row=" & UsedRangeEnd
         End If
-        report = report & "; write_s=" & Format$(writeSeconds, "0.00") & "; run_s=" & Format$(runSeconds, "0.00")
-        TEST_Suite.Say report
+        BenchLine = BenchLine & "; write_s=" & Format$(WriteSeconds, "0.00") & "; run_s=" & Format$(RunSeconds, "0.00")
+        TEST_Suite.Say BenchLine
 
 '------------------------------------------------------------------------------
 ' REMOVE THE STRAY COMMENT
 '------------------------------------------------------------------------------
-        If inflateUsedRange Then
-            detail = ClearStray()
-            TEST_CaseRunner.ExpectTrue "used-range-restored", Len(detail) = 0, detail, REFERENCE_CLASS
+        If InflateUsedRange Then
+            Detail = ClearStray()
+            TEST_CaseRunner.ExpectTrue "used-range-restored", Len(Detail) = 0, Detail, REFERENCE_CLASS
         End If
 
 '------------------------------------------------------------------------------
@@ -349,15 +356,15 @@ Private Sub RunScenario( _
     'deleted, so that the next scenario, and the workbook after EndSuite,
     'start from that extent rather than from a used range left by a
     'larger portfolio.
-        detail = ShrinkSheets()
-        TEST_CaseRunner.ExpectTrue "extent-restored", Len(detail) = 0, detail, REFERENCE_CLASS
+        Detail = ShrinkSheets()
+        TEST_CaseRunner.ExpectTrue "extent-restored", Len(Detail) = 0, Detail, REFERENCE_CLASS
 
 End Sub
 
 
 Private Function RunEngine( _
-    ByRef runSeconds As Double, _
-    ByRef detail As String) _
+    ByRef RunSeconds As Double, _
+    ByRef Detail As String) _
     As Boolean
 '
 '==============================================================================
@@ -368,34 +375,34 @@ Private Function RunEngine( _
 '   and time the run.
 '
 ' RETURNS
-'   True when the run completed. runSeconds: the duration in seconds, also
-'   when the run stopped or raised. detail: why the run did not complete;
+'   True when the run completed. RunSeconds: the duration in seconds, also
+'   when the run stopped or raised. Detail: why the run did not complete;
 '   empty when it did.
 '
 ' ERROR POLICY
-'   An error raised by the engine is contained and returned in detail; the
+'   An error raised by the engine is contained and returned in Detail; the
 '   engine has already withdrawn its outputs.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim t0   As Double    'Timer at the start of the run
+    Dim StartTime   As Double    'Timer at the start of the run
 
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        detail = ""
-        t0 = Timer
+        Detail = ""
+        StartTime = Timer
         On Error GoTo Failed
         RunEngine = CORE_Engine.Calculate(True)
-        runSeconds = SecondsSince(t0)
+        RunSeconds = SecondsSince(StartTime)
         If Not RunEngine Then
-            detail = "engine run stopped; see the Checks sheet"
+            Detail = "engine run stopped; see the Checks sheet"
         End If
         Exit Function
 
@@ -403,8 +410,8 @@ Private Function RunEngine( _
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
-        runSeconds = SecondsSince(t0)
-        detail = "engine error " & Err.Number & ": " & Err.Description
+        RunSeconds = SecondsSince(StartTime)
+        Detail = "engine error " & Err.Number & ": " & Err.Description
 
 End Function
 
@@ -432,15 +439,15 @@ Private Function ClearStray() As String
 '   Contains its own error, so that it can run on the error path.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'Trades
-    Dim usedNow   As Long         'Last row of the Trades used range after the deletion
+    Dim TradesSheet    As Worksheet    'Trades
+    Dim UsedRangeEnd   As Long         'Last row of the Trades used range after the deletion
 
 '------------------------------------------------------------------------------
 ' REMOVE
@@ -449,12 +456,12 @@ Private Function ClearStray() As String
             Exit Function
         End If
         On Error GoTo Failed
-        Set ws = GetSheet(SH_TRADES)
-        TableCell(ws, mStrayRow, TR_COMMENT).EntireRow.Delete
+        Set TradesSheet = GetSheet(SH_TRADES)
+        TableCell(TradesSheet, mStrayRow, TR_COMMENT).EntireRow.Delete
         mStrayRow = 0
-        usedNow = UsedLastRow(ws)
-        If usedNow > mUsedBefore Then
-            ClearStray = "the Trades used range still ends on row " & usedNow & _
+        UsedRangeEnd = UsedLastRow(TradesSheet)
+        If UsedRangeEnd > mUsedBefore Then
+            ClearStray = "the Trades used range still ends on row " & UsedRangeEnd & _
                          " after the stray row was deleted; it ended on row " & mUsedBefore & " before"
         End If
         Exit Function
@@ -504,16 +511,16 @@ Private Sub RecordExtents()
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim names   As Variant    'ExtentSheets
-    Dim k       As Long       'Index into names
+    Dim SheetNames   As Variant    'ExtentSheets
+    Dim k            As Long       'Index into SheetNames
 
 '------------------------------------------------------------------------------
 ' RECORD
 '------------------------------------------------------------------------------
-        names = ExtentSheets()
-        ReDim mBaseRows(LBound(names) To UBound(names))
-        For k = LBound(names) To UBound(names)
-            mBaseRows(k) = UsedLastRow(GetSheet(CStr(names(k))))
+        SheetNames = ExtentSheets()
+        ReDim mBaseRows(LBound(SheetNames) To UBound(SheetNames))
+        For k = LBound(SheetNames) To UBound(SheetNames)
+            mBaseRows(k) = UsedLastRow(GetSheet(CStr(SheetNames(k))))
         Next k
         mHaveBase = True
 
@@ -547,10 +554,10 @@ Private Function ShrinkSheets() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim names     As Variant      'ExtentSheets
-    Dim k         As Long         'Index into names
-    Dim ws        As Worksheet    'Sheet being shrunk
-    Dim usedNow   As Long         'Its last used row
+    Dim SheetNames     As Variant      'ExtentSheets
+    Dim k              As Long         'Index into SheetNames
+    Dim TargetSheet    As Worksheet    'Sheet being shrunk
+    Dim UsedRangeEnd   As Long         'Its last used row
 
 '------------------------------------------------------------------------------
 ' SHRINK
@@ -559,16 +566,16 @@ Private Function ShrinkSheets() As String
         If Not mHaveBase Then
             Exit Function
         End If
-        names = ExtentSheets()
-        For k = LBound(names) To UBound(names)
-            Set ws = GetSheet(CStr(names(k)))
-            usedNow = UsedLastRow(ws)
-            If usedNow > mBaseRows(k) Then
-                ws.Range(ws.Rows(mBaseRows(k) + 1), ws.Rows(usedNow)).Delete
-                usedNow = UsedLastRow(ws)
-                If usedNow > mBaseRows(k) Then
-                    ShrinkSheets = ShrinkSheets & IIf(Len(ShrinkSheets) > 0, "; ", "") & names(k) & _
-                                   " used range ends on row " & usedNow & ", not " & mBaseRows(k)
+        SheetNames = ExtentSheets()
+        For k = LBound(SheetNames) To UBound(SheetNames)
+            Set TargetSheet = GetSheet(CStr(SheetNames(k)))
+            UsedRangeEnd = UsedLastRow(TargetSheet)
+            If UsedRangeEnd > mBaseRows(k) Then
+                TargetSheet.Range(TargetSheet.Rows(mBaseRows(k) + 1), TargetSheet.Rows(UsedRangeEnd)).Delete
+                UsedRangeEnd = UsedLastRow(TargetSheet)
+                If UsedRangeEnd > mBaseRows(k) Then
+                    ShrinkSheets = ShrinkSheets & IIf(Len(ShrinkSheets) > 0, "; ", "") & SheetNames(k) & _
+                                   " used range ends on row " & UsedRangeEnd & ", not " & mBaseRows(k)
                 End If
             End If
         Next k
@@ -592,7 +599,7 @@ End Function
 '
 
 Private Sub WriteNettingSets( _
-    ByVal nSets As Long)
+    ByVal NettingSetCount As Long)
 '
 '==============================================================================
 '                               WriteNettingSets
@@ -601,63 +608,63 @@ Private Sub WriteNettingSets( _
 '   Write the netting sets as one block from the first NettingSets row,
 '   with the value types TEST_CaseRunner.AddNettingSet writes. Odd ones are
 '   unmargined, without collateral; even ones are margined with daily
-'   remargining, VM held, NICA and an MTA, and none is large or illiquid,
-'   in dispute or client cleared.
+'   remargining, VM held of 0, 100,000 or 200,000, NICA and an MTA, and
+'   none is large or illiquid, in dispute or client cleared.
 '
 ' INPUTS
-'   nSets: netting sets, at least 1.
+'   NettingSetCount: netting sets, at least 1.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim block()   As Variant    'NettingSets rows, (netting set, column)
+    Dim Block()   As Variant    'NettingSets rows, (netting set, column)
     Dim s         As Long       'Netting set, from 1
-    Dim topRow    As Long       'First NettingSets data row
+    Dim TopRow    As Long       'First NettingSets data row
 
 '------------------------------------------------------------------------------
 ' BUILD
 '------------------------------------------------------------------------------
     'Unused cells stay Empty, as the blanks AddNettingSet writes.
-        ReDim block(1 To nSets, 1 To NS_NCOLS)
-        For s = 1 To nSets
-            block(s, NS_ID) = NettingSetId(s)
-            block(s, NS_CPTY) = "Benchmark counterparty " & s
-            block(s, NS_CLEARED) = CL_NONE
-            block(s, NS_LARGE) = "N"
-            block(s, NS_DISPUTE) = "N"
-            block(s, NS_REGIME) = RG_CRR
+        ReDim Block(1 To NettingSetCount, 1 To NS_NCOLS)
+        For s = 1 To NettingSetCount
+            Block(s, NS_ID) = NettingSetId(s)
+            Block(s, NS_CPTY) = "Benchmark counterparty " & s
+            Block(s, NS_CLEARED) = CL_NONE
+            Block(s, NS_LARGE) = "N"
+            Block(s, NS_DISPUTE) = "N"
+            Block(s, NS_REGIME) = RG_CRR
             If (s Mod 2) = 0 Then
-                block(s, NS_MARGINED) = "Y"
-                block(s, NS_FREQ) = 1#
-                block(s, NS_VM) = 100000# * (s Mod 3)
-                block(s, NS_NICA) = 50000#
-                block(s, NS_TH) = 0#
-                block(s, NS_MTA) = 10000#
+                Block(s, NS_MARGINED) = "Y"
+                Block(s, NS_FREQ) = 1#
+                Block(s, NS_VM) = 100000# * (s Mod 3)
+                Block(s, NS_NICA) = 50000#
+                Block(s, NS_TH) = 0#
+                Block(s, NS_MTA) = 10000#
             Else
-                block(s, NS_MARGINED) = "N"
-                block(s, NS_VM) = 0#
-                block(s, NS_NICA) = 0#
-                block(s, NS_TH) = 0#
-                block(s, NS_MTA) = 0#
+                Block(s, NS_MARGINED) = "N"
+                Block(s, NS_VM) = 0#
+                Block(s, NS_NICA) = 0#
+                Block(s, NS_TH) = 0#
+                Block(s, NS_MTA) = 0#
             End If
         Next s
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        topRow = FirstInputRow(SH_NS)
-        TableRange(GetSheet(SH_NS), topRow, 1, topRow + nSets - 1, NS_NCOLS).Value = block
+        TopRow = FirstInputRow(SH_NS)
+        TableRange(GetSheet(SH_NS), TopRow, 1, TopRow + NettingSetCount - 1, NS_NCOLS).Value = Block
 
 End Sub
 
 
 Private Sub WriteTrades( _
-    ByVal legs As Long)
+    ByVal LegCount As Long)
 '
 '==============================================================================
 '                                 WriteTrades
@@ -667,78 +674,78 @@ Private Sub WriteTrades( _
 '   types TEST_CaseRunner.AddTrade writes.
 '
 ' INPUTS
-'   legs: trade legs, 1 to MAX_LEGS.
+'   LegCount: trade legs, 1 to MAX_LEGS.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim block()   As Variant    'Trades rows, (leg, column)
+    Dim Block()   As Variant    'Trades rows, (leg, column)
     Dim i         As Long       'Leg, from 1
-    Dim topRow    As Long       'First Trades data row
+    Dim TopRow    As Long       'First Trades data row
 
 '------------------------------------------------------------------------------
 ' BUILD AND WRITE
 '------------------------------------------------------------------------------
-        ReDim block(1 To legs, 1 To TR_NCOLS)
-        For i = 1 To legs
-            FillLeg block, i
+        ReDim Block(1 To LegCount, 1 To TR_NCOLS)
+        For i = 1 To LegCount
+            FillLeg Block, i
         Next i
-        topRow = FirstInputRow(SH_TRADES)
-        TableRange(GetSheet(SH_TRADES), topRow, 1, topRow + legs - 1, TR_NCOLS).Value = block
+        TopRow = FirstInputRow(SH_TRADES)
+        TableRange(GetSheet(SH_TRADES), TopRow, 1, TopRow + LegCount - 1, TR_NCOLS).Value = Block
 
 End Sub
 
 
 Private Sub FillLeg( _
-    ByRef block() As Variant, _
-    ByVal i As Long)
+    ByRef Block() As Variant, _
+    ByVal Leg As Long)
 '
 '==============================================================================
 '                                   FillLeg
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Fill row i of the Trades block with leg i of the mix described in the
-'   module header. Amounts are in EUR: notionals of 1 to 9 million, market
+'   Fill row Leg of the Trades block with that leg of the mix described in
+'   the module header. Amounts are in EUR: notionals of 1 to 9 million, market
 '   values from -15,000 to 15,000. The economic-trade, lambda and CDO
 '   columns and the comment stay Empty.
 '
 ' INPUTS
-'   block: the Trades rows, (leg, column), from WriteTrades.
-'   i: the leg, from 1; netting set (i - 1) \ LEGS_PER_SET + 1.
+'   Block: the Trades rows, (leg, column), from WriteTrades.
+'   Leg: the leg, from 1; netting set (Leg - 1) \ LEGS_PER_SET + 1.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim j        As Long    'Leg, from 0
-    Dim slot     As Long    'Position in the mix, 0 to MIX_LENGTH - 1
-    Dim cycle    As Long    'Repetitions of the mix before this leg
-    Dim entity   As Long    'Credit or equity entity, from 0
+    Dim LegOffset   As Long    'Leg, from 0
+    Dim Slot        As Long    'Position in the mix, 0 to MIX_LENGTH - 1
+    Dim Cycle       As Long    'Repetitions of the mix before this leg
+    Dim Entity      As Long    'Credit or equity entity, from 0
 
 '------------------------------------------------------------------------------
 ' COMMON FIELDS
 '------------------------------------------------------------------------------
-        j = i - 1
-        slot = j Mod MIX_LENGTH
-        cycle = j \ MIX_LENGTH
-        block(i, TR_ID) = "B" & Format$(i, "000000")
-        block(i, TR_NS) = NettingSetId(j \ LEGS_PER_SET + 1)
-        block(i, TR_INSTR) = "Linear"
-        block(i, TR_DIR) = IIf(((j \ 3) Mod 2) = 0, "Long", "Short")
-        block(i, TR_NATURE) = "Standard"
-        block(i, TR_NOTIONAL) = 1000000# * (1 + (j Mod 9))
-        block(i, TR_NCCY) = CALC_CCY
-        block(i, TR_MTM) = 1000# * ((j Mod 7) - 3) * (1 + (j Mod 5))
-        block(i, TR_MCCY) = CALC_CCY
+        LegOffset = Leg - 1
+        Slot = LegOffset Mod MIX_LENGTH
+        Cycle = LegOffset \ MIX_LENGTH
+        Block(Leg, TR_ID) = "B" & Format$(Leg, "000000")
+        Block(Leg, TR_NS) = NettingSetId(LegOffset \ LEGS_PER_SET + 1)
+        Block(Leg, TR_INSTR) = "Linear"
+        Block(Leg, TR_DIR) = IIf(((LegOffset \ 3) Mod 2) = 0, "Long", "Short")
+        Block(Leg, TR_NATURE) = "Standard"
+        Block(Leg, TR_NOTIONAL) = 1000000# * (1 + (LegOffset Mod 9))
+        Block(Leg, TR_NCCY) = CALC_CCY
+        Block(Leg, TR_MTM) = 1000# * ((LegOffset Mod 7) - 3) * (1 + (LegOffset Mod 5))
+        Block(Leg, TR_MCCY) = CALC_CCY
 
 '------------------------------------------------------------------------------
 ' ASSET-CLASS FIELDS
@@ -748,140 +755,140 @@ Private Sub FillLeg( _
     'currency, and are in market quote order, as an FX option requires. A
     'credit, equity or commodity reference is always given the same
     'sub-class, as the engine requires within a netting set.
-        Select Case slot
+        Select Case Slot
             Case 0 To 6
-                block(i, TR_AC) = "IR"
-                block(i, TR_RF) = IIf(((cycle + slot) Mod 2) = 0, "EUR", "USD")
-                SetMaturity block, i, Choose(((cycle * 7 + slot) Mod 9) + 1, 6, 9, 18, 30, 42, 84, 120, 180, 240), _
+                Block(Leg, TR_AC) = "IR"
+                Block(Leg, TR_RF) = IIf(((Cycle + Slot) Mod 2) = 0, "EUR", "USD")
+                SetMaturity Block, Leg, Choose(((Cycle * 7 + Slot) Mod 9) + 1, 6, 9, 18, 30, 42, 84, 120, 180, 240), _
                             True
             Case 7 To 9
-                block(i, TR_AC) = "FX"
-                block(i, TR_RF) = FxPair(cycle + slot)
-                SetMaturity block, i, Choose(((cycle + slot) Mod 5) + 1, 3, 6, 12, 18, 24), False
+                Block(Leg, TR_AC) = "FX"
+                Block(Leg, TR_RF) = FxPair(Cycle + Slot)
+                SetMaturity Block, Leg, Choose(((Cycle + Slot) Mod 5) + 1, 3, 6, 12, 18, 24), False
             Case 10
-                block(i, TR_AC) = "FX"
-                block(i, TR_RF) = FxPair(cycle)
-                SetOption block, i, cycle, Choose((cycle Mod 4) + 1, 1.16, 0.74, 172#, 0.93)
+                Block(Leg, TR_AC) = "FX"
+                Block(Leg, TR_RF) = FxPair(Cycle)
+                SetOption Block, Leg, Cycle, Choose((Cycle Mod 4) + 1, 1.16, 0.74, 172#, 0.93)
             Case 11 To 13
-                entity = (cycle * 3 + slot - 11) Mod CREDIT_NAMES
-                block(i, TR_AC) = "CR"
-                block(i, TR_SUB) = Choose((entity Mod 7) + 1, "AAA", "AA", "A", "BBB", "BB", "B", "CCC")
-                block(i, TR_RF) = "CR NAME " & Format$(entity + 1, "00")
-                SetMaturity block, i, Choose(((cycle + slot) Mod 5) + 1, 12, 36, 60, 84, 120), True
+                Entity = (Cycle * 3 + Slot - 11) Mod CREDIT_NAMES
+                Block(Leg, TR_AC) = "CR"
+                Block(Leg, TR_SUB) = Choose((Entity Mod 7) + 1, "AAA", "AA", "A", "BBB", "BB", "B", "CCC")
+                Block(Leg, TR_RF) = "CR NAME " & Format$(Entity + 1, "00")
+                SetMaturity Block, Leg, Choose(((Cycle + Slot) Mod 5) + 1, 12, 36, 60, 84, 120), True
             Case 14
-                block(i, TR_AC) = "EQ"
-                block(i, TR_SUB) = "SINGLE"
-                block(i, TR_RF) = "EQ NAME " & Format$((cycle * 2) Mod EQUITY_NAMES + 1, "00")
-                SetMaturity block, i, Choose((cycle Mod 4) + 1, 3, 6, 12, 24), False
+                Block(Leg, TR_AC) = "EQ"
+                Block(Leg, TR_SUB) = "SINGLE"
+                Block(Leg, TR_RF) = "EQ NAME " & Format$((Cycle * 2) Mod EQUITY_NAMES + 1, "00")
+                SetMaturity Block, Leg, Choose((Cycle Mod 4) + 1, 3, 6, 12, 24), False
             Case 15
-                block(i, TR_AC) = "EQ"
-                block(i, TR_SUB) = "INDEX"
-                block(i, TR_RF) = "EQ INDEX " & (cycle Mod 3 + 1)
-                SetMaturity block, i, Choose(((cycle + 1) Mod 4) + 1, 3, 6, 12, 24), False
+                Block(Leg, TR_AC) = "EQ"
+                Block(Leg, TR_SUB) = "INDEX"
+                Block(Leg, TR_RF) = "EQ INDEX " & (Cycle Mod 3 + 1)
+                SetMaturity Block, Leg, Choose(((Cycle + 1) Mod 4) + 1, 3, 6, 12, 24), False
             Case 16
-                block(i, TR_AC) = "EQ"
-                block(i, TR_SUB) = "SINGLE"
-                block(i, TR_RF) = "EQ NAME " & Format$((cycle * 2 + 1) Mod EQUITY_NAMES + 1, "00")
-                SetOption block, i, cycle, 100#
+                Block(Leg, TR_AC) = "EQ"
+                Block(Leg, TR_SUB) = "SINGLE"
+                Block(Leg, TR_RF) = "EQ NAME " & Format$((Cycle * 2 + 1) Mod EQUITY_NAMES + 1, "00")
+                SetOption Block, Leg, Cycle, 100#
             Case 17, 19
-                block(i, TR_AC) = "CO"
-                block(i, TR_SUB) = "OIL_GAS"
-                block(i, TR_RF) = Choose(((cycle + slot) Mod 3) + 1, "BRENT", "WTI", "NATURAL GAS")
-                SetMaturity block, i, Choose(((cycle + slot) Mod 4) + 1, 3, 6, 12, 24), False
+                Block(Leg, TR_AC) = "CO"
+                Block(Leg, TR_SUB) = "OIL_GAS"
+                Block(Leg, TR_RF) = Choose(((Cycle + Slot) Mod 3) + 1, "BRENT", "WTI", "NATURAL GAS")
+                SetMaturity Block, Leg, Choose(((Cycle + Slot) Mod 4) + 1, 3, 6, 12, 24), False
             Case Else
-                block(i, TR_AC) = "CO"
-                block(i, TR_SUB) = "METALS"
-                block(i, TR_RF) = Choose((cycle Mod 3) + 1, "GOLD", "SILVER", "COPPER")
-                SetMaturity block, i, Choose(((cycle + 2) Mod 4) + 1, 3, 6, 12, 24), False
+                Block(Leg, TR_AC) = "CO"
+                Block(Leg, TR_SUB) = "METALS"
+                Block(Leg, TR_RF) = Choose((Cycle Mod 3) + 1, "GOLD", "SILVER", "COPPER")
+                SetMaturity Block, Leg, Choose(((Cycle + 2) Mod 4) + 1, 3, 6, 12, 24), False
         End Select
 
 End Sub
 
 
 Private Sub SetMaturity( _
-    ByRef block() As Variant, _
-    ByVal i As Long, _
-    ByVal months As Long, _
-    ByVal withEndDate As Boolean)
+    ByRef Block() As Variant, _
+    ByVal Leg As Long, _
+    ByVal Months As Long, _
+    ByVal WithEndDate As Boolean)
 '
 '==============================================================================
 '                                 SetMaturity
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Give leg i a maturity date months after the valuation date, and the
-'   same end date when withEndDate is True (swaps and credit default
+'   Give leg Leg a maturity date Months after the valuation date, and the
+'   same end date when WithEndDate is True (swaps and credit default
 '   swaps). The start date stays Empty: the leg starts on the valuation
 '   date.
 '
 ' INPUTS
-'   block, i: as FillLeg.
-'   months: months to maturity, 1 or more.
-'   withEndDate: True to write the end date too.
+'   Block, Leg: as FillLeg.
+'   Months: months to maturity, 1 or more.
+'   WithEndDate: True to write the end date too.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim maturity   As Date    'Maturity date
+    Dim MaturityDate   As Date    'Maturity date
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        maturity = MonthsAfterValuation(months)
-        block(i, TR_MAT) = maturity
-        If withEndDate Then
-            block(i, TR_END) = maturity
+        MaturityDate = MonthsAfterValuation(Months)
+        Block(Leg, TR_MAT) = MaturityDate
+        If WithEndDate Then
+            Block(Leg, TR_END) = MaturityDate
         End If
 
 End Sub
 
 
 Private Sub SetOption( _
-    ByRef block() As Variant, _
-    ByVal i As Long, _
-    ByVal cycle As Long, _
-    ByVal price As Double)
+    ByRef Block() As Variant, _
+    ByVal Leg As Long, _
+    ByVal Cycle As Long, _
+    ByVal Price As Double)
 '
 '==============================================================================
 '                                  SetOption
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Make leg i a European option on its underlying: a call or a put, with
+'   Make leg Leg a European option on its underlying: a call or a put, with
 '   the underlying price, a strike 5% below, at or 5% above it, and an
 '   expiry 3, 6 or 12 months after the valuation date, which is also its
 '   maturity. The lambda shift stays Empty: it applies to interest-rate and
 '   commodity options only.
 '
 ' INPUTS
-'   block, i: as FillLeg.
-'   cycle: the leg's repetition of the mix, which sets the type, strike and
+'   Block, Leg: as FillLeg.
+'   Cycle: the leg's repetition of the mix, which sets the type, strike and
 '   expiry.
-'   price: the underlying price P, > 0.
+'   Price: the underlying price P, > 0.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim expiry   As Date    'Expiry and maturity date
+    Dim ExpiryDate   As Date    'Expiry and maturity date
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        expiry = MonthsAfterValuation(Choose(((cycle + 1) Mod 3) + 1, 3, 6, 12))
-        block(i, TR_INSTR) = "Option"
-        block(i, TR_OPT) = IIf((cycle Mod 2) = 0, "Call", "Put")
-        block(i, TR_PRICE) = price
-        block(i, TR_STRIKE) = price * Choose((cycle Mod 3) + 1, 0.95, 1#, 1.05)
-        block(i, TR_EXPIRY) = expiry
-        block(i, TR_MAT) = expiry
+        ExpiryDate = MonthsAfterValuation(Choose(((Cycle + 1) Mod 3) + 1, 3, 6, 12))
+        Block(Leg, TR_INSTR) = "Option"
+        Block(Leg, TR_OPT) = IIf((Cycle Mod 2) = 0, "Call", "Put")
+        Block(Leg, TR_PRICE) = Price
+        Block(Leg, TR_STRIKE) = Price * Choose((Cycle Mod 3) + 1, 0.95, 1#, 1.05)
+        Block(Leg, TR_EXPIRY) = ExpiryDate
+        Block(Leg, TR_MAT) = ExpiryDate
 
 End Sub
 
@@ -895,9 +902,9 @@ End Sub
 '
 
 Private Function ParseSizes( _
-    ByVal sizesText As String, _
-    ByRef sizes() As Long, _
-    ByRef reason As String) _
+    ByVal SizesText As String, _
+    ByRef Sizes() As Long, _
+    ByRef Reason As String) _
     As Boolean
 '
 '==============================================================================
@@ -907,49 +914,49 @@ Private Function ParseSizes( _
 '   Read the sizes given to RunBenchmark.
 '
 ' INPUTS
-'   sizesText: whole numbers separated by commas; spaces around them are
+'   SizesText: whole numbers separated by commas; spaces around them are
 '   ignored.
 '
 ' RETURNS
-'   True with sizes (1 To count) filled when there are 1 to MAX_SCENARIOS
-'   sizes, each a whole number from 1 to MAX_LEGS; otherwise False with
-'   reason saying what is wrong.
+'   True with Sizes (1 To the number of sizes) filled when there are 1 to
+'   MAX_SCENARIOS sizes, each a whole number from 1 to MAX_LEGS; otherwise
+'   False with Reason saying what is wrong.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts()   As String    'Items between the commas
-    Dim nSizes    As Long      'Items
-    Dim i         As Long      'Size, from 1
-    Dim item      As String    'One item, trimmed
-    Dim rule      As String    'What a valid argument is
+    Dim Parts()     As String    'Items between the commas
+    Dim SizeCount   As Long      'Items
+    Dim i           As Long      'Size, from 1
+    Dim SizeText    As String    'One item, trimmed
+    Dim ValidForm   As String    'What a valid argument is
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        rule = "give 1 to " & MAX_SCENARIOS & " whole numbers of legs from 1 to " & MAX_LEGS & _
+        ValidForm = "give 1 to " & MAX_SCENARIOS & " whole numbers of legs from 1 to " & MAX_LEGS & _
                ", separated by commas, such as ""1000,10000,50000"""
-        parts = Split(sizesText, ",")
-        nSizes = UBound(parts) - LBound(parts) + 1
-        If nSizes < 1 Or nSizes > MAX_SCENARIOS Then
-            reason = rule & " (found """ & sizesText & """)"
+        Parts = Split(SizesText, ",")
+        SizeCount = UBound(Parts) - LBound(Parts) + 1
+        If SizeCount < 1 Or SizeCount > MAX_SCENARIOS Then
+            Reason = ValidForm & " (found """ & SizesText & """)"
             Exit Function
         End If
-        ReDim sizes(1 To nSizes)
-        For i = 1 To nSizes
-            item = Trim$(parts(LBound(parts) + i - 1))
-            If Len(item) = 0 Or Len(item) > Len(CStr(MAX_LEGS)) Or item Like "*[!0-9]*" Then
-                reason = rule & " (found """ & item & """)"
+        ReDim Sizes(1 To SizeCount)
+        For i = 1 To SizeCount
+            SizeText = Trim$(Parts(LBound(Parts) + i - 1))
+            If Len(SizeText) = 0 Or Len(SizeText) > Len(CStr(MAX_LEGS)) Or SizeText Like "*[!0-9]*" Then
+                Reason = ValidForm & " (found """ & SizeText & """)"
                 Exit Function
             End If
-            sizes(i) = CLng(item)
-            If sizes(i) < 1 Or sizes(i) > MAX_LEGS Then
-                reason = rule & " (found " & sizes(i) & ")"
+            Sizes(i) = CLng(SizeText)
+            If Sizes(i) < 1 Or Sizes(i) > MAX_LEGS Then
+                Reason = ValidForm & " (found " & Sizes(i) & ")"
                 Exit Function
             End If
         Next i
@@ -959,7 +966,7 @@ End Function
 
 
 Private Function FirstInputRow( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Long
 '
 '==============================================================================
@@ -975,13 +982,13 @@ Private Function FirstInputRow( _
 '   as failed.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        FirstInputRow = TableFirstRow(sheetName)
+        FirstInputRow = TableFirstRow(SheetName)
         If FirstInputRow = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_Benchmark.FirstInputRow", _
-                      "The header of " & sheetName & " cannot be located through its workbook name - " & _
+                      "The header of " & SheetName & " cannot be located through its workbook name - " & _
                       "rebuild the workbook from the template."
         End If
 
@@ -989,9 +996,9 @@ End Function
 
 
 Private Function OutputRows( _
-    ByVal sheetName As String, _
-    ByVal idCol As Long, _
-    ByRef lastId As String) _
+    ByVal SheetName As String, _
+    ByVal IdColumn As Long, _
+    ByRef LastId As String) _
     As Long
 '
 '==============================================================================
@@ -1002,61 +1009,61 @@ Private Function OutputRows( _
 '   row with an ID.
 '
 ' INPUTS
-'   sheetName: SH_RESULTS or SH_TRADECALC.
-'   idCol: the table column of the row ID.
+'   SheetName: SH_RESULTS or SH_TRADECALC.
+'   IdColumn: the table column of the row ID.
 '
 ' RETURNS
-'   The number of rows, 0 when there are none. lastId: the ID of the last
+'   The number of rows, 0 when there are none. LastId: the ID of the last
 '   row; empty when there are none.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws         As Worksheet    'Output sheet
-    Dim firstRow   As Long         'First data row
-    Dim lastRow    As Long         'Last row with an ID
+    Dim OutputSheet   As Worksheet    'Output sheet
+    Dim FirstRow      As Long         'First data row
+    Dim LastRow       As Long         'Last row with an ID
 
 '------------------------------------------------------------------------------
 ' COUNT
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(sheetName)
-        firstRow = OutputFirstRow(sheetName)
-        lastRow = LastDataRow(ws, firstRow, idCol)
-        OutputRows = lastRow - firstRow + 1
-        lastId = ""
-        If lastRow >= firstRow Then
-            lastId = SafeStr(TableCell(ws, lastRow, idCol).Value)
+        Set OutputSheet = GetSheet(SheetName)
+        FirstRow = OutputFirstRow(SheetName)
+        LastRow = LastDataRow(OutputSheet, FirstRow, IdColumn)
+        OutputRows = LastRow - FirstRow + 1
+        LastId = ""
+        If LastRow >= FirstRow Then
+            LastId = SafeStr(TableCell(OutputSheet, LastRow, IdColumn).Value)
         End If
 
 End Function
 
 
 Private Function NettingSetId( _
-    ByVal s As Long) _
+    ByVal SetNumber As Long) _
     As String
 '
 '==============================================================================
 '                                 NettingSetId
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   ID of netting set s, from 1: BENCH-001, BENCH-002 and so on.
+'   ID of netting set SetNumber, from 1: BENCH-001, BENCH-002 and so on.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        NettingSetId = "BENCH-" & Format$(s, "000")
+        NettingSetId = "BENCH-" & Format$(SetNumber, "000")
 
 End Function
 
 
 Private Function FxPair( _
-    ByVal index As Long) _
+    ByVal PairIndex As Long) _
     As String
 '
 '==============================================================================
@@ -1064,34 +1071,35 @@ Private Function FxPair( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   One of the four currency pairs of the portfolio, in market quote order:
-'   EUR/USD, EUR/GBP, EUR/JPY or EUR/CHF for index 0, 1, 2 or 3 modulo 4.
+'   EUR/USD, EUR/GBP, EUR/JPY or EUR/CHF for PairIndex 0, 1, 2 or 3
+'   modulo 4.
 '   Each currency is in the template's FX table.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        FxPair = Choose((index Mod 4) + 1, "EUR/USD", "EUR/GBP", "EUR/JPY", "EUR/CHF")
+        FxPair = Choose((PairIndex Mod 4) + 1, "EUR/USD", "EUR/GBP", "EUR/JPY", "EUR/CHF")
 
 End Function
 
 
 Private Function MonthsAfterValuation( _
-    ByVal months As Long) _
+    ByVal Months As Long) _
     As Date
 '
 '==============================================================================
 '                             MonthsAfterValuation
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The date months calendar months after VALUATION, on the same day or
+'   The date Months calendar months after VALUATION, on the same day or
 '   the last day of a shorter month.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        MonthsAfterValuation = DateAdd("m", months, DateSerial(CInt(Left$(VALUATION, 4)), _
+        MonthsAfterValuation = DateAdd("m", Months, DateSerial(CInt(Left$(VALUATION, 4)), _
                                                                CInt(Mid$(VALUATION, 6, 2)), _
                                                                CInt(Right$(VALUATION, 2))))
 
@@ -1099,21 +1107,21 @@ End Function
 
 
 Private Function SecondsSince( _
-    ByVal startTime As Double) _
+    ByVal StartTime As Double) _
     As Double
 '
 '==============================================================================
 '                                 SecondsSince
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Seconds elapsed since startTime, a value of Timer, also across
+'   Seconds elapsed since StartTime, a value of Timer, also across
 '   midnight, when Timer starts again from 0.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        SecondsSince = Timer - startTime
+        SecondsSince = Timer - StartTime
         If SecondsSince < 0# Then
             SecondsSince = SecondsSince + 86400#
         End If
