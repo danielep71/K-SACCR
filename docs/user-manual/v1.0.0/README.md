@@ -1,8 +1,9 @@
 # K-SACCR user manual, version 1.0.0
 
-The source of the user manual for K-SACCR 1.0.0. The PDF built from it will
-be attached to the 1.0.0 GitHub Release when that release is published; it is
-not stored in this repository.
+The source of the user manual for K-SACCR 1.0.0. The PDF built from it is
+attached to the
+[1.0.0 GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0);
+it is not stored in this repository.
 
 | File | Contents |
 | --- | --- |
@@ -16,19 +17,9 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 
 ## Status
 
-Documentation baseline 2026-10-16, source commit
-`1152170c842d52acad166f93dbc84ea4f6546669` on the release branch. Nothing has
-been released: the manual describes the release candidate and does not certify
-it. Before the PDF is attached to the v1.0.0 release, as part of the
-final-package work in
-[#46](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/46):
-
-- the release-status box and the baseline commit are updated to the tagged
-  release;
-- the repository links that point to `blob/release/1.0.0/` are changed to
-  `blob/v1.0.0/`;
-- the PDF is rebuilt from this folder at the tag and its SHA-256 is recorded
-  with the release assets.
+Released with 1.0.0 (tag `v1.0.0`, 17 October 2026). The manual's
+repository links point to `blob/v1.0.0/`. The release's PDF is built from this
+folder at the tag, and its SHA-256 is in the release's `SHA256SUMS.txt`.
 
 ## Building the PDF
 

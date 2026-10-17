@@ -17,14 +17,12 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 
 | Property | State |
 | --- | --- |
-| Released versions | None |
+| Released versions | 1.0.0 (2026-10-17), tag `v1.0.0` |
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
-| Version file | Not present; created when the first release is prepared ([versioning](#versioning)) |
+| Version file | `VERSION`, holding `1.0.0` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
 | Excel certification | All eight suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
-Steps below marked *(to be defined)* are settled with the first distributed
-artifact.
 
 <a id="versioning"></a>
 
@@ -69,12 +67,11 @@ rerun. Never compensate by editing an already-tested artifact.
 
 Performed only on the owner's explicit request.
 
-### 1. Freeze and identify the candidate
+The candidate is the merge commit that brings the release branch into `main`:
+it is certified, the artifacts are built from it, and the tag is put on it, so
+all three name one SHA.
 
-Record the release-branch SHA, the previous tag (if any) and the intended
-version. Verify that the branch rulesets are still active in Settings → Rules.
-
-### 2. Finalize the changelog
+### 1. Finalize the changelog
 
 Move the `[Unreleased]` entries into `## [X.Y.Z] - YYYY-MM-DD`, add the link
 reference for the new version, keep an empty `[Unreleased]` section, and create
@@ -83,12 +80,23 @@ or update `VERSION` to `X.Y.Z` in the same PR.
 references, newest-first order and the `VERSION` match. Merge this through a
 task PR into the release branch.
 
-### 3. Check the social preview
+### 2. Check the social preview
 
-Before the first release, check that the figures in the social preview image
-still match its source notes in
-[`docs/assets/README.md`](docs/assets/README.md#social-preview),
-and update its "Under development" status as those notes describe.
+Check that the figures in the social preview image still match its source
+notes in [`docs/assets/README.md`](docs/assets/README.md#social-preview), and
+update the release it names as those notes describe.
+
+### 3. Integrate into main and freeze the candidate
+
+Follow [integrating the release branch into main](docs/GOVERNANCE.md#integrating-the-release-branch-into-main),
+which leaves the release branch level with `main`. The merge commit on `main`
+is the candidate: record its full SHA, the previous tag (if any) and the
+intended version, and verify that the rulesets are still active in
+Settings → Rules. Until the tag exists, the release branch takes only fixes
+for a gate that failed on the candidate (steps 4 to 6). Such a fix records its
+change in the dated `## [X.Y.Z]` section being released, not under
+`[Unreleased]`; each is integrated again and the new merge commit becomes the
+candidate.
 
 ### 4. Run the static gates
 
@@ -109,30 +117,34 @@ Validate the bundle against the candidate SHA:
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bundle/host.json
 ```
 
-Only exit code 0 (`PASS`) certifies the candidate.
+Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
+task PR into the release branch, integrate again and certify the new merge
+commit.
 
-### 6. Build artifacts *(to be defined)*
+### 6. Build artifacts
 
-If a workbook or add-in is distributed, build it from the certified source,
-test the packaged file and record its SHA-256 hash. No artifact is distributed
-today.
+From a clean checkout of the candidate, build:
 
-### 7. Integrate into main
+- `K-SACCR_X.Y.Z.xlsm`: a **production** workbook, built as in
+  [`INSTALLATION.md`](INSTALLATION.md#building-a-workbook-from-source),
+  compiled, run once on the demonstration portfolio, cleared with
+  **Clear outputs** and saved. Check it with the
+  [source round trip](docs/EXCEL_EVIDENCE.md#source-round-trip) in production
+  mode against the candidate SHA; only `RESULT=PASS` qualifies it;
+- `K-SACCR_User_Manual_X.Y.Z.pdf`: built from `docs/user-manual/vX.Y.Z/` at
+  the candidate, with the command in that folder's README;
+- `SHA256SUMS.txt`: the SHA-256 of both files, in `sha256sum` format.
 
-Follow [integrating the release branch into main](docs/GOVERNANCE.md#integrating-the-release-branch-into-main).
-If the merge changes the source identity, repeat the certification on the
-merged SHA.
+Once attached to a published release, an asset is never replaced.
 
-### 8. Create the annotated tag
+### 7. Create the annotated tag
 
-Tag only the certified commit on `main`, from the command line so the tag is
+Tag only the certified candidate, from the command line so the tag is
 annotated:
 
 ```sh
-git switch main
-git pull --ff-only
-git rev-parse HEAD
-git tag -a vX.Y.Z -F ../tag-message-vX.Y.Z.txt
+git fetch origin
+git tag -a vX.Y.Z FULL_SHA -F ../tag-message-vX.Y.Z.txt
 git cat-file -t vX.Y.Z        # must print: tag
 git push origin vX.Y.Z
 ```
@@ -152,7 +164,7 @@ Deviations: none.
 Copy totals verbatim from the run; never round or reuse earlier figures. Never
 delete and recreate a published tag.
 
-### 9. Publish and verify
+### 8. Publish and verify
 
 Publish the GitHub Release from the tag, attach only certified artifacts with
 their hashes, and verify that a fresh clone of the tag passes the static checks
@@ -181,13 +193,12 @@ it does not replace it.
 | # | Gate | Done |
 | ---: | --- | :---: |
 | 1 | Owner requested the release | ☐ |
-| 2 | Scope frozen and diff reviewed | ☐ |
-| 3 | Changelog and `VERSION` finalized | ☐ |
-| 4 | Social preview checked (first release) | ☐ |
-| 5 | Static checks pass locally and in CI | ☐ |
-| 6 | Excel certification passes for all eight suites | ☐ |
-| 7 | Artifacts built, tested and hashed (if any) | ☐ |
-| 8 | Release branch merged into `main` with a merge commit | ☐ |
-| 9 | Release branch level with `main` again | ☐ |
-| 10 | Annotated tag targets the certified `main` SHA | ☐ |
-| 11 | GitHub Release published and verified | ☐ |
+| 2 | Changelog and `VERSION` finalized | ☐ |
+| 3 | Social preview checked | ☐ |
+| 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
+| 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
+| 6 | Static checks pass locally and in CI on the candidate | ☐ |
+| 7 | Excel certification passes for all eight suites on the candidate | ☐ |
+| 8 | Artifacts built from the candidate, tested and hashed | ☐ |
+| 9 | Annotated tag targets the candidate | ☐ |
+| 10 | GitHub Release published and verified | ☐ |
