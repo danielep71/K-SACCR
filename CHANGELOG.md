@@ -140,6 +140,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `docs/VBA_HOUSE_STYLE.md` names local variables and parameters in
+  PascalCase, spelled out (`NotionalAmount`), and keeps a single lower-case
+  letter for loop counters only. A renaming to these rules is the one name
+  change a formatting-only change may make, and comments are kept true: a
+  change updates every header, `INPUTS` name and line comment it makes stale.
 - `RELEASING.md` makes two checks deferred from the 1.0.0 release standing
   steps of every release (#308): the source round trip of the certified
   development workbook, beside the production one, and the published

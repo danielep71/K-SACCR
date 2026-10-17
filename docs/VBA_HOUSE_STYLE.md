@@ -27,7 +27,8 @@ prefixes for core, facade and test modules.
 | Example module (`examples/`) | `Example` + subject | `ExampleSingleNettingSet` |
 | Worksheet function (`src/modules/`) | `SACCR_` + quantity; arguments use the regulatory symbols | `SACCR_ReplacementCost(V, C, ...)` |
 | Procedure | PascalCase verb phrase | `CalculateAddOn` |
-| Parameter, local variable | camelCase noun | `notionalAmount` |
+| Parameter, local variable | PascalCase noun, spelled out | `NotionalAmount` |
+| Loop counter | one lower-case letter | `i`, `j`, `r`, `c` |
 | Module-level variable | `m` + PascalCase | `mRunClass` |
 | Public variable | `g` + PascalCase | `gEngineFault` |
 | Constant | UPPER_SNAKE_CASE | `ALPHA_FACTOR` |
@@ -40,13 +41,22 @@ Names are English and spelled out; avoid abbreviations other than established
 SA-CCR terms (`EAD`, `RC`, `PFE`, `MPOR`), written in full in the procedure's
 comment the first time.
 
+A single letter is reserved for a loop counter, the variable a `For` loop, or
+a `Do` loop that steps through positions, counts with; it stays lower case.
+Every other variable and parameter names what it holds, also in a short
+helper (`Formatted`, not `s`; `CodePoint`, not `cp`). Worksheet functions
+are the exception the table gives: their arguments are the regulatory
+symbols. VBA names are case-insensitive and the VBE shows one spelling per
+name across the project, so the source files, not the editor, carry the
+convention.
+
 ## ⚙️ Module rules
 
 - Every module declares `Option Explicit` (enforced by `tools/check_source.py`).
 - Every module in `src/core/` and `tests/modules/` declares
   `Option Private Module` (enforced for `src/core/` by `tools/check_source.py`).
 - No `Option Base 1`: arrays are declared with explicit bounds
-  (`Dim values(1 To n)`).
+  (`Dim Values(1 To ValueCount)`).
 - No `Variant` where a specific type works. Arguments are `ByVal` unless the
   procedure's contract is to write an output parameter.
 - No global mutable state in `src/core/`. Core procedures depend only on their
@@ -215,8 +225,8 @@ generated and must not be edited by hand.
 
   ```vb
   Public Function CalculateAddOn( _
-      ByVal notionalAmount As Double, _
-      ByVal supervisoryFactor As Double) _
+      ByVal NotionalAmount As Double, _
+      ByVal SupervisoryFactor As Double) _
       As Double
   ```
 
@@ -248,7 +258,13 @@ generated and must not be edited by hand.
 
 - A formatting-only change must leave names, signatures, visibility, constants,
   calculations, tests and error behavior unchanged; a discovered defect goes in
-  a separate change.
+  a separate change. Renaming local variables and parameters to the
+  [naming](#naming) rules is the one exception for names: it changes no
+  logic, string or comment, and its pull request shows that applying the
+  map of old to new names to the previous file reproduces every code line.
+- Comments are kept true. A change updates every module header, procedure
+  header, `INPUTS` name and line comment it makes stale, and the `UPDATED`
+  date of each procedure and module it touches.
 - `python tools/check.py` must pass. Its gates are listed in
   [`tools/README.md`](../tools/README.md); it does not compile VBA.
 - Changed VBA is merged only after it has been compiled and tested in Excel, as
