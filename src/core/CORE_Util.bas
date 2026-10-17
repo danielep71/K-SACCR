@@ -10,13 +10,13 @@ Attribute VB_Name = "CORE_Util"
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. Every procedure is Public for in-project use
-'   by CORE_Engine and M_Main; Option Private Module keeps them off the supported
-'   external surface.
+'   by CORE_Engine, CORE_Reconcile, M_Main and the tests; Option Private Module
+'   keeps them off the supported external surface.
 '
 ' DEPENDENCIES
-'   CORE_Config for sheet names, layout constants and asset-class numbers. Keyed
-'   lookups use a VBA Collection, so no Scripting.Dictionary reference is
-'   needed and the code also runs on Excel for Mac.
+'   CORE_Config for sheet names, layout constants, workbook names, error
+'   numbers and asset-class numbers. Keyed lookups use a VBA Collection, so no
+'   Scripting.Dictionary reference is needed.
 '
 ' STATE OWNERSHIP
 '   Stateless. The sheet helpers read and write the worksheets of ThisWorkbook
@@ -25,8 +25,9 @@ Attribute VB_Name = "CORE_Util"
 ' ERROR POLICY
 '   Conversions never raise: an error value, blank or unusable input returns
 '   the documented default. KeyIndex and NamedCell contain the
-'   expected lookup errors and report "not found" instead. Every other
-'   error, for example a missing worksheet, propagates to the caller.
+'   expected lookup errors and report "not found" instead. OutputFirstRow
+'   raises ERR_OUTPUT_LAYOUT when an output table cannot be located. Every
+'   other error, for example a missing worksheet, propagates to the caller.
 '
 ' KNOWN DEVIATION
 '   This module lives in src/core but reads and writes worksheets, which the
@@ -37,7 +38,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -60,7 +61,7 @@ Attribute VB_Name = "CORE_Util"
 '
 
 Public Function SafeStr( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As String
 '
 '==============================================================================
@@ -70,13 +71,14 @@ Public Function SafeStr( _
 '   Convert a cell value to trimmed text without failing on error values.
 '
 ' INPUTS
-'   v: any cell value, including #N/A, #VALUE! and other error values.
+'   Content: any cell value, including #N/A, #VALUE! and other error values.
 '
 ' RETURNS
-'   The trimmed text of v; an empty string for an error value, Empty or Null.
+'   The trimmed text of Content; an empty string for an error value, Empty
+'   or Null.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -85,19 +87,19 @@ Public Function SafeStr( _
 '------------------------------------------------------------------------------
     'CStr raises on an error value, so error values, Empty and Null are
     'mapped to an empty string before converting.
-        If IsError(v) Then
+        If IsError(Content) Then
             SafeStr = ""
-        ElseIf IsEmpty(v) Or IsNull(v) Then
+        ElseIf IsEmpty(Content) Or IsNull(Content) Then
             SafeStr = ""
         Else
-            SafeStr = Trim$(CStr(v))
+            SafeStr = Trim$(CStr(Content))
         End If
 
 End Function
 
 
 Public Function UTxt( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As String
 '
 '==============================================================================
@@ -108,26 +110,26 @@ Public Function UTxt( _
 '   "long", "Long" and " LONG " compare equal.
 '
 ' INPUTS
-'   v: any cell value.
+'   Content: any cell value.
 '
 ' RETURNS
-'   UCase$ of SafeStr(v).
+'   UCase$ of SafeStr(Content).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' CONVERT
 '------------------------------------------------------------------------------
-        UTxt = UCase$(SafeStr(v))
+        UTxt = UCase$(SafeStr(Content))
 
 End Function
 
 
 Public Function IsBlankCell( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -137,26 +139,26 @@ Public Function IsBlankCell( _
 '   Tell whether a cell value is empty or contains only spaces.
 '
 ' INPUTS
-'   v: any cell value. An error value counts as blank.
+'   Content: any cell value. An error value counts as blank.
 '
 ' RETURNS
-'   True when SafeStr(v) is empty.
+'   True when SafeStr(Content) is empty.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' TEST
 '------------------------------------------------------------------------------
-        IsBlankCell = (Len(SafeStr(v)) = 0)
+        IsBlankCell = (Len(SafeStr(Content)) = 0)
 
 End Function
 
 
 Public Function IsNum( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Boolean
 '
 '==============================================================================
@@ -166,13 +168,14 @@ Public Function IsNum( _
 '   Tell whether a cell value can be used as a number.
 '
 ' INPUTS
-'   v: any cell value.
+'   Content: any cell value.
 '
 ' RETURNS
-'   False for an error value, Empty or a blank string; otherwise IsNumeric(v).
+'   False for an error value, Empty or a blank string; otherwise
+'   IsNumeric(Content).
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -181,20 +184,20 @@ Public Function IsNum( _
 '------------------------------------------------------------------------------
     'IsNumeric alone treats Empty as numeric, so Empty and blank strings are
     'rejected first.
-        If IsError(v) Or IsEmpty(v) Then
+        If IsError(Content) Or IsEmpty(Content) Then
             IsNum = False
-        ElseIf VarType(v) = vbString Then
-            IsNum = (Len(Trim$(v)) > 0) And IsNumeric(v)
+        ElseIf VarType(Content) = vbString Then
+            IsNum = (Len(Trim$(Content)) > 0) And IsNumeric(Content)
         Else
-            IsNum = IsNumeric(v)
+            IsNum = IsNumeric(Content)
         End If
 
 End Function
 
 
 Public Function ToDbl( _
-    ByVal v As Variant, _
-    Optional ByVal dflt As Double = 0#) _
+    ByVal Content As Variant, _
+    Optional ByVal Fallback As Double = 0#) _
     As Double
 '
 '==============================================================================
@@ -204,31 +207,32 @@ Public Function ToDbl( _
 '   Convert a cell value to a Double, falling back to a default.
 '
 ' INPUTS
-'   v: any cell value.
-'   dflt: value returned when v is not a usable number; 0 by default.
+'   Content: any cell value.
+'   Fallback: value returned when Content is not a usable number; 0 by
+'   default.
 '
 ' RETURNS
-'   CDbl(v) when IsNum(v); otherwise dflt.
+'   CDbl(Content) when IsNum(Content); otherwise Fallback.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' CONVERT
 '------------------------------------------------------------------------------
-        If IsNum(v) Then
-            ToDbl = CDbl(v)
+        If IsNum(Content) Then
+            ToDbl = CDbl(Content)
         Else
-            ToDbl = dflt
+            ToDbl = Fallback
         End If
 
 End Function
 
 
 Public Function ToSerial( _
-    ByVal v As Variant) _
+    ByVal Content As Variant) _
     As Double
 '
 '==============================================================================
@@ -238,67 +242,68 @@ Public Function ToSerial( _
 '   Convert a cell value to a date serial number.
 '
 ' INPUTS
-'   v: a date, a number already holding a serial, or text in the ISO form
-'      yyyy-mm-dd. Other text, such as 31/03/2027, 03/31/2027 or a serial
+'   Content: a date, a number already holding a serial, or text in the ISO
+'      form yyyy-mm-dd. Other text, such as 31/03/2027, 03/31/2027 or a serial
 '      written as text, is not read: its meaning depends on the Windows
 '      regional settings (#40).
 '
 ' RETURNS
-'   The date serial as a Double; -1 when v is missing or not a date.
+'   The date serial as a Double; -1 when Content is missing or not a date.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s     As String    'Trimmed text of v
-    Dim y     As Long      'Year of an ISO text date
-    Dim m     As Long      'Month of an ISO text date
-    Dim d     As Long      'Day of an ISO text date
-    Dim dt    As Date      'The ISO text date, built from y, m and d
+    Dim Trimmed        As String    'Trimmed text of Content
+    Dim YearPart       As Long      'Year of an ISO text date
+    Dim MonthPart      As Long      'Month of an ISO text date
+    Dim DayPart        As Long      'Day of an ISO text date
+    Dim CalendarDate   As Date      'The ISO text date, built from the three parts
 
 '------------------------------------------------------------------------------
 ' CONVERT
 '------------------------------------------------------------------------------
-    'Start from the "missing" marker and replace it only when v is usable.
+    'Start from the "missing" marker and replace it only when Content is
+    'usable.
     'Text is tested before numbers: IsNum accepts numeric text such as
     '"47756", which is not a yyyy-mm-dd date.
         ToSerial = -1#
-        If IsError(v) Or IsEmpty(v) Then
+        If IsError(Content) Or IsEmpty(Content) Then
             Exit Function
         End If
-        If VarType(v) = vbDate Then
-            ToSerial = CDbl(v)
-        ElseIf VarType(v) = vbString Then
-            s = Trim$(v)
-            If Not s Like "####-##-##" Then
+        If VarType(Content) = vbDate Then
+            ToSerial = CDbl(Content)
+        ElseIf VarType(Content) = vbString Then
+            Trimmed = Trim$(Content)
+            If Not Trimmed Like "####-##-##" Then
                 Exit Function
             End If
 
     'Only a calendar date is read: 2027-02-30 is not rolled into March.
-            y = CLng(Left$(s, 4))
-            m = CLng(Mid$(s, 6, 2))
-            d = CLng(Right$(s, 2))
-            If y < 1900 Or m < 1 Or m > 12 Or d < 1 Or d > 31 Then
+            YearPart = CLng(Left$(Trimmed, 4))
+            MonthPart = CLng(Mid$(Trimmed, 6, 2))
+            DayPart = CLng(Right$(Trimmed, 2))
+            If YearPart < 1900 Or MonthPart < 1 Or MonthPart > 12 Or DayPart < 1 Or DayPart > 31 Then
                 Exit Function
             End If
-            dt = DateSerial(y, m, d)
-            If Month(dt) = m And Day(dt) = d Then
-                ToSerial = CDbl(dt)
+            CalendarDate = DateSerial(YearPart, MonthPart, DayPart)
+            If Month(CalendarDate) = MonthPart And Day(CalendarDate) = DayPart Then
+                ToSerial = CDbl(CalendarDate)
             End If
-        ElseIf IsNum(v) Then
-            ToSerial = CDbl(v)
+        ElseIf IsNum(Content) Then
+            ToSerial = CDbl(Content)
         End If
 
 End Function
 
 
 Public Function ToBool( _
-    ByVal v As Variant, _
-    Optional ByVal dflt As Boolean = False) _
+    ByVal Content As Variant, _
+    Optional ByVal Fallback As Boolean = False) _
     As Boolean
 '
 '==============================================================================
@@ -308,57 +313,57 @@ Public Function ToBool( _
 '   Convert a Y/N style cell value to a Boolean.
 '
 ' INPUTS
-'   v: a Boolean, or text such as Y, YES, TRUE, 1, N, NO, FALSE, 0. The
+'   Content: a Boolean, or text such as Y, YES, TRUE, 1, N, NO, FALSE, 0. The
 '      Italian VERO, SI and FALSO are also accepted.
-'   dflt: value returned for an error value, Empty or unrecognised text.
+'   Fallback: value returned for an error value, Empty or unrecognised text.
 '
 ' RETURNS
-'   True or False as read from v; otherwise dflt.
+'   True or False as read from Content; otherwise Fallback.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s   As String    'Upper-case trimmed text of v
+    Dim UpperText   As String    'Upper-case trimmed text of Content
 
 '------------------------------------------------------------------------------
 ' HANDLE NON-TEXT VALUES
 '------------------------------------------------------------------------------
     'Error values and Empty take the default; a real Boolean is returned
     'as it is.
-        If IsError(v) Or IsEmpty(v) Then
-            ToBool = dflt
+        If IsError(Content) Or IsEmpty(Content) Then
+            ToBool = Fallback
             Exit Function
         End If
-        If VarType(v) = vbBoolean Then
-            ToBool = v
+        If VarType(Content) = vbBoolean Then
+            ToBool = Content
             Exit Function
         End If
 
 '------------------------------------------------------------------------------
 ' READ TEXT
 '------------------------------------------------------------------------------
-        s = UTxt(v)
-        Select Case s
+        UpperText = UTxt(Content)
+        Select Case UpperText
             Case "Y", "YES", "TRUE", "1", "VERO", "SI"
                 ToBool = True
             Case "N", "NO", "FALSE", "0", "FALSO"
                 ToBool = False
             Case Else
-                ToBool = dflt
+                ToBool = Fallback
         End Select
 
 End Function
 
 
 Public Function TryBool( _
-    ByVal v As Variant, _
-    ByVal dflt As Boolean, _
-    ByRef result As Boolean) _
+    ByVal Content As Variant, _
+    ByVal Fallback As Boolean, _
+    ByRef Result As Boolean) _
     As Boolean
 '
 '==============================================================================
@@ -369,39 +374,40 @@ Public Function TryBool( _
 '   value is reported instead of silently taking the default (#35).
 '
 ' INPUTS
-'   v: a Boolean, blank, or text such as Y, YES, TRUE, 1, N, NO, FALSE, 0
-'      (and the Italian VERO, SI, FALSO).
-'   dflt: value used when v is blank.
+'   Content: a Boolean, blank, or text such as Y, YES, TRUE, 1, N, NO,
+'      FALSE, 0 (and the Italian VERO, SI, FALSO).
+'   Fallback: value used when Content is blank.
+'   Result: receives the value read.
 '
 ' RETURNS
-'   True with result set when v is blank or recognised; False for an error
-'   value or unrecognised text, with result left as dflt.
+'   True with Result set when Content is blank or recognised; False for an
+'   error value or unrecognised text, with Result left as Fallback.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        result = dflt
-        If IsError(v) Then
+        Result = Fallback
+        If IsError(Content) Then
             Exit Function
         End If
-        If VarType(v) = vbBoolean Then
-            result = v
+        If VarType(Content) = vbBoolean Then
+            Result = Content
             TryBool = True
             Exit Function
         End If
-        Select Case UTxt(v)
+        Select Case UTxt(Content)
             Case ""
                 TryBool = True
             Case "Y", "YES", "TRUE", "1", "VERO", "SI"
-                result = True
+                Result = True
                 TryBool = True
             Case "N", "NO", "FALSE", "0", "FALSO"
-                result = False
+                Result = False
                 TryBool = True
         End Select
 
@@ -409,9 +415,9 @@ End Function
 
 
 Public Function TryDbl( _
-    ByVal v As Variant, _
-    ByVal dflt As Double, _
-    ByRef result As Double) _
+    ByVal Content As Variant, _
+    ByVal Fallback As Double, _
+    ByRef Result As Double) _
     As Boolean
 '
 '==============================================================================
@@ -422,29 +428,30 @@ Public Function TryDbl( _
 '   number is reported instead of silently taking the default (#35).
 '
 ' INPUTS
-'   v: a number, blank, or anything else.
-'   dflt: value used when v is blank.
+'   Content: a number, blank, or anything else.
+'   Fallback: value used when Content is blank.
+'   Result: receives the value read.
 '
 ' RETURNS
-'   True with result set when v is blank or a usable number; False for an
-'   error value or non-numeric text, with result left as dflt.
+'   True with Result set when Content is blank or a usable number; False
+'   for an error value or non-numeric text, with Result left as Fallback.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        result = dflt
-        If IsError(v) Then
+        Result = Fallback
+        If IsError(Content) Then
             Exit Function
         End If
-        If IsBlankCell(v) Then
+        If IsBlankCell(Content) Then
             TryDbl = True
-        ElseIf IsNum(v) Then
-            result = CDbl(v)
+        ElseIf IsNum(Content) Then
+            Result = CDbl(Content)
             TryDbl = True
         End If
 
@@ -452,8 +459,8 @@ End Function
 
 
 Public Function Max2( _
-    ByVal a As Double, _
-    ByVal b As Double) _
+    ByVal FirstValue As Double, _
+    ByVal SecondValue As Double) _
     As Double
 '
 '==============================================================================
@@ -463,25 +470,25 @@ Public Function Max2( _
 '   Return the larger of two numbers.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        If a > b Then
-            Max2 = a
+        If FirstValue > SecondValue Then
+            Max2 = FirstValue
         Else
-            Max2 = b
+            Max2 = SecondValue
         End If
 
 End Function
 
 
 Public Function Min2( _
-    ByVal a As Double, _
-    ByVal b As Double) _
+    ByVal FirstValue As Double, _
+    ByVal SecondValue As Double) _
     As Double
 '
 '==============================================================================
@@ -491,17 +498,17 @@ Public Function Min2( _
 '   Return the smaller of two numbers.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        If a < b Then
-            Min2 = a
+        If FirstValue < SecondValue Then
+            Min2 = FirstValue
         Else
-            Min2 = b
+            Min2 = SecondValue
         End If
 
 End Function
@@ -516,8 +523,8 @@ End Function
 '
 
 Public Function KeyIndex( _
-    ByVal col As Collection, _
-    ByVal key As String) _
+    ByVal Lookup As Collection, _
+    ByVal Key As String) _
     As Long
 '
 '==============================================================================
@@ -527,8 +534,8 @@ Public Function KeyIndex( _
 '   Look up the array index stored under a key.
 '
 ' INPUTS
-'   col: a Collection filled by KeyAdd.
-'   key: lookup key; compared case-insensitively.
+'   Lookup: a Collection filled by KeyAdd.
+'   Key: lookup key; compared case-insensitively.
 '
 ' RETURNS
 '   The stored 1-based index; 0 when the key is not present.
@@ -538,26 +545,26 @@ Public Function KeyIndex( _
 '   cleared and reported as 0.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim v   As Variant    'Value stored under the key
+    Dim Stored   As Variant    'Value stored under the key
 
 '------------------------------------------------------------------------------
 ' LOOK UP
 '------------------------------------------------------------------------------
     'Keys are stored upper-case by KeyAdd, so the lookup upper-cases too.
         On Error Resume Next
-        v = col.Item(UCase$(key))
+        Stored = Lookup.Item(UCase$(Key))
         If Err.Number <> 0 Then
             Err.Clear
             KeyIndex = 0
         Else
-            KeyIndex = CLng(v)
+            KeyIndex = CLng(Stored)
         End If
         On Error GoTo 0
 
@@ -565,9 +572,9 @@ End Function
 
 
 Public Sub KeyAdd( _
-    ByVal col As Collection, _
-    ByVal key As String, _
-    ByVal idx As Long)
+    ByVal Lookup As Collection, _
+    ByVal Key As String, _
+    ByVal Position As Long)
 '
 '==============================================================================
 '                                    KeyAdd
@@ -576,23 +583,23 @@ Public Sub KeyAdd( _
 '   Store an array index under a key.
 '
 ' INPUTS
-'   col: the Collection used as the index.
-'   key: lookup key; stored upper-case.
-'   idx: 1-based position of the item in its array.
+'   Lookup: the Collection used as the index.
+'   Key: lookup key; stored upper-case.
+'   Position: 1-based position of the item in its array.
 '
 ' ERROR POLICY
 '   Raises the Collection's duplicate-key error if the key already exists;
 '   callers check with KeyIndex first.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' STORE
 '------------------------------------------------------------------------------
-        col.Add idx, UCase$(key)
+        Lookup.Add Position, UCase$(Key)
 
 End Sub
 
@@ -606,7 +613,7 @@ End Sub
 '
 
 Public Function ACIndex( _
-    ByVal code As String) _
+    ByVal Code As String) _
     As Long
 '
 '==============================================================================
@@ -616,20 +623,20 @@ Public Function ACIndex( _
 '   Translate an asset-class code into its internal number.
 '
 ' INPUTS
-'   code: IR, FX, CR, EQ, CO or OT, in any case.
+'   Code: IR, FX, CR, EQ, CO or OT, in any case.
 '
 ' RETURNS
 '   The matching AC_ constant from CORE_Config; 0 for an unknown code.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' TRANSLATE
 '------------------------------------------------------------------------------
-        Select Case UCase$(code)
+        Select Case UCase$(Code)
             Case "IR"
                 ACIndex = AC_IR
             Case "FX"
@@ -650,7 +657,7 @@ End Function
 
 
 Public Function ACCode( _
-    ByVal idx As Long) _
+    ByVal AssetClass As Long) _
     As String
 '
 '==============================================================================
@@ -660,20 +667,20 @@ Public Function ACCode( _
 '   Translate an internal asset-class number back into its code.
 '
 ' INPUTS
-'   idx: an AC_ constant from CORE_Config.
+'   AssetClass: an AC_ constant from CORE_Config.
 '
 ' RETURNS
 '   IR, FX, CR, EQ, CO or OT; "?" for any other number.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' TRANSLATE
 '------------------------------------------------------------------------------
-        Select Case idx
+        Select Case AssetClass
             Case AC_IR
                 ACCode = "IR"
             Case AC_FX
@@ -702,7 +709,7 @@ End Function
 '
 
 Public Function GetSheet( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Worksheet
 '
 '==============================================================================
@@ -712,28 +719,28 @@ Public Function GetSheet( _
 '   Return a worksheet of this workbook by tab name.
 '
 ' INPUTS
-'   sheetName: one of the SH_ constants in CORE_Config.
+'   SheetName: one of the SH_ constants in CORE_Config.
 '
 ' ERROR POLICY
 '   A missing sheet raises "Subscript out of range" to the caller.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' RETURN SHEET
 '------------------------------------------------------------------------------
-        Set GetSheet = ThisWorkbook.Worksheets(sheetName)
+        Set GetSheet = ThisWorkbook.Worksheets(SheetName)
 
 End Function
 
 
 Public Function TableCell( _
-    ByVal ws As Worksheet, _
-    ByVal rowNum As Long, _
-    ByVal col As Long) _
+    ByVal Sheet As Worksheet, _
+    ByVal RowNumber As Long, _
+    ByVal Column As Long) _
     As Range
 '
 '==============================================================================
@@ -744,21 +751,21 @@ Public Function TableCell( _
 '   from the first table column, right of the COL_OFFSET margin columns.
 '
 ' INPUTS
-'   ws: the worksheet.
-'   rowNum: the sheet row.
-'   col: the table column, 1 for the first.
+'   Sheet: the worksheet.
+'   RowNumber: the sheet row.
+'   Column: the table column, 1 for the first.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        Set TableCell = ws.Cells(rowNum, col + COL_OFFSET)
+        Set TableCell = Sheet.Cells(RowNumber, Column + COL_OFFSET)
 
 End Function
 
 
 Public Function NamedCell( _
-    ByVal nameText As String) _
+    ByVal NameText As String) _
     As Range
 '
 '==============================================================================
@@ -769,33 +776,33 @@ Public Function NamedCell( _
 '   is missing or no longer refers to a cell.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim target   As Range    'The name's range
+    Dim Target   As Range    'The name's range
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-    'Names(nameText) raises when no such name exists; target then stays
+    'Names(NameText) raises when no such name exists; Target then stays
     'Nothing.
         On Error Resume Next
-        Set target = ThisWorkbook.Names(nameText).RefersToRange
+        Set Target = ThisWorkbook.Names(NameText).RefersToRange
         Err.Clear
         On Error GoTo 0
-        If Not target Is Nothing Then
-            Set NamedCell = target.Cells(1, 1)
+        If Not Target Is Nothing Then
+            Set NamedCell = Target.Cells(1, 1)
         End If
 
 End Function
 
 
 Public Function NamedRow( _
-    ByVal nameText As String) _
+    ByVal NameText As String) _
     As Long
 '
 '==============================================================================
@@ -806,28 +813,28 @@ Public Function NamedRow( _
 '   name is missing or broken.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'The name's top-left cell
+    Dim Cell   As Range    'The name's top-left cell
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        Set c = NamedCell(nameText)
-        If Not c Is Nothing Then
-            NamedRow = c.Row
+        Set Cell = NamedCell(NameText)
+        If Not Cell Is Nothing Then
+            NamedRow = Cell.Row
         End If
 
 End Function
 
 
 Public Function TableHeaderName( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As String
 '
 '==============================================================================
@@ -842,10 +849,10 @@ Public Function TableHeaderName( _
 '   The name; "" for a sheet whose table is not located this way.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
-        Select Case sheetName
+        Select Case SheetName
             Case SH_NS
                 TableHeaderName = NM_NS_HEADER
             Case SH_TRADES
@@ -870,7 +877,7 @@ End Function
 
 
 Public Function TableHeaderRow( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Long
 '
 '==============================================================================
@@ -887,27 +894,27 @@ Public Function TableHeaderRow( _
 '   broken, on another sheet or not in column C.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim headerName   As String    'Workbook name of the header cell
-    Dim c            As Range     'The named cell
+    Dim HeaderName   As String    'Workbook name of the header cell
+    Dim Cell         As Range     'The named cell
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        headerName = TableHeaderName(sheetName)
-        If Len(headerName) = 0 Then
+        HeaderName = TableHeaderName(SheetName)
+        If Len(HeaderName) = 0 Then
             Exit Function
         End If
-        Set c = NamedCell(headerName)
-        If Not c Is Nothing Then
-            If StrComp(c.Worksheet.Name, sheetName, vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
-                TableHeaderRow = c.Row
+        Set Cell = NamedCell(HeaderName)
+        If Not Cell Is Nothing Then
+            If StrComp(Cell.Worksheet.Name, SheetName, vbTextCompare) = 0 And Cell.Column = COL_OFFSET + 1 Then
+                TableHeaderRow = Cell.Row
             End If
         End If
 
@@ -915,7 +922,7 @@ End Function
 
 
 Public Function TableFirstRow( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Long
 '
 '==============================================================================
@@ -929,28 +936,28 @@ Public Function TableFirstRow( _
 '   The row; 0 when the header row cannot be located.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'Header row
+    Dim HeaderRow   As Long    'Header row
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        r = TableHeaderRow(sheetName)
-        If r > 0 Then
-            TableFirstRow = r + 1
+        HeaderRow = TableHeaderRow(SheetName)
+        If HeaderRow > 0 Then
+            TableFirstRow = HeaderRow + 1
         End If
 
 End Function
 
 
 Public Function OutputFirstRow( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Long
 '
 '==============================================================================
@@ -968,32 +975,32 @@ Public Function OutputFirstRow( _
 '   this needs the workbook rebuilt from the template.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim r   As Long    'First data row; 0 when the name cannot locate it
+    Dim FirstRow   As Long    'First data row; 0 when the name cannot locate it
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        r = TableFirstRow(sheetName)
-        If r = 0 Then
+        FirstRow = TableFirstRow(SheetName)
+        If FirstRow = 0 Then
             Err.Raise ERR_OUTPUT_LAYOUT, "CORE_Util.OutputFirstRow", _
-                      "Workbook name '" & TableHeaderName(sheetName) & "' is missing or no longer refers to " & _
-                      "the first header cell, in column C, of " & sheetName & _
+                      "Workbook name '" & TableHeaderName(SheetName) & "' is missing or no longer refers to " & _
+                      "the first header cell, in column C, of " & SheetName & _
                       " - rebuild the workbook from the template."
         End If
-        OutputFirstRow = r
+        OutputFirstRow = FirstRow
 
 End Function
 
 
 Public Function NamedTableCol( _
-    ByVal nameText As String) _
+    ByVal NameText As String) _
     As Long
 '
 '==============================================================================
@@ -1006,21 +1013,21 @@ Public Function NamedTableCol( _
 '   here too.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'The name's top-left cell
+    Dim Cell   As Range    'The name's top-left cell
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        Set c = NamedCell(nameText)
-        If Not c Is Nothing Then
-            NamedTableCol = c.Column - COL_OFFSET
+        Set Cell = NamedCell(NameText)
+        If Not Cell Is Nothing Then
+            NamedTableCol = Cell.Column - COL_OFFSET
         End If
 
 End Function
@@ -1081,11 +1088,11 @@ End Function
 
 
 Public Function TableRange( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal firstCol As Long, _
-    ByVal lastRow As Long, _
-    ByVal lastCol As Long) _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal FirstColumn As Long, _
+    ByVal LastRow As Long, _
+    ByVal LastColumn As Long) _
     As Range
 '
 '==============================================================================
@@ -1096,16 +1103,16 @@ Public Function TableRange( _
 '   TableCell counts them.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        Set TableRange = ws.Range(TableCell(ws, firstRow, firstCol), TableCell(ws, lastRow, lastCol))
+        Set TableRange = Sheet.Range(TableCell(Sheet, FirstRow, FirstColumn), TableCell(Sheet, LastRow, LastColumn))
 
 End Function
 
 
 Public Function UsedLastRow( _
-    ByVal ws As Worksheet) _
+    ByVal Sheet As Worksheet) _
     As Long
 '
 '==============================================================================
@@ -1116,20 +1123,20 @@ Public Function UsedLastRow( _
 '   data scan.
 '
 ' INPUTS
-'   ws: the worksheet to measure.
+'   Sheet: the worksheet to measure.
 '
 ' RETURNS
-'   Row number of the bottom edge of ws.UsedRange.
+'   Row number of the bottom edge of Sheet.UsedRange.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' MEASURE
 '------------------------------------------------------------------------------
-        With ws.UsedRange
+        With Sheet.UsedRange
             UsedLastRow = .Row + .Rows.Count - 1
         End With
 
@@ -1137,10 +1144,10 @@ End Function
 
 
 Public Function ColumnValues( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal lastRow As Long, _
-    ByVal colIdx As Long) _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal LastRow As Long, _
+    ByVal Column As Long) _
     As Variant
 '
 '==============================================================================
@@ -1148,50 +1155,50 @@ Public Function ColumnValues( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Read one column range in a single call, always as a 2-D array, also
-'   for a single row, where Range.Value2 gives a scalar. Public for
-'   M_Main, which reads the Trades IDs with it (#45).
+'   for a single row, where Range.Value gives a scalar. Public because
+'   M_Main also reads the Trades IDs with it (#45).
 '
 ' INPUTS
-'   ws: the worksheet to read.
-'   firstRow, lastRow: rows to read, firstRow <= lastRow.
-'   colIdx: table column number.
+'   Sheet: the worksheet to read.
+'   FirstRow, LastRow: rows to read, FirstRow <= LastRow.
+'   Column: table column number.
 '
 ' RETURNS
 '   A 1-based array (1 To rows, 1 To 1). Element (r, 1) holds the value of
-'   row firstRow + r - 1.
+'   row FirstRow + r - 1.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim v     As Variant      'Value or array returned by Range.Value
-    Dim a()   As Variant      'One-cell array built for a single-row range
+    Dim Values      As Variant    'Value or array returned by Range.Value
+    Dim Wrapped()   As Variant    'One-cell array built for a single-row range
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
     'Range.Value returns a scalar, not an array, for a single cell. Wrap it
-    'so callers can always index v(r, 1).
-        v = TableRange(ws, firstRow, colIdx, lastRow, colIdx).Value
-        If IsArray(v) Then
-            ColumnValues = v
+    'so that callers can always index the result as (r, 1).
+        Values = TableRange(Sheet, FirstRow, Column, LastRow, Column).Value
+        If IsArray(Values) Then
+            ColumnValues = Values
         Else
-            ReDim a(1 To 1, 1 To 1)
-            a(1, 1) = v
-            ColumnValues = a
+            ReDim Wrapped(1 To 1, 1 To 1)
+            Wrapped(1, 1) = Values
+            ColumnValues = Wrapped
         End If
 
 End Function
 
 
 Public Function LastDataRow( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal colIdx As Long) _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Column As Long) _
     As Long
 '
 '==============================================================================
@@ -1201,44 +1208,44 @@ Public Function LastDataRow( _
 '   Find the last non-blank row in one column.
 '
 ' INPUTS
-'   ws: the worksheet to scan.
-'   firstRow: first row of the data area.
-'   colIdx: table column number to test.
+'   Sheet: the worksheet to scan.
+'   FirstRow: first row of the data area.
+'   Column: table column number to test.
 '
 ' RETURNS
-'   Row number of the last non-blank cell; firstRow - 1 when the column is
-'   empty from firstRow down.
+'   Row number of the last non-blank cell; FirstRow - 1 when the column is
+'   empty from FirstRow down.
 '
-' DEPENDENCIES
+' METHOD
 '   Scans the used range bottom-up instead of using End(xlUp), so that the
 '   result is the same in hidden or automated sessions.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long       'Last row of the used range
-    Dim v       As Variant    'Column values from firstRow to lastR
-    Dim r       As Long       'Position in v, counted from the bottom
+    Dim LastUsedRow   As Long       'Last row of the used range
+    Dim Values        As Variant    'Column values from FirstRow to LastUsedRow
+    Dim r             As Long       'Position in Values, counted from the bottom
 
 '------------------------------------------------------------------------------
 ' SCAN
 '------------------------------------------------------------------------------
     'Start from the "empty" answer, then walk up from the bottom of the used
     'range and stop at the first non-blank cell.
-        LastDataRow = firstRow - 1
-        lastR = UsedLastRow(ws)
-        If lastR < firstRow Then
+        LastDataRow = FirstRow - 1
+        LastUsedRow = UsedLastRow(Sheet)
+        If LastUsedRow < FirstRow Then
             Exit Function
         End If
-        v = ColumnValues(ws, firstRow, lastR, colIdx)
-        For r = UBound(v, 1) To 1 Step -1
-            If Not IsBlankCell(v(r, 1)) Then
-                LastDataRow = firstRow + r - 1
+        Values = ColumnValues(Sheet, FirstRow, LastUsedRow, Column)
+        For r = UBound(Values, 1) To 1 Step -1
+            If Not IsBlankCell(Values(r, 1)) Then
+                LastDataRow = FirstRow + r - 1
                 Exit Function
             End If
         Next r
@@ -1247,62 +1254,63 @@ End Function
 
 
 Public Function LastDataRowAny( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal nCols As Long, _
-    ByVal ignoreCol As Long) _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal ColumnCount As Long, _
+    ByVal IgnoredColumn As Long) _
     As Long
 '
 '==============================================================================
 '                                LastDataRowAny
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Find the last row with a value in any of the first nCols columns, so
+'   Find the last row with a value in any of the first ColumnCount columns,
+'   so
 '   that a row whose ID is blank is still found (#35).
 '
 ' INPUTS
-'   ws: the worksheet to scan.
-'   firstRow: first row of the data area.
-'   nCols: number of columns from the first table column.
-'   ignoreCol: a column that does not count as data, such as a free-text
-'      comment; 0 for none.
+'   Sheet: the worksheet to scan.
+'   FirstRow: first row of the data area.
+'   ColumnCount: number of columns from the first table column.
+'   IgnoredColumn: a column that does not count as data, such as a
+'      free-text comment; 0 for none.
 '
 ' RETURNS
-'   Row number of the last such row; firstRow - 1 when there is none.
+'   Row number of the last such row; FirstRow - 1 when there is none.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long       'Last row of the used range
-    Dim v       As Variant    'Block values from firstRow to lastR
-    Dim r       As Long       'Row in v, counted from the bottom
-    Dim c       As Long       'Column in v
+    Dim LastUsedRow   As Long       'Last row of the used range
+    Dim Values        As Variant    'Block values from FirstRow to LastUsedRow
+    Dim r             As Long       'Row in Values, counted from the bottom
+    Dim c             As Long       'Column in Values
 
 '------------------------------------------------------------------------------
 ' SCAN
 '------------------------------------------------------------------------------
-        LastDataRowAny = firstRow - 1
-        lastR = UsedLastRow(ws)
-        If lastR < firstRow Then
+        LastDataRowAny = FirstRow - 1
+        LastUsedRow = UsedLastRow(Sheet)
+        If LastUsedRow < FirstRow Then
             Exit Function
         End If
-        v = TableRange(ws, firstRow, 1, lastR, nCols).Value
-        If Not IsArray(v) Then
-            If Not IsBlankCell(v) Then
-                LastDataRowAny = firstRow
+        Values = TableRange(Sheet, FirstRow, 1, LastUsedRow, ColumnCount).Value
+        If Not IsArray(Values) Then
+            If Not IsBlankCell(Values) Then
+                LastDataRowAny = FirstRow
             End If
             Exit Function
         End If
-        For r = UBound(v, 1) To 1 Step -1
-            For c = 1 To UBound(v, 2)
-                If c <> ignoreCol Then
-                    If Not IsBlankCell(v(r, c)) Then
-                        LastDataRowAny = firstRow + r - 1
+        For r = UBound(Values, 1) To 1 Step -1
+            For c = 1 To UBound(Values, 2)
+                If c <> IgnoredColumn Then
+                    If Not IsBlankCell(Values(r, c)) Then
+                        LastDataRowAny = FirstRow + r - 1
                         Exit Function
                     End If
                 End If
@@ -1313,10 +1321,10 @@ End Function
 
 
 Public Function RowHasData( _
-    ByRef data As Variant, _
-    ByVal r As Long, _
-    ByVal nCols As Long, _
-    ByVal ignoreCol As Long) _
+    ByRef Block As Variant, _
+    ByVal RowIndex As Long, _
+    ByVal ColumnCount As Long, _
+    ByVal IgnoredColumn As Long) _
     As Boolean
 '
 '==============================================================================
@@ -1326,11 +1334,12 @@ Public Function RowHasData( _
 '   Tell whether a row of an input block holds any value.
 '
 ' INPUTS
-'   data: a 2-D input block; r: the row in it; nCols: columns to check;
-'   ignoreCol: a column that does not count as data; 0 for none.
+'   Block: a 2-D input block; RowIndex: the row in it; ColumnCount: columns
+'   to check; IgnoredColumn: a column that does not count as data; 0 for
+'   none.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1342,9 +1351,9 @@ Public Function RowHasData( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-        For c = 1 To nCols
-            If c <> ignoreCol Then
-                If Not IsBlankCell(data(r, c)) Then
+        For c = 1 To ColumnCount
+            If c <> IgnoredColumn Then
+                If Not IsBlankCell(Block(RowIndex, c)) Then
                     RowHasData = True
                     Exit Function
                 End If
@@ -1355,9 +1364,9 @@ End Function
 
 
 Public Function FindHeaderRow( _
-    ByVal ws As Worksheet, _
-    ByVal colIdx As Long, _
-    ByVal header As String) _
+    ByVal Sheet As Worksheet, _
+    ByVal Column As Long, _
+    ByVal SearchText As String) _
     As Long
 '
 '==============================================================================
@@ -1368,36 +1377,37 @@ Public Function FindHeaderRow( _
 '   table header or a parameter code on Params.
 '
 ' INPUTS
-'   ws: the worksheet to search.
-'   colIdx: table column number to search.
-'   header: text to find; compared case-insensitively after trimming.
+'   Sheet: the worksheet to search.
+'   Column: table column number to search.
+'   SearchText: text to find; compared case-insensitively with the trimmed
+'      cell text.
 '
 ' RETURNS
 '   Row number of the first match from the top; 0 when not found.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long       'Last row of the used range
-    Dim v       As Variant    'Column values from row 1 to lastR
-    Dim r       As Long       'Row being compared
+    Dim LastUsedRow   As Long       'Last row of the used range
+    Dim Values        As Variant    'Column values from row 1 to LastUsedRow
+    Dim r             As Long       'Row being compared
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
         FindHeaderRow = 0
-        lastR = UsedLastRow(ws)
-        If lastR < 1 Then
+        LastUsedRow = UsedLastRow(Sheet)
+        If LastUsedRow < 1 Then
             Exit Function
         End If
-        v = ColumnValues(ws, 1, lastR, colIdx)
-        For r = 1 To UBound(v, 1)
-            If StrComp(SafeStr(v(r, 1)), header, vbTextCompare) = 0 Then
+        Values = ColumnValues(Sheet, 1, LastUsedRow, Column)
+        For r = 1 To UBound(Values, 1)
+            If StrComp(SafeStr(Values(r, 1)), SearchText, vbTextCompare) = 0 Then
                 FindHeaderRow = r
                 Exit Function
             End If
@@ -1407,7 +1417,7 @@ End Function
 
 
 Public Function GetParam( _
-    ByVal code As String) _
+    ByVal Code As String) _
     As Variant
 '
 '==============================================================================
@@ -1417,7 +1427,7 @@ Public Function GetParam( _
 '   Read one parameter value through the workbook name equal to its code.
 '
 ' INPUTS
-'   code: a PRM_ code from CORE_Config, for example "Alpha".
+'   Code: a PRM_ code from CORE_Config, for example "Alpha".
 '
 ' RETURNS
 '   The stored value of the name's top-left cell (Value2, so that a
@@ -1426,28 +1436,28 @@ Public Function GetParam( _
 '   reports before any parameter is read.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'The name's top-left cell
+    Dim Cell   As Range    'The name's top-left cell
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        Set c = NamedCell(code)
-        If Not c Is Nothing Then
-            GetParam = c.Value2
+        Set Cell = NamedCell(Code)
+        If Not Cell Is Nothing Then
+            GetParam = Cell.Value2
         End If
 
 End Function
 
 
 Public Function TextHash( _
-    ByVal content As String) _
+    ByVal Content As String) _
     As String
 '
 '==============================================================================
@@ -1465,7 +1475,7 @@ Public Function TextHash( _
 '   exactly.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1474,27 +1484,27 @@ Public Function TextHash( _
 '------------------------------------------------------------------------------
     Const HASH_MODULUS As Double = 2147483647#    'Prime 2^31 - 1
     Const HASH_BASE    As Double = 131#           'Multiplier per byte
-    Dim bytes()   As Byte      'UTF-16 bytes of the text
-    Dim h         As Double    'Running hash, 0 to HASH_MODULUS - 1
+    Dim Bytes()   As Byte      'UTF-16 bytes of the text
+    Dim Hash      As Double    'Running hash, 0 to HASH_MODULUS - 1
     Dim i         As Long      'Byte being added
 
 '------------------------------------------------------------------------------
 ' HASH
 '------------------------------------------------------------------------------
-        bytes = content
-        For i = 0 To UBound(bytes)
-            h = h * HASH_BASE + bytes(i)
-            h = h - Int(h / HASH_MODULUS) * HASH_MODULUS
+        Bytes = Content
+        For i = 0 To UBound(Bytes)
+            Hash = Hash * HASH_BASE + Bytes(i)
+            Hash = Hash - Int(Hash / HASH_MODULUS) * HASH_MODULUS
         Next i
-        TextHash = Right$("0000000" & Hex$(CLng(h)), 8)
+        TextHash = Right$("0000000" & Hex$(CLng(Hash)), 8)
 
 End Function
 
 
 Public Sub ClearOutputBlock( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal nCols As Long)
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal ColumnCount As Long)
 '
 '==============================================================================
 '                               ClearOutputBlock
@@ -1503,31 +1513,31 @@ Public Sub ClearOutputBlock( _
 '   Clear an output table before it is rewritten: values, bold and fill.
 '
 ' INPUTS
-'   ws: the output worksheet.
-'   firstRow: first data row to clear.
-'   nCols: number of columns from the first table column.
+'   Sheet: the output worksheet.
+'   FirstRow: first data row to clear.
+'   ColumnCount: number of columns from the first table column.
 '
 ' STATE OWNERSHIP
 '   Changes the cleared cells only. Number formats are left in place.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR   As Long    'Last row of the used range
+    Dim LastUsedRow   As Long    'Last row of the used range
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        lastR = UsedLastRow(ws)
-        If lastR < firstRow Then
+        LastUsedRow = UsedLastRow(Sheet)
+        If LastUsedRow < FirstRow Then
             Exit Sub
         End If
-        With TableRange(ws, firstRow, 1, lastR, nCols)
+        With TableRange(Sheet, FirstRow, 1, LastUsedRow, ColumnCount)
             .ClearContents
             .Font.Bold = False
             .Interior.ColorIndex = xlNone
@@ -1537,11 +1547,11 @@ End Sub
 
 
 Public Sub WriteBlock( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByRef arr() As Variant, _
-    ByVal nRows As Long, _
-    ByVal nCols As Long)
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByRef Block() As Variant, _
+    ByVal RowsToWrite As Long, _
+    ByVal ColumnCount As Long)
 '
 '==============================================================================
 '                                  WriteBlock
@@ -1550,15 +1560,15 @@ Public Sub WriteBlock( _
 '   Write the first rows of a 2-D array to a sheet in one call.
 '
 ' INPUTS
-'   ws: the output worksheet.
-'   firstRow: row receiving arr(1, *); the block starts in the first table
-'   column.
-'   arr: 1-based 2-D array; it may have more rows than nRows.
-'   nRows: number of rows to write; nothing is written when it is 0.
-'   nCols: number of columns to write.
+'   Sheet: the output worksheet.
+'   FirstRow: row receiving Block(1, *); the block starts in the first
+'   table column.
+'   Block: 1-based 2-D array; it may have more rows than RowsToWrite.
+'   RowsToWrite: number of rows to write; nothing is written when it is 0.
+'   ColumnCount: number of columns to write.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1566,19 +1576,19 @@ Public Sub WriteBlock( _
 ' WRITE
 '------------------------------------------------------------------------------
     'Assigning the array to a smaller range writes only its top-left part.
-        If nRows <= 0 Then
+        If RowsToWrite <= 0 Then
             Exit Sub
         End If
-        TableRange(ws, firstRow, 1, firstRow + nRows - 1, nCols).Value = arr
+        TableRange(Sheet, FirstRow, 1, FirstRow + RowsToWrite - 1, ColumnCount).Value = Block
 
 End Sub
 
 
 Public Sub FormatColumns( _
-    ByVal ws As Worksheet, _
-    ByVal firstRow As Long, _
-    ByVal nRows As Long, _
-    ByVal formats As String)
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal RowsToFormat As Long, _
+    ByVal Formats As String)
 '
 '==============================================================================
 '                                FormatColumns
@@ -1587,34 +1597,33 @@ Public Sub FormatColumns( _
 '   Apply a number format to each column of an output block.
 '
 ' INPUTS
-'   ws: the output worksheet.
-'   firstRow: first row of the block.
-'   nRows: number of rows; nothing is formatted when it is 0.
-'   formats: one number format per table column from the first, separated
-'            by "|".
-'            An empty entry leaves that column unchanged.
+'   Sheet: the output worksheet.
+'   FirstRow: first row of the block.
+'   RowsToFormat: number of rows; nothing is formatted when it is 0.
+'   Formats: one number format per table column from the first, separated
+'      by "|". An empty entry leaves that column unchanged.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts()   As String    'Number formats, one per column, 0-based
-    Dim c         As Long      'Position in parts; column c + 1
+    Dim Parts()   As String    'Number formats, one per column, 0-based
+    Dim c         As Long      'Position in Parts; column c + 1
 
 '------------------------------------------------------------------------------
 ' FORMAT
 '------------------------------------------------------------------------------
-        If nRows <= 0 Then
+        If RowsToFormat <= 0 Then
             Exit Sub
         End If
-        parts = Split(formats, "|")
-        For c = 0 To UBound(parts)
-            If Len(parts(c)) > 0 Then
-                TableRange(ws, firstRow, c + 1, firstRow + nRows - 1, c + 1).NumberFormat = parts(c)
+        Parts = Split(Formats, "|")
+        For c = 0 To UBound(Parts)
+            If Len(Parts(c)) > 0 Then
+                TableRange(Sheet, FirstRow, c + 1, FirstRow + RowsToFormat - 1, c + 1).NumberFormat = Parts(c)
             End If
         Next c
 
