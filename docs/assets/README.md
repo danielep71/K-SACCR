@@ -96,8 +96,11 @@ columns C:D):
 
 ## 🧭 Where SA-CCR is used in the CRR
 
-`SACCR_uses_in_CRR.svg` shows the parts of the CRR that take the SA-CCR
-exposure value of a netting set:
+`SACCR_uses_in_CRR.svg` shows the parts of the CRR that use SA-CCR. Solid
+lines lead to those that take the risk-based exposure value of a netting set
+as calculated; dashed lines to the leverage ratio and the output floor, which
+recalculate SA-CCR with their own adjustments (see the calculation contexts
+below):
 - counterparty credit risk under the standardised approach (Art. 107);
 - exposures to CCPs (Art. 301–311);
 - large exposures (Art. 390);
