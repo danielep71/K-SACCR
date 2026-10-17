@@ -15,8 +15,9 @@ Attribute VB_Name = "TEST_Reconcile"
 '   TradeReconciliation sheets, an edited bank figure makes them OUT OF
 '   DATE, and validation withdraws them. The evidence report (CORE_Export,
 '   M_Main.ExportEvidence_Silent) writes invariant CSV fields and UTF-8,
-'   is the same for two exports of one run, and is refused when the
-'   results or the bank figures changed after the run.
+'   is the same for two exports of one run, is refused when the results
+'   or the bank figures changed after the run, and leaves an older report
+'   as it was when writing or replacing it fails (#312).
 '
 ' PUBLIC SURFACE
 '   RunReconcileTests is the entry point. Option Private Module keeps it out
@@ -68,8 +69,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 19              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 144              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 20              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 162              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -142,6 +143,7 @@ Public Sub RunReconcileTests()
         CaseTradeWorkbook
         CaseExportFields
         CaseExportWorkbook
+        CaseExportReplaceFailure
 
         Application.Calculation = callerCalculation
         M_Main.gSilent = callerSilent
@@ -1376,6 +1378,106 @@ Unexpected:
         End If
         RemoveFile fileA
         RemoveFile fileB
+
+End Sub
+
+
+Private Sub CaseExportReplaceFailure()
+'
+'==============================================================================
+' PURPOSE
+'   A report that cannot be written or cannot replace the older one leaves
+'   the older file as it was, byte for byte and still hidden, and no file
+'   beside it: with a
+'   failure injected before the new file is opened, while it is written
+'   and while the older file is replaced, and with a read-only older file
+'   (#312). Without a failure the report replaces the older file.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim folder      As String       'Folder for the test file
+    Dim target      As String       'The report's file
+    Dim older       As String       'Content of the older file
+    Dim result      As String       'Result line
+    Dim faults      As Variant      'Injected failures
+    Dim fault       As Variant      'One of them
+    Dim errNumber   As Long         'Error raised by the export
+    Dim fileNo      As Integer      'File number of the older file
+
+'------------------------------------------------------------------------------
+' WRITE AN OLDER FILE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "export.replace-failure"
+        M_Main.gSilent = True
+        folder = Environ$("TEMP")
+        If Len(folder) = 0 Then
+            folder = ThisWorkbook.Path
+        End If
+        target = folder & Application.PathSeparator & "K-SACCR_evidence_test_c.csv"
+        RemoveFile target
+        older = "An older report" & vbCrLf
+        fileNo = FreeFile
+        Open target For Output As #fileNo
+        Print #fileNo, "An older report"
+        Close #fileNo
+        SetAttr target, vbHidden
+        result = M_Main.RunSACCR_Silent()
+
+'------------------------------------------------------------------------------
+' FAIL AND KEEP THE OLDER FILE
+'------------------------------------------------------------------------------
+        faults = Array("evidence-open", "evidence-write", "evidence-replace")
+        For Each fault In faults
+            M_Main.gTestFault = CStr(fault)
+            errNumber = 0
+            On Error Resume Next
+            result = M_Main.ExportEvidence_Silent(target)
+            errNumber = Err.Number
+            On Error GoTo Unexpected
+            M_Main.gTestFault = ""
+            Check errNumber = ERR_INJECTED_FAULT, fault & ": error " & errNumber
+            Check FileText(target) = older, fault & ": the older file changed"
+            Check (GetAttr(target) And vbHidden) <> 0, fault & ": the older file is no longer hidden"
+            Check Len(Dir$(target & ".saccr-*", vbHidden Or vbSystem)) = 0, fault & ": a file was left beside it"
+        Next fault
+        SetAttr target, vbReadOnly
+        errNumber = 0
+        On Error Resume Next
+        result = M_Main.ExportEvidence_Silent(target)
+        errNumber = Err.Number
+        On Error GoTo Unexpected
+        SetAttr target, vbNormal
+        Check errNumber = ERR_EXPORT_WRITE, "read-only file: error " & errNumber
+        Check FileText(target) = older, "read-only file: it changed"
+        Check Len(Dir$(target & ".saccr-*", vbHidden Or vbSystem)) = 0, "read-only file: a file was left beside it"
+
+'------------------------------------------------------------------------------
+' REPLACE IT WITHOUT A FAILURE
+'------------------------------------------------------------------------------
+        result = M_Main.ExportEvidence_Silent(target)
+        Check Left$(result, 9) = "RESULT=OK", "export without a failure: " & result
+        Check Left$(FileText(target), 29) = "RUN;format;K-SACCR evidence 1", "the report did not replace the older file"
+        Check Len(Dir$(target & ".saccr-*", vbHidden Or vbSystem)) = 0, "a file was left beside the report"
+
+'------------------------------------------------------------------------------
+' CLEAN UP
+'------------------------------------------------------------------------------
+        RemoveFile target
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
+        On Error Resume Next
+        SetAttr target, vbNormal
+        RemoveFile target
 
 End Sub
 
