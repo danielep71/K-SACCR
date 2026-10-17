@@ -110,8 +110,8 @@ It is a promotional image.
   -4 to +1.
 - **Name:** the title is the project name, K-SACCR; the method, SA-CCR, is
   named in the label beside the status.
-- **Status:** the image carries "Under development" while no release exists;
-  check it at the first release.
+- **Status:** the image names the current release, "Release 1.0.0"; update
+  it with each release.
 
 Regenerate by opening the HTML in a Chromium browser with a 1280 x 640 viewport
 at device scale factor 1, after the Google Fonts (Barlow Condensed, Barlow,

@@ -24,8 +24,8 @@ Markdown is not converted to HTML by this static deployment.
 ## Maintenance and checks
 
 - Keep the page's scope, release status, evidence classes, and installation
-  links aligned with the root README and methodology. At the first software
-  release, update the pre-release text and social preview together.
+  links aligned with the root README and methodology. At each release, update
+  the release named on the page and in the social preview together.
 - Do not copy transient test counts onto the landing page. Link the current
   evidence instead; illustrative results must not be called independent
   validation.

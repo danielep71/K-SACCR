@@ -4,7 +4,7 @@
 
 ### Set up, build, validate and upgrade K-SACCR in Excel
 
-[![Status](https://img.shields.io/badge/Status-Pre--release-6e7781?style=flat-square)](#current-status)
+[![Release](https://img.shields.io/badge/Release-1.0.0-2ea44f?style=flat-square)](#current-status)
 [![Checks](https://img.shields.io/badge/Checks-python_tools%2Fcheck.py-0969da?style=flat-square)](#run-the-checks)
 [![Security](https://img.shields.io/badge/Security-Private_policy-d73a49?style=flat-square)](SECURITY.md)
 
@@ -30,7 +30,10 @@ removal**. Contribution workflow is owned by
 
 ## 🧭 Current status
 
-There is **no SA-CCR release yet**; work is on the
+The current release is **1.0.0**, tagged `v1.0.0`; its
+[GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0)
+carries a built production workbook ([released workbook](#released-workbook)).
+Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches). The workbook is built
 from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 `src/` (engine, worksheet functions, sheet macros) and `tests/modules/`
@@ -42,7 +45,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
 | Test suites | `tests/modules/`: the harness `TEST_Harness`, seven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
-| Released versions | None |
+| Released versions | 1.0.0 (2026-10-17), tag `v1.0.0` |
 
 ## 🧰 Prerequisites
 
@@ -108,6 +111,33 @@ set was `VALID` at each size.
   scans to its last row. Delete stray rows far below the last trade (deleting
   the cells, not only their contents) and save the workbook.
 
+<a id="released-workbook"></a>
+
+## 📦 Released workbook
+
+The [1.0.0 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0)
+carries `K-SACCR_1.0.0.xlsm`, a **production** workbook: the template and the
+engine and sheet macros of `src/` at `v1.0.0`, without the test modules. It
+holds the demonstration portfolio of the template.
+
+1. Download `K-SACCR_1.0.0.xlsm` and `SHA256SUMS.txt` from the release.
+2. Check the workbook's SHA-256 in PowerShell, in the download folder:
+
+   ```powershell
+   Get-FileHash .\K-SACCR_1.0.0.xlsm -Algorithm SHA256
+   ```
+
+   The hash must equal the line for `K-SACCR_1.0.0.xlsm` in `SHA256SUMS.txt`
+   (letter case aside). If it differs, delete the file.
+3. Windows marks a downloaded file as coming from the internet, and Office
+   then blocks its macros. If your organization's macro policy allows it,
+   right-click the file → **Properties** → tick **Unblock** → **OK**, or run
+   `Unblock-File .\K-SACCR_1.0.0.xlsm`. Do this only after the hash check.
+4. Open the workbook and enable macros as your policy allows.
+
+To run the test suites, build a **development** workbook from source instead,
+as below; the tests write to the input and output sheets.
+
 ## 📥 Get the source
 
 Use a **Git clone**:
@@ -120,7 +150,8 @@ git switch release/1.0.0
 
 The branch to switch to is the
 [active release branch](docs/GOVERNANCE.md#branches); `main` receives it only
-on the owner's request.
+on the owner's request. For the released source, run
+`git switch --detach v1.0.0` instead.
 
 Do not use **Code → Download ZIP**. `.gitattributes` excludes repository
 plumbing such as `.gitattributes`, `.gitignore` and `.editorconfig` from GitHub
