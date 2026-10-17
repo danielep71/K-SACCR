@@ -70,7 +70,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 20              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 159              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 162              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1387,7 +1387,8 @@ Private Sub CaseExportReplaceFailure()
 '==============================================================================
 ' PURPOSE
 '   A report that cannot be written or cannot replace the older one leaves
-'   the older file as it was, byte for byte, and no file beside it: with a
+'   the older file as it was, byte for byte and still hidden, and no file
+'   beside it: with a
 '   failure injected before the new file is opened, while it is written
 '   and while the older file is replaced, and with a read-only older file
 '   (#312). Without a failure the report replaces the older file.
@@ -1426,6 +1427,7 @@ Private Sub CaseExportReplaceFailure()
         Open target For Output As #fileNo
         Print #fileNo, "An older report"
         Close #fileNo
+        SetAttr target, vbHidden
         result = M_Main.RunSACCR_Silent()
 
 '------------------------------------------------------------------------------
@@ -1442,6 +1444,7 @@ Private Sub CaseExportReplaceFailure()
             M_Main.gTestFault = ""
             Check errNumber = ERR_INJECTED_FAULT, fault & ": error " & errNumber
             Check FileText(target) = older, fault & ": the older file changed"
+            Check (GetAttr(target) And vbHidden) <> 0, fault & ": the older file is no longer hidden"
             Check Len(Dir$(target & ".saccr-*", vbHidden Or vbSystem)) = 0, fault & ": a file was left beside it"
         Next fault
         SetAttr target, vbReadOnly

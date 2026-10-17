@@ -1398,8 +1398,9 @@ Private Function WriteEvidence( _
 '   The report is written whole to a new file beside filePath first. Only
 '   then is an older file moved aside, the new one renamed to filePath and
 '   the older one deleted, so a failed write leaves the older file as it
-'   was (#312). A failed rename puts the older file back. The replacement
-'   is as atomic as the file system's rename, no more.
+'   was (#312). A failed replacement puts the older file back with its
+'   attributes. The replacement is as atomic as the file system's rename,
+'   no more.
 '
 ' RETURNS
 '   The number of lines written.
@@ -1424,6 +1425,8 @@ Private Function WriteEvidence( _
     Dim fileNo      As Integer   'File number; 0 while none is open
     Dim newPath     As String    'The report before it replaces filePath; "" once renamed
     Dim oldPath     As String    'An older filePath while it is moved aside; "" otherwise
+    Dim oldAttr     As Long      'Its attributes, put back if the replacement fails
+    Dim attrCleared As Boolean   'Its attributes were cleared
     Dim errNumber   As Long      'First error; 0 on success
     Dim errText     As String    'Its description
 
@@ -1459,7 +1462,9 @@ Private Function WriteEvidence( _
 '------------------------------------------------------------------------------
         If FileExists(filePath) Then
             oldPath = SiblingPath(filePath, "old")
+            oldAttr = GetAttr(filePath) And (vbReadOnly Or vbHidden Or vbSystem Or vbArchive)
             SetAttr filePath, vbNormal
+            attrCleared = True
             Name filePath As oldPath
         End If
         If gTestFault = "evidence-replace" Then
@@ -1490,6 +1495,9 @@ CleanUp:
             ElseIf Not FileExists(filePath) Then
                 Name oldPath As filePath
             End If
+        End If
+        If attrCleared And errNumber <> 0 Then
+            SetAttr filePath, oldAttr
         End If
         On Error GoTo 0
         If errNumber <> 0 Then

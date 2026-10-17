@@ -109,12 +109,12 @@ Use only the categories needed by a release.
 
 - Exporting evidence over an existing report no longer deletes it before the
   new one is written (#312). The report is written whole to a new file beside
-  it, then replaces the older file, which is put back if the replacement
-  fails; the first error is reported, not one from the cleanup. A read-only
-  file is still left as it is. `TEST_Reconcile` injects a failure before the
-  new file is opened, while it is written and while the older file is
-  replaced, and checks that the older file is unchanged: 19 to 20 cases, 144
-  to 159 checks.
+  it, then replaces the older file, which is put back with its attributes if
+  the replacement fails; the first error is reported, not one from the
+  cleanup. A read-only file is still left as it is. `TEST_Reconcile` injects a
+  failure before the new file is opened, while it is written and while the
+  older file is replaced, and checks that the older file is unchanged and
+  still hidden: 19 to 20 cases, 144 to 162 checks.
 - A failed reconciliation now keeps its cause in the run message: the
   message read the error after the cleanup of the reconciliation sheet had
   cleared it, so it said only "failed:". `TEST_Reconcile` checks it with
