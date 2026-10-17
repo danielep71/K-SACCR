@@ -76,6 +76,30 @@ evidence is recorded per change under [Validation record](#validation-record),
 or as an evidence bundle bound to a commit as described in
 [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md).
 
+<a id="portfolio-size"></a>
+
+### Portfolio size
+
+Measured by the owner with the [benchmark](#benchmark) on 2026-10-17, on the
+supported 64-bit Windows host (#291): every leg was used and every netting
+set was `VALID` at each size.
+
+| Legs | Netting sets | Writing the inputs | Engine run |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 2 | 0.04 s | 0.31 s |
+| 10,000 | 20 | 0.28 s | 1.62 s |
+| 50,000 | 100 | 1.85 s | 8.50 s |
+| 1,000, used range inflated to row 100,005 | 2 | 0.05 s | 2.20 s |
+
+- The engine has no fixed trade limit: 50,000 legs is the largest size
+  measured, not a cap. Times depend on the machine.
+- The template's Trades dropdowns, input validation and formatting cover
+  rows 5 to 5,000. Rows below are read and calculated the same way, but are
+  entered without dropdowns or validation messages.
+- A used range that reaches far below the data slows every run: the engine
+  scans to its last row. Delete stray rows far below the last trade (deleting
+  the cells, not only their contents) and save the workbook.
+
 ## 📥 Get the source
 
 Use a **Git clone**:
@@ -408,7 +432,7 @@ Not a suite: `Test_RunAll` does not run it and the Excel evidence does not
 include it, because its timings depend on the machine. Needs
 `TEST_CaseRunner` and a workbook built from the template. It writes synthetic
 CRR portfolios of the given numbers of legs (1,000 and 10,000 by default; up
-to 100,000), in netting sets of 500 legs, alternately unmargined and margined,
+to 1,000,000, which needs memory and time in proportion), in netting sets of 500 legs, alternately unmargined and margined,
 with interest-rate swaps, FX forwards and options, credit default swaps,
 equity forwards and options and commodity forwards, all valid; then, last, a
 portfolio of 1,000 legs with a stray comment 100,000 rows below the first
@@ -426,7 +450,7 @@ CRR` row, and one TradeCalc row per leg; the used-range scenario also shows
 `used_last_row` and checks that the comment did inflate the used range and
 that deleting its row gives the used range back its extent. The inputs are
 restored. Sizes that cannot be read print a `BENCH_REJECTED=` line and change
-nothing.
+nothing. The measured results are under [Portfolio size](#portfolio-size).
 
 <a id="automation-entry-points"></a>
 

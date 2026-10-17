@@ -603,6 +603,11 @@ and the VBA references are listed in `INSTALLATION.md`.
   options and sold credit protection, several margin agreements in one netting
   set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
   SFT, CVA and RWA calculations.
+- **Portfolio size measured, not capped.** 50,000 legs in 100 netting sets
+  calculated in 8.5 s on the owner's 64-bit host; the Trades dropdowns and
+  validation cover rows 5 to 5,000 only, and a used range inflated far below
+  the data slows every run
+  ([portfolio size](INSTALLATION.md#portfolio-size), #291).
 - **Windows desktop Excel only.**
 
 The full list is in the

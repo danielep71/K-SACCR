@@ -6,10 +6,10 @@ Attribute VB_Name = "TEST_Benchmark"
 '   Measure how long the engine takes on large synthetic portfolios, and
 '   check that it uses every leg, for the supported portfolio size (#291):
 '   by default portfolios of 1,000 and 10,000 legs, on request others up to
-'   100,000, and always last a portfolio of 1,000 legs whose Trades sheet
+'   1,000,000, and always last a portfolio of 1,000 legs whose Trades sheet
 '   has its used range inflated by a stray comment 100,000 rows below the
-'   first data row, to show that the run time follows the legs and not the
-'   used range. Each scenario prints a BENCH line with the seconds taken to
+'   first data row, to measure what an inflated used range adds to the
+'   run. Each scenario prints a BENCH line with the seconds taken to
 '   write the inputs and to run the engine.
 '
 ' PORTFOLIO
@@ -88,7 +88,7 @@ Attribute VB_Name = "TEST_Benchmark"
     'Scenarios.
         Private Const VALUATION       As String = "2026-09-30"    'Valuation date of every scenario
         Private Const CALC_CCY        As String = "EUR"           'Reporting currency; every amount is in it
-        Private Const MAX_LEGS        As Long = 100000            'Largest scenario accepted
+        Private Const MAX_LEGS        As Long = 1000000           'Largest scenario; within Excel's 1,048,576 rows
         Private Const MAX_SCENARIOS   As Long = 10                'Most sizes accepted in one run
 
     'Portfolio.
