@@ -115,7 +115,8 @@ clone, to print the inventory and validate the bundle.
    with a later passing one. Do not put an injected-failure run in these logs.
    Optionally, run `TEST_Suite.Test_RunAll` last and keep its output, after a
    `CANDIDATE=` line, as `summary.log`; it must then agree with every suite's
-   own log.
+   own log. `TEST_Benchmark` is not a suite of the policy: its output is not
+   part of the record.
 6. **Clean up.** Note the harness `CLEANUP=` line, close the test workbook, and
    record in `session.log` that it was closed and the finish time.
 7. **Hash the logs**, after their last edit:

@@ -120,7 +120,7 @@
           <a class="button primary" href="https://github.com/danielep71/VBA-SACCR-Toolkit">Explore the source ↗</a>
           <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md">Build the workbook</a>
         </div>
-        <p class="status">Pre-release · Windows desktop Excel · Synthetic data only</p>
+        <p class="status">Pre-release · Windows desktop Excel · No real portfolio data</p>
       </div>
       <aside class="example" aria-labelledby="example-title">
         <div class="eyebrow">A published benchmark</div>
@@ -137,7 +137,7 @@
       </aside>
     </div>
     <div class="wrap strip" aria-label="Project characteristics">
-      <span>EU CRR + Basel CRE52</span><span>Trade-to-EAD audit trail</span><span>Published-example regression</span><span>Mozilla Public License 2.0</span>
+      <span>EU CRR + Basel CRE52</span><span>Trade-to-EAD audit trail</span><span>Published-example regression</span><span>500,000 trades in under 2 minutes</span><span>Mozilla Public License 2.0</span>
     </div>
     <section class="wrap" id="workflow">
       <div class="eyebrow">01 / A calculation you can inspect</div>
@@ -170,6 +170,7 @@
             <li><strong>Basel:</strong> regression against published CRE99 examples supports validation of the covered Basel rules.</li>
             <li><strong>CRR:</strong> implemented and tested against illustrative values; not independently validated.</li>
             <li><strong>Engineering checks:</strong> formula, input-validation, aggregation, state, reconciliation, and invariant tests complement numerical benchmarks.</li>
+            <li><strong>Scale:</strong> a synthetic portfolio of 500,000 trade legs in 1,000 netting sets calculated in under two minutes, every leg used; times depend on the machine.</li>
           </ul>
           <p class="note"><strong>Under development.</strong> No software release has been published. Development test results are not release certification, and the project does not claim regulatory approval.</p>
           <p><a href="https://github.com/danielep71/VBA-SACCR-Toolkit#validation">Inspect the current validation evidence ↗</a></p>
@@ -188,7 +189,7 @@
       </div>
       <details>
         <summary>What should I know before using K-SACCR?</summary>
-        <p>Use Windows desktop Excel and synthetic data only. Follow your organization's macro policy. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/VBA-SACCR-Toolkit#limitations">repository README</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
+        <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/VBA-SACCR-Toolkit#limitations">repository README</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
       </details>
     </section>
   </main>

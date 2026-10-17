@@ -2,7 +2,7 @@
   Target: the active release branch (see docs/GOVERNANCE.md#branches). Never
   main, unless the owner asked for an integration.
   Write NOT RUN or NOT APPLICABLE with a reason; never manufacture PASS
-  evidence. Static checks are never Excel evidence. Synthetic data only.
+  evidence. Static checks are never Excel evidence. No real portfolio data.
   Report vulnerabilities privately through SECURITY.md.
 -->
 

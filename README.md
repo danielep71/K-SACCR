@@ -4,7 +4,7 @@
 
 ### Independent SA-CCR exposure calculation and validation in Excel VBA
 
-**EU CRR and Basel CRE52 · Trade-to-EAD audit trail · Regulatory or what-if runs · Published-example regression · Synthetic data only**
+**EU CRR and Basel CRE52 · Trade-to-EAD audit trail · Regulatory or what-if runs · Published-example regression · No real portfolio data**
 
 <br>
 
@@ -18,7 +18,7 @@
 
 <br>
 
-[![Last commit](https://img.shields.io/github/last-commit/danielep71/VBA-SACCR-Toolkit/release%2F1.0.0?style=flat-square&label=last%20commit&color=217346)](https://github.com/danielep71/VBA-SACCR-Toolkit/commits/release/1.0.0)
+[![Last commit](https://img.shields.io/github/last-commit/danielep71/VBA-SACCR-Toolkit/main?style=flat-square&label=last%20commit&color=217346)](https://github.com/danielep71/VBA-SACCR-Toolkit/commits/main)
 [![Clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fclones.json&style=flat-square&label=clones)](https://github.com/danielep71/VBA-SACCR-Toolkit)
 [![Visitors](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisitors.json&style=flat-square&label=visitors%20(14d))](https://github.com/danielep71/VBA-SACCR-Toolkit)
 [![Visits](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdanielep71%2FVBA-SACCR-Toolkit%2Ftraffic-history%2Fdata%2Fbadges%2Fvisits.json&style=flat-square&label=visits)](https://github.com/danielep71/VBA-SACCR-Toolkit)
@@ -142,6 +142,7 @@ inspected. This toolkit is the opposite:
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
 | Testing | Eight Excel suites (228 cases, 1001 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the owner's 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -240,16 +241,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-16 16:44:53
+SACCR TEST SUMMARY 2026-10-16 19:21:01
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (24,3 s)
-  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (2,8 s)
-  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (15,5 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,4 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,2 s)
-  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (7,1 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=53,4
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
+  PASS  TEST_MainState        cases=28; checks=491; failures=0; caller_state=RESTORED  (38,8 s)
+  PASS  TEST_Cases            cases=20; checks=39; failures=0; restore=PASS  (4,1 s)
+  PASS  TEST_InputValidation  cases=133; checks=209; failures=0; restore=PASS  (18,5 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,9 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
+  PASS  TEST_Reconcile        cases=19; checks=140; failures=0  (9,2 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=75,2
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -603,6 +604,10 @@ and the VBA references are listed in `INSTALLATION.md`.
   options and sold credit protection, several margin agreements in one netting
   set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
   SFT, CVA and RWA calculations.
+- **Large portfolios.** 500,000 legs calculated in under two minutes on the
+  owner's host, but the Trades dropdowns and validation cover rows 5 to 5,000
+  only, and a used range inflated far below the data slows every run
+  ([portfolio size](INSTALLATION.md#portfolio-size), #291).
 - **Windows desktop Excel only.**
 
 The full list is in the
@@ -665,16 +670,17 @@ Nothing is versioned or tagged until a release is prepared.
 
 The latest recorded Excel run, `Test_RunAll` with eight of eight suites
 passing, was made by the owner on 2026-10-16 on the source of
-[#269](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/269) at
-[`bb7dc8e`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/bb7dc8ea2f1a9d62273dcc74c1634b131cc97ab0), which
-includes the template changes of #260 and #267.
-It is development evidence, not release certification.
+[#274](https://github.com/danielep71/VBA-SACCR-Toolkit/pull/274) at
+[`6e59ff1`](https://github.com/danielep71/VBA-SACCR-Toolkit/commit/6e59ff1761e11a8458078118aa578e65ab6537e8),
+the corrected template texts. The owner also ran it, with the same
+result, when verifying #276 and #283; those summaries are not recorded
+here. It is development evidence, not release certification.
 
 ---
 
 ## 🔐 Data and security
 
-Use synthetic data only. Never commit or attach real trades, netting sets,
+No real portfolio data: never commit or attach real trades, netting sets,
 counterparty or collateral data, or any client or employer material. VBA runs
 with the user's Office permissions: review the source and follow your
 organisation's macro policy. Report suspected vulnerabilities privately as

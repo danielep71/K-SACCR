@@ -53,6 +53,7 @@
         "src/modules/SACCR_Formulas.bas",
         "src/workbook/M_Main.bas",
         "tests/modules/TEST_Aggregation.bas",
+        "tests/modules/TEST_Benchmark.bas",
         "tests/modules/TEST_CaseRunner.bas",
         "tests/modules/TEST_Cases.bas",
         "tests/modules/TEST_Formulas.bas",
