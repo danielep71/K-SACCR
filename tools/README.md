@@ -65,6 +65,12 @@ The comparison uses `max(absolute, relative * abs(expected))`, matching the
 case runner. It includes potential future exposure when an expected file
 requests it. Credit and interest-rate trades whose maturity differs from
 their end date are unsupported because the package cannot preserve both.
+The package follows CRR2, so a BCBS expected file is left out, with the
+reason, when its fixture meets a recorded
+[regime difference](../docs/methodology/README.md#regime-differences): other
+risks, climatic commodities, credit quality steps, an interest-rate or
+commodity option priced near or below zero, or an interest-rate trade ending
+exactly at one year.
 
 It needs R with those packages installed, so `check.py` does not run it; its
 translation and comparison tests run in `tool-tests` without R. Agreement

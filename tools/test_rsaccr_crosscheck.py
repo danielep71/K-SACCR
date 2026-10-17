@@ -102,7 +102,7 @@ class CompareTests(unittest.TestCase):
                 json.dumps({"fixture": "case", "outputs": outputs}), encoding="utf-8")
             for value, agrees in [(102.0, True), (102.5, False), (97.5, False)]:
                 with self.subTest(value=value):
-                    rows = xc.compare(root, [{"fixture": "case", "PFE": value}])
+                    rows, _ = xc.compare(root, [{"fixture": "case", "PFE": value}])
                     self.assertEqual(len(rows), 1)
                     self.assertEqual(rows[0]["quantity"], "potential_future_exposure")
                     self.assertEqual(rows[0]["agrees"], agrees)
@@ -125,9 +125,50 @@ class CompareTests(unittest.TestCase):
                 json.dumps({"fixture": "case", "outputs": outputs}), encoding="utf-8")
             result = {"fixture": "case", "EAD": 100.9, "RC": 50.6, "add_on_by_class": {},
                       "trades": {"T1": {"supervisory_delta": 0.5, "adjusted_notional": 1.0}}}
-            rows = xc.compare(root, [copy.deepcopy(result)])
+            rows, _ = xc.compare(root, [copy.deepcopy(result)])
         self.assertEqual([(r["quantity"], r["agrees"]) for r in rows],
                          [("exposure_value", True), ("replacement_cost", False), ("supervisory_delta", True)])
+
+
+    def test_bcbs_expectations_with_a_regime_difference_are_left_out(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ("expected", "fixtures"):
+                (root / "tests" / folder).mkdir(parents=True)
+            data = fixture("illustrative-other-risks")
+            (root / "tests" / "fixtures" / "illustrative-other-risks.json").write_text(
+                json.dumps(data), encoding="utf-8")
+            outputs = [{"quantity": "exposure_value", "value": 1232.0,
+                        "tolerance": {"absolute": 0, "relative": 0}, "reference": {"class": "illustrative"}}]
+            for regime in ("CRR", "BCBS"):
+                (root / "tests" / "expected" / f"illustrative-other-risks.{regime.lower()}.json").write_text(
+                    json.dumps({"fixture": "illustrative-other-risks", "regime": regime, "outputs": outputs}),
+                    encoding="utf-8")
+            rows, left_out = xc.compare(root, [{"fixture": "illustrative-other-risks", "EAD": 1232.0}])
+        self.assertEqual([r["case"] for r in rows], ["illustrative-other-risks.crr"])
+        self.assertEqual([c["case"] for c in left_out], ["illustrative-other-risks.bcbs"])
+
+
+class RegimeDifferenceTests(unittest.TestCase):
+    def test_recorded_differences_are_detected(self) -> None:
+        self.assertIsNone(xc.regime_difference(fixture("cre99-example-1")))
+        self.assertIn("other risks", xc.regime_difference(fixture("illustrative-other-risks")) or "")
+        self.assertIn("climatic", xc.regime_difference(fixture("illustrative-climatic-commodity")) or "")
+        self.assertIn("credit quality", xc.regime_difference(fixture("illustrative-credit-quality-step")) or "")
+        self.assertIn("lambda", xc.regime_difference(fixture("illustrative-negative-ir-forward")) or "")
+        data = fixture("illustrative-ir-swap-unmargined")
+        data["trades"][0]["end_date"] = data["trades"][0]["maturity_date"] = "2027-01-02"
+        self.assertIn("bucket", xc.regime_difference(data) or "")
+
+    def test_equity_option_with_a_distinct_expiry_is_not_run(self) -> None:
+        data = fixture("illustrative-negative-commodity-price")
+        trade = data["trades"][0]
+        trade.update({"asset_class": "equity", "sub_class": "SINGLE", "underlying_price": 100,
+                      "strike_price": 100, "option_expiry_date": "2026-12-31"})
+        with self.assertRaisesRegex(xc.Unsupported, "expiry differs"):
+            xc.translate_fixture(data)
+        trade["option_expiry_date"] = trade["maturity_date"]
+        self.assertEqual(xc.translate_fixture(data)["trades"][0]["class"], "EquityOptionSingle")
 
 
 if __name__ == "__main__":

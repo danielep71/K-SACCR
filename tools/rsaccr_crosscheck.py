@@ -115,7 +115,10 @@ def commodity(trade: dict[str, Any], maturity: float) -> tuple[str, dict[str, An
     return "Commodity", {"SubClass": COMMODITY_SET[sub_class], "commodity_type": kind, "Si": 0, "Ei": maturity}
 
 
-def equity(trade: dict[str, Any], maturity: float) -> tuple[str, dict[str, Any]]:
+def equity(trade: dict[str, Any], maturity: float, expiry: float | None) -> tuple[str, dict[str, Any]]:
+    # The package uses E as both an equity option's expiry and its maturity.
+    if trade["instrument"] != "linear" and expiry is not None and abs(expiry - maturity) > 1e-12:
+        raise Unsupported("option expiry differs from the maturity; the package uses E for both")
     index = trade["sub_class"] == "INDEX"
     args: dict[str, Any] = {"Si": 0, "Ei": maturity}
     args.update({"Underlying_Instrument": trade["risk_factor"], "SubClass": "Index"} if index
@@ -140,7 +143,7 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     elif asset_class == "commodity":
         name, args = commodity(trade, maturity)
     elif asset_class == "equity":
-        name, args = equity(trade, maturity)
+        name, args = equity(trade, maturity, expiry)
     elif asset_class == "foreign_exchange" and trade["instrument"] == "linear":
         name, args = "FxForward", {"ccyPair": trade["risk_factor"], "Si": 0, "Ei": maturity}
     elif asset_class == "other" and trade["instrument"] == "linear":
@@ -238,15 +241,48 @@ def package_value(result: dict[str, Any], output: dict[str, Any]) -> float | Non
     return None if value is None else float(value)
 
 
-def compare(root: Path, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One row per numeric expected value that the package also computes."""
+def regime_difference(fixture: dict[str, Any]) -> str | None:
+    """Why a BCBS expectation cannot be compared with the package, which follows CRR2.
+
+    These are the recorded regime differences (docs/methodology/README.md
+    #regime-differences) that a fixture the translator runs can still meet.
+    """
+    valuation = dt.date.fromisoformat(fixture["valuation_date"])
+    days_per_year = float(fixture["parameters"].get("DaysPerYear", 365))
+    for trade in fixture["trades"]:
+        asset_class, sub_class = trade["asset_class"], trade["sub_class"] or ""
+        if asset_class == "other":
+            return "other risks exist only under CRR"
+        if asset_class == "commodity" and sub_class == "CLIMATIC":
+            return "climatic commodities are a hedging set under CRR only"
+        if asset_class == "credit" and sub_class.startswith("CQS"):
+            return "credit quality steps are the CRR scale"
+        if trade["instrument"] == "option" and asset_class in ("interest_rate", "commodity") \
+                and min(trade["underlying_price"], trade["strike_price"]) < 0.001:
+            return "the CRR lambda shift changes the delta of an option priced near or below zero"
+        _, end, _ = trade_times(trade, valuation, days_per_year)
+        if asset_class == "interest_rate" and abs(end - 1) < 1e-12:
+            return "an end date of exactly 1 year is in bucket 1 under CRR and bucket 2 under BCBS"
+    return None
+
+
+def compare(root: Path, results: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """One row per numeric expected value that the package also computes, and the
+    BCBS expected files left out because their rules differ from CRR2."""
     by_fixture = {r["fixture"]: r for r in results}
-    rows = []
+    rows, left_out = [], []
     for path in sorted((root / "tests" / "expected").glob("*.json")):
         expected = json.loads(path.read_text(encoding="utf-8"))
         result = by_fixture.get(expected["fixture"])
         if result is None:
             continue
+        if expected.get("regime") == "BCBS":
+            fixture = json.loads((root / "tests" / "fixtures" / f"{expected['fixture']}.json")
+                                 .read_text(encoding="utf-8"))
+            reason = regime_difference(fixture)
+            if reason is not None:
+                left_out.append({"case": path.stem, "reason": reason})
+                continue
         for output in expected["outputs"]:
             if not isinstance(output.get("value"), (int, float)) or isinstance(output["value"], bool):
                 continue
@@ -259,7 +295,7 @@ def compare(root: Path, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             rows.append({"case": path.stem, "quantity": output["quantity"], "trade": output.get("trade", ""),
                          "expected": output["value"], "package": value, "difference": difference,
                          "agrees": abs(difference) <= allowed, "reference": output["reference"]["class"]})
-    return rows
+    return rows, left_out
 
 
 def run_package(rscript: str, inputs: Path, results: Path) -> dict[str, Any]:
@@ -268,7 +304,8 @@ def run_package(rscript: str, inputs: Path, results: Path) -> dict[str, Any]:
     return loaded
 
 
-def report(inputs: dict[str, Any], package: dict[str, Any], rows: list[dict[str, Any]]) -> str:
+def report(inputs: dict[str, Any], package: dict[str, Any], rows: list[dict[str, Any]],
+           left_out: list[dict[str, str]]) -> str:
     lines = ["Versions: " + ", ".join(f"{k} {v}" for k, v in package["versions"].items()), ""]
     lines += [f"{'case':42} {'quantity':22} {'trade':9} {'expected':>18} {'package':>18} {'difference':>14}  result"]
     for row in rows:
@@ -279,10 +316,12 @@ def report(inputs: dict[str, Any], package: dict[str, Any], rows: list[dict[str,
     lines += ["", "Run, with no expected figure to compare (package EAD, RC and add-on):"]
     lines += [f"  {r['fixture']}: EAD={r['EAD']:.10g}; RC={r['RC']:.10g}; add_on={r['add_on']:.10g}"
               for r in package["results"] if r["fixture"] not in compared]
+    lines += ["", "BCBS expectations not compared (the package follows CRR2):"]
+    lines += [f"  {c['case']}: {c['reason']}" for c in left_out]
     lines += ["", "Not run:"] + [f"  {s['fixture']}: {s['reason']}" for s in inputs["skipped"]]
     differs = sum(1 for row in rows if not row["agrees"])
     lines += ["", f"RESULT compared={len(rows)}; differ={differs}; fixtures_run={len(inputs['netting_sets'])}; "
-              f"fixtures_not_run={len(inputs['skipped'])}"]
+              f"fixtures_not_run={len(inputs['skipped'])}; bcbs_not_compared={len(left_out)}"]
     return "\n".join(lines)
 
 
@@ -299,8 +338,8 @@ def main(argv: list[str] | None = None) -> int:
         out.mkdir(parents=True, exist_ok=True)
         (out / "rsaccr-inputs.json").write_text(json.dumps(inputs, indent=2), encoding="utf-8")
         package = run_package(options.rscript, out / "rsaccr-inputs.json", out / "rsaccr-results.json")
-    rows = compare(options.root, package["results"])
-    print(json.dumps(rows, indent=2) if options.json else report(inputs, package, rows))
+    rows, left_out = compare(options.root, package["results"])
+    print(json.dumps(rows, indent=2) if options.json else report(inputs, package, rows, left_out))
     return 0
 
 
