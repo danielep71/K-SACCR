@@ -179,7 +179,7 @@ When policy prevents VBA-project automation, open the `.xlsm` and use **Alt+F11 
 
 ## Build a separate development workbook
 
-Create another `.xlsm` from a fresh template and choose **D (Development)** in the synchronization launcher. Development adds the ten source test modules in `tests/modules/` to the seven production `.bas` modules (17 standard modules in total), plus the 17 workbook/document components. It is used for compiler checks, regression and harness execution. **Never use a development workbook for real data**, because tests intentionally modify input, Params and output areas, then attempt to restore them.
+Create another `.xlsm` from a fresh template and choose **D (Development)** in the synchronization launcher. Development adds the eleven source test modules in `tests/modules/` to the seven production `.bas` modules (18 standard modules in total), plus the 17 workbook/document components. It is used for compiler checks, regression and harness execution. **Never use a development workbook for real data**, because tests intentionally modify input, Params and output areas, then attempt to restore them.
 
 In the VBA Immediate window (Ctrl+G in the editor), invoke:
 

@@ -104,7 +104,7 @@ documents govern.
 
 | Location | Holds |
 | --- | --- |
-| `tests/modules/` | The harness, the case runner, the suites and `TEST_Suite` |
+| `tests/modules/` | The harness, the case runner, the suites, `TEST_Suite` and the benchmark |
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
 | `examples/modules/` | Example modules calling the public facade; created with the first example |

@@ -5,7 +5,7 @@
 
 | Location | Contents |
 | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, and `TEST_Suite.bas`, whose `Test_RunAll` runs them all |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 
@@ -19,6 +19,11 @@ and `TEST_Reconcile.RunReconcileTests`; `TEST_Cases`, `TEST_InputValidation`,
 `TEST_Aggregation` and `TEST_Invariants` need `TEST_CaseRunner`. How to run
 them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
+
+`TEST_Benchmark.RunBenchmark` is not a suite: it times the engine on large
+synthetic portfolios (#291), its timings depend on the machine, and neither
+`Test_RunAll` nor the Excel evidence includes it. It also needs
+`TEST_CaseRunner`; see [the benchmark](../INSTALLATION.md#benchmark).
 
 Rules:
 

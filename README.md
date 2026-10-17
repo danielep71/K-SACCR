@@ -142,6 +142,7 @@ inspected. This toolkit is the opposite:
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
 | Testing | Eight Excel suites (228 cases, 1001 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the owner's 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -603,6 +604,10 @@ and the VBA references are listed in `INSTALLATION.md`.
   options and sold credit protection, several margin agreements in one netting
   set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
   SFT, CVA and RWA calculations.
+- **Large portfolios.** 500,000 legs calculated in under two minutes on the
+  owner's host, but the Trades dropdowns and validation cover rows 5 to 5,000
+  only, and a used range inflated far below the data slows every run
+  ([portfolio size](INSTALLATION.md#portfolio-size), #291).
 - **Windows desktop Excel only.**
 
 The full list is in the

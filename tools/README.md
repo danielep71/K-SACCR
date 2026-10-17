@@ -223,7 +223,7 @@ Anything else is reported as *unknown*, never as a defect.
 | Configuration | Modules |
 | --- | --- |
 | `production` | The seven standard modules of a workbook built from the template |
-| `development` | Those plus the ten test modules of `tests/modules/`, as in INSTALLATION.md |
+| `development` | Those plus the eleven test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.

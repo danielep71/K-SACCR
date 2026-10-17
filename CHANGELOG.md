@@ -270,6 +270,15 @@ pull requests.
   (133, 209), `TEST_Aggregation` (11, 11), `TEST_Invariants` (4, 23) and
   `TEST_Reconcile` (19, 140): 228 cases and 1,001 checks on 64-bit Excel
   (`TEST_Formulas` has 80 checks on 32-bit).
+- A benchmark for the supported portfolio size, `TEST_Benchmark.RunBenchmark`,
+  run on its own in a development workbook (#291): it times the writing of the
+  inputs and the engine run on synthetic CRR portfolios of 1,000 and 10,000
+  legs, or other sizes up to 1,000,000, and on 1,000 legs with an
+  inflated Trades used range, and checks that every leg is used and every
+  netting set is `VALID`. It is not a suite: `Test_RunAll` and the Excel
+  evidence do not include it. Measured on 2026-10-17: 50,000 legs in 8.5 s
+  and 500,000 legs in 114 s; the results are in INSTALLATION under Portfolio
+  size.
 - Numerical test cases as JSON fixtures, from which `TEST_Cases` is generated
   (#59, #44): the CRE99 examples are published references, the others
   illustrative. A failure-injection mode proves the suites catch a wrong value.
