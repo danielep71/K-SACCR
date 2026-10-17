@@ -77,7 +77,16 @@ for (ns in inputs$netting_sets) {
         csa <- make_csa(ns$csa)
         colls <- lapply(ns$collateral, make_collateral)
         summary <- summarise(first_tree(SACCR:::runExampleCalcs(trades, list(csa), colls)))
-        summary$unmargined_EAD <- unmargined$EAD
+        # The package caps the margined EAD with an unmargined EAD that
+        # ignores NICA; the engine's cap keeps C = NICA (CRR Art. 274(3),
+        # 275(1); CRE52.2, CRE52.10). The cap is rebuilt here that way.
+        nica <- if (is.null(ns$csa$nica)) 0 else ns$csa$nica
+        margined_EAD <- CalcEAD(summary$RC, summary$PFE)
+        cap_PFE <- CalcPFE(unmargined$V - nica, unmargined$V, unmargined$add_on, simplified = FALSE)
+        summary$unmargined_EAD <- CalcEAD(max(unmargined$V - nica, 0), cap_PFE)
+        summary$margined_EAD <- margined_EAD
+        summary$EAD <- min(margined_EAD, summary$unmargined_EAD)
+        summary$cap_applied <- summary$unmargined_EAD < margined_EAD
         summary$maturity_factor_margined <- csa$CalcMF(simplified = FALSE)
         summary$mpor_business_days <- 10 + ns$csa$remargin_freq - 1
     }

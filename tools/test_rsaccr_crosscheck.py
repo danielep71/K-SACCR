@@ -77,6 +77,28 @@ class TranslateTests(unittest.TestCase):
         with self.assertRaisesRegex(xc.Unsupported, "two sub-classes"):
             xc.translate_fixture(data)
 
+    def test_reversed_fx_pair_is_put_in_engine_order_with_its_direction_flipped(self) -> None:
+        data = fixture("illustrative-other-risks")
+        data["trades"] = data["trades"][:1]
+        data["trades"][0].update({"asset_class": "foreign_exchange", "risk_factor": "usd/eur"})
+        args = xc.translate_fixture(data)["trades"][0]["args"]
+        self.assertEqual((args["ccyPair"], args["BuySell"]), ("EUR/USD", "Sell"))
+
+    def test_references_are_trimmed_and_upper_case(self) -> None:
+        data = fixture("cre99-example-2")
+        data["trades"][0]["risk_factor"] = " firm a "
+        self.assertEqual(xc.translate_fixture(data)["trades"][0]["args"]["RefEntity"], "FIRM A")
+
+    def test_sold_options_only_and_expired_options_are_not_run(self) -> None:
+        data = fixture("illustrative-negative-ir-forward")
+        data["trades"][0]["direction"] = "short"
+        with self.assertRaisesRegex(xc.Unsupported, "sold option"):
+            xc.translate_fixture(data)
+        data = fixture("cre99-example-1")
+        data["trades"][2]["start_date"] = data["trades"][2]["option_expiry_date"] = data["valuation_date"]
+        with self.assertRaisesRegex(xc.Unsupported, "expires on or before"):
+            xc.translate_fixture(data)
+
     def test_unsupported_cases_raise(self) -> None:
         with self.assertRaisesRegex(xc.Unsupported, "commodity option"):
             xc.translate_fixture(fixture("illustrative-negative-commodity-price"))

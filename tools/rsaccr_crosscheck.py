@@ -73,6 +73,24 @@ def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float)
     return max(0.0, start or 0.0), end, maturity
 
 
+def reference(trade: dict[str, Any]) -> str:
+    """The risk factor as the engine compares it: trimmed and in upper case."""
+    return str(trade["risk_factor"]).strip().upper()
+
+
+def fx_pair(trade: dict[str, Any]) -> tuple[str, bool]:
+    """The pair in the engine's order, alphabetical, and whether the entered order was reversed.
+
+    The engine reverses the delta of a pair entered the other way round
+    (CORE_Engine.NormalizePair), so both orders share one hedging set.
+    """
+    letters = "".join(c for c in reference(trade) if c not in "/-. ")
+    first, second = letters[:3], letters[3:]
+    if len(letters) != 6 or first == second:
+        raise Unsupported(f"{trade['id']} has no currency pair, which the engine rejects")
+    return (f"{first}/{second}", False) if first < second else (f"{second}/{first}", True)
+
+
 def option_args(trade: dict[str, Any]) -> dict[str, Any]:
     return {"OptionType": str(trade["option_type"]).capitalize(),
             "UnderlyingPrice": trade["underlying_price"], "StrikePrice": trade["strike_price"]}
@@ -83,7 +101,7 @@ def interest_rate(trade: dict[str, Any], start: float, end: float, maturity: flo
     # The package has no maturity apart from E, and takes a swaption's expiry as S.
     if abs(maturity - end) > 1e-12:
         raise Unsupported("maturity differs from the end date; the package uses E as the maturity")
-    args = {"Currency": trade["risk_factor"], "Si": start, "Ei": end}
+    args = {"Currency": reference(trade), "Si": start, "Ei": end}
     if trade["instrument"] == "linear":
         return "IRDSwap", args
     if expiry is None or abs(expiry - start) > 1e-12:
@@ -97,7 +115,7 @@ def credit(trade: dict[str, Any], start: float, end: float, maturity: float) -> 
     if trade["instrument"] != "linear":
         raise Unsupported("the package has no credit option")
     sub_class = trade["sub_class"]
-    args = {"RefEntity": trade["risk_factor"], "Si": start, "Ei": end}
+    args = {"RefEntity": reference(trade), "Si": start, "Ei": end}
     if sub_class in INDEX_GRADE:
         return "CDX", {**args, "SubClass": INDEX_GRADE[sub_class]}
     return "CDS", {**args, "SubClass": CQS_RATING.get(sub_class, sub_class)}
@@ -111,7 +129,7 @@ def commodity(trade: dict[str, Any], maturity: float) -> tuple[str, dict[str, An
         raise Unsupported(f"commodity sub-class {sub_class} has no package hedging set")
     # The package gives electricity its factor by commodity type, so an
     # electricity risk factor is entered under that name.
-    kind = "Electricity" if sub_class == "ELECTRICITY" else trade["risk_factor"]
+    kind = "Electricity" if sub_class == "ELECTRICITY" else reference(trade)
     return "Commodity", {"SubClass": COMMODITY_SET[sub_class], "commodity_type": kind, "Si": 0, "Ei": maturity}
 
 
@@ -125,8 +143,8 @@ def equity(trade: dict[str, Any], maturity: float, expiry: float | None) -> tupl
         raise Unsupported("an entered lambda on an equity option has no package counterpart")
     index = trade["sub_class"] == "INDEX"
     args: dict[str, Any] = {"Si": 0, "Ei": maturity}
-    args.update({"Underlying_Instrument": trade["risk_factor"], "SubClass": "Index"} if index
-                else {"Issuer": trade["risk_factor"]})
+    args.update({"Underlying_Instrument": reference(trade), "SubClass": "Index"} if index
+                else {"Issuer": reference(trade)})
     if trade["instrument"] == "linear":
         return "Equity", args
     return ("EquityOptionIndex" if index else "EquityOptionSingle"), {**args, **option_args(trade)}
@@ -141,6 +159,9 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
         raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
     start, end, maturity = trade_times(trade, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
+    if expiry is not None and expiry <= 0:
+        raise Unsupported(f"{trade['id']} expires on or before the valuation date, which the engine rejects")
+    long = trade["direction"] == "long"
     asset_class = trade["asset_class"]
     if asset_class in ("interest_rate", "credit") and end <= start:
         raise Unsupported(f"{trade['id']} ends on or before its start, which the engine rejects")
@@ -153,15 +174,17 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     elif asset_class == "equity":
         name, args = equity(trade, maturity, expiry)
     elif asset_class == "foreign_exchange" and trade["instrument"] == "linear":
-        name, args = "FxForward", {"ccyPair": trade["risk_factor"], "Si": 0, "Ei": maturity}
+        pair, reversed_pair = fx_pair(trade)
+        long = long != reversed_pair
+        name, args = "FxForward", {"ccyPair": pair, "Si": 0, "Ei": maturity}
     elif asset_class == "other" and trade["instrument"] == "linear":
-        name, args = "OtherExposure", {"SubClass": trade["risk_factor"], "Si": 0, "Ei": maturity}
+        name, args = "OtherExposure", {"SubClass": reference(trade), "Si": 0, "Ei": maturity}
     else:
         raise Unsupported(f"{asset_class} {trade['instrument']} has no package class")
     args.setdefault("Currency", currency)
     return name, {**args, "external_id": trade["id"], "Notional": trade["notional_amount"],
                   "MtM": trade["market_value_amount"],
-                  "BuySell": "Buy" if trade["direction"] == "long" else "Sell"}
+                  "BuySell": "Buy" if long else "Sell"}
 
 
 def margin(fixture: dict[str, Any], trades: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -223,6 +246,11 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
             raise Unsupported(f"{trade['id']} has matured: the engine withholds the netting set's EAD")
         name, args = translate_trade(trade, valuation, days_per_year, fixture["calculation_currency"])
         trades.append({"id": trade["id"], "class": name, "args": {**args, "Counterparty": ns_id}})
+    # The package returns 0 for a portfolio of sold options only, a
+    # treatment the engine does not apply.
+    if trades and all(t["class"] != "Equity" and "OptionType" in t["args"] and t["args"]["BuySell"] == "Sell"
+                      for t in trades):
+        raise Unsupported("every trade is a sold option, which the package sets to zero and the engine does not")
     netting_set: dict[str, Any] = {"fixture": fixture["id"], "id": ns_id, "trades": trades,
                                    "csa": None, "collateral": []}
     if fixture["netting_set"]["margined"]:
