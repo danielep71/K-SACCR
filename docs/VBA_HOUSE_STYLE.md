@@ -89,8 +89,8 @@ signature. Omit sections that are empty.
   (no thousands or millions).
 - Rates, factors and correlations are decimals: `0.05`, never `5` meaning 5%.
 - Time periods are `Double` in years unless the name says otherwise
-  (`mporBusinessDays`). Dates are VBA `Date`.
-- Every numeric input states its valid domain, for example `notionalAmount >= 0`
+  (`MporBusinessDays`). Dates are VBA `Date`.
+- Every numeric input states its valid domain, for example `NotionalAmount >= 0`
   or `0 < correlation <= 1`. For an input with no meaningful result, the
   facade's worksheet functions return a worksheet error value (`CVErr`) or
   apply a documented floor.
@@ -146,24 +146,24 @@ The reference implementation is `M_Main.ExecuteOperation` in
 returns what failed as text, empty on success, so every restoration is
 attempted. The sketch below follows the same pattern; a cleanup-only failure
 raises `ERR_CLEANUP_FAILED` (`src/core/CORE_Config.bas`), never success, and
-`cleanupDetails` returns the failures to the caller also when the primary
+`CleanupDetails` returns the failures to the caller also when the primary
 error is re-raised.
 
 ```vb
 'In a standard module named M_Example
-Public Sub RunOperation(ByRef cleanupDetails As String)
-    Dim savedCalculation   As XlCalculation    'Calculation mode before the operation
-    Dim savedScreen        As Boolean          'ScreenUpdating before the operation
-    Dim stateCaptured      As Boolean          'True once both were read
-    Dim errNumber          As Long             'Primary error number; 0 for none
-    Dim errSource          As String           'Primary error source
-    Dim errDescription     As String           'Primary error description
+Public Sub RunOperation(ByRef CleanupDetails As String)
+    Dim SavedCalculation   As XlCalculation    'Calculation mode before the operation
+    Dim SavedScreen        As Boolean          'ScreenUpdating before the operation
+    Dim StateCaptured      As Boolean          'True once both were read
+    Dim ErrNumber          As Long             'Primary error number; 0 for none
+    Dim ErrSource          As String           'Primary error source
+    Dim ErrDescription     As String           'Primary error description
 
-        cleanupDetails = vbNullString
+        CleanupDetails = vbNullString
         On Error GoTo Failed
-        savedCalculation = Application.Calculation
-        savedScreen = Application.ScreenUpdating
-        stateCaptured = True
+        SavedCalculation = Application.Calculation
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
         Application.ScreenUpdating = False
         Application.Calculation = xlCalculationManual
 
@@ -171,20 +171,20 @@ Public Sub RunOperation(ByRef cleanupDetails As String)
 
 CleanUp:
         On Error GoTo 0
-        If stateCaptured Then
-            cleanupDetails = AppendDetail(RestoreCalculation(savedCalculation), _
-                                          RestoreScreenUpdating(savedScreen))
+        If StateCaptured Then
+            CleanupDetails = AppendDetail(RestoreCalculation(SavedCalculation), _
+                                          RestoreScreenUpdating(SavedScreen))
         End If
-        If errNumber <> 0 Then Err.Raise errNumber, errSource, errDescription
-        If Len(cleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "M_Example.RunOperation", cleanupDetails
+        If ErrNumber <> 0 Then Err.Raise ErrNumber, ErrSource, ErrDescription
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Example.RunOperation", CleanupDetails
         End If
         Exit Sub
 
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
+        ErrNumber = Err.Number
+        ErrSource = Err.Source
+        ErrDescription = Err.Description
         Resume CleanUp
 End Sub
 ```
@@ -262,6 +262,9 @@ generated and must not be edited by hand.
   [naming](#naming) rules is the one exception for names: it changes no
   logic, string or comment, and its pull request shows that applying the
   map of old to new names to the previous file reproduces every code line.
+  The exception does not cover the parameters of a declaration listed in
+  [`PUBLIC_API.txt`](PUBLIC_API.txt): a caller may pass them by name, so
+  renaming one is a [contract change](#public-api-changes).
 - Comments are kept true. A change updates every module header, procedure
   header, `INPUTS` name and line comment it makes stale, and the `UPDATED`
   date of each procedure and module it touches.
