@@ -39,6 +39,7 @@ TRADE_GROUP = {"interest_rate": "IRD", "foreign_exchange": "FX", "credit": "Cred
                "commodity": "Commodity", "other": "OtherExposure"}
 # Expected quantities with a package counterpart, by where the figure is found.
 NETTING_SET_QUANTITY = {"exposure_value": "EAD", "replacement_cost": "RC", "aggregate_add_on": "add_on",
+                        "potential_future_exposure": "PFE",
                         "multiplier": "multiplier", "margin_period_of_risk": "mpor_business_days"}
 CLASS_QUANTITY = {"add_on.interest_rate": "IRD", "add_on.foreign_exchange": "FX", "add_on.credit": "Credit",
                   "add_on.equity": "EQ", "add_on.commodity": "Commodity", "add_on.other": "OtherExposure"}
@@ -90,7 +91,9 @@ def interest_rate(trade: dict[str, Any], start: float, end: float, maturity: flo
     return "IRDSwaption", {**args, **option_args(trade)}
 
 
-def credit(trade: dict[str, Any], start: float, end: float) -> tuple[str, dict[str, Any]]:
+def credit(trade: dict[str, Any], start: float, end: float, maturity: float) -> tuple[str, dict[str, Any]]:
+    if abs(maturity - end) > 1e-12:
+        raise Unsupported("maturity differs from the end date; the package uses E as the maturity")
     if trade["instrument"] != "linear":
         raise Unsupported("the package has no credit option")
     sub_class = trade["sub_class"]
@@ -133,7 +136,7 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     if asset_class == "interest_rate":
         name, args = interest_rate(trade, start, end, maturity, expiry)
     elif asset_class == "credit":
-        name, args = credit(trade, start, end)
+        name, args = credit(trade, start, end, maturity)
     elif asset_class == "commodity":
         name, args = commodity(trade, maturity)
     elif asset_class == "equity":
@@ -251,7 +254,7 @@ def compare(root: Path, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             tolerance = output["tolerance"]
             difference = value - output["value"]
-            allowed = tolerance["absolute"] + tolerance["relative"] * abs(output["value"])
+            allowed = max(tolerance["absolute"], tolerance["relative"] * abs(output["value"]))
             rows.append({"case": path.stem, "quantity": output["quantity"], "trade": output.get("trade", ""),
                          "expected": output["value"], "package": value, "difference": difference,
                          "agrees": abs(difference) <= allowed, "reference": output["reference"]["class"]})

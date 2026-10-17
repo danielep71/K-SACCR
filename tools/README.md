@@ -57,6 +57,11 @@ the R script runs the package, which this repository calls but does not copy
 expected file's tolerance, the package's figures for fixtures with no numeric
 expected value, and the fixtures it cannot represent, with the reason:
 
+The comparison uses `max(absolute, relative * abs(expected))`, matching the
+case runner. It includes potential future exposure when an expected file
+requests it. Credit and interest-rate trades whose maturity differs from
+their end date are unsupported because the package cannot preserve both.
+
 ```bash
 python tools/rsaccr_crosscheck.py --rscript Rscript --out <folder>
 ```

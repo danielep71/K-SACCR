@@ -62,6 +62,12 @@ class TranslateTests(unittest.TestCase):
         netting_set, _ = xc.translate_fixture(fixture("illustrative-credit-quality-step"))
         self.assertEqual(netting_set["trades"][0]["args"]["SubClass"], "A")
 
+    def test_credit_distinct_maturity_is_unsupported(self) -> None:
+        data = fixture("illustrative-credit-quality-step")
+        data["trades"][0]["maturity_date"] = "2037-09-27"
+        with self.assertRaisesRegex(xc.Unsupported, "maturity differs"):
+            xc.translate_fixture(data)
+
     def test_matured_trade_is_left_out_with_a_note(self) -> None:
         netting_set, notes = xc.translate_fixture(fixture("illustrative-partly-rejected"))
         self.assertEqual([t["id"] for t in netting_set["trades"]], ["PR-1"])
@@ -87,6 +93,22 @@ class TranslateTests(unittest.TestCase):
 
 
 class CompareTests(unittest.TestCase):
+    def test_combined_tolerances_use_maximum_and_compare_pfe(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests" / "expected").mkdir(parents=True)
+            outputs = [{"quantity": "potential_future_exposure", "value": 100.0,
+                        "tolerance": {"absolute": 1.0, "relative": 0.02},
+                        "reference": {"class": "illustrative"}}]
+            (root / "tests" / "expected" / "case.crr.json").write_text(
+                json.dumps({"fixture": "case", "outputs": outputs}), encoding="utf-8")
+            for value, agrees in [(102.0, True), (102.5, False), (97.5, False)]:
+                with self.subTest(value=value):
+                    rows = xc.compare(root, [{"fixture": "case", "PFE": value}])
+                    self.assertEqual(len(rows), 1)
+                    self.assertEqual(rows[0]["quantity"], "potential_future_exposure")
+                    self.assertEqual(rows[0]["agrees"], agrees)
+
     def test_rows_use_the_expected_tolerance_and_skip_text(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
