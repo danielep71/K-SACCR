@@ -565,7 +565,7 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     # The first case a case-runner module starts in its source is the first it runs.
     # A StartCase helper prints its argument behind the prefix its own body gives
     # BeginCase (TEST_InputValidation: "input-" & caseId), as the log shows it.
-    first = re.search(r'\b(BeginCase|StartCase)\s+"([^"]+)"', module)
+    first = re.search(r'\b(BeginCase|StartCase)\s+"([^"]+)"\s*,', module)
     printed = None
     if first is not None and first.group(1) == "BeginCase":
         printed = first.group(2)

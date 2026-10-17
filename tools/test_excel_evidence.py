@@ -536,6 +536,13 @@ class ExcelEvidenceTests(unittest.TestCase):
             module.write_text(changed, encoding="cp1252")
             self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
                           " ".join(evidence.policy_problems(copy_root)), new)
+        # The first call's argument must end with its literal, too.
+        call = 'StartCase "trade-middle-row-without-id", "N"'
+        self.assertIn(call, source)
+        module.write_text(source.replace(call, 'StartCase "trade-middle-row-without-id" & "-x", "N"', 1),
+                          encoding="cp1252")
+        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"
