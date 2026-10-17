@@ -528,8 +528,10 @@ run summary on Results C4.
 ### ResultsStatus and the status cells
 
 `M_Main.ResultsStatus()` returns `CURRENT` when the results on the sheets
-match the inputs as they are now, `STALE` when an input changed since, and
-`NONE` when there is no valid completed run; `NONE` does not prove that every
+match the inputs as they are now and the outputs are still those the run
+wrote, `EDITED` when the inputs match but an output cell on Results, Checks or
+a reconciliation sheet was changed after the run, `STALE` when an input
+changed since, and `NONE` when there is no valid completed run; `NONE` does not prove that every
 output cell is empty, as a protected sheet may keep old values after a failed
 clear. Params is read through its workbook names, so an edit is found also
 after its tables have moved; descriptions, references and formatting do not
@@ -539,9 +541,14 @@ differ, as do two error values) and the workbook's date system; a header
 changed only in case or spacing, which the schema check accepts, does not
 count.
 
-Results C5 shows the same status through the formula
+Results C5 shows the input status through the formula
 `=ResultsStatusText(...)`, which watches the input sheets and Params whole, so
-Excel recalculates it when an input changes; it turns red when it reads
+Excel recalculates it when an input changes. It checks the inputs only and
+says so: `Inputs unchanged since the last run (inputs …); outputs are checked
+when evidence is exported`. Watching the outputs as well would recompute their
+fingerprint after every edit, for every row of a large portfolio; an edited
+output is reported by `ResultsStatus()` as `EDITED` and refused by the
+evidence export. C5 turns red when it reads
 `OUT OF DATE`, and reads `Status unavailable:` with the reason when a Params
 workbook name is missing or broken. A formula, unlike a macro writing to the
 sheet, leaves Excel's Undo history intact. With calculation set to manual,

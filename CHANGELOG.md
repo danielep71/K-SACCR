@@ -96,6 +96,15 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Results C5 says what it checks when the inputs match the last run:
+  "Inputs unchanged since the last run (inputs …); outputs are checked when
+  evidence is exported", instead of "Results current". `ResultsStatus()`
+  returns a new state, `EDITED`, when the inputs match but an output cell on
+  Results, Checks or a reconciliation sheet was changed after the run; the
+  evidence export refuses it as before (#315). C5 does not watch the outputs:
+  their fingerprint would be recomputed after every edit. `TEST_MainState`
+  gains the case `results.edited-output`: 28 to 29 cases, 491 to 501 checks.
+
 - The source round trip binds an export to its workbook (#313).
   `Export-SACCR-VBA.ps1` writes `export-manifest.json` with the workbook's
   SHA-256, taken before opening and checked after closing, and the SHA-256 of
