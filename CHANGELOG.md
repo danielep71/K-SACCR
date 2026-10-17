@@ -287,6 +287,9 @@ linked issues and pull requests.
 - Excel evidence bound to an exact commit (#46): `docs/EXCEL_EVIDENCE.md` gives
   the manual procedure, `.github/excel-evidence-policy.json` the expected
   suites and counts, and `tools/check_excel_evidence.py` validates a record.
+  `TEST_MainState` and `TEST_Reconcile`, run on their own, keep the macros'
+  run messages out of their report, which otherwise overran the VBE
+  Immediate window's 200 lines and lost its header and first cases.
   A source round trip (`Export-SACCR-VBA.ps1`, `compare_vba_export.py`) checks
   a built workbook's code against a commit (#34).
 
