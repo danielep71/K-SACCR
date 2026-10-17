@@ -637,7 +637,9 @@ def policy_problems(root: Path) -> list[str]:
         for spec in policy["suites"]:
             problems += suite_problems(root, spec)
         runner = module_text(root, policy["summary_entry_point"])
-        listed = re.findall(r'"(TEST_\w+\.\w+)"', runner.split("suites = Array(", 1)[-1].split(")\n", 1)[0])
+        # VBA names are case-insensitive: the list may be named suites or Suites.
+        array = re.split(r"suites = Array\(", runner, maxsplit=1, flags=re.IGNORECASE)[-1]
+        listed = re.findall(r'"(TEST_\w+\.\w+)"', array.split(")\n", 1)[0])
         entries = [policy["entry_point"]] + [spec["entry_point"] for spec in policy["suites"]]
         if listed != entries:
             problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")

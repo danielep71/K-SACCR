@@ -9,17 +9,19 @@ Attribute VB_Name = "TEST_Suite"
 '   their full logs when they are run on their own.
 '
 ' PUBLIC SURFACE
-'   Test_RunAll runs the suites. Say is the print routine of every suite:
-'   it writes to the Immediate window, or during Test_RunAll records the
-'   RESULT and FAILURE lines instead. Option Private Module keeps both out
+'   Test_RunAll runs the suites. Say is the print routine of every suite,
+'   of TEST_CaseRunner and of TEST_Benchmark: it writes to the Immediate
+'   window, or during Test_RunAll records the RESULT and FAILURE lines
+'   instead. Option Private Module keeps both out
 '   of the external workbook automation API.
 '
 ' DEPENDENCIES
 '   TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
 '   TEST_InputValidation, TEST_Aggregation, TEST_Invariants and
 '   TEST_Reconcile, with TEST_CaseRunner for TEST_Cases,
-'   TEST_InputValidation, TEST_Aggregation and TEST_Invariants; M_Main.gQuietLog, set while a suite
-'   runs, so that the macros' silent-mode messages are not printed either.
+'   TEST_InputValidation, TEST_Aggregation and TEST_Invariants;
+'   M_Main.gQuietLog, set while a suite runs, so that the macros'
+'   silent-mode messages are not printed either.
 '
 ' WORKSHEET SAFETY
 '   As the suites it runs: they rewrite inputs, outputs and Params and
@@ -34,7 +36,7 @@ Attribute VB_Name = "TEST_Suite"
 '   Immediate window.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -77,51 +79,51 @@ Public Sub Test_RunAll()
 '   Run the eight suites in turn and print the summary.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim suites     As Variant    'Entry points, as Module.Procedure
-    Dim i          As Long       'Index into suites
-    Dim failed     As Long       'Suites that did not pass
-    Dim t0         As Single     'Start of the whole run
-    Dim total      As Single     'Seconds for the whole run
+    Dim Suites         As Variant    'Entry points, as Module.Procedure
+    Dim i              As Long       'Index into Suites
+    Dim FailedCount    As Long       'Suites that did not pass
+    Dim StartTime      As Single     'Start of the whole run
+    Dim TotalSeconds   As Single     'Seconds for the whole run
 
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        suites = Array("TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", _
+        Suites = Array("TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", _
                        "TEST_MainState.RunMainStateTests", "TEST_Cases.RunCaseTests", _
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests")
         Debug.Print "SACCR TEST SUMMARY " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
-        t0 = Timer
-        For i = LBound(suites) To UBound(suites)
-            If Not RunOneSuite(CStr(suites(i))) Then
-                failed = failed + 1
+        StartTime = Timer
+        For i = LBound(Suites) To UBound(Suites)
+            If Not RunOneSuite(CStr(Suites(i))) Then
+                FailedCount = FailedCount + 1
             End If
         Next i
 
 '------------------------------------------------------------------------------
 ' REPORT
 '------------------------------------------------------------------------------
-        total = Timer - t0
-        If total < 0 Then
-            total = total + 86400!
+        TotalSeconds = Timer - StartTime
+        If TotalSeconds < 0 Then
+            TotalSeconds = TotalSeconds + 86400!
         End If
-        Debug.Print "RESULT=" & IIf(failed = 0, "PASS", "FAIL") & "; suites=" & SUITE_COUNT & _
-                    "; passed=" & (SUITE_COUNT - failed) & "; failed=" & failed & _
-                    "; seconds=" & Format$(total, "0.0")
+        Debug.Print "RESULT=" & IIf(FailedCount = 0, "PASS", "FAIL") & "; suites=" & SUITE_COUNT & _
+                    "; passed=" & (SUITE_COUNT - FailedCount) & "; failed=" & FailedCount & _
+                    "; seconds=" & Format$(TotalSeconds, "0.0")
 
 End Sub
 
 
 Public Sub Say( _
-    ByVal text As String)
+    ByVal Text As String)
 '
 '==============================================================================
 '                                     Say
@@ -132,15 +134,15 @@ Public Sub Say( _
 '   lines are collected for the summary; a count such as FAILURES= is not.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
         If Not mQuiet Then
-            Debug.Print text
-        ElseIf Left$(text, 7) = "RESULT=" Then
-            mResult = text
-        ElseIf Left$(text, 8) = "FAILURE=" Or Left$(text, 16) = "FAILURE_DETAILS=" Then
-            mFailures.Add text
+            Debug.Print Text
+        ElseIf Left$(Text, 7) = "RESULT=" Then
+            mResult = Text
+        ElseIf Left$(Text, 8) = "FAILURE=" Or Left$(Text, 16) = "FAILURE_DETAILS=" Then
+            mFailures.Add Text
         End If
 
 End Sub
@@ -155,7 +157,7 @@ End Sub
 '
 
 Private Function RunOneSuite( _
-    ByVal entryPoint As String) _
+    ByVal EntryPoint As String) _
     As Boolean
 '
 '==============================================================================
@@ -172,19 +174,19 @@ Private Function RunOneSuite( _
 '   An error raised by the suite is contained and reported as a failure.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim t0        As Single     'Start of the suite
-    Dim seconds   As Single     'Duration of the suite
-    Dim raised    As String     'Error raised by the suite; "" when none
-    Dim passed    As Boolean    'RESULT=PASS and no error
-    Dim detail    As String     'The RESULT line after its verdict
-    Dim failure   As Variant    'One failure line
+    Dim StartTime      As Single     'Start of the suite
+    Dim SuiteSeconds   As Single     'Duration of the suite
+    Dim RaisedError    As String     'Error raised by the suite; "" when none
+    Dim Passed         As Boolean    'RESULT=PASS and no error
+    Dim Detail         As String     'The RESULT line after its verdict
+    Dim FailureLine    As Variant    'One failure line
 
 '------------------------------------------------------------------------------
 ' RUN QUIETLY
@@ -195,9 +197,9 @@ Private Function RunOneSuite( _
         Set mFailures = New Collection
         mQuiet = True
         M_Main.gQuietLog = True
-        t0 = Timer
+        StartTime = Timer
         On Error GoTo Raised
-        Select Case entryPoint
+        Select Case EntryPoint
             Case "TEST_Harness.RunTests"
                 TEST_Harness.RunTests
             Case "TEST_Formulas.RunFormulaTests"
@@ -220,40 +222,40 @@ Report:
         On Error GoTo 0
         mQuiet = False
         M_Main.gQuietLog = False
-        seconds = Timer - t0
-        If seconds < 0 Then
-            seconds = seconds + 86400!
+        SuiteSeconds = Timer - StartTime
+        If SuiteSeconds < 0 Then
+            SuiteSeconds = SuiteSeconds + 86400!
         End If
 
 '------------------------------------------------------------------------------
 ' PRINT THE SUITE LINE
 '------------------------------------------------------------------------------
     'The RESULT line without its verdict, which the first column shows.
-        passed = (Left$(mResult, 11) = "RESULT=PASS") And Len(raised) = 0
-        detail = mResult
-        If InStr(detail, "; ") > 0 Then
-            detail = Mid$(detail, InStr(detail, "; ") + 2)
-        ElseIf Len(detail) = 0 Then
-            detail = "no RESULT line"
+        Passed = (Left$(mResult, 11) = "RESULT=PASS") And Len(RaisedError) = 0
+        Detail = mResult
+        If InStr(Detail, "; ") > 0 Then
+            Detail = Mid$(Detail, InStr(Detail, "; ") + 2)
+        ElseIf Len(Detail) = 0 Then
+            Detail = "no RESULT line"
         End If
-        Debug.Print "  " & IIf(passed, "PASS", "FAIL") & "  " & Left$(Split(entryPoint, ".")(0) & Space$(22), 22) & _
-                    detail & "  (" & Format$(seconds, "0.0") & " s)"
-        If Not passed Then
-            For Each failure In mFailures
-                Debug.Print "        " & failure
-            Next failure
-            If Len(raised) > 0 Then
-                Debug.Print "        ERROR=" & raised
+        Debug.Print "  " & IIf(Passed, "PASS", "FAIL") & "  " & Left$(Split(EntryPoint, ".")(0) & Space$(22), 22) & _
+                    Detail & "  (" & Format$(SuiteSeconds, "0.0") & " s)"
+        If Not Passed Then
+            For Each FailureLine In mFailures
+                Debug.Print "        " & FailureLine
+            Next FailureLine
+            If Len(RaisedError) > 0 Then
+                Debug.Print "        ERROR=" & RaisedError
             End If
         End If
-        RunOneSuite = passed
+        RunOneSuite = Passed
         Exit Function
 
 '------------------------------------------------------------------------------
 ' HANDLE A RAISED ERROR
 '------------------------------------------------------------------------------
 Raised:
-        raised = Err.Number & ": " & Err.Description
+        RaisedError = Err.Number & ": " & Err.Description
         Resume Report
 
 End Function
