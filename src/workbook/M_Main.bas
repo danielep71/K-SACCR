@@ -14,18 +14,21 @@ Attribute VB_Name = "M_Main"
 '   RunSACCR_Silent: RunSACCR for automation. Returns a machine-readable
 '   result line and raises errors instead of showing them.
 '   ResultsStatus: whether the results on the sheets match the current
-'   inputs (CURRENT, STALE or NONE).
-'   ResultsStatusText: the same as text, for the status formula in Results
-'   C5; Excel recalculates it when an input changes, without a macro
-'   writing to the workbook, so Undo keeps working.
+'   inputs and are still as the run wrote them (CURRENT, EDITED, STALE or
+'   NONE).
+'   ResultsStatusText: the input part of that status as text, for the
+'   status formula in Results C5; Excel recalculates it when an input
+'   changes, without a macro writing to the workbook, so Undo keeps
+'   working. An edited output is left to ResultsStatus and the evidence
+'   export (#315).
 '   ReconciliationStatusText and TradeReconciliationStatusText: the same
 '   for the reconciliations of the bank figures, for the status formulas
 '   in Reconciliation C5 and TradeReconciliation C5 (#45).
 '   ExportEvidence: write the evidence report of the last run to a CSV
 '   file (#45); ExportEvidence_Silent: the same to a given file, for
 '   automation and tests.
-'   The sheet buttons call the first three by name. These macros are not
-'   listed in docs/PUBLIC_API.txt.
+'   The sheet buttons call the first three and ExportEvidence by name.
+'   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
@@ -39,8 +42,10 @@ Attribute VB_Name = "M_Main"
 '   changes them for the run, and restores the captured values on success
 '   and on failure. Owns gSilent (messages to the Immediate window instead
 '   of message boxes, and errors raised to the caller), the re-entry flag
-'   mRunning, and the test seams gTestFault, gQuietLog (silent-mode
-'   messages dropped instead of printed) and gLastMessage.
+'   mRunning, the reconciliation outcomes of the last operation
+'   (mReconState, mTradeReconState, mReconLine), and the test seams
+'   gTestFault, gQuietLog (silent-mode messages dropped instead of
+'   printed) and gLastMessage.
 '
 ' ERROR POLICY
 '   The primary error is copied before cleanup. Each setting is restored by
@@ -108,8 +113,9 @@ Attribute VB_Name = "M_Main"
     'gSilent switches messages to the Immediate window and errors to the
     'caller. gTestFault and gLastMessage are the test seams described above.
     'gQuietLog drops the messages of silent mode instead of printing them,
-    'for TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
-    'is in progress.
+    'for the test suites (TEST_Suite.Test_RunAll, TEST_MainState and
+    'TEST_Reconcile), whose output would overflow the Immediate window.
+    'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
         Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile" or "evidence-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
@@ -166,13 +172,15 @@ Public Function RunSACCR_Silent() As String
 '   failure is raised to the caller.
 '
 ' RETURNS
-'   A result line such as "RESULT=OK; operation=run; errors=0; warnings=0;
-'   trades_used=62; trades_read=65; incomplete=0; total_ead_crr=4251975.8;
-'   total_ead_bcbs=8193300.1; inputs=5A428560; cleanup=PASS". incomplete
-'   counts netting sets whose EAD was withheld; total_ead_crr and
-'   total_ead_bcbs are the totals of each regime's VALID netting sets, 0
-'   when it has none (#198); inputs is the fingerprint of the inputs the
-'   results were calculated from, empty when there are none.
+'   The result line of ReportOutcome: RESULT=OK or STOPPED,
+'   operation=run, errors, warnings, trades_used, trades_read,
+'   economic_trades_used, economic_trades_read, incomplete,
+'   total_ead_crr, total_ead_bcbs, inputs, run_class, reconciliation,
+'   trade_reconciliation and cleanup=PASS or FAIL, separated by "; ".
+'   incomplete counts netting sets whose EAD was withheld; total_ead_crr
+'   and total_ead_bcbs are the totals of each regime's VALID netting sets,
+'   0 when it has none (#198); inputs is the fingerprint of the inputs
+'   the results were calculated from, empty when there are none.
 '   RESULT=STOPPED means the inputs could not be loaded; see Checks.
 '
 ' STATE OWNERSHIP
@@ -184,38 +192,38 @@ Public Function RunSACCR_Silent() As String
 '   settings could not be restored, after gSilent has been restored.
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim previousSilent   As Boolean    'gSilent before this call
-    Dim errNumber        As Long       'Error raised by the operation
-    Dim errSource        As String     'Its source
-    Dim errDescription   As String     'Its description
+    Dim PreviousSilent     As Boolean    'gSilent before this call
+    Dim ErrorNumber        As Long       'Error raised by the operation
+    Dim ErrorSource        As String     'Its source
+    Dim ErrorDescription   As String     'Its description
 
 '------------------------------------------------------------------------------
 ' RUN SILENTLY
 '------------------------------------------------------------------------------
-        previousSilent = gSilent
+        PreviousSilent = gSilent
         gSilent = True
         On Error GoTo Failed
         RunSACCR_Silent = ExecuteOperation(OP_RUN)
-        gSilent = previousSilent
+        gSilent = PreviousSilent
         Exit Function
 
 '------------------------------------------------------------------------------
 ' RESTORE THE FLAG AND RE-RAISE
 '------------------------------------------------------------------------------
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
         On Error GoTo 0
-        gSilent = previousSilent
-        Err.Raise errNumber, errSource, errDescription
+        gSilent = PreviousSilent
+        Err.Raise ErrorNumber, ErrorSource, ErrorDescription
 
 End Function
 
@@ -251,13 +259,14 @@ Public Sub ClearOutputs()
 '                                 ClearOutputs
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Empty the five output sheets and stamp the time on the Results sheet.
+'   Empty the five output tables and both reconciliation sheets, withdraw
+'   the stored fingerprints, and stamp the time on the Results sheet.
 '
 ' USAGE
 '   Assigned to the Clear outputs button.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -307,20 +316,20 @@ Public Function ResultsStatus() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim stored    As String    'Fingerprint stored by the last completed run
-    Dim outputs   As String    'Fingerprint of the outputs it wrote
+    Dim StoredInputs    As String    'Fingerprint stored by the last completed run
+    Dim StoredOutputs   As String    'Fingerprint of the outputs it wrote
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        stored = CORE_Engine.LastRunInputs()
-        If Len(stored) = 0 Then
+        StoredInputs = CORE_Engine.LastRunInputs()
+        If Len(StoredInputs) = 0 Then
             ResultsStatus = "NONE"
-        ElseIf stored <> CORE_Engine.InputFingerprint() Then
+        ElseIf StoredInputs <> CORE_Engine.InputFingerprint() Then
             ResultsStatus = "STALE"
         Else
-            outputs = StoredText(RUN_OUTPUTS_NAME)
-            If Len(outputs) > 0 And outputs <> OutputFingerprint() Then
+            StoredOutputs = StoredText(RUN_OUTPUTS_NAME)
+            If Len(StoredOutputs) > 0 And StoredOutputs <> OutputFingerprint() Then
                 ResultsStatus = "EDITED"
             Else
                 ResultsStatus = "CURRENT"
@@ -331,10 +340,10 @@ End Function
 
 
 Public Function ResultsStatusText( _
-    ByVal storedInputs As Variant, _
-    ByVal nettingSetRows As Range, _
-    ByVal tradeRows As Range, _
-    ByVal paramRows As Range) _
+    ByVal StoredInputs As Variant, _
+    ByVal NettingSetRows As Range, _
+    ByVal TradeRows As Range, _
+    ByVal ParamRows As Range) _
     As String
 '
 '==============================================================================
@@ -352,8 +361,8 @@ Public Function ResultsStatusText( _
 '   would.
 '
 ' INPUTS
-'   storedInputs: the value of SACCR_RunInputs.
-'   nettingSetRows, tradeRows, paramRows: the input ranges, only so that
+'   StoredInputs: the value of SACCR_RunInputs.
+'   NettingSetRows, TradeRows, ParamRows: the input ranges, only so that
 '   Excel recalculates; the fingerprint is computed from the sheets as the
 '   engine reads them.
 '
@@ -370,24 +379,24 @@ Public Function ResultsStatusText( _
 '   function must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim stored   As String    'Fingerprint of the last completed run
+    Dim RunFingerprint   As String    'Fingerprint of the last completed run
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        stored = SafeStr(storedInputs)
-        If Len(stored) = 0 Then
+        RunFingerprint = SafeStr(StoredInputs)
+        If Len(RunFingerprint) = 0 Then
             ResultsStatusText = "No results: press Run SA-CCR."
-        ElseIf stored = CORE_Engine.InputFingerprint() Then
-            ResultsStatusText = "Inputs unchanged since the last run (inputs " & stored & _
+        ElseIf RunFingerprint = CORE_Engine.InputFingerprint() Then
+            ResultsStatusText = "Inputs unchanged since the last run (inputs " & RunFingerprint & _
                                 "); outputs are checked when evidence is exported"
         Else
             ResultsStatusText = "OUT OF DATE - inputs changed since the last run; press Run SA-CCR."
@@ -409,12 +418,12 @@ End Function
 '
 
 Public Function ReconciliationStatusText( _
-    ByVal storedRecon As Variant, _
-    ByVal storedRun As Variant, _
-    ByVal bankRows As Range, _
-    ByVal nettingSetRows As Range, _
-    ByVal tradeRows As Range, _
-    ByVal paramRows As Range) _
+    ByVal StoredRecon As Variant, _
+    ByVal StoredRun As Variant, _
+    ByVal BankRows As Range, _
+    ByVal NettingSetRows As Range, _
+    ByVal TradeRows As Range, _
+    ByVal ParamRows As Range) _
     As String
 '
 '==============================================================================
@@ -431,30 +440,30 @@ Public Function ReconciliationStatusText( _
 '   located through workbook names.
 '
 ' INPUTS
-'   storedRecon: the value of SACCR_ReconInputs; storedRun: the value of
+'   StoredRecon: the value of SACCR_ReconInputs; StoredRun: the value of
 '   SACCR_RunInputs.
-'   bankRows, nettingSetRows, tradeRows, paramRows: the watched ranges,
+'   BankRows, NettingSetRows, TradeRows, ParamRows: the watched ranges,
 '   only so that Excel recalculates.
 '
 ' RETURNS
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        ReconciliationStatusText = ReconStatus(RECON_NS, storedRecon, storedRun)
+        ReconciliationStatusText = ReconStatus(RECON_NS, StoredRecon, StoredRun)
 
 End Function
 
 
 Public Function TradeReconciliationStatusText( _
-    ByVal storedRecon As Variant, _
-    ByVal storedRun As Variant, _
-    ByVal bankRows As Range, _
-    ByVal nettingSetRows As Range, _
-    ByVal tradeRows As Range, _
-    ByVal paramRows As Range) _
+    ByVal StoredRecon As Variant, _
+    ByVal StoredRun As Variant, _
+    ByVal BankRows As Range, _
+    ByVal NettingSetRows As Range, _
+    ByVal TradeRows As Range, _
+    ByVal ParamRows As Range) _
     As String
 '
 '==============================================================================
@@ -468,25 +477,25 @@ Public Function TradeReconciliationStatusText( _
 '        Trades!$C:$AA, Params!$1:$1048576)
 '
 ' INPUTS
-'   storedRecon: the value of SACCR_TradeReconInputs; the others as
-'   ReconciliationStatusText, with BankTrades as bankRows.
+'   StoredRecon: the value of SACCR_TradeReconInputs; the others as
+'   ReconciliationStatusText, with BankTrades as BankRows.
 '
 ' RETURNS
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
-        TradeReconciliationStatusText = ReconStatus(RECON_TR, storedRecon, storedRun)
+        TradeReconciliationStatusText = ReconStatus(RECON_TR, StoredRecon, StoredRun)
 
 End Function
 
 
 Private Function ReconStatus( _
-    ByVal kind As Long, _
-    ByVal storedRecon As Variant, _
-    ByVal storedRun As Variant) _
+    ByVal ReconKind As Long, _
+    ByVal StoredRecon As Variant, _
+    ByVal StoredRun As Variant) _
     As String
 '
 '==============================================================================
@@ -497,8 +506,8 @@ Private Function ReconStatus( _
 '   figures and inputs as they are now.
 '
 ' INPUTS
-'   kind: RECON_NS or RECON_TR; storedRecon, storedRun: as the worksheet
-'   functions.
+'   ReconKind: RECON_NS or RECON_TR; StoredRecon, StoredRun: as the
+'   worksheet functions.
 '
 ' RETURNS
 '   "Reconciliation current (...)", "OUT OF DATE - ..." or "No
@@ -509,14 +518,14 @@ Private Function ReconStatus( _
 '   worksheet function must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim stored   As String    'Fingerprint of the last reconciliation
+    Dim StoredFingerprint   As String    'Fingerprint of the last reconciliation
 
 '------------------------------------------------------------------------------
 ' COMPARE
@@ -524,12 +533,12 @@ Private Function ReconStatus( _
     'Without current results there is nothing the reconciliation can still
     'describe, whatever its own fingerprint says.
         On Error GoTo Failed
-        stored = SafeStr(storedRecon)
-        If Len(stored) = 0 Or Len(SafeStr(storedRun)) = 0 Then
-            ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(kind) & _
+        StoredFingerprint = SafeStr(StoredRecon)
+        If Len(StoredFingerprint) = 0 Or Len(SafeStr(StoredRun)) = 0 Then
+            ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(ReconKind) & _
                           " and press Run SA-CCR (on Results or Trades)."
-        ElseIf stored = ReconFingerprint(kind) Then
-            ReconStatus = "Reconciliation current (bank figures and inputs " & stored & ")"
+        ElseIf StoredFingerprint = ReconFingerprint(ReconKind) Then
+            ReconStatus = "Reconciliation current (bank figures and inputs " & StoredFingerprint & ")"
         Else
             ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on Results or Trades)."
         End If
@@ -542,7 +551,7 @@ End Function
 
 
 Private Function ReconcileAfterRun( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -556,7 +565,7 @@ Private Function ReconcileAfterRun( _
 '   TradeReconciliation. Adds a line to mReconLine for the run message.
 '
 ' INPUTS
-'   kind: RECON_NS or RECON_TR.
+'   ReconKind: RECON_NS or RECON_TR.
 '
 ' RETURNS
 '   DONE: rows written. NONE: no bank figures entered. UNAVAILABLE: the
@@ -577,59 +586,59 @@ Private Function ReconcileAfterRun( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wsBank      As Worksheet    'The bank sheet
-    Dim wsRecon     As Worksheet    'The reconciliation sheet
-    Dim wsCalc      As Worksheet    'Results or TradeCalc
-    Dim headerRow   As Long         'Header row of the bank table
-    Dim problem     As String       'Why the reconciliation cannot run; "" when it can
-    Dim settings(1 To 3) As Variant 'Scale, absolute and relative tolerance
-    Dim i           As Long         'Setting
-    Dim lastR       As Long         'Last row read
-    Dim calcTop     As Long         'First data row of Results or TradeCalc
-    Dim outTop      As Long         'First data row of the reconciliation sheet
-    Dim bank        As Variant      'Bank rows; Empty when none
-    Dim calc        As Variant      'Calculator rows; Empty when none
-    Dim counts()    As Long         'Counts from the comparison
-    Dim found       As Variant      'Rows from the comparison; Empty when none
-    Dim outRows()   As Variant      'The same as an array for WriteBlock
-    Dim nRows       As Long         'Rows to write
-    Dim summary     As String       'Summary line without its time stamp
-    Dim reconName   As String       'Name of the reconciliation in the run message
-    Dim others      As Long         'Rows other than MATCH and DIFFERENCE
-    Dim errNumber   As Long         'Error that stopped the reconciliation
-    Dim errText     As String       'Its description
+    Dim BankSheet          As Worksheet    'The bank sheet
+    Dim ReconSheet         As Worksheet    'The reconciliation sheet
+    Dim CalcSheet          As Worksheet    'Results or TradeCalc
+    Dim HeaderRow          As Long         'Header row of the bank table
+    Dim Problem            As String       'Why the reconciliation cannot run; "" when it can
+    Dim Settings(1 To 3)   As Variant      'Scale, absolute and relative tolerance
+    Dim i                  As Long         'Setting
+    Dim LastRow            As Long         'Last row read
+    Dim CalcFirstRow       As Long         'First data row of Results or TradeCalc
+    Dim ReconFirstRow      As Long         'First data row of the reconciliation sheet
+    Dim BankRows           As Variant      'Bank rows; Empty when none
+    Dim CalcRows           As Variant      'Calculator rows; Empty when none
+    Dim Counts()           As Long         'Counts from the comparison
+    Dim ComparedRows       As Variant      'Rows from the comparison; Empty when none
+    Dim ReconRows()        As Variant      'The same as an array for WriteBlock
+    Dim RowsToWrite        As Long         'Rows to write
+    Dim Summary            As String       'Summary line without its time stamp
+    Dim ReconName          As String       'Name of the reconciliation in the run message
+    Dim OtherCount         As Long         'Rows other than MATCH and DIFFERENCE
+    Dim ErrorNumber        As Long         'Error that stopped the reconciliation
+    Dim ErrorText          As String       'Its description
 
 '------------------------------------------------------------------------------
 ' FIND THE SHEETS AND SETTINGS
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        reconName = IIf(kind = RECON_NS, "Reconciliation", "Trade reconciliation")
-        If Not ReconciliationSheetsPresent(kind) Then
+        ReconName = IIf(ReconKind = RECON_NS, "Reconciliation", "Trade reconciliation")
+        If Not ReconciliationSheetsPresent(ReconKind) Then
             ReconcileAfterRun = "UNAVAILABLE"
             Exit Function
         End If
-        Set wsBank = GetSheet(BankSheetOf(kind))
-        Set wsRecon = GetSheet(ReconSheetOf(kind))
-        headerRow = BankHeaderRow(kind)
-        If headerRow = 0 Then
-            problem = "the name " & HeaderNameOf(kind) & " is missing or not in column C of " & BankSheetOf(kind)
+        Set BankSheet = GetSheet(BankSheetOf(ReconKind))
+        Set ReconSheet = GetSheet(ReconSheetOf(ReconKind))
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
+            Problem = "the name " & HeaderNameOf(ReconKind) & " is missing or not in column C of " & BankSheetOf(ReconKind)
         Else
-            problem = CORE_Reconcile.HeadersProblem( _
-                      TableRange(wsBank, headerRow, 1, headerRow, BankColsOf(kind)).Value2, BankHeadersOf(kind))
+            Problem = CORE_Reconcile.HeadersProblem( _
+                      TableRange(BankSheet, HeaderRow, 1, HeaderRow, BankColsOf(ReconKind)).Value2, BankHeadersOf(ReconKind))
         End If
         For i = 1 To 3
-            If Len(problem) = 0 Then
-                problem = NamedValue(SettingNameOf(kind, i), BankSheetOf(kind), settings(i))
+            If Len(Problem) = 0 Then
+                Problem = NamedValue(SettingNameOf(ReconKind, i), BankSheetOf(ReconKind), Settings(i))
             End If
         Next i
-        If Len(problem) = 0 Then
-            problem = CORE_Reconcile.SettingsProblem(settings(1), settings(2), settings(3), _
-                      SettingNameOf(kind, 1), SettingNameOf(kind, 2), SettingNameOf(kind, 3))
+        If Len(Problem) = 0 Then
+            Problem = CORE_Reconcile.SettingsProblem(Settings(1), Settings(2), Settings(3), _
+                      SettingNameOf(ReconKind, 1), SettingNameOf(ReconKind, 2), SettingNameOf(ReconKind, 3))
         End If
-        If Len(problem) > 0 Then
-            ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & problem & ".", _
-                                kind
-            AddReconLine reconName & " not run: " & problem & "."
+        If Len(Problem) > 0 Then
+            ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & Problem & ".", _
+                                ReconKind
+            AddReconLine ReconName & " not run: " & Problem & "."
             ReconcileAfterRun = "FAILED"
             Exit Function
         End If
@@ -637,68 +646,68 @@ Private Function ReconcileAfterRun( _
 '------------------------------------------------------------------------------
 ' READ THE BANK FIGURES AND THE CALCULATOR ROWS
 '------------------------------------------------------------------------------
-        lastR = UsedLastRow(wsBank)
-        If lastR > headerRow Then
-            bank = TableRange(wsBank, headerRow + 1, 1, lastR, BankColsOf(kind)).Value2
+        LastRow = UsedLastRow(BankSheet)
+        If LastRow > HeaderRow Then
+            BankRows = TableRange(BankSheet, HeaderRow + 1, 1, LastRow, BankColsOf(ReconKind)).Value2
         End If
-        If Not CORE_Reconcile.HasBankRows(bank, BankColsOf(kind)) Then
-            ClearReconciliation "No bank figures on " & BankSheetOf(kind) & ": nothing to reconcile.", kind
+        If Not CORE_Reconcile.HasBankRows(BankRows, BankColsOf(ReconKind)) Then
+            ClearReconciliation "No bank figures on " & BankSheetOf(ReconKind) & ": nothing to reconcile.", ReconKind
             ReconcileAfterRun = "NONE"
             Exit Function
         End If
         If gTestFault = "reconcile" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.ReconcileAfterRun", "Injected reconciliation failure."
         End If
-        If kind = RECON_NS Then
-            Set wsCalc = GetSheet(SH_RESULTS)
-            calcTop = OutputFirstRow(SH_RESULTS)
-            lastR = LastDataRow(wsCalc, calcTop, RS_ID)
-            If lastR >= calcTop Then
-                calc = TableRange(wsCalc, calcTop, 1, lastR, RS_NCOLS).Value2
+        If ReconKind = RECON_NS Then
+            Set CalcSheet = GetSheet(SH_RESULTS)
+            CalcFirstRow = OutputFirstRow(SH_RESULTS)
+            LastRow = LastDataRow(CalcSheet, CalcFirstRow, RS_ID)
+            If LastRow >= CalcFirstRow Then
+                CalcRows = TableRange(CalcSheet, CalcFirstRow, 1, LastRow, RS_NCOLS).Value2
             End If
         Else
-            Set wsCalc = GetSheet(SH_TRADECALC)
-            calcTop = OutputFirstRow(SH_TRADECALC)
-            lastR = LastDataRow(wsCalc, calcTop, TC_ID)
-            If lastR >= calcTop Then
-                calc = TableRange(wsCalc, calcTop, 1, lastR, TC_NCOLS).Value2
+            Set CalcSheet = GetSheet(SH_TRADECALC)
+            CalcFirstRow = OutputFirstRow(SH_TRADECALC)
+            LastRow = LastDataRow(CalcSheet, CalcFirstRow, TC_ID)
+            If LastRow >= CalcFirstRow Then
+                CalcRows = TableRange(CalcSheet, CalcFirstRow, 1, LastRow, TC_NCOLS).Value2
             End If
         End If
 
 '------------------------------------------------------------------------------
 ' COMPARE AND WRITE
 '------------------------------------------------------------------------------
-        If kind = RECON_NS Then
-            found = CORE_Reconcile.CompareNettingSets(bank, headerRow + 1, calc, CDbl(settings(1)), _
-                                                      CDbl(settings(2)), CDbl(settings(3)), counts)
-            summary = CORE_Reconcile.SummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), CDbl(settings(3)))
+        If ReconKind = RECON_NS Then
+            ComparedRows = CORE_Reconcile.CompareNettingSets(BankRows, HeaderRow + 1, CalcRows, CDbl(Settings(1)), _
+                                                      CDbl(Settings(2)), CDbl(Settings(3)), Counts)
+            Summary = CORE_Reconcile.SummaryText(Counts, CDbl(Settings(1)), CDbl(Settings(2)), CDbl(Settings(3)))
         Else
-            found = CORE_Reconcile.CompareTrades(bank, headerRow + 1, calc, CDbl(settings(1)), _
-                                                 CDbl(settings(2)), CDbl(settings(3)), counts)
-            summary = CORE_Reconcile.TradeSummaryText(counts, CDbl(settings(1)), CDbl(settings(2)), _
-                                                      CDbl(settings(3)))
+            ComparedRows = CORE_Reconcile.CompareTrades(BankRows, HeaderRow + 1, CalcRows, CDbl(Settings(1)), _
+                                                 CDbl(Settings(2)), CDbl(Settings(3)), Counts)
+            Summary = CORE_Reconcile.TradeSummaryText(Counts, CDbl(Settings(1)), CDbl(Settings(2)), _
+                                                      CDbl(Settings(3)))
         End If
-        outTop = OutputFirstRow(ReconSheetOf(kind))
-        ClearOutputBlock wsRecon, outTop, ReconColsOf(kind)
-        If IsArray(found) Then
-            If kind = RECON_NS Then
-                outRows = found
+        ReconFirstRow = OutputFirstRow(ReconSheetOf(ReconKind))
+        ClearOutputBlock ReconSheet, ReconFirstRow, ReconColsOf(ReconKind)
+        If IsArray(ComparedRows) Then
+            If ReconKind = RECON_NS Then
+                ReconRows = ComparedRows
             Else
-                outRows = WithEconomicTradeIds(found)
+                ReconRows = WithEconomicTradeIds(ComparedRows)
             End If
-            nRows = UBound(outRows, 1)
-            WriteBlock wsRecon, outTop, outRows, nRows, ReconColsOf(kind)
-            FormatColumns wsRecon, outTop, nRows, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
-                          "#,##0.00########|0.0000%|@|@" & IIf(kind = RECON_NS, "", "|@")
+            RowsToWrite = UBound(ReconRows, 1)
+            WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
+            FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
+                          "#,##0.00########|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
         End If
-        wsRecon.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
-                                               " | " & summary
-        RememberReconInputs kind, ReconFingerprint(kind)
-        others = counts(RCN_MISSING) + counts(RCN_NOTINBANK) + counts(RCN_DUPLICATE) + counts(RCN_REGIME) + _
-                 counts(RCN_WITHHELD) + counts(RCN_INVALID) + counts(RCN_EXCLUDED) + counts(RCN_NA)
-        AddReconLine reconName & ": " & counts(RCN_COMPARED) & " figure(s) compared, " & counts(RCN_MATCH) & _
-                     " MATCH, " & counts(RCN_DIFF) & " DIFFERENCE" & _
-                     IIf(others > 0, "; " & others & " other row(s): see the " & ReconSheetOf(kind) & " sheet", "") & "."
+        ReconSheet.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
+                                               " | " & Summary
+        RememberReconInputs ReconKind, ReconFingerprint(ReconKind)
+        OtherCount = Counts(RCN_MISSING) + Counts(RCN_NOTINBANK) + Counts(RCN_DUPLICATE) + Counts(RCN_REGIME) + _
+                 Counts(RCN_WITHHELD) + Counts(RCN_INVALID) + Counts(RCN_EXCLUDED) + Counts(RCN_NA)
+        AddReconLine ReconName & ": " & Counts(RCN_COMPARED) & " figure(s) compared, " & Counts(RCN_MATCH) & _
+                     " MATCH, " & Counts(RCN_DIFF) & " DIFFERENCE" & _
+                     IIf(OtherCount > 0, "; " & OtherCount & " other row(s): see the " & ReconSheetOf(ReconKind) & " sheet", "") & "."
         ReconcileAfterRun = "DONE"
         Exit Function
 
@@ -708,18 +717,18 @@ Private Function ReconcileAfterRun( _
 Failed:
     'ClearReconciliation clears Err: keep the cause for the run message
     '(#318).
-        errNumber = Err.Number
-        errText = Err.Description
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         ClearReconciliation "Reconciliation failed " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " (error " & _
-                            errNumber & ": " & errText & ").", kind
-        AddReconLine reconName & " failed: " & errText & "."
+                            ErrorNumber & ": " & ErrorText & ").", ReconKind
+        AddReconLine ReconName & " failed: " & ErrorText & "."
         ReconcileAfterRun = "FAILED"
 
 End Function
 
 
 Private Sub AddReconLine( _
-    ByVal lineText As String)
+    ByVal LineText As String)
 '
 '==============================================================================
 '                                 AddReconLine
@@ -729,59 +738,59 @@ Private Sub AddReconLine( _
 '   message.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
         If Len(mReconLine) > 0 Then
             mReconLine = mReconLine & vbCrLf
         End If
-        mReconLine = mReconLine & lineText
+        mReconLine = mReconLine & LineText
 
 End Sub
 
 
 Private Sub ClearReconciliation( _
-    ByVal infoText As String, _
-    Optional ByVal kind As Long = 0)
+    ByVal InfoText As String, _
+    Optional ByVal ReconKind As Long = 0)
 '
 '==============================================================================
 '                             ClearReconciliation
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Withdraw a reconciliation: empty its fingerprint and its rows and write
-'   infoText to its summary cell. Every operation starts with this for
+'   InfoText to its summary cell. Every operation starts with this for
 '   both, so that no reconciliation outlives the results it compared.
 '
 ' INPUTS
-'   infoText: the text for the summary cell.
-'   kind: RECON_NS or RECON_TR; 0 for both.
+'   InfoText: the text for the summary cell.
+'   ReconKind: RECON_NS or RECON_TR; 0 for both.
 '
 ' ERROR POLICY
 '   Best effort, and never raises: the fingerprint is emptied first, so a
 '   sheet that cannot be cleared is still reported as not current.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim k    As Long         'Reconciliation cleared
-    Dim ws   As Worksheet    'Its sheet
+    Dim k            As Long         'Reconciliation cleared
+    Dim ReconSheet   As Worksheet    'Its sheet
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
         On Error Resume Next
         For k = RECON_NS To RECON_TR
-            If kind = 0 Or kind = k Then
+            If ReconKind = 0 Or ReconKind = k Then
                 ForgetReconInputs k
                 If ReconciliationSheetsPresent(k) Then
-                    Set ws = GetSheet(ReconSheetOf(k))
-                    ClearOutputBlock ws, OutputFirstRow(ReconSheetOf(k)), ReconColsOf(k)
-                    ws.Range(RECON_INFO_CELL).Value = infoText
+                    Set ReconSheet = GetSheet(ReconSheetOf(k))
+                    ClearOutputBlock ReconSheet, OutputFirstRow(ReconSheetOf(k)), ReconColsOf(k)
+                    ReconSheet.Range(RECON_INFO_CELL).Value = InfoText
                 End If
             End If
         Next k
@@ -791,7 +800,7 @@ End Sub
 
 
 Private Function ReconFingerprint( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -803,51 +812,51 @@ Private Function ReconFingerprint( _
 '   without the comment column, and the scale and tolerance cells.
 '
 ' INPUTS
-'   kind: RECON_NS or RECON_TR.
+'   ReconKind: RECON_NS or RECON_TR.
 '
 ' ERROR POLICY
 '   Raises when the bank table or a setting cannot be located, or as
 '   CORE_Engine.InputFingerprint.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim parts(1 To 5)   As String    'Text of each part
-    Dim headerRow       As Long      'Header row of the bank table
+    Dim Parts(1 To 5)   As String    'Text of each part
+    Dim HeaderRow       As Long      'Header row of the bank table
     Dim i               As Long      'Setting
-    Dim c               As Range     'A setting cell
+    Dim SettingCell     As Range     'A setting cell
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        headerRow = BankHeaderRow(kind)
-        If headerRow = 0 Then
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
             Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ReconFingerprint", _
-                      "The name " & HeaderNameOf(kind) & " is missing or not in column C of " & BankSheetOf(kind) & "."
+                      "The name " & HeaderNameOf(ReconKind) & " is missing or not in column C of " & BankSheetOf(ReconKind) & "."
         End If
-        parts(1) = CORE_Engine.InputFingerprint()
-        parts(2) = CORE_Engine.BlockText(GetSheet(BankSheetOf(kind)), headerRow, BankColsOf(kind) - 1)
+        Parts(1) = CORE_Engine.InputFingerprint()
+        Parts(2) = CORE_Engine.BlockText(GetSheet(BankSheetOf(ReconKind)), HeaderRow, BankColsOf(ReconKind) - 1)
         For i = 1 To 3
-            Set c = NamedCell(SettingNameOf(kind, i))
-            If c Is Nothing Then
+            Set SettingCell = NamedCell(SettingNameOf(ReconKind, i))
+            If SettingCell Is Nothing Then
                 Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ReconFingerprint", _
-                          "The name " & SettingNameOf(kind, i) & " is missing."
+                          "The name " & SettingNameOf(ReconKind, i) & " is missing."
             End If
-            parts(2 + i) = CORE_Engine.BlockText(c.Worksheet, c.Row, 1, c.Column - COL_OFFSET, c.Row)
+            Parts(2 + i) = CORE_Engine.BlockText(SettingCell.Worksheet, SettingCell.Row, 1, SettingCell.Column - COL_OFFSET, SettingCell.Row)
         Next i
-        ReconFingerprint = TextHash(Join(parts, Chr$(29)))
+        ReconFingerprint = TextHash(Join(Parts, Chr$(29)))
 
 End Function
 
 
 Private Sub RememberReconInputs( _
-    ByVal kind As Long, _
-    ByVal fingerprint As String)
+    ByVal ReconKind As Long, _
+    ByVal Fingerprint As String)
 '
 '==============================================================================
 '                             RememberReconInputs
@@ -861,21 +870,21 @@ Private Sub RememberReconInputs( _
 '   changed leaves the reconciliation reported as not current.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=InputsNameOf(kind), RefersTo:="=""" & fingerprint & """", Visible:=False
+        ThisWorkbook.Names.Add Name:=InputsNameOf(ReconKind), RefersTo:="=""" & Fingerprint & """", Visible:=False
         Exit Sub
 
 Failed:
-        ForgetReconInputs kind
+        ForgetReconInputs ReconKind
 
 End Sub
 
 
 Private Sub ForgetReconInputs( _
-    ByVal kind As Long)
+    ByVal ReconKind As Long)
 '
 '==============================================================================
 '                              ForgetReconInputs
@@ -888,11 +897,11 @@ Private Sub ForgetReconInputs( _
 '   Contains any error.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
         On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=InputsNameOf(kind), RefersTo:="=""""", Visible:=False
+        ThisWorkbook.Names.Add Name:=InputsNameOf(ReconKind), RefersTo:="=""""", Visible:=False
 
 Failed:
 
@@ -900,7 +909,7 @@ End Sub
 
 
 Private Function ReconciliationSheetsPresent( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As Boolean
 '
 '==============================================================================
@@ -914,31 +923,31 @@ Private Function ReconciliationSheetsPresent( _
 '   Contains the expected error of a missing sheet.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wsBank    As Worksheet    'The bank sheet; Nothing when absent
-    Dim wsRecon   As Worksheet    'The reconciliation sheet; Nothing when absent
+    Dim BankSheet    As Worksheet    'The bank sheet; Nothing when absent
+    Dim ReconSheet   As Worksheet    'The reconciliation sheet; Nothing when absent
 
 '------------------------------------------------------------------------------
 ' LOOK UP
 '------------------------------------------------------------------------------
         On Error Resume Next
-        Set wsBank = ThisWorkbook.Worksheets(BankSheetOf(kind))
-        Set wsRecon = ThisWorkbook.Worksheets(ReconSheetOf(kind))
+        Set BankSheet = ThisWorkbook.Worksheets(BankSheetOf(ReconKind))
+        Set ReconSheet = ThisWorkbook.Worksheets(ReconSheetOf(ReconKind))
         Err.Clear
         On Error GoTo 0
-        ReconciliationSheetsPresent = Not wsBank Is Nothing And Not wsRecon Is Nothing
+        ReconciliationSheetsPresent = Not BankSheet Is Nothing And Not ReconSheet Is Nothing
 
 End Function
 
 
 Private Function BankHeaderRow( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As Long
 '
 '==============================================================================
@@ -953,22 +962,22 @@ Private Function BankHeaderRow( _
 '   in column C.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'The named cell
+    Dim HeaderCell   As Range    'The named cell
 
 '------------------------------------------------------------------------------
 ' RESOLVE
 '------------------------------------------------------------------------------
-        Set c = NamedCell(HeaderNameOf(kind))
-        If Not c Is Nothing Then
-            If StrComp(c.Worksheet.Name, BankSheetOf(kind), vbTextCompare) = 0 And c.Column = COL_OFFSET + 1 Then
-                BankHeaderRow = c.Row
+        Set HeaderCell = NamedCell(HeaderNameOf(ReconKind))
+        If Not HeaderCell Is Nothing Then
+            If StrComp(HeaderCell.Worksheet.Name, BankSheetOf(ReconKind), vbTextCompare) = 0 And HeaderCell.Column = COL_OFFSET + 1 Then
+                BankHeaderRow = HeaderCell.Row
             End If
         End If
 
@@ -976,9 +985,9 @@ End Function
 
 
 Private Function NamedValue( _
-    ByVal nameText As String, _
-    ByVal sheetName As String, _
-    ByRef valueRead As Variant) _
+    ByVal NameText As String, _
+    ByVal SheetName As String, _
+    ByRef ValueRead As Variant) _
     As String
 '
 '==============================================================================
@@ -988,39 +997,39 @@ Private Function NamedValue( _
 '   Read the value of a workbook name's cell on a given sheet.
 '
 ' INPUTS
-'   nameText: the workbook name; sheetName: the sheet it must be on.
-'   valueRead: receives the cell's Value2.
+'   NameText: the workbook name; SheetName: the sheet it must be on.
+'   ValueRead: receives the cell's Value2.
 '
 ' RETURNS
 '   "" when it was read; otherwise why not.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'The named cell
+    Dim ValueCell   As Range    'The named cell
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        Set c = NamedCell(nameText)
-        If c Is Nothing Then
-            NamedValue = "the name " & nameText & " is missing"
-        ElseIf StrComp(c.Worksheet.Name, sheetName, vbTextCompare) <> 0 Then
-            NamedValue = "the name " & nameText & " is not on " & sheetName
+        Set ValueCell = NamedCell(NameText)
+        If ValueCell Is Nothing Then
+            NamedValue = "the name " & NameText & " is missing"
+        ElseIf StrComp(ValueCell.Worksheet.Name, SheetName, vbTextCompare) <> 0 Then
+            NamedValue = "the name " & NameText & " is not on " & SheetName
         Else
-            valueRead = c.Value2
+            ValueRead = ValueCell.Value2
         End If
 
 End Function
 
 
 Private Function BankSheetOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -1028,13 +1037,13 @@ Private Function BankSheetOf( _
 '   The bank sheet of a reconciliation.
 '==============================================================================
 '
-        BankSheetOf = IIf(kind = RECON_NS, SH_BANK_NS, SH_BANK_TR)
+        BankSheetOf = IIf(ReconKind = RECON_NS, SH_BANK_NS, SH_BANK_TR)
 
 End Function
 
 
 Private Function ReconSheetOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -1042,13 +1051,13 @@ Private Function ReconSheetOf( _
 '   The output sheet of a reconciliation.
 '==============================================================================
 '
-        ReconSheetOf = IIf(kind = RECON_NS, SH_RECON, SH_TRADE_RECON)
+        ReconSheetOf = IIf(ReconKind = RECON_NS, SH_RECON, SH_TRADE_RECON)
 
 End Function
 
 
 Private Function HeaderNameOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -1056,33 +1065,33 @@ Private Function HeaderNameOf( _
 '   The workbook name of the first header cell of a bank table.
 '==============================================================================
 '
-        HeaderNameOf = IIf(kind = RECON_NS, NM_BN_HEADER, NM_BT_HEADER)
+        HeaderNameOf = IIf(ReconKind = RECON_NS, NM_BN_HEADER, NM_BT_HEADER)
 
 End Function
 
 
 Private Function SettingNameOf( _
-    ByVal kind As Long, _
-    ByVal i As Long) _
+    ByVal ReconKind As Long, _
+    ByVal SettingIndex As Long) _
     As String
 '
 '==============================================================================
 ' PURPOSE
-'   The workbook name of setting i of a bank sheet: 1 the scale, 2 the
-'   absolute tolerance, 3 the relative tolerance.
+'   The workbook name of setting SettingIndex of a bank sheet: 1 the scale,
+'   2 the absolute tolerance, 3 the relative tolerance.
 '==============================================================================
 '
-        If kind = RECON_NS Then
-            SettingNameOf = Choose(i, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL)
+        If ReconKind = RECON_NS Then
+            SettingNameOf = Choose(SettingIndex, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL)
         Else
-            SettingNameOf = Choose(i, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL)
+            SettingNameOf = Choose(SettingIndex, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL)
         End If
 
 End Function
 
 
 Private Function BankColsOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As Long
 '
 '==============================================================================
@@ -1090,13 +1099,13 @@ Private Function BankColsOf( _
 '   The number of columns of a bank table; the last is its comment.
 '==============================================================================
 '
-        BankColsOf = IIf(kind = RECON_NS, BN_NCOLS, BT_NCOLS)
+        BankColsOf = IIf(ReconKind = RECON_NS, BN_NCOLS, BT_NCOLS)
 
 End Function
 
 
 Private Function ReconColsOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As Long
 '
 '==============================================================================
@@ -1104,13 +1113,13 @@ Private Function ReconColsOf( _
 '   The number of columns of a reconciliation sheet.
 '==============================================================================
 '
-        ReconColsOf = IIf(kind = RECON_NS, RC_NCOLS, TRC_NCOLS)
+        ReconColsOf = IIf(ReconKind = RECON_NS, RC_NCOLS, TRC_NCOLS)
 
 End Function
 
 
 Private Function WithEconomicTradeIds( _
-    ByVal found As Variant) _
+    ByVal ComparedRows As Variant) _
     As Variant
 '
 '==============================================================================
@@ -1122,44 +1131,45 @@ Private Function WithEconomicTradeIds( _
 '   it; blank for a whole trade and for a leg that is not on Trades.
 '
 ' INPUTS
-'   found: the rows from CORE_Reconcile.CompareTrades, RC_NCOLS wide.
+'   ComparedRows: the rows from CORE_Reconcile.CompareTrades, RC_NCOLS
+'   wide.
 '
 ' RETURNS
 '   The same rows, TRC_NCOLS wide.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet     'Trades
-    Dim firstR    As Long          'First data row of Trades
-    Dim lastR     As Long          'Last data row of Trades
-    Dim legIds    As Variant       'Trade IDs on Trades
-    Dim econ      As Variant       'Economic trade IDs
-    Dim legIndex  As Collection    'Trade ID to row on Trades
-    Dim out()     As Variant       'The widened rows
-    Dim r         As Long          'Row
-    Dim c         As Long          'Column
-    Dim k         As Long          'Row on Trades
+    Dim TradesSheet     As Worksheet     'Trades
+    Dim FirstRow        As Long          'First data row of Trades
+    Dim LastRow         As Long          'Last data row of Trades
+    Dim LegIds          As Variant       'Trade IDs on Trades
+    Dim EconomicIds     As Variant       'Economic trade IDs
+    Dim LegIndex        As Collection    'Trade ID to row on Trades
+    Dim WidenedRows()   As Variant       'The widened rows
+    Dim r               As Long          'Row
+    Dim c               As Long          'Column
+    Dim TradesRow       As Long          'Row on Trades
 
 '------------------------------------------------------------------------------
 ' INDEX TRADES
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_TRADES)
-        Set legIndex = New Collection
-        firstR = TableFirstRow(SH_TRADES)
-        lastR = LastDataRow(ws, firstR, TR_ID)
-        If lastR >= firstR Then
-            legIds = ColumnValues(ws, firstR, lastR, TR_ID)
-            econ = ColumnValues(ws, firstR, lastR, TR_ECON)
-            For r = 1 To UBound(legIds, 1)
-                If Len(UTxt(legIds(r, 1))) > 0 Then
-                    If KeyIndex(legIndex, UTxt(legIds(r, 1))) = 0 Then
-                        KeyAdd legIndex, UTxt(legIds(r, 1)), r
+        Set TradesSheet = GetSheet(SH_TRADES)
+        Set LegIndex = New Collection
+        FirstRow = TableFirstRow(SH_TRADES)
+        LastRow = LastDataRow(TradesSheet, FirstRow, TR_ID)
+        If LastRow >= FirstRow Then
+            LegIds = ColumnValues(TradesSheet, FirstRow, LastRow, TR_ID)
+            EconomicIds = ColumnValues(TradesSheet, FirstRow, LastRow, TR_ECON)
+            For r = 1 To UBound(LegIds, 1)
+                If Len(UTxt(LegIds(r, 1))) > 0 Then
+                    If KeyIndex(LegIndex, UTxt(LegIds(r, 1))) = 0 Then
+                        KeyAdd LegIndex, UTxt(LegIds(r, 1)), r
                     End If
                 End If
             Next r
@@ -1168,30 +1178,30 @@ Private Function WithEconomicTradeIds( _
 '------------------------------------------------------------------------------
 ' WIDEN
 '------------------------------------------------------------------------------
-        ReDim out(1 To UBound(found, 1), 1 To TRC_NCOLS)
-        For r = 1 To UBound(found, 1)
+        ReDim WidenedRows(1 To UBound(ComparedRows, 1), 1 To TRC_NCOLS)
+        For r = 1 To UBound(ComparedRows, 1)
             For c = 1 To RC_NCOLS
-                out(r, c) = found(r, c)
+                WidenedRows(r, c) = ComparedRows(r, c)
             Next c
-            k = 0
-            If Len(UTxt(found(r, RC_ID))) > 0 Then
-                k = KeyIndex(legIndex, UTxt(found(r, RC_ID)))
+            TradesRow = 0
+            If Len(UTxt(ComparedRows(r, RC_ID))) > 0 Then
+                TradesRow = KeyIndex(LegIndex, UTxt(ComparedRows(r, RC_ID)))
             End If
-            If k > 0 Then
-                If Not IsError(econ(k, 1)) Then
-                    If Len(Trim$(CStr(econ(k, 1)))) > 0 Then
-                        out(r, TRC_ECON) = Trim$(CStr(econ(k, 1)))
+            If TradesRow > 0 Then
+                If Not IsError(EconomicIds(TradesRow, 1)) Then
+                    If Len(Trim$(CStr(EconomicIds(TradesRow, 1)))) > 0 Then
+                        WidenedRows(r, TRC_ECON) = Trim$(CStr(EconomicIds(TradesRow, 1)))
                     End If
                 End If
             End If
         Next r
-        WithEconomicTradeIds = out
+        WithEconomicTradeIds = WidenedRows
 
 End Function
 
 
 Private Function BankHeadersOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -1199,13 +1209,13 @@ Private Function BankHeadersOf( _
 '   The expected headers of a bank table.
 '==============================================================================
 '
-        BankHeadersOf = IIf(kind = RECON_NS, BN_HEADERS, BT_HEADERS)
+        BankHeadersOf = IIf(ReconKind = RECON_NS, BN_HEADERS, BT_HEADERS)
 
 End Function
 
 
 Private Function InputsNameOf( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As String
 '
 '==============================================================================
@@ -1213,7 +1223,7 @@ Private Function InputsNameOf( _
 '   The hidden workbook name holding a reconciliation's fingerprint.
 '==============================================================================
 '
-        InputsNameOf = IIf(kind = RECON_NS, RECON_INPUTS_NAME, TRADE_RECON_INPUTS_NAME)
+        InputsNameOf = IIf(ReconKind = RECON_NS, RECON_INPUTS_NAME, TRADE_RECON_INPUTS_NAME)
 
 End Function
 
@@ -1246,34 +1256,34 @@ Public Sub ExportEvidence()
 '   window in silent mode; never raises.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim problem   As String     'Why the report cannot be written; "" when it can
-    Dim target    As Variant    'Chosen file, or False when cancelled
-    Dim nLines    As Long       'Lines written
+    Dim Problem      As String     'Why the report cannot be written; "" when it can
+    Dim ChosenFile   As Variant    'Chosen file, or False when cancelled
+    Dim LineCount    As Long       'Lines written
 
 '------------------------------------------------------------------------------
 ' CHECK, ASK AND WRITE
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        problem = EvidenceProblem()
-        If Len(problem) > 0 Then
-            Notify "Evidence not exported: " & problem & ".", vbExclamation
+        Problem = EvidenceProblem()
+        If Len(Problem) > 0 Then
+            Notify "Evidence not exported: " & Problem & ".", vbExclamation
             Exit Sub
         End If
-        target = Application.GetSaveAsFilename(InitialFileName:=DefaultEvidenceName(), _
+        ChosenFile = Application.GetSaveAsFilename(InitialFileName:=DefaultEvidenceName(), _
                                                FileFilter:="CSV files (*.csv), *.csv", _
                                                Title:="Export evidence")
-        If VarType(target) = vbBoolean Then
+        If VarType(ChosenFile) = vbBoolean Then
             Exit Sub
         End If
-        nLines = WriteEvidence(CStr(target))
-        Notify "Evidence exported: " & CStr(target) & " (" & nLines & " lines).", vbInformation
+        LineCount = WriteEvidence(CStr(ChosenFile))
+        Notify "Evidence exported: " & CStr(ChosenFile) & " (" & LineCount & " lines).", vbInformation
         Exit Sub
 
 Failed:
@@ -1283,14 +1293,14 @@ End Sub
 
 
 Public Function ExportEvidence_Silent( _
-    ByVal filePath As String) _
+    ByVal FilePath As String) _
     As String
 '
 '==============================================================================
 '                            ExportEvidence_Silent
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   ExportEvidence for automation and tests: write the report to filePath
+'   ExportEvidence for automation and tests: write the report to FilePath
 '   without asking.
 '
 ' RETURNS
@@ -1300,23 +1310,23 @@ Public Function ExportEvidence_Silent( _
 '   A file that cannot be written raises to the caller.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim problem   As String    'Why the report cannot be written; "" when it can
+    Dim Problem   As String    'Why the report cannot be written; "" when it can
 
 '------------------------------------------------------------------------------
 ' CHECK AND WRITE
 '------------------------------------------------------------------------------
-        problem = EvidenceProblem()
-        If Len(problem) > 0 Then
-            ExportEvidence_Silent = "RESULT=REFUSED; reason=" & problem
+        Problem = EvidenceProblem()
+        If Len(Problem) > 0 Then
+            ExportEvidence_Silent = "RESULT=REFUSED; reason=" & Problem
         Else
-            ExportEvidence_Silent = "RESULT=OK; lines=" & WriteEvidence(filePath) & "; file=" & filePath
+            ExportEvidence_Silent = "RESULT=OK; lines=" & WriteEvidence(FilePath) & "; file=" & FilePath
         End If
 
 End Function
@@ -1348,10 +1358,10 @@ Private Function EvidenceProblem() As String
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim kind      As Long       'Reconciliation checked
-    Dim stored    As String     'A stored fingerprint
-    Dim current   As Boolean    'True when the reconciliation is current
-    Dim status    As String     'ResultsStatus()
+    Dim kind                As Long       'Reconciliation checked
+    Dim StoredFingerprint   As String     'A stored fingerprint
+    Dim IsCurrent           As Boolean    'True when the reconciliation is current
+    Dim ResultState         As String     'ResultsStatus()
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -1365,12 +1375,12 @@ Private Function EvidenceProblem() As String
                               "are out of date"
             Exit Function
         End If
-        status = ResultsStatus()
-        If status = "EDITED" Then
+        ResultState = ResultsStatus()
+        If ResultState = "EDITED" Then
             EvidenceProblem = "an output cell on Results, Checks or a reconciliation sheet was changed after " & _
                               "the run; press Run SA-CCR first"
             Exit Function
-        ElseIf status <> "CURRENT" Then
+        ElseIf ResultState <> "CURRENT" Then
             EvidenceProblem = "the results are not those of the current inputs; press Run SA-CCR first"
             Exit Function
         End If
@@ -1379,13 +1389,13 @@ Private Function EvidenceProblem() As String
     'without a stored reconciliation were never compared.
         For kind = RECON_NS To RECON_TR
             If ReconciliationSheetsPresent(kind) Then
-                stored = StoredText(InputsNameOf(kind))
-                If Len(stored) > 0 Then
-                    current = (stored = ReconFingerprint(kind))
+                StoredFingerprint = StoredText(InputsNameOf(kind))
+                If Len(StoredFingerprint) > 0 Then
+                    IsCurrent = (StoredFingerprint = ReconFingerprint(kind))
                 Else
-                    current = Not BankRowsEntered(kind)
+                    IsCurrent = Not BankRowsEntered(kind)
                 End If
-                If Not current Then
+                If Not IsCurrent Then
                     EvidenceProblem = "the reconciliation of the bank figures on " & BankSheetOf(kind) & _
                                       " is not current; press Run SA-CCR first"
                     Exit Function
@@ -1394,8 +1404,8 @@ Private Function EvidenceProblem() As String
         Next kind
     'The output sheets are not protected: ResultsStatus has compared them
     'with what the run wrote, which a run that recorded nothing cannot be.
-        stored = StoredText(RUN_OUTPUTS_NAME)
-        If Len(stored) = 0 Then
+        StoredFingerprint = StoredText(RUN_OUTPUTS_NAME)
+        If Len(StoredFingerprint) = 0 Then
             EvidenceProblem = "the outputs of the last run were not recorded; press Run SA-CCR first"
         End If
         Exit Function
@@ -1407,20 +1417,20 @@ End Function
 
 
 Private Function WriteEvidence( _
-    ByVal filePath As String) _
+    ByVal FilePath As String) _
     As Long
 '
 '==============================================================================
 '                                WriteEvidence
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write the evidence report to filePath as UTF-8 without a byte-order
+'   Write the evidence report to FilePath as UTF-8 without a byte-order
 '   mark, replacing any file of that name, hidden ones included; a
 '   read-only file is left as it is and the write fails.
 '
 ' METHOD
-'   The report is written whole to a new file beside filePath first. Only
-'   then is an older file moved aside, the new one renamed to filePath and
+'   The report is written whole to a new file beside FilePath first. Only
+'   then is an older file moved aside, the new one renamed to FilePath and
 '   the older one deleted, so a failed write leaves the older file as it
 '   was (#312). A failed replacement puts the older file back with its
 '   attributes. The replacement is as atomic as the file system's rename,
@@ -1444,88 +1454,89 @@ Private Function WriteEvidence( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim text        As String    'The report
-    Dim bytes()     As Byte      'Its UTF-8 bytes
-    Dim fileNo      As Integer   'File number; 0 while none is open
-    Dim newPath     As String    'The report before it replaces filePath; "" once renamed
-    Dim oldPath     As String    'An older filePath while it is moved aside; "" otherwise
-    Dim oldAttr     As Long      'Its attributes, put back if the replacement fails
-    Dim attrCleared As Boolean   'Its attributes were cleared
-    Dim errNumber   As Long      'First error; 0 on success
-    Dim errText     As String    'Its description
+    Dim ReportText          As String     'The report
+    Dim ReportBytes()       As Byte       'Its UTF-8 bytes
+    Dim FileNumber          As Integer    'File number; 0 while none is open
+    Dim NewPath             As String     'The report before it replaces FilePath; "" once renamed
+    Dim OldPath             As String     'An older FilePath while it is moved aside; "" otherwise
+    Dim OldAttributes       As Long       'Its attributes, put back if the replacement fails
+    Dim AttributesCleared   As Boolean    'Its attributes were cleared
+    Dim ErrorNumber         As Long       'First error; 0 on success
+    Dim ErrorText           As String     'Its description
 
 '------------------------------------------------------------------------------
 ' WRITE THE NEW FILE
 '------------------------------------------------------------------------------
-        text = EvidenceText()
-        bytes = CORE_Export.Utf8Bytes(text)
+        ReportText = EvidenceText()
+        ReportBytes = CORE_Export.Utf8Bytes(ReportText)
         On Error GoTo Failed
-        If FileExists(filePath) Then
-            If (GetAttr(filePath) And vbReadOnly) <> 0 Then
+        If FileExists(FilePath) Then
+            If (GetAttr(FilePath) And vbReadOnly) <> 0 Then
                 Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the file is read-only"
             End If
         End If
-        newPath = SiblingPath(filePath, "new")
+        NewPath = SiblingPath(FilePath, "new")
         If gTestFault = "evidence-open" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure before the report was opened."
         End If
-        fileNo = FreeFile
-        Open newPath For Binary Access Write As #fileNo
-        Put #fileNo, , bytes
+        FileNumber = FreeFile
+        Open NewPath For Binary Access Write As #FileNumber
+        Put #FileNumber, , ReportBytes
         If gTestFault = "evidence-write" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the report was written."
         End If
-        If LOF(fileNo) <> UBound(bytes) - LBound(bytes) + 1 Then
+        If LOF(FileNumber) <> UBound(ReportBytes) - LBound(ReportBytes) + 1 Then
             Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the report was not written whole"
         End If
-        Close #fileNo
-        fileNo = 0
+        Close #FileNumber
+        FileNumber = 0
 
 '------------------------------------------------------------------------------
 ' REPLACE THE OLDER FILE
 '------------------------------------------------------------------------------
-        If FileExists(filePath) Then
-            oldPath = SiblingPath(filePath, "old")
-            oldAttr = GetAttr(filePath) And (vbReadOnly Or vbHidden Or vbSystem Or vbArchive)
-            SetAttr filePath, vbNormal
-            attrCleared = True
-            Name filePath As oldPath
+        If FileExists(FilePath) Then
+            OldPath = SiblingPath(FilePath, "old")
+            OldAttributes = GetAttr(FilePath) And (vbReadOnly Or vbHidden Or vbSystem Or vbArchive)
+            SetAttr FilePath, vbNormal
+            AttributesCleared = True
+            Name FilePath As OldPath
         End If
         If gTestFault = "evidence-replace" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the older file was replaced."
         End If
-        Name newPath As filePath
-        newPath = ""
-        WriteEvidence = (Len(text) - Len(Replace(text, vbCrLf, ""))) \ 2
+        Name NewPath As FilePath
+        NewPath = ""
+        WriteEvidence = (Len(ReportText) - Len(Replace(ReportText, vbCrLf, ""))) \ 2
 
 '------------------------------------------------------------------------------
 ' CLEAN UP AND REPORT
 '------------------------------------------------------------------------------
-    'Reached on success and, through Failed, after an error, with the error
-    'handler switched off so that a cleanup error cannot replace the first.
+    'Reached on success and, through Failed, after an error. Errors are
+    'ignored here (On Error Resume Next), so that a cleanup error cannot
+    'replace the first.
 CleanUp:
         On Error Resume Next
-        If fileNo <> 0 Then
-            Close #fileNo
+        If FileNumber <> 0 Then
+            Close #FileNumber
         End If
-        If Len(newPath) > 0 Then
-            If FileExists(newPath) Then
-                Kill newPath
+        If Len(NewPath) > 0 Then
+            If FileExists(NewPath) Then
+                Kill NewPath
             End If
         End If
-        If Len(oldPath) > 0 Then
-            If errNumber = 0 Then
-                Kill oldPath
-            ElseIf Not FileExists(filePath) Then
-                Name oldPath As filePath
+        If Len(OldPath) > 0 Then
+            If ErrorNumber = 0 Then
+                Kill OldPath
+            ElseIf Not FileExists(FilePath) Then
+                Name OldPath As FilePath
             End If
         End If
-        If attrCleared And errNumber <> 0 Then
-            SetAttr filePath, oldAttr
+        If AttributesCleared And ErrorNumber <> 0 Then
+            SetAttr FilePath, OldAttributes
         End If
         On Error GoTo 0
-        If errNumber <> 0 Then
-            Err.Raise errNumber, "M_Main.WriteEvidence", "Could not write " & filePath & ": " & errText
+        If ErrorNumber <> 0 Then
+            Err.Raise ErrorNumber, "M_Main.WriteEvidence", "Could not write " & FilePath & ": " & ErrorText
         End If
         Exit Function
 
@@ -1533,15 +1544,15 @@ CleanUp:
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
-        errNumber = Err.Number
-        errText = Err.Description
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
         Resume CleanUp
 
 End Function
 
 
 Private Function FileExists( _
-    ByVal filePath As String) _
+    ByVal FilePath As String) _
     As Boolean
 '
 '==============================================================================
@@ -1555,21 +1566,21 @@ Private Function FileExists( _
 '   2026-10-17
 '==============================================================================
 '
-        FileExists = Len(Dir$(filePath, vbHidden Or vbSystem)) > 0
+        FileExists = Len(Dir$(FilePath, vbHidden Or vbSystem)) > 0
 
 End Function
 
 
 Private Function SiblingPath( _
-    ByVal filePath As String, _
-    ByVal tag As String) _
+    ByVal FilePath As String, _
+    ByVal Tag As String) _
     As String
 '
 '==============================================================================
 '                                 SiblingPath
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   A name for a file beside filePath that does not exist yet, such as
+'   A name for a file beside FilePath that does not exist yet, such as
 '   "report.csv.saccr-new1": in the same folder, so that a rename does not
 '   move the file to another drive.
 '
@@ -1582,16 +1593,16 @@ Private Function SiblingPath( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim n           As Long      'Counter that makes the name unique
-    Dim candidate   As String    'Name tried
+    Dim Candidate   As String    'Name tried
 
 '------------------------------------------------------------------------------
 ' FIND A FREE NAME
 '------------------------------------------------------------------------------
         Do
             n = n + 1
-            candidate = filePath & ".saccr-" & tag & n
-        Loop While FileExists(candidate)
-        SiblingPath = candidate
+            Candidate = FilePath & ".saccr-" & Tag & n
+        Loop While FileExists(Candidate)
+        SiblingPath = Candidate
 
 End Function
 
@@ -1609,83 +1620,83 @@ Private Function EvidenceText() As String
 '   the workbook is closed and reopened.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s          As String       'The report
-    Dim wsRes      As Worksheet    'Results
-    Dim lastR      As Long         'Last row of a table
-    Dim topRow     As Long         'First data row of a table
-    Dim r          As Long         'Row
-    Dim id         As String       'Results ID
-    Dim codes      As Variant      'Parameter codes
-    Dim i          As Long         'Code or reconciliation
-    Dim nSev(1 To 3) As Long       'Checks lines: ERROR, WARNING, INFO
-    Dim sev        As String       'Severity of a Checks line
-    Dim prefix     As String       'Key prefix of a reconciliation
-    Dim c          As Range        'A named cell
+    Dim Report                   As String       'The report
+    Dim ResultsSheet             As Worksheet    'Results
+    Dim LastRow                  As Long         'Last row of a table
+    Dim FirstDataRow             As Long         'First data row of a table
+    Dim r                        As Long         'Row
+    Dim ResultId                 As String       'Results ID
+    Dim ParamCodes               As Variant      'Parameter codes
+    Dim i                        As Long         'Code or reconciliation
+    Dim SeverityCounts(1 To 3)   As Long         'Checks lines: ERROR, WARNING, INFO
+    Dim Severity                 As String       'Severity of a Checks line
+    Dim KeyPrefix                As String       'Key prefix of a reconciliation
+    Dim ReportingDateCell        As Range        'A named cell
 
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        Set wsRes = GetSheet(SH_RESULTS)
-        s = RunLine("format", "K-SACCR evidence 1")
-        s = s & RunLine("run_summary", wsRes.Range(RUNINFO_CELL).Value2)
-        s = s & RunLine("results_status", ResultsStatus())
-        s = s & RunLine("inputs", CORE_Engine.LastRunInputs())
-        s = s & RunLine("outputs", StoredText(RUN_OUTPUTS_NAME))
-        Set c = NamedCell(PRM_ASOF)
-        If IsNumeric(c.Value2) And Not IsEmpty(c.Value2) Then
-            s = s & RunLine("reporting_date", Format$(CDate(c.Value2), "yyyy-mm-dd"))
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        Report = RunLine("format", "K-SACCR evidence 1")
+        Report = Report & RunLine("run_summary", ResultsSheet.Range(RUNINFO_CELL).Value2)
+        Report = Report & RunLine("results_status", ResultsStatus())
+        Report = Report & RunLine("inputs", CORE_Engine.LastRunInputs())
+        Report = Report & RunLine("outputs", StoredText(RUN_OUTPUTS_NAME))
+        Set ReportingDateCell = NamedCell(PRM_ASOF)
+        If IsNumeric(ReportingDateCell.Value2) And Not IsEmpty(ReportingDateCell.Value2) Then
+            Report = Report & RunLine("reporting_date", Format$(CDate(ReportingDateCell.Value2), "yyyy-mm-dd"))
         Else
-            s = s & RunLine("reporting_date", c.Value2)
+            Report = Report & RunLine("reporting_date", ReportingDateCell.Value2)
         End If
-        s = s & RunLine("reporting_ccy", NamedCell(PRM_REPCCY).Value2)
-        s = s & RunLine("regime_default", NamedCell(PRM_REGIME).Value2)
+        Report = Report & RunLine("reporting_ccy", NamedCell(PRM_REPCCY).Value2)
+        Report = Report & RunLine("regime_default", NamedCell(PRM_REGIME).Value2)
     'The set the template ships, not a claim about this run: whether the run
     'used it unchanged is in run_summary (regulatory or what-if).
-        s = s & RunLine("reference_parameter_set", REF_SET_ID)
-        topRow = OutputFirstRow(SH_RESULTS)
-        lastR = LastDataRow(wsRes, topRow, RS_ID)
-        For r = topRow To lastR
-            id = UTxt(TableCell(wsRes, r, RS_ID).Value2)
-            If id = "TOTAL " & RG_CRR Or id = "TOTAL " & RG_BCBS Then
-                s = s & RunLine("total_ead_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_EAD).Value2)
-                s = s & RunLine("total_status_" & LCase$(Mid$(id, 7)), TableCell(wsRes, r, RS_STATUS_COL).Value2)
+        Report = Report & RunLine("reference_parameter_set", REF_SET_ID)
+        FirstDataRow = OutputFirstRow(SH_RESULTS)
+        LastRow = LastDataRow(ResultsSheet, FirstDataRow, RS_ID)
+        For r = FirstDataRow To LastRow
+            ResultId = UTxt(TableCell(ResultsSheet, r, RS_ID).Value2)
+            If ResultId = "TOTAL " & RG_CRR Or ResultId = "TOTAL " & RG_BCBS Then
+                Report = Report & RunLine("total_ead_" & LCase$(Mid$(ResultId, 7)), TableCell(ResultsSheet, r, RS_EAD).Value2)
+                Report = Report & RunLine("total_status_" & LCase$(Mid$(ResultId, 7)), TableCell(ResultsSheet, r, RS_STATUS_COL).Value2)
             End If
         Next r
-        topRow = OutputFirstRow(SH_CHECKS)
-        lastR = LastDataRow(GetSheet(SH_CHECKS), topRow, 1)
-        For r = topRow To lastR
-            sev = UTxt(TableCell(GetSheet(SH_CHECKS), r, 1).Value2)
-            If sev = SEV_ERROR Then nSev(1) = nSev(1) + 1
-            If sev = SEV_WARN Then nSev(2) = nSev(2) + 1
-            If sev = SEV_INFO Then nSev(3) = nSev(3) + 1
+        FirstDataRow = OutputFirstRow(SH_CHECKS)
+        LastRow = LastDataRow(GetSheet(SH_CHECKS), FirstDataRow, 1)
+        For r = FirstDataRow To LastRow
+            Severity = UTxt(TableCell(GetSheet(SH_CHECKS), r, 1).Value2)
+            If Severity = SEV_ERROR Then SeverityCounts(1) = SeverityCounts(1) + 1
+            If Severity = SEV_WARN Then SeverityCounts(2) = SeverityCounts(2) + 1
+            If Severity = SEV_INFO Then SeverityCounts(3) = SeverityCounts(3) + 1
         Next r
-        s = s & RunLine("checks_errors", nSev(1))
-        s = s & RunLine("checks_warnings", nSev(2))
-        s = s & RunLine("checks_info", nSev(3))
+        Report = Report & RunLine("checks_errors", SeverityCounts(1))
+        Report = Report & RunLine("checks_warnings", SeverityCounts(2))
+        Report = Report & RunLine("checks_info", SeverityCounts(3))
         For i = RECON_NS To RECON_TR
-            prefix = IIf(i = RECON_NS, "reconciliation", "trade_reconciliation")
+            KeyPrefix = IIf(i = RECON_NS, "reconciliation", "trade_reconciliation")
             If Not ReconciliationSheetsPresent(i) Then
-                s = s & RunLine(prefix, "UNAVAILABLE")
+                Report = Report & RunLine(KeyPrefix, "UNAVAILABLE")
             Else
             'Without a stored fingerprint the reconciliation was not made:
             'no bank figures, or settings or headers it could not use; the
             'summary says which.
-                s = s & RunLine(prefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NOT MADE"))
-                s = s & RunLine(prefix & "_inputs", StoredText(InputsNameOf(i)))
-                s = s & RunLine(prefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
+                Report = Report & RunLine(KeyPrefix, IIf(Len(StoredText(InputsNameOf(i))) > 0, "CURRENT", "NOT MADE"))
+                Report = Report & RunLine(KeyPrefix & "_inputs", StoredText(InputsNameOf(i)))
+                Report = Report & RunLine(KeyPrefix & "_summary", GetSheet(ReconSheetOf(i)).Range(RECON_INFO_CELL).Value2)
             'The settings are part of a reconciliation's fingerprint; without
             'one they were not used, and could change after the run.
                 If Len(StoredText(InputsNameOf(i))) > 0 Then
-                    s = s & RunLine(prefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
-                    s = s & RunLine(prefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
-                    s = s & RunLine(prefix & "_rel_tol", NamedCell(SettingNameOf(i, 3)).Value2)
+                    Report = Report & RunLine(KeyPrefix & "_scale", NamedCell(SettingNameOf(i, 1)).Value2)
+                    Report = Report & RunLine(KeyPrefix & "_abs_tol", NamedCell(SettingNameOf(i, 2)).Value2)
+                    Report = Report & RunLine(KeyPrefix & "_rel_tol", NamedCell(SettingNameOf(i, 3)).Value2)
                 End If
             End If
         Next i
@@ -1693,27 +1704,27 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
 ' PARAMETER SNAPSHOT
 '------------------------------------------------------------------------------
-        codes = CORE_Engine.ParameterCodes()
-        For i = LBound(codes) To UBound(codes)
-            s = s & CORE_Export.CsvLine("PARAMS", Array(codes(i), NamedCell(CStr(codes(i))).Value2))
+        ParamCodes = CORE_Engine.ParameterCodes()
+        For i = LBound(ParamCodes) To UBound(ParamCodes)
+            Report = Report & CORE_Export.CsvLine("PARAMS", Array(ParamCodes(i), NamedCell(CStr(ParamCodes(i))).Value2))
         Next i
-        s = s & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
-        s = s & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
+        Report = Report & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
+        Report = Report & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
 
 '------------------------------------------------------------------------------
 ' TABLES
 '------------------------------------------------------------------------------
-        s = s & OutputTableLines()
-        s = s & CORE_Export.LimitationLines()
-        EvidenceText = s
+        Report = Report & OutputTableLines()
+        Report = Report & CORE_Export.LimitationLines()
+        EvidenceText = Report
 
 End Function
 
 
 Private Function ParamsTableLines( _
-    ByVal section As String, _
-    ByVal nameText As String, _
-    ByVal headers As String) _
+    ByVal Section As String, _
+    ByVal NameText As String, _
+    ByVal Headers As String) _
     As String
 '
 '==============================================================================
@@ -1729,41 +1740,41 @@ Private Function ParamsTableLines( _
 '   Raises when the name does not locate a header row.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'Params
-    Dim headRow   As Long         'Header row
-    Dim keyCol    As Long         'Key column
-    Dim r         As Long         'Row read
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row
+    Dim KeyColumn     As Long         'Key column
+    Dim r             As Long         'Row read
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        headRow = NamedRow(nameText)
-        keyCol = NamedTableCol(nameText)
-        If headRow = 0 Then
-            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ParamsTableLines", "The name " & nameText & " is missing."
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NameText)
+        KeyColumn = NamedTableCol(NameText)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.ParamsTableLines", "The name " & NameText & " is missing."
         End If
-        r = headRow + 1
-        Do While Not IsBlankCell(TableCell(ws, r, keyCol).Value)
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
             r = r + 1
         Loop
-        ParamsTableLines = CORE_Export.TableLines(section, TableRange(ws, headRow, keyCol, r - 1, _
-                                                  keyCol + UBound(Split(headers, "|"))).Value2)
+        ParamsTableLines = CORE_Export.TableLines(Section, TableRange(ParamsSheet, HeaderRow, KeyColumn, r - 1, _
+                                                  KeyColumn + UBound(Split(Headers, "|"))).Value2)
 
 End Function
 
 
 Private Function SheetTableLines( _
-    ByVal section As String, _
-    ByVal sheetName As String, _
-    ByVal nCols As Long) _
+    ByVal Section As String, _
+    ByVal SheetName As String, _
+    ByVal ColumnCount As Long) _
     As String
 '
 '==============================================================================
@@ -1774,34 +1785,34 @@ Private Function SheetTableLines( _
 '   rows down to the last with a value in the first column.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws        As Worksheet    'The sheet
-    Dim headerRow As Long         'Header row of the table
-    Dim lastR     As Long         'Last row of the table
+    Dim TableSheet   As Worksheet    'The sheet
+    Dim HeaderRow    As Long         'Header row of the table
+    Dim LastRow      As Long         'Last row of the table
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(sheetName)
-        headerRow = OutputFirstRow(sheetName) - 1
-        lastR = LastDataRow(ws, headerRow + 1, 1)
-        If lastR < headerRow Then
-            lastR = headerRow
+        Set TableSheet = GetSheet(SheetName)
+        HeaderRow = OutputFirstRow(SheetName) - 1
+        LastRow = LastDataRow(TableSheet, HeaderRow + 1, 1)
+        If LastRow < HeaderRow Then
+            LastRow = HeaderRow
         End If
-        SheetTableLines = CORE_Export.TableLines(section, TableRange(ws, headerRow, 1, lastR, nCols).Value2)
+        SheetTableLines = CORE_Export.TableLines(Section, TableRange(TableSheet, HeaderRow, 1, LastRow, ColumnCount).Value2)
 
 End Function
 
 
 Private Function RunLine( _
-    ByVal key As String, _
-    ByVal entry As Variant) _
+    ByVal EntryKey As String, _
+    ByVal EntryValue As Variant) _
     As String
 '
 '==============================================================================
@@ -1809,7 +1820,7 @@ Private Function RunLine( _
 '   One line of the RUN section: key and value.
 '==============================================================================
 '
-        RunLine = CORE_Export.CsvLine("RUN", Array(key, entry))
+        RunLine = CORE_Export.CsvLine("RUN", Array(EntryKey, EntryValue))
 
 End Function
 
@@ -1838,7 +1849,7 @@ End Function
 
 
 Private Function BankRowsEntered( _
-    ByVal kind As Long) _
+    ByVal ReconKind As Long) _
     As Boolean
 '
 '==============================================================================
@@ -1849,37 +1860,37 @@ Private Function BankRowsEntered( _
 '   as holding figures, so that it is never skipped silently.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws          As Worksheet    'The bank sheet
-    Dim headerRow   As Long         'Its header row
-    Dim lastR       As Long         'Its last used row
+    Dim BankSheet   As Worksheet    'The bank sheet
+    Dim HeaderRow   As Long         'Its header row
+    Dim LastRow     As Long         'Its last used row
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        headerRow = BankHeaderRow(kind)
-        If headerRow = 0 Then
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
             BankRowsEntered = True
             Exit Function
         End If
-        Set ws = GetSheet(BankSheetOf(kind))
-        lastR = UsedLastRow(ws)
-        If lastR > headerRow Then
+        Set BankSheet = GetSheet(BankSheetOf(ReconKind))
+        LastRow = UsedLastRow(BankSheet)
+        If LastRow > HeaderRow Then
             BankRowsEntered = CORE_Reconcile.HasBankRows( _
-                TableRange(ws, headerRow + 1, 1, lastR, BankColsOf(kind)).Value2, BankColsOf(kind))
+                TableRange(BankSheet, HeaderRow + 1, 1, LastRow, BankColsOf(ReconKind)).Value2, BankColsOf(ReconKind))
         End If
 
 End Function
 
 
 Private Function StoredText( _
-    ByVal nameText As String) _
+    ByVal NameText As String) _
     As String
 '
 '==============================================================================
@@ -1894,24 +1905,24 @@ Private Function StoredText( _
 '   Contains the expected error of a missing name.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim wbName   As Name    'The stored name, Nothing when absent
+    Dim StoredName   As Name    'The stored name, Nothing when absent
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
         On Error Resume Next
-        Set wbName = ThisWorkbook.Names(nameText)
+        Set StoredName = ThisWorkbook.Names(NameText)
         Err.Clear
         On Error GoTo 0
-        If Not wbName Is Nothing Then
-            StoredText = Replace(Replace(wbName.RefersTo, "=", ""), """", "")
+        If Not StoredName Is Nothing Then
+            StoredText = Replace(Replace(StoredName.RefersTo, "=", ""), """", "")
         End If
 
 End Function
@@ -1927,26 +1938,26 @@ Private Function OutputTableLines() As String
 '   TRADE_RECONCILIATION when their sheets exist, and CHECKS.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s   As String    'The lines
+    Dim Lines   As String    'The lines
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        s = SheetTableLines("RESULTS", SH_RESULTS, RS_NCOLS)
+        Lines = SheetTableLines("RESULTS", SH_RESULTS, RS_NCOLS)
         If ReconciliationSheetsPresent(RECON_NS) Then
-            s = s & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
+            Lines = Lines & SheetTableLines("RECONCILIATION", SH_RECON, RC_NCOLS)
         End If
         If ReconciliationSheetsPresent(RECON_TR) Then
-            s = s & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, TRC_NCOLS)
+            Lines = Lines & SheetTableLines("TRADE_RECONCILIATION", SH_TRADE_RECON, TRC_NCOLS)
         End If
-        OutputTableLines = s & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
+        OutputTableLines = Lines & SheetTableLines("CHECKS", SH_CHECKS, CK_NCOLS)
 
 End Function
 
@@ -1965,26 +1976,26 @@ Private Function OutputFingerprint() As String
 '   Raises when a sheet cannot be read.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim s      As String    'The text fingerprinted
-    Dim kind   As Long      'Reconciliation
+    Dim FingerprintText   As String    'The text fingerprinted
+    Dim kind              As Long      'Reconciliation
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
-        s = CORE_Export.CsvField(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        FingerprintText = CORE_Export.CsvField(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
         For kind = RECON_NS To RECON_TR
             If ReconciliationSheetsPresent(kind) Then
-                s = s & Chr$(29) & CORE_Export.CsvField(GetSheet(ReconSheetOf(kind)).Range(RECON_INFO_CELL).Value2)
+                FingerprintText = FingerprintText & Chr$(29) & CORE_Export.CsvField(GetSheet(ReconSheetOf(kind)).Range(RECON_INFO_CELL).Value2)
             End If
         Next kind
-        OutputFingerprint = TextHash(s & Chr$(29) & OutputTableLines())
+        OutputFingerprint = TextHash(FingerprintText & Chr$(29) & OutputTableLines())
 
 End Function
 
@@ -2049,7 +2060,7 @@ End Sub
 '
 
 Private Function ExecuteOperation( _
-    ByVal operation As Long) _
+    ByVal Operation As Long) _
     As String
 '
 '==============================================================================
@@ -2060,7 +2071,7 @@ Private Function ExecuteOperation( _
 '   report the outcome.
 '
 ' INPUTS
-'   operation: OP_RUN, OP_VALIDATE or OP_CLEAR.
+'   Operation: OP_RUN, OP_VALIDATE or OP_CLEAR.
 '
 ' RETURNS
 '   The result line built by ReportOutcome; empty when the operation did
@@ -2078,22 +2089,22 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim savedCalculation   As XlCalculation    'Calculation mode before the operation
-    Dim savedEvents        As Boolean          'EnableEvents before the operation
-    Dim savedScreen        As Boolean          'ScreenUpdating before the operation
-    Dim stateCaptured      As Boolean          'True once all three were read
-    Dim ok                 As Boolean          'True when the engine completed the run
-    Dim errNumber          As Long             'Primary error number; 0 for none
-    Dim errSource          As String           'Primary error source
-    Dim errDescription     As String           'Primary error description
-    Dim cleanupDetails     As String           'Restoration failures; empty when all restored
+    Dim SavedCalculation   As XlCalculation    'Calculation mode before the operation
+    Dim SavedEvents        As Boolean          'EnableEvents before the operation
+    Dim SavedScreen        As Boolean          'ScreenUpdating before the operation
+    Dim StateCaptured      As Boolean          'True once all three were read
+    Dim Completed          As Boolean          'True when the engine completed the run
+    Dim ErrorNumber        As Long             'Primary error number; 0 for none
+    Dim ErrorSource        As String           'Primary error source
+    Dim ErrorDescription   As String           'Primary error description
+    Dim CleanupDetails     As String           'Restoration failures; empty when all restored
 
 '------------------------------------------------------------------------------
 ' REFUSE RE-ENTRY
@@ -2112,10 +2123,10 @@ Private Function ExecuteOperation( _
 ' CAPTURE AND PREPARE EXCEL
 '------------------------------------------------------------------------------
     'Read all three settings before changing any of them.
-        savedCalculation = Application.Calculation
-        savedEvents = Application.EnableEvents
-        savedScreen = Application.ScreenUpdating
-        stateCaptured = True
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
@@ -2130,7 +2141,7 @@ Private Function ExecuteOperation( _
         mTradeReconState = "NONE"
         mReconLine = ""
         ForgetRunOutputs
-        Select Case operation
+        Select Case Operation
             Case OP_RUN
                 ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
             Case OP_VALIDATE
@@ -2152,7 +2163,7 @@ Private Function ExecuteOperation( _
     'the value the last run used, so the earlier results must not be
     'reported as current (#204). A run that completes records its own
     'fingerprint again; validation never keeps one.
-        If operation <> OP_CLEAR Then
+        If Operation <> OP_CLEAR Then
             CORE_Engine.ForgetRunInputs
             If gTestFault = "recalc-error" Then
                 Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected recalculation failure."
@@ -2171,10 +2182,10 @@ Private Function ExecuteOperation( _
         If gTestFault = "operation" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected operation failure."
         End If
-        Select Case operation
+        Select Case Operation
             Case OP_RUN
-                ok = CORE_Engine.Calculate(True)
-                If ok Then
+                Completed = CORE_Engine.Calculate(True)
+                If Completed Then
                     mReconState = ReconcileAfterRun(RECON_NS)
                     mTradeReconState = ReconcileAfterRun(RECON_TR)
                     RememberRunOutputs
@@ -2182,10 +2193,10 @@ Private Function ExecuteOperation( _
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."
                 End If
             Case OP_VALIDATE
-                ok = CORE_Engine.Calculate(False)
+                Completed = CORE_Engine.Calculate(False)
             Case OP_CLEAR
                 ClearAllOutputs
-                ok = True
+                Completed = True
         End Select
 
 '------------------------------------------------------------------------------
@@ -2198,15 +2209,15 @@ Private Function ExecuteOperation( _
     'cell would keep the value computed while the fingerprint was empty.
 CleanUp:
         On Error GoTo 0
-        If stateCaptured Then
+        If StateCaptured Then
             RefreshResultsStatus
-            cleanupDetails = RestoreSettings(savedCalculation, savedEvents, savedScreen)
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
         End If
         mRunning = False
-        If errNumber <> 0 Then
-            ReportFailure errNumber, errSource, errDescription, cleanupDetails
+        If ErrorNumber <> 0 Then
+            ReportFailure ErrorNumber, ErrorSource, ErrorDescription, CleanupDetails
         Else
-            ExecuteOperation = ReportOutcome(operation, ok, cleanupDetails)
+            ExecuteOperation = ReportOutcome(Operation, Completed, CleanupDetails)
         End If
         Exit Function
 
@@ -2214,9 +2225,9 @@ CleanUp:
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
-        errNumber = Err.Number
-        errSource = Err.Source
-        errDescription = Err.Description
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
         Resume CleanUp
 
 End Function
@@ -2230,17 +2241,17 @@ Private Sub RefreshResultsStatus()
 ' PURPOSE
 '   Recalculate the status formulas on Results, Reconciliation and
 '   TradeReconciliation after an operation has stored or withdrawn the run
-'   fingerprint. In manual calculation Excel
-'   would otherwise keep the value computed during the recalculation
-'   before the run, when the fingerprint had already been withdrawn
-'   (#204), and show "No results" after a completed run.
+'   fingerprint. In manual calculation Excel would otherwise keep the value
+'   computed during the recalculation before the run, when the fingerprint
+'   had already been withdrawn (#204), and show "No results" after a
+'   completed run.
 '
 ' ERROR POLICY
 '   Best effort: a status that cannot be recalculated here is refreshed by
 '   the next recalculation, and the outcome of the operation is unchanged.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
         On Error GoTo Failed
@@ -2263,10 +2274,12 @@ Private Sub ClearAllOutputs()
 '                               ClearAllOutputs
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Clear the five output tables and write the time to the run-summary cell.
+'   Clear the five output tables, withdraw the run's input fingerprint and
+'   write the time to the run-summary cell. ExecuteOperation withdraws the
+'   reconciliations and the output fingerprint.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -2293,9 +2306,9 @@ End Sub
 '
 
 Private Function RestoreSettings( _
-    ByVal savedCalculation As XlCalculation, _
-    ByVal savedEvents As Boolean, _
-    ByVal savedScreen As Boolean) _
+    ByVal SavedCalculation As XlCalculation, _
+    ByVal SavedEvents As Boolean, _
+    ByVal SavedScreen As Boolean) _
     As String
 '
 '==============================================================================
@@ -2308,33 +2321,33 @@ Private Function RestoreSettings( _
 '   The failures, separated by "; "; empty when all three were restored.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim details   As String    'Collected failures
-    Dim one       As String    'Failure of one restoration
+    Dim Details      As String    'Collected failures
+    Dim OneFailure   As String    'Failure of one restoration
 
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
     'Every helper runs even when an earlier one failed.
-        one = RestoreCalculation(savedCalculation)
-        details = AppendDetail(details, one)
-        one = RestoreEvents(savedEvents)
-        details = AppendDetail(details, one)
-        one = RestoreScreenUpdating(savedScreen)
-        details = AppendDetail(details, one)
-        RestoreSettings = details
+        OneFailure = RestoreCalculation(SavedCalculation)
+        Details = AppendDetail(Details, OneFailure)
+        OneFailure = RestoreEvents(SavedEvents)
+        Details = AppendDetail(Details, OneFailure)
+        OneFailure = RestoreScreenUpdating(SavedScreen)
+        Details = AppendDetail(Details, OneFailure)
+        RestoreSettings = Details
 
 End Function
 
 
 Private Function RestoreCalculation( _
-    ByVal savedValue As XlCalculation) _
+    ByVal SavedValue As XlCalculation) _
     As String
 '
 '==============================================================================
@@ -2350,7 +2363,7 @@ Private Function RestoreCalculation( _
 '   Contains its own error and returns it as text.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -2361,8 +2374,8 @@ Private Function RestoreCalculation( _
         If gTestFault = "cleanup" Then
             Err.Raise ERR_INJECTED_FAULT, "M_Main.RestoreCalculation", "Injected cleanup failure."
         End If
-        Application.Calculation = savedValue
-        If Application.Calculation <> savedValue Then
+        Application.Calculation = SavedValue
+        If Application.Calculation <> SavedValue Then
             RestoreCalculation = "Calculation: restored value does not match"
         End If
         Exit Function
@@ -2377,7 +2390,7 @@ End Function
 
 
 Private Function RestoreEvents( _
-    ByVal savedValue As Boolean) _
+    ByVal SavedValue As Boolean) _
     As String
 '
 '==============================================================================
@@ -2393,7 +2406,7 @@ Private Function RestoreEvents( _
 '   Contains its own error and returns it as text.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -2401,8 +2414,8 @@ Private Function RestoreEvents( _
 ' RESTORE
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        Application.EnableEvents = savedValue
-        If Application.EnableEvents <> savedValue Then
+        Application.EnableEvents = SavedValue
+        If Application.EnableEvents <> SavedValue Then
             RestoreEvents = "EnableEvents: restored value does not match"
         End If
         Exit Function
@@ -2417,7 +2430,7 @@ End Function
 
 
 Private Function RestoreScreenUpdating( _
-    ByVal savedValue As Boolean) _
+    ByVal SavedValue As Boolean) _
     As String
 '
 '==============================================================================
@@ -2433,7 +2446,7 @@ Private Function RestoreScreenUpdating( _
 '   Contains its own error and returns it as text.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -2441,8 +2454,8 @@ Private Function RestoreScreenUpdating( _
 ' RESTORE
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        Application.ScreenUpdating = savedValue
-        If Application.ScreenUpdating <> savedValue Then
+        Application.ScreenUpdating = SavedValue
+        If Application.ScreenUpdating <> SavedValue Then
             RestoreScreenUpdating = "ScreenUpdating: restored value does not match"
         End If
         Exit Function
@@ -2457,8 +2470,8 @@ End Function
 
 
 Private Function AppendDetail( _
-    ByVal details As String, _
-    ByVal one As String) _
+    ByVal Details As String, _
+    ByVal NewDetail As String) _
     As String
 '
 '==============================================================================
@@ -2468,19 +2481,19 @@ Private Function AppendDetail( _
 '   Append one failure to a "; "-separated list; an empty one is skipped.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' APPEND
 '------------------------------------------------------------------------------
-        If Len(one) = 0 Then
-            AppendDetail = details
-        ElseIf Len(details) = 0 Then
-            AppendDetail = one
+        If Len(NewDetail) = 0 Then
+            AppendDetail = Details
+        ElseIf Len(Details) = 0 Then
+            AppendDetail = NewDetail
         Else
-            AppendDetail = details & "; " & one
+            AppendDetail = Details & "; " & NewDetail
         End If
 
 End Function
@@ -2495,9 +2508,9 @@ End Function
 '
 
 Private Function ReportOutcome( _
-    ByVal operation As Long, _
-    ByVal ok As Boolean, _
-    ByVal cleanupDetails As String) _
+    ByVal Operation As Long, _
+    ByVal Completed As Boolean, _
+    ByVal CleanupDetails As String) _
     As String
 '
 '==============================================================================
@@ -2507,9 +2520,10 @@ Private Function ReportOutcome( _
 '   Tell the user how a completed operation went, and build its result line.
 '
 ' INPUTS
-'   operation: the operation that ran.
-'   ok: the engine's result; False means the inputs could not be loaded.
-'   cleanupDetails: restoration failures; empty when Excel was restored.
+'   Operation: the operation that ran.
+'   Completed: the engine's result; False means the inputs could not be
+'   loaded.
+'   CleanupDetails: restoration failures; empty when Excel was restored.
 '
 ' RETURNS
 '   The result line, for example "RESULT=OK; operation=run; ...;
@@ -2520,16 +2534,16 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim msg      As String           'Message for the user; empty for none
-    Dim style    As VbMsgBoxStyle    'Message-box icon
-    Dim result   As String           'Machine-readable result line
+    Dim Message      As String           'Message for the user; empty for none
+    Dim IconStyle    As VbMsgBoxStyle    'Message-box icon
+    Dim ResultLine   As String           'Machine-readable result line
 
 '------------------------------------------------------------------------------
 ' BUILD THE MESSAGE
@@ -2537,10 +2551,10 @@ Private Function ReportOutcome( _
     'Messages and sheet activation are those of the original macros. A
     'completed run can still have excluded trades, so it points to Checks
     'whenever there are errors or warnings. ShowChecksSheet never raises.
-        Select Case operation
+        Select Case Operation
             Case OP_RUN
-                If ok Then
-                    msg = "SA-CCR run completed." & vbCrLf & vbCrLf & _
+                If Completed Then
+                    Message = "SA-CCR run completed." & vbCrLf & vbCrLf & _
                           "Economic trades used: " & CORE_Engine.EconomicTradesUsed & " of " & _
                           CORE_Engine.EconomicTradesRead & vbCrLf & _
                           "Legs (rows) used: " & CORE_Engine.TradesUsed & " of " & CORE_Engine.TradesRead & vbCrLf & _
@@ -2548,30 +2562,30 @@ Private Function ReportOutcome( _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
                     If CORE_Engine.IncompleteCount > 0 Then
-                        msg = msg & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
+                        Message = Message & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
                               " netting set(s) with rejected trades or invalid inputs: " & _
                               CORE_Engine.WithheldByRegimeText() & "."
                     End If
                     If Len(mReconLine) > 0 Then
-                        msg = msg & vbCrLf & vbCrLf & mReconLine
+                        Message = Message & vbCrLf & vbCrLf & mReconLine
                     End If
                     If CORE_Engine.ErrorCount > 0 Or CORE_Engine.WarningCount > 0 Then
-                        msg = msg & vbCrLf & vbCrLf & "See the Checks sheet for details."
+                        Message = Message & vbCrLf & vbCrLf & "See the Checks sheet for details."
                     End If
-                    style = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
+                    IconStyle = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
                 Else
-                    msg = "SA-CCR run stopped - see the Checks sheet."
-                    style = vbCritical
+                    Message = "SA-CCR run stopped - see the Checks sheet."
+                    IconStyle = vbCritical
                     ShowChecksSheet
                 End If
             Case OP_VALIDATE
                 ShowChecksSheet
-                msg = "Validation finished: " & CORE_Engine.ErrorCount & " error(s), " & _
+                Message = "Validation finished: " & CORE_Engine.ErrorCount & " error(s), " & _
                       CORE_Engine.WarningCount & " warning(s)." & vbCrLf & RunClassLine()
-                style = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
+                IconStyle = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
             Case OP_CLEAR
-                msg = ""
-                style = vbInformation
+                Message = ""
+                IconStyle = vbInformation
         End Select
 
 '------------------------------------------------------------------------------
@@ -2579,9 +2593,9 @@ Private Function ReportOutcome( _
 '------------------------------------------------------------------------------
     'Numbers use Str$, which always writes a decimal point, so the line
     'reads the same in every locale.
-        result = "RESULT=" & IIf(ok, "OK", "STOPPED") & "; operation=" & OperationName(operation)
-        If operation <> OP_CLEAR Then
-            result = result & _
+        ResultLine = "RESULT=" & IIf(Completed, "OK", "STOPPED") & "; operation=" & OperationName(Operation)
+        If Operation <> OP_CLEAR Then
+            ResultLine = ResultLine & _
                      "; errors=" & CStr(CORE_Engine.ErrorCount) & _
                      "; warnings=" & CStr(CORE_Engine.WarningCount) & _
                      "; trades_used=" & CStr(CORE_Engine.TradesUsed) & _
@@ -2596,33 +2610,33 @@ Private Function ReportOutcome( _
                      "; reconciliation=" & mReconState & _
                      "; trade_reconciliation=" & mTradeReconState
         End If
-        result = result & "; cleanup=" & IIf(Len(cleanupDetails) = 0, "PASS", "FAIL")
+        ResultLine = ResultLine & "; cleanup=" & IIf(Len(CleanupDetails) = 0, "PASS", "FAIL")
 
 '------------------------------------------------------------------------------
 ' REPORT A CLEANUP FAILURE
 '------------------------------------------------------------------------------
     'Settings left changed matter more than the run summary: raise in
     'silent mode, otherwise add a warning and use the critical icon.
-        If Len(cleanupDetails) > 0 Then
+        If Len(CleanupDetails) > 0 Then
             If gSilent Then
                 Err.Raise ERR_CLEANUP_FAILED, "M_Main.ExecuteOperation", _
-                          "Excel settings could not be restored: " & cleanupDetails & " (" & result & ")"
+                          "Excel settings could not be restored: " & CleanupDetails & " (" & ResultLine & ")"
             End If
-            If Len(msg) > 0 Then
-                msg = msg & vbCrLf & vbCrLf
+            If Len(Message) > 0 Then
+                Message = Message & vbCrLf & vbCrLf
             End If
-            msg = msg & "Excel settings could not be restored: " & cleanupDetails & _
+            Message = Message & "Excel settings could not be restored: " & CleanupDetails & _
                   ". Check calculation mode, events and screen updating."
-            style = vbCritical
+            IconStyle = vbCritical
         End If
 
 '------------------------------------------------------------------------------
 ' SHOW
 '------------------------------------------------------------------------------
-        If Len(msg) > 0 Then
-            Notify msg, style
+        If Len(Message) > 0 Then
+            Notify Message, IconStyle
         End If
-        ReportOutcome = result
+        ReportOutcome = ResultLine
 
 End Function
 
@@ -2669,10 +2683,10 @@ End Sub
 
 
 Private Sub ReportFailure( _
-    ByVal errNumber As Long, _
-    ByVal errSource As String, _
-    ByVal errDescription As String, _
-    ByVal cleanupDetails As String)
+    ByVal ErrorNumber As Long, _
+    ByVal ErrorSource As String, _
+    ByVal ErrorDescription As String, _
+    ByVal CleanupDetails As String)
 '
 '==============================================================================
 '                                ReportFailure
@@ -2682,32 +2696,32 @@ Private Sub ReportFailure( _
 '   otherwise show it.
 '
 ' INPUTS
-'   errNumber, errSource, errDescription: the primary error, as copied
-'      before cleanup.
-'   cleanupDetails: restoration failures; empty when Excel was restored.
+'   ErrorNumber, ErrorSource, ErrorDescription: the primary error, as
+'      copied before cleanup.
+'   CleanupDetails: restoration failures; empty when Excel was restored.
 '
 ' ERROR POLICY
 '   In silent mode raises the primary error unchanged, with any cleanup
 '   failure appended to its description.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim msg   As String    'Message for the user
+    Dim Message   As String    'Message for the user
 
 '------------------------------------------------------------------------------
 ' RAISE IN SILENT MODE
 '------------------------------------------------------------------------------
-        If Len(cleanupDetails) > 0 Then
-            errDescription = errDescription & " Excel settings could not be restored: " & cleanupDetails & "."
+        If Len(CleanupDetails) > 0 Then
+            ErrorDescription = ErrorDescription & " Excel settings could not be restored: " & CleanupDetails & "."
         End If
         If gSilent Then
-            Err.Raise errNumber, errSource, errDescription
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
         End If
 
 '------------------------------------------------------------------------------
@@ -2715,12 +2729,12 @@ Private Sub ReportFailure( _
 '------------------------------------------------------------------------------
     'The project's own errors carry a readable description; anything else
     'is shown with its number.
-        If errNumber = ERR_RUN_ACTIVE Or errNumber = ERR_CHECKS_WRITE Then
-            msg = errDescription
+        If ErrorNumber = ERR_RUN_ACTIVE Or ErrorNumber = ERR_CHECKS_WRITE Then
+            Message = ErrorDescription
         Else
-            msg = "Unexpected error " & errNumber & ": " & errDescription
+            Message = "Unexpected error " & ErrorNumber & ": " & ErrorDescription
         End If
-        MsgBox msg, vbCritical, MSG_TITLE
+        MsgBox Message, vbCritical, MSG_TITLE
 
 End Sub
 
@@ -2737,25 +2751,25 @@ Private Function TotalLines() As String
 '   CRR and BCBS are never added together (#198).
 '
 ' UPDATED
-'   2026-10-13
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim regimes   As Variant    'The regimes, CRR first
+    Dim Regimes   As Variant    'The regimes, CRR first
     Dim i         As Long       'Index into regimes
 
 '------------------------------------------------------------------------------
 ' BUILD
 '------------------------------------------------------------------------------
-        regimes = Array(RG_CRR, RG_BCBS)
-        For i = LBound(regimes) To UBound(regimes)
-            If CORE_Engine.RegimeSetCount(CStr(regimes(i))) > 0 Then
-                TotalLines = TotalLines & "Total EAD " & regimes(i) & ": " & _
-                             Format$(CORE_Engine.TotalEAD(CStr(regimes(i))), "#,##0") & _
-                             " (" & CORE_Engine.TotalStatusText(CStr(regimes(i))) & ")" & vbCrLf
+        Regimes = Array(RG_CRR, RG_BCBS)
+        For i = LBound(Regimes) To UBound(Regimes)
+            If CORE_Engine.RegimeSetCount(CStr(Regimes(i))) > 0 Then
+                TotalLines = TotalLines & "Total EAD " & Regimes(i) & ": " & _
+                             Format$(CORE_Engine.TotalEAD(CStr(Regimes(i))), "#,##0") & _
+                             " (" & CORE_Engine.TotalStatusText(CStr(Regimes(i))) & ")" & vbCrLf
             End If
         Next i
 
@@ -2788,7 +2802,7 @@ End Function
 
 
 Private Function OperationName( _
-    ByVal operation As Long) _
+    ByVal Operation As Long) _
     As String
 '
 '==============================================================================
@@ -2798,14 +2812,14 @@ Private Function OperationName( _
 '   Name an operation for the result line: run, validate or clear.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' NAME
 '------------------------------------------------------------------------------
-        Select Case operation
+        Select Case Operation
             Case OP_RUN
                 OperationName = "run"
             Case OP_VALIDATE
@@ -2818,8 +2832,8 @@ End Function
 
 
 Private Sub Notify( _
-    ByVal msg As String, _
-    ByVal style As VbMsgBoxStyle)
+    ByVal Message As String, _
+    ByVal IconStyle As VbMsgBoxStyle)
 '
 '==============================================================================
 '                                    Notify
@@ -2829,8 +2843,8 @@ Private Sub Notify( _
 '   gQuietLog is set.
 '
 ' INPUTS
-'   msg: the text to show.
-'   style: message-box icon, for example vbInformation or vbCritical.
+'   Message: the text to show.
+'   IconStyle: message-box icon, for example vbInformation or vbCritical.
 '
 ' UPDATED
 '   2026-10-17
@@ -2840,13 +2854,13 @@ Private Sub Notify( _
 '------------------------------------------------------------------------------
 ' SHOW OR PRINT
 '------------------------------------------------------------------------------
-        gLastMessage = msg
+        gLastMessage = Message
         If gSilent Then
             If Not gQuietLog Then
-                Debug.Print msg
+                Debug.Print Message
             End If
         Else
-            MsgBox msg, style, MSG_TITLE
+            MsgBox Message, IconStyle, MSG_TITLE
         End If
 
 End Sub
