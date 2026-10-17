@@ -140,7 +140,8 @@ source: K-SACCR calculates only the exposure value at its centre.
   un-floored total risk exposure amount. Neither is the risk-based SA-CCR
   that K-SACCR calculates.
 
-The SVG is the source; `SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
+The SVG is the source, shown by the README and the website (`docs/index.html`);
+`SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
 from it at 1600 x 1040 px with headless Chromium at a device scale factor of
 1, then quantized to 256 colours as the screenshots above. Render it again
 whenever the SVG changes.
