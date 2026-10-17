@@ -41,7 +41,7 @@
 &nbsp;·&nbsp;
 [Validation](#validation)
 &nbsp;·&nbsp;
-[Worksheet functions](#worksheet-functions)
+[Worksheet Functions](#worksheet-functions)
 &nbsp;·&nbsp;
 [Limitations](#limitations)
 &nbsp;·&nbsp;
@@ -642,10 +642,11 @@ and risk-weighted assets.
 | Milestone | Scope |
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
+| v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#212) |
-| v1.2.0 | Excel Ribbon interface (#213–#218) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100), randomised FormulaTest inputs (#165) |
-| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157) |
+| v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330) and worksheet navigation sidebar (#329) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165) |
+| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
 | v1.7.0 | CCP exposures and default funds (#112) |
