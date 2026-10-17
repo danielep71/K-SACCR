@@ -138,6 +138,9 @@ Use only the categories needed by a release.
   download the workbook to its SHA-256 check and unblocking in
   `INSTALLATION.md`, and its "Build the workbook" button reads "Build from
   source" and opens the build steps.
+- The website opens with a banner under the navigation: a photograph supplied
+  by the owner, `docs/assets/SACCR_banner.webp`, behind the text "SA-CCR for
+  derivatives, Basel CRE52 · EU CRR", set as HTML.
 - Troubleshooting in `INSTALLATION.md` explains that Results C5 can keep its
   earlier status after only the workbook's date system is switched, until a
   full recalculation (Ctrl+Alt+F9), and that a run under the 1904 date system
