@@ -14,7 +14,7 @@ body:
         Describe the result you need and how it will be proved, before any implementation. A calculation change cites its regulatory source and states units and valid input domains. Triage sets the milestone and confirms the priority (default `P2`).
 
         > [!NOTE]
-        > CRR is the baseline regime and Basel CRE52 is also supported; see [`docs/methodology/`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md). Use synthetic data only.
+        > CRR is the baseline regime and Basel CRE52 is also supported; see [`docs/methodology/`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md). No real portfolio data.
 
   - type: dropdown
     id: area
@@ -118,5 +118,5 @@ body:
           required: true
         - label: I separated the required behavior from implementation preferences.
           required: true
-        - label: This proposal contains only synthetic data and no secrets or private links.
+        - label: This proposal contains no real portfolio data and no secrets or private links.
           required: true

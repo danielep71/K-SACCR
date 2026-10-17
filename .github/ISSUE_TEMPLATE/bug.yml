@@ -9,12 +9,12 @@ body:
       value: |
         ## 🐛 Bug report
 
-        **Reproducible · Exact commit · Independent reference · Synthetic data**
+        **Reproducible · Exact commit · Independent reference · No real portfolio data**
 
         A useful report names the exact commit, gives steps anyone can repeat, and states where the expected value comes from. Triage sets the milestone and confirms the priority (default `P2`).
 
         > [!CAUTION]
-        > Use synthetic data only. Never paste real trades, netting sets, counterparty or collateral data, credentials or private workbooks. Report vulnerabilities privately as described in [`SECURITY.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/SECURITY.md).
+        > No real portfolio data: never paste real trades, netting sets, counterparty or collateral data, credentials or private workbooks. Report vulnerabilities privately as described in [`SECURITY.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/SECURITY.md).
 
   - type: dropdown
     id: area
@@ -129,5 +129,5 @@ body:
           required: true
         - label: I reproduced this on the exact commit stated above.
           required: true
-        - label: This report contains only synthetic data and no vulnerability details, secrets or private links.
+        - label: This report contains no real portfolio data and no vulnerability details, secrets or private links.
           required: true
