@@ -159,6 +159,9 @@ class RegimeDifferenceTests(unittest.TestCase):
         data = fixture("illustrative-ir-swap-unmargined")
         data["trades"][0]["end_date"] = data["trades"][0]["maturity_date"] = "2027-01-02"
         self.assertIn("bucket", xc.regime_difference(data) or "")
+        data = fixture("cre99-example-1")
+        data["trades"][2]["lambda_price"] = 0.01
+        self.assertIn("lambda", xc.regime_difference(data) or "")
 
     def test_equity_option_with_a_distinct_expiry_is_not_run(self) -> None:
         data = fixture("illustrative-negative-commodity-price")
@@ -169,6 +172,9 @@ class RegimeDifferenceTests(unittest.TestCase):
             xc.translate_fixture(data)
         trade["option_expiry_date"] = trade["maturity_date"]
         self.assertEqual(xc.translate_fixture(data)["trades"][0]["class"], "EquityOptionSingle")
+        trade["option_expiry_date"] = None
+        with self.assertRaisesRegex(xc.Unsupported, "without expiry"):
+            xc.translate_fixture(data)
 
 
 if __name__ == "__main__":

@@ -133,6 +133,8 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     """The package's trade class and constructor arguments for one fixture trade."""
     if trade["nature"] != "standard":
         raise Unsupported(f"{trade['nature']} transactions are not translated yet")
+    if trade["instrument"] == "option" and trade["option_expiry_date"] is None:
+        raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
     start, end, maturity = trade_times(trade, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
     asset_class = trade["asset_class"]
@@ -258,8 +260,8 @@ def regime_difference(fixture: dict[str, Any]) -> str | None:
         if asset_class == "credit" and sub_class.startswith("CQS"):
             return "credit quality steps are the CRR scale"
         if trade["instrument"] == "option" and asset_class in ("interest_rate", "commodity") \
-                and min(trade["underlying_price"], trade["strike_price"]) < 0.001:
-            return "the CRR lambda shift changes the delta of an option priced near or below zero"
+                and (min(trade["underlying_price"], trade["strike_price"]) < 0.001 or trade["lambda_price"]):
+            return "the CRR lambda shift replaces an entered lambda, and shifts options priced near or below zero"
         _, end, _ = trade_times(trade, valuation, days_per_year)
         if asset_class == "interest_rate" and abs(end - 1) < 1e-12:
             return "an end date of exactly 1 year is in bucket 1 under CRR and bucket 2 under BCBS"
