@@ -195,6 +195,7 @@ class CompareExportTests(unittest.TestCase):
         code, out = self.run_tool("production", "--workbook", str(self.workbook("B.xlsm", b"project B")))
         self.assertEqual(code, 1, out)
         self.assertIn("B.xlsm is not the workbook the export was made from", out)
+        self.assertNotIn("NOTE", out)  # another workbook, not a renamed one
         self.assertIn("differences=0; binding=FAIL", out)
 
     def test_non_workbook_fails_even_when_the_manifest_names_it(self) -> None:

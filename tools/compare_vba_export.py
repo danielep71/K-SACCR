@@ -263,12 +263,13 @@ def check_binding(folder: Path, workbook: Path | None) -> tuple[str, list[str], 
     notes: list[str] = []
     if workbook is not None:
         data = workbook.read_bytes()
-        if sha256(data) != record.workbook_sha256:
+        same_bytes = sha256(data) == record.workbook_sha256
+        if not same_bytes:
             findings.append(f"{workbook.name} is not the workbook the export was made from: "
                             f"sha256 {sha256(data)}, {EXPORT_MANIFEST} records {record.workbook_sha256}")
         if not is_macro_workbook(workbook):
             findings.append(f"{workbook.name} is not a macro-enabled workbook ({VBA_PROJECT_PART} not found)")
-        if workbook.name.lower() != record.workbook_name.lower():
+        if same_bytes and workbook.name.lower() != record.workbook_name.lower():
             notes.append(f"{EXPORT_MANIFEST} names the workbook {record.workbook_name}; "
                          "it was renamed since the export")
     if findings:
