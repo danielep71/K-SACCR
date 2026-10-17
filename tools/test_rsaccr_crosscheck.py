@@ -71,6 +71,12 @@ class TranslateTests(unittest.TestCase):
         with self.assertRaisesRegex(xc.Unsupported, "PR-2 has matured"):
             xc.translate_fixture(fixture("illustrative-partly-rejected"))
 
+    def test_reference_with_two_sub_classes_is_not_run(self) -> None:
+        data = fixture("cre99-example-2")
+        data["trades"][1]["risk_factor"] = " firm a "
+        with self.assertRaisesRegex(xc.Unsupported, "two sub-classes"):
+            xc.translate_fixture(data)
+
     def test_unsupported_cases_raise(self) -> None:
         with self.assertRaisesRegex(xc.Unsupported, "commodity option"):
             xc.translate_fixture(fixture("illustrative-negative-commodity-price"))

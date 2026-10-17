@@ -196,6 +196,16 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
             raise Unsupported(f"parameter {name}={value} has no package counterpart")
     if fixture["netting_set"]["alpha_factor"] not in (None, 1.4):
         raise Unsupported("the package's alpha is always 1.4")
+    # The engine marks the netting set INVALID when one credit, equity or
+    # commodity reference carries two sub-classes (CheckReferenceClass);
+    # references and sub-classes are compared trimmed and in upper case.
+    sub_classes: dict[tuple[str, str], str] = {}
+    for trade in fixture["trades"]:
+        if trade["asset_class"] in ("credit", "equity", "commodity"):
+            key = (trade["asset_class"], str(trade["risk_factor"]).strip().upper())
+            sub_class = str(trade["sub_class"] or "").strip().upper()
+            if sub_classes.setdefault(key, sub_class) != sub_class:
+                raise Unsupported(f"{key[1]} has two sub-classes: the engine withholds the netting set's EAD")
     ns_id = fixture["netting_set"]["id"]
     trades = []
     for trade in fixture["trades"]:
