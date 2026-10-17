@@ -63,9 +63,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for change and evidence requirements and
 | Minor | Backward-compatible capability |
 | Major | Incompatible public-contract change |
 
-Nothing has been released yet; the first release is planned as `1.0.0` from
-`release/1.0.0`. Pre-release status does not excuse undocumented breaking
-changes.
+The first release is `1.0.0`, tagged `v1.0.0`. Later releases record every
+breaking change under **Compatibility**.
 
 <details>
 <summary><strong>Entry categories</strong></summary>
@@ -95,9 +94,12 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
-First release, planned as `1.0.0` from the release branch `release/1.0.0`.
-Everything below is new in it; engineering detail is in the linked issues and
-pull requests.
+Nothing yet.
+
+## [1.0.0] - 2026-10-17
+
+First release. Everything below is new in it; engineering detail is in the
+linked issues and pull requests.
 
 ### Changed
 
@@ -367,4 +369,5 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/commits/release/1.0.0
+[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0

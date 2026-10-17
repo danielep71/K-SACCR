@@ -2,10 +2,14 @@
 
 ## Supported versions
 
-K-SACCR is **pre-release**: no version has been released, so none carries
-production security support. The active release branch (see
-[`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches)) and `main` are supported on
-a best-effort basis. Modified copies and unofficial mirrors are unsupported
+| Version | Supported |
+| --- | --- |
+| 1.0.0 (tag `v1.0.0`) | Yes |
+| Active release branch and `main` | Best effort |
+
+The active release branch is named in
+[`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches). A fix to a released version
+is published as a new patch release; a published release is never changed. Modified copies and unofficial mirrors are unsupported
 unless the problem is reproduced in this repository. Reports must identify a
 full commit SHA.
 

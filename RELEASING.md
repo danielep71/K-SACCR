@@ -17,14 +17,12 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 
 | Property | State |
 | --- | --- |
-| Released versions | None |
+| Released versions | 1.0.0 (2026-10-17), tag `v1.0.0` |
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
-| Version file | Not present; created when the first release is prepared ([versioning](#versioning)) |
+| Version file | `VERSION`, holding `1.0.0` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
 | Excel certification | All eight suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
-Steps below marked *(to be defined)* are settled with the first distributed
-artifact.
 
 <a id="versioning"></a>
 
@@ -85,10 +83,9 @@ task PR into the release branch.
 
 ### 3. Check the social preview
 
-Before the first release, check that the figures in the social preview image
-still match its source notes in
-[`docs/assets/README.md`](docs/assets/README.md#social-preview),
-and update its "Under development" status as those notes describe.
+Check that the figures in the social preview image still match its source
+notes in [`docs/assets/README.md`](docs/assets/README.md#social-preview), and
+update the release it names as those notes describe.
 
 ### 4. Run the static gates
 
@@ -111,11 +108,21 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bund
 
 Only exit code 0 (`PASS`) certifies the candidate.
 
-### 6. Build artifacts *(to be defined)*
+### 6. Build artifacts
 
-If a workbook or add-in is distributed, build it from the certified source,
-test the packaged file and record its SHA-256 hash. No artifact is distributed
-today.
+From the certified source, build:
+
+- `K-SACCR_X.Y.Z.xlsm`: a **production** workbook, built as in
+  [`INSTALLATION.md`](INSTALLATION.md#building-a-workbook-from-source),
+  compiled, run once on the demonstration portfolio, cleared with
+  **Clear outputs** and saved. Check it with the
+  [source round trip](docs/EXCEL_EVIDENCE.md#source-round-trip) in production
+  mode; only `RESULT=PASS` qualifies it;
+- `K-SACCR_User_Manual_X.Y.Z.pdf`: built from `docs/user-manual/vX.Y.Z/` at
+  the tag, with the command in that folder's README;
+- `SHA256SUMS.txt`: the SHA-256 of both files, in `sha256sum` format.
+
+Once attached to a published release, an asset is never replaced.
 
 ### 7. Integrate into main
 
@@ -183,7 +190,7 @@ it does not replace it.
 | 1 | Owner requested the release | ☐ |
 | 2 | Scope frozen and diff reviewed | ☐ |
 | 3 | Changelog and `VERSION` finalized | ☐ |
-| 4 | Social preview checked (first release) | ☐ |
+| 4 | Social preview checked | ☐ |
 | 5 | Static checks pass locally and in CI | ☐ |
 | 6 | Excel certification passes for all eight suites | ☐ |
 | 7 | Artifacts built, tested and hashed (if any) | ☐ |

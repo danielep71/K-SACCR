@@ -2,7 +2,7 @@
 title: "K-SACCR"
 subtitle: "Comprehensive User Manual | Version 1.0.0"
 author: "Independent SA-CCR Calculation and Validation Toolkit"
-date: "Documentation baseline: 16 October 2026"
+date: "Release 1.0.0 · 17 October 2026"
 lang: en-US
 colorlinks: true
 linkcolor: KBlue
@@ -10,14 +10,14 @@ urlcolor: KBlue
 toc-title: "Contents"
 ---
 
-> **RELEASE STATUS — IMPORTANT**\
-> This manual is prepared for the **v1.0.0 release candidate**, using the `release/1.0.0` source branch at commit `1152170c842d52acad166f93dbc84ea4f6546669` (16 October 2026). At the time of this documentation baseline, **no v1.0.0 GitHub Release or annotated version tag had been published**, and the final-package acceptance requirements of issue #46 remained open. Before attaching this PDF to a release, confirm that the published artifact matches the certified source and review any changes after this commit. This manual does not itself constitute certification.
+> **RELEASE STATUS**\
+> This manual documents **K-SACCR 1.0.0**, released on 17 October 2026 and tagged `v1.0.0`. It is attached to the [1.0.0 GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0) together with the production workbook `K-SACCR_1.0.0.xlsm`; `SHA256SUMS.txt` on the release holds the SHA-256 of both. The release notes and the tag message record the Excel certification of the tagged source. This manual explains the software; it does not itself certify it, and it is not regulatory approval.
 
 **Document purpose.** A practical and technical operating reference for analysts, validators, model owners, risk managers, reviewers and developers using the Windows Excel/VBA implementation of the **Standardised Approach for Counterparty Credit Risk (SA-CCR)**. It explains how to construct the workbook, enter and validate portfolios, interpret trade-to-EAD calculations, reconcile an external bank calculation, export reproducible evidence and understand the declared scope and limitations.
 
 **Reader convention.** `CRR` means the European Union Capital Requirements Regulation implementation in this toolkit; `BCBS` means the Basel Framework CRE52 implementation. “Bank” is shorthand for the independent upstream calculation being compared. “Trade” may mean a row-level **leg**, not necessarily a whole economic trade. Amounts are **unscaled units** unless an explicit bank-reconciliation scale is used. A result generated under one regime must not be added to the same portfolio's result under another regime.
 
-**Documentation source:** [K-SACCR source repository](https://github.com/danielep71/VBA-SACCR-Toolkit), [`README.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/README.md), [`INSTALLATION.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/INSTALLATION.md), and [methodology / support matrix](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/docs/methodology/README.md). The workbook, source, methodology and release evidence take precedence over an outdated copy of this manual.
+**Documentation source:** [K-SACCR source repository](https://github.com/danielep71/VBA-SACCR-Toolkit), [`README.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/README.md), [`INSTALLATION.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/INSTALLATION.md), and [methodology / support matrix](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/docs/methodology/README.md). The workbook, source, methodology and release evidence take precedence over an outdated copy of this manual.
 
 \newpage
 
@@ -65,7 +65,7 @@ For a standard regulatory run, **alpha is 1.4**. `RC` is replacement cost; `PFE`
 
 The v1.0.0 branch implements both Basel CRE52 and EU CRR rules. The **published, independently external numerical reference values** used in v1.0.0 come from Basel CRE99 examples 1–5. Additional regression cases, including CRR-specific ones, are explicitly **illustrative**, not independently validated. As a result, describe the result as **“BCBS published-example regression coverage; CRR implemented and illustratively tested”**—not as independently validated CRR.
 
-The source README at this documentation baseline records **eight Excel test suites, 228 cases and 1,001 checks** on its documented development-run candidate. This is not a substitute for executing the full suites and recording evidence against the final certified package. Similarly, reports of passing development tests do not prove that the final distributed workbook has been freshly built and certified.
+Release 1.0.0 was certified in Excel before tagging: the VBA compiled and the **eight Excel test suites (228 cases, 1,001 checks)** were each run on their own against the tagged source, with the record checked by the repository's evidence validator. A workbook you build yourself, or a copy you have modified, is covered by that record only if it is built from the same source; run the suites on it to be sure (see the regression suite inventory below).
 
 
 \Needspace{9\baselineskip}
@@ -139,17 +139,17 @@ The source README at this documentation baseline records **eight Excel test suit
 
 ## Obtain the correct source
 
-The recommended reproducible route is a Git clone of the exact release branch or, once formally published, a verified tagged release. For the manual's documented snapshot:
+Two routes lead to the 1.0.0 workbook. The simplest is the **released workbook**: download `K-SACCR_1.0.0.xlsm` and `SHA256SUMS.txt` from the [1.0.0 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0), check the hash with `Get-FileHash .\K-SACCR_1.0.0.xlsm -Algorithm SHA256` in PowerShell, and only then unblock the file if your macro policy allows it (details in [`INSTALLATION.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/INSTALLATION.md#released-workbook)). The reproducible route is a Git clone of the release tag:
 
 ```console
 git clone https://github.com/danielep71/VBA-SACCR-Toolkit.git
 cd VBA-SACCR-Toolkit
-git switch release/1.0.0
+git switch --detach v1.0.0
 git rev-parse HEAD
 python tools/check.py
 ```
 
-Record the **40-character SHA** shown by `git rev-parse HEAD`. It identifies a source state, not necessarily an approved release. A normal clone preserves the `.bas` and `.cls` line-ending conventions expected by the VBA editor; GitHub's Raw browser view and casual copy/paste are not recommended as import sources. If the release provides prebuilt assets, verify their documented hashes before opening them.
+Record the **40-character SHA** shown by `git rev-parse HEAD`; it identifies the source the workbook is built from. A normal clone preserves the `.bas` and `.cls` line-ending conventions expected by the VBA editor; GitHub's Raw browser view and casual copy/paste are not recommended as import sources. The sections below build the workbook from this clone.
 
 
 \Needspace{9\baselineskip}
@@ -972,14 +972,14 @@ The published user-accessible worksheet functions are provided by the `SACCR_For
 | `SACCR_Multiplier(VminusC,AddOn,[FloorPct])` | PFE multiplier. | V-C, aggregate add-on and floor, not EAD directly. |
 | `SACCR_ReplacementCost(V,C,[Margined],[TH],[MTA],[NICA])` | Replacement cost. | C, VM/NICA conventions and margin flag. |
 
-The **exact signatures and public contract** are in [`docs/PUBLIC_API.txt`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/docs/PUBLIC_API.txt). The `src/core/` procedures and module members are **internal** and are not a promised stable external API.
+The **exact signatures and public contract** are in [`docs/PUBLIC_API.txt`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/docs/PUBLIC_API.txt). The `src/core/` procedures and module members are **internal** and are not a promised stable external API.
 
 
 \Needspace{9\baselineskip}
 
 ## Regression suite inventory
 
-The development workbook's `Test_RunAll` runs the following eight suites; the counts below reflect the published README's **documented candidate snapshot** of 16 October 2026, not a newly executed release candidate:
+The development workbook's `Test_RunAll` runs the following eight suites; the counts are those of release 1.0.0, each suite certified on its own before tagging:
 
 | Excel suite | Cases | Checks / assertions | Focus |
 |:--|--:|--:|:--|
@@ -991,7 +991,7 @@ The development workbook's `Test_RunAll` runs the following eight suites; the co
 | `TEST_Aggregation` | 11 | 11 | Aggregation ordering and offsets. |
 | `TEST_Invariants` | 4 | 23 | Required numerical relations and invariant properties. |
 | `TEST_Reconcile` | 19 | 140 | Reconciliation, trade matching and population diagnostics. |
-| **Total** | **228** | **1,001** | **8/8 suites PASS in the documented development summary**. |
+| **Total** | **228** | **1,001** | **8/8 suites PASS in the 1.0.0 certification**. |
 
 Regulatory **published** reference values and **illustrative** cases have fundamentally different assurance weight. The repository identifies cases by reference class in structured fixture/expected files; do not recategorize an illustrative expected value as “independent” just because an automated test passed.
 
@@ -1062,7 +1062,7 @@ A stopped operation is materially different from an excluded trade. A run can st
 * No 1904 date system and no built-in holiday calendar; S/E/M/T use the specified day-count convention and MPOR floors use 250 business days per year.
 * Variable-notional schedules, collateral haircuts, rating mapping and risk-driver decomposition must be prepared by the user.
 * Simplified SA-CCR, original exposure method, CCP default-fund exposures, SFT, CVA and RWA are beyond v1.0.0.
-* There is no declared supported-size threshold in the reviewed candidate's release evidence; **do not invent a certified portfolio capacity**.
+* There is no fixed trade limit, but no certified capacity either. On the owner's 64-bit host, a synthetic portfolio of 500,000 trade legs in 1,000 netting sets calculated in about 114 seconds; times depend on the machine ([`INSTALLATION.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/INSTALLATION.md#portfolio-size)). Trades dropdowns and input validation cover rows 5 to 5,000, and a used range far below the data slows every run.
 
 
 \Needspace{12\baselineskip}
@@ -1129,29 +1129,24 @@ Three artifacts serve **different purposes**:
 |:--|:--|:--|
 | **This user manual (PDF)** | Teach a user how to install, operate, interpret and troubleshoot the version. | Not proof that the release workbook was built or tested. |
 | **Evidence CSV** | Document a particular **calculator run** and its inputs/outputs/comparisons. | Not a replacement for test logs or the release certification record. |
-| **One-off v1.0.0 release report** | Summarize certified candidate SHA, host, package hashes, full test results, demo findings, size tests and deviations. | Not the same as user instructions or the per-run CSV. |
+| **Release record** (release notes and tag message) | Summarize the certified source SHA, the Excel host, the suite results, the asset hashes and any deviations. | Not the same as user instructions or the per-run CSV. |
 
-Issue #46 explicitly requires a final-package **release report** after its certification tasks; the separate PDF should summarize the actual retained evidence, **not** assert validation based only on development snapshots. A future workbook-generated report, if ever introduced, is outside the v1.0.0 CSV feature.
+The release record summarizes evidence retained by the project owner; it does not replace the individual suite logs or the validated evidence record. A workbook-generated run report is not part of 1.0.0.
 
 
 \Needspace{9\baselineskip}
 
-## Final-package checks before publishing v1.0.0
+## How release 1.0.0 was certified
 
-At the documentation baseline, the v1.0.0 milestone had outstanding final-package gates. They are included here as a **maintainer appendix**, not as instructions a normal end user must execute:
+This summary is for reviewers; a user does not need to repeat it. The maintainer runbook is [`RELEASING.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/RELEASING.md).
 
-1. Freeze and record the **exact candidate SHA**, final source tree, corresponding macro-free template and planned distributable workbook identity.
-2. Rebuild and verify final component parity against the current **24-component production** / **34-component development** manifest: **7/17** and **17/17** standard/document components, respectively. Earlier 18/27 comparisons do not certify this later package.
-3. Verify no unexpected external references/links, all 16 worksheets, named ranges, validation, formula/button bindings, required layout and `FormulaTest` details.
-4. Record host operating system, Excel version/build and **64-bit** architecture; open, import/synchronize, compile, run, validate, clear, save and reopen the **final package** on the owner's host.
-5. Execute all eight suites against the accepted candidate; retain **each log**, counts, pass/fail results, restoration and a validated bundle bound to the exact source and candidate hashes. Do not reuse results from prior commits.
-6. Test demo amounts, regime-specific totals, intentionally excluded trades, `Checks`, netting-set and trade-level reconciliation populations and duplicate-ID handling.
-7. Test the four freshness/integrity hidden names (`SACCR_RunInputs`, `SACCR_ReconInputs`, `SACCR_TradeReconInputs`, `SACCR_RunOutputs`), negative export/refusal cases, **both manual and silent** exports, and unchanged-run reproducibility.
-8. Measure and publish the supported-size envelope, including an **inflated UsedRange** scenario. Do not market an unmeasured size claim.
-9. Archive source/template/workbook hashes, package build/parity logs, Excel host records, full test evidence, limits, release notes, a one-off release report and this manual's final SHA/PDF hash.
-10. Only after owner authorization and passing release gates: integrate into main if needed, prepare the version/changelog, apply the **annotated tag** and publish the GitHub Release, attaching only identified certified artifacts.
+1. One candidate commit was frozen, with `python tools/check.py` and the hosted **Repository integrity** check green on it.
+2. A development workbook was built from that commit's template and source on the owner's 64-bit Windows Excel host, and compiled.
+3. All eight suites were run, each on its own, and their logs recorded with the host details in an evidence record bound to the commit and to the SHA-256 of every source file; `tools/check_excel_evidence.py` validated it.
+4. The production workbook `K-SACCR_1.0.0.xlsm` was built from the same commit, compiled, run on the demonstration portfolio, cleared and saved, and its code compared with the source by the source round trip.
+5. The release branch was merged into `main`, the annotated tag `v1.0.0` was created on `main`, and the workbook, this manual's PDF and `SHA256SUMS.txt` were attached to the GitHub Release.
 
-**Release caution.** Attaching this document to an eventual GitHub Release is a separate future action: it has **not** been taken in preparation of this manual. When a release is finally published, update its documentation baseline, version date and any numerical or layout changes relative to commit `1152170c...`; do not silently present a candidate manual as final-certified documentation.
+A published release is never changed: a correction comes as a new patch version.
 
 
 \Needspace{12\baselineskip}
@@ -1171,10 +1166,10 @@ At the documentation baseline, the v1.0.0 milestone had outstanding final-packag
 | Regulation (EU) No 575/2013 (CRR), consolidated text as registered | EU CRR Articles 272–280f and related rules; repository baseline describes the consolidated 26 June 2026 text. |
 | Commission Delegated Regulation (EU) 2021/931, as amended by (EU) 2025/855 | Technical standards including the CRR option lambda-shift methodology. |
 | EBA Q&A 2023_6962 | Regulatory clarification informing NICA/cap treatment. |
-| [`docs/methodology/README.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/docs/methodology/README.md) | Implemented decisions, full support matrix, supervisory parameters and paragraph/article traceability. |
-| [`docs/methodology/TEST_CASES.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/docs/methodology/TEST_CASES.md) | Fixtures, expected values, tolerance and evidence class definitions. |
-| [`docs/EXCEL_EVIDENCE.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/docs/EXCEL_EVIDENCE.md) | Excel evidence recording and automated validation. |
-| [`RELEASING.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/release/1.0.0/RELEASING.md) | Owner-controlled release process and certification invariants. |
+| [`docs/methodology/README.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/docs/methodology/README.md) | Implemented decisions, full support matrix, supervisory parameters and paragraph/article traceability. |
+| [`docs/methodology/TEST_CASES.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/docs/methodology/TEST_CASES.md) | Fixtures, expected values, tolerance and evidence class definitions. |
+| [`docs/EXCEL_EVIDENCE.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/docs/EXCEL_EVIDENCE.md) | Excel evidence recording and automated validation. |
+| [`RELEASING.md`](https://github.com/danielep71/VBA-SACCR-Toolkit/blob/v1.0.0/RELEASING.md) | Owner-controlled release process and certification invariants. |
 
 The repository also retains dated regulator-source extracts for reproducibility. When a conflict arises between general explanatory prose and the **actual applicable legal text**, investigate the exact legal rule and date rather than treating the manual as a replacement for the regulation. K-SACCR's methodology records its chosen interpretations and conservative choices; legal applicability remains the bank's responsibility.
 
@@ -1222,4 +1217,4 @@ The repository also retains dated regulator-source extracts for reproducibility.
 
 ---
 
-**Document control:** K-SACCR v1.0.0 candidate user manual; drafted from the public `release/1.0.0` branch at `1152170c842d52acad166f93dbc84ea4f6546669` (commit date 16 October 2026). This Markdown source is kept in the repository under `docs/user-manual/v1.0.0/`; the PDF built from it is not committed and is not yet attached to a GitHub Release. Validate applicability again when the candidate is frozen and published.
+**Document control:** K-SACCR 1.0.0 user manual, built from `docs/user-manual/v1.0.0/` at the tag `v1.0.0`. The PDF is not committed to the repository; it is attached to the 1.0.0 GitHub Release, and its SHA-256 is in that release's `SHA256SUMS.txt`. Later versions of the manual have their own folders.
