@@ -260,7 +260,8 @@ generated and must not be edited by hand.
   calculations, tests and error behavior unchanged; a discovered defect goes in
   a separate change. Renaming local variables and parameters to the
   [naming](#naming) rules is the one exception for names: it changes no
-  logic, string or comment, and its pull request shows that applying the
+  logic or string, and in comments only the renamed names (in `INPUTS` and
+  wherever a comment names them). Its pull request shows that applying the
   map of old to new names to the previous file reproduces every code line.
   The exception does not cover the parameters of a declaration listed in
   [`PUBLIC_API.txt`](PUBLIC_API.txt): a caller may pass them by name, so
