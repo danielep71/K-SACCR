@@ -39,8 +39,8 @@ Attribute VB_Name = "M_Main"
 '   changes them for the run, and restores the captured values on success
 '   and on failure. Owns gSilent (messages to the Immediate window instead
 '   of message boxes, and errors raised to the caller), the re-entry flag
-'   mRunning, and the test seams gTestFault and gQuietLog (silent-mode
-'   messages dropped instead of printed).
+'   mRunning, and the test seams gTestFault, gQuietLog (silent-mode
+'   messages dropped instead of printed) and gLastMessage.
 '
 ' ERROR POLICY
 '   The primary error is copied before cleanup. Each setting is restored by
@@ -56,8 +56,12 @@ Attribute VB_Name = "M_Main"
 '   restoration fail; gTestFault = "recalc" takes the path of a
 '   recalculation that did not finish (#195); gTestFault = "recalc-error"
 '   raises ERR_INJECTED_FAULT where the recalculation starts, as an error
-'   thrown by it would (#204). tests/modules/TEST_MainState.bas uses all
-'   four. Production code never sets it.
+'   thrown by it would (#204); gTestFault = "reconcile" raises
+'   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318).
+'   tests/modules/TEST_MainState.bas uses the first four and
+'   tests/modules/TEST_Reconcile.bas the last. gLastMessage keeps the last
+'   message shown or printed, so that a test can read it in silent mode.
+'   Production code never sets gTestFault.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -67,7 +71,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -99,13 +103,14 @@ Attribute VB_Name = "M_Main"
 ' MODULE STATE
 '------------------------------------------------------------------------------
     'gSilent switches messages to the Immediate window and errors to the
-    'caller. gTestFault is the test seam described above. gQuietLog drops
-    'the messages of silent mode instead of printing them, for
-    'TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
+    'caller. gTestFault and gLastMessage are the test seams described above.
+    'gQuietLog drops the messages of silent mode instead of printing them,
+    'for TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
     'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc" or "recalc-error"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error" or "reconcile"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
+        Public gLastMessage As String     'Test seam: the last message shown or printed
         Private mRunning    As Boolean    'True while an operation is in progress
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
@@ -542,7 +547,7 @@ Private Function ReconcileAfterRun( _
 '   reason in its summary cell.
 '
 ' UPDATED
-'   2026-10-15
+'   2026-10-17
 '==============================================================================
 '
 
@@ -568,6 +573,8 @@ Private Function ReconcileAfterRun( _
     Dim summary     As String       'Summary line without its time stamp
     Dim reconName   As String       'Name of the reconciliation in the run message
     Dim others      As Long         'Rows other than MATCH and DIFFERENCE
+    Dim errNumber   As Long         'Error that stopped the reconciliation
+    Dim errText     As String       'Its description
 
 '------------------------------------------------------------------------------
 ' FIND THE SHEETS AND SETTINGS
@@ -615,6 +622,9 @@ Private Function ReconcileAfterRun( _
             ClearReconciliation "No bank figures on " & BankSheetOf(kind) & ": nothing to reconcile.", kind
             ReconcileAfterRun = "NONE"
             Exit Function
+        End If
+        If gTestFault = "reconcile" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.ReconcileAfterRun", "Injected reconciliation failure."
         End If
         If kind = RECON_NS Then
             Set wsCalc = GetSheet(SH_RESULTS)
@@ -673,9 +683,13 @@ Private Function ReconcileAfterRun( _
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
+    'ClearReconciliation clears Err: keep the cause for the run message
+    '(#318).
+        errNumber = Err.Number
+        errText = Err.Description
         ClearReconciliation "Reconciliation failed " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & " (error " & _
-                            Err.Number & ": " & Err.Description & ").", kind
-        AddReconLine reconName & " failed: " & Err.Description & "."
+                            errNumber & ": " & errText & ").", kind
+        AddReconLine reconName & " failed: " & errText & "."
         ReconcileAfterRun = "FAILED"
 
 End Function
@@ -2671,13 +2685,14 @@ Private Sub Notify( _
 '   style: message-box icon, for example vbInformation or vbCritical.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' SHOW OR PRINT
 '------------------------------------------------------------------------------
+        gLastMessage = msg
         If gSilent Then
             If Not gQuietLog Then
                 Debug.Print msg

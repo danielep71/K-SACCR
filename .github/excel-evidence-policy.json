@@ -78,7 +78,7 @@
       "header": "SACCR RECONCILIATION TESTS",
       "mode_line": false,
       "cases": 19,
-      "checks": {"32-bit": 140, "64-bit": 140},
+      "checks": {"32-bit": 144, "64-bit": 144},
       "restoration": null,
       "first_case": null
     }
