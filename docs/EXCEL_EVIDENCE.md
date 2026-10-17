@@ -100,7 +100,7 @@ clone, to print the inventory and validate the bundle.
    step 3 found that access already on; never turn it on for this procedure:
 
    ```powershell
-   .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Development -IncludeSheets
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Development -IncludeSheets
    ```
 
    Then open the workbook and compile as above.
@@ -154,7 +154,7 @@ project object model* enabled, and Python on the same machine.
    outside the checkout, and synchronize it:
 
    ```powershell
-   .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Production -IncludeSheets
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Production -IncludeSheets
    ```
 
    For a development workbook, use `-Mode Development`.
@@ -165,7 +165,7 @@ project object model* enabled, and Python on the same machine.
    changed:
 
    ```powershell
-   .\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -OutDir "C:\path\export"
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -OutDir "C:\path\export"
    ```
 
 5. **Compare** with the source of the candidate:

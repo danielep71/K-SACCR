@@ -31,19 +31,19 @@ it is. -IncludeSheets or -SkipSheets gives the answer in advance.
 - VBA project not password-locked.
 
 .EXAMPLE
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm"
 
 Asks whether the workbook is a production or a development workbook, then
 whether to replace the sheet code as well.
 
 .EXAMPLE
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -Mode Development -SkipSheets
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -Mode Development -SkipSheets
 
 .EXAMPLE
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
 
 .EXAMPLE
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SkipSheets
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SkipSheets
 
 Imports the standard modules only and leaves the code of every worksheet and
 of ThisWorkbook as it is, without asking.

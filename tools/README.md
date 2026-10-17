@@ -67,10 +67,15 @@ result and pauses before closing. It has no default workbook: started
 without one, for example by double-clicking it, it prints how to use it,
 pauses and exits with code 1 without starting PowerShell.
 
-PowerShell remains available for direct use from the repository root:
+PowerShell remains available for direct use from the repository root. Run
+the script through `powershell.exe -ExecutionPolicy Bypass -File`, as the
+launcher does: where the execution policy disables scripts, as on many
+managed Windows machines, `.\tools\Sync-SACCR-VBA.ps1` alone is refused with
+"running scripts is disabled on this system". The bypass applies to that one
+process and changes no setting.
 
 ```powershell
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm"
 ```
 
 A full synchronization first asks which workbook it is building, unless
@@ -107,7 +112,7 @@ folder (Enter for `%USERPROFILE%\Downloads`) and runs the synchronizer with
 `-SourceDir`:
 
 ```powershell
-.\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\to\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
 ```
 
 In that mode only the modules found in the folder are imported; every other
