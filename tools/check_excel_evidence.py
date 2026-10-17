@@ -563,13 +563,16 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     if spec["mode_line"] != runner:
         problems.append(f"{spec['entry_point']}: policy mode_line differs from the module")
     # The first case a case-runner module starts in its source is the first it runs.
-    # A StartCase helper prints its argument behind the prefix it gives BeginCase
-    # (TEST_InputValidation: "input-" & caseId), as the log shows it.
+    # A StartCase helper prints its argument behind the prefix its own body gives
+    # BeginCase (TEST_InputValidation: "input-" & caseId), as the log shows it.
     first = re.search(r'\b(BeginCase|StartCase)\s+"([^"]+)"', module)
     printed = None
-    if first is not None:
-        prefix = re.search(r'\bBeginCase\s+"([^"]*)"\s*&\s*caseId\b', module)
-        printed = (prefix.group(1) if first.group(1) == "StartCase" and prefix else "") + first.group(2)
+    if first is not None and first.group(1) == "BeginCase":
+        printed = first.group(2)
+    elif first is not None:
+        body = re.search(r'\bSub\s+StartCase\b(.*?)^\s*End\s+Sub\b', module, re.S | re.M)
+        call = body and re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?caseId\b', body.group(1))
+        printed = (call.group(1) or "") + first.group(2) if call else None
     if spec["first_case"] is not None and printed != spec["first_case"]:
         problems.append(f"{spec['entry_point']}: policy first_case differs from the module")
     return problems

@@ -525,6 +525,16 @@ class ExcelEvidenceTests(unittest.TestCase):
         policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "input-trade-middle-row-without-id"
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
+        # The prefix is read from StartCase's own body, not from another helper.
+        module = copy_root / "tests" / "modules" / "TEST_InputValidation.bas"
+        source = module.read_text(encoding="cp1252")
+        start = source.index("Sub StartCase(")
+        end = source.index("End Sub", start)
+        changed = source[:start] + source[start:end].replace('"input-" & caseId', "caseId") + source[end:]
+        self.assertNotEqual(changed, source)
+        module.write_text(changed, encoding="cp1252")
+        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                      " ".join(evidence.policy_problems(copy_root)))
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"
