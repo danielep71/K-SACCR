@@ -12,7 +12,8 @@ them.
 
 The images below show sheets of the workbook built from
 `src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. The owner
-took them in Excel for Windows on 2026-10-16.
+took them in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
+retaken on 2026-10-17 to show the colours of #296.
 
 | Image | Shows |
 | --- | --- |
@@ -90,6 +91,59 @@ columns C:D):
 2. Quantize it to 256 colours (Pillow `quantize(colors=256,
    method=MEDIANCUT, dither=NONE)`) and save it with `optimize=True`, as for
    the screenshots above.
+
+<a id="saccr-uses-in-crr"></a>
+
+## 🧭 Where SA-CCR is used in the CRR
+
+`SACCR_uses_in_CRR.svg` shows the parts of the CRR that use SA-CCR. Solid
+lines lead to those that take the risk-based exposure value of a netting set
+as calculated; dashed lines to the leverage ratio and the output floor, which
+recalculate SA-CCR with their own adjustments (see the calculation contexts
+below):
+- counterparty credit risk under the standardised approach (Art. 107);
+- exposures to CCPs (Art. 301–311);
+- large exposures (Art. 390);
+- the leverage ratio, with RC net of eligible cash variation margin only and a
+  PFE multiplier of 1, except for client trades cleared through a QCCP
+  (Art. 429c);
+- CVA risk, through the standardised method under CRR2 and BA-CVA under CRR3
+  (Art. 382–386);
+- the output floor of CRR3, 50% of standardised RWA in 2025 rising to 72.5%;
+  until 31 December 2029, contracts whose un-floored exposure value comes from
+  the internal model method may use α = 1 in SA-CCR for the floor
+  (Art. 92(3), 465(4)).
+
+Each part is coloured by the regulation that brought it in, CRR2 (Regulation
+(EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
+2024/1623, applied from 1 January 2025), and names what K-SACCR does with it:
+the roadmap milestone, or out of scope. It is an orientation picture, not a
+source: K-SACCR calculates only the exposure value at its centre.
+
+- **Origin:** drawn for this repository from the CRR. The idea of a single
+  exposure value feeding several frameworks follows the European Banking
+  Federation's annex on the use of SA-CCR across the prudential framework; no
+  part of that figure is reproduced.
+- **Sources:** Art. 429c(3)–(5) and 465(4) were checked by the owner on
+  EUR-Lex on 2026-10-17, in the consolidated CRR of 26 June 2026 (the version
+  registered as `CRR` in the
+  [source register](../methodology/README.md#source-register)) and in
+  Regulation (EU) 2024/1623 (CRR III). The other references name the parts
+  of the CRR that take the exposure value; the picture is not a source for
+  their rules.
+- **Separate calculation contexts:** the leverage ratio keeps α = 1.4 and sets
+  the PFE multiplier to 1 (Art. 429c(5)); RC still follows Art. 275, with
+  only eligible cash variation margin received (Art. 429c(3)) and, for
+  qualifying client trades cleared through a QCCP, the wider collateral of
+  Art. 429c(4a). The α = 1 of Art. 465(4) applies only to the output floor
+  and only where the same exposures are calculated with the IMM in the
+  un-floored total risk exposure amount. Neither is the risk-based SA-CCR
+  that K-SACCR calculates.
+
+The SVG is the source; `SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
+from it at 1600 x 1040 px with headless Chromium at a device scale factor of
+1, then quantized to 256 colours as the screenshots above. Render it again
+whenever the SVG changes.
 
 <a id="social-preview"></a>
 

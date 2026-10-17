@@ -94,7 +94,24 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The PowerShell commands in `docs/EXCEL_EVIDENCE.md`, `tools/README.md` and
+  the scripts' own help run through `powershell.exe -ExecutionPolicy Bypass
+  -File`, as `Sync-SACCR-VBA.cmd` does: on a machine whose execution policy
+  disables scripts, the 1.0.0 export command was refused.
+- The Excel evidence policy names `TEST_InputValidation`'s first case as its
+  log prints it, `input-trade-middle-row-without-id`, and the policy gate
+  reads it from `StartCase` in the same way. With the 1.0.0 policy the
+  validator rejected every real log of that suite; the 1.0.0 certification
+  records this as its deviation.
+
+### Documentation
+
+- A diagram of where the CRR uses the SA-CCR exposure value (counterparty
+  credit risk, CCPs, large exposures, leverage ratio, CVA risk, output floor),
+  with the K-SACCR milestone or scope of each, in the README roadmap and
+  `docs/assets/SACCR_uses_in_CRR.svg`.
 
 ## [1.0.0] - 2026-10-17
 
