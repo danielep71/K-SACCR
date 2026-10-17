@@ -621,6 +621,7 @@ source, reapply modifications deliberately and retest them.
 | A run stops with `Workbook name '…' is missing or no longer refers to …` | The workbook was built from an older template, or a name was deleted; build it again from `src/workbook/SACCR_Template.xlsx`. |
 | A production workbook holds `TEST_` modules | A production synchronization never removes modules; build it again from the template. |
 | Garbled accented characters after import | The module was copied from a browser or re-saved in another encoding; import the file from the checkout. |
+| Results C5 still reads current after **Use 1904 date system** was switched | Excel need not recalculate C5 when only the date system changes, as no input cell changed. Press Ctrl+Alt+F9, which recalculates every formula, or edit an input: C5 then reads `OUT OF DATE`. A run under the 1904 date system stops with a message, so no result is produced from it; clear the option, check the dates and run again. |
 | Different result from a reference | Confirm the commit, the inputs, the Params values and the reference used. |
 | Security warning | Verify the source origin and organizational macro settings. |
 | `tools/check.py` reports CRLF in Git | Renormalize with `git add --renormalize .` and commit the result separately. |

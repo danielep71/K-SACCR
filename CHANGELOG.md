@@ -122,6 +122,12 @@ Use only the categories needed by a release.
   download the workbook to its SHA-256 check and unblocking in
   `INSTALLATION.md`, and its "Build the workbook" button reads "Build from
   source" and opens the build steps.
+- Troubleshooting in `INSTALLATION.md` explains that Results C5 can keep its
+  earlier status after only the workbook's date system is switched, until a
+  full recalculation (Ctrl+Alt+F9), and that a run under the 1904 date system
+  stops (#317). The behaviour is unchanged: Excel raises no event for the
+  change, and a volatile C5 would recompute the input fingerprint on every
+  edit.
 
 ## [1.0.0] - 2026-10-17
 
