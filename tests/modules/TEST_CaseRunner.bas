@@ -11,29 +11,28 @@ Attribute VB_Name = "TEST_CaseRunner"
 '
 ' PUBLIC SURFACE
 '   InjectFailure, BeginSuite, BeginCase, LoadSavedInputs, SetParameter,
-'   AddNettingSet,
-'   AddTrade, SetInputCell, PatchCell, PatchName, RunCase,
-'   RunCaseExpectingStop,
-'   OutputNumber, ExpectNumber, ExpectText, ExpectTrue, ExpectChecksLine and
-'   EndSuite, for
-'   TEST_Cases, TEST_InputValidation, TEST_Aggregation, TEST_Invariants and
-'   TEST_Benchmark.
-'   Option Private Module keeps them out of the external workbook automation
-'   API.
+'   AddNettingSet, AddTrade, SetInputCell, PatchCell, PatchName, RunCase,
+'   RunCaseExpectingStop, OutputNumber, ExpectNumber, ExpectText,
+'   ExpectTrue, ExpectChecksLine and EndSuite, for TEST_Cases,
+'   TEST_InputValidation, TEST_Aggregation, TEST_Invariants and
+'   TEST_Benchmark. Option Private Module keeps them out of the external
+'   workbook automation API.
 '
 ' DEPENDENCIES
-'   CORE_Engine.Calculate; CORE_Util for sheet access; CORE_Config for the layout;
-'   TEST_Suite.Say for the log lines.
-'   The workbook must be built from the template, because the engine reads
-'   its input sheets and Params.
+'   CORE_Engine.Calculate; CORE_Util for sheet access; CORE_Config for the
+'   layout; TEST_Suite.Say for the log lines. The workbook must be built
+'   from the template, because the engine reads its input sheets and
+'   Params.
 '
 ' WORKSHEET SAFETY
 '   Unlike TEST_Harness, this module writes the NettingSets and Trades input
-'   rows, the AsOfDate and ReportingCcy parameters, and every output sheet.
-'   BeginSuite saves the inputs and parameters and EndSuite writes them
-'   back and recalculates, so the workbook ends as it started. A cell or
-'   workbook name changed with PatchCell or PatchName is restored at the
-'   start of the next case and by EndSuite. Use a development workbook.
+'   rows, the AsOfDate and ReportingCcy parameters, single cells through
+'   PatchCell (Params values set by SetParameter, the FX rate set by
+'   UnitFxRate), and every output sheet. BeginSuite saves the inputs and
+'   parameters, and EndSuite writes them back and runs the engine again, so
+'   the workbook ends as it started. A cell or workbook name changed with
+'   PatchCell or PatchName is restored at the start of the next case and
+'   by EndSuite. Use a development workbook.
 '
 ' STATE OWNERSHIP
 '   Owns the counters and saved inputs below. BeginSuite captures and
@@ -52,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '
 ' AUTHOR
 '   Daniele Penza
@@ -78,8 +77,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '------------------------------------------------------------------------------
     'Suite progress.
         Private mSuiteActive     As Boolean    'Between BeginSuite and EndSuite
-        Private mExpectedCases   As Long       'Cases TEST_Cases will run
-        Private mExpectedChecks  As Long       'Checks TEST_Cases will run
+        Private mExpectedCases   As Long       'Cases the calling suite will run
+        Private mExpectedChecks  As Long       'Checks the calling suite will run
         Private mCaseCount       As Long       'Cases started
         Private mCheckCount      As Long       'Checks evaluated
         Private mFailureCount    As Long       'Failed checks, runs and restorations
@@ -156,8 +155,8 @@ End Sub
 
 
 Public Sub BeginSuite( _
-    ByVal expectedCases As Long, _
-    ByVal expectedChecks As Long)
+    ByVal ExpectedCases As Long, _
+    ByVal ExpectedChecks As Long)
 '
 '==============================================================================
 '                                  BeginSuite
@@ -166,16 +165,16 @@ Public Sub BeginSuite( _
 '   Save everything the cases will overwrite, then prepare Excel.
 '
 ' INPUTS
-'   expectedCases, expectedChecks: numbers of cases and checks TEST_Cases
-'   will run; a different count fails the suite, so a stale or edited
-'   TEST_Cases module cannot pass with checks missing.
+'   ExpectedCases, ExpectedChecks: numbers of cases and checks the calling
+'   suite will run; a different count fails the suite, so a stale or edited
+'   suite module, such as TEST_Cases, cannot pass with checks missing.
 '
 ' ERROR POLICY
 '   Raises if a suite is already active or the inputs cannot be saved;
 '   nothing has been changed at that point.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-17
 '==============================================================================
 '
 
@@ -185,8 +184,8 @@ Public Sub BeginSuite( _
         If mSuiteActive Then
             Err.Raise ERR_RUN_ACTIVE, "TEST_CaseRunner.BeginSuite", "A case suite is already running."
         End If
-        mExpectedCases = expectedCases
-        mExpectedChecks = expectedChecks
+        mExpectedCases = ExpectedCases
+        mExpectedChecks = ExpectedChecks
         mInjectFailure = mInjectArmed
         mInjectArmed = False
         mInjectedAt = ""
@@ -225,7 +224,7 @@ End Sub
 
 
 Public Sub EndSuite( _
-    ByVal abortReason As String)
+    ByVal AbortReason As String)
 '
 '==============================================================================
 '                                   EndSuite
@@ -235,39 +234,40 @@ Public Sub EndSuite( _
 '   the summary and the RESULT line.
 '
 ' INPUTS
-'   abortReason: why TEST_Cases stopped early; empty after a complete run.
+'   AbortReason: why the calling suite stopped early; empty after a
+'   complete run.
 '
 ' ERROR POLICY
 '   Each restoration step contains its own error; a failed one is printed
 '   and makes the result FAIL.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim restored   As Boolean    'Every restoration step succeeded
-    Dim complete   As Boolean    'Every expected case ran
+    Dim Restored   As Boolean    'Every restoration step succeeded
+    Dim Complete   As Boolean    'Every expected case ran
 
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
     'The engine is run once more on the restored inputs so the output
     'sheets match them again.
-        If Len(abortReason) > 0 Then
+        If Len(AbortReason) > 0 Then
             mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=suite: " & abortReason
+            TEST_Suite.Say "FAILURE=suite: " & AbortReason
         End If
-        restored = True
-        restored = RestoreStep("inputs", 1) And restored
-        restored = RestoreStep("parameters", 2) And restored
-        restored = RestoreStep("outputs", 3) And restored
-        restored = RestoreStep("calculation", 4) And restored
-        restored = RestoreStep("events", 5) And restored
-        restored = RestoreStep("screen updating", 6) And restored
+        Restored = True
+        Restored = RestoreStep("inputs", 1) And Restored
+        Restored = RestoreStep("parameters", 2) And Restored
+        Restored = RestoreStep("outputs", 3) And Restored
+        Restored = RestoreStep("calculation", 4) And Restored
+        Restored = RestoreStep("events", 5) And Restored
+        Restored = RestoreStep("screen updating", 6) And Restored
         mSuiteActive = False
 
 '------------------------------------------------------------------------------
@@ -278,8 +278,8 @@ Public Sub EndSuite( _
             TEST_Suite.Say "FAILURE=suite: injected failure requested, but the suite ran no numeric check"
         End If
         mInjectFailure = False
-        complete = (mCaseCount = mExpectedCases) And (mCheckCount = mExpectedChecks)
-        If Not complete Then
+        Complete = (mCaseCount = mExpectedCases) And (mCheckCount = mExpectedChecks)
+        If Not Complete Then
             mFailureCount = mFailureCount + 1
             TEST_Suite.Say "FAILURE=suite: expected " & mExpectedCases & " cases and " & mExpectedChecks & _
                         " checks, ran " & mCaseCount & " and " & mCheckCount
@@ -288,9 +288,9 @@ Public Sub EndSuite( _
         TEST_Suite.Say "INDEPENDENT: passed=" & mPassed(CLASS_INDEPENDENT) & "; failed=" & mFailed(CLASS_INDEPENDENT)
         TEST_Suite.Say "ILLUSTRATIVE: passed=" & mPassed(CLASS_ILLUSTRATIVE) & "; failed=" & _
                     mFailed(CLASS_ILLUSTRATIVE) & " (validates nothing)"
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And restored And complete, "PASS", "FAIL") & _
+        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And Restored And Complete, "PASS", "FAIL") & _
                     "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount & "; restore=" & IIf(restored, "PASS", "FAIL")
+                    "; failures=" & mFailureCount & "; restore=" & IIf(Restored, "PASS", "FAIL")
 
 End Sub
 
@@ -304,10 +304,10 @@ End Sub
 '
 
 Public Sub BeginCase( _
-    ByVal caseId As String, _
-    ByVal regimeCode As String, _
-    ByVal valuationDate As String, _
-    ByVal calculationCurrency As String)
+    ByVal CaseId As String, _
+    ByVal RegimeCode As String, _
+    ByVal ValuationDate As String, _
+    ByVal CalculationCurrency As String)
 '
 '==============================================================================
 '                                  BeginCase
@@ -321,13 +321,13 @@ Public Sub BeginCase( _
 '   converted.
 '
 ' INPUTS
-'   caseId: the fixture ID.
-'   regimeCode: CRR or BCBS, applied as the netting set's regime override.
-'   valuationDate: YYYY-MM-DD.
-'   calculationCurrency: the fixture's calculation currency.
+'   CaseId: the fixture or case ID; the case label adds the regime.
+'   RegimeCode: CRR or BCBS, applied as the netting set's regime override.
+'   ValuationDate: YYYY-MM-DD.
+'   CalculationCurrency: the fixture's calculation currency.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-17
 '==============================================================================
 '
 
@@ -336,16 +336,16 @@ Public Sub BeginCase( _
 '------------------------------------------------------------------------------
         RestorePatches
         mCaseCount = mCaseCount + 1
-        mCase = caseId & "." & LCase$(regimeCode)
-        mRegime = regimeCode
-        mCurrency = calculationCurrency
+        mCase = CaseId & "." & LCase$(RegimeCode)
+        mRegime = RegimeCode
+        mCurrency = CalculationCurrency
         mNettingSetId = ""
         mNextTradeRow = InputTop(SH_TRADES)
         ClearBlock GetSheet(SH_NS), NS_NCOLS
         ClearBlock GetSheet(SH_TRADES), TR_NCOLS
-        mAsOfCell.Value = IsoDate(valuationDate)
-        mCcyCell.Value = calculationCurrency
-        UnitFxRate calculationCurrency
+        mAsOfCell.Value = IsoDate(ValuationDate)
+        mCcyCell.Value = CalculationCurrency
+        UnitFxRate CalculationCurrency
         TEST_Suite.Say "CASE=" & mCase
 
 End Sub
@@ -376,18 +376,18 @@ End Sub
 
 
 Public Sub AddNettingSet( _
-    ByVal nettingSetId As String, _
-    ByVal marginedFlag As String, _
-    ByVal roleCode As String, _
-    ByVal remarginDays As String, _
-    ByVal largeFlag As String, _
-    ByVal disputesFlag As String, _
-    ByVal mporOverrideDays As String, _
-    ByVal vmAmount As String, _
-    ByVal nicaAmount As String, _
-    ByVal thresholdAmount As String, _
-    ByVal mtaAmount As String, _
-    ByVal alphaFactor As String)
+    ByVal NettingSetKey As String, _
+    ByVal MarginedFlag As String, _
+    ByVal RoleCode As String, _
+    ByVal RemarginDays As String, _
+    ByVal LargeFlag As String, _
+    ByVal DisputesFlag As String, _
+    ByVal MporOverrideDays As String, _
+    ByVal VmAmount As String, _
+    ByVal NicaAmount As String, _
+    ByVal ThresholdAmount As String, _
+    ByVal MtaAmount As String, _
+    ByVal AlphaFactor As String)
 '
 '==============================================================================
 '                                AddNettingSet
@@ -402,59 +402,59 @@ Public Sub AddNettingSet( _
 '   clearing role, numbers with a "." decimal point, empty for null.
 '
 ' UPDATED
-'   2026-10-10
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim rowValues(1 To 1, 1 To NS_NCOLS)   As Variant    'The row to write
+    Dim RowValues(1 To 1, 1 To NS_NCOLS)   As Variant    'The row to write
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        mNettingSetId = nettingSetId
-        rowValues(1, NS_ID) = nettingSetId
-        rowValues(1, NS_CPTY) = "Test case " & mCase
-        rowValues(1, NS_MARGINED) = marginedFlag
-        rowValues(1, NS_CLEARED) = roleCode
-        rowValues(1, NS_FREQ) = NumberOrBlank(remarginDays)
-        rowValues(1, NS_LARGE) = largeFlag
-        rowValues(1, NS_DISPUTE) = disputesFlag
-        rowValues(1, NS_MPOR) = NumberOrBlank(mporOverrideDays)
-        rowValues(1, NS_VM) = NumberOrBlank(vmAmount)
-        rowValues(1, NS_NICA) = NumberOrBlank(nicaAmount)
-        rowValues(1, NS_TH) = NumberOrBlank(thresholdAmount)
-        rowValues(1, NS_MTA) = NumberOrBlank(mtaAmount)
-        rowValues(1, NS_ALPHA) = NumberOrBlank(alphaFactor)
-        rowValues(1, NS_REGIME) = mRegime
-        WriteRow GetSheet(SH_NS), InputTop(SH_NS), NS_NCOLS, rowValues
+        mNettingSetId = NettingSetKey
+        RowValues(1, NS_ID) = NettingSetKey
+        RowValues(1, NS_CPTY) = "Test case " & mCase
+        RowValues(1, NS_MARGINED) = MarginedFlag
+        RowValues(1, NS_CLEARED) = RoleCode
+        RowValues(1, NS_FREQ) = NumberOrBlank(RemarginDays)
+        RowValues(1, NS_LARGE) = LargeFlag
+        RowValues(1, NS_DISPUTE) = DisputesFlag
+        RowValues(1, NS_MPOR) = NumberOrBlank(MporOverrideDays)
+        RowValues(1, NS_VM) = NumberOrBlank(VmAmount)
+        RowValues(1, NS_NICA) = NumberOrBlank(NicaAmount)
+        RowValues(1, NS_TH) = NumberOrBlank(ThresholdAmount)
+        RowValues(1, NS_MTA) = NumberOrBlank(MtaAmount)
+        RowValues(1, NS_ALPHA) = NumberOrBlank(AlphaFactor)
+        RowValues(1, NS_REGIME) = mRegime
+        WriteRow GetSheet(SH_NS), InputTop(SH_NS), NS_NCOLS, RowValues
 
 End Sub
 
 
 Public Sub AddTrade( _
-    ByVal tradeId As String, _
-    ByVal assetClassCode As String, _
-    ByVal subClass As String, _
-    ByVal riskFactor As String, _
-    ByVal instrument As String, _
-    ByVal direction As String, _
-    ByVal optionType As String, _
-    ByVal nature As String, _
-    ByVal hedgingSetLabel As String, _
-    ByVal notionalAmount As String, _
-    ByVal marketValueAmount As String, _
-    ByVal startDate As String, _
-    ByVal endDate As String, _
-    ByVal maturityDate As String, _
-    ByVal expiryDate As String, _
-    ByVal underlyingPrice As String, _
-    ByVal strikePrice As String, _
-    ByVal lambdaPrice As String, _
-    ByVal attachmentRate As String, _
-    ByVal detachmentRate As String)
+    ByVal TradeId As String, _
+    ByVal AssetClassCode As String, _
+    ByVal SubClass As String, _
+    ByVal RiskFactor As String, _
+    ByVal Instrument As String, _
+    ByVal Direction As String, _
+    ByVal OptionType As String, _
+    ByVal Nature As String, _
+    ByVal HedgingSetLabel As String, _
+    ByVal NotionalAmount As String, _
+    ByVal MarketValueAmount As String, _
+    ByVal StartDate As String, _
+    ByVal EndDate As String, _
+    ByVal MaturityDate As String, _
+    ByVal ExpiryDate As String, _
+    ByVal UnderlyingPrice As String, _
+    ByVal StrikePrice As String, _
+    ByVal LambdaPrice As String, _
+    ByVal AttachmentRate As String, _
+    ByVal DetachmentRate As String)
 '
 '==============================================================================
 '                                   AddTrade
@@ -469,52 +469,52 @@ Public Sub AddTrade( _
 '   YYYY-MM-DD, empty for null.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim rowValues(1 To 1, 1 To TR_NCOLS)   As Variant    'The row to write
+    Dim RowValues(1 To 1, 1 To TR_NCOLS)   As Variant    'The row to write
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        rowValues(1, TR_ID) = tradeId
-        rowValues(1, TR_NS) = mNettingSetId
-        rowValues(1, TR_AC) = assetClassCode
-        rowValues(1, TR_SUB) = TextOrBlank(subClass)
-        rowValues(1, TR_RF) = riskFactor
-        rowValues(1, TR_INSTR) = instrument
-        rowValues(1, TR_DIR) = direction
-        rowValues(1, TR_OPT) = TextOrBlank(optionType)
-        rowValues(1, TR_NATURE) = nature
-        rowValues(1, TR_LABEL) = TextOrBlank(hedgingSetLabel)
-        rowValues(1, TR_NOTIONAL) = NumberOrBlank(notionalAmount)
-        rowValues(1, TR_NCCY) = mCurrency
-        rowValues(1, TR_MTM) = NumberOrBlank(marketValueAmount)
-        rowValues(1, TR_MCCY) = mCurrency
-        rowValues(1, TR_START) = IsoDate(startDate)
-        rowValues(1, TR_END) = IsoDate(endDate)
-        rowValues(1, TR_MAT) = IsoDate(maturityDate)
-        rowValues(1, TR_EXPIRY) = IsoDate(expiryDate)
-        rowValues(1, TR_PRICE) = NumberOrBlank(underlyingPrice)
-        rowValues(1, TR_STRIKE) = NumberOrBlank(strikePrice)
-        rowValues(1, TR_LAMBDA) = NumberOrBlank(lambdaPrice)
-        rowValues(1, TR_ATTACH) = NumberOrBlank(attachmentRate)
-        rowValues(1, TR_DETACH) = NumberOrBlank(detachmentRate)
-        WriteRow GetSheet(SH_TRADES), mNextTradeRow, TR_NCOLS, rowValues
+        RowValues(1, TR_ID) = TradeId
+        RowValues(1, TR_NS) = mNettingSetId
+        RowValues(1, TR_AC) = AssetClassCode
+        RowValues(1, TR_SUB) = TextOrBlank(SubClass)
+        RowValues(1, TR_RF) = RiskFactor
+        RowValues(1, TR_INSTR) = Instrument
+        RowValues(1, TR_DIR) = Direction
+        RowValues(1, TR_OPT) = TextOrBlank(OptionType)
+        RowValues(1, TR_NATURE) = Nature
+        RowValues(1, TR_LABEL) = TextOrBlank(HedgingSetLabel)
+        RowValues(1, TR_NOTIONAL) = NumberOrBlank(NotionalAmount)
+        RowValues(1, TR_NCCY) = mCurrency
+        RowValues(1, TR_MTM) = NumberOrBlank(MarketValueAmount)
+        RowValues(1, TR_MCCY) = mCurrency
+        RowValues(1, TR_START) = IsoDate(StartDate)
+        RowValues(1, TR_END) = IsoDate(EndDate)
+        RowValues(1, TR_MAT) = IsoDate(MaturityDate)
+        RowValues(1, TR_EXPIRY) = IsoDate(ExpiryDate)
+        RowValues(1, TR_PRICE) = NumberOrBlank(UnderlyingPrice)
+        RowValues(1, TR_STRIKE) = NumberOrBlank(StrikePrice)
+        RowValues(1, TR_LAMBDA) = NumberOrBlank(LambdaPrice)
+        RowValues(1, TR_ATTACH) = NumberOrBlank(AttachmentRate)
+        RowValues(1, TR_DETACH) = NumberOrBlank(DetachmentRate)
+        WriteRow GetSheet(SH_TRADES), mNextTradeRow, TR_NCOLS, RowValues
         mNextTradeRow = mNextTradeRow + 1
 
 End Sub
 
 
 Public Sub SetInputCell( _
-    ByVal sheetName As String, _
-    ByVal dataRow As Long, _
-    ByVal col As Long, _
-    ByVal newValue As Variant)
+    ByVal SheetName As String, _
+    ByVal DataRow As Long, _
+    ByVal TableColumn As Long, _
+    ByVal NewValue As Variant)
 '
 '==============================================================================
 '                                 SetInputCell
@@ -522,28 +522,28 @@ Public Sub SetInputCell( _
 ' PURPOSE
 '   Overwrite one input cell after AddNettingSet or AddTrade, for invalid
 '   inputs that a JSON fixture cannot express: a blank ID, a duplicate ID,
-'   a typo in a flag. Used by TEST_InputValidation.
+'   a typo in a flag. Used by TEST_InputValidation and TEST_Aggregation.
 '
 ' INPUTS
-'   sheetName: SH_NS or SH_TRADES.
-'   dataRow: 1 for the first data row.
-'   col: table column number, for example TR_ID.
-'   newValue: the value to write; Empty clears the cell.
+'   SheetName: SH_NS or SH_TRADES.
+'   DataRow: 1 for the first data row.
+'   TableColumn: table column number, for example TR_ID.
+'   NewValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        TableCell(GetSheet(sheetName), InputTop(sheetName) + dataRow - 1, col).Value = newValue
+        TableCell(GetSheet(SheetName), InputTop(SheetName) + DataRow - 1, TableColumn).Value = NewValue
 
 End Sub
 
 
 Public Sub PatchCell( _
-    ByVal sheetName As String, _
-    ByVal rowNum As Long, _
-    ByVal col As Long, _
-    ByVal newValue As Variant)
+    ByVal SheetName As String, _
+    ByVal RowNumber As Long, _
+    ByVal TableColumn As Long, _
+    ByVal NewValue As Variant)
 '
 '==============================================================================
 '                                  PatchCell
@@ -551,36 +551,37 @@ Public Sub PatchCell( _
 ' PURPOSE
 '   Overwrite any cell outside the input rows, such as a header or a row of
 '   a Params table, for one case. The cell is restored at the start of the
-'   next case and by EndSuite. Used by TEST_InputValidation.
+'   next case and by EndSuite. Used by TEST_InputValidation,
+'   TEST_Invariants, SetParameter and UnitFxRate.
 '
 ' INPUTS
-'   sheetName: a SH_ constant.
-'   rowNum, col: the cell's sheet row and table column.
-'   newValue: the value to write; Empty clears the cell.
+'   SheetName: a SH_ constant.
+'   RowNumber, TableColumn: the cell's sheet row and table column.
+'   NewValue: the value to write; Empty clears the cell.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim target   As Range    'The cell
+    Dim TargetCell   As Range    'The cell
 
 '------------------------------------------------------------------------------
 ' RECORD AND WRITE
 '------------------------------------------------------------------------------
-        Set target = TableCell(GetSheet(sheetName), rowNum, col)
-        RecordPatch sheetName, target.Address, target.Formula
-        target.Value = newValue
+        Set TargetCell = TableCell(GetSheet(SheetName), RowNumber, TableColumn)
+        RecordPatch SheetName, TargetCell.Address, TargetCell.Formula
+        TargetCell.Value = NewValue
 
 End Sub
 
 
 Public Sub PatchName( _
-    ByVal nameText As String, _
-    ByVal newRefersTo As String)
+    ByVal NameText As String, _
+    ByVal NewRefersTo As String)
 '
 '==============================================================================
 '                                  PatchName
@@ -590,22 +591,22 @@ Public Sub PatchName( _
 '   "=#REF!". Restored like PatchCell.
 '
 ' INPUTS
-'   nameText: an existing workbook name, such as a PRM_ code.
-'   newRefersTo: the new reference, as a formula.
+'   NameText: an existing workbook name, such as a PRM_ code.
+'   NewRefersTo: the new reference, as a formula.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        RecordPatch "", nameText, ThisWorkbook.Names(nameText).RefersTo
-        ThisWorkbook.Names(nameText).RefersTo = newRefersTo
+        RecordPatch "", NameText, ThisWorkbook.Names(NameText).RefersTo
+        ThisWorkbook.Names(NameText).RefersTo = NewRefersTo
 
 End Sub
 
 
 Public Sub SetParameter( _
-    ByVal code As String, _
-    ByVal valueText As String)
+    ByVal Code As String, _
+    ByVal ValueText As String)
 '
 '==============================================================================
 '                                 SetParameter
@@ -617,8 +618,8 @@ Public Sub SetParameter( _
 '   FALSE. Restored like PatchCell.
 '
 ' INPUTS
-'   code: a PRM_ code, whose workbook name locates the value cell.
-'   valueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
+'   Code: a PRM_ code, whose workbook name locates the value cell.
+'   ValueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
 '   the number as text with a "." decimal point.
 '
 ' ERROR POLICY
@@ -626,26 +627,26 @@ Public Sub SetParameter( _
 '   suite then ends as failed.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim c   As Range    'Value cell of the parameter
+    Dim ValueCell   As Range    'Value cell of the parameter
 
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        Set c = ParamCell(code)
-        Select Case valueText
+        Set ValueCell = ParamCell(Code)
+        Select Case ValueText
             Case "Y"
-                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, True
+                PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, True
             Case "N"
-                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, False
+                PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, False
             Case Else
-                PatchCell SH_PARAMS, c.Row, c.Column - COL_OFFSET, Val(valueText)
+                PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, Val(ValueText)
         End Select
 
 End Sub
@@ -689,9 +690,9 @@ End Sub
 
 
 Public Sub RunCaseExpectingStop( _
-    ByVal label As String, _
-    ByVal messagePart As String, _
-    ByVal referenceClass As String)
+    ByVal Label As String, _
+    ByVal MessagePart As String, _
+    ByVal ReferenceClass As String)
 '
 '==============================================================================
 '                             RunCaseExpectingStop
@@ -702,33 +703,33 @@ Public Sub RunCaseExpectingStop( _
 '   reason.
 '
 ' INPUTS
-'   label: the check's name in the report.
-'   messagePart: text the ERROR message must contain, ignoring case.
-'   referenceClass: published, independent or illustrative.
+'   Label: the check's name in the report.
+'   MessagePart: text the ERROR message must contain, ignoring case.
+'   ReferenceClass: published, independent or illustrative.
 '
 ' ERROR POLICY
 '   A run that raises fails the check.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim completed   As Boolean    'Calculate returned True
+    Dim Completed   As Boolean    'Calculate returned True
 
 '------------------------------------------------------------------------------
 ' RUN AND CHECK
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        completed = CORE_Engine.Calculate(True)
-        If completed Then
-            Record label, referenceClass, False, "run completed; expected it to stop"
+        Completed = CORE_Engine.Calculate(True)
+        If Completed Then
+            Record Label, ReferenceClass, False, "run completed; expected it to stop"
         Else
-            Record label, referenceClass, ChecksHasLine(SEV_ERROR, messagePart), _
-                   "run stopped, but no ERROR on Checks contains """ & messagePart & """"
+            Record Label, ReferenceClass, ChecksHasLine(SEV_ERROR, MessagePart), _
+                   "run stopped, but no ERROR on Checks contains """ & MessagePart & """"
         End If
         Exit Sub
 
@@ -736,7 +737,7 @@ Public Sub RunCaseExpectingStop( _
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
-        Record label, referenceClass, False, "engine error " & Err.Number & ": " & Err.Description
+        Record Label, ReferenceClass, False, "engine error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -750,13 +751,13 @@ End Sub
 '
 
 Public Sub ExpectNumber( _
-    ByVal label As String, _
-    ByVal tradeId As String, _
-    ByVal quantity As String, _
-    ByVal expected As String, _
-    ByVal absoluteTolerance As String, _
-    ByVal relativeTolerance As String, _
-    ByVal referenceClass As String)
+    ByVal Label As String, _
+    ByVal TradeId As String, _
+    ByVal Quantity As String, _
+    ByVal ExpectedText As String, _
+    ByVal AbsoluteTolerance As String, _
+    ByVal RelativeTolerance As String, _
+    ByVal ReferenceClass As String)
 '
 '==============================================================================
 '                                 ExpectNumber
@@ -768,57 +769,58 @@ Public Sub ExpectNumber( _
 '   before the tolerance is applied.
 '
 ' INPUTS
-'   label: catalogue ID or quantity, for the report.
-'   tradeId: the trade for a trade-level quantity; empty for the netting set.
-'   quantity: the quantity name.
-'   expected, absoluteTolerance, relativeTolerance: numbers as text.
-'   referenceClass: published, independent or illustrative.
+'   Label: catalogue ID or quantity, for the report.
+'   TradeId: the trade for a trade-level quantity; empty for the netting
+'   set.
+'   Quantity: the quantity name.
+'   ExpectedText, AbsoluteTolerance, RelativeTolerance: numbers as text.
+'   ReferenceClass: published, independent or illustrative.
 '
 ' UPDATED
-'   2026-10-09
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim actual      As Variant    'Output cell value
-    Dim expect      As Double     'Expected value
-    Dim bound       As Double     'Permitted difference
-    Dim detail      As String     'Diagnostic
+    Dim Actual                As Variant    'Output cell value
+    Dim ExpectedValue         As Double     'Expected value
+    Dim PermittedDifference   As Double     'Permitted difference
+    Dim Detail                As String     'Diagnostic
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        expect = Val(expected)
-        bound = Val(absoluteTolerance)
-        If Val(relativeTolerance) * Abs(expect) > bound Then
-            bound = Val(relativeTolerance) * Abs(expect)
+        ExpectedValue = Val(ExpectedText)
+        PermittedDifference = Val(AbsoluteTolerance)
+        If Val(RelativeTolerance) * Abs(ExpectedValue) > PermittedDifference Then
+            PermittedDifference = Val(RelativeTolerance) * Abs(ExpectedValue)
         End If
         If mInjectFailure And Len(mInjectedAt) = 0 Then
-            expect = expect + 10# * bound + 1#
-            mInjectedAt = mCase & " " & label
-            TEST_Suite.Say "INJECTED=" & mInjectedAt & ": expected value moved to " & Trim$(Str$(expect))
+            ExpectedValue = ExpectedValue + 10# * PermittedDifference + 1#
+            mInjectedAt = mCase & " " & Label
+            TEST_Suite.Say "INJECTED=" & mInjectedAt & ": expected value moved to " & Trim$(Str$(ExpectedValue))
         End If
-        If Not ReadOutput(tradeId, quantity, actual, detail) Then
-            Record label, referenceClass, False, detail
-        ElseIf IsError(actual) Or IsEmpty(actual) Or Not IsNumeric(actual) Or VarType(actual) = vbString Then
-            Record label, referenceClass, False, quantity & " is not a number"
-        ElseIf CDbl(actual) < 0# And MustBeNonNegative(quantity) Then
-            Record label, referenceClass, False, _
-                   quantity & " must not be negative, actual " & Trim$(Str$(CDbl(actual)))
+        If Not ReadOutput(TradeId, Quantity, Actual, Detail) Then
+            Record Label, ReferenceClass, False, Detail
+        ElseIf IsError(Actual) Or IsEmpty(Actual) Or Not IsNumeric(Actual) Or VarType(Actual) = vbString Then
+            Record Label, ReferenceClass, False, Quantity & " is not a number"
+        ElseIf CDbl(Actual) < 0# And MustBeNonNegative(Quantity) Then
+            Record Label, ReferenceClass, False, _
+                   Quantity & " must not be negative, actual " & Trim$(Str$(CDbl(Actual)))
         Else
-            Record label, referenceClass, Abs(CDbl(actual) - expect) <= bound, _
-                   quantity & " expected " & Trim$(Str$(expect)) & ", actual " & _
-                   Trim$(Str$(CDbl(actual))) & ", tolerance " & Trim$(Str$(bound))
+            Record Label, ReferenceClass, Abs(CDbl(Actual) - ExpectedValue) <= PermittedDifference, _
+                   Quantity & " expected " & Trim$(Str$(ExpectedValue)) & ", actual " & _
+                   Trim$(Str$(CDbl(Actual))) & ", tolerance " & Trim$(Str$(PermittedDifference))
         End If
 
 End Sub
 
 
 Public Function OutputNumber( _
-    ByVal nettingSetId As String, _
-    ByVal quantity As String) _
+    ByVal NettingSetKey As String, _
+    ByVal Quantity As String) _
     As Double
 '
 '==============================================================================
@@ -830,51 +832,51 @@ Public Function OutputNumber( _
 '   a fixed expected value.
 '
 ' INPUTS
-'   nettingSetId: the netting set's row on Results.
-'   quantity: a netting-set quantity name, as for ExpectNumber.
+'   NettingSetKey: the netting set's ID, which names its row on Results.
+'   Quantity: a netting-set quantity name, as for ExpectNumber.
 '
 ' ERROR POLICY
 '   Raises ERR_TEST_SETUP when the row, the column or a number is missing;
 '   the calling suite then fails.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws    As Worksheet    'Results sheet
-    Dim col   As Long         'Output column; 0 when unknown
-    Dim r     As Long         'Output row; 0 when not found
-    Dim v     As Variant      'Cell value
+    Dim ResultsSheet     As Worksheet    'Results sheet
+    Dim QuantityColumn   As Long         'Output column; 0 when unknown
+    Dim ResultRow        As Long         'Output row; 0 when not found
+    Dim Content          As Variant      'Cell value
 
 '------------------------------------------------------------------------------
 ' READ
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_RESULTS)
-        col = OutputColumn(quantity, False)
-        r = FindHeaderRow(ws, 1, nettingSetId)
-        If col = 0 Or r < OutputFirstRow(SH_RESULTS) Then
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        QuantityColumn = OutputColumn(Quantity, False)
+        ResultRow = FindHeaderRow(ResultsSheet, 1, NettingSetKey)
+        If QuantityColumn = 0 Or ResultRow < OutputFirstRow(SH_RESULTS) Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.OutputNumber", _
-                      quantity & " of " & nettingSetId & " not found on Results."
+                      Quantity & " of " & NettingSetKey & " not found on Results."
         End If
-        v = TableCell(ws, r, col).Value
-        If Not IsNum(v) Then
+        Content = TableCell(ResultsSheet, ResultRow, QuantityColumn).Value
+        If Not IsNum(Content) Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.OutputNumber", _
-                      quantity & " of " & nettingSetId & " is not a number (" & SafeStr(v) & ")."
+                      Quantity & " of " & NettingSetKey & " is not a number (" & SafeStr(Content) & ")."
         End If
-        OutputNumber = CDbl(v)
+        OutputNumber = CDbl(Content)
 
 End Function
 
 
 Public Sub ExpectTrue( _
-    ByVal label As String, _
-    ByVal passed As Boolean, _
-    ByVal detail As String, _
-    ByVal referenceClass As String)
+    ByVal Label As String, _
+    ByVal Passed As Boolean, _
+    ByVal Detail As String, _
+    ByVal ReferenceClass As String)
 '
 '==============================================================================
 '                                  ExpectTrue
@@ -884,51 +886,51 @@ Public Sub ExpectTrue( _
 '   between two outputs.
 '
 ' INPUTS
-'   label: the check's name in the report.
-'   passed: the result.
-'   detail: printed when the check fails.
-'   referenceClass: published, independent or illustrative.
+'   Label: the check's name in the report.
+'   Passed: the result.
+'   Detail: printed when the check fails.
+'   ReferenceClass: published, independent or illustrative.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
-        Record label, referenceClass, passed, detail
+        Record Label, ReferenceClass, Passed, Detail
 
 End Sub
 
 
 Public Sub ExpectChecksLine( _
-    ByVal label As String, _
-    ByVal severity As String, _
-    ByVal messagePart As String, _
-    ByVal referenceClass As String)
+    ByVal Label As String, _
+    ByVal Severity As String, _
+    ByVal MessagePart As String, _
+    ByVal ReferenceClass As String)
 '
 '==============================================================================
 '                               ExpectChecksLine
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   After RunCase, check that the Checks sheet has a line of the given
-'   severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
-'   messagePart, ignoring case: for a warning that does not change the
+'   Severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
+'   MessagePart, ignoring case: for a warning that does not change the
 '   netting set's status.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        Record label, referenceClass, ChecksHasLine(severity, messagePart), _
-               "Checks has no " & severity & " line containing '" & messagePart & "'"
+        Record Label, ReferenceClass, ChecksHasLine(Severity, MessagePart), _
+               "Checks has no " & Severity & " line containing '" & MessagePart & "'"
 
 End Sub
 
 
 Public Sub ExpectText( _
-    ByVal label As String, _
-    ByVal tradeId As String, _
-    ByVal quantity As String, _
-    ByVal expected As String, _
-    ByVal referenceClass As String)
+    ByVal Label As String, _
+    ByVal TradeId As String, _
+    ByVal Quantity As String, _
+    ByVal ExpectedText As String, _
+    ByVal ReferenceClass As String)
 '
 '==============================================================================
 '                                  ExpectText
@@ -937,29 +939,29 @@ Public Sub ExpectText( _
 '   Check a text output for exact, case-sensitive equality.
 '
 ' INPUTS
-'   As ExpectNumber; expected is the exact text.
+'   As ExpectNumber; ExpectedText is the exact text.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim actual   As Variant    'Output cell value
-    Dim detail   As String     'Diagnostic
+    Dim Actual   As Variant    'Output cell value
+    Dim Detail   As String     'Diagnostic
 
 '------------------------------------------------------------------------------
 ' COMPARE
 '------------------------------------------------------------------------------
-        If Not ReadOutput(tradeId, quantity, actual, detail) Then
-            Record label, referenceClass, False, detail
-        ElseIf IsError(actual) Then
-            Record label, referenceClass, False, quantity & " is an error value"
+        If Not ReadOutput(TradeId, Quantity, Actual, Detail) Then
+            Record Label, ReferenceClass, False, Detail
+        ElseIf IsError(Actual) Then
+            Record Label, ReferenceClass, False, Quantity & " is an error value"
         Else
-            Record label, referenceClass, StrComp(CStr(actual), expected, vbBinaryCompare) = 0, _
-                   quantity & " expected """ & expected & """, actual """ & CStr(actual) & """"
+            Record Label, ReferenceClass, StrComp(CStr(Actual), ExpectedText, vbBinaryCompare) = 0, _
+                   Quantity & " expected """ & ExpectedText & """, actual """ & CStr(Actual) & """"
         End If
 
 End Sub
@@ -974,10 +976,10 @@ End Sub
 '
 
 Private Function ReadOutput( _
-    ByVal tradeId As String, _
-    ByVal quantity As String, _
-    ByRef actual As Variant, _
-    ByRef detail As String) _
+    ByVal TradeId As String, _
+    ByVal Quantity As String, _
+    ByRef Actual As Variant, _
+    ByRef Detail As String) _
     As Boolean
 '
 '==============================================================================
@@ -988,50 +990,50 @@ Private Function ReadOutput( _
 '   TradeCalc for a trade.
 '
 ' RETURNS
-'   True with actual set to the cell value; False with detail saying what
+'   True with Actual set to the cell value; False with Detail saying what
 '   was missing.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws    As Worksheet    'Results or TradeCalc
-    Dim rowId As String       'Row ID to find
-    Dim col   As Long         'Output column; 0 when unknown
-    Dim r     As Long         'Output row; 0 when not found
+    Dim OutputSheet      As Worksheet    'Results or TradeCalc
+    Dim RowId            As String       'Row ID to find
+    Dim QuantityColumn   As Long         'Output column; 0 when unknown
+    Dim OutputRow        As Long         'Output row; 0 when not found
 
 '------------------------------------------------------------------------------
 ' LOCATE
 '------------------------------------------------------------------------------
-        If Len(tradeId) = 0 Then
-            Set ws = GetSheet(SH_RESULTS)
-            rowId = mNettingSetId
+        If Len(TradeId) = 0 Then
+            Set OutputSheet = GetSheet(SH_RESULTS)
+            RowId = mNettingSetId
         Else
-            Set ws = GetSheet(SH_TRADECALC)
-            rowId = tradeId
+            Set OutputSheet = GetSheet(SH_TRADECALC)
+            RowId = TradeId
         End If
-        col = OutputColumn(quantity, Len(tradeId) > 0)
-        If col = 0 Then
-            detail = "no output column for " & quantity
+        QuantityColumn = OutputColumn(Quantity, Len(TradeId) > 0)
+        If QuantityColumn = 0 Then
+            Detail = "no output column for " & Quantity
             Exit Function
         End If
-        r = FindHeaderRow(ws, 1, rowId)
-        If r < OutputFirstRow(ws.Name) Then
-            detail = rowId & " not found on " & ws.Name
+        OutputRow = FindHeaderRow(OutputSheet, 1, RowId)
+        If OutputRow < OutputFirstRow(OutputSheet.Name) Then
+            Detail = RowId & " not found on " & OutputSheet.Name
             Exit Function
         End If
-        actual = TableCell(ws, r, col).Value
+        Actual = TableCell(OutputSheet, OutputRow, QuantityColumn).Value
         ReadOutput = True
 
 End Function
 
 
 Private Function MustBeNonNegative( _
-    ByVal quantity As String) _
+    ByVal Quantity As String) _
     As Boolean
 '
 '==============================================================================
@@ -1043,24 +1045,24 @@ Private Function MustBeNonNegative( _
 '   Supervisory delta and adjusted notional carry a sign and are excluded.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        Select Case quantity
+        Select Case Quantity
             Case "exposure_value", "replacement_cost", "potential_future_exposure", _
                  "aggregate_add_on", "multiplier", "margin_period_of_risk", _
                  "supervisory_factor", "lambda_shift"
                 MustBeNonNegative = True
             Case Else
-                MustBeNonNegative = (Left$(quantity, 7) = "add_on.")
+                MustBeNonNegative = (Left$(Quantity, 7) = "add_on.")
         End Select
 
 End Function
 
 
 Private Function OutputColumn( _
-    ByVal quantity As String, _
-    ByVal tradeLevel As Boolean) _
+    ByVal Quantity As String, _
+    ByVal TradeLevel As Boolean) _
     As Long
 '
 '==============================================================================
@@ -1073,15 +1075,15 @@ Private Function OutputColumn( _
 '   The column number; 0 for an unknown quantity.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' MAP
 '------------------------------------------------------------------------------
-        If tradeLevel Then
-            Select Case quantity
+        If TradeLevel Then
+            Select Case Quantity
                 Case "trade_status"
                     OutputColumn = 4
                 Case "hedging_set"
@@ -1098,7 +1100,7 @@ Private Function OutputColumn( _
                     OutputColumn = 23
             End Select
         Else
-            Select Case quantity
+            Select Case Quantity
                 Case "margin_period_of_risk"
                     OutputColumn = 6
                 Case "replacement_cost"
@@ -1134,10 +1136,10 @@ End Function
 
 
 Private Sub Record( _
-    ByVal label As String, _
-    ByVal referenceClass As String, _
-    ByVal passed As Boolean, _
-    ByVal detail As String)
+    ByVal Label As String, _
+    ByVal ReferenceClass As String, _
+    ByVal Passed As Boolean, _
+    ByVal Detail As String)
 '
 '==============================================================================
 '                                    Record
@@ -1146,41 +1148,41 @@ Private Sub Record( _
 '   Count one check under its reference class and print it when it fails.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim cls   As Long    'Reference-class index
+    Dim ClassIndex   As Long    'Reference-class index
 
 '------------------------------------------------------------------------------
 ' COUNT
 '------------------------------------------------------------------------------
-        Select Case referenceClass
+        Select Case ReferenceClass
             Case "published"
-                cls = CLASS_PUBLISHED
+                ClassIndex = CLASS_PUBLISHED
             Case "independent"
-                cls = CLASS_INDEPENDENT
+                ClassIndex = CLASS_INDEPENDENT
             Case Else
-                cls = CLASS_ILLUSTRATIVE
+                ClassIndex = CLASS_ILLUSTRATIVE
         End Select
         mCheckCount = mCheckCount + 1
-        If passed Then
-            mPassed(cls) = mPassed(cls) + 1
+        If Passed Then
+            mPassed(ClassIndex) = mPassed(ClassIndex) + 1
         Else
-            mFailed(cls) = mFailed(cls) + 1
+            mFailed(ClassIndex) = mFailed(ClassIndex) + 1
             mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=" & mCase & " " & label & " (" & referenceClass & "): " & detail
+            TEST_Suite.Say "FAILURE=" & mCase & " " & Label & " (" & ReferenceClass & "): " & Detail
         End If
 
 End Sub
 
 
 Private Function ChecksHasLine( _
-    ByVal severity As String, _
-    ByVal messagePart As String) _
+    ByVal Severity As String, _
+    ByVal MessagePart As String) _
     As Boolean
 '
 '==============================================================================
@@ -1188,29 +1190,29 @@ Private Function ChecksHasLine( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell whether the Checks sheet has a line of the given severity whose
-'   message contains messagePart, ignoring case.
+'   message contains MessagePart, ignoring case.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws      As Worksheet    'Checks sheet
-    Dim lastR   As Long         'Last used row
-    Dim r       As Long         'Row being read
+    Dim ChecksSheet   As Worksheet    'Checks sheet
+    Dim LastUsedRow   As Long         'Last used row
+    Dim r             As Long         'Row being read
 
 '------------------------------------------------------------------------------
 ' SEARCH
 '------------------------------------------------------------------------------
     'Checks columns: 1 severity, 5 message.
-        Set ws = GetSheet(SH_CHECKS)
-        lastR = UsedLastRow(ws)
-        For r = OutputFirstRow(SH_CHECKS) To lastR
-            If SafeStr(TableCell(ws, r, 1).Value) = severity Then
-                If InStr(1, SafeStr(TableCell(ws, r, 5).Value), messagePart, vbTextCompare) > 0 Then
+        Set ChecksSheet = GetSheet(SH_CHECKS)
+        LastUsedRow = UsedLastRow(ChecksSheet)
+        For r = OutputFirstRow(SH_CHECKS) To LastUsedRow
+            If SafeStr(TableCell(ChecksSheet, r, 1).Value) = Severity Then
+                If InStr(1, SafeStr(TableCell(ChecksSheet, r, 5).Value), MessagePart, vbTextCompare) > 0 Then
                     ChecksHasLine = True
                     Exit Function
                 End If
@@ -1221,7 +1223,7 @@ End Function
 
 
 Private Sub UnitFxRate( _
-    ByVal currencyCode As String)
+    ByVal CurrencyCode As String)
 '
 '==============================================================================
 '                                  UnitFxRate
@@ -1233,27 +1235,28 @@ Private Sub UnitFxRate( _
 '   currency at rate 1.
 '
 ' INPUTS
-'   currencyCode: three-letter code, as in the first column of the FX table.
+'   CurrencyCode: three-letter code, as in the first column of the FX
+'   table.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ws   As Worksheet    'Params sheet
-    Dim r    As Long         'Row of the currency in the table; 0 when absent
+    Dim ParamsSheet   As Worksheet    'Params sheet
+    Dim CurrencyRow   As Long         'Row of the currency in the table; 0 when absent
 
 '------------------------------------------------------------------------------
 ' PATCH
 '------------------------------------------------------------------------------
-        Set ws = GetSheet(SH_PARAMS)
-        r = FindHeaderRow(ws, NamedTableCol(NM_FX_TABLE), currencyCode)
-        If r > 0 Then
-            If ToDbl(TableCell(ws, r, NamedTableCol(NM_FX_TABLE) + 2).Value) <> 1# Then
-                PatchCell SH_PARAMS, r, NamedTableCol(NM_FX_TABLE) + 2, 1#
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        CurrencyRow = FindHeaderRow(ParamsSheet, NamedTableCol(NM_FX_TABLE), CurrencyCode)
+        If CurrencyRow > 0 Then
+            If ToDbl(TableCell(ParamsSheet, CurrencyRow, NamedTableCol(NM_FX_TABLE) + 2).Value) <> 1# Then
+                PatchCell SH_PARAMS, CurrencyRow, NamedTableCol(NM_FX_TABLE) + 2, 1#
             End If
         End If
 
@@ -1261,9 +1264,9 @@ End Sub
 
 
 Private Sub RecordPatch( _
-    ByVal sheetName As String, _
-    ByVal target As String, _
-    ByVal saved As Variant)
+    ByVal SheetName As String, _
+    ByVal Target As String, _
+    ByVal Saved As Variant)
 '
 '==============================================================================
 '                                 RecordPatch
@@ -1273,16 +1276,16 @@ Private Sub RecordPatch( _
 '   PatchCell or PatchName changes it.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
         mPatchCount = mPatchCount + 1
         ReDim Preserve mPatchSheet(1 To mPatchCount)
         ReDim Preserve mPatchTarget(1 To mPatchCount)
         ReDim Preserve mPatchSaved(1 To mPatchCount)
-        mPatchSheet(mPatchCount) = sheetName
-        mPatchTarget(mPatchCount) = target
-        mPatchSaved(mPatchCount) = saved
+        mPatchSheet(mPatchCount) = SheetName
+        mPatchTarget(mPatchCount) = Target
+        mPatchSaved(mPatchCount) = Saved
 
 End Sub
 
@@ -1302,22 +1305,22 @@ Private Sub RestorePatches()
 '   restoration is reported once.
 '
 ' UPDATED
-'   2026-10-07
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim i         As Long    'Patch being undone
-    Dim nPatches  As Long    'Patches recorded
+    Dim i                 As Long    'Patch being undone
+    Dim RecordedPatches   As Long    'Patches recorded
 
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
-        nPatches = mPatchCount
+        RecordedPatches = mPatchCount
         mPatchCount = 0
-        For i = nPatches To 1 Step -1
+        For i = RecordedPatches To 1 Step -1
             If Len(mPatchSheet(i)) = 0 Then
                 ThisWorkbook.Names(mPatchTarget(i)).RefersTo = mPatchSaved(i)
             Else
@@ -1329,8 +1332,8 @@ End Sub
 
 
 Private Function RestoreStep( _
-    ByVal stepName As String, _
-    ByVal stepNumber As Long) _
+    ByVal StepName As String, _
+    ByVal StepNumber As Long) _
     As Boolean
 '
 '==============================================================================
@@ -1340,8 +1343,8 @@ Private Function RestoreStep( _
 '   Run one restoration step of EndSuite with its own error handler.
 '
 ' INPUTS
-'   stepName: name for the report.
-'   stepNumber: 1 inputs and patches, 2 parameters, 3 outputs,
+'   StepName: name for the report.
+'   StepNumber: 1 inputs and patches, 2 parameters, 3 outputs,
 '   4 calculation mode, 5 events, 6 screen updating. Each setting is its
 '   own step, so one failed restoration cannot leave the others changed.
 '
@@ -1349,7 +1352,7 @@ Private Function RestoreStep( _
 '   True when the step succeeded.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1357,7 +1360,7 @@ Private Function RestoreStep( _
 ' RESTORE
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        Select Case stepNumber
+        Select Case StepNumber
             Case 1
                 RestorePatches
                 RestoreBlock GetSheet(SH_NS), NS_NCOLS, mSavedNsAddress, mSavedNs
@@ -1381,16 +1384,16 @@ Private Function RestoreStep( _
 ' REPORT FAILURE
 '------------------------------------------------------------------------------
 Failed:
-        TEST_Suite.Say "FAILURE=restore " & stepName & ": " & Err.Number & ": " & Err.Description
+        TEST_Suite.Say "FAILURE=restore " & StepName & ": " & Err.Number & ": " & Err.Description
 
 End Function
 
 
 Private Sub SaveBlock( _
-    ByVal ws As Worksheet, _
-    ByVal nCols As Long, _
-    ByRef blockAddress As String, _
-    ByRef formulas As Variant)
+    ByVal InputSheet As Worksheet, _
+    ByVal ColumnCount As Long, _
+    ByRef BlockAddress As String, _
+    ByRef Formulas As Variant)
 '
 '==============================================================================
 '                                  SaveBlock
@@ -1400,43 +1403,43 @@ Private Sub SaveBlock( _
 '   last used row.
 '
 ' RETURNS
-'   blockAddress: the block's address, "" when the sheet has no data rows.
-'   formulas: the block's formulas.
+'   BlockAddress: the block's address, "" when the sheet has no data rows.
+'   Formulas: the block's formulas.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR    As Long    'Last used row
-    Dim topRow   As Long    'First data row
+    Dim LastUsedRow   As Long    'Last used row
+    Dim TopRow        As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' SAVE
 '------------------------------------------------------------------------------
-        blockAddress = ""
-        formulas = Empty
-        topRow = InputTop(ws.Name)
-        lastR = UsedLastRow(ws)
-        If lastR < topRow Then
+        BlockAddress = ""
+        Formulas = Empty
+        TopRow = InputTop(InputSheet.Name)
+        LastUsedRow = UsedLastRow(InputSheet)
+        If LastUsedRow < TopRow Then
             Exit Sub
         End If
-        With TableRange(ws, topRow, 1, lastR, nCols)
-            blockAddress = .Address
-            formulas = .Formula
+        With TableRange(InputSheet, TopRow, 1, LastUsedRow, ColumnCount)
+            BlockAddress = .Address
+            Formulas = .Formula
         End With
 
 End Sub
 
 
 Private Sub RestoreBlock( _
-    ByVal ws As Worksheet, _
-    ByVal nCols As Long, _
-    ByVal blockAddress As String, _
-    ByVal formulas As Variant)
+    ByVal InputSheet As Worksheet, _
+    ByVal ColumnCount As Long, _
+    ByVal BlockAddress As String, _
+    ByVal Formulas As Variant)
 '
 '==============================================================================
 '                                 RestoreBlock
@@ -1445,24 +1448,24 @@ Private Sub RestoreBlock( _
 '   Clear the case rows and write the saved block back.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
-        ClearBlock ws, nCols
-        If Len(blockAddress) > 0 Then
-            ws.Range(blockAddress).Formula = formulas
+        ClearBlock InputSheet, ColumnCount
+        If Len(BlockAddress) > 0 Then
+            InputSheet.Range(BlockAddress).Formula = Formulas
         End If
 
 End Sub
 
 
 Private Sub ClearBlock( _
-    ByVal ws As Worksheet, _
-    ByVal nCols As Long)
+    ByVal InputSheet As Worksheet, _
+    ByVal ColumnCount As Long)
 '
 '==============================================================================
 '                                  ClearBlock
@@ -1471,30 +1474,30 @@ Private Sub ClearBlock( _
 '   Clear the values of an input block; formats and validation stay.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim lastR    As Long    'Last used row
-    Dim topRow   As Long    'First data row
+    Dim LastUsedRow   As Long    'Last used row
+    Dim TopRow        As Long    'First data row
 
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
-        topRow = InputTop(ws.Name)
-        lastR = UsedLastRow(ws)
-        If lastR >= topRow Then
-            TableRange(ws, topRow, 1, lastR, nCols).ClearContents
+        TopRow = InputTop(InputSheet.Name)
+        LastUsedRow = UsedLastRow(InputSheet)
+        If LastUsedRow >= TopRow Then
+            TableRange(InputSheet, TopRow, 1, LastUsedRow, ColumnCount).ClearContents
         End If
 
 End Sub
 
 
 Private Function InputTop( _
-    ByVal sheetName As String) _
+    ByVal SheetName As String) _
     As Long
 '
 '==============================================================================
@@ -1509,13 +1512,13 @@ Private Function InputTop( _
 '   ends as failed.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        InputTop = TableFirstRow(sheetName)
+        InputTop = TableFirstRow(SheetName)
         If InputTop = 0 Then
             Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.InputTop", _
-                      "The header of " & sheetName & " cannot be located through its workbook name - " & _
+                      "The header of " & SheetName & " cannot be located through its workbook name - " & _
                       "rebuild the workbook from the template."
         End If
 
@@ -1523,28 +1526,28 @@ End Function
 
 
 Private Sub WriteRow( _
-    ByVal ws As Worksheet, _
-    ByVal rowNum As Long, _
-    ByVal nCols As Long, _
-    ByRef values() As Variant)
+    ByVal InputSheet As Worksheet, _
+    ByVal RowNumber As Long, _
+    ByVal ColumnCount As Long, _
+    ByRef Values() As Variant)
 '
 '==============================================================================
 '                                   WriteRow
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write one input row from a (1 To 1, 1 To nCols) array.
+'   Write one input row from a (1 To 1, 1 To ColumnCount) array.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        TableRange(ws, rowNum, 1, rowNum, nCols).Value = values
+        TableRange(InputSheet, RowNumber, 1, RowNumber, ColumnCount).Value = Values
 
 End Sub
 
 
 Private Function ParamCell( _
-    ByVal code As String) _
+    ByVal Code As String) _
     As Range
 '
 '==============================================================================
@@ -1558,19 +1561,19 @@ Private Function ParamCell( _
 '   Raises ERR_TEST_SETUP when the name is missing or broken.
 '
 ' UPDATED
-'   2026-10-11
+'   2026-10-17
 '==============================================================================
 '
-        Set ParamCell = NamedCell(code)
+        Set ParamCell = NamedCell(Code)
         If ParamCell Is Nothing Then
-            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & code & " has no workbook name."
+            Err.Raise ERR_TEST_SETUP, "TEST_CaseRunner.ParamCell", "Parameter " & Code & " has no workbook name."
         End If
 
 End Function
 
 
 Private Function NumberOrBlank( _
-    ByVal inputText As String) _
+    ByVal InputText As String) _
     As Variant
 '
 '==============================================================================
@@ -1581,20 +1584,20 @@ Private Function NumberOrBlank( _
 '   Val ignores the Windows locale, unlike CDbl.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        If Len(inputText) = 0 Then
+        If Len(InputText) = 0 Then
             NumberOrBlank = Empty
         Else
-            NumberOrBlank = Val(inputText)
+            NumberOrBlank = Val(InputText)
         End If
 
 End Function
 
 
 Private Function TextOrBlank( _
-    ByVal inputText As String) _
+    ByVal InputText As String) _
     As Variant
 '
 '==============================================================================
@@ -1604,20 +1607,20 @@ Private Function TextOrBlank( _
 '   Return text for a cell; empty means blank.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        If Len(inputText) = 0 Then
+        If Len(InputText) = 0 Then
             TextOrBlank = Empty
         Else
-            TextOrBlank = inputText
+            TextOrBlank = InputText
         End If
 
 End Function
 
 
 Private Function IsoDate( _
-    ByVal inputText As String) _
+    ByVal InputText As String) _
     As Variant
 '
 '==============================================================================
@@ -1628,13 +1631,13 @@ Private Function IsoDate( _
 '   means blank.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-17
 '==============================================================================
 '
-        If Len(inputText) = 0 Then
+        If Len(InputText) = 0 Then
             IsoDate = Empty
         Else
-            IsoDate = DateSerial(CInt(Left$(inputText, 4)), CInt(Mid$(inputText, 6, 2)), CInt(Right$(inputText, 2)))
+            IsoDate = DateSerial(CInt(Left$(InputText, 4)), CInt(Mid$(InputText, 6, 2)), CInt(Right$(InputText, 2)))
         End If
 
 End Function
