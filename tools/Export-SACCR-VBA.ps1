@@ -14,8 +14,8 @@ tools/compare_vba_export.py.
 The script also writes export-manifest.json into the folder (#313): the
 file name and SHA-256 of the workbook, hashed before it is opened and again
 after it is closed, and the VB_Name, file and SHA-256 of every exported
-component. compare_vba_export.py --workbook checks the workbook and the
-files against it. The manifest is a record, not a signature.
+component, a form's .frx included. compare_vba_export.py --workbook checks
+the workbook and the files against it. The manifest is a record, not a signature.
 
 .REQUIREMENTS
 - Windows desktop Excel.
@@ -120,6 +120,15 @@ try {
             file   = $component.Name + $extension
             sha256 = Get-Sha256 -Path $target
         })
+        # A form's binary properties go to a .frx beside its .frm.
+        $resource = [System.IO.Path]::ChangeExtension($target, ".frx")
+        if ($extension -eq ".frm" -and (Test-Path -LiteralPath $resource -PathType Leaf)) {
+            $components.Add([ordered]@{
+                name   = $component.Name
+                file   = $component.Name + ".frx"
+                sha256 = Get-Sha256 -Path $resource
+            })
+        }
         Write-Host ("  {0}{1}" -f $component.Name, $extension)
         $count++
     }

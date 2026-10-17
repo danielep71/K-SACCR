@@ -17,7 +17,7 @@ working tree. The tool never runs Excel. See docs/EXCEL_EVIDENCE.md.
 
 Source parity says nothing about which workbook the files came from. The
 exporter writes export-manifest.json (#313): the SHA-256 of the workbook it
-opened and of every file it exported. With --workbook the tool checks the
+opened and of every file it exported, the .frx of a form included. With --workbook the tool checks the
 workbook and the files against it and reports the binding as VERIFIED, as
 FAIL, or as UNVERIFIED for an export without a manifest. A manifest is a
 record, not a signature: it binds an export to a workbook, but it does not
@@ -44,6 +44,9 @@ VBA_PROJECT_PART = "xl/vbaProject.bin"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 VBA_ENCODING = "cp1252"
 SUFFIXES = (".bas", ".cls", ".frm")
+# A form's binary properties, which the VBE exports beside its .frm: not
+# compared with the source, but bound to the workbook like the components.
+RESOURCE_SUFFIX = ".frx"
 VB_NAME = re.compile(r'^Attribute VB_Name = "([^"]+)"$')
 # Lines the VBE writes before the code of a class or form: the VERSION line
 # ("VERSION 1.0 CLASS" for a class, "VERSION 5.00" for a form), the
@@ -214,7 +217,7 @@ def check_binding(folder: Path, workbook: Path | None) -> tuple[str, list[str]]:
         return "FAIL", [f"{EXPORT_MANIFEST} is not a valid export manifest: {error}"]
     findings: list[str] = []
     present = {item.name.lower(): item for item in folder.iterdir()
-               if item.is_file() and item.suffix.lower() in SUFFIXES}
+               if item.is_file() and item.suffix.lower() in (*SUFFIXES, RESOURCE_SUFFIX)}
     findings += [f"{EXPORT_MANIFEST} lists {listed[key][0]}, which is not in the export"
                  for key in sorted(set(listed) - set(present))]
     findings += [f"{present[key].name} is in the export but not in {EXPORT_MANIFEST}"
@@ -224,6 +227,8 @@ def check_binding(folder: Path, workbook: Path | None) -> tuple[str, list[str]]:
         data = present[key].read_bytes()
         if sha256(data) != digest:
             findings.append(f"{name} changed after the export: its SHA-256 is not the one in {EXPORT_MANIFEST}")
+            continue
+        if present[key].suffix.lower() == RESOURCE_SUFFIX:
             continue
         try:
             exported_name = parse(data, name).name

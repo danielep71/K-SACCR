@@ -15,6 +15,7 @@ import unittest
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Any, Callable
 
 import compare_vba_export as tool
 
@@ -56,15 +57,16 @@ class CompareExportTests(unittest.TestCase):
         """export-manifest.json as Export-SACCR-VBA.ps1 writes it."""
         components = []
         for path in sorted(self.folder.iterdir()):
-            if path.suffix in (".bas", ".cls", ".frm"):
-                components.append({"name": tool.parse(path.read_bytes(), path.name).name, "file": path.name,
+            if path.suffix in (".bas", ".cls", ".frm", ".frx"):
+                name = path.stem if path.suffix == ".frx" else tool.parse(path.read_bytes(), path.name).name
+                components.append({"name": name, "file": path.name,
                                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest().upper()})
         record = {"format": "k-saccr-vba-export-1",
                   "workbook": {"file": workbook.name, "sha256": hashlib.sha256(workbook.read_bytes()).hexdigest()},
                   "components": components}
         (self.folder / "export-manifest.json").write_text(json.dumps(record, indent=4), encoding="utf-8")
 
-    def edit_manifest(self, change) -> None:
+    def edit_manifest(self, change: Callable[[dict[str, Any]], object]) -> None:
         path = self.folder / "export-manifest.json"
         record = json.loads(path.read_text(encoding="utf-8"))
         change(record)
@@ -204,6 +206,24 @@ class CompareExportTests(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("CORE_Util.bas changed after the export", out)
         self.assertIn("differences=0; binding=FAIL", out)
+
+    def test_form_resources_are_bound(self) -> None:
+        # The VBE writes a form's binary properties to a .frx beside its .frm:
+        # a changed or unlisted .frx fails the binding like any component.
+        workbook = self.workbook("A.xlsm")
+        self.export("production")
+        (self.folder / "UF_Picker.frx").write_bytes(b"form resources")
+        self.write_manifest(workbook)
+        self.assertEqual(self.run_tool("production", "--workbook", str(workbook))[0], 0)
+        (self.folder / "UF_Picker.frx").write_bytes(b"other resources")
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 1, out)
+        self.assertIn("UF_Picker.frx changed after the export", out)
+        self.write_manifest(workbook)
+        (self.folder / "UF_Other.frx").write_bytes(b"form resources")
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 1, out)
+        self.assertIn("UF_Other.frx is in the export but not in export-manifest.json", out)
 
     def test_modified_manifest_fails(self) -> None:
         workbook = self.workbook("A.xlsm")
