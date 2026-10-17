@@ -530,11 +530,12 @@ class ExcelEvidenceTests(unittest.TestCase):
         source = module.read_text(encoding="cp1252")
         start = source.index("Sub StartCase(")
         end = source.index("End Sub", start)
-        changed = source[:start] + source[start:end].replace('"input-" & caseId', "caseId") + source[end:]
-        self.assertNotEqual(changed, source)
-        module.write_text(changed, encoding="cp1252")
-        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
-                      " ".join(evidence.policy_problems(copy_root)))
+        for old, new in (('"input-" & caseId', "caseId"), ('"input-" & caseId', '"input-" & caseId & "-x"')):
+            changed = source[:start] + source[start:end].replace(old, new) + source[end:]
+            self.assertNotEqual(changed, source)
+            module.write_text(changed, encoding="cp1252")
+            self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
+                          " ".join(evidence.policy_problems(copy_root)), new)
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"

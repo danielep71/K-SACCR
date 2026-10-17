@@ -571,7 +571,7 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
         printed = first.group(2)
     elif first is not None:
         body = re.search(r'\bSub\s+StartCase\b(.*?)^\s*End\s+Sub\b', module, re.S | re.M)
-        call = body and re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?caseId\b', body.group(1))
+        call = body and re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?caseId\s*,', body.group(1))
         printed = (call.group(1) or "") + first.group(2) if call else None
     if spec["first_case"] is not None and printed != spec["first_case"]:
         problems.append(f"{spec['entry_point']}: policy first_case differs from the module")
