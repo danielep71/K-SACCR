@@ -113,10 +113,11 @@ Use only the categories needed by a release.
   with the K-SACCR milestone or scope of each, in the README roadmap and
   `docs/assets/SACCR_uses_in_CRR.svg`.
 - The website shows the same diagram in a section of its own, with the
-  leverage-ratio and output-floor adjustments, and points those who download
-  the workbook to its SHA-256 check and unblocking in `INSTALLATION.md`. Its
-  "Build the workbook" button reads "Build from source" and opens the build
-  steps.
+  leverage-ratio and output-floor adjustments; on narrow screens it keeps a
+  readable size and scrolls sideways. The website also points those who
+  download the workbook to its SHA-256 check and unblocking in
+  `INSTALLATION.md`, and its "Build the workbook" button reads "Build from
+  source" and opens the build steps.
 
 ## [1.0.0] - 2026-10-17
 
