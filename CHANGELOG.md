@@ -94,8 +94,31 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Changed
+
+- The source round trip binds an export to its workbook (#313).
+  `Export-SACCR-VBA.ps1` writes `export-manifest.json` with the workbook's
+  SHA-256, taken before opening and checked after closing, and the SHA-256 of
+  every exported file. `compare_vba_export.py --workbook` checks both against
+  it and reports `binding=VERIFIED`, `FAIL` (which fails the result) or
+  `UNVERIFIED` for an export without a manifest. Before, `--workbook` only
+  printed a digest, so an export from one workbook could be presented with
+  another. A release workbook now needs `binding=VERIFIED`.
+
 ### Fixed
 
+- Exporting evidence over an existing report no longer deletes it before the
+  new one is written (#312). The report is written whole to a new file beside
+  it, then replaces the older file, which is put back with its attributes if
+  the replacement fails; the first error is reported, not one from the
+  cleanup. A read-only file is still left as it is. `TEST_Reconcile` injects a
+  failure before the new file is opened, while it is written and while the
+  older file is replaced, and checks that the older file is unchanged and
+  still hidden: 19 to 20 cases, 144 to 162 checks.
+- A failed reconciliation now keeps its cause in the run message: the
+  message read the error after the cleanup of the reconciliation sheet had
+  cleared it, so it said only "failed:". `TEST_Reconcile` checks it with
+  an injected failure (#318); its checks go from 140 to 144.
 - The PowerShell commands in `docs/EXCEL_EVIDENCE.md`, `tools/README.md` and
   the scripts' own help run through `powershell.exe -ExecutionPolicy Bypass
   -File`, as `Sync-SACCR-VBA.cmd` does: on a machine whose execution policy
@@ -108,10 +131,30 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `RELEASING.md` makes two checks deferred from the 1.0.0 release standing
+  steps of every release (#308): the source round trip of the certified
+  development workbook, beside the production one, and the published
+  workbook used as a user would, from download and hash check to a refused
+  export after an edit. They are first carried out on 1.0.1.
 - A diagram of where the CRR uses the SA-CCR exposure value (counterparty
   credit risk, CCPs, large exposures, leverage ratio, CVA risk, output floor),
   with the K-SACCR milestone or scope of each, in the README roadmap and
   `docs/assets/SACCR_uses_in_CRR.svg`.
+- The website shows the same diagram in a section of its own, with the
+  leverage-ratio and output-floor adjustments; on narrow screens it keeps a
+  readable size and scrolls sideways. The website also points those who
+  download the workbook to its SHA-256 check and unblocking in
+  `INSTALLATION.md`, and its "Build the workbook" button reads "Build from
+  source" and opens the build steps.
+- The website opens with a banner under the navigation: a photograph supplied
+  by the owner, `docs/assets/SACCR_banner.webp`, behind the text "SA-CCR for
+  derivatives, Basel CRE52 · EU CRR", set as HTML.
+- Troubleshooting in `INSTALLATION.md` explains that Results C5 can keep its
+  earlier status after only the workbook's date system is switched, until a
+  full recalculation (Ctrl+Alt+F9), and that a run under the 1904 date system
+  stops (#317). The behaviour is unchanged: Excel raises no event for the
+  change, and a volatile C5 would recompute the input fingerprint on every
+  edit.
 
 ## [1.0.0] - 2026-10-17
 

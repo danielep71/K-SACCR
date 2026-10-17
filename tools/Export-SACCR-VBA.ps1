@@ -11,6 +11,12 @@ closes the workbook without saving. The folder must be new or empty, so
 that an earlier export is never mixed in. Compare the export with
 tools/compare_vba_export.py.
 
+The script also writes export-manifest.json into the folder (#313): the
+file name and SHA-256 of the workbook, hashed before it is opened and again
+after it is closed, and the VB_Name, file and SHA-256 of every exported
+component, a form's .frx included. compare_vba_export.py --workbook checks
+the workbook and the files against it. The manifest is a record, not a signature.
+
 .REQUIREMENTS
 - Windows desktop Excel.
 - Excel > Options > Trust Center > Macro Settings >
@@ -36,6 +42,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $msoAutomationSecurityForceDisable = 3
+$exportManifestName = "export-manifest.json"
+$exportFormat = "k-saccr-vba-export-1"
+
+function Get-Sha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 
 function Get-ExportExtension {
     # The file extension the VBE gives a component type, or $null for a
@@ -67,6 +81,8 @@ try {
         $null = New-Item -ItemType Directory -Path $outFullPath
     }
 
+    $workbookHash = Get-Sha256 -Path $workbookFullPath
+
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
     $excel.DisplayAlerts = $false
@@ -90,6 +106,7 @@ try {
     }
 
     $count = 0
+    $components = New-Object System.Collections.Generic.List[object]
     foreach ($component in $vbProject.VBComponents) {
         $extension = Get-ExportExtension -ComponentType $component.Type
         if ($null -eq $extension) {
@@ -98,13 +115,50 @@ try {
         }
         $target = Join-Path $outFullPath ($component.Name + $extension)
         $component.Export($target)
+        $components.Add([ordered]@{
+            name   = $component.Name
+            file   = $component.Name + $extension
+            sha256 = Get-Sha256 -Path $target
+        })
+        # A form's binary properties go to a .frx beside its .frm.
+        $resource = [System.IO.Path]::ChangeExtension($target, ".frx")
+        if ($extension -eq ".frm" -and (Test-Path -LiteralPath $resource -PathType Leaf)) {
+            $components.Add([ordered]@{
+                name   = $component.Name
+                file   = $component.Name + ".frx"
+                sha256 = Get-Sha256 -Path $resource
+            })
+        }
         Write-Host ("  {0}{1}" -f $component.Name, $extension)
         $count++
     }
 
+    # Close before hashing again: the manifest records the workbook only if
+    # it is unchanged by the export.
+    $workbook.Close($false)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook)
+    $workbook = $null
+    if ((Get-Sha256 -Path $workbookFullPath) -ne $workbookHash) {
+        throw "The workbook changed while it was exported: $workbookFullPath. Export it again."
+    }
+
+    $manifest = [ordered]@{
+        format     = $exportFormat
+        workbook   = [ordered]@{
+            file   = [System.IO.Path]::GetFileName($workbookFullPath)
+            sha256 = $workbookHash
+        }
+        components = $components.ToArray()
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $outFullPath $exportManifestName),
+        ($manifest | ConvertTo-Json -Depth 4),
+        (New-Object System.Text.UTF8Encoding($false)))
+
     Write-Host ""
     Write-Host "Workbook: $workbookFullPath"
-    Write-Host "Exported: $count component(s) to $outFullPath"
+    Write-Host "SHA-256:  $workbookHash"
+    Write-Host "Exported: $count component(s) to $outFullPath, with $exportManifestName"
     Write-Host "Next:     python tools/compare_vba_export.py --export `"$outFullPath`" --mode production|development --workbook `"$workbookFullPath`""
 }
 catch {

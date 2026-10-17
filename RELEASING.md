@@ -130,10 +130,19 @@ From a clean checkout of the candidate, build:
   compiled, run once on the demonstration portfolio, cleared with
   **Clear outputs** and saved. Check it with the
   [source round trip](docs/EXCEL_EVIDENCE.md#source-round-trip) in production
-  mode against the candidate SHA; only `RESULT=PASS` qualifies it;
+  mode against the candidate SHA; only `RESULT=PASS` with
+  `binding=VERIFIED` qualifies it;
 - `K-SACCR_User_Manual_X.Y.Z.pdf`: built from `docs/user-manual/vX.Y.Z/` at
   the candidate, with the command in that folder's README;
 - `SHA256SUMS.txt`: the SHA-256 of both files, in `sha256sum` format.
+
+Check the **development** workbook certified in step 5 the same way: export
+it and run the source round trip in development mode against the candidate
+SHA. It is not published, but its round trip shows that the suites ran on
+exactly the candidate's code, test modules included, among them
+`TEST_Benchmark`, which the eight-suite policy does not run. The comparison
+takes the expected components from `tools/vba-projects.json` at the
+candidate. Only `RESULT=PASS` with `binding=VERIFIED` qualifies it.
 
 Once attached to a published release, an asset is never replaced.
 
@@ -170,11 +179,27 @@ Publish the GitHub Release from the tag, attach only certified artifacts with
 their hashes, and verify that a fresh clone of the tag passes the static checks
 and imports cleanly.
 
+Then use the **published workbook as a user would**, on a copy downloaded
+from the release page:
+
+1. Check it against `SHA256SUMS.txt` and unblock it, as
+   [`INSTALLATION.md`](INSTALLATION.md#released-workbook) describes.
+2. Open it and enable macros. **Data → Edit Links** lists no external links,
+   and **Formulas → Name Manager** shows no name with a `#REF!` reference.
+3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** with the sheet
+   buttons, then **Run SA-CCR** again. Save, close and reopen it: Results C5
+   reads current.
+4. **Export evidence**: the file is written. Change an EAD cell on Results
+   and export again: the export is refused.
+5. Close without saving, and record what was done and seen with the release
+   evidence.
+
 ## 🧾 Evidence record
 
 Retain at least: candidate SHA, previous tag, static-check result, Excel
 version and bitness, the compile result and the validated evidence bundle for
-every suite, artifact names, sizes and SHA-256 hashes, the integration PR,
+every suite, the production and development round trips, the check of the
+published workbook, artifact names, sizes and SHA-256 hashes, the integration PR,
 validation timestamps and any deviations. A release note summarizes evidence;
 it does not replace it.
 
@@ -199,6 +224,6 @@ it does not replace it.
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
 | 7 | Excel certification passes for all eight suites on the candidate | ☐ |
-| 8 | Artifacts built from the candidate, tested and hashed | ☐ |
+| 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
-| 10 | GitHub Release published and verified | ☐ |
+| 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |

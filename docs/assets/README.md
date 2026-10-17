@@ -140,10 +140,22 @@ source: K-SACCR calculates only the exposure value at its centre.
   un-floored total risk exposure amount. Neither is the risk-based SA-CCR
   that K-SACCR calculates.
 
-The SVG is the source; `SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
+The SVG is the source, shown by the README and the website (`docs/index.html`);
+`SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
 from it at 1600 x 1040 px with headless Chromium at a device scale factor of
 1, then quantized to 256 colours as the screenshots above. Render it again
 whenever the SVG changes.
+
+<a id="website-banner"></a>
+
+## 🏙️ Website banner
+
+`SACCR_banner.webp` is the background of the banner under the navigation of
+the website (`docs/index.html`). It is a decorative photograph supplied by the
+owner, cropped to 1536 x 512 px from the middle of the original so that none of
+its own lettering remains, and saved as WebP at quality 80. The banner's text
+(SA-CCR for derivatives, Basel CRE52, EU CRR) is HTML, not part of the image.
+It is a promotional image: it shows no workbook, data or result.
 
 <a id="social-preview"></a>
 

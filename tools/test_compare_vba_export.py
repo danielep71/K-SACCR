@@ -6,13 +6,16 @@ would, and runs the comparison.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Any, Callable
 
 import compare_vba_export as tool
 
@@ -35,11 +38,39 @@ class CompareExportTests(unittest.TestCase):
         for path in [*MANIFEST["configurations"][mode]["modules"], *MANIFEST["document_modules"]]:
             (self.folder / Path(path).name).write_bytes(source(path).replace(b"\n", b"\r\n"))
 
-    def run_tool(self, mode: str) -> tuple[int, str]:
+    def run_tool(self, mode: str, *extra: str) -> tuple[int, str]:
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            code = tool.main(["--root", str(ROOT), "--export", str(self.folder), "--mode", mode])
+            code = tool.main(["--root", str(ROOT), "--export", str(self.folder), "--mode", mode, *extra])
         return code, out.getvalue() + err.getvalue()
+
+    def workbook(self, name: str, project: bytes = b"vba project") -> Path:
+        """A stand-in for a built .xlsm: a zip holding a VBA project part."""
+        path = self.folder.parent / name
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("[Content_Types].xml", "<Types/>")
+            archive.writestr("xl/vbaProject.bin", project)
+        self.addCleanup(path.unlink, missing_ok=True)
+        return path
+
+    def write_manifest(self, workbook: Path) -> None:
+        """export-manifest.json as Export-SACCR-VBA.ps1 writes it."""
+        components = []
+        for path in sorted(self.folder.iterdir()):
+            if path.suffix in (".bas", ".cls", ".frm", ".frx"):
+                name = path.stem if path.suffix == ".frx" else tool.parse(path.read_bytes(), path.name).name
+                components.append({"name": name, "file": path.name,
+                                   "sha256": hashlib.sha256(path.read_bytes()).hexdigest().upper()})
+        record = {"format": "k-saccr-vba-export-1",
+                  "workbook": {"file": workbook.name, "sha256": hashlib.sha256(workbook.read_bytes()).hexdigest()},
+                  "components": components}
+        (self.folder / "export-manifest.json").write_text(json.dumps(record, indent=4), encoding="utf-8")
+
+    def edit_manifest(self, change: Callable[[dict[str, Any]], object]) -> None:
+        path = self.folder / "export-manifest.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        change(record)
+        path.write_text(json.dumps(record), encoding="utf-8")
 
     def edit(self, name: str, old: bytes, new: bytes) -> None:
         path = self.folder / name
@@ -137,7 +168,126 @@ class CompareExportTests(unittest.TestCase):
         code, out = self.run_tool("production")
         self.assertEqual(code, 2)
         self.assertIn("Stray.bas: expected one Attribute VB_Name line, found 0", out)
+    def test_bound_export_is_verified(self) -> None:
+        workbook = self.workbook("A.xlsm")
+        self.export("production")
+        self.write_manifest(workbook)
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 0, out)
+        self.assertIn("Binding:   VERIFIED", out)
+        self.assertIn("RESULT=PASS; components=24; differences=0; binding=VERIFIED", out)
 
+    def test_renamed_workbook_is_verified_with_a_note(self) -> None:
+        # A download is often renamed ("K-SACCR_1.0.0 (1).xlsm"): the bytes
+        # bind it, the name only gets a note.
+        self.export("production")
+        self.write_manifest(self.workbook("K-SACCR_1.0.0.xlsm"))
+        renamed = self.workbook("K-SACCR_1.0.0 (1).xlsm")
+        code, out = self.run_tool("production", "--workbook", str(renamed))
+        self.assertEqual(code, 0, out)
+        self.assertIn("NOTE export-manifest.json names the workbook K-SACCR_1.0.0.xlsm", out)
+        self.assertIn("binding=VERIFIED", out)
+
+    def test_export_compared_with_another_workbook_fails(self) -> None:
+        # The review's case: the export of workbook A presented with workbook B.
+        self.export("production")
+        self.write_manifest(self.workbook("A.xlsm", b"project A"))
+        code, out = self.run_tool("production", "--workbook", str(self.workbook("B.xlsm", b"project B")))
+        self.assertEqual(code, 1, out)
+        self.assertIn("B.xlsm is not the workbook the export was made from", out)
+        self.assertNotIn("NOTE", out)  # another workbook, not a renamed one
+        self.assertIn("differences=0; binding=FAIL", out)
+
+    def test_non_workbook_fails_even_when_the_manifest_names_it(self) -> None:
+        readme = ROOT / "README.md"
+        self.export("production")
+        self.write_manifest(readme)
+        code, out = self.run_tool("production", "--workbook", str(readme))
+        self.assertEqual(code, 1, out)
+        self.assertIn("README.md is not a macro-enabled workbook", out)
+
+    def test_component_changed_after_the_export_fails_the_binding(self) -> None:
+        # A file replaced by one that still matches the source: parity holds,
+        # the binding does not.
+        workbook = self.workbook("A.xlsm")
+        self.export("production")
+        self.write_manifest(workbook)
+        path = self.folder / "CORE_Util.bas"
+        path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 1, out)
+        self.assertIn("CORE_Util.bas changed after the export", out)
+        self.assertIn("differences=0; binding=FAIL", out)
+
+    def test_form_resources_are_bound(self) -> None:
+        # The VBE writes a form's binary properties to a .frx beside its .frm:
+        # a changed or unlisted .frx fails the binding like any component.
+        workbook = self.workbook("A.xlsm")
+        self.export("production")
+        (self.folder / "UF_Picker.frx").write_bytes(b"form resources")
+        self.write_manifest(workbook)
+        self.assertEqual(self.run_tool("production", "--workbook", str(workbook))[0], 0)
+        (self.folder / "UF_Picker.frx").write_bytes(b"other resources")
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 1, out)
+        self.assertIn("UF_Picker.frx changed after the export", out)
+        self.write_manifest(workbook)
+        (self.folder / "UF_Other.frx").write_bytes(b"form resources")
+        code, out = self.run_tool("production", "--workbook", str(workbook))
+        self.assertEqual(code, 1, out)
+        self.assertIn("UF_Other.frx is in the export but not in export-manifest.json", out)
+
+    def test_modified_manifest_fails(self) -> None:
+        workbook = self.workbook("A.xlsm")
+        cases = {
+            "dropped entry": (lambda r: r["components"].pop(0), "is in the export but not in export-manifest.json"),
+            "extra entry": (lambda r: r["components"].append(
+                {"name": "TEST_Harness", "file": "TEST_Harness.bas", "sha256": "0" * 64}),
+                "lists TEST_Harness.bas, which is not in the export"),
+            "renamed component": (lambda r: r["components"][0].update(name="Other"), "names Other"),
+            "workbook digest": (lambda r: r["workbook"].update(sha256="0" * 64),
+                                "is not the workbook the export was made from"),
+            "format": (lambda r: r.update(format="other"), "is not a valid export manifest"),
+            "missing key": (lambda r: r.pop("workbook"), "is not a valid export manifest"),
+            "missing workbook name": (lambda r: r["workbook"].pop("file"), "is not a valid export manifest"),
+            "empty workbook name": (lambda r: r["workbook"].update(file=""), "workbook.file is not a file name"),
+        }
+        for label, (change, message) in cases.items():
+            with self.subTest(label):
+                for item in self.folder.iterdir():
+                    item.unlink()
+                self.export("production")
+                self.write_manifest(workbook)
+                self.edit_manifest(change)
+                code, out = self.run_tool("production", "--workbook", str(workbook))
+                self.assertEqual(code, 1, out)
+                self.assertIn(message, out)
+                self.assertIn("binding=FAIL", out)
+
+    def test_export_without_manifest_is_unverified(self) -> None:
+        # An export made before the manifest: source parity only.
+        self.export("production")
+        code, out = self.run_tool("production", "--workbook", str(self.workbook("A.xlsm")))
+        self.assertEqual(code, 0, out)
+        self.assertIn("no export-manifest.json: the export is not bound to a workbook", out)
+        self.assertIn("RESULT=PASS; components=24; differences=0; binding=UNVERIFIED", out)
+
+    def test_manifest_without_workbook_is_unverified_but_still_checked(self) -> None:
+        self.export("production")
+        self.write_manifest(self.workbook("A.xlsm"))
+        code, out = self.run_tool("production")
+        self.assertEqual(code, 0, out)
+        self.assertIn("binding=UNVERIFIED", out)
+        (self.folder / "M_Main.bas").unlink()
+        code, out = self.run_tool("production")
+        self.assertEqual(code, 1, out)
+        self.assertIn("lists M_Main.bas, which is not in the export", out)
+
+    def test_missing_workbook_is_an_error(self) -> None:
+        self.export("production")
+        code, out = self.run_tool("production", "--workbook", str(self.folder / "absent.xlsm"))
+        self.assertEqual(code, 2, out)
+        self.assertIn("workbook not found", out)
 
     def test_userform_export_header_is_parsed(self) -> None:
         # A form export: VERSION 5.00, a title-case Begin ... End block with a
