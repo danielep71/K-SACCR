@@ -119,6 +119,10 @@ def equity(trade: dict[str, Any], maturity: float, expiry: float | None) -> tupl
     # The package uses E as both an equity option's expiry and its maturity.
     if trade["instrument"] != "linear" and expiry is not None and abs(expiry - maturity) > 1e-12:
         raise Unsupported("option expiry differs from the maturity; the package uses E for both")
+    # The engine applies an entered lambda to an equity option; the package
+    # shifts only a price and strike of opposite sign.
+    if trade["instrument"] != "linear" and trade["lambda_price"]:
+        raise Unsupported("an entered lambda on an equity option has no package counterpart")
     index = trade["sub_class"] == "INDEX"
     args: dict[str, Any] = {"Si": 0, "Ei": maturity}
     args.update({"Underlying_Instrument": trade["risk_factor"], "SubClass": "Index"} if index
@@ -138,6 +142,8 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     start, end, maturity = trade_times(trade, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
     asset_class = trade["asset_class"]
+    if asset_class in ("interest_rate", "credit") and end <= start:
+        raise Unsupported(f"{trade['id']} ends on or before its start, which the engine rejects")
     if asset_class == "interest_rate":
         name, args = interest_rate(trade, start, end, maturity, expiry)
     elif asset_class == "credit":

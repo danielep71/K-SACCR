@@ -178,8 +178,18 @@ class RegimeDifferenceTests(unittest.TestCase):
             xc.translate_fixture(data)
         trade["option_expiry_date"] = trade["maturity_date"]
         self.assertEqual(xc.translate_fixture(data)["trades"][0]["class"], "EquityOptionSingle")
+        trade["lambda_price"] = 5
+        with self.assertRaisesRegex(xc.Unsupported, "entered lambda"):
+            xc.translate_fixture(data)
+        trade["lambda_price"] = None
         trade["option_expiry_date"] = None
         with self.assertRaisesRegex(xc.Unsupported, "without expiry"):
+            xc.translate_fixture(data)
+
+    def test_trade_ending_on_or_before_its_start_is_not_run(self) -> None:
+        data = fixture("illustrative-ir-swap-unmargined")
+        data["trades"][0]["start_date"] = data["trades"][0]["end_date"]
+        with self.assertRaisesRegex(xc.Unsupported, "ends on or before"):
             xc.translate_fixture(data)
 
 
