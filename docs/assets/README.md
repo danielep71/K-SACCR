@@ -121,10 +121,21 @@ source: K-SACCR calculates only the exposure value at its centre.
   exposure value feeding several frameworks follows the European Banking
   Federation's annex on the use of SA-CCR across the prudential framework; no
   part of that figure is reproduced.
-- **Sources:** the article references were checked on 2026-10-17 against
-  secondary sources (EBA reports and Q&A, industry papers, supervisory
-  reporting instructions), not against the EUR-Lex text, which could not be
-  retrieved. Art. 429c and Art. 465(4) are to be confirmed against EUR-Lex.
+- **Sources:** Art. 429c(3)–(5) and 465(4) were checked by the owner on
+  EUR-Lex on 2026-10-17, in the consolidated CRR of 26 June 2026 (the version
+  registered as `CRR` in the
+  [source register](../methodology/README.md#source-register)) and in
+  Regulation (EU) 2024/1623 (CRR III). The other references name the parts
+  of the CRR that take the exposure value; the picture is not a source for
+  their rules.
+- **Separate calculation contexts:** the leverage ratio keeps α = 1.4 and sets
+  the PFE multiplier to 1 (Art. 429c(5)); RC still follows Art. 275, with
+  only eligible cash variation margin received (Art. 429c(3)) and, for
+  qualifying client trades cleared through a QCCP, the wider collateral of
+  Art. 429c(4a). The α = 1 of Art. 465(4) applies only to the output floor
+  and only where the same exposures are calculated with the IMM in the
+  un-floored total risk exposure amount. Neither is the risk-based SA-CCR
+  that K-SACCR calculates.
 
 The SVG is the source; `SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
 from it at 1600 x 1040 px with headless Chromium at a device scale factor of
