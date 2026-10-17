@@ -183,7 +183,9 @@ project object model* enabled, and Python on the same machine.
      candidate;
    - **workbook binding:** the workbook and the exported files against
      `export-manifest.json`. `VERIFIED` means the manifest records this
-     workbook and every file in the folder, unchanged; `FAIL` means they do
+     workbook and every file in the folder, unchanged (the workbook is
+     bound by its bytes: a renamed copy, as a download often is, gets a
+     `NOTE`); `FAIL` means they do
      not agree, or `--workbook` is not a macro-enabled workbook, and fails the
      result; `UNVERIFIED` means there is no manifest (an export made before
      it existed) or no `--workbook`, and only source parity was checked.

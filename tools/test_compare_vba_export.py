@@ -177,6 +177,17 @@ class CompareExportTests(unittest.TestCase):
         self.assertIn("Binding:   VERIFIED", out)
         self.assertIn("RESULT=PASS; components=24; differences=0; binding=VERIFIED", out)
 
+    def test_renamed_workbook_is_verified_with_a_note(self) -> None:
+        # A download is often renamed ("K-SACCR_1.0.0 (1).xlsm"): the bytes
+        # bind it, the name only gets a note.
+        self.export("production")
+        self.write_manifest(self.workbook("K-SACCR_1.0.0.xlsm"))
+        renamed = self.workbook("K-SACCR_1.0.0 (1).xlsm")
+        code, out = self.run_tool("production", "--workbook", str(renamed))
+        self.assertEqual(code, 0, out)
+        self.assertIn("NOTE export-manifest.json names the workbook K-SACCR_1.0.0.xlsm", out)
+        self.assertIn("binding=VERIFIED", out)
+
     def test_export_compared_with_another_workbook_fails(self) -> None:
         # The review's case: the export of workbook A presented with workbook B.
         self.export("production")
@@ -237,6 +248,8 @@ class CompareExportTests(unittest.TestCase):
                                 "is not the workbook the export was made from"),
             "format": (lambda r: r.update(format="other"), "is not a valid export manifest"),
             "missing key": (lambda r: r.pop("workbook"), "is not a valid export manifest"),
+            "missing workbook name": (lambda r: r["workbook"].pop("file"), "is not a valid export manifest"),
+            "empty workbook name": (lambda r: r["workbook"].update(file=""), "workbook.file is not a file name"),
         }
         for label, (change, message) in cases.items():
             with self.subTest(label):
