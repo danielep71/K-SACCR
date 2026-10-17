@@ -130,7 +130,8 @@ From a clean checkout of the candidate, build:
   compiled, run once on the demonstration portfolio, cleared with
   **Clear outputs** and saved. Check it with the
   [source round trip](docs/EXCEL_EVIDENCE.md#source-round-trip) in production
-  mode against the candidate SHA; only `RESULT=PASS` qualifies it;
+  mode against the candidate SHA; only `RESULT=PASS` with
+  `binding=VERIFIED` qualifies it;
 - `K-SACCR_User_Manual_X.Y.Z.pdf`: built from `docs/user-manual/vX.Y.Z/` at
   the candidate, with the command in that folder's README;
 - `SHA256SUMS.txt`: the SHA-256 of both files, in `sha256sum` format.
