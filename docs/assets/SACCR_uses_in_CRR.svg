@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Where SA-CCR is used in the EU CRR</title>
+  <rect width="1600" height="1040" fill="#ffffff"/>
+  <text x="800" y="62" text-anchor="middle" font-size="34" font-weight="700" fill="#1f3a5f">Where SA-CCR is used in the EU CRR</text>
+  <text x="800" y="100" text-anchor="middle" font-size="20" fill="#4a5a70">One method, six uses: four take the risk-based exposure value, two recalculate it with their own adjustments</text>
+
+  <!-- connectors -->
+  <g stroke="#9fb3c8" stroke-width="3" fill="none">
+    <path d="M800 520 L330 280"/><path d="M800 520 L1270 280"/>
+    <path d="M800 520 L250 520"/>
+    <path d="M800 520 L330 760"/>
+  </g>
+  <g stroke="#9fb3c8" stroke-width="3" fill="none" stroke-dasharray="10 8">
+    <path d="M800 520 L1350 520"/><path d="M800 520 L1270 760"/>
+  </g>
+
+  <!-- hub -->
+  <rect x="560" y="410" width="480" height="220" rx="28" fill="#1f3a5f"/>
+  <text x="800" y="466" text-anchor="middle" font-size="30" font-weight="700" fill="#ffffff">SA-CCR exposure value</text>
+  <text x="800" y="506" text-anchor="middle" font-size="24" fill="#ffffff">EAD = α × (RC + PFE), α = 1.4</text>
+  <text x="800" y="546" text-anchor="middle" font-size="19" fill="#cfe0f2">Part Three, Title II, Chapter 6, Section 3</text>
+  <text x="800" y="572" text-anchor="middle" font-size="19" fill="#cfe0f2">(Art. 274–280f)</text>
+  <text x="800" y="608" text-anchor="middle" font-size="19" font-weight="700" fill="#7fe0b8">K-SACCR calculates the risk-based value</text>
+
+  <!-- card helper: CRR2 = blue, CRR3 = green -->
+  <!-- 1 CCR RWA -->
+  <g>
+    <rect x="70" y="170" width="520" height="190" rx="18" fill="#e8f0fa" stroke="#2f6db5" stroke-width="3"/>
+    <text x="96" y="212" font-size="24" font-weight="700" fill="#1f3a5f">Counterparty credit risk</text>
+    <text x="96" y="246" font-size="18" fill="#2b3a4d">Exposure value × risk weight of the counterparty</text>
+    <text x="96" y="272" font-size="18" fill="#2b3a4d">under the standardised approach (Art. 107)</text>
+    <text x="96" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
+    <text x="96" y="334" font-size="16" fill="#4a5a70">K-SACCR: RWA planned in v1.10.0</text>
+  </g>
+  <!-- 2 CCPs -->
+  <g>
+    <rect x="1010" y="170" width="520" height="190" rx="18" fill="#e8f0fa" stroke="#2f6db5" stroke-width="3"/>
+    <text x="1036" y="212" font-size="24" font-weight="700" fill="#1f3a5f">Exposures to CCPs</text>
+    <text x="1036" y="246" font-size="18" fill="#2b3a4d">Trade exposures to a CCP are measured with the</text>
+    <text x="1036" y="272" font-size="18" fill="#2b3a4d">Chapter 6 methods (Art. 301–311)</text>
+    <text x="1036" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
+    <text x="1036" y="334" font-size="16" fill="#4a5a70">K-SACCR: planned in v1.7.0</text>
+  </g>
+  <!-- 3 Large exposures -->
+  <g>
+    <rect x="20" y="425" width="500" height="190" rx="18" fill="#e8f0fa" stroke="#2f6db5" stroke-width="3"/>
+    <text x="46" y="467" font-size="24" font-weight="700" fill="#1f3a5f">Large exposures</text>
+    <text x="46" y="501" font-size="18" fill="#2b3a4d">Derivatives at a standardised Chapter 6</text>
+    <text x="46" y="527" font-size="18" fill="#2b3a4d">exposure value, not the IMM (Art. 390)</text>
+    <text x="46" y="561" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
+    <text x="46" y="589" font-size="16" fill="#4a5a70">K-SACCR: out of scope</text>
+  </g>
+  <!-- 4 Leverage ratio -->
+  <g>
+    <rect x="1080" y="425" width="500" height="190" rx="18" fill="#e8f0fa" stroke="#2f6db5" stroke-width="3"/>
+    <text x="1106" y="467" font-size="24" font-weight="700" fill="#1f3a5f">Leverage ratio</text>
+    <text x="1106" y="499" font-size="18" fill="#2b3a4d">SA-CCR with RC net of eligible cash VM only</text>
+    <text x="1106" y="523" font-size="18" fill="#2b3a4d">and PFE multiplier = 1, except client trades</text>
+    <text x="1106" y="547" font-size="18" fill="#2b3a4d">cleared through a QCCP (Art. 429c)</text>
+    <text x="1106" y="579" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
+    <text x="1106" y="603" font-size="16" fill="#4a5a70">K-SACCR: out of scope</text>
+  </g>
+  <!-- 5 CVA -->
+  <g>
+    <rect x="70" y="680" width="520" height="190" rx="18" fill="#eaf6ee" stroke="#2e8b57" stroke-width="3"/>
+    <text x="96" y="722" font-size="24" font-weight="700" fill="#1f3a5f">CVA risk</text>
+    <text x="96" y="756" font-size="18" fill="#2b3a4d">BA-CVA uses the netting set's exposure value,</text>
+    <text x="96" y="782" font-size="18" fill="#2b3a4d">as the CRR2 standardised method did (Art. 382–386)</text>
+    <text x="96" y="816" font-size="16" fill="#2e8b57" font-weight="700">CRR3 · since 1 January 2025</text>
+    <text x="96" y="844" font-size="16" fill="#4a5a70">K-SACCR: planned in v1.9.0</text>
+  </g>
+  <!-- 6 Output floor -->
+  <g>
+    <rect x="1010" y="680" width="520" height="190" rx="18" fill="#eaf6ee" stroke="#2e8b57" stroke-width="3"/>
+    <text x="1036" y="722" font-size="24" font-weight="700" fill="#1f3a5f">Output floor</text>
+    <text x="1036" y="756" font-size="18" fill="#2b3a4d">Floor at 72.5% of standardised RWA, phased in</text>
+    <text x="1036" y="782" font-size="18" fill="#2b3a4d">from 50% in 2025 (Art. 92(3), 465)</text>
+    <text x="1036" y="816" font-size="16" fill="#2e8b57" font-weight="700">CRR3 · since 1 January 2025</text>
+    <text x="1036" y="844" font-size="16" fill="#4a5a70">IMM-valued contracts: α = 1 to end-2029 (465(4))</text>
+  </g>
+
+  <!-- legend -->
+  <rect x="70" y="912" width="22" height="22" rx="4" fill="#e8f0fa" stroke="#2f6db5" stroke-width="3"/>
+  <text x="104" y="930" font-size="18" fill="#2b3a4d">CRR2, Regulation (EU) 2019/876: SA-CCR replaces CEM and the standardised method</text>
+  <rect x="70" y="950" width="22" height="22" rx="4" fill="#eaf6ee" stroke="#2e8b57" stroke-width="3"/>
+  <text x="104" y="968" font-size="18" fill="#2b3a4d">CRR3, Regulation (EU) 2024/1623: new CVA framework and output floor</text>
+  <line x1="70" y1="1000" x2="92" y2="1000" stroke="#9fb3c8" stroke-width="3"/>
+  <text x="104" y="1006" font-size="18" fill="#2b3a4d">Solid: the risk-based exposure value as calculated</text>
+  <line x1="560" y1="1000" x2="582" y2="1000" stroke="#9fb3c8" stroke-width="3" stroke-dasharray="6 4"/>
+  <text x="594" y="1006" font-size="18" fill="#2b3a4d">Dashed: SA-CCR recalculated with the framework's own rules</text>
+  <text x="1530" y="930" text-anchor="end" font-size="16" fill="#4a5a70">Simplified SA-CCR and OEM (Art. 273a) are alternatives</text>
+  <text x="1530" y="954" text-anchor="end" font-size="16" fill="#4a5a70">for small derivative books: K-SACCR v1.5.0, v1.6.0</text>
+  <text x="1530" y="1006" text-anchor="end" font-size="14" fill="#7a8899">Orientation, not legal text · No real portfolio data</text>
+</svg>

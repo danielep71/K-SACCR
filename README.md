@@ -626,6 +626,19 @@ The full list is in the
 
 ## 🗺️ Roadmap
 
+K-SACCR calculates the risk-based SA-CCR exposure value. The CRR uses that
+value, or the same method with its own adjustments, well beyond counterparty
+credit risk, and the later milestones follow it there: CCP exposures, CVA risk
+and risk-weighted assets.
+
+<p align="center">
+  <a href="docs/assets/SACCR_uses_in_CRR.svg">
+    <img width="100%"
+         alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the K-SACCR milestone or scope of each"
+         src="docs/assets/SACCR_uses_in_CRR.svg">
+  </a>
+</p>
+
 | Milestone | Scope |
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
