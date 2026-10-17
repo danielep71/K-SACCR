@@ -18,7 +18,7 @@ tools/compare_vba_export.py.
 - VBA project not password-locked.
 
 .EXAMPLE
-.\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -OutDir "C:\SACCR\export"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -OutDir "C:\SACCR\export"
 #>
 
 [CmdletBinding()]
