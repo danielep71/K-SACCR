@@ -94,6 +94,19 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- `tools/rsaccr_crosscheck.py` and `tools/rsaccr_run.R` compare the expected
+  values of the test cases with the CRAN package `SACCR` 3.4, an independent
+  CRR2 implementation (#352). With R 4.3.3, `SACCR` 3.4 and `Trading` 3.2, the
+  24 numeric values it can compute, from 12 of the 15 fixtures, agree within
+  each expected file's tolerance. Two fixtures are not run because they need
+  a commodity option or the `IRBucketOffset` parameter, which the package
+  lacks; the third has a matured trade, for which the engine withholds the
+  netting set's EAD. It is not a gate:
+  it needs R, and agreement between two implementations does not show that
+  either is right.
+
 ### Changed
 
 - The comments of every core, workbook and test module were checked against

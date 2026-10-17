@@ -16,7 +16,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -47,7 +47,42 @@ strings and comments, which the VBE re-cases on import, and the attributes of
 document modules, which Excel writes. Its tests run in `tool-tests`, without
 Excel.
 
-These are static checks only. None of them compiles VBA, opens Excel, runs a
+`rsaccr_crosscheck.py` and `rsaccr_run.R` are not gates: they compare the
+expected values in `tests/expected` with an independent implementation, the
+CRAN package `SACCR` 3.4 with `Trading` 3.2 (#352). The Python script
+translates each fixture into the package's trades, CSA and collateral, one
+counterparty per netting set, with times in years on the fixture's DaysPerYear;
+the R script runs the package, which this repository calls but does not copy
+(GPL-3); the comparison prints each value with its difference and the
+expected file's tolerance, the package's figures for fixtures with no numeric
+expected value, and the fixtures it cannot represent, with the reason:
+
+```bash
+python tools/rsaccr_crosscheck.py --rscript Rscript --out <folder>
+```
+
+The comparison uses `max(absolute, relative * abs(expected))`, matching the
+case runner. It includes potential future exposure when an expected file
+requests it. Credit and interest-rate trades whose maturity differs from
+their end date are unsupported because the package cannot preserve both.
+The package follows CRR2, so a BCBS expected file is left out, with the
+reason, when its fixture meets a recorded
+[regime difference](../docs/methodology/README.md#regime-differences): other
+risks, climatic commodities, credit quality steps, an interest-rate or
+commodity option priced near or below zero or with an entered lambda, or an
+interest-rate trade ending exactly at one year.
+
+It needs R with those packages installed, so `check.py` does not run it; its
+translation and comparison tests run in `tool-tests` without R. Agreement
+shows that two implementations compute the same figures from the same inputs,
+not that either is right. The package models the margin period of risk as
+`10 + remargining period - 1` business days only, has no commodity, credit or
+FX options and no maturity apart from the end date; such fixtures are not run.
+Its commodity add-on takes the absolute value of the running sum after each
+trade, so with three or more trades on one commodity its result can depend on
+their order.
+
+The gates are static checks only. None of them compiles VBA, opens Excel, runs a
 test harness or validates any SA-CCR number, and a pass is never evidence that
 the workbook works in Excel.
 
