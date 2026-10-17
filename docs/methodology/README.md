@@ -18,7 +18,7 @@ test-case format is in [`TEST_CASES.md`](TEST_CASES.md).
 
 ## ⚖️ Regulatory basis
 
-Decided by the owner on 2026-10-06 in issue #8.
+See issue #8.
 
 | Regime | Identifier | Role |
 | --- | --- | --- |
