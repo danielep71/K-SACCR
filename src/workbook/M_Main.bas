@@ -57,9 +57,12 @@ Attribute VB_Name = "M_Main"
 '   recalculation that did not finish (#195); gTestFault = "recalc-error"
 '   raises ERR_INJECTED_FAULT where the recalculation starts, as an error
 '   thrown by it would (#204); gTestFault = "reconcile" raises
-'   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318).
-'   tests/modules/TEST_MainState.bas uses the first four and
-'   tests/modules/TEST_Reconcile.bas the last. gLastMessage keeps the last
+'   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
+'   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
+'   raise ERR_INJECTED_FAULT in WriteEvidence before the new report is
+'   opened, while it is written and while the older file is replaced
+'   (#312). tests/modules/TEST_MainState.bas uses the first four and
+'   tests/modules/TEST_Reconcile.bas the others. gLastMessage keeps the last
 '   message shown or printed, so that a test can read it in silent mode.
 '   Production code never sets gTestFault.
 '
@@ -108,7 +111,7 @@ Attribute VB_Name = "M_Main"
     'for TEST_Suite.Test_RunAll. mRunning refuses a second operation while one
     'is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error" or "reconcile"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile" or "evidence-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message shown or printed
         Private mRunning    As Boolean    'True while an operation is in progress
@@ -1391,16 +1394,25 @@ Private Function WriteEvidence( _
 '   mark, replacing any file of that name, hidden ones included; a
 '   read-only file is left as it is and the write fails.
 '
+' METHOD
+'   The report is written whole to a new file beside filePath first. Only
+'   then is an older file moved aside, the new one renamed to filePath and
+'   the older one deleted, so a failed write leaves the older file as it
+'   was (#312). A failed rename puts the older file back. The replacement
+'   is as atomic as the file system's rename, no more.
+'
 ' RETURNS
 '   The number of lines written.
 '
 ' ERROR POLICY
-'   Raises when the file cannot be written, or when it holds more than
-'   the report afterwards (an old file that could not be removed); the
-'   file number is closed first.
+'   Raises the first error when the report cannot be written or replaced,
+'   after closing the file number, deleting the new file and putting an
+'   older file back; an error in that cleanup does not replace the first
+'   one. An older file that cannot be deleted once replaced is left beside
+'   the report.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-17
 '==============================================================================
 '
 
@@ -1410,40 +1422,144 @@ Private Function WriteEvidence( _
     Dim text        As String    'The report
     Dim bytes()     As Byte      'Its UTF-8 bytes
     Dim fileNo      As Integer   'File number; 0 while none is open
-    Dim errNumber   As Long      'Error to raise after closing the file
+    Dim newPath     As String    'The report before it replaces filePath; "" once renamed
+    Dim oldPath     As String    'An older filePath while it is moved aside; "" otherwise
+    Dim errNumber   As Long      'First error; 0 on success
     Dim errText     As String    'Its description
 
 '------------------------------------------------------------------------------
-' WRITE
+' WRITE THE NEW FILE
 '------------------------------------------------------------------------------
         text = EvidenceText()
         bytes = CORE_Export.Utf8Bytes(text)
-    'Open For Binary does not truncate: an old file must go first, also
-    'when it is hidden, or a shorter report would keep its tail.
         On Error GoTo Failed
-        If Len(Dir$(filePath, vbHidden Or vbSystem)) > 0 Then
-            If (GetAttr(filePath) And vbReadOnly) = 0 Then
-                SetAttr filePath, vbNormal
+        If FileExists(filePath) Then
+            If (GetAttr(filePath) And vbReadOnly) <> 0 Then
+                Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the file is read-only"
             End If
-            Kill filePath
+        End If
+        newPath = SiblingPath(filePath, "new")
+        If gTestFault = "evidence-open" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure before the report was opened."
         End If
         fileNo = FreeFile
-        Open filePath For Binary Access Write As #fileNo
+        Open newPath For Binary Access Write As #fileNo
         Put #fileNo, , bytes
+        If gTestFault = "evidence-write" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the report was written."
+        End If
         If LOF(fileNo) <> UBound(bytes) - LBound(bytes) + 1 Then
-            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "an older file of that name could not be replaced"
+            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the report was not written whole"
         End If
         Close #fileNo
-        WriteEvidence = (Len(text) - Len(Replace(text, vbCrLf, ""))) \ 2
-        Exit Function
+        fileNo = 0
 
-Failed:
-        errNumber = Err.Number
-        errText = Err.Description
+'------------------------------------------------------------------------------
+' REPLACE THE OLDER FILE
+'------------------------------------------------------------------------------
+        If FileExists(filePath) Then
+            oldPath = SiblingPath(filePath, "old")
+            SetAttr filePath, vbNormal
+            Name filePath As oldPath
+        End If
+        If gTestFault = "evidence-replace" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the older file was replaced."
+        End If
+        Name newPath As filePath
+        newPath = ""
+        WriteEvidence = (Len(text) - Len(Replace(text, vbCrLf, ""))) \ 2
+
+'------------------------------------------------------------------------------
+' CLEAN UP AND REPORT
+'------------------------------------------------------------------------------
+    'Reached on success and, through Failed, after an error, with the error
+    'handler switched off so that a cleanup error cannot replace the first.
+CleanUp:
+        On Error Resume Next
         If fileNo <> 0 Then
             Close #fileNo
         End If
-        Err.Raise errNumber, "M_Main.WriteEvidence", "Could not write " & filePath & ": " & errText
+        If Len(newPath) > 0 Then
+            If FileExists(newPath) Then
+                Kill newPath
+            End If
+        End If
+        If Len(oldPath) > 0 Then
+            If errNumber = 0 Then
+                Kill oldPath
+            ElseIf Not FileExists(filePath) Then
+                Name oldPath As filePath
+            End If
+        End If
+        On Error GoTo 0
+        If errNumber <> 0 Then
+            Err.Raise errNumber, "M_Main.WriteEvidence", "Could not write " & filePath & ": " & errText
+        End If
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        errNumber = Err.Number
+        errText = Err.Description
+        Resume CleanUp
+
+End Function
+
+
+Private Function FileExists( _
+    ByVal filePath As String) _
+    As Boolean
+'
+'==============================================================================
+'                                  FileExists
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a file of that name exists, hidden and system files
+'   included.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+        FileExists = Len(Dir$(filePath, vbHidden Or vbSystem)) > 0
+
+End Function
+
+
+Private Function SiblingPath( _
+    ByVal filePath As String, _
+    ByVal tag As String) _
+    As String
+'
+'==============================================================================
+'                                 SiblingPath
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A name for a file beside filePath that does not exist yet, such as
+'   "report.csv.saccr-new1": in the same folder, so that a rename does not
+'   move the file to another drive.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim n           As Long      'Counter that makes the name unique
+    Dim candidate   As String    'Name tried
+
+'------------------------------------------------------------------------------
+' FIND A FREE NAME
+'------------------------------------------------------------------------------
+        Do
+            n = n + 1
+            candidate = filePath & ".saccr-" & tag & n
+        Loop While FileExists(candidate)
+        SiblingPath = candidate
 
 End Function
 
