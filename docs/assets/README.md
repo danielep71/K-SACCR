@@ -12,7 +12,8 @@ them.
 
 The images below show sheets of the workbook built from
 `src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. The owner
-took them in Excel for Windows on 2026-10-16.
+took them in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
+retaken on 2026-10-17 to show the colours of #296.
 
 | Image | Shows |
 | --- | --- |
@@ -90,6 +91,42 @@ columns C:D):
 2. Quantize it to 256 colours (Pillow `quantize(colors=256,
    method=MEDIANCUT, dither=NONE)`) and save it with `optimize=True`, as for
    the screenshots above.
+
+<a id="saccr-uses-in-crr"></a>
+
+## 🧭 Where SA-CCR is used in the CRR
+
+`SACCR_uses_in_CRR.svg` shows the parts of the CRR that take the SA-CCR
+exposure value of a netting set:
+- counterparty credit risk under the standardised approach (Art. 107);
+- exposures to CCPs (Art. 301–311);
+- large exposures (Art. 390);
+- the leverage ratio, with RC net of eligible cash variation margin only and a
+  PFE multiplier of 1 (Art. 429c);
+- CVA risk, through the standardised method under CRR2 and BA-CVA under CRR3
+  (Art. 382–386);
+- the output floor of CRR3, 50% of standardised RWA in 2025 rising to 72.5%,
+  with α = 1 for institutions with IMM permission until 2029 (Art. 92(3), 465).
+
+Each part is coloured by the regulation that brought it in, CRR2 (Regulation
+(EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
+2024/1623, applied from 1 January 2025), and names what K-SACCR does with it:
+the roadmap milestone, or out of scope. It is an orientation picture, not a
+source: K-SACCR calculates only the exposure value at its centre.
+
+- **Origin:** drawn for this repository from the CRR. The idea of a single
+  exposure value feeding several frameworks follows the European Banking
+  Federation's annex on the use of SA-CCR across the prudential framework; no
+  part of that figure is reproduced.
+- **Sources:** the article references were checked on 2026-10-17 against
+  secondary sources (EBA reports and Q&A, industry papers, supervisory
+  reporting instructions), not against the EUR-Lex text, which could not be
+  retrieved. Art. 429c and Art. 465(4) are to be confirmed against EUR-Lex.
+
+The SVG is the source; `SACCR_uses_in_CRR.png`, used by the Wiki, is rendered
+from it at 1600 x 1040 px with headless Chromium at a device scale factor of
+1, then quantized to 256 colours as the screenshots above. Render it again
+whenever the SVG changes.
 
 <a id="social-preview"></a>
 

@@ -106,6 +106,13 @@ Use only the categories needed by a release.
   validator rejected every real log of that suite; the 1.0.0 certification
   records this as its deviation.
 
+### Documentation
+
+- A diagram of where the CRR uses the SA-CCR exposure value (counterparty
+  credit risk, CCPs, large exposures, leverage ratio, CVA risk, output floor),
+  with the K-SACCR milestone or scope of each, in the README roadmap and
+  `docs/assets/SACCR_uses_in_CRR.svg`.
+
 ## [1.0.0] - 2026-10-17
 
 First release. Everything below is new in it; engineering detail is in the
