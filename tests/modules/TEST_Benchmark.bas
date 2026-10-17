@@ -8,8 +8,8 @@ Attribute VB_Name = "TEST_Benchmark"
 '   by default portfolios of 1,000 and 10,000 legs, on request others up to
 '   1,000,000, and always last a portfolio of 1,000 legs whose Trades sheet
 '   has its used range inflated by a stray comment 100,000 rows below the
-'   first data row, to measure what an inflated used range adds to the
-'   run. Each scenario prints a BENCH line with the seconds taken to
+'   end of its used range, to measure what an inflated used range adds to
+'   the run. Each scenario prints a BENCH line with the seconds taken to
 '   write the inputs and to run the engine.
 '
 ' PORTFOLIO
@@ -99,12 +99,12 @@ Attribute VB_Name = "TEST_Benchmark"
 
     'Inflated used range.
         Private Const USED_RANGE_LEGS   As Long = 1000      'Legs of the used-range scenario
-        Private Const STRAY_OFFSET      As Long = 100000    'Rows from the first Trades row to the stray comment
+        Private Const STRAY_OFFSET      As Long = 100000    'Rows from the end of the Trades used range to the comment
         Private Const STRAY_TEXT        As String = "Benchmark: inflated used range"    'The stray comment
 
     'Checks. They compare the engine's counts with the portfolio written,
     'so they validate no figure and are reported as illustrative.
-        Private Const CHECKS_PER_CASE   As Long = 6     'Checks of every scenario
+        Private Const CHECKS_PER_CASE   As Long = 7     'Checks of every scenario
         Private Const STRAY_CHECKS      As Long = 2     'Further checks of the used-range scenario
         Private Const REFERENCE_CLASS   As String = "illustrative"    'Reference class of every check
 
@@ -113,6 +113,8 @@ Attribute VB_Name = "TEST_Benchmark"
 '------------------------------------------------------------------------------
         Private mStrayRow   As Long    'Sheet row of the stray comment; 0 when there is none
         Private mUsedBefore As Long    'Last row of the Trades used range before the stray comment
+        Private mBaseRows() As Long    'Last used row of each sheet of ExtentSheets before the run
+        Private mHaveBase   As Boolean    'mBaseRows has been recorded
 
 
 '
@@ -173,6 +175,7 @@ Public Sub RunBenchmark( _
             listed = listed & sizes(i)
         Next i
         mStrayRow = 0
+        RecordExtents
 
 '------------------------------------------------------------------------------
 ' RUN
@@ -196,6 +199,10 @@ Public Sub RunBenchmark( _
 Failed:
         abortReason = "unexpected error " & Err.Number & ": " & Err.Description
         reason = ClearStray()
+        If Len(reason) > 0 Then
+            abortReason = abortReason & "; " & reason
+        End If
+        reason = ShrinkSheets()
         If Len(reason) > 0 Then
             abortReason = abortReason & "; " & reason
         End If
@@ -223,7 +230,8 @@ Private Sub RunScenario( _
 ' PURPOSE
 '   Write a portfolio, time the writing and the engine run, record the
 '   checks and print the BENCH line. In the used-range scenario a stray
-'   comment is written STRAY_OFFSET rows below the first Trades row before
+'   comment is written STRAY_OFFSET rows below the end of the Trades used
+'   range before
 '   the run, and its row deleted after it.
 '
 ' INPUTS
@@ -273,7 +281,7 @@ Private Sub RunScenario( _
         writeSeconds = SecondsSince(t0)
         If inflateUsedRange Then
             mUsedBefore = UsedLastRow(GetSheet(SH_TRADES))
-            mStrayRow = FirstInputRow(SH_TRADES) + STRAY_OFFSET
+            mStrayRow = mUsedBefore + STRAY_OFFSET
             TableCell(GetSheet(SH_TRADES), mStrayRow, TR_COMMENT).Value = STRAY_TEXT
             usedLast = UsedLastRow(GetSheet(SH_TRADES))
             TEST_CaseRunner.ExpectTrue "used-range", usedLast >= mStrayRow, "the Trades used range ends on row " & _
@@ -333,6 +341,16 @@ Private Sub RunScenario( _
             detail = ClearStray()
             TEST_CaseRunner.ExpectTrue "used-range-restored", Len(detail) = 0, detail, REFERENCE_CLASS
         End If
+
+'------------------------------------------------------------------------------
+' SHRINK THE SHEETS
+'------------------------------------------------------------------------------
+    'Rows the scenario wrote below the sheets' extent before the run are
+    'deleted, so that the next scenario, and the workbook after EndSuite,
+    'start from that extent rather than from a used range left by a
+    'larger portfolio.
+        detail = ShrinkSheets()
+        TEST_CaseRunner.ExpectTrue "extent-restored", Len(detail) = 0, detail, REFERENCE_CLASS
 
 End Sub
 
@@ -447,6 +465,120 @@ Private Function ClearStray() As String
 Failed:
         ClearStray = "stray comment on Trades row " & mStrayRow & " not removed: error " & _
                      Err.Number & ": " & Err.Description
+
+End Function
+
+
+Private Function ExtentSheets() As Variant
+'
+'==============================================================================
+'                                 ExtentSheets
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Name the sheets whose used range a scenario can extend: the two input
+'   sheets and the output sheets whose rows grow with the portfolio.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+        ExtentSheets = Array(SH_TRADES, SH_NS, SH_TRADECALC, SH_RESULTS, SH_HEDGING, SH_BUCKETS, SH_CHECKS)
+
+End Function
+
+
+Private Sub RecordExtents()
+'
+'==============================================================================
+'                                RecordExtents
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Record the last used row of each sheet of ExtentSheets before the
+'   benchmark writes anything, for ShrinkSheets.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim names   As Variant    'ExtentSheets
+    Dim k       As Long       'Index into names
+
+'------------------------------------------------------------------------------
+' RECORD
+'------------------------------------------------------------------------------
+        names = ExtentSheets()
+        ReDim mBaseRows(LBound(names) To UBound(names))
+        For k = LBound(names) To UBound(names)
+            mBaseRows(k) = UsedLastRow(GetSheet(CStr(names(k))))
+        Next k
+        mHaveBase = True
+
+End Sub
+
+
+Private Function ShrinkSheets() As String
+'
+'==============================================================================
+'                                 ShrinkSheets
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give each sheet of ExtentSheets back the used range it had before the
+'   benchmark: delete the rows below its recorded last row, which hold only
+'   benchmark rows (the template's own rows are above it), and read
+'   UsedRange again so that Excel recomputes it. Clearing contents is not
+'   enough: Excel keeps the used range of cleared cells.
+'
+' RETURNS
+'   Empty when every sheet is back to its recorded extent or none was
+'   recorded; otherwise which sheets are not, or the error raised.
+'
+' ERROR POLICY
+'   Contains its own error, so that it can run on the error path.
+'
+' UPDATED
+'   2026-10-17
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim names     As Variant      'ExtentSheets
+    Dim k         As Long         'Index into names
+    Dim ws        As Worksheet    'Sheet being shrunk
+    Dim usedNow   As Long         'Its last used row
+
+'------------------------------------------------------------------------------
+' SHRINK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If Not mHaveBase Then
+            Exit Function
+        End If
+        names = ExtentSheets()
+        For k = LBound(names) To UBound(names)
+            Set ws = GetSheet(CStr(names(k)))
+            usedNow = UsedLastRow(ws)
+            If usedNow > mBaseRows(k) Then
+                ws.Range(ws.Rows(mBaseRows(k) + 1), ws.Rows(usedNow)).Delete
+                usedNow = UsedLastRow(ws)
+                If usedNow > mBaseRows(k) Then
+                    ShrinkSheets = ShrinkSheets & IIf(Len(ShrinkSheets) > 0, "; ", "") & names(k) & _
+                                   " used range ends on row " & usedNow & ", not " & mBaseRows(k)
+                End If
+            End If
+        Next k
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        ShrinkSheets = "sheet extents not restored: error " & Err.Number & ": " & Err.Description
 
 End Function
 
@@ -811,7 +943,7 @@ Private Function ParseSizes( _
         ReDim sizes(1 To nSizes)
         For i = 1 To nSizes
             item = Trim$(parts(LBound(parts) + i - 1))
-            If Len(item) = 0 Or Len(item) > 6 Or item Like "*[!0-9]*" Then
+            If Len(item) = 0 Or Len(item) > Len(CStr(MAX_LEGS)) Or item Like "*[!0-9]*" Then
                 reason = rule & " (found """ & item & """)"
                 Exit Function
             End If

@@ -432,13 +432,14 @@ Not a suite: `Test_RunAll` does not run it and the Excel evidence does not
 include it, because its timings depend on the machine. Needs
 `TEST_CaseRunner` and a workbook built from the template. It writes synthetic
 CRR portfolios of the given numbers of legs (1,000 and 10,000 by default; up
-to 1,000,000, which needs memory and time in proportion), in netting sets of 500 legs, alternately unmargined and margined,
-with interest-rate swaps, FX forwards and options, credit default swaps,
-equity forwards and options and commodity forwards, all valid; then, last, a
-portfolio of 1,000 legs with a stray comment 100,000 rows below the first
-Trades row, which inflates the sheet's used range. For each it times the
-writing of the inputs and the engine run, prints a `BENCH` line such as
-this one, with the seconds in the locale's number format,
+to 1,000,000, which needs memory and time in proportion), in netting sets of
+500 legs, alternately unmargined and margined, with interest-rate swaps, FX
+forwards and options, credit default swaps, equity forwards and options and
+commodity forwards, all valid; then, last, a portfolio of 1,000 legs with a
+stray comment 100,000 rows below the end of the Trades used range, which
+inflates the sheet's used range. For each it times the writing of the inputs
+and the engine run, prints a `BENCH` line such as this one, with the seconds
+in the locale's number format,
 
 ```text
 BENCH case=bench-10000; legs=10000; netting_sets=20; used=10000; withheld=0; errors=0; warnings=0; tradecalc_rows=10000; results_rows=21; write_s=<seconds>; run_s=<seconds>
@@ -448,7 +449,10 @@ and checks that the run completed with every leg used, every netting set
 `VALID`, no error on Checks, one Results row per netting set and the `TOTAL
 CRR` row, and one TradeCalc row per leg; the used-range scenario also shows
 `used_last_row` and checks that the comment did inflate the used range and
-that deleting its row gives the used range back its extent. The inputs are
+that deleting its row gives the used range back its extent. After every
+scenario the rows it wrote below the sheets' original extent are deleted and
+checked, so a large portfolio does not leave the next scenario, or the
+workbook, with an inflated used range. The inputs are
 restored. Sizes that cannot be read print a `BENCH_REJECTED=` line and change
 nothing. The measured results are under [Portfolio size](#portfolio-size).
 
