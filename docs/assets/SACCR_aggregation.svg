@@ -20,11 +20,12 @@
 <text x="74.0" y="331.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">netting agreement; margined or not,</text>
 <text x="74.0" y="351.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">and its regime: CRR or Basel CRE52</text>
 <rect x="500.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
-<text x="514.0" y="273.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Primary risk driver</text>
-<text x="514.0" y="300.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Interest rate (IR) · Foreign exchange (FX)</text>
-<text x="514.0" y="320.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Credit (CR) · Equity (EQ) · Commodity (CO)</text>
-<text x="514.0" y="341.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Other risks (OT): CRR only</text>
-<text x="514.0" y="361.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">One trade can map to several classes</text>
+<text x="514.0" y="263.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Primary risk driver</text>
+<text x="514.0" y="290.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Interest rate (IR) · Foreign exchange (FX)</text>
+<text x="514.0" y="310.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Credit (CR) · Equity (EQ) · Commodity (CO)</text>
+<text x="514.0" y="331.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Other risks (OT): CRR only</text>
+<text x="514.0" y="351.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Economic trade: one leg per asset class;</text>
+<text x="514.0" y="371.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">an option combination: one leg per option</text>
 <rect x="940.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
 <text x="954.0" y="247.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Hedging set</text>
 <text x="954.0" y="272.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">IR: currency; inflation in its own set · FX: pair</text>
