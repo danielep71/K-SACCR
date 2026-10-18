@@ -159,6 +159,12 @@ Use only the categories needed by a release.
   or quantity, and multiple exchanges and leverage. The Source check header says it records a text
   check, not numerical validation; column J is wider and the edited rows
   taller. The methodology's wording on the omitted reductions is aligned.
+- TestCatalogue T07 (CRE99 Example 3 on the demo) says why the demo is
+  1.38 below the published 5,406: its 9-month leg is 274 days, 0.7507 years,
+  because no date gives 0.75 years at 365 days; tolerance 2 covers this
+  input difference, not engine rounding, and the case `cre99-example-3`
+  reproduces the example exactly with `DaysPerYear` 360. The owner kept the
+  274-day input.
 - Results: a conditional format highlights in light red every netting-set
   row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
   `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of
