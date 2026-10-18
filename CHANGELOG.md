@@ -180,13 +180,18 @@ Use only the categories needed by a release.
   the methodology; and `SACCR_RC_PFE.svg`, the replacement cost of a margined
   netting set and the PFE multiplier, also in the 1.0.1 user manual. Each has
   a PNG for the Wiki.
-- The 1.0.1 user manual, in `docs/user-manual/v1.0.1/`: the 1.0.0 manual with
-  the changes of this release (the Results C5 text, the `EDITED` state, the
-  export that keeps the older file, the 1904 date-system recalculation), the
-  1.0.1 suite counts and the release's certification steps. It names no
-  hosting service and links to none: it cites the source repository's files
-  by their path, and the clone command takes the repository address as
-  `<repository-URL>`. The 1.0.0 manual is unchanged.
+- The 1.0.1 user manual, in `docs/user-manual/v1.0.1/`, is written for
+  someone who receives only `K-SACCR_1.0.1.xlsm` and `SHA256SUMS.txt`.
+  Installation is now checking the workbook's SHA-256, unblocking and
+  opening it, keeping the delivered file as a reference copy and moving
+  inputs to a new version. Building from source, the development workbook,
+  the regression-suite inventory, the release certification steps and
+  every reference to the source repository and its hosting service are
+  gone; troubleshooting sends a damaged workbook back to the reference copy
+  instead of a rebuild. It also covers this release's changes (the Results
+  C5 text, the `EDITED` state, the export that keeps the older file, the
+  1904 date-system recalculation) and the replacement-cost and PFE
+  explainer. The 1.0.0 manual is unchanged.
 - The roadmap, the support matrix and the diagram of where the CRR uses
   SA-CCR plan CCP exposures and default funds (#112) in v1.0.2, Clearing coverage and CCP completeness,
   instead of v1.7.0, as the milestones now do.
