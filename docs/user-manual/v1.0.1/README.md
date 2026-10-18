@@ -20,8 +20,9 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 Released with 1.0.1 (tag `v1.0.1`, 18 October 2026). The manual is
 written for someone who receives only the workbook `K-SACCR_1.0.1.xlsm`
 and `SHA256SUMS.txt`: it does not mention the source repository, building
-the workbook from source, the test suites or the release process, which
-the repository's own documentation covers. The release's PDF is built from this
+the workbook from source or the release process, and of the testing it
+gives only the summary result, not the suite inventory. The repository's
+own documentation covers those. The release's PDF is built from this
 folder at the tag, and its SHA-256 is in the release's `SHA256SUMS.txt`.
 The 1.0.0 manual stays as released in [`../v1.0.0/`](../v1.0.0/README.md).
 
