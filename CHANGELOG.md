@@ -114,6 +114,9 @@ Use only the categories needed by a release.
   keep the older value in an example they label illustrative.
 - The README shows the total downloads of the release assets as a badge
   linked to the latest release.
+- The website's download button starts the download of the 1.0.1 workbook
+  instead of opening the release page, a second button downloads the user
+  manual (PDF), and the SHA-256 note links `SHA256SUMS.txt`.
 
 ## [1.0.1] - 2026-10-18
 
