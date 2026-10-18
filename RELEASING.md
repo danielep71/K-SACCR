@@ -17,9 +17,9 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 
 | Property | State |
 | --- | --- |
-| Released versions | 1.0.0 (2026-10-17), tag `v1.0.0` |
+| Released versions | 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
-| Version file | `VERSION`, holding `1.0.0` ([versioning](#versioning)) |
+| Version file | `VERSION`, holding `1.0.1` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
 | Excel certification | All eight suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
