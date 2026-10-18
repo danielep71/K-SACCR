@@ -19,7 +19,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   with a suffix other than -INFL; and, for the netting-set terms (#39),
 '   VM on an unmargined netting set, a clearing role or margin-agreement
 '   structure that is not a code, and the structures the engine does not
-'   model. A blank optional field, a duplicate with the same values, an
+'   model, including a netting set declared as facing a CCP (#112). A blank optional field, a duplicate with the same values, an
 '   inflation risk factor such as EUR-INFL, the sum of absolutes in a BCBS
 '   netting set and VM posted on an unmargined BCBS netting set must still
 '   be accepted. The same section checks the MPOR of each clearing role and
@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-18
 '
 ' AUTHOR
 '   Daniele Penza
@@ -100,8 +100,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 133               'Cases in a complete run
-        Private Const CHECKS      As Long = 209               'Checks in a complete run
+        Private Const CASES       As Long = 135               'Cases in a complete run
+        Private Const CHECKS      As Long = 212               'Checks in a complete run
 
 
 '
@@ -121,7 +121,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-18
 '==============================================================================
 '
 
@@ -449,6 +449,19 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, "Y"
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
+
+    'A netting set declared as facing a CCP is rejected, margined or not,
+    'rather than calculated with the bilateral floors, and its status names
+    'the reason; another invalid field is counted after it (#112).
+        StartCase "netting-set-clearing-role-ccp", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CCP
+        AddSwap "T1"
+        ExpectStatus "INVALID: facing a CCP, not supported"
+        TEST_CaseRunner.ExpectChecksLine "error", SEV_ERROR, "facing a CCP is not supported", "illustrative"
+
+        StartMarginedCase "netting-set-clearing-role-ccp-margined", "CRR", CL_CCP, "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -1#
+        ExpectStatus "INVALID: facing a CCP, not supported; 1 other input error(s)"
 
         StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
         ExpectMPOR 5
