@@ -147,6 +147,16 @@ Use only the categories needed by a release.
   printed a digest, so an export from one workbook could be presented with
   another. A release workbook now needs `binding=VERIFIED`.
 
+- The workbook's own texts no longer refer to the source repository or its
+  issues, for a user who receives only the workbook. TestCatalogue calls its
+  computed illustrative values "separate unreviewed calculation" instead of
+  "Python value, not in repository", says a source was "not checked" rather
+  than "not registered", and points to the input-validation tests run before
+  release instead of a test module and an issue number; Basel_vs_CRR drops
+  the issue numbers (#38, #39) and the test-module name. README C3 drops
+  "VBA engine v1.0.0", a version stamp that was no longer true. Only the
+  text of 13 cells changes.
+
 ### Fixed
 
 - Exporting evidence over an existing report no longer deletes it before the
