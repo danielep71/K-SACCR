@@ -154,11 +154,12 @@ Use only the categories needed by a release.
   EAD totals and risk weights and capital outside them; the single *large or
   illiquid* flag stays as a conservative limitation; settled-to-market trades
   get a settlement type and a next reset date; and a declared CCP-facing
-  netting set is rejected until CCP support exists. Today a netting set
-  facing a CCP cannot be declared and, entered with role N, is calculated as
-  bilateral; the support matrix says so. The source register adds `CRR-CCP`,
-  Articles 4(1)(88)–(91) and 300–311 of the consolidated CRR, with a
-  registered extract. No calculation changes.
+  netting set is rejected until CCP support exists, which the `CCP` role
+  under Added implements. A netting set facing a CCP but entered with role N
+  is still calculated as bilateral, as the support matrix says. The source
+  register adds `CRR-CCP`, Articles 4(1)(88)–(91) and 300–311 of the
+  consolidated CRR, with a registered extract. The documentation itself
+  changes no calculation.
 
 ## [1.0.1] - 2026-10-18
 
