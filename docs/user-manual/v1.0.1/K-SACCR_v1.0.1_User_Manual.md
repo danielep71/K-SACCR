@@ -77,7 +77,7 @@ Before release, the workbook's VBA code was compiled and tested in 64-bit Window
 ![Inputs-to-results process map. The diagram is schematic; the workbook records full details.](assets/data_flow.png){width=98%}
 
 
-1. Check that the workbook you received is the released file: its SHA-256 must equal the value supplied with it.
+1. Check that the workbook you received is the released file: its SHA-256 must equal the expected value, obtained from a source you trust.
 2. Keep that file unchanged as a reference copy, and work in a copy of it.
 3. Open the copy, enable macros as your policy allows, inspect the worksheets and work through the synthetic demonstration.
 4. Set Params, then populate NettingSets and Trades with synthetic or properly authorized test inputs.
@@ -149,6 +149,8 @@ You receive `K-SACCR_1.0.1.xlsm` together with `SHA256SUMS.txt`, which holds one
 
    or in a Command Prompt: `certutil -hashfile K-SACCR_1.0.1.xlsm SHA256`.
 3. Compare it with the line for `K-SACCR_1.0.1.xlsm` in `SHA256SUMS.txt` (letter case does not matter). If they differ, do not open the file: delete it and ask for a new copy.
+
+   A match shows that the workbook arrived unchanged, not who made it: anyone able to replace the workbook on its way to you can replace `SHA256SUMS.txt` too. If both reached you through the same channel, confirm the expected SHA-256 with the supplier through a separate channel you trust, for example by telephone or from the supplier's own published release information, before you unblock the file and enable macros.
 4. Windows marks a downloaded or e-mailed file as coming from the internet, and Office then blocks its macros. If your macro policy allows it, right-click the file → **Properties** → tick **Unblock** → **OK**, or run `Unblock-File .\K-SACCR_1.0.1.xlsm` in PowerShell. Do this only after the hash check.
 5. Open the workbook in desktop Excel and enable macros as your policy allows. Open the `README`, `Params`, `NettingSets`, `Trades` and `Results` sheets and check that the sheet buttons are present.
 
@@ -1031,7 +1033,7 @@ A stopped operation is materially different from an excluded trade. A run can st
 
 ## Checklist: before a first business run
 
-- [ ] Check that the workbook's SHA-256 equals the value supplied with it, before the first save.
+- [ ] Check that the workbook's SHA-256 equals the expected value, confirmed through a channel you trust, before the first save.
 - [ ] Use Windows desktop Excel in the supported environment; comply with macro policy.
 - [ ] Keep the delivered file unchanged as a reference copy; never change the workbook's VBA code.
 - [ ] Save an untouched synthetic demonstration copy; keep operational work separately.
@@ -1081,7 +1083,7 @@ A stopped operation is materially different from an excluded trade. A run can st
 |:--|:--|:--|
 | **`K-SACCR_1.0.1.xlsm`** | The calculator, with a synthetic demonstration portfolio. | Not a store for your evidence: export it. |
 | **This user manual (PDF)** | Teach a user how to check, operate, interpret and troubleshoot the version. | Not proof that the workbook was tested. |
-| **`SHA256SUMS.txt`** | The SHA-256 of the workbook and of this manual, to check that the files are the released ones. | Not a check of a copy you have saved since. |
+| **`SHA256SUMS.txt`** | The SHA-256 of the workbook and of this manual, to check that the files arrived unchanged. | Not proof of who made the files (confirm the values through a separate trusted channel), nor a check of a copy you have saved since. |
 | **Evidence CSV** (you create it) | Document a particular **calculator run** and its inputs/outputs/comparisons. | Not a regulatory return or a test record. |
 
 A released version is never changed: a correction comes as a new version, with its own file name, SHA-256 and manual.
