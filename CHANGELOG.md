@@ -124,11 +124,17 @@ Use only the categories needed by a release.
   their MPOR floors under both regimes, QCCP and non-QCCP treatment,
   products, collateral and segregation, settlement and reset, the mapping of
   each supported rule to its input, code and test, the cases still to be
-  rejected, and four open decisions. A netting set facing a CCP cannot be
-  declared and, entered with role N, is calculated as bilateral; the support
-  matrix now says so. The source register adds `CRR-CCP`, Articles
-  4(1)(88)–(91) and 300–311 of the consolidated CRR, with a registered
-  extract. No calculation changes.
+  rejected, and the owner's decisions: a `BCBS` client keeps 10 days as a
+  conservative interpretation of CRE54.2; CCP-facing netting sets get their
+  own role, QCCP, retained-VM and protection inputs, with CCP trade EAD in the
+  EAD totals and risk weights and capital outside them; the single *large or
+  illiquid* flag stays as a conservative limitation; settled-to-market trades
+  get a settlement type and a next reset date; and a declared CCP-facing
+  netting set is rejected until CCP support exists. Today a netting set
+  facing a CCP cannot be declared and, entered with role N, is calculated as
+  bilateral; the support matrix says so. The source register adds `CRR-CCP`,
+  Articles 4(1)(88)–(91) and 300–311 of the consolidated CRR, with a
+  registered extract. No calculation changes.
 
 ## [1.0.1] - 2026-10-18
 
