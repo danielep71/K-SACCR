@@ -126,8 +126,24 @@ Use only the categories needed by a release.
   conservative limitation), the client's floor doubled by disputes (10 under
   CRR, 20 under BCBS) and an MPOR override below and above the clearing
   member's floor. `tools/check_test_cases.py` accepts `CRE54.<paragraph>`
-  rule IDs. Totals: `TEST_Cases` 24 cases and 71 checks,
-  `TEST_InputValidation` 141 cases and 225 checks.
+  rule IDs. The owner decided that there will be no independent reviewer,
+  so these values stay illustrative and #359's criterion on independently
+  reviewed values is recorded as not met (decision 8 of the clearing
+  coverage). Totals: `TEST_Cases` 24 cases and 71 checks,
+  `TEST_InputValidation` 143 cases and 233 checks.
+- NettingSets: Client clearing role `MULTI` declares a multi-level client
+  structure (a client clearing for its own clients), whose conditions apply
+  at every level (CRE54.14(3); CRR Art. 305(4)) and are not modelled: the
+  netting set is `INVALID: multi-level client structure, not supported`,
+  with an error on Checks, instead of taking an ordinary role's floor. The
+  template's dropdown, input message and guidance list it; as for `CCP`, an
+  existing workbook needs the new template, or `MULTI` added to the
+  validation list of NettingSets column F, to enter it (#359).
+- Checks: every `CM` and `CLIENT` netting set gets an INFO line naming its
+  role, the MPOR floor and the rule applied, the BCBS client's 10 days marked
+  as the conservative interpretation; an unmargined one says that no floor
+  applies. The role and method are thus in the run's evidence without a
+  new Results column (#359).
 - Basel_vs_CRR (#389): eight rows completed or qualified after the owner's
   review: Basel's lambda is one value per currency for IR options, and the
   engine accepts an entered lambda for other options only as a technical

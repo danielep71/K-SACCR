@@ -99,8 +99,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 141               'Cases in a complete run
-        Private Const CHECKS      As Long = 225               'Checks in a complete run
+        Private Const CASES       As Long = 143               'Cases in a complete run
+        Private Const CHECKS      As Long = 233               'Checks in a complete run
 
 
 '
@@ -443,7 +443,9 @@ Public Sub RunInputValidationTests()
 
     'Client clearing role (#39): the 5-day floor for the clearing member in
     'both regimes [CRE54.12; CRR Art. 279c(1)], for the client only under
-    'CRR; the BCBS client keeps the 10-day floor [CRE54.8, CRE54.14].
+    'CRR; the BCBS client keeps the 10-day floor [CRE54.8, CRE54.14]. Each
+    'CM and CLIENT netting set has an INFO line naming its role, floor and
+    'rule, also when it is unmargined and no floor applies (#359).
         StartCase "netting-set-clearing-role-not-a-code", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, "Y"
         AddSwap "T1"
@@ -462,17 +464,35 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -1#
         ExpectStatus "INVALID: facing a CCP, not supported; 1 other input error(s)"
 
+    'So is a declared multi-level client structure, whose conditions apply
+    'at every level and are not modelled (#359).
+        StartCase "netting-set-clearing-role-multi-level", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_MULTI
+        AddSwap "T1"
+        ExpectStatus "INVALID: multi-level client structure, not supported"
+        TEST_CaseRunner.ExpectChecksLine "error", SEV_ERROR, "multi-level client structure is not supported", "illustrative"
+
         StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
         ExpectMPOR 5
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Clearing member facing its client: MPOR floor 5 BD", "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-bcbs", "BCBS", "CM", "1", "N", "N"
         ExpectMPOR 5
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Clearing member facing its client: MPOR floor 5 BD", "illustrative"
 
         StartMarginedCase "netting-set-clearing-client-crr", "CRR", "CLIENT", "1", "N", "N"
         ExpectMPOR 5
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Client facing its clearing member under CRR: MPOR floor 5 BD", "illustrative"
 
         StartMarginedCase "netting-set-clearing-client-bcbs", "BCBS", "CLIENT", "1", "N", "N"
         ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Client facing its clearing member under BCBS: MPOR floor 10 BD", "illustrative"
+
+        StartCase "netting-set-clearing-member-unmargined", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CM
+        AddSwap "T1"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "on an unmargined netting set: no MPOR floor applies", "illustrative"
 
     'The client-clearing floors combined with the other MPOR rules (#359).
     'One large or illiquid flag sets 20 days for the clearing member in both

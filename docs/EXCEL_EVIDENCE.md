@@ -380,7 +380,7 @@ Keep non-passing bundles too until the finding is resolved.
   last 200 lines; the suites print there and nowhere else. A run that prints
   more loses its first lines, starting with the header and the first `CASE`
   lines, and its log fails validation (`EVIDENCE_INVALID`).
-  `TEST_InputValidation` prints 147 lines on a pass (header, `MODE`, 141
+  `TEST_InputValidation` prints 149 lines on a pass (header, `MODE`, 143
   `CASE` lines and four result lines), so a failing run with more than about
   60 `FAILURE=` lines overflows; other suites can too when many checks fail.
   `TEST_MainState` and `TEST_Reconcile` run the workbook macros, whose run

@@ -178,6 +178,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const CL_CM       As String = "CM"        'Clearing member facing its client
         Public Const CL_CLIENT   As String = "CLIENT"    'Client facing its clearing member
         Public Const CL_CCP      As String = "CCP"       'Facing a CCP: declared so the netting set is rejected (#112)
+        Public Const CL_MULTI    As String = "MULTI"     'Multi-level client structure: declared so it is rejected (#359)
     'Margin-agreement structure; blank is one agreement, or none, covering
     'this netting set only. Both codes are declared so that the netting set
     'is rejected: the engine does not model them.
@@ -202,7 +203,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_ID         As Long = 1     'Netting-set ID
         Public Const NS_CPTY       As Long = 2     'Counterparty
         Public Const NS_MARGINED   As Long = 3     'Margined (Y/N)
-        Public Const NS_CLEARED    As Long = 4     'Client-clearing role: N, CM, CLIENT or CCP
+        Public Const NS_CLEARED    As Long = 4     'Client-clearing role: N, CM, CLIENT, CCP or MULTI
         Public Const NS_FREQ       As Long = 5     'Remargining frequency, business days
         Public Const NS_LARGE      As Long = 6     'Over 5,000 trades or illiquid collateral (Y/N)
         Public Const NS_DISPUTE    As Long = 7     'Margin disputes (Y/N)
