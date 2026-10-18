@@ -112,6 +112,8 @@ Use only the categories needed by a release.
   the 1.0.1 release workbook; `74A6C31F` was recorded before later changes to
   the template's inputs. The 1.0.0 and 1.0.1 user manuals are released and
   keep the older value in an example they label illustrative.
+- The README shows the total downloads of the release assets as a badge
+  linked to the latest release.
 
 ## [1.0.1] - 2026-10-18
 
