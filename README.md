@@ -313,7 +313,7 @@ the exposure value (select it to open it full size):
 <p align="center">
   <a href="docs/assets/SACCR_aggregation.svg">
     <img width="100%"
-         alt="How SA-CCR aggregates a netting set: trades are assigned to a netting set, an asset class (IR, FX, CR, EQ, CO and, under CRR only, OT) and a hedging set; each trade's adjusted notional, supervisory delta and maturity factor give its effective notional, which is netted within the hedging set and multiplied by the supervisory factor; hedging-set add-ons are summed, or for credit and equity combined with correlations, into asset-class add-ons, then into the aggregate add-on, the PFE and EAD = 1.4 x (RC + PFE)"
+         alt="How SA-CCR aggregates a netting set: trades are assigned to a netting set, an asset class (IR, FX, CR, EQ, CO and, under CRR only, OT) and a hedging set; each trade's adjusted notional, supervisory delta and maturity factor give its effective notional, which is netted within the hedging set (by maturity bucket for interest rates, by entity for credit and equity, by commodity type) and multiplied by the supervisory factor; within each hedging set, credit and equity entities and commodity types are combined with their correlations; every asset class sums its hedging-set add-ons, and the asset classes add up to the aggregate add-on, the PFE and EAD = 1.4 x (RC + PFE)"
          src="docs/assets/SACCR_aggregation.svg">
   </a>
 </p>
