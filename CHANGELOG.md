@@ -116,7 +116,9 @@ Use only the categories needed by a release.
   linked to the latest release.
 - The website's download button starts the download of the 1.0.1 workbook
   instead of opening the release page, a second button downloads the user
-  manual (PDF), and the SHA-256 note links `SHA256SUMS.txt`.
+  manual (PDF), and the SHA-256 note links `SHA256SUMS.txt`. A short script
+  starts these downloads in a hidden frame, so the page no longer visibly
+  passes through GitHub; without JavaScript the links work as before.
 
 ## [1.0.1] - 2026-10-18
 
