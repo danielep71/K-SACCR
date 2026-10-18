@@ -128,6 +128,21 @@ Use only the categories needed by a release.
   member's floor. `tools/check_test_cases.py` accepts `CRE54.<paragraph>`
   rule IDs. Totals: `TEST_Cases` 24 cases and 71 checks,
   `TEST_InputValidation` 141 cases and 225 checks.
+- Basel_vs_CRR (#389): eight rows completed or qualified after the owner's
+  review: Basel's lambda is one value per currency for IR options, and the
+  engine accepts an entered lambda for other options only as a technical
+  shift; listed credit indices and other multi-name positions under CRR
+  Art. 280c(5)(b), with the engine's limits; the BCBS client's 10 days as an
+  adopted conservative interpretation, the dispute difference, the clearing
+  perimeter and the specific client-clearing tests; the CRR conditions on
+  basis hedging sets; the conditions of the optional reductions for sold
+  options and sold protection, whose omission gives an EAD not lower than
+  with them, not necessarily higher; the CRE52.74 FAQ on one RC and add-ons
+  by MPOR; and the cap columns on Results. Three rows are added: equity and
+  commodity adjusted notional, variable notionals and leverage, and multiple
+  exchanges of notional. The Source check header says it records a text
+  check, not numerical validation; column J is wider and the edited rows
+  taller. The methodology's wording on the omitted reductions is aligned.
 - Results: a conditional format highlights in light red every netting-set
   row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
   `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of
