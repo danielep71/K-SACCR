@@ -102,9 +102,13 @@ Use only the categories needed by a release.
   calculated with the bilateral floors, which can understate its exposure
   (for example where the CCP retains variation margin; CRE54.8(3), CRR Art.
   304(3)(d)). The template's dropdown, input message and guidance list the
-  code; the column header keeps its text, so existing workbooks need no
-  migration. A netting set facing a CCP but entered with role `N` is still
-  calculated as bilateral.
+  code. The column header keeps its text, so an existing workbook still
+  passes the header check after its VBA is synchronized, but its dropdown
+  still offers only N, CM and CLIENT and Excel refuses `CCP` typed into the
+  column. To declare CCP-facing netting sets in such a workbook, rebuild it
+  from the new template, or change the list of the data validation on
+  NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
+  facing a CCP but entered with role `N` is still calculated as bilateral.
 
 ### Documentation
 
