@@ -100,8 +100,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 133               'Cases in a complete run
-        Private Const CHECKS      As Long = 209               'Checks in a complete run
+        Private Const CASES       As Long = 135               'Cases in a complete run
+        Private Const CHECKS      As Long = 212               'Checks in a complete run
 
 
 '
