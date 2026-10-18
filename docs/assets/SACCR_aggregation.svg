@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1530" viewBox="0 0 1800 1530" role="img" aria-labelledby="t d">
+<title id="t">K-SACCR | How SA-CCR aggregates a netting set</title>
+<desc id="d">Trades are assigned top-down to netting sets, asset classes and hedging sets; the effective notionals are then aggregated bottom-up into the add-ons, the PFE and the exposure value.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7f98bc"/></marker></defs>
+<rect width="1800" height="1530" fill="#ffffff"/>
+<text x="900.0" y="58.0" font-family="Georgia, Times New Roman, serif" font-size="40" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="middle">How SA-CCR aggregates a netting set</text>
+<text x="900.0" y="94.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="20" font-weight="bold" font-style="normal" fill="#1f4e8c" text-anchor="middle">Assign each trade top-down, then aggregate bottom-up from the trade to the exposure value</text>
+<rect x="60.0" y="124.0" width="400.0" height="50.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="0"/>
+<text x="76.0" y="157.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">1  Netting set</text>
+<rect x="500.0" y="124.0" width="400.0" height="50.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="0"/>
+<text x="516.0" y="157.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">2  Asset class</text>
+<rect x="940.0" y="124.0" width="400.0" height="50.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="0"/>
+<text x="956.0" y="157.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">3  Hedging set</text>
+<rect x="1380.0" y="124.0" width="400.0" height="50.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="0"/>
+<text x="1396.0" y="157.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">4  Trade</text>
+<text x="60.0" y="210.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="bold" font-style="normal" fill="#4a5a68" text-anchor="start">ASSIGN</text>
+<rect x="60.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
+<text x="74.0" y="284.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Netting agreement</text>
+<text x="74.0" y="310.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Trades under one legally enforceable</text>
+<text x="74.0" y="331.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">netting agreement; margined or not,</text>
+<text x="74.0" y="351.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">and its regime: CRR or Basel CRE52</text>
+<rect x="500.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
+<text x="514.0" y="273.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Primary risk driver</text>
+<text x="514.0" y="300.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Interest rate (IR) · Foreign exchange (FX)</text>
+<text x="514.0" y="320.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Credit (CR) · Equity (EQ) · Commodity (CO)</text>
+<text x="514.0" y="341.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Other risks (OT): CRR only</text>
+<text x="514.0" y="361.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">One trade can map to several classes</text>
+<rect x="940.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
+<text x="954.0" y="255.4" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Hedging set</text>
+<text x="954.0" y="281.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">IR: currency · FX: currency pair</text>
+<text x="954.0" y="301.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">CR, EQ: one set per asset class</text>
+<text x="954.0" y="320.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">CO: energy, metals, agricultural, other;</text>
+<text x="954.0" y="340.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">climatic conditions under CRR only</text>
+<text x="954.0" y="360.4" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">OT: the same risk driver · basis and</text>
+<text x="954.0" y="380.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">volatility trades in sets of their own</text>
+<rect x="1380.0" y="222.0" width="400.0" height="178.0" rx="6" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
+<text x="1394.0" y="284.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Trade</text>
+<text x="1394.0" y="310.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">Each trade, or each leg of an</text>
+<text x="1394.0" y="331.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">economic trade, with its notional,</text>
+<text x="1394.0" y="351.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#e3ecf8" text-anchor="start">dates, direction and option terms</text>
+<path d="M464.0,311.0 L494.0,311.0" fill="none" stroke="#1f4e8c" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M904.0,311.0 L934.0,311.0" fill="none" stroke="#1f4e8c" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M1344.0,311.0 L1374.0,311.0" fill="none" stroke="#1f4e8c" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="60.0" y="440.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="bold" font-style="normal" fill="#4a5a68" text-anchor="start">AGGREGATE</text>
+<text x="500.0" y="474.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Reading the picture</text>
+<rect x="500.0" y="494.0" width="44.0" height="26.0" rx="4" fill="#1f4e8c" stroke="#1f4e8c" stroke-width="1.4"/>
+<text x="558.0" y="513.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Assignment: where a trade belongs</text>
+<rect x="500.0" y="534.0" width="44.0" height="26.0" rx="4" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="558.0" y="553.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Calculation step</text>
+<rect x="500.0" y="574.0" width="44.0" height="26.0" rx="4" fill="#0f2a52" stroke="#0f2a52" stroke-width="1.4"/>
+<text x="558.0" y="593.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Result carried to the next level</text>
+<text x="500.0" y="628.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">Read the bottom half from right to left: each result</text>
+<text x="500.0" y="650.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15.5" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">enters the next level as the arrow shows.</text>
+<rect x="1380.0" y="456.0" width="400.0" height="92.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="1394.0" y="486.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Adjusted notional <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">d</tspan></text>
+<text x="1394.0" y="511.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">IR, CR: notional × supervisory duration <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">SD</tspan></text>
+<text x="1394.0" y="530.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">FX, EQ, CO, OT: notional in the reporting currency</text>
+<rect x="1380.0" y="568.0" width="400.0" height="92.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="1394.0" y="598.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Supervisory delta <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">δ</tspan></text>
+<text x="1394.0" y="623.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Linear: +1 long, −1 short</text>
+<text x="1394.0" y="642.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Option: Black–Scholes Φ with σ; CDO tranche</text>
+<rect x="1380.0" y="680.0" width="400.0" height="92.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="1394.0" y="710.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Maturity factor <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">MF</tspan></text>
+<text x="1394.0" y="735.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Unmargined: from <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">M</tspan>, floored at 10 days, capped at 1 y</text>
+<text x="1394.0" y="754.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Margined: from the MPOR</text>
+<path d="M1580.0,548.0 L1580.0,568.0" fill="none" stroke="#7f98bc" stroke-width="2.5"/>
+<path d="M1580.0,660.0 L1580.0,680.0" fill="none" stroke="#7f98bc" stroke-width="2.5"/>
+<rect x="1380.0" y="800.0" width="400.0" height="80.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="1.4"/>
+<text x="1394.0" y="831.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Effective notional</text>
+<text x="1394.0" y="862.3" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="19" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">D<tspan baseline-shift="sub" font-size="75%">i</tspan> = δ<tspan baseline-shift="sub" font-size="75%">i</tspan> × d<tspan baseline-shift="sub" font-size="75%">i</tspan> × MF<tspan baseline-shift="sub" font-size="75%">i</tspan></tspan></text>
+<path d="M1580.0,772.0 L1580.0,797.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="940.0" y="800.0" width="400.0" height="120.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="954.0" y="825.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Net within the hedging set</text>
+<text x="954.0" y="850.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Sum <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">D<tspan baseline-shift="sub" font-size="75%">i</tspan></tspan> with their signs: long and short offset</text>
+<text x="954.0" y="869.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">IR: per maturity bucket (&lt;1, 1–5, &gt;5 years),</text>
+<text x="954.0" y="888.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">buckets combined with 70% and 30% offsets</text>
+<text x="954.0" y="908.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">CO: per commodity type</text>
+<path d="M1378.0,840.0 L1346.0,840.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="940.0" y="942.0" width="400.0" height="92.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="954.0" y="972.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">× supervisory factor <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">SF</tspan></text>
+<text x="954.0" y="997.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">By class and sub-class, e.g. CR by rating or CQS</text>
+<text x="954.0" y="1016.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">× 0.5 for basis, × 5 for volatility trades</text>
+<path d="M1140.0,920.0 L1140.0,939.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="940.0" y="1056.0" width="400.0" height="80.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="1.4"/>
+<text x="954.0" y="1089.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Hedging-set add-on</text>
+<text x="954.0" y="1115.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">CO: commodity types combined with ρ = 40%</text>
+<path d="M1140.0,1034.0 L1140.0,1053.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="500.0" y="1056.0" width="400.0" height="132.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="514.0" y="1087.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Combine into the class add-on</text>
+<text x="514.0" y="1112.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">IR, FX, CO, OT: sum of the hedging sets</text>
+<text x="514.0" y="1131.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">CR, EQ: entities combined with <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">ρ</tspan>, 50% for</text>
+<text x="514.0" y="1150.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">a single name, 80% for an index:</text>
+<text x="514.0" y="1170.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">√((Σ ρ<tspan baseline-shift="sub" font-size="75%">k</tspan>·A<tspan baseline-shift="sub" font-size="75%">k</tspan>)² + Σ (1 − ρ<tspan baseline-shift="sub" font-size="75%">k</tspan>²)·A<tspan baseline-shift="sub" font-size="75%">k</tspan>²)</tspan></text>
+<path d="M938.0,1096.0 L906.0,1096.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="500.0" y="1212.0" width="400.0" height="70.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="1.4"/>
+<text x="514.0" y="1253.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Asset-class add-on <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">AddOn<tspan baseline-shift="sub" font-size="75%">a</tspan></tspan></text>
+<path d="M700.0,1188.0 L700.0,1209.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="90.0" y="1212.0" width="370.0" height="70.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="104.0" y="1240.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Aggregate add-on</text>
+<text x="104.0" y="1267.4" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">AddOn<tspan baseline-shift="sub" font-size="75%">agg</tspan> = Σ<tspan baseline-shift="sub" font-size="75%">a</tspan> AddOn<tspan baseline-shift="sub" font-size="75%">a</tspan></tspan></text>
+<path d="M498.0,1247.0 L466.0,1247.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="90.0" y="1304.0" width="370.0" height="70.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="104.0" y="1332.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Potential future exposure</text>
+<text x="104.0" y="1359.4" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">PFE = multiplier × AddOn<tspan baseline-shift="sub" font-size="75%">agg</tspan></tspan></text>
+<path d="M275.0,1282.0 L275.0,1301.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="90.0" y="1396.0" width="370.0" height="76.0" rx="6" fill="#0f2a52" stroke="#0f2a52" stroke-width="1.4"/>
+<text x="104.0" y="1426.6" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Exposure value</text>
+<text x="104.0" y="1455.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">EAD = α × (RC + PFE)</tspan>,  <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">α</tspan> = 1.4</text>
+<path d="M275.0,1374.0 L275.0,1393.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="90.0" y="456.0" width="370.0" height="176.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
+<text x="104.0" y="490.4" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Replacement cost and multiplier</text>
+<text x="104.0" y="515.5" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">V</tspan>: net market value; <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">C</tspan>: net collateral</text>
+<text x="104.0" y="534.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Unmargined: <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">RC = max(V − C, 0)</tspan></text>
+<text x="104.0" y="553.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Margined: <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">RC = max(V − C, TH + MTA − NICA, 0)</tspan></text>
+<text x="104.0" y="572.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Multiplier: 1 unless <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">V − C</tspan> &lt; 0, then</text>
+<text x="104.0" y="592.1" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">falling towards its 5% floor</text>
+<text x="104.0" y="611.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Margined EAD capped at the unmargined EAD</text>
+<path d="M90.0,544.0 L72.0,544.0 L72.0,1434.0" fill="none" stroke="#7f98bc" stroke-width="2.5"/>
+<path d="M72.0,1434.0 L88.0,1434.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M72.0,1339.0 L88.0,1339.0" fill="none" stroke="#7f98bc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="900.0" y="1502.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="middle">Sources: CRR Art. 274–280f; Basel CRE52. Parameters and formulas in detail: SACCR_EAD_reference.svg</text>
+</svg>
