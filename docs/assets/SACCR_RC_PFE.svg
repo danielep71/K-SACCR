@@ -52,10 +52,10 @@
 <text x="938.0" y="380.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">Σ asset classes</text>
 <rect x="954.0" y="384.0" width="300.0" height="184.0" rx="14" fill="#1f4e8c" stroke="#ffffff" stroke-width="2"/>
 <text x="968.0" y="410.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Asset class</text>
-<text x="968.0" y="428.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">Σ hedging sets; CR, EQ with ρ</text>
+<text x="968.0" y="428.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">Σ hedging sets</text>
 <rect x="984.0" y="432.0" width="240.0" height="136.0" rx="14" fill="#5b82b8" stroke="#ffffff" stroke-width="2"/>
 <text x="998.0" y="458.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="bold" font-style="normal" fill="#ffffff" text-anchor="start">Hedging set</text>
-<text x="998.0" y="476.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">SF × net effective notional</text>
+<text x="998.0" y="476.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#dbe6f5" text-anchor="start">SF × net; CR, EQ, CO with ρ</text>
 <rect x="1014.0" y="480.0" width="180.0" height="88.0" rx="14" fill="#c9d8ec" stroke="#ffffff" stroke-width="2"/>
 <text x="1028.0" y="506.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Trade</text>
 <text x="1028.0" y="524.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">D = δ × d × MF</tspan></text>
