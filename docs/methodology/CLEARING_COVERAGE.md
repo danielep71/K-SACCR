@@ -135,7 +135,7 @@ The supported clearing rules and where each is carried.
 | Client floor, 5 days under CRR (Art. 279c(1)) | Role `CLIENT`, Margined = Y, regime CRR | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-client-crr` | Implemented; exercised |
 | Client floor, 10 days under BCBS (CRE54.8(2), .14–.17; CRE52.50) | Role `CLIENT`, Margined = Y, regime BCBS | `CORE_Engine.LoadNettingSets`, with an information message on Checks | `netting-set-clearing-client-bcbs` | Implemented; exercised |
 | Role codes | Role other than blank, `N`, `CM`, `CLIENT`, `CCP` | `CORE_Engine.LoadNettingSets` (`NsCode`) | `netting-set-clearing-role-not-a-code` | Implemented; exercised: the netting set is INVALID |
-| CCP-facing netting set rejected ([decision 5](#decisions)) | Role `CCP`, margined or not | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined` | Implemented; exercised: the netting set is INVALID with an error on Checks |
+| CCP-facing netting set rejected ([decision 5](#decisions)) | Role `CCP`, margined or not | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined` | Implemented; exercised: the status is `INVALID: facing a CCP, not supported`, with any other invalid field counted after it, and Checks has the error |
 | Next reset date as remaining maturity (CRE52.37(5); Art. 279c(2)) | Trades *Maturity date (M)* | `CORE_Engine` trade dates, `SACCR_MaturityFactor` | None specific | User's |
 | Posted collateral not bankruptcy remote in NICA (CRE54.23) | NettingSets NICA | `CORE_Engine` replacement cost and PFE multiplier | Existing NICA cases, none clearing-specific | User's |
 

@@ -451,15 +451,17 @@ Public Sub RunInputValidationTests()
         ExpectStatus "INVALID: 1 input error(s)"
 
     'A netting set declared as facing a CCP is rejected, margined or not,
-    'rather than calculated with the bilateral floors (#112).
+    'rather than calculated with the bilateral floors, and its status names
+    'the reason; another invalid field is counted after it (#112).
         StartCase "netting-set-clearing-role-ccp", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CCP
         AddSwap "T1"
-        ExpectStatus "INVALID: 1 input error(s)"
+        ExpectStatus "INVALID: facing a CCP, not supported"
         TEST_CaseRunner.ExpectChecksLine "error", SEV_ERROR, "facing a CCP is not supported", "illustrative"
 
         StartMarginedCase "netting-set-clearing-role-ccp-margined", "CRR", CL_CCP, "1", "N", "N"
-        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -1#
+        ExpectStatus "INVALID: facing a CCP, not supported; 1 other input error(s)"
 
         StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
         ExpectMPOR 5

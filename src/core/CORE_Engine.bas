@@ -4354,10 +4354,11 @@ Private Sub ComputeNettingSets( _
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
 '   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
 '   CRE52.10 and EBA-QA-2023_6962; trade-count warning CRE52.51(1) and
-'   CRR Art. 285(3)(a).
+'   CRR Art. 285(3)(a). The status of a netting set facing a CCP names the
+'   reason (#112).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-18
 '==============================================================================
 '
 
@@ -4391,6 +4392,7 @@ Private Sub ComputeNettingSets( _
     Dim RegimePosition     As Long         'Regime of the netting set: 1 CRR, 2 BCBS
     Dim FirstTotalRow      As Long         'Results row of the first TOTAL row
     Dim OutputTop          As Long         'First Results data row
+    Dim StatusText         As String       'Status of an INVALID netting set
     Dim Totals(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
 
 '------------------------------------------------------------------------------
@@ -4419,8 +4421,16 @@ Private Sub ComputeNettingSets( _
                 mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
+                If mNS(k).ClearingRole = CL_CCP Then
+                    StatusText = "INVALID: facing a CCP, not supported"
+                    If mNS(k).InputErrors > 1 Then
+                        StatusText = StatusText & "; " & (mNS(k).InputErrors - 1) & " other input error(s)"
+                    End If
+                Else
+                    StatusText = "INVALID: " & mNS(k).InputErrors & " input error(s)"
+                End If
                 OutputCount = OutputCount + 1
-                WriteStatusRow OutputBlock, OutputCount, k, "INVALID: " & mNS(k).InputErrors & " input error(s)"
+                WriteStatusRow OutputBlock, OutputCount, k, StatusText
                 GoTo NextNS
             End If
             If mNS(k).Rejected > 0 Then

@@ -98,11 +98,14 @@ Use only the categories needed by a release.
 
 - NettingSets: Client clearing role `CCP` declares a netting set facing a
   central counterparty. Until CCP exposures are supported (#112), such a
-  netting set is `INVALID`, with an error on Checks, instead of being
-  calculated with the bilateral floors, which can understate its exposure
+  netting set is `INVALID: facing a CCP, not supported` on Results (any
+  other invalid field is counted after it), with an error on Checks,
+  instead of being calculated with the bilateral floors, which can
+  understate its exposure
   (for example where the CCP retains variation margin; CRE54.8(3), CRR Art.
   304(3)(d)). The template's dropdown, input message and guidance list the
-  code. The column header keeps its text, so an existing workbook still
+  code; the NettingSets guidance in C3 is now three lines, wrapped across
+  the table. The column header keeps its text, so an existing workbook still
   passes the header check after its VBA is synchronized, but its dropdown
   still offers only N, CM and CLIENT and Excel refuses `CCP` typed into the
   column. To declare CCP-facing netting sets in such a workbook, rebuild it
