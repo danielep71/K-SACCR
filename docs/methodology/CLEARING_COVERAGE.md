@@ -97,10 +97,10 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 | --- | --- | --- | --- |
 | Floor by role | 10; 5 for `CM` and `CLIENT` (Art. 279c(1), 285(2)(b)) | 10; 5 for `CM` (CRE52.50, CRE54.12) | Implemented; exercised by `netting-set-clearing-member-crr`, `-bcbs`, `netting-set-clearing-client-crr`, `-bcbs` |
 | Remargining every N business days | F + N − 1 (Art. 285(5)) | 9 + N for bilateral non-daily (CRE52.50(2)) | Implemented: F + N − 1 for every role |
-| More than 5,000 trades | 20 days, except for trade exposures (Art. 285(3)(a)); a clearing member may disregard it towards its clients, without illiquid collateral, disputes or exotic options (Art. 304(3)(c)) | 20 days for netting sets not with a CCP (CRE52.51(1)); not for trade exposures to a CCP (CRE54.8(1)) | Implemented conservatively: one *large or illiquid* flag sets 20 days for every role, so the relief cannot be applied. A set over 5,000 trades with the flag at N is VALID with a warning (`netting-set-over-5000-trades`) |
+| More than 5,000 trades | 20 days, except for trade exposures (Art. 285(3)(a)); a clearing member may disregard it towards its clients, without illiquid collateral, disputes or exotic options (Art. 304(3)(c)) | 20 days for netting sets not with a CCP (CRE52.51(1)); not for trade exposures to a CCP (CRE54.8(1)) | Implemented conservatively, a recorded limitation ([decision 3](#decisions)): one *large or illiquid* flag sets 20 days for every role, so the relief cannot be applied. A set over 5,000 trades with the flag at N is VALID with a warning (`netting-set-over-5000-trades`) |
 | Illiquid collateral or a hard-to-replace OTC derivative | 20 days (Art. 285(3)(b)) | 20 days (CRE52.51(2)) | Implemented; exercised (`netting-set-mpor-large-weekly-bcbs`) |
 | Margin disputes | Doubled (Art. 285(4)) | Floor doubled (CRE52.51(3)) | Implemented: F + N − 1 doubled, as recorded in [Assumptions](README.md#assumptions-and-scope) |
-| VM retained by the CCP, member collateral unprotected | Lesser of one year and remaining maturity, floor 10 (Art. 304(3)(d)) | Same (CRE54.8(3)) | Not supported, and not detectable (#112) |
+| VM retained by the CCP, member collateral unprotected | Lesser of one year and remaining maturity, floor 10 (Art. 304(3)(d)) | Same (CRE54.8(3)) | Not supported, and not detectable; inputs required by [decision 2](#decisions) (#112) |
 
 <a id="settlement-and-reset"></a>
 
@@ -122,7 +122,7 @@ margined netting set with an MPOR.
 | Settled-to-market option | Rejected when the expiry T is after M, so M cannot be the next reset date | The input contract for options must be defined |
 | Collateralised-to-market contract | Margined = Y with the MPOR rules above | — |
 | Exchange calendar | None: business days are 250 a year without holidays | Listing does not define a calendar; a date derivation would need an explicit one |
-| Past or inconsistent dates | M on or before the reporting date is rejected; M after E is not checked | Rules for reset dates to be defined |
+| Past or inconsistent dates | M on or before the reporting date is rejected; M after E is not checked | Rules for reset dates: [decision 4](#decisions) |
 
 ## 🔗 Rule, input, code and test
 
@@ -139,17 +139,17 @@ The supported clearing rules and where each is carried.
 
 ## 🚫 Rejections and required attributes
 
-Behaviour to be defined by the implementing issues. Until then each stays as
-described under *Today*.
+Required behaviour, from the [decisions](#decisions). Until the implementing
+issue is done, each case stays as described under *Today*.
 
 | Case | Today | Required |
 | --- | --- | --- |
-| Netting set facing a CCP | Entered as role `N` and calculated as bilateral | A declared role for the CCP-facing set; without the CCP attributes below it is rejected (#112) |
-| VM retained by the CCP, member collateral unprotected | Cannot be declared; a margined set gets 10 days or less | Declared and given the Art. 304(3)(d) / CRE54.8(3) horizon, or rejected (#112) |
+| Netting set facing a CCP | Entered as role `N` and calculated as bilateral | Rejected when declared until CCP support exists ([decision 5](#decisions)); then a CCP role with the attributes below, without which it is rejected ([decision 2](#decisions)) (#112) |
+| VM retained by the CCP, member collateral unprotected | Cannot be declared; a margined set gets 10 days or less | Declared through the retained-VM and protection inputs and given the Art. 304(3)(d) / CRE54.8(3) horizon ([decision 2](#decisions)) (#112) |
 | Multi-level client structure | Can be entered as `CM` or `CLIENT` | Declared, and either supported per level or rejected (#359) |
 | QCCP status missing or unknown | No input | Rejected once CCP-facing sets exist (#112) |
-| Settled-to-market option with a reset date before expiry | Rejected as expiry after maturity | Defined input contract (#360) |
-| More than 5,000 trades where the floor does not apply | 20 days if the flag is set | Separate the trade count from illiquidity, or keep the conservative floor (open decision below) |
+| Settled-to-market option with a reset date before expiry | Rejected as expiry after maturity | Settlement type and next reset date, with M and T kept ([decision 4](#decisions)) (#360) |
+| More than 5,000 trades where the floor does not apply | 20 days if the flag is set: a conservative limitation | Separated with CCP support, waiving only the trade-count floor where eligible ([decision 3](#decisions)) (#112, #359) |
 
 Attributes a CCP-facing netting set needs for #112: the CCP's identity; QCCP
 status (authorised or recognised); whether the bank is a clearing member or a
@@ -183,22 +183,25 @@ column or an EAD total:
   transactions.
 - Client collateral passed on to the CCP may reduce both legs (Art. 304(7);
   CRE54.13); that is permitted reuse.
-- Results totals add EAD across all `VALID` netting sets of a regime. Whether
-  CCP trade exposures need a separate subtotal is part of #112.
+- Results totals add EAD across all `VALID` netting sets of a regime. CCP
+  trade EAD stays in that total and is separately identifiable there
+  ([decision 2](#decisions)).
 
-<a id="open-decisions"></a>
+<a id="decisions"></a>
 
-## ❓ Open decisions
+## ✅ Decisions
 
-Settled by the owner in the named issue; until then no code or test assumes an
-answer.
+Settled by the owner for the clearing work of v1.0.2. Each is an acceptance
+criterion of the issue named; until that issue is done, the current behaviour
+described above stays.
 
-| Decision | Options | Recommendation | Issue |
-| --- | --- | --- | --- |
-| MPOR of a BCBS client whose exchange-traded trades are cleared under a bilateral clearing member–client agreement | Keep 10 days; or 5 days, reading CRE54.2's footnote ("the treatment in CRE54.12 would also apply") as extending the clearing-member floor to the client | Keep 10 days, the higher floor, unless a supervisory reading supports 5 | #359 |
-| How a CCP-facing netting set is declared, and what #112 outputs | A new role code with a QCCP column, and EAD only; or also the risk-weighted amount and default-fund requirement in separate outputs | A new role code and QCCP column; risk weights and default-fund requirements in their own outputs, outside EAD totals | #112 |
-| The 5,000-trade floor where it does not apply (CCP trade exposures; a clearing member towards clients) | Keep one *large or illiquid* flag (conservative); or separate the trade count from illiquidity | Separate them only together with the CCP role of #112 | #112, #359 |
-| How a settled-to-market trade is entered | Keep M as the next reset date, documented; or add an explicit settlement-type and next-reset input, with an option rule | An explicit input, so that the treatment is declared and checked | #360 |
+| # | Decision | Rationale | Acceptance criteria | Issue |
+| --- | --- | --- | --- | --- |
+| 1 | A `BCBS` client facing its clearing member keeps the 10-day MPOR floor; the clearing member facing its client keeps 5 days | A conservative interpretation. CRE54.2 has both parties capitalise the clearing member–client leg of an exchange-traded derivative cleared under a bilateral agreement as an OTC derivative, and its footnote says the treatment of CRE54.12 "would also apply". CRE54.12 grants at least five days to the clearing member for its exposure to its clients and does not name the client; the client's own treatment is CRE54.14–.17, with 10 days for OTC derivatives (CRE54.8(2)) or the bilateral floors (CRE52.50). Ten days is not lower than either reading of the footnote. `CRR` is unchanged: 5 days for both (Art. 279c(1)) | The rationale stays in the methodology; the four role cases keep their floors; cases cover the exchange-traded leg under a bilateral agreement in both directions | #359 |
+| 2 | A netting set facing a CCP is declared with its own role and a QCCP column, with inputs for VM retained by the CCP and for protection of the bank's collateral against the CCP's insolvency | Retained VM without that protection sets the horizon to the lesser of one year and the remaining maturity, floored at 10 business days (CRE54.8(3); Art. 304(3)(d)); neither can be inferred from other inputs | Missing or inconsistent CCP inputs reject the netting set. Risk weights, risk-weighted amounts and default-fund capital are separate outputs and never enter an EAD column or total. CCP trade EAD stays in its regime's EAD total and is separately identifiable there | #112 |
+| 3 | The single *large or illiquid* flag stays until CCP support arrives | The current treatment is a conservative limitation: 20 days whenever the flag is set, also where the trade-count floor does not apply | When split, only the trade-count floor is waived, and only where eligible: trade exposures to a CCP (Art. 285(3)(a); CRE54.8(1)) and a clearing member's netting sets with its clients without illiquid collateral, disputed trades or exotic options (Art. 304(3)(c)). The 20-day floor for illiquid collateral or hard-to-replace derivatives (Art. 285(3)(b); CRE52.51(2)) and the doubling for disputes (Art. 285(4); CRE52.51(3)) stay | #112, #359 |
+| 4 | A settled-to-market trade is declared with a settlement type and a next reset date | The reset treatment applies only where the settlement extinguishes the accumulated exposure and resets the value to zero (CRE52.37(5); Art. 279c(2)). A daily VM payment alone does not: such a contract is collateralised-to-market and margined | The contractual maturity and the option expiry are kept as separate inputs from the next reset date. The engine checks that the declared settlement extinguishes the exposure, and rejects a missing, past or inconsistent reset date where the settlement type requires one | #360 |
+| 5 | Until CCP support is implemented, a netting set declared as facing a CCP is rejected | Documentation alone cannot prevent the understated exposure of a CCP-facing set calculated as bilateral, for example where the CCP retains VM (decision 2) | A recognised declaration makes the netting set `INVALID`, with a message naming the missing support; a netting set not declared stays undetectable, as stated above | #112 |
 
 ## 📜 Earlier releases
 

@@ -87,8 +87,8 @@ Copies of the checked versions, with their addresses and SHA-256 hashes, are in
 | Interest-rate aggregation | Under `BCBS` both CRE52.57 formulas are supported, chosen with `IRBucketOffset`: the bucket formula that recognises offsets across maturity buckets, and the sum of absolute bucket values. Under `CRR` only the formula with offsets is supported: Article 280a(3), checked on 2026-10-09, prints no other. Each supported formula needs a value test: the formula with offsets has the published T03; the sum of absolutes has `illustrative-ir-sum-of-absolutes` (#39) (#33) |
 | Open treatments | Climatic conditions take 18% (Articles 277a(1)(e)(v), 280e(5)); there is no unrated sub-class, and the user enters CQS3, CQS5 where Article 128 applies, or the step mapped from an internal rating (Article 280c(5)(a)); other risks keep one hedging set per identical primary risk driver (Article 277a(1)(f)); inflation is interest rate, entered as a currency followed by `-INFL` (such as `EUR-INFL`) in its own hedging set (Articles 277(4)(a), 277a(1)); the optional reductions for sold options and sold credit protection (Article 274(5) and (7)) are not applied, which gives a higher exposure value and is permitted; several margin agreements in one netting set and one agreement over several netting sets (Articles 274(4), 275(3)) move to #39 (#33) |
 | Collateral of the cap and one-way agreements | The cap of a margined netting set uses C = NICA in both regimes, the collateral of the same netting set without a margin agreement (CRE52.2, CRE52.10; CRR Art. 274(3), 275(1), `EBA-QA-2023_6962`). VM held on an unmargined netting set is rejected, because a counterparty that posts VM makes it margined (CRE52.2; CRR Art. 272(7)). VM posted on an unmargined netting set is the one-way agreement in favour of the counterparty: under `BCBS` it stays unmargined and C includes that VM with a negative sign (CRE52.10, footnote 2); under `CRR` it is rejected, because a one-way agreement is a margin agreement (Art. 272(7a)) and the netting set must be entered as margined (#39) |
-| Client clearing | The NettingSets column is the bank's role, N, CM or CLIENT. The 5-day MPOR floor applies to CM in both regimes (CRE54.12; CRR Art. 279c(1)) and to CLIENT under `CRR` only; a `BCBS` client keeps the 10-day floor, whether its arrangement qualifies under CRE54.14–.16 (the CCP treatment, 10 days for OTC derivatives, CRE54.8(2); CRE54.16 changes only the risk weight) or not (a bilateral trade, CRE54.17; CRE52.50). Eligibility of the arrangement is the user's to check (#39). Every clearing arrangement, CCP rule and gap is in the [clearing coverage](CLEARING_COVERAGE.md) (#358) |
-| MPOR combinations | After margin disputes the engine doubles F + N - 1, which is the `BCBS` rule (CRE52.50(2), CRE52.51(3)) and meets every reading of CRR Art. 285(4)–(5), being higher than the CRR minimum when remargining is not daily. A large or illiquid netting set takes 20 + N - 1 in both regimes: CRR Art. 285(3) and (5) give this; CRE52.51 sets 20 days without saying whether N - 1 is added, and adding it is not lower than either reading (#39) |
+| Client clearing | The NettingSets column is the bank's role, N, CM or CLIENT. The 5-day MPOR floor applies to CM in both regimes (CRE54.12; CRR Art. 279c(1)) and to CLIENT under `CRR` only; a `BCBS` client keeps the 10-day floor, whether its arrangement qualifies under CRE54.14–.16 (the CCP treatment, 10 days for OTC derivatives, CRE54.8(2); CRE54.16 changes only the risk weight) or not (a bilateral trade, CRE54.17; CRE52.50). Eligibility of the arrangement is the user's to check (#39). The `BCBS` client's 10 days is a conservative interpretation: CRE54.2's footnote applies CRE54.12, which grants five days to the clearing member and does not name the client; the rationale is [decision 1](CLEARING_COVERAGE.md#decisions) of the clearing coverage, which holds every clearing arrangement, CCP rule and gap (#358) |
+| MPOR combinations | After margin disputes the engine doubles F + N - 1, which is the `BCBS` rule (CRE52.50(2), CRE52.51(3)) and meets every reading of CRR Art. 285(4)–(5), being higher than the CRR minimum when remargining is not daily. A large or illiquid netting set takes 20 + N - 1 in both regimes: CRR Art. 285(3) and (5) give this; CRE52.51 sets 20 days without saying whether N - 1 is added, and adding it is not lower than either reading (#39). One flag covers both the trade count and illiquidity, so the 20 days also apply where the trade-count floor does not (CRR Art. 285(3)(a), 304(3)(c); CRE54.8(1)): a conservative limitation until CCP support ([decision 3](CLEARING_COVERAGE.md#decisions)) |
 | Margin-agreement structures | Several margin agreements, or margined and unmargined trades, in one netting set (CRE52.74; CRR Art. 274(4)) and one agreement over several netting sets (CRE52.75; CRR Art. 275(3), 278(2)) are declared in the Margin agreements column as MIXED or SHARED, and the netting set is rejected (#33, #39) |
 
 <a id="support-matrix"></a>
@@ -147,16 +147,9 @@ rejected. Whether a supported rule is also validated is in the
 These are deliberately undecided. Each is settled by the owner in an issue and
 moved into the tables above; none may be assumed by code or tests meanwhile.
 
-Settled points are recorded in [Assumptions and scope](#assumptions-and-scope).
-The clearing work of v1.0.2 has four, set out with their options in the
-[clearing coverage](CLEARING_COVERAGE.md#open-decisions):
-
-- the MPOR of a `BCBS` client whose exchange-traded trades are cleared under a
-  bilateral clearing member–client agreement (CRE54.2) (#359);
-- how a netting set facing a CCP is declared, and which outputs #112 adds;
-- whether the 20-day floor for more than 5,000 trades gets its own input, so
-  that it can be disapplied where the rules allow (#112, #359);
-- how a settled-to-market trade is entered (#360).
+None at present. Settled points are recorded in
+[Assumptions and scope](#assumptions-and-scope); those of the clearing work of
+v1.0.2 are in the [clearing coverage](CLEARING_COVERAGE.md#decisions).
 
 <a id="regime-differences"></a>
 
