@@ -35,10 +35,16 @@ the registered hash.
 
 The CRR extract was cut from the full consolidated PDF (SHA-256
 `6796302ed4213bcba4d4b9b17dc48aefcaf7ef586b875c30c8c71a7689288ecf`, 895 pages)
-without changing the pages. Of these articles, the methodology relies on the
-definitions (Article 272), the SA-CCR articles (273a–282) and the margin period
-of risk (Article 285(2)–(5)).
+without changing the pages. Of these articles, the methodology implements the
+full SA-CCR of Articles 274–280f and relies on the definitions (Article 272) and
+the margin period of risk (Article 285(2)–(5)). Articles 273a (conditions for
+the simplified methods), 281 (simplified SA-CCR) and 282 (original exposure
+method) are in the extract as context only; K-SACCR does not implement them.
+The consolidated text itself has no legal effect, as its first page states.
 
 BCBS 279 (2014), whose Annex 4a prints the same worked examples as CRE99, is
-not copied: its address on bis.org no longer returns the PDF, and every
-published value used by the test cases is cited from CRE99.
+cited but not copied. Its 37-page PDF (March 2014, revised April 2014) is
+available from the BIS publication page
+<https://www.bis.org/publ/bcbs279.htm>, but its notice reserves all rights and
+allows only brief excerpts, so it is not reproduced here; every published value
+used by the test cases is cited from CRE99.

@@ -196,8 +196,10 @@ are verified with the sources.
 
 ## 🏷️ Reference classes
 
-Every expected value carries exactly one class. Only the first two are
-evidence that the implementation is correct.
+Every expected value carries exactly one class. Only the first two qualify as
+numerical-validation references under this policy. Regression, boundary and
+rejection tests are evidence too, that the software behaves as specified, but
+not that a figure is correct.
 
 | Class | Meaning | Required fields |
 | --- | --- | --- |
