@@ -112,6 +112,11 @@ Use only the categories needed by a release.
   from the new template, or change the list of the data validation on
   NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
   facing a CCP but entered with role `N` is still calculated as bilateral.
+- Results: a conditional format highlights in light red every netting-set
+  row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
+  `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of
+  the template: a workbook that only receives the synchronized VBA keeps its
+  Results sheet without it.
 
 ### Documentation
 
