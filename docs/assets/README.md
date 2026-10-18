@@ -166,7 +166,7 @@ source; the card holds the parameters and the full formulas.
   The value path in `SACCR_RC_PFE.svg` is illustrative, not data.
 - **Rendering:** the SVGs are the source. `SACCR_aggregation.png`,
   `SACCR_EAD_tree.png` and `SACCR_RC_PFE.png`, used by the Wiki, are rendered
-  from them at their own size (1800 x 1550, 1820 x 1505 and 1800 x 1060 px)
+  from them at their own size (1800 x 1550, 1820 x 1568 and 1800 x 1060 px)
   with headless Chromium at a device scale factor of 1, then quantized to 256
   colours as the screenshots above. Render them again whenever an SVG
   changes, and update the pictures when a formula or a supervisory parameter

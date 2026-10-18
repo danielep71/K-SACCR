@@ -20,7 +20,7 @@ picture summarises them and is not a source (select it to open it full size):
 <p align="center">
   <a href="../assets/SACCR_EAD_tree.svg">
     <img width="100%"
-         alt="What the exposure value is made of: EAD = alpha x (RC + PFE); RC from V - C and, when margined, TH + MTA - NICA; PFE from the multiplier (V - C, the aggregate add-on, a 5% floor) and the aggregate add-on, built from supervisory factors, correlations (between IR maturity buckets, credit and equity entities, and commodity types) and effective notionals D = delta x d x MF with their trade-level inputs"
+         alt="What the exposure value is made of: EAD = alpha x (RC + PFE); RC = max(V - C, TH + MTA - NICA when margined, 0), never negative; PFE from the multiplier (V - C, the aggregate add-on, a 5% floor) and the aggregate add-on, built from supervisory factors, correlations (between IR maturity buckets, credit and equity entities, and commodity types) and effective notionals D = delta x d x MF with their trade-level inputs"
          src="../assets/SACCR_EAD_tree.svg">
   </a>
 </p>
