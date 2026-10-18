@@ -14,6 +14,17 @@ test-case format is in [`TEST_CASES.md`](TEST_CASES.md).
 > source register and the supervisory parameters were checked against the
 > official texts on 2026-10-09.
 
+What the exposure value is made of, as a map of the sections below; the
+picture summarises them and is not a source (select it to open it full size):
+
+<p align="center">
+  <a href="../assets/SACCR_EAD_tree.svg">
+    <img width="100%"
+         alt="What the exposure value is made of: EAD = alpha x (RC + PFE); RC = max(V - C, TH + MTA - NICA when margined, 0), never negative; PFE from the multiplier (V - C, the aggregate add-on, a 5% floor) and the aggregate add-on, built from supervisory factors, correlations (between IR maturity buckets, credit and equity entities, and commodity types) and effective notionals D = delta x d x MF with their trade-level inputs"
+         src="../assets/SACCR_EAD_tree.svg">
+  </a>
+</p>
+
 <a id="regulatory-basis"></a>
 
 ## ⚖️ Regulatory basis

@@ -41,7 +41,7 @@
 &nbsp;·&nbsp;
 [Validation](#validation)
 &nbsp;·&nbsp;
-[Worksheet functions](#worksheet-functions)
+[Worksheet Functions](#worksheet-functions)
 &nbsp;·&nbsp;
 [Limitations](#limitations)
 &nbsp;·&nbsp;
@@ -305,6 +305,18 @@ BankNettingSets · BankTrades ────────────────�
 6. **Reconciliation and evidence.** Bank figures, when entered, are compared
    with Results and TradeCalc, and **Export evidence** writes the run to a CSV
    file ([details](#3-run)).
+
+Steps 3 to 5 in one picture: each trade is assigned to its netting set, asset
+class and hedging set, then the figures are aggregated back from the trade to
+the exposure value (select it to open it full size):
+
+<p align="center">
+  <a href="docs/assets/SACCR_aggregation.svg">
+    <img width="100%"
+         alt="How SA-CCR aggregates a netting set: trades are assigned to a netting set, an asset class (IR, FX, CR, EQ, CO and, under CRR only, OT) and a hedging set; each trade's adjusted notional, supervisory delta and maturity factor give its effective notional, which is netted within the hedging set (by maturity bucket for interest rates, by entity for credit and equity, by commodity type) and multiplied by the supervisory factor; within each hedging set, credit and equity entities and commodity types are combined with their correlations; every asset class sums its hedging-set add-ons, and the asset classes add up to the aggregate add-on, the PFE and EAD = 1.4 x (RC + PFE)"
+         src="docs/assets/SACCR_aggregation.svg">
+  </a>
+</p>
 
 | Sheet | Role |
 | --- | --- |
@@ -642,10 +654,11 @@ and risk-weighted assets.
 | Milestone | Scope |
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
+| v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#212) |
-| v1.2.0 | Excel Ribbon interface (#213–#218) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100), randomised FormulaTest inputs (#165) |
-| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157) |
+| v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330) and worksheet navigation sidebar (#329) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165) |
+| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
 | v1.7.0 | CCP exposures and default funds (#112) |
