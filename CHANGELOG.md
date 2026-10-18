@@ -94,6 +94,30 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- NettingSets: Client clearing role `CCP` declares a netting set facing a
+  central counterparty. Until CCP exposures are supported (#112), such a
+  netting set is `INVALID: facing a CCP, not supported` on Results (any
+  other invalid field is counted after it), with an error on Checks,
+  instead of being calculated with the bilateral floors, which can
+  understate its exposure
+  (for example where the CCP retains variation margin; CRE54.8(3), CRR Art.
+  304(3)(d)). The template's dropdown, input message and guidance list the
+  code; the NettingSets guidance in C3 is now three lines, wrapped across
+  the table. The column header keeps its text, so an existing workbook still
+  passes the header check after its VBA is synchronized, but its dropdown
+  still offers only N, CM and CLIENT and Excel refuses `CCP` typed into the
+  column. To declare CCP-facing netting sets in such a workbook, rebuild it
+  from the new template, or change the list of the data validation on
+  NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
+  facing a CCP but entered with role `N` is still calculated as bilateral.
+- Results: a conditional format highlights in light red every netting-set
+  row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
+  `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of
+  the template: a workbook that only receives the synchronized VBA keeps its
+  Results sheet without it.
+
 ### Documentation
 
 - The source descriptions are more exact. The consolidated CRR text has no
@@ -131,11 +155,12 @@ Use only the categories needed by a release.
   EAD totals and risk weights and capital outside them; the single *large or
   illiquid* flag stays as a conservative limitation; settled-to-market trades
   get a settlement type and a next reset date; and a declared CCP-facing
-  netting set is rejected until CCP support exists. Today a netting set
-  facing a CCP cannot be declared and, entered with role N, is calculated as
-  bilateral; the support matrix says so. The source register adds `CRR-CCP`,
-  Articles 4(1)(88)–(91) and 300–311 of the consolidated CRR, with a
-  registered extract. No calculation changes.
+  netting set is rejected until CCP support exists, which the `CCP` role
+  under Added implements. A netting set facing a CCP but entered with role N
+  is still calculated as bilateral, as the support matrix says. The source
+  register adds `CRR-CCP`, Articles 4(1)(88)–(91) and 300–311 of the
+  consolidated CRR, with a registered extract. The documentation itself
+  changes no calculation.
 
 ## [1.0.1] - 2026-10-18
 
