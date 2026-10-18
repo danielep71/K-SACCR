@@ -31,16 +31,22 @@ the registered hash.
 | `BCBS_CRE52_effective_2023-01-01.pdf` | `BCBS` | Basel Framework, CRE52 Standardised approach to counterparty credit risk, with FAQs | Effective 1 January 2023, last updated 5 June 2020 | <https://www.bis.org/committees/bcbs/basel-framework/81412/chapter.pdf> | 2026-10-10 | `6ce15b86f1c67692e16806ae76df6bd97c8f19820a72c7ceb7ddac78b509c111` |
 | `BCBS_CRE99_effective_2023-01-01.pdf` | `CRE99` | Basel Framework, CRE99 Application guidance, with the SA-CCR worked examples | Effective 1 January 2023, published 27 March 2020 | <https://www.bis.org/committees/bcbs/basel-framework/81410/chapter.pdf> | 2026-10-10 | `f0d86acfe451699d7c3d783822e2372b180798b3e4fdd7b4018524ba8a937855` |
 | `BCBS_CRE54_effective_2023-01-01.pdf` | `CRE54` | Basel Framework, CRE54 Capital requirements for bank exposures to central counterparties | Effective 1 January 2023, published 27 March 2020 | <https://www.bis.org/committees/bcbs/basel-framework/81405/chapter.pdf> | 2026-10-16 | `44d8c361e8d5d827d8ebcde630024f3b6ed0de6efdda09cb5f43e010e85895d4` |
+| `CRR_575-2013_consolidated_2026-06-26_extract_CCP.pdf` | `CRR-CCP` | Regulation (EU) No 575/2013, consolidated text: page 1, page 22 (Article 4(1)(83)–(92)) and pages 441–449 (Section 9, Articles 300–311) | 26.06.2026, version 021.001 | <https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:02013R0575-20260626> | 2026-10-18 | `73acdbba784b73e9a6c47f48008523340a5818124f3b7b6f1416de784191e047` |
 | `EBA_QA_2023_6962.md` | `EBA-QA-2023_6962` | EBA Single Rulebook Q&A 2023_6962, exposure value cap for netting sets subject to a margin agreement | Final, published 15/03/2024 | <https://www.eba.europa.eu/single-rule-book-qa/qna/view/publicId/2023_6962> | 2026-10-10 | `9eea2133a5ae404a80ef8c234b764d5c64db94b22059c0810fa618babfc37abb` |
 
-The CRR extract was cut from the full consolidated PDF (SHA-256
+Both CRR extracts were cut from the full consolidated PDF (SHA-256
 `6796302ed4213bcba4d4b9b17dc48aefcaf7ef586b875c30c8c71a7689288ecf`, 895 pages)
-without changing the pages. Of these articles, the methodology implements the
+without changing the pages; the second, retrieved again on 2026-10-18, had the
+same hash. Of the articles in the first extract, the methodology implements the
 full SA-CCR of Articles 274–280f and relies on the definitions (Article 272) and
 the margin period of risk (Article 285(2)–(5)). Articles 273a (conditions for
 the simplified methods), 281 (simplified SA-CCR) and 282 (original exposure
 method) are in the extract as context only; K-SACCR does not implement them.
-The consolidated text itself has no legal effect, as its first page states.
+The second extract holds the definitions of Article 4(1)(88)–(91) and Section 9
+on exposures to central counterparties, which the
+[clearing coverage](../CLEARING_COVERAGE.md) relies on; K-SACCR calculates
+nothing from them yet. The consolidated text itself has no legal effect, as its
+first page states.
 
 BCBS 279 (2014), whose Annex 4a prints the same worked examples as CRE99, is
 cited but not copied. Its 37-page PDF (March 2014, revised April 2014) is

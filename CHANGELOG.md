@@ -119,6 +119,16 @@ Use only the categories needed by a release.
   manual (PDF), and the SHA-256 note links `SHA256SUMS.txt`. A short script
   starts these downloads in a hidden frame, so the page no longer visibly
   passes through GitHub; without JavaScript the links work as before.
+- `docs/methodology/CLEARING_COVERAGE.md` records what K-SACCR does for
+  client clearing, CCPs and listed derivatives (#358): the arrangements and
+  their MPOR floors under both regimes, QCCP and non-QCCP treatment,
+  products, collateral and segregation, settlement and reset, the mapping of
+  each supported rule to its input, code and test, the cases still to be
+  rejected, and four open decisions. A netting set facing a CCP cannot be
+  declared and, entered with role N, is calculated as bilateral; the support
+  matrix now says so. The source register adds `CRR-CCP`, Articles
+  4(1)(88)–(91) and 300–311 of the consolidated CRR, with a registered
+  extract. No calculation changes.
 
 ## [1.0.1] - 2026-10-18
 

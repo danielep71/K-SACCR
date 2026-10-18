@@ -134,7 +134,7 @@ inspected. This toolkit is the opposite:
 | Instruments | Linear derivatives; European, American, Bermudan and Asian options; CDO tranches and nth-to-default; basis and volatility transactions |
 | Multi-risk trades | Economic trades entered as legs, one per risk category, with one MtM leg |
 | Netting sets | Unmargined and margined; VM, NICA, threshold, MTA; MPOR from floor, remargining frequency, large or illiquid flag, disputes and override; cap at the unmargined EAD |
-| Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it |
+| Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it; netting sets facing a CCP are not yet supported (see the [clearing coverage](docs/methodology/CLEARING_COVERAGE.md)) |
 | CRR specifics | Other-risks class (8%), climatic commodity hedging set (18%), credit quality steps, lambda-shifted option delta (`CRR-RTS` Art. 5) |
 | Run classification | Every run is `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
 | Input validation | Unreadable or locale-dependent dates, the 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names reject the trade or netting set or stop the run; nothing is silently read as blank |
@@ -624,8 +624,9 @@ and the VBA references are listed in `INSTALLATION.md`.
   from local market practice.
 - **Not supported:** digital options (#120), the optional reductions for sold
   options and sold credit protection, several margin agreements in one netting
-  set, the 1904 date system, and the simplified SA-CCR, OEM, CCP default-fund,
-  SFT, CVA and RWA calculations.
+  set, the 1904 date system, exposures to CCPs (trade exposures and
+  default-fund contributions), and the simplified SA-CCR, OEM, SFT, CVA and RWA
+  calculations.
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
   owner's host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
