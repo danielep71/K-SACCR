@@ -69,7 +69,7 @@ summarises them and is not a source.
   from 360 to 366; the engine uses the value set.
 - **Sources:** the card's source line names CRE52, the CRR and Delegated
   Regulation (EU) 2021/931. Its MPOR line also relies on CRE54.8, CRE54.12,
-  CRE54.14, CRE54.15 and CRE54.17, registered as `CRE54` in the
+  CRE54.14 to CRE54.17, registered as `CRE54` in the
   [source register](../methodology/README.md#source-register).
 
 The SVG is the source. Its values were checked against the methodology
