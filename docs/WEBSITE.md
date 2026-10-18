@@ -12,7 +12,9 @@ website change into `main` through an owner-authorized integration PR. In
 **Settings > Pages**, use **Deploy from a branch**, branch **main**, folder
 **/docs**. GitHub's built-in Pages deployment publishes this directory.
 [`.nojekyll`](.nojekyll) disables Jekyll processing: the landing page needs no
-package installation, build tool, external font, or client-side JavaScript.
+package installation, build tool, or external font. Its only script, at the
+end of the page, starts the release downloads in a hidden frame so the page
+does not visibly pass through GitHub; the links work without it.
 
 The public address is <https://danielep71.github.io/VBA-SACCR-Toolkit/>. Set
 the repository's **About > Website** field to this address after verifying a
@@ -28,7 +30,8 @@ Markdown is not converted to HTML by this static deployment.
   the release named on the page and in the social preview together. The
   download buttons and the `SHA256SUMS.txt` link point straight at the release
   assets, whose URLs and file names carry the version: update all three and
-  check that each still starts a download.
+  check that each still starts a download, with the `data-direct-download`
+  attribute that the script uses.
 - Do not copy transient test counts onto the landing page. Link the current
   evidence instead; illustrative results must not be called independent
   validation.

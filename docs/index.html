@@ -133,12 +133,12 @@
         <p class="lead">Explore the calculation in Excel, trace its methodology, and review the VBA behind every result.</p>
         <div class="actions">
           <a class="button primary" href="https://github.com/danielep71/VBA-SACCR-Toolkit">Explore the source ↗</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/K-SACCR_1.0.1.xlsm">Download workbook 1.0.1 ↓</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/K-SACCR_User_Manual_1.0.1.pdf">User manual 1.0.1 (PDF) ↓</a>
+          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/K-SACCR_1.0.1.xlsm" data-direct-download>Download workbook 1.0.1 ↓</a>
+          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/K-SACCR_User_Manual_1.0.1.pdf" data-direct-download>User manual 1.0.1 (PDF) ↓</a>
           <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#building-a-workbook-from-source">Build from source</a>
         </div>
         <p class="status">Release 1.0.1 · Windows desktop Excel · No real portfolio data</p>
-        <p class="status">Downloaded the workbook? Check its SHA-256 against <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/SHA256SUMS.txt">SHA256SUMS.txt</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#released-workbook">unblock it</a> before you open it.</p>
+        <p class="status">Downloaded the workbook? Check its SHA-256 against <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.1/SHA256SUMS.txt" data-direct-download>SHA256SUMS.txt</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#released-workbook">unblock it</a> before you open it.</p>
       </div>
       <aside class="example" aria-labelledby="example-title">
         <div class="eyebrow">A published benchmark</div>
@@ -233,5 +233,19 @@
     </section>
   </main>
   <footer><div class="wrap"><span>K-SACCR · An independent project by <a href="https://github.com/danielep71">Daniele Penza</a></span><span><a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/LICENSE">MPL 2.0</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/SECURITY.md">Security</a></span></div></footer>
+  <script>
+    // Start release downloads in a hidden frame so the page does not visibly pass through GitHub; without JavaScript the plain links still work.
+    document.querySelectorAll("a[data-direct-download]").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        var frame = document.createElement("iframe");
+        frame.hidden = true;
+        frame.src = link.href;
+        document.body.appendChild(frame);
+        setTimeout(function () { frame.remove(); }, 60000);
+      });
+    });
+  </script>
 </body>
 </html>
