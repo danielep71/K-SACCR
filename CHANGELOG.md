@@ -183,8 +183,10 @@ Use only the categories needed by a release.
 - The 1.0.1 user manual, in `docs/user-manual/v1.0.1/`: the 1.0.0 manual with
   the changes of this release (the Results C5 text, the `EDITED` state, the
   export that keeps the older file, the 1904 date-system recalculation), the
-  1.0.1 suite counts and the release's certification steps. The 1.0.0 manual
-  is unchanged.
+  1.0.1 suite counts and the release's certification steps. It names no
+  hosting service and links to none: it cites the source repository's files
+  by their path, and the clone command takes the repository address as
+  `<repository-URL>`. The 1.0.0 manual is unchanged.
 - The roadmap, the support matrix and the diagram of where the CRR uses
   SA-CCR plan CCP exposures and default funds (#112) in v1.0.2, Clearing coverage and CCP completeness,
   instead of v1.7.0, as the milestones now do.
