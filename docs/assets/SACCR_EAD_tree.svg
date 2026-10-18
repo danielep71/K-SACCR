@@ -134,11 +134,11 @@
 <text x="1227.0" y="1353.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Horizon of the exposure</text>
 <rect x="1500.0" y="1271.0" width="290.0" height="53.0" rx="6" fill="#ffffff" stroke="#a8bddc" stroke-width="1.2"/>
 <text x="1512.0" y="1296.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Unmargined</text>
-<text x="1512.0" y="1317.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">Maturity <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">M</tspan>, 10 days to 1 year</text>
+<text x="1512.0" y="1317.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start"><tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">M</tspan> from 10 business days to 1 year</text>
 <rect x="1500.0" y="1334.0" width="290.0" height="71.0" rx="6" fill="#ffffff" stroke="#a8bddc" stroke-width="1.2"/>
 <text x="1512.0" y="1359.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Margined</text>
-<text x="1512.0" y="1380.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">MPOR = floor + remargining − 1</text>
-<text x="1512.0" y="1398.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">business days</text>
+<text x="1512.0" y="1380.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">MPOR = floor + remargining − 1 BD,</text>
+<text x="1512.0" y="1398.2" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">× 2 on disputes, or a higher override</text>
 <text x="30.0" y="1453.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">Supervisory parameters (α, the 5% floor, SF, ρ, the option volatility σ and the MPOR floors) and their regime differences: SACCR_EAD_reference.svg</text>
 <text x="30.0" y="1477.0" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="normal" font-style="normal" fill="#4a5a68" text-anchor="start">Sources: CRR Art. 274–280f, 285; Basel CRE52.</text>
 </svg>

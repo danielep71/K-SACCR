@@ -62,7 +62,7 @@
 <text x="1394.0" y="642.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Option: Black–Scholes Φ with σ; CDO tranche</text>
 <rect x="1380.0" y="680.0" width="400.0" height="92.0" rx="6" fill="#e9eff8" stroke="#a8bddc" stroke-width="1.4"/>
 <text x="1394.0" y="710.7" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="17" font-weight="bold" font-style="normal" fill="#0f2a52" text-anchor="start">Maturity factor <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">MF</tspan></text>
-<text x="1394.0" y="735.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Unmargined: from <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">M</tspan>, floored at 10 days, capped at 1 y</text>
+<text x="1394.0" y="735.8" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Unmargined: from <tspan font-family="Cambria Math, Cambria, Times New Roman, serif" font-style="italic">M</tspan>, 10 business days to 1 year</text>
 <text x="1394.0" y="754.9" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="14.5" font-weight="normal" font-style="normal" fill="#1b2733" text-anchor="start">Margined: from the MPOR</text>
 <path d="M1580.0,548.0 L1580.0,568.0" fill="none" stroke="#7f98bc" stroke-width="2.5"/>
 <path d="M1580.0,660.0 L1580.0,680.0" fill="none" stroke="#7f98bc" stroke-width="2.5"/>
