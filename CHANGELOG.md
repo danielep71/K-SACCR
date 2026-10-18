@@ -138,9 +138,9 @@ Use only the categories needed by a release.
   basis hedging sets; the conditions of the optional reductions for sold
   options and sold protection, whose omission gives an EAD not lower than
   with them, not necessarily higher; the CRE52.74 FAQ on one RC and add-ons
-  by MPOR; and the cap columns on Results. Three rows are added: equity and
-  commodity adjusted notional, variable notionals and leverage, and multiple
-  exchanges of notional. The Source check header says it records a text
+  by MPOR; and the cap columns on Results. Three rows are added, as grouped
+  on the wiki page: equity and commodity adjusted notional, variable notional
+  or quantity, and multiple exchanges and leverage. The Source check header says it records a text
   check, not numerical validation; column J is wider and the edited rows
   taller. The methodology's wording on the omitted reductions is aligned.
 - Results: a conditional format highlights in light red every netting-set
