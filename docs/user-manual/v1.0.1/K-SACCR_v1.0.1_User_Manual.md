@@ -170,7 +170,7 @@ Do not change the workbook's VBA code, its worksheet structure, its named ranges
 
 ## A new version, and removal
 
-A new version of K-SACCR is delivered as a new workbook with its own file name, SHA-256 and manual. Check it as above, then copy your input **values** (not formats or formulas) from your working copy into a copy of the new workbook, and run again. Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
+A new version of K-SACCR is delivered as a new workbook with its own file name, SHA-256 and manual. Check it as above, then move your inputs into a copy of the new workbook **column by column, matching each header**, never as one block: a new version can add, rename or reorder columns, and a value pasted under the wrong header can still be accepted and give a wrong EAD. Paste values only (not formats or formulas), follow any migration notes delivered with the new version, run **Validate inputs**, and compare the results of the two versions on the same inputs before relying on the new one. Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
 
 Nothing is installed on the computer. Deleting the workbook and the CSV files you exported removes K-SACCR; keep any evidence your organization requires you to retain.
 
