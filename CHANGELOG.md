@@ -171,6 +171,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Three explainers in `docs/assets/`, drawn for this repository:
+  `SACCR_aggregation.svg`, how a netting set is aggregated from trade to EAD,
+  in the README's "How a run works" and on the website;
+  `SACCR_EAD_tree.svg`, the exposure value broken down into its inputs, in
+  the methodology; and `SACCR_RC_PFE.svg`, the replacement cost of a margined
+  netting set and the PFE multiplier. Each has a PNG for the Wiki.
 - `docs/VBA_HOUSE_STYLE.md` names local variables and parameters in
   PascalCase, spelled out (`NotionalAmount`), and keeps a single lower-case
   letter for loop counters only. A renaming to these rules is the one name

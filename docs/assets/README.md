@@ -146,6 +146,32 @@ from it at 1600 x 1040 px with headless Chromium at a device scale factor of
 1, then quantized to 256 colours as the screenshots above. Render it again
 whenever the SVG changes.
 
+<a id="sa-ccr-explainers"></a>
+
+## 🧩 SA-CCR explainers
+
+Three pictures explain how the exposure value is built. Like the EAD reference
+card they summarise the [methodology](../methodology/README.md) and are not a
+source; the card holds the parameters and the full formulas.
+
+| Image | Shows | Used by |
+| --- | --- | --- |
+| `SACCR_aggregation.svg` | How a netting set is aggregated: each trade assigned to its netting set, asset class and hedging set, then the effective notional, hedging-set, asset-class and aggregate add-ons, PFE and EAD | README ("How a run works"), the website, the Wiki (SA-CCR Overview) |
+| `SACCR_EAD_tree.svg` | The exposure value broken down into RC, PFE and α, down to the trade-level inputs | The methodology, the Wiki (SA-CCR Overview) |
+| `SACCR_RC_PFE.svg` | The replacement cost of a margined netting set on an illustrative value path, the add-on levels and the PFE multiplier, plotted from its formula | The Wiki (Replacement Cost and Collateral, Potential Future Exposure); the user manual from 1.0.1 |
+
+- **Origin:** drawn for this repository from CRE52 and CRR Art. 274–280f and
+  285, after commonly used teaching diagrams of SA-CCR (an aggregation flow, a
+  breakdown of the EAD, an RC chart); no part of any of them is reproduced.
+  The value path in `SACCR_RC_PFE.svg` is illustrative, not data.
+- **Rendering:** the SVGs are the source. `SACCR_aggregation.png`,
+  `SACCR_EAD_tree.png` and `SACCR_RC_PFE.png`, used by the Wiki, are rendered
+  from them at their own size (1800 x 1550, 1820 x 1505 and 1800 x 1060 px)
+  with headless Chromium at a device scale factor of 1, then quantized to 256
+  colours as the screenshots above. Render them again whenever an SVG
+  changes, and update the pictures when a formula or a supervisory parameter
+  they show changes.
+
 <a id="website-banner"></a>
 
 ## 🏙️ Website banner
