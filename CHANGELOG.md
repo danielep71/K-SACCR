@@ -94,6 +94,18 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- NettingSets: Client clearing role `CCP` declares a netting set facing a
+  central counterparty. Until CCP exposures are supported (#112), such a
+  netting set is `INVALID`, with an error on Checks, instead of being
+  calculated with the bilateral floors, which can understate its exposure
+  (for example where the CCP retains variation margin; CRE54.8(3), CRR Art.
+  304(3)(d)). The template's dropdown, input message and guidance list the
+  code; the column header keeps its text, so existing workbooks need no
+  migration. A netting set facing a CCP but entered with role `N` is still
+  calculated as bilateral.
+
 ### Documentation
 
 - The source descriptions are more exact. The consolidated CRR text has no

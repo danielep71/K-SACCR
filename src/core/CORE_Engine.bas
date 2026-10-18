@@ -87,7 +87,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-18
 '
 ' AUTHOR
 '   Daniele Penza
@@ -109,7 +109,7 @@ Attribute VB_Name = "CORE_Engine"
         ID                As String     'Netting-set ID, upper case
         Counterparty      As String     'Counterparty name
         Margined          As Boolean    'Subject to a margin agreement
-        ClearingRole      As String     'Client-clearing role: N, CM or CLIENT
+        ClearingRole      As String     'Client-clearing role: N, CM, CLIENT or CCP
         RemarginBD        As Double     'Remargining frequency, business days, at least 1
         LargeOrIlliquid   As Boolean    'Over 5,000 trades or illiquid collateral
         Disputes          As Boolean    'Margin disputes; doubles the MPOR
@@ -2307,10 +2307,11 @@ Private Function LoadNettingSets() As Boolean
 '   client-clearing floor CRE54.12 and CRR Art. 279c(1), configurable on
 '   Params. VM on an unmargined set CRE52.2, CRE52.10 and CRR Art. 272(7),
 '   (7a). Margin-agreement structures CRE52.74, CRE52.75 and CRR Art.
-'   274(4), 275(3).
+'   274(4), 275(3). A netting set facing a CCP is rejected: CRE54 and CRR
+'   Art. 300-311 are not applied (#112).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-18
 '==============================================================================
 '
 
@@ -2389,7 +2390,8 @@ Private Function LoadNettingSets() As Boolean
                 .ID = NettingSetRef
                 .Counterparty = SafeStr(InputBlock(i, NS_CPTY))
                 .Margined = NsFlag(InputBlock(i, NS_MARGINED), False, "Margined", NettingSetRef, RowNumber, FieldErrors)
-                .ClearingRole = NsCode(InputBlock(i, NS_CLEARED), CL_NONE, CL_NONE & "|" & CL_CM & "|" & CL_CLIENT, _
+                .ClearingRole = NsCode(InputBlock(i, NS_CLEARED), CL_NONE, _
+                                       CL_NONE & "|" & CL_CM & "|" & CL_CLIENT & "|" & CL_CCP, _
                                        "Client clearing role", NettingSetRef, RowNumber, FieldErrors)
                 .RemarginBD = NsNumber(InputBlock(i, NS_FREQ), 1#, "Remargin frequency", NettingSetRef, RowNumber, FieldErrors)
                 If .RemarginBD < 0# Or .RemarginBD > 10000# Or .RemarginBD <> Int(.RemarginBD) Then
@@ -2457,6 +2459,15 @@ Private Function LoadNettingSets() As Boolean
                         LogMsg SEV_INFO, SH_NS, NettingSetRef, "VM posted under a one-way margin agreement: unmargined " & _
                                "netting set, posted VM included in C with a negative sign (CRE52.10).", RowNumber
                     End If
+                End If
+
+    'A netting set facing a CCP is declared so that it is rejected rather
+    'than calculated as bilateral: the engine does not yet apply the CCP
+    'rules, such as the horizon when the CCP retains VM (#112).
+                If .ClearingRole = CL_CCP Then
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A netting set facing a CCP is not supported " & _
+                           "(CRE54; CRR Art. 300-311).", RowNumber
                 End If
 
     'Margin-agreement structures the engine does not model are declared, so
