@@ -170,7 +170,14 @@ Do not change the workbook's VBA code, its worksheet structure, its named ranges
 
 ## A new version, and removal
 
-A new version of K-SACCR is delivered as a new workbook with its own file name, SHA-256 and manual. Check it as above, then copy your input **values** (not formats or formulas) from your working copy into a copy of the new workbook, and run again. Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
+A new version of K-SACCR is delivered as a new workbook with its own file name, SHA-256 and manual. Check it as above and read any migration notes delivered with it. Then, in a copy of the new workbook:
+
+1. Clear the contents of the demonstration rows on `NettingSets`, `Trades`, `BankNettingSets` and `BankTrades`, so that no demonstration value stays attached to your portfolio.
+2. Move your inputs by what identifies each value, never as one block, pasting values only (not formats or formulas): on those four sheets column by column under the same header; on `Params` row by row under the same `Code`; in `SF_Table` and `FX_Table` by the same `SF_Key` or `FX_Ccy`; and the reconciliation settings above the bank tables (`BankNS_Scale`, `BankNS_AbsTol`, `BankNS_RelTol`, `BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol`) by their names. A new version can add, rename or reorder columns and rows, and a value moved to the wrong place can still be accepted and give a wrong EAD.
+3. Fill every column, code or key that is new in this version as its migration notes and manual say.
+4. Run **Validate inputs**, then compare the results of the two versions on the same inputs before relying on the new one.
+
+Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
 
 Nothing is installed on the computer. Deleting the workbook and the CSV files you exported removes K-SACCR; keep any evidence your organization requires you to retain.
 
