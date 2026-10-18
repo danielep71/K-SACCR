@@ -94,6 +94,19 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Documentation
+
+- The source descriptions are more exact. The consolidated CRR text has no
+  legal effect; the methodology implements Articles 274–280f, and Articles
+  273a, 281 and 282 are context only. The client's 10-day MPOR floor under
+  `BCBS` cites the conditions of CRE54.15, the bilateral treatment of
+  CRE54.17 and the OTC scope of CRE54.8(2). BCBS 279 is available from the
+  BIS publication page; it is not copied because its notice reserves all
+  rights. Only `published` and `independent` values qualify as
+  numerical-validation references; CRR provisions were checked against the
+  registered sources, and CRR-specific numerical validation remains
+  incomplete.
+
 ## [1.0.1] - 2026-10-18
 
 ### Added
