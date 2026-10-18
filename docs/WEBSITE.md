@@ -25,7 +25,10 @@ Markdown is not converted to HTML by this static deployment.
 
 - Keep the page's scope, release status, evidence classes, and installation
   links aligned with the root README and methodology. At each release, update
-  the release named on the page and in the social preview together.
+  the release named on the page and in the social preview together. The
+  download buttons and the `SHA256SUMS.txt` link point straight at the release
+  assets, whose URLs and file names carry the version: update all three and
+  check that each still starts a download.
 - Do not copy transient test counts onto the landing page. Link the current
   evidence instead; illustrative results must not be called independent
   validation.
