@@ -3,64 +3,63 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE: TEST_InputValidation
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that malformed inputs are rejected instead of silently changing
-'   the trade population, the netting-set terms or the parameters (#35):
-'   trade rows with data but no ID, duplicate trade and netting-set IDs, a
-'   missing MtM, an unreadable date, netting-set fields that cannot be
-'   read, an Excel error value (#N/A) in a trade, netting set or parameter,
-'   a moved or renamed column, a broken parameter or layout name, a parameter,
-'   supervisory factor or currency listed twice with different values, and
-'   a factor or rate the table loader would not read because of a blank
-'   row or key; and, for aggregation (#37), a credit reference given two
-'   sub-classes in either order, a basis trade without a hedging-set label,
-'   a reserved character in a reference, and an interest-rate risk factor
-'   that is not a currency; and, for the CRR scope (#33), the sum of
-'   absolute IR bucket values in a CRR netting set and an IR risk factor
-'   with a suffix other than -INFL; and, for the netting-set terms (#39),
-'   VM on an unmargined netting set, a clearing role or margin-agreement
-'   structure that is not a code, and the structures the engine does not
-'   model, including a netting set declared as facing a CCP (#112). A blank optional field, a duplicate with the same values, an
-'   inflation risk factor such as EUR-INFL, the sum of absolutes in a BCBS
-'   netting set and VM posted on an unmargined BCBS netting set must still
-'   be accepted. The same section checks the MPOR of each clearing role and
-'   regime, and with disputes or a large netting set and weekly
+'   Check that malformed inputs are rejected instead of silently changing the
+'   trade population, the netting-set terms or the parameters (#35): trade
+'   rows with data but no ID, duplicate trade and netting-set IDs, a missing
+'   MtM, an unreadable date, netting-set fields that cannot be read, an Excel
+'   error value (#N/A) in a trade, netting set or parameter, a moved or
+'   renamed column, a broken parameter or layout name, a parameter,
+'   supervisory factor or currency listed twice with different values, and a
+'   factor or rate the table loader would not read because of a blank row or
+'   key; and, for aggregation (#37), a credit reference given two sub-classes
+'   in either order, a basis trade without a hedging-set label, a reserved
+'   character in a reference, and an interest-rate risk factor that is not a
+'   currency; and, for the CRR scope (#33), the sum of absolute IR bucket
+'   values in a CRR netting set and an IR risk factor with a suffix other
+'   than -INFL; and, for the netting-set terms (#39), VM on an unmargined
+'   netting set, a clearing role or margin-agreement structure that is not a
+'   code, and the structures the engine does not model, including a netting
+'   set declared as facing a CCP (#112). A blank optional field, a duplicate
+'   with the same values, an inflation risk factor such as EUR-INFL, the sum
+'   of absolutes in a BCBS netting set and VM posted on an unmargined BCBS
+'   netting set must still be accepted. The same section checks the MPOR of
+'   each clearing role and regime, also with a large flag, disputes or an
+'   MPOR override (#359), and with disputes or a large netting set and weekly
 '   remargining, against the rules recorded in the methodology, and the
-'   warning for a margined netting set of more than 5,000 trades whose
-'   large or illiquid flag is N. Values outside the ranges of the data
-'   validation (#147), written by VBA so that validation does not stop
-'   them, must also be rejected: a multiplier floor of 1, a correlation
-'   above 1, correlations that do not form a correlation matrix, an MPOR
-'   floor of 0, a fractional business-day count, a negative supervisory
-'   factor, a negative threshold or MTA, a remargining frequency or MPOR
-'   override that is not a whole number of business days in range (0.5
-'   and 10001 rejected, 10000 accepted), a reporting currency that is not
-'   three letters A to Z, and an alpha override at or below zero; a
-'   remargining frequency of 0 is raised to daily with a warning. A run
-'   with the regulatory parameter set is REGULATORY, and one with a
-'   different alpha, a zero factor or an alpha override is WHAT-IF with
-'   the difference on Checks (#41); a DaysPerYear of 360 keeps it
-'   regulatory; a reporting-currency FX rate other than 1 stops the run.
-'   For the input conventions (#40): a text date is read only as
+'   warning for a margined netting set of more than 5,000 trades whose large
+'   or illiquid flag is N. Values outside the ranges of the data validation
+'   (#147), written by VBA so that validation does not stop them, must also
+'   be rejected: a multiplier floor of 1, a correlation above 1, correlations
+'   that do not form a correlation matrix, an MPOR floor of 0, a fractional
+'   business-day count, a negative supervisory factor, a negative threshold
+'   or MTA, a remargining frequency or MPOR override that is not a whole
+'   number of business days in range (0.5 and 10001 rejected, 10000
+'   accepted), a reporting currency that is not three letters A to Z, and an
+'   alpha override at or below zero; a remargining frequency of 0 is raised
+'   to daily with a warning. A run with the regulatory parameter set is
+'   REGULATORY, and one with a different alpha, a zero factor or an alpha
+'   override is WHAT-IF with the difference on Checks (#41); a DaysPerYear of
+'   360 keeps it regulatory; a reporting-currency FX rate other than 1 stops
+'   the run. For the input conventions (#40): a text date is read only as
 '   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
-'   maturity buckets split at exactly 1 and 5 years with the regime's edge
-'   at 1 year, which changes the IR add-on of offsetting swaps (#191), a
-'   trade or option ending on the reporting date is rejected, an option
-'   expiring after its maturity is rejected, both currencies of an FX pair
-'   need an FX rate, the notional must be in one of them, and a pair
-'   entered the other way round offsets the same pair entered in order.
-'   An Excel error value in an optional text field of a trade, in a
-'   netting set's regime or in the Params regime is an input error, not
-'   a blank that takes a default (#194), and a Currency or Accounting
-'   number format does not round an input (#196). A swaption needs the
-'   start date of its underlying and a Bermudan one takes its earliest and
-'   latest exercise dates (#40), and an FX option must be entered in
-'   market quote order (#40). For economic trades (#38): legs sharing an
-'   Economic trade ID form one trade with exactly one MtM leg, legs in
-'   different risk categories are accepted, legs in one asset class must
-'   be options, and an error value in either leg column is rejected.
-'   Results has one TOTAL row per regime, after the netting sets, with the
-'   number of VALID and withheld netting sets it covers, and a netting set
-'   may not take the label of a TOTAL row (#198).
+'   maturity buckets split at exactly 1 and 5 years with the regime's edge at
+'   1 year, which changes the IR add-on of offsetting swaps (#191), a trade
+'   or option ending on the reporting date is rejected, an option expiring
+'   after its maturity is rejected, both currencies of an FX pair need an FX
+'   rate, the notional must be in one of them, and a pair entered the other
+'   way round offsets the same pair entered in order. An Excel error value in
+'   an optional text field of a trade, in a netting set's regime or in the
+'   Params regime is an input error, not a blank that takes a default (#194),
+'   and a Currency or Accounting number format does not round an input
+'   (#196). A swaption needs the start date of its underlying and a Bermudan
+'   one takes its earliest and latest exercise dates (#40), and an FX option
+'   must be entered in market quote order (#40). For economic trades (#38):
+'   legs sharing an Economic trade ID form one trade with exactly one MtM
+'   leg, legs in different risk categories are accepted, legs in one asset
+'   class must be options, and an error value in either leg column is
+'   rejected. Results has one TOTAL row per regime, after the netting sets,
+'   with the number of VALID and withheld netting sets it covers, and a
+'   netting set may not take the label of a TOTAL row (#198).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -100,8 +99,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 135               'Cases in a complete run
-        Private Const CHECKS      As Long = 212               'Checks in a complete run
+        Private Const CASES       As Long = 141               'Cases in a complete run
+        Private Const CHECKS      As Long = 225               'Checks in a complete run
 
 
 '
@@ -474,6 +473,35 @@ Public Sub RunInputValidationTests()
 
         StartMarginedCase "netting-set-clearing-client-bcbs", "BCBS", "CLIENT", "1", "N", "N"
         ExpectMPOR 10
+
+    'The client-clearing floors combined with the other MPOR rules (#359).
+    'One large or illiquid flag sets 20 days for the clearing member in both
+    'regimes, a conservative limitation: CRR Art. 304(3)(c) would let it
+    'disregard the trade-count floor towards its clients (decision 3 of the
+    'clearing coverage). Disputes double the client's floor, 5 under CRR and
+    '10 under BCBS [Art. 285(4); CRE52.51(3)]. An override below the
+    'clearing member's floor is replaced by the floor with a warning; one
+    'above it is applied.
+        StartMarginedCase "netting-set-clearing-member-large-crr", "CRR", "CM", "1", "Y", "N"
+        ExpectMPOR 20
+
+        StartMarginedCase "netting-set-clearing-member-large-bcbs", "BCBS", "CM", "1", "Y", "N"
+        ExpectMPOR 20
+
+        StartMarginedCase "netting-set-clearing-client-disputes-crr", "CRR", "CLIENT", "1", "N", "Y"
+        ExpectMPOR 10
+
+        StartMarginedCase "netting-set-clearing-client-disputes-bcbs", "BCBS", "CLIENT", "1", "N", "Y"
+        ExpectMPOR 20
+
+        StartMarginedCase "netting-set-clearing-member-override-below-floor", "CRR", "CM", "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 3#
+        ExpectMPOR 5
+        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "below the regulatory floor", "illustrative"
+
+        StartMarginedCase "netting-set-clearing-member-override-above-floor", "CRR", "CM", "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 7#
+        ExpectMPOR 7
 
     'MPOR rules recorded in #39: disputes double F + N - 1, which is the
     'BCBS rule [CRE52.50-.51] and above the CRR minimum [Art. 285(4)-(5)];

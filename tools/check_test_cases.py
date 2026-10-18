@@ -22,7 +22,7 @@ ASSET_CLASSES = ("interest_rate", "foreign_exchange", "credit", "equity", "commo
 CLASSES = {"published", "independent", "illustrative"}
 CASE_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CURRENCY = re.compile(r"^[A-Z]{3}$")
-RULE = re.compile(r"^(?:CRR(?:-RTS)?\.[0-9]+[a-z]?(?:\.[0-9]+)*|CRE52(?:\.[0-9]+)?)$")
+RULE = re.compile(r"^(?:CRR(?:-RTS)?\.[0-9]+[a-z]?(?:\.[0-9]+)*|CRE52(?:\.[0-9]+)?|CRE54\.[0-9]+)$")
 ERROR_NAME = re.compile(r"^SACCR_ERROR_[A-Z0-9_]+$")
 CATALOGUE = re.compile(r"^T[0-9]{2}$")
 # A registered EBA Q&A is cited by its source ID, not in prose (#129). The
@@ -299,7 +299,7 @@ def check_output(where: str, output: object, fixture: dict[str, Any], register: 
     if quantity not in NETTING_SET_QUANTITIES | TRADE_QUANTITIES:
         findings.append(f"{where}: unknown quantity {quantity!r}")
     if not RULE.match(str(output.get("rule"))):
-        findings.append(f"{where}: rule must look like CRR.275.1, CRR-RTS.5 or CRE52.23")
+        findings.append(f"{where}: rule must look like CRR.275.1, CRR-RTS.5, CRE52.23 or CRE54.12")
     trade_ids = {t.get("id") for t in fixture.get("trades", []) if isinstance(t, dict)}
     if quantity in TRADE_QUANTITIES and output.get("trade") not in trade_ids:
         findings.append(f"{where}: {quantity} needs 'trade' naming a trade of the fixture")

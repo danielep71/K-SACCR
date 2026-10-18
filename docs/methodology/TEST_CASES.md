@@ -175,7 +175,7 @@ Quantities use stable names, each with one meaning only:
 | Netting set | `multiplier` | Number, unit `1` |
 | Netting set | `margin_period_of_risk` | Number, unit `business_days` |
 | Netting set | `cap_applied` | Text: `Y` when the unmargined cap sets the exposure value |
-| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected` or `INVALID: <e> input error(s)`, when the exposure value is withheld; or `NO TRADES` |
+| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected`, `INVALID: <e> input error(s)` or, for a netting set declared as facing a CCP, `INVALID: facing a CCP, not supported` (followed by `; <e> other input error(s)` when there are), when the exposure value is withheld; or `NO TRADES` |
 | Trade | `adjusted_notional` | Number in the calculation currency |
 | Trade | `supervisory_delta`, `supervisory_factor` | Number, unit `1` |
 | Trade | `lambda_shift` | Number in the underlying's unit: `1` for a rate, `price` otherwise |
@@ -188,8 +188,8 @@ A trade-level output names its trade in `trade`; a netting-set output has no
 
 Rule IDs follow the [traceability](README.md#traceability) convention:
 `CRR.<article>[.<paragraph>]`, `CRR-RTS.<article>` for Delegated Regulation
-(EU) 2021/931, and `CRE52.<paragraph>`, with `CRE52` alone for a paragraph not
-yet located. The rule IDs of the ported cases are those the prototype cites and
+(EU) 2021/931, `CRE52.<paragraph>`, with `CRE52` alone for a paragraph not
+yet located, and `CRE54.<paragraph>` for the client-clearing rules of CRE54. The rule IDs of the ported cases are those the prototype cites and
 are verified with the sources.
 
 <a id="reference-classes"></a>

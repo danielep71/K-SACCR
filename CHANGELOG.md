@@ -112,6 +112,22 @@ Use only the categories needed by a release.
   from the new template, or change the list of the data validation on
   NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
   facing a CCP but entered with role `N` is still calculated as bilateral.
+- Tests for client clearing (#359): two illustrative numerical cases, a
+  listed equity index future and call option in a margined netting set where
+  the bank is the clearing member (`illustrative-clearing-member-listed`,
+  daily remargining, MPOR 5 in both regimes) or the client
+  (`illustrative-clearing-client-listed`, weekly remargining, MPOR 9 under
+  CRR and 14 under BCBS), each under CRR and BCBS, with MPOR, RC, the
+  option's delta, the equity add-on, multiplier, EAD, cap flag and status;
+  their values come from `tests/derivations/clearing_listed.py`, a separate
+  Python implementation, and stay illustrative until reviewed by someone
+  other than the code's author. `TEST_InputValidation` adds the clearing
+  member's large-or-illiquid floor (20 days in both regimes, the
+  conservative limitation), the client's floor doubled by disputes (10 under
+  CRR, 20 under BCBS) and an MPOR override below and above the clearing
+  member's floor. `tools/check_test_cases.py` accepts `CRE54.<paragraph>`
+  rule IDs. Totals: `TEST_Cases` 24 cases and 71 checks,
+  `TEST_InputValidation` 141 cases and 225 checks.
 - Results: a conditional format highlights in light red every netting-set
   row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
   `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of

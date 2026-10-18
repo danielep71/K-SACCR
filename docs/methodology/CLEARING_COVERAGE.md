@@ -24,7 +24,11 @@ against the registered texts.
 
 No clearing rule is validated. Every published value of the register (CRE99,
 Examples 1–5) is a bilateral netting set, and no `independent` value exists
-yet. The clearing tests are all `illustrative`.
+yet. The clearing tests are all `illustrative`, including the expected values
+of the `illustrative-clearing-*-listed` cases, computed by
+[`tests/derivations/clearing_listed.py`](../../tests/derivations/clearing_listed.py),
+a separate implementation that no reviewer other than the code's author has
+checked.
 
 ## 🔀 Arrangements
 
@@ -37,8 +41,8 @@ remaining maturity whatever the role.
 | Arrangement | Entered as | MPOR floor, CRR | MPOR floor, BCBS | Coverage |
 | --- | --- | --- | --- | --- |
 | Bilateral, no clearing | Role `N` | 10 business days (Art. 285(2)(b)) | 10 business days with daily margining, 9 + N otherwise (CRE52.50(1)–(2)) | Implemented; exercised; validated under BCBS through CRE99 (MPOR with remargining) |
-| Clearing member facing its client | Role `CM` | 5 business days (Art. 279c(1), last subparagraph; Art. 304(3)(a)) | 5 business days (CRE54.12) | Implemented; exercised |
-| Bank as client facing its clearing member | Role `CLIENT` | 5 business days (Art. 279c(1), last subparagraph) | 10 business days: the CCP treatment where CRE54.15 is met (CRE54.14; 10 days for OTC derivatives, CRE54.8(2)), with a 4% risk weight instead of 2% where only the joint-default protection is missing (CRE54.16); a bilateral trade otherwise (CRE54.17; CRE52.50) | Implemented; exercised. The conditions of CRE54.15 and CRR Art. 305(2)–(3) are the user's. They set the risk weight and, under BCBS, whether the 5,000-trade floor applies (CRE54.8(1), not implemented); the MPOR floor stays as shown |
+| Clearing member facing its client | Role `CM` | 5 business days (Art. 279c(1), last subparagraph; Art. 304(3)(a)) | 5 business days (CRE54.12) | Implemented; exercised, also with a listed future and option (`illustrative-clearing-member-listed`, both regimes) |
+| Bank as client facing its clearing member | Role `CLIENT` | 5 business days (Art. 279c(1), last subparagraph) | 10 business days: the CCP treatment where CRE54.15 is met (CRE54.14; 10 days for OTC derivatives, CRE54.8(2)), with a 4% risk weight instead of 2% where only the joint-default protection is missing (CRE54.16); a bilateral trade otherwise (CRE54.17; CRE52.50) | Implemented; exercised, also with a listed future and option and weekly remargining: MPOR 9 under CRR, 14 under BCBS (`illustrative-clearing-client-listed`). The conditions of CRE54.15 and CRR Art. 305(2)–(3) are the user's. They set the risk weight and, under BCBS, whether the 5,000-trade floor applies (CRE54.8(1), not implemented); the MPOR floor stays as shown |
 | Bank facing a CCP: a clearing member's trade exposure, for itself or for clients, or a client's exposure to the CCP guaranteed by its clearing member (CRE54.14(2)) | Role `CCP`, which rejects the netting set | At least 10 business days (Art. 304(3)(b)); the 20-day floor for more than 5,000 trades does not apply to trade exposures (Art. 285(3)(a)); VM retained by the CCP without protection of the member's collateral: the lesser of one year and the remaining maturity, floored at 10 business days (Art. 304(3)(d)) | 10 days for OTC derivatives (CRE54.8(2)); the 5,000-trade floor does not apply (CRE54.8(1)); VM retained by the CCP: as CRR (CRE54.8(3)) | Not supported, as in v1.0.0 and v1.0.1. Declared with role `CCP`, the netting set is `INVALID` (`netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined`). A CCP entered as the counterparty of a role-`N` netting set still cannot be told apart from a bilateral one and gets the bilateral floors (#112) |
 | Multi-level client structure: a higher-level client facing a lower-level client | No role exists | The CRR five-day floor is for transactions "between a client and a clearing member" (Art. 279c(1)); the multi-level treatment is in Art. 300(6)–(9), 304(7), 305(4) | Treated as the clearing member–client leg (CRE54.2, CRE54.13, CRE54.14(3)) | Not supported; nothing stops it being entered as `CM` or `CLIENT` |
 
@@ -73,8 +77,8 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 
 | Product | Entered as | Coverage |
 | --- | --- | --- |
-| Listed future | Instrument `Linear`, with M, and S and E for interest-rate and credit futures | Implemented; exercised as a bilateral linear trade. No clearing-specific case (#359) |
-| Ordinary listed option, on a security, an index or a future | Instrument `Option`, with price, strike and expiry T; for an option on an interest-rate future, S and E of the underlying | Implemented; exercised as a bilateral option. No clearing-specific case (#359) |
+| Listed future | Instrument `Linear`, with M, and S and E for interest-rate and credit futures | Implemented; exercised as a bilateral linear trade, and in the `CM` and `CLIENT` netting sets of `illustrative-clearing-member-listed` and `illustrative-clearing-client-listed` (equity index future) |
+| Ordinary listed option, on a security, an index or a future | Instrument `Option`, with price, strike and expiry T; for an option on an interest-rate future, S and E of the underlying | Implemented; exercised as a bilateral option, and in the same clearing cases (equity index call; its supervisory delta is checked) |
 | Daily settled (settled-to-market) contract | Margined = N, and as M the next reset date | User's: see [Settlement and reset](#settlement-and-reset) |
 | Exotic options | No separate input | Relevant to the clearing member's relief from the 20-day floor (Art. 304(3)(c); CRE54.8(1)), which is not implemented |
 | SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are #113; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
@@ -96,11 +100,11 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 
 | Condition | CRR | BCBS | K-SACCR |
 | --- | --- | --- | --- |
-| Floor by role | 10; 5 for `CM` and `CLIENT` (Art. 279c(1), 285(2)(b)) | 10; 5 for `CM` (CRE52.50, CRE54.12) | Implemented; exercised by `netting-set-clearing-member-crr`, `-bcbs`, `netting-set-clearing-client-crr`, `-bcbs` |
-| Remargining every N business days | F + N − 1 (Art. 285(5)) | 9 + N for bilateral non-daily (CRE52.50(2)) | Implemented: F + N − 1 for every role |
-| More than 5,000 trades | 20 days, except for trade exposures (Art. 285(3)(a)); a clearing member may disregard it towards its clients, without illiquid collateral, disputes or exotic options (Art. 304(3)(c)) | 20 days for netting sets not with a CCP (CRE52.51(1)); not for trade exposures to a CCP (CRE54.8(1)) | Implemented conservatively, a recorded limitation ([decision 3](#decisions)): one *large or illiquid* flag sets 20 days for every role, so the relief cannot be applied. A set over 5,000 trades with the flag at N is VALID with a warning (`netting-set-over-5000-trades`) |
+| Floor by role | 10; 5 for `CM` and `CLIENT` (Art. 279c(1), 285(2)(b)) | 10; 5 for `CM` (CRE52.50, CRE54.12) | Implemented; exercised by `netting-set-clearing-member-crr`, `-bcbs`, `netting-set-clearing-client-crr`, `-bcbs` and the two `illustrative-clearing-*-listed` cases |
+| Remargining every N business days | F + N − 1 (Art. 285(5)) | 9 + N for bilateral non-daily (CRE52.50(2)) | Implemented: F + N − 1 for every role; exercised for the client with N = 5 (`illustrative-clearing-client-listed`) |
+| More than 5,000 trades | 20 days, except for trade exposures (Art. 285(3)(a)); a clearing member may disregard it towards its clients, without illiquid collateral, disputes or exotic options (Art. 304(3)(c)) | 20 days for netting sets not with a CCP (CRE52.51(1)); not for trade exposures to a CCP (CRE54.8(1)) | Implemented conservatively, a recorded limitation ([decision 3](#decisions)): one *large or illiquid* flag sets 20 days for every role, so the relief cannot be applied; exercised for the clearing member (`netting-set-clearing-member-large-crr`, `-bcbs`). A set over 5,000 trades with the flag at N is VALID with a warning (`netting-set-over-5000-trades`) |
 | Illiquid collateral or a hard-to-replace OTC derivative | 20 days (Art. 285(3)(b)) | 20 days (CRE52.51(2)) | Implemented; exercised (`netting-set-mpor-large-weekly-bcbs`) |
-| Margin disputes | Doubled (Art. 285(4)) | Floor doubled (CRE52.51(3)) | Implemented: F + N − 1 doubled, as recorded in [Assumptions](README.md#assumptions-and-scope) |
+| Margin disputes | Doubled (Art. 285(4)) | Floor doubled (CRE52.51(3)) | Implemented: F + N − 1 doubled, as recorded in [Assumptions](README.md#assumptions-and-scope); exercised for the client, 10 under CRR and 20 under BCBS (`netting-set-clearing-client-disputes-crr`, `-bcbs`) |
 | VM retained by the CCP, member collateral unprotected | Lesser of one year and remaining maturity, floor 10 (Art. 304(3)(d)) | Same (CRE54.8(3)) | Not supported, and not detectable; inputs required by [decision 2](#decisions) (#112) |
 
 <a id="settlement-and-reset"></a>
@@ -131,9 +135,9 @@ The supported clearing rules and where each is carried.
 
 | Rule | Input | Code | Test | Coverage |
 | --- | --- | --- | --- | --- |
-| Clearing-member floor, 5 days (CRE54.12; Art. 279c(1), 304(3)(a)) | NettingSets *Client clearing role* `CM`, Margined = Y | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-member-crr`, `netting-set-clearing-member-bcbs` | Implemented; exercised |
-| Client floor, 5 days under CRR (Art. 279c(1)) | Role `CLIENT`, Margined = Y, regime CRR | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-client-crr` | Implemented; exercised |
-| Client floor, 10 days under BCBS (CRE54.8(2), .14–.17; CRE52.50) | Role `CLIENT`, Margined = Y, regime BCBS | `CORE_Engine.LoadNettingSets`, with an information message on Checks | `netting-set-clearing-client-bcbs` | Implemented; exercised |
+| Clearing-member floor, 5 days (CRE54.12; Art. 279c(1), 304(3)(a)) | NettingSets *Client clearing role* `CM`, Margined = Y | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-member-crr`, `netting-set-clearing-member-bcbs`, `-large-crr`, `-large-bcbs`, `-override-below-floor`, `-override-above-floor`; `illustrative-clearing-member-listed` | Implemented; exercised |
+| Client floor, 5 days under CRR (Art. 279c(1)) | Role `CLIENT`, Margined = Y, regime CRR | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-client-crr`, `netting-set-clearing-client-disputes-crr`; `illustrative-clearing-client-listed.crr` | Implemented; exercised |
+| Client floor, 10 days under BCBS (CRE54.8(2), .14–.17; CRE52.50) | Role `CLIENT`, Margined = Y, regime BCBS | `CORE_Engine.LoadNettingSets`, with an information message on Checks | `netting-set-clearing-client-bcbs`, `netting-set-clearing-client-disputes-bcbs`; `illustrative-clearing-client-listed.bcbs` | Implemented; exercised |
 | Role codes | Role other than blank, `N`, `CM`, `CLIENT`, `CCP` | `CORE_Engine.LoadNettingSets` (`NsCode`) | `netting-set-clearing-role-not-a-code` | Implemented; exercised: the netting set is INVALID |
 | CCP-facing netting set rejected ([decision 5](#decisions)) | Role `CCP`, margined or not | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined` | Implemented; exercised: the status is `INVALID: facing a CCP, not supported`, with any other invalid field counted after it, and Checks has the error |
 | Next reset date as remaining maturity (CRE52.37(5); Art. 279c(2)) | Trades *Maturity date (M)* | `CORE_Engine` trade dates, `SACCR_MaturityFactor` | None specific | User's |
