@@ -11,13 +11,13 @@ toc-title: "Contents"
 ---
 
 > **RELEASE STATUS**\
-> This manual documents **K-SACCR 1.0.1**, released on 18 October 2026 and tagged `v1.0.1`. It is published with the 1.0.1 release, together with the production workbook `K-SACCR_1.0.1.xlsm`; `SHA256SUMS.txt` on the release holds the SHA-256 of both. The release notes and the tag message record the Excel certification of the tagged source. This manual explains the software; it does not itself certify it, and it is not regulatory approval.
+> This manual documents **K-SACCR 1.0.1**, released on 18 October 2026. It is delivered with the workbook `K-SACCR_1.0.1.xlsm` and the file `SHA256SUMS.txt`, which holds the SHA-256 of the workbook and of this manual. The workbook was tested in Excel before release. This manual explains the software; it does not certify it, and it is not regulatory approval.
 
-**Document purpose.** A practical and technical operating reference for analysts, validators, model owners, risk managers, reviewers and developers using the Windows Excel/VBA implementation of the **Standardised Approach for Counterparty Credit Risk (SA-CCR)**. It explains how to construct the workbook, enter and validate portfolios, interpret trade-to-EAD calculations, reconcile an external bank calculation, export reproducible evidence and understand the declared scope and limitations.
+**Document purpose.** A practical and technical operating reference for analysts, validators, model owners, risk managers and reviewers using the K-SACCR workbook, a Windows Excel/VBA implementation of the **Standardised Approach for Counterparty Credit Risk (SA-CCR)**. It explains how to check and open the workbook, enter and validate portfolios, interpret trade-to-EAD calculations, reconcile an external bank calculation, export reproducible evidence and understand the declared scope and limitations.
 
 **Reader convention.** `CRR` means the European Union Capital Requirements Regulation implementation in this toolkit; `BCBS` means the Basel Framework CRE52 implementation. “Bank” is shorthand for the independent upstream calculation being compared. “Trade” may mean a row-level **leg**, not necessarily a whole economic trade. Amounts are **unscaled units** unless an explicit bank-reconciliation scale is used. A result generated under one regime must not be added to the same portfolio's result under another regime.
 
-**Documentation source:** the K-SACCR source repository at the tag `v1.0.1`, in particular `README.md`, `INSTALLATION.md` and the methodology and support matrix in `docs/methodology/README.md`. The workbook, source, methodology and release evidence take precedence over an outdated copy of this manual.
+**Precedence.** This manual describes version 1.0.1 only. The workbook's own `README` sheet and its messages take precedence over an outdated copy of the manual, and the applicable legal text takes precedence over both.
 
 \newpage
 
@@ -63,29 +63,29 @@ For a standard regulatory run, **alpha is 1.4**. `RC` is replacement cost; `PFE`
 
 ## Version, evidence and validation boundary
 
-Release 1.0.1 implements both Basel CRE52 and EU CRR rules. The **published, independently external numerical reference values** used in v1.0.1 come from Basel CRE99 examples 1–5. Additional regression cases, including CRR-specific ones, are explicitly **illustrative**, not independently validated. As a result, describe the result as **“BCBS published-example regression coverage; CRR implemented and illustratively tested”**—not as independently validated CRR.
+K-SACCR 1.0.1 implements both Basel CRE52 and EU CRR rules. The **published, independently external numerical reference values** it was tested against come from Basel CRE99 examples 1–5. The other test cases, including the CRR-specific ones, are **illustrative**, not independently validated. As a result, describe the result as **“BCBS published-example regression coverage; CRR implemented and illustratively tested”**—not as independently validated CRR.
 
-Release 1.0.1 was certified in Excel before tagging: the VBA compiled and the **eight Excel test suites (230 cases, 1,033 checks)** were each run on their own against the tagged source, with the record checked by the repository's evidence validator. A workbook you build yourself, or a copy you have modified, is covered by that record only if it is built from the same source; run the suites on it to be sure (see the regression suite inventory below).
+Before release, the workbook's VBA code was compiled and tested in 64-bit Windows Excel with **eight automated test suites (230 cases, 1,033 checks)**, all passing. The tests are not part of the delivered workbook. That testing covers the code as delivered: check the workbook's SHA-256 when you receive it (see *Getting started*) and do not change its VBA code.
 
-**Changes from 1.0.0.** No calculation changed: the same inputs give the same EAD. `Results!C5` now says that it checks the inputs only, and `ResultsStatus()` reports an output edited after the run as `EDITED`. Exporting evidence over an existing file keeps the older file until the new one is complete, and a failed reconciliation keeps its cause in the run message. The full list is in `CHANGELOG.md` in the source repository.
+**Changes from 1.0.0.** No calculation changed: the same inputs give the same EAD. `Results!C5` now says that it checks the inputs only, and `ResultsStatus()` reports an output edited after the run as `EDITED`. Exporting evidence over an existing file keeps the older file until the new one is complete, and a failed reconciliation keeps its cause in the run message.
 
 
 \Needspace{9\baselineskip}
 
 ## Recommended user journey
 
-![Source-to-results process map. The diagram is schematic; the workbook records full details.](assets/data_flow.png){width=98%}
+![Inputs-to-results process map. The diagram is schematic; the workbook records full details.](assets/data_flow.png){width=98%}
 
 
-1. Obtain the exact source/release asset and verify provenance.
-2. Build a **production** `.xlsm` from the provided template, or use a certified release workbook if one is actually supplied.
-3. Compile, inspect the workbook tabs and work through the synthetic demonstration.
+1. Check that the workbook you received is the released file: its SHA-256 must equal the expected value, obtained from a source you trust.
+2. Keep that file unchanged as a reference copy, and work in a copy of it.
+3. Open the copy, enable macros as your policy allows, inspect the worksheets and work through the synthetic demonstration.
 4. Set Params, then populate NettingSets and Trades with synthetic or properly authorized test inputs.
 5. Use **Validate inputs** before **Run SA-CCR**; resolve all `ERROR` findings.
 6. Inspect Results, TradeCalc, HedgingSets, Buckets and Checks; do not rely on EAD alone.
 7. Optionally enter external bank figures on BankNettingSets and BankTrades; run again to refresh the two reconciliations.
 8. Export evidence only when the result and any reconciliation are `CURRENT` and the exported output cells are unmodified.
-9. Archive the input description, expected sources, evidence CSV, source identity and review conclusions under your organization's controls.
+9. Archive the input description, expected sources, evidence CSV, the workbook's file name and SHA-256, and review conclusions under your organization's controls.
 
 
 \Needspace{9\baselineskip}
@@ -116,7 +116,7 @@ Release 1.0.1 was certified in Excel before tagging: the VBA compiled and the **
 
 \Needspace{12\baselineskip}
 
-# Installation and workbook creation
+# Getting started
 
 
 \Needspace{9\baselineskip}
@@ -128,77 +128,51 @@ Release 1.0.1 was certified in Excel before tagging: the VBA compiled and the **
 | Host | **Microsoft Excel for Windows, 64-bit**, Microsoft 365 or Excel 2016 and later. |
 | 32-bit Windows Excel | Best effort, **not certified**. |
 | Excel for Mac, Excel for web, Excel 2013 or earlier | **Not supported**. |
-| VBA references | Four defaults: Visual Basic for Applications, Microsoft Excel 16.0 Object Library, OLE Automation, Microsoft Office 16.0 Object Library. |
-| Repository checkout | Git, for one identifiable commit and correct VBA checkout line endings. |
-| Repository checking | Python **3.10+**; standard library, no extra packages needed for `tools/check.py`. |
-| Optional build automation | Windows PowerShell and `tools/Sync-SACCR-VBA.cmd`; Excel's VBA-project trust setting during code synchronization. |
-| External runtime components | No add-in, DLL, COM registration, or extra VBA reference required. |
+| Macros | The workbook needs macros enabled. |
+| External components | None: no add-in, DLL, COM registration or extra VBA reference. |
 
-**Macro security.** The workbook runs VBA with the user's Office permissions. Review its source, verify its origin and comply with your organization's Office macro policy. “Trust access to the VBA project object model” is used for **building/synchronizing**, not a reason to disable organizational security measures permanently. Turn it off afterward if it was enabled solely for setup.
+**Macro security.** The workbook runs VBA with your Office permissions. Accept it only from a source you trust, check its SHA-256, and follow your organization's macro policy. Its VBA code can be read in the Visual Basic editor (**Alt+F11**). The workbook does not need *Trust access to the VBA project object model*; leave that setting off.
 
 
 \Needspace{9\baselineskip}
 
-## Obtain the correct source
+## Check the delivered workbook
 
-Two routes lead to the 1.0.1 workbook. The simplest is the **released workbook**: download `K-SACCR_1.0.1.xlsm` and `SHA256SUMS.txt` from the 1.0.1 release, check the hash with `Get-FileHash .\K-SACCR_1.0.1.xlsm -Algorithm SHA256` in PowerShell, and only then unblock the file if your macro policy allows it (details in `INSTALLATION.md`, section *Released workbook*). The reproducible route is a Git clone of the release tag, where `<repository-URL>` is the address of the K-SACCR source repository:
+You receive `K-SACCR_1.0.1.xlsm` together with `SHA256SUMS.txt`, which holds one line per delivered file: its SHA-256 and its name.
 
-```console
-git clone <repository-URL> K-SACCR
-cd K-SACCR
-git switch --detach v1.0.1
-git rev-parse HEAD
-python tools/check.py
-```
+1. Save both files in the same local folder.
+2. Compute the workbook's SHA-256 in PowerShell, in that folder:
 
-Record the **40-character SHA** shown by `git rev-parse HEAD`; it identifies the source the workbook is built from. A normal clone preserves the `.bas` and `.cls` line-ending conventions expected by the VBA editor; a file viewed in a web browser and casual copy/paste are not recommended as import sources. The sections below build the workbook from this clone.
+   ```powershell
+   Get-FileHash .\K-SACCR_1.0.1.xlsm -Algorithm SHA256
+   ```
 
+   or in a Command Prompt: `certutil -hashfile K-SACCR_1.0.1.xlsm SHA256`.
+3. Compare it with the line for `K-SACCR_1.0.1.xlsm` in `SHA256SUMS.txt` (letter case does not matter). If they differ, do not open the file: delete it and ask for a new copy.
 
-\Needspace{9\baselineskip}
+   A match shows that the workbook arrived unchanged, not who made it: anyone able to replace the workbook on its way to you can replace `SHA256SUMS.txt` too. If both reached you through the same channel, confirm the expected SHA-256 with the supplier through a separate channel you trust, for example by telephone or from the supplier's own published release information, before you unblock the file and enable macros.
+4. Windows marks a downloaded or e-mailed file as coming from the internet, and Office then blocks its macros. If your macro policy allows it, right-click the file → **Properties** → tick **Unblock** → **OK**, or run `Unblock-File .\K-SACCR_1.0.1.xlsm` in PowerShell. Do this only after the hash check.
+5. Open the workbook in desktop Excel and enable macros as your policy allows. Open the `README`, `Params`, `NettingSets`, `Trades` and `Results` sheets and check that the sheet buttons are present.
 
-## Build the production workbook using the launcher
-
-1. From the **same checkout**, open `src/workbook/SACCR_Template.xlsx` in desktop Excel.
-2. Use **File > Save As** and choose **Excel Macro-Enabled Workbook (`*.xlsm`)**. Save in a local working directory **outside the source checkout**. Do not overwrite the macro-free template.
-3. The synchronizer requires **Trust access to the VBA project object model** in Excel; enable it only if your policy allows it, or use the manual import below, which does not need it. Close the workbook before synchronization.
-4. Drag your saved `.xlsm` onto `tools/Sync-SACCR-VBA.cmd`, or invoke the launcher with that workbook path. There is intentionally **no default workbook**.
-5. At the prompt choose **P (Production)**. Production imports the seven standard VBA modules and relies on the 17 workbook/document components. Do **not** choose Development for a workbook containing business inputs: development tests overwrite inputs and outputs during execution.
-6. The launcher may ask whether to refresh `ThisWorkbook` and worksheet code modules; their source contains only `Option Explicit`, so either answer works for the current template. Read the synchronization log and resolve any errors.
-7. Open the `.xlsm`, press **Alt+F11**, and select **Debug > Compile VBAProject**. Compilation must complete without errors. Confirm the expected VBA references and save the workbook.
-8. Return to Excel and open the `README`, `Params`, `NettingSets`, `Trades` and `Results` tabs; check that the existing sheet buttons are present. Execute the synthetic demo before replacing inputs.
-
-**Production components:** `CORE_Config`, `CORE_Engine`, `CORE_Export`, `CORE_Reconcile`, `CORE_Util`, `SACCR_Formulas`, `M_Main`. `ThisWorkbook` and the worksheet code modules remain workbook document components, not separately imported ordinary class modules. The template has no VBA project of its own.
+A renamed copy (for example `K-SACCR_1.0.1 (1).xlsm`) has the same SHA-256 as long as its content is unchanged. Once you save the workbook, its SHA-256 changes: check it before the first save.
 
 
 \Needspace{9\baselineskip}
 
-## Manual import alternative
+## Keep a reference copy and work in a copy
 
-When policy prevents VBA-project automation, open the `.xlsm` and use **Alt+F11 > File > Import File** in this order: all `.bas` files under `src/core/`; then all `.bas` under `src/modules/`; then `src/workbook/M_Main.bas`. Import source from **one commit only**, preserving component names. Document module `.cls` files cannot be imported as ordinary classes: open the existing `ThisWorkbook` or corresponding worksheet code window and paste the code **below** the `Attribute` lines from the matching source file. The FormulaTest worksheet has a historical code name `shTests`. Finally compile and save.
+Keep the delivered file unchanged as your reference copy. Use **File > Save As** to create a working copy, and keep business data out of the demonstration copy. If a working copy is damaged, for example after a header or named range was deleted, start again from the reference copy and enter your inputs again.
 
-
-\Needspace{9\baselineskip}
-
-## Build a separate development workbook
-
-Create another `.xlsm` from a fresh template and choose **D (Development)** in the synchronization launcher. Development adds the eleven source test modules in `tests/modules/` to the seven production `.bas` modules (18 standard modules in total), plus the 17 workbook/document components. It is used for compiler checks, regression and harness execution. **Never use a development workbook for real data**, because tests intentionally modify input, Params and output areas, then attempt to restore them.
-
-In the VBA Immediate window (Ctrl+G in the editor), invoke:
-
-```vb
-Test_RunAll
-```
-
-A passing development run is useful functional evidence but must be tied to the exact source SHA, workbook and host used. The required release certification has further lifecycle and evidence obligations; see the release-verification chapter.
+Do not change the workbook's VBA code, its worksheet structure, its named ranges or its buttons. A workbook whose code was changed is no longer the tested workbook.
 
 
 \Needspace{9\baselineskip}
 
-## Upgrade, rebuild and remove
+## A new version, and removal
 
-If **only VBA source** has changed, resynchronize the source code from a single new commit, compile and retest. If the **template changes** (headers, named cells, validation, worksheets or buttons), construct a **new workbook from the new template** and migrate input values carefully; importing VBA into an old workbook does not migrate its worksheet layout. Use the changelog and diff of `src/workbook/SACCR_Template.xlsx` to decide. A missing or relocated workbook name or header often indicates template drift.
+A new version of K-SACCR is delivered as a new workbook with its own file name, SHA-256 and manual. Check it as above, then copy your input **values** (not formats or formulas) from your working copy into a copy of the new workbook, and run again. Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
 
-No system-wide installation is registered. Removing the `.xlsm`, any `*.pre-vba-sync.*` backups and user-generated CSVs removes the local working artifacts; also undo any temporary VBA-project trust setting. Do not accidentally delete retained audit evidence.
+Nothing is installed on the computer. Deleting the workbook and the CSV files you exported removes K-SACCR; keep any evidence your organization requires you to retain.
 
 
 \Needspace{12\baselineskip}
@@ -208,18 +182,18 @@ No system-wide installation is registered. Removing the `.xlsm`, any `*.pre-vba-
 
 \Needspace{9\baselineskip}
 
-## What is included in the template
+## What is included in the workbook
 
-The macro-free template contains a **synthetic demonstration portfolio**: the five published Basel CRE99 examples and additional illustrative netting sets. Some illustrative rows are deliberately invalid to demonstrate the rejection mechanism. Test cases derived from published reference data are also maintained as structured files under `tests/fixtures/` and `tests/expected/`; the workbook's demonstration rows are not automatically equivalent to every exact fixture convention.
+The delivered workbook contains a **synthetic demonstration portfolio**: the five published Basel CRE99 examples and additional illustrative netting sets, with the outputs cleared. Some illustrative rows are deliberately invalid to demonstrate the rejection mechanism. The demonstration rows do not always use the exact conventions of the published examples, as the next paragraph shows.
 
-For example, CRE99 Example 3's published calculation uses a nine-month remaining maturity (`M = 0.75`); one spreadsheet illustration computes elapsed dates on a 365-day basis, giving `M = 0.7507` and an EAD around **5,405** in the example's printed thousand-unit scale rather than the published **5,406**. The exact fixture uses the stated period and reproduces the published figure. Treat this as a **day-count illustration**, not a discrepancy requiring an arbitrary manual adjustment.
+For example, CRE99 Example 3's published calculation uses a nine-month remaining maturity (`M = 0.75`); one spreadsheet illustration computes elapsed dates on a 365-day basis, giving `M = 0.7507` and an EAD around **5,405** in the example's printed thousand-unit scale rather than the published **5,406**. Using the stated nine-month period reproduces the published figure. Treat this as a **day-count illustration**, not a discrepancy requiring an arbitrary manual adjustment.
 
 
 \Needspace{9\baselineskip}
 
 ## Walkthrough in Excel
 
-1. **Preserve an untouched copy.** Save a separate working `.xlsm` from the just-built demo. Use only synthetic information.
+1. **Preserve an untouched copy.** Save a separate working `.xlsm` from the delivered workbook. Use only synthetic information.
 2. **Inspect `Params`.** Find `AsOfDate`, `ReportingCcy`, `Regime`, `DaysPerYear`, `BusinessDaysPerYear`, `Alpha`, `SF_Table` and `FX_Table`; verify the reporting-currency FX row has rate 1.
 3. **Inspect `NettingSets`.** Note each ID, `Margined (Y/N)`, VM, NICA, threshold, MTA, any MPOR condition and `Regime override`.
 4. **Inspect `Trades`.** Each row has a unique **TradeID** (the leg ID). Follow a sample row from `NettingSetID` to its asset class, risk factor, notional, currency and dates. If an economic trade has several legs, use the economic-trade columns.
@@ -227,7 +201,7 @@ For example, CRE99 Example 3's published calculation uses a nine-month remaining
 6. Click **Run SA-CCR** (`RunSACCR`). The macro validates, calculates and updates output sheets. It does **not** quietly compute a netting set's EAD using only valid trades when another trade in that set was rejected.
 7. Open `Results` and locate the status for each netting set. Inspect `VALID`, `INCOMPLETE`, `INVALID` and `NO TRADES` behavior before focusing on numbers. The **CRR** and **BCBS** totals are separate, and they include only `VALID` netting sets.
 8. For a valid example, trace its `TradeCalc` rows to `HedgingSets` / `Buckets` and the add-on columns on `Results`; verify the reported `RC`, multiplier, `PFE` and EAD.
-9. Inspect `Checks` to understand all demonstration exclusions. Resolve exclusions on **copies**, not by modifying the frozen published-fixture evidence.
+9. Inspect `Checks` to understand all demonstration exclusions. Resolve exclusions on **copies**, never in your reference copy.
 10. Optionally fill `BankNettingSets` and `BankTrades` with illustrative comparison figures; run again and study the result codes on `Reconciliation` and `TradeReconciliation`.
 11. Click **Export evidence** on the `Reconciliation` sheet, select an output CSV path and review the exported text. Repeat only after confirming freshness and output integrity.
 
@@ -236,7 +210,7 @@ For example, CRE99 Example 3's published calculation uses a nine-month remaining
 
 ## Published Basel example reference points
 
-The following are **published CRE99 target results** used in the numerical catalogue, not a promise that every demonstration row uses identical date assumptions. They are listed in original **USD units** here, whereas the source tables print USD thousands.
+The following are **published CRE99 target results**, not a promise that every demonstration row uses identical date assumptions. They are listed in original **USD units** here, whereas the source tables print USD thousands.
 
 | Published case | Selected printed target in unscaled USD | What it helps check |
 |:--|--:|:--|
@@ -272,7 +246,7 @@ After running, `Results!C4` contains the summary, and `Results!C5` contains the 
 
 ## Params: identity and values
 
-The `Params` sheet is a **named-range-driven table**. Each parameter has a code in the `Code` column, a value in the `Value` column and a workbook name of that code. The underlying source uses workbook names `Params_Code`, `Params_Value`, `SF_Table` and `FX_Table`. Names—not fixed row positions—locate the tables; their first header cells must be structurally correct.
+The `Params` sheet is a **named-range-driven table**. Each parameter has a code in the `Code` column, a value in the `Value` column and a workbook name of that code. The workbook uses the names `Params_Code`, `Params_Value`, `SF_Table` and `FX_Table`. Names—not fixed row positions—locate the tables; their first header cells must be structurally correct.
 
 | Setting | Typical regulatory value / convention | Meaning and user action |
 |:--|:--|:--|
@@ -281,7 +255,7 @@ The `Params` sheet is a **named-range-driven table**. Each parameter has a code 
 | `Regime` | `CRR` by default; `BCBS` possible | Default rule set, with optional netting-set override. |
 | `Alpha` | **1.4** | Supervisory EAD multiplier unless explicitly overridden for a netting set. |
 | `MultiplierFloor` | **0.05** | Lower bound on the PFE multiplier. |
-| `DaysPerYear` | **365** | Calendar-day basis for S, E, M and T; fixture conventions may change it. |
+| `DaysPerYear` | **365** | Calendar-day basis for S, E, M and T; change it only to reproduce a published maturity convention. |
 | `BusinessDaysPerYear` | **250** | Business-day convention for maturity floors and MPOR. |
 | `MinMaturityBD` | **10** | Floor on the unmargined maturity factor's M. |
 | `SDFloorBD` | **10** | Floor used in supervisory-duration treatment. |
@@ -302,7 +276,7 @@ The `Params` sheet is a **named-range-driven table**. Each parameter has a code 
 
 ## Regulatory versus what-if classification
 
-The source records the regulatory reference set **`CRE52-CRR-2026-10-09`**. The engine compares the relevant Params numeric fields, supervisory-factor rows and per-netting-set alpha overrides to the set. If they all match, the run is `REGULATORY`; otherwise `WHAT-IF`, with a **separate “What-if:” warning** in Checks for each deviation. `DaysPerYear` and `IRBucketOffset` are treated as conventions and do not by themselves change the classification; nevertheless they affect calculations and must be documented. A `REGULATORY` class is not a judgment that the user entered correct data or that the release package is certified.
+The workbook records the regulatory reference set **`CRE52-CRR-2026-10-09`**. The engine compares the relevant Params numeric fields, supervisory-factor rows and per-netting-set alpha overrides to the set. If they all match, the run is `REGULATORY`; otherwise `WHAT-IF`, with a **separate “What-if:” warning** in Checks for each deviation. `DaysPerYear` and `IRBucketOffset` are treated as conventions and do not by themselves change the classification; nevertheless they affect calculations and must be documented. A `REGULATORY` class is not a judgment that the user entered correct data.
 
 
 \Needspace{9\baselineskip}
@@ -687,7 +661,7 @@ The multiplier reflects portfolio MtM net of applicable collateral relative to a
 \quad f=0.05.
 \]
 
-The implementation handles input domains and exceptional cases; the user should inspect these through **Results**, **Checks** and the formula tests rather than implementing the expression independently in an uncontrolled spreadsheet. PFE is the product of the multiplier and aggregate add-on. The exposure calculation applies alpha and, for a margined set, the appropriate unmargined cap.
+The implementation handles input domains and exceptional cases; the user should inspect these through **Results**, **Checks** and the `FormulaTest` sheet rather than implementing the expression independently in an uncontrolled spreadsheet. PFE is the product of the multiplier and aggregate add-on. The exposure calculation applies alpha and, for a margined set, the appropriate unmargined cap.
 
 ![Replacement cost of a margined netting set on an illustrative value path, the add-on levels from trade to netting set, and the multiplier falling from 1 towards its 5% floor as collateral exceeds the value of the trades.](assets/rc_pfe.png){width=98%}
 
@@ -896,8 +870,8 @@ The input fingerprint covers dates, currency, parameter and lookup values, the t
 2. If populated, inspect both reconciliations and their **CURRENT**/not-made status. Correct or intentionally clear bank-side data and **rerun** as appropriate.
 3. Ensure Excel is not awaiting recalculation. Confirm no output result/check/comparison values have been manually edited after the run.
 4. Go to `Reconciliation` and click **Export evidence** (`ExportEvidence`). Choose a filename and directory that satisfy your local data-classification requirements.
-5. Verify the resulting CSV exists, starts with the expected format record and contains the expected section labels. In a text editor, confirm its exact source/run identity and that numeric separators are invariant to locale.
-6. Archive the CSV together with any external bank source extracts, the workbook source identity, the review decision and the approved data-retention location.
+5. Verify the resulting CSV exists, starts with the expected format record and contains the expected section labels. In a text editor, confirm its run identity and that numeric separators are invariant to locale.
+6. Archive the CSV together with any external bank source extracts, the workbook's file name and SHA-256, the review decision and the approved data-retention location.
 
 If an export is **refused**, do **not** disable the guard or hand-edit the CSV to force success. Resolve the underlying stale/recalculation/output-integrity condition, rerun and export again.
 
@@ -919,7 +893,7 @@ The implementation deliberately refuses export when:
 
 When the chosen file already exists, the new report is written whole to a new file beside it and then replaces the older one; if the replacement fails, the older file is put back unchanged and the first error is reported. A read-only file is left as it is.
 
-The exact final-package release verification should test these **negative paths** as well as a successful export. A CSV that was once successfully exported does not remain evidence for a **new** workbook state after subsequent edits.
+A CSV that was once successfully exported does not remain evidence for a **new** workbook state after subsequent edits.
 
 
 \Needspace{9\baselineskip}
@@ -928,12 +902,12 @@ The exact final-package release verification should test these **negative paths*
 
 `ExportEvidence_Silent(filePath)` creates the same evidence content without a file-dialog. On success, it returns a line like `RESULT=OK; lines=...; file=...`. On a guard failure, it returns `RESULT=REFUSED; reason=...`. It is used for controlled testing and external orchestration, not as a way to bypass the interactive guard.
 
-A reproducibility test can run the same inputs, export twice to separate files, and compare their contents under the established output identity. The repository's final-package evidence requirements explicitly call for testing **both interactive and silent export**, plus output-integrity and stale-result refusal paths. Preserve the generated CSV in its original byte encoding whenever deterministic comparison matters.
+A reproducibility test can run the same inputs, export twice to separate files, and compare their contents under the established output identity. Preserve the generated CSV in its original byte encoding whenever deterministic comparison matters.
 
 
 \Needspace{12\baselineskip}
 
-# Automation, worksheet functions and developer controls
+# Automation and worksheet functions
 
 
 \Needspace{9\baselineskip}
@@ -942,7 +916,7 @@ A reproducibility test can run the same inputs, export twice to separate files, 
 
 For a caller that automates Excel on Windows, `M_Main.RunSACCR_Silent` calculates without message boxes, logs to the Immediate window and raises failures to the caller. Its structured result line includes operation status; error/warning counts; trade-leg and economic-trade usage; withheld netting sets; separate CRR/BCBS total EAD; input fingerprint; run classification; reconciliation states; and cleanup status.
 
-An **illustrative recorded development run** in the source documentation is:
+An **illustrative** result line, from a run of a demonstration portfolio, is:
 
 ```text
 RESULT=OK; operation=run; errors=5; warnings=0;
@@ -954,9 +928,9 @@ run_class=REGULATORY; reconciliation=DONE;
 trade_reconciliation=NONE; cleanup=PASS
 ```
 
-This **is not a new execution or release-wide performance benchmark**; it is a documented demonstration-line example. `RESULT=STOPPED` means input loading could not complete; inspect Checks and the raised error as applicable. Reconciliation state may be `DONE`, `NONE`, `FAILED` or `UNAVAILABLE` according to input presence and sheet/configuration conditions. A stopped or failed run must never be reported as successful merely because an earlier workbook cell still contains a number.
+It shows the format; it is not a benchmark, and its figures depend on the inputs. `RESULT=STOPPED` means input loading could not complete; inspect Checks and the raised error as applicable. Reconciliation state may be `DONE`, `NONE`, `FAILED` or `UNAVAILABLE` according to input presence and sheet/configuration conditions. A stopped or failed run must never be reported as successful merely because an earlier workbook cell still contains a number.
 
-The silent entry points are useful for testing and orchestration, but a caller must manage Excel lifecycle, capture exceptions, verify cleanup (including changes to Excel's global state), and preserve the source/package identity. They do not transform the workbook into a headless stand-alone engine independent of Excel.
+The silent entry points are useful for testing and orchestration, but a caller must manage Excel lifecycle, capture exceptions, verify cleanup (including changes to Excel's global state), and record the workbook's file name and SHA-256. They do not transform the workbook into a headless stand-alone engine independent of Excel.
 
 
 \Needspace{9\baselineskip}
@@ -978,28 +952,7 @@ The published user-accessible worksheet functions are provided by the `SACCR_For
 | `SACCR_Multiplier(VminusC,AddOn,[FloorPct])` | PFE multiplier. | V-C, aggregate add-on and floor, not EAD directly. |
 | `SACCR_ReplacementCost(V,C,[Margined],[TH],[MTA],[NICA])` | Replacement cost. | C, VM/NICA conventions and margin flag. |
 
-The **exact signatures and public contract** are in `docs/PUBLIC_API.txt`. The `src/core/` procedures and module members are **internal** and are not a promised stable external API.
-
-
-\Needspace{9\baselineskip}
-
-## Regression suite inventory
-
-The development workbook's `Test_RunAll` runs the following eight suites; the counts are those of release 1.0.1, each suite certified on its own before tagging:
-
-| Excel suite | Cases | Checks / assertions | Focus |
-|:--|--:|--:|:--|
-| `TEST_Harness` | 4 | 6 | Harness completeness / cleanup. |
-| `TEST_Formulas` | 9 | 82 | Public worksheet-function values, domains and error contracts. |
-| `TEST_MainState` | 29 | 501 | Sheet macro lifecycle, failure/cleanup and caller-state restoration. |
-| `TEST_Cases` | 20 | 39 | Published and illustrative numerical-case consumption. |
-| `TEST_InputValidation` | 133 | 209 | Rejection of bad input, dates, FX, names and structures. |
-| `TEST_Aggregation` | 11 | 11 | Aggregation ordering and offsets. |
-| `TEST_Invariants` | 4 | 23 | Required numerical relations and invariant properties. |
-| `TEST_Reconcile` | 20 | 162 | Reconciliation, trade matching and population diagnostics. |
-| **Total** | **230** | **1,033** | **8/8 suites PASS in the 1.0.1 certification**. |
-
-Regulatory **published** reference values and **illustrative** cases have fundamentally different assurance weight. The repository identifies cases by reference class in structured fixture/expected files; do not recategorize an illustrative expected value as “independent” just because an automated test passed.
+These worksheet functions are the workbook's stable public interface. The macros this manual describes (the four sheet buttons, `RunSACCR_Silent`, `ExportEvidence_Silent` and `ResultsStatus()`) are the documented entry points. Other VBA procedures and module members are internal and can change between versions; do not call them.
 
 
 \Needspace{12\baselineskip}
@@ -1013,10 +966,9 @@ Regulatory **published** reference values and **illustrative** cases have fundam
 
 | Symptom | Likely cause / first check | Recommended action |
 |:--|:--|:--|
-| Sheet button does nothing or macro is missing | `M_Main` not imported, macros blocked, wrong workbook, or incomplete code set. | Confirm provenance and macro policy; compile from one commit; verify component set and button binding. |
-| “Ambiguous name” / duplicate procedure | Old/duplicate VBA components imported. | Remove redundant modules; rebuild cleanly rather than patching blindly. |
-| VBA compile error | Source lines, encoding, references or mixed commits. | Check standard four references; import via Git checkout / sync; recompile. |
-| Broken workbook name or missing header | Older template or edited named range / column position. | Rebuild from the source-matched template and migrate only validated inputs. |
+| Sheet button does nothing or macro is missing | Macros blocked, the file still marked as downloaded, or another workbook open. | Unblock the file after the hash check, enable macros as your policy allows, and use the delivered workbook or an unchanged copy. |
+| A VBA error such as “Compile error”, “Ambiguous name” or a missing reference | The workbook's VBA code or references were changed, or the file is damaged. | Do not repair the code. Go back to your reference copy, check its SHA-256, and report the problem to whoever supplied the workbook. |
+| Broken workbook name or missing header | A named range, header or column was edited, moved or deleted. | Undo the change, or enter the inputs again in a copy of your reference copy. |
 | `Results` is `OUT OF DATE` | Input, Params, header or date-system change after last run. | Press F9 as needed; rerun; do not rely on old figures. |
 | `Results!C5` still reads unchanged after **Use 1904 date system** was switched | Only the date system changed, so Excel need not recalculate C5. | Press **Ctrl+Alt+F9**; a run under the 1904 date system stops, so clear the option, check the dates and run again. |
 | `ResultsStatus()` is `EDITED` | An output cell on Results, Checks or a reconciliation sheet was changed after the run. | Run SA-CCR again; never edit calculated cells. |
@@ -1029,9 +981,8 @@ Regulatory **published** reference values and **illustrative** cases have fundam
 | Reconciliation `DUPLICATE` | Duplicate population key on one side. | Audit all duplicate rows and identifiers. |
 | Unexpected `DIFFERENCE` | Amount scale, FX quote, date convention, margin setting, class or aggregation. | Apply top-down/bottom-up reconciliation sequence. |
 | Export `REFUSED` | Stale or edited data/results, pending recalc or failed comparison. | Restore consistency; calculate; rerun and retry; keep guard enabled. |
-| Accented text looks garbled | Source imported from browser/wrong encoding. | Resync actual source files from checkout, not browser copy. |
-| No externally visible output but old cells remain | Failure while clearing a protected/invalid output sheet. | Treat result as invalid; restore template/output integrity and run again. |
-| A larger portfolio is slow | Large population and/or inflated Excel UsedRange. | Use the verified supported-size evidence for the **exact release**, not an assumed maximum. |
+| No externally visible output but old cells remain | Failure while clearing a protected/invalid output sheet. | Treat the result as invalid; use **Clear outputs**, or a copy of your reference copy, and run again. |
+| A larger portfolio is slow | Large population and/or inflated Excel UsedRange. | See the size note under *Known limitations*; delete stray rows far below the last trade (the cells, not only their contents). |
 
 
 \Needspace{9\baselineskip}
@@ -1046,11 +997,11 @@ A stopped operation is materially different from an excluded trade. A run can st
 ## Safe manual recovery procedure
 
 1. Save a **diagnostic copy** of the problematic workbook if organizational rules allow; do not overwrite an audit snapshot.
-2. Write down the exact source SHA, workbook filename, Excel version/bitness, operation, status and error text.
+2. Write down the workbook's file name, the SHA-256 of the delivered file, Excel version/bitness, operation, status and error text.
 3. Inspect `Checks`, `Results!C4:C5` and reconciliation summaries; determine whether the issue is **schema**, **input**, **regime**, **calculation**, **comparison** or **export**.
-4. If the schema is broken, construct a fresh workbook from the **matching template and source** rather than attempting to restore every named range by hand.
+4. If the structure is broken, enter the inputs again in a copy of your **reference copy** rather than attempting to restore every named range by hand.
 5. Correct source input or configuration. Never edit calculated cells to make a comparison match.
-6. Recompile if source was changed, repeat validation and a complete calculation, and verify the result is CURRENT.
+6. Repeat validation and a complete calculation, and verify the result is CURRENT.
 7. Rerun both comparisons where input exists; check output integrity and export only after successful recomputation.
 8. Record the corrective change and its effect, especially when previously reported EAD was incomplete or stale.
 
@@ -1070,7 +1021,7 @@ A stopped operation is materially different from an excluded trade. A run can st
 * No 1904 date system and no built-in holiday calendar; S/E/M/T use the specified day-count convention and MPOR floors use 250 business days per year.
 * Variable-notional schedules, collateral haircuts, rating mapping and risk-driver decomposition must be prepared by the user.
 * Simplified SA-CCR, original exposure method, CCP default-fund exposures, SFT, CVA and RWA are beyond v1.0.1.
-* There is no fixed trade limit, but no certified capacity either. On the owner's 64-bit host, a synthetic portfolio of 500,000 trade legs in 1,000 netting sets calculated in about 114 seconds; times depend on the machine (`INSTALLATION.md`, section *Portfolio size*). Trades dropdowns and input validation cover rows 5 to 5,000, and a used range far below the data slows every run.
+* There is no fixed trade limit, but no certified capacity either. On a 64-bit test machine, a synthetic portfolio of 500,000 trade legs in 1,000 netting sets calculated in about 114 seconds; times depend on the machine. Trades dropdowns and input validation cover rows 5 to 5,000, and a used range far below the data slows every run.
 
 
 \Needspace{12\baselineskip}
@@ -1082,10 +1033,9 @@ A stopped operation is materially different from an excluded trade. A run can st
 
 ## Checklist: before a first business run
 
-- [ ] Build from a documented source SHA or verify the certified published workbook asset and its SHA-256.
+- [ ] Check that the workbook's SHA-256 equals the expected value, confirmed through a channel you trust, before the first save.
 - [ ] Use Windows desktop Excel in the supported environment; comply with macro policy.
-- [ ] Compile successfully and check component/sheet/defined-name integrity.
-- [ ] Confirm a **production** workbook rather than a development workbook containing `TEST_` modules.
+- [ ] Keep the delivered file unchanged as a reference copy; never change the workbook's VBA code.
 - [ ] Save an untouched synthetic demonstration copy; keep operational work separately.
 - [ ] Set and independently check reporting date, currency, default regime, reference parameters and FX rates.
 - [ ] Validate every netting-set ID, regime, margin role, VM/NICA sign and supported legal structure.
@@ -1118,44 +1068,25 @@ A stopped operation is materially different from an excluded trade. A run can st
 - [ ] Calculated results, Checks and reconciliation outputs have not been manually modified after the run.
 - [ ] Interactive or silent export succeeds **without disabling a guard**.
 - [ ] CSV contains `RUN;format;K-SACCR evidence 1`, expected sections, correct currency and regime-specific totals.
-- [ ] The archive identifies input data provenance, run scope, source SHA, workbook hash where applicable and reviewer decision.
+- [ ] The archive identifies input data provenance, run scope, the workbook's file name and SHA-256, and the reviewer decision.
 - [ ] Data classifications, confidentiality, retention and access controls are satisfied.
 
 
 \clearpage
 
-# Release attachment and certification guidance
+# Delivered files and their roles
 
 
 \Needspace{9\baselineskip}
 
-## Distinguish the user manual, evidence CSV and release report
-
-Three artifacts serve **different purposes**:
-
-| Artifact | Main purpose | What it is **not** |
+| File | Main purpose | What it is **not** |
 |:--|:--|:--|
-| **This user manual (PDF)** | Teach a user how to install, operate, interpret and troubleshoot the version. | Not proof that the release workbook was built or tested. |
-| **Evidence CSV** | Document a particular **calculator run** and its inputs/outputs/comparisons. | Not a replacement for test logs or the release certification record. |
-| **Release record** (release notes and tag message) | Summarize the certified source SHA, the Excel host, the suite results, the asset hashes and any deviations. | Not the same as user instructions or the per-run CSV. |
+| **`K-SACCR_1.0.1.xlsm`** | The calculator, with a synthetic demonstration portfolio. | Not a store for your evidence: export it. |
+| **This user manual (PDF)** | Teach a user how to check, operate, interpret and troubleshoot the version. | Not proof that the workbook was tested. |
+| **`SHA256SUMS.txt`** | The SHA-256 of the workbook and of this manual, to check that the files arrived unchanged. | Not proof of who made the files (confirm the values through a separate trusted channel), nor a check of a copy you have saved since. |
+| **Evidence CSV** (you create it) | Document a particular **calculator run** and its inputs/outputs/comparisons. | Not a regulatory return or a test record. |
 
-The release record summarizes evidence retained by the project owner; it does not replace the individual suite logs or the validated evidence record. A workbook-generated run report is not part of 1.0.1.
-
-
-\Needspace{9\baselineskip}
-
-## How release 1.0.1 was certified
-
-This summary is for reviewers; a user does not need to repeat it. The maintainer runbook is `RELEASING.md`.
-
-1. The release branch was merged into `main`; that merge commit is the candidate, and `python tools/check.py` and the hosted continuous-integration check were green on it.
-2. A development workbook was built from the candidate's template and source on the owner's 64-bit Windows Excel host, and compiled.
-3. All eight suites were run, each on its own, and their logs recorded with the host details in an evidence record bound to the candidate and to the SHA-256 of every source file; `tools/check_excel_evidence.py` validated it.
-4. The production workbook `K-SACCR_1.0.1.xlsm` was built from the candidate, compiled, run on the demonstration portfolio, cleared and saved, and its code compared with the source by the source round trip, which verified that the export came from that workbook. The certified development workbook was compared in the same way, test modules included. This manual's PDF was built from the same commit.
-5. The annotated tag `v1.0.1` was created on the candidate, and the workbook, this manual's PDF and `SHA256SUMS.txt` were published as the 1.0.1 release.
-6. After publication, the workbook is downloaded from the release and used as a user would: hash check, unblocking, Validate, Run, Clear, save and reopen, an evidence export, and a second export that must be refused after an output is edited. What was done and seen is recorded with the release evidence.
-
-A published release is never changed: a correction comes as a new patch version.
+A released version is never changed: a correction comes as a new version, with its own file name, SHA-256 and manual.
 
 
 \Needspace{12\baselineskip}
@@ -1169,18 +1100,14 @@ A published release is never changed: a correction comes as a new patch version.
 
 | Source | Role in K-SACCR v1.0.1 |
 |:--|:--|
-| [Basel Framework CRE52](https://www.bis.org/basel_framework/chapter/CRE/52.htm) | Basel SA-CCR calculation, effective 1 January 2023 in the repository's registered source. |
+| [Basel Framework CRE52](https://www.bis.org/basel_framework/chapter/CRE/52.htm) | Basel SA-CCR calculation, the version effective 1 January 2023. |
 | [Basel Framework CRE54](https://www.bis.org/basel_framework/chapter/CRE/54.htm) | Clearing-related regulatory context. |
-| [Basel Framework CRE99](https://www.bis.org/basel_framework/chapter/CRE/99.htm) | **Published numerical examples 1–5**, foundation for the external regression targets. |
-| Regulation (EU) No 575/2013 (CRR), consolidated text as registered | EU CRR Articles 272–280f and related rules; repository baseline describes the consolidated 26 June 2026 text. |
+| [Basel Framework CRE99](https://www.bis.org/basel_framework/chapter/CRE/99.htm) | **Published numerical examples 1–5**, the external reference values the workbook was tested against. |
+| Regulation (EU) No 575/2013 (CRR), consolidated text as registered | EU CRR Articles 272–280f and related rules, in the consolidated text of 26 June 2026. |
 | Commission Delegated Regulation (EU) 2021/931, as amended by (EU) 2025/855 | Technical standards including the CRR option lambda-shift methodology. |
 | EBA Q&A 2023_6962 | Regulatory clarification informing NICA/cap treatment. |
-| `docs/methodology/README.md` | Implemented decisions, full support matrix, supervisory parameters and paragraph/article traceability. |
-| `docs/methodology/TEST_CASES.md` | Fixtures, expected values, tolerance and evidence class definitions. |
-| `docs/EXCEL_EVIDENCE.md` | Excel evidence recording and automated validation. |
-| `RELEASING.md` | Owner-controlled release process and certification invariants. |
 
-The repository also retains dated regulator-source extracts for reproducibility. When a conflict arises between general explanatory prose and the **actual applicable legal text**, investigate the exact legal rule and date rather than treating the manual as a replacement for the regulation. K-SACCR's methodology records its chosen interpretations and conservative choices; legal applicability remains the bank's responsibility.
+When a conflict arises between general explanatory prose and the **actual applicable legal text**, investigate the exact legal rule and date rather than treating the manual as a replacement for the regulation. This manual and the `Basel_vs_CRR` sheet record K-SACCR's chosen interpretations and conservative choices; legal applicability remains the bank's responsibility.
 
 
 \Needspace{9\baselineskip}
@@ -1206,24 +1133,24 @@ The repository also retains dated regulator-source extracts for reproducibility.
 | **CQS** | Credit Quality Step, used for CRR credit supervisory factors. |
 | **CRR / BCBS** | EU CRR / Basel CRE52 calculation regimes. |
 | **REGULATORY / WHAT-IF** | Parameter-reference classification; not a certification grade. |
-| **CURRENT / STALE / NONE** | Completed-run input freshness status. |
+| **CURRENT / EDITED / STALE / NONE** | Completed-run status: current, an output edited after the run, inputs changed since, or no completed run. |
 | **INVALID / INCOMPLETE / NO TRADES / VALID** | Netting-set calculation status (INVALID and INCOMPLETE are followed by a count); only VALID produces EAD. |
 | **Economic trade ID** | Shared identifier linking modeled legs of one economic trade. |
 | **TradeID** | Unique input **leg** identifier and trade comparison key. |
-| **Evidence CSV** | Semicolon-delimited versioned run report; not a release-certification report. |
+| **Evidence CSV** | Semicolon-delimited versioned run report; not a regulatory return. |
 
 
 \Needspace{9\baselineskip}
 
 ## End-user quick-reference card
 
-**Build:** get one source SHA → save `SACCR_Template.xlsx` as `.xlsm` → synchronize **Production** → compile → keep demo copy.\
+**Start:** check the SHA-256 → unblock → open and enable macros → keep the delivered file as reference copy → work in a copy.\
 **Configure:** AsOfDate, ReportingCcy, Regime, supervisory parameters and FX table → verify netting terms → load trade legs.\
 **Calculate:** Validate inputs → resolve `ERROR` → Run SA-CCR → read **status** before numerical EAD → trace intermediates.\
 **Reconcile:** normalize bank currency/units/regime → BankNettingSets/BankTrades → rerun → inspect `MATCH`, `DIFFERENCE` and population exceptions.\
-**Archive:** ensure CURRENT and unedited outputs → export CSV → record exact source, data and review conclusion.\
-**Escalate:** unsupported instrument, missing legal/market input, withheld EAD or release-certification gap is an **explicit limitation**, not a blank cell to work around.
+**Archive:** ensure CURRENT and unedited outputs → export CSV → record the workbook's file name and SHA-256, the data and the review conclusion.\
+**Escalate:** unsupported instrument, missing legal/market input, or withheld EAD is an **explicit limitation**, not a blank cell to work around.
 
 ---
 
-**Document control:** K-SACCR 1.0.1 user manual, built from `docs/user-manual/v1.0.1/` at the tag `v1.0.1`. The PDF is not committed to the repository; it is published with the 1.0.1 release, and its SHA-256 is in that release's `SHA256SUMS.txt`. Later versions of the manual have their own folders.
+**Document control:** K-SACCR 1.0.1 user manual, delivered with `K-SACCR_1.0.1.xlsm`; the SHA-256 of both is in the `SHA256SUMS.txt` delivered with them. Each version of K-SACCR has its own manual.
