@@ -11,6 +11,12 @@ the Official Journal of the European Union; the authoritative Basel text is the
 one on bis.org. A newer version is added as a new file next to the old one, with
 its own row below; a file is never replaced.
 
+The copies are not covered by the repository's licence; each stays under its
+publisher's terms. The BIS terms and conditions
+(<https://www.bis.org/terms_conditions.htm>) allow BIS material, including
+the Basel Committee's chapters and BCBS 279, to be downloaded and
+redistributed for non-commercial purposes without written permission.
+
 Do not edit or reformat these copies, including `EBA_QA_2023_6962.md`: their
 hashes are registered below, and a changed byte breaks the record. To check
 them, run this from the repository root (it works on Windows too) and compare
@@ -32,6 +38,7 @@ the registered hash.
 | `BCBS_CRE99_effective_2023-01-01.pdf` | `CRE99` | Basel Framework, CRE99 Application guidance, with the SA-CCR worked examples | Effective 1 January 2023, published 27 March 2020 | <https://www.bis.org/committees/bcbs/basel-framework/81410/chapter.pdf> | 2026-10-10 | `f0d86acfe451699d7c3d783822e2372b180798b3e4fdd7b4018524ba8a937855` |
 | `BCBS_CRE54_effective_2023-01-01.pdf` | `CRE54` | Basel Framework, CRE54 Capital requirements for bank exposures to central counterparties | Effective 1 January 2023, published 27 March 2020 | <https://www.bis.org/committees/bcbs/basel-framework/81405/chapter.pdf> | 2026-10-16 | `44d8c361e8d5d827d8ebcde630024f3b6ed0de6efdda09cb5f43e010e85895d4` |
 | `CRR_575-2013_consolidated_2026-06-26_extract_CCP.pdf` | `CRR-CCP` | Regulation (EU) No 575/2013, consolidated text: page 1, page 22 (Article 4(1)(83)–(92)) and pages 441–449 (Section 9, Articles 300–311) | 26.06.2026, version 021.001 | <https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:02013R0575-20260626> | 2026-10-18 | `73acdbba784b73e9a6c47f48008523340a5818124f3b7b6f1416de784191e047` |
+| `BCBS_279_revised_2014-04.pdf` | `BCBS-279` | BCBS, *The standardised approach for measuring counterparty credit risk exposures*, 37 pages, with Annex 4a (sample portfolios) | March 2014, revised April 2014 | <https://www.bis.org/publ/bcbs279.htm> | 2026-10-18 | `5f17fea239b28bc4cf152b11d3c44284b8f2dcc5e6c034a9e2f38dad1ede0b0f` |
 | `EBA_QA_2023_6962.md` | `EBA-QA-2023_6962` | EBA Single Rulebook Q&A 2023_6962, exposure value cap for netting sets subject to a margin agreement | Final, published 15/03/2024 | <https://www.eba.europa.eu/single-rule-book-qa/qna/view/publicId/2023_6962> | 2026-10-10 | `9eea2133a5ae404a80ef8c234b764d5c64db94b22059c0810fa618babfc37abb` |
 
 Both CRR extracts were cut from the full consolidated PDF (SHA-256
@@ -48,9 +55,9 @@ on exposures to central counterparties, which the
 nothing from them yet. The consolidated text itself has no legal effect, as its
 first page states.
 
-BCBS 279 (2014), whose Annex 4a prints the same worked examples as CRE99, is
-cited but not copied. Its 37-page PDF (March 2014, revised April 2014) is
-available from the BIS publication page
-<https://www.bis.org/publ/bcbs279.htm>, but its notice reserves all rights and
-allows only brief excerpts, so it is not reproduced here; every published value
-used by the test cases is cited from CRE99.
+BCBS 279 (2014) is the original SA-CCR standard, now part of the consolidated
+Basel Framework; its Annex 4a prints the same worked examples as CRE99. The
+copy was supplied by the owner from the BIS publication page; a fresh download
+for comparing hashes was not possible here because bis.org answered with a
+browser check. Every published value used by the test cases is still cited
+from CRE99.
