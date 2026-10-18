@@ -94,6 +94,8 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-18
+
 ### Added
 
 - `tools/rsaccr_crosscheck.py` and `tools/rsaccr_run.R` compare the expected
@@ -176,7 +178,16 @@ Use only the categories needed by a release.
   in the README's "How a run works" and on the website;
   `SACCR_EAD_tree.svg`, the exposure value broken down into its inputs, in
   the methodology; and `SACCR_RC_PFE.svg`, the replacement cost of a margined
-  netting set and the PFE multiplier. Each has a PNG for the Wiki.
+  netting set and the PFE multiplier, also in the 1.0.1 user manual. Each has
+  a PNG for the Wiki.
+- The 1.0.1 user manual, in `docs/user-manual/v1.0.1/`: the 1.0.0 manual with
+  the changes of this release (the Results C5 text, the `EDITED` state, the
+  export that keeps the older file, the 1904 date-system recalculation), the
+  1.0.1 suite counts and the release's certification steps. The 1.0.0 manual
+  is unchanged.
+- The roadmap, the support matrix and the diagram of where the CRR uses
+  SA-CCR plan CCP exposures and default funds (#112) in v1.0.2, Clearing coverage and CCP completeness,
+  instead of v1.7.0, as the milestones now do.
 - `docs/VBA_HOUSE_STYLE.md` names local variables and parameters in
   PascalCase, spelled out (`NotionalAmount`), and keeps a single lower-case
   letter for loop counters only. A renaming to these rules is the one name
@@ -483,5 +494,6 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
 [1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0

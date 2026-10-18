@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 1.0.0 (tag `v1.0.0`) | Yes |
+| 1.0.1 (tag `v1.0.1`) | Yes |
+| 1.0.0 (tag `v1.0.0`) | No: superseded by 1.0.1, which changes no calculation |
 | Active release branch and `main` | Best effort |
 
 The active release branch is named in

@@ -270,8 +270,8 @@ Each fixture declares one `category`:
   count toward any of this.
 - The harness keeps its own completeness check: a run that does not execute
   every expected case and assertion is incomplete, not a pass.
-- v1.0.0 validates rules with `published` values only
-  ([evidence for v1.0.0](README.md#assumptions-and-scope)); `independent` values
+- v1.0.1 validates rules with `published` values only
+  ([evidence for v1.0.1](README.md#assumptions-and-scope)); `independent` values
   start in a later release, with a reviewer other than the author of the
   code under test.
 
