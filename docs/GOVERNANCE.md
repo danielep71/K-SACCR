@@ -9,11 +9,12 @@ release runbook is in [`RELEASING.md`](../RELEASING.md).
 
 ## Branches
 
-The active release branch is `release/1.0.1`.
+The active release branch is `release/1.0.2`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.0.1` | Active integration branch for all development. Recreated from `main` after each integration. |
+| `release/1.0.2` | Active integration branch for all development. Recreated from `main` after each integration. |
+| `release/1.0.1` | Closed: released as `v1.0.1`. Kept for history; takes no new work. |
 | `release/1.0.0` | Closed: released as `v1.0.0`. Kept for history; takes no new work. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
 | Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
