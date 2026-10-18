@@ -185,8 +185,8 @@ Use only the categories needed by a release.
   export that keeps the older file, the 1904 date-system recalculation), the
   1.0.1 suite counts and the release's certification steps. The 1.0.0 manual
   is unchanged.
-- The roadmap and the diagram of where the CRR uses SA-CCR plan CCP exposures
-  and default funds (#112) in v1.0.2, Clearing coverage and CCP completeness,
+- The roadmap, the support matrix and the diagram of where the CRR uses
+  SA-CCR plan CCP exposures and default funds (#112) in v1.0.2, Clearing coverage and CCP completeness,
   instead of v1.7.0, as the milestones now do.
 - `docs/VBA_HOUSE_STYLE.md` names local variables and parameters in
   PascalCase, spelled out (`NotionalAmount`), and keeps a single lower-case

@@ -103,7 +103,7 @@ rejected. Whether a supported rule is also validated is in the
 | Area | Item | Status | How it is entered or treated | Reference |
 | --- | --- | --- | --- | --- |
 | Methods | Full SA-CCR, CRR (default) and Basel CRE52, chosen per netting set | Supported | Regime on Params, override per netting set | [Assumptions](#assumptions-and-scope): sources and scope |
-| Methods | Simplified SA-CCR, original exposure method, CCP default-fund exposures, SFTs, CVA, RWA | Not supported | Cannot be entered; planned, per the current [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones), in #107 (simplified, v1.5.0), #111 (OEM, v1.6.0), #112 (CCP, v1.7.0), #113 (SFT, v1.8.0), #114 (CVA, v1.9.0), #115 (RWA, v1.10.0) | [Assumptions](#assumptions-and-scope): scope |
+| Methods | Simplified SA-CCR, original exposure method, CCP default-fund exposures, SFTs, CVA, RWA | Not supported | Cannot be entered; planned, per the current [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones), in #107 (simplified, v1.5.0), #111 (OEM, v1.6.0), #112 (CCP, v1.0.2), #113 (SFT, v1.8.0), #114 (CVA, v1.9.0), #115 (RWA, v1.10.0) | [Assumptions](#assumptions-and-scope): scope |
 | Asset classes | Interest rate, foreign exchange, credit, equity, commodity | Supported | Asset class IR, FX, CR, EQ, CO | CRR Art. 277; CRE52.72 |
 | Asset classes | Other risks | Supported under CRR; rejected under BCBS | Asset class OT; one hedging set per identical primary risk driver | CRR Art. 277(1)(f), 277a(1)(f), 280f |
 | Asset classes | Inflation | Supported | IR with risk factor such as `EUR-INFL`, own hedging set per currency | CRR Art. 277(4)(a), 277a(1) |
