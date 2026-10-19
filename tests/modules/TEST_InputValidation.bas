@@ -100,7 +100,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
         Private Const CASES       As Long = 143               'Cases in a complete run
-        Private Const CHECKS      As Long = 233               'Checks in a complete run
+        Private Const CHECKS      As Long = 235               'Checks in a complete run
 
 
 '
@@ -504,9 +504,11 @@ Public Sub RunInputValidationTests()
     'above it is applied.
         StartMarginedCase "netting-set-clearing-member-large-crr", "CRR", "CM", "1", "Y", "N"
         ExpectMPOR 20
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "MPOR floor 5 BD (CRE54.12; CRR Art. 279c(1)), raised to 20 BD", "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-large-bcbs", "BCBS", "CM", "1", "Y", "N"
         ExpectMPOR 20
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "MPOR floor 5 BD (CRE54.12; CRR Art. 279c(1)), raised to 20 BD", "illustrative"
 
         StartMarginedCase "netting-set-clearing-client-disputes-crr", "CRR", "CLIENT", "1", "N", "Y"
         ExpectMPOR 10

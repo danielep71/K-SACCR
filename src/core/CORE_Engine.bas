@@ -2330,6 +2330,8 @@ Private Function LoadNettingSets() As Boolean
     Dim FloorBD            As Double       'MPOR floor before remargining, business days
     Dim EffectiveMPOR      As Double       'Effective MPOR, business days
     Dim MPOROverride       As Double       'MPOR override entered; 0 when none
+    Dim RoleText           As String       'Clearing role named on Checks; empty for role N
+    Dim RoleRule           As String       'Rule of that role's MPOR floor
     Dim NettingSetRegime   As String       'Regime of the netting set
     Dim FieldErrors        As Long         'Invalid fields found on the row
 
@@ -2515,27 +2517,41 @@ Private Function LoadNettingSets() As Boolean
     'client facing its clearing member; under BCBS the client keeps the
     'bilateral floor, a conservative interpretation [CRE54.8, CRE54.14].
     'Every CM and CLIENT netting set gets an INFO line naming its role, the
-    'floor and the rule applied, so that the evidence shows them (#359).
+    'floor and the rule applied, so that the evidence shows them (#359); it
+    'is written after the large-or-illiquid adjustment, so that it names the
+    'floor actually applied.
                 If .Margined Then
+                    RoleText = ""
+                    RoleRule = ""
                     Select Case .ClearingRole
                         Case CL_CM
                             FloorBD = pMPORClr
-                            LogMsg SEV_INFO, SH_NS, NettingSetRef, "Clearing member facing its client: MPOR floor " & _
-                                   CStr(pMPORClr) & " BD (CRE54.12; CRR Art. 279c(1)).", RowNumber
+                            RoleText = "Clearing member facing its client"
+                            RoleRule = "CRE54.12; CRR Art. 279c(1)"
                         Case CL_CLIENT
                             If .IsCRR Then
                                 FloorBD = pMPORClr
-                                LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client facing its clearing member under CRR: " & _
-                                       "MPOR floor " & CStr(pMPORClr) & " BD (CRR Art. 279c(1)).", RowNumber
+                                RoleText = "Client facing its clearing member under CRR"
+                                RoleRule = "CRR Art. 279c(1)"
                             Else
                                 FloorBD = pMPORBil
-                                LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client facing its clearing member under BCBS: " & _
-                                       "MPOR floor " & CStr(pMPORBil) & " BD, a conservative interpretation (CRE54.8(2), " & _
-                                       "CRE54.14-.17); the client-clearing floor of CRE54.12 is for the clearing member.", RowNumber
+                                RoleText = "Client facing its clearing member under BCBS"
+                                RoleRule = "a conservative interpretation: CRE54.8(2), CRE54.14-.17; the client-clearing " & _
+                                           "floor of CRE54.12 is for the clearing member"
                             End If
                         Case Else
                             FloorBD = pMPORBil
                     End Select
+                    If Len(RoleText) > 0 Then
+                        If .LargeOrIlliquid And pMPORLarge > FloorBD Then
+                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
+                                   RoleRule & "), raised to " & CStr(pMPORLarge) & " BD by the large or illiquid flag " & _
+                                   "(CRE52.51; CRR Art. 285(3)).", RowNumber
+                        Else
+                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
+                                   RoleRule & ").", RowNumber
+                        End If
+                    End If
                     If .LargeOrIlliquid Then
                         FloorBD = Max2(FloorBD, pMPORLarge)
                     End If
