@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Listed equity index future, long; notional is the current value of the underlying"
     },
     {
@@ -67,6 +69,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Listed ordinary call on the same index, bought, expiring with the future"
     }
   ]

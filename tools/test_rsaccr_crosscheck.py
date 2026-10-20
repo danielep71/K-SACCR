@@ -208,6 +208,28 @@ class RegimeDifferenceTests(unittest.TestCase):
         with self.assertRaisesRegex(xc.Unsupported, "without expiry"):
             xc.translate_fixture(data)
 
+    def test_settled_to_market_trade_takes_the_time_to_its_reset(self) -> None:
+        data = fixture("illustrative-settled-to-market-daily")
+        data["trades"] = data["trades"][:1]
+        netting_set = xc.translate_fixture(data)
+        self.assertAlmostEqual(netting_set["trades"][0]["args"]["Ei"], 1 / 365)
+        # The swap's E must stay the contractual end, which the package cannot
+        # separate from M; the call's expiry differs from the reset.
+        with self.assertRaisesRegex(xc.Unsupported, "maturity differs"):
+            xc.translate_fixture(fixture("illustrative-settled-to-market-periodic"))
+        with self.assertRaisesRegex(xc.Unsupported, "expiry differs"):
+            xc.translate_fixture(fixture("illustrative-settled-to-market-daily"))
+
+    def test_reset_dates_the_engine_rejects_are_not_run(self) -> None:
+        for settlement, reset in (("ordinary", "2026-10-01"), ("settled_to_market", None),
+                                  ("settled_to_market", "2026-09-30"), ("settled_to_market", "2026-12-19")):
+            with self.subTest(settlement=settlement, reset=reset):
+                data = fixture("illustrative-settled-to-market-daily")
+                data["trades"] = data["trades"][:1]
+                data["trades"][0].update(settlement_type=settlement, next_reset_date=reset)
+                with self.assertRaisesRegex(xc.Unsupported, "reset date"):
+                    xc.translate_fixture(data)
+
     def test_trade_ending_on_or_before_its_start_is_not_run(self) -> None:
         data = fixture("illustrative-ir-swap-unmargined")
         data["trades"][0]["start_date"] = data["trades"][0]["end_date"]

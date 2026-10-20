@@ -73,6 +73,23 @@ def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float)
     return max(0.0, start or 0.0), end, maturity
 
 
+def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, days_per_year: float) -> float:
+    """M as the engine uses it: for a settled-to-market trade, the time to its next reset date (#360).
+
+    The engine rejects a reset date on an ordinary trade, a settled-to-market
+    trade without one, and a reset on or before the valuation date or after
+    the maturity; such a fixture compares a different netting set.
+    """
+    reset = years(trade["next_reset_date"], valuation, days_per_year)
+    if trade["settlement_type"] != "settled_to_market":
+        if reset is not None:
+            raise Unsupported(f"{trade['id']} has a reset date but is not settled-to-market, which the engine rejects")
+        return maturity
+    if reset is None or reset <= 0 or reset > maturity + 1e-12:
+        raise Unsupported(f"{trade['id']} has a reset date the engine rejects")
+    return reset
+
+
 def reference(trade: dict[str, Any]) -> str:
     """The risk factor as the engine compares it: trimmed and in upper case."""
     return str(trade["risk_factor"]).strip().upper()
@@ -158,6 +175,7 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     if trade["instrument"] == "option" and trade["option_expiry_date"] is None:
         raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
     start, end, maturity = trade_times(trade, valuation, days_per_year)
+    maturity = settled_maturity(trade, maturity, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
     if expiry is not None and expiry <= 0:
         raise Unsupported(f"{trade['id']} expires on or before the valuation date, which the engine rejects")

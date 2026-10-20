@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "illustrative-settled-to-market-daily",
+  "regime": "BCBS",
+  "outputs": [
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRE52.10",
+      "value": 0.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.10",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "aggregate_add_on",
+      "rule": "CRE52.25",
+      "value": 252474.07331449116,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.25",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRE52.23",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.23",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "potential_future_exposure",
+      "rule": "CRE52.20",
+      "value": 252474.07331449116,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.20",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRE52.1",
+      "value": 353463.70264028764,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.1",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRE52.68",
+      "value": 252474.07331449116,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.65-.68, with the maturity factor of CRE52.48 and CRE52.37(5)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "remaining_maturity",
+      "trade": "T1",
+      "rule": "CRE52.37",
+      "value": 0.0027397260273972603,
+      "unit": "years",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.37(5): the time until the next reset date",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "maturity_factor",
+      "trade": "T1",
+      "rule": "CRE52.48",
+      "value": 0.2,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.48, with M from CRE52.37(5), floored at 10 business days; Basel FAQ to CRE52.31-.32",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "remaining_maturity",
+      "trade": "T2",
+      "rule": "CRE52.37",
+      "value": 0.0027397260273972603,
+      "unit": "years",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.37(5): the time until the next reset date",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "maturity_factor",
+      "trade": "T2",
+      "rule": "CRE52.48",
+      "value": 0.2,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.48, with M from CRE52.37(5), floored at 10 business days; Basel FAQ to CRE52.31-.32",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "supervisory_delta",
+      "trade": "T2",
+      "rule": "CRE52.40",
+      "value": 0.5247407331449113,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.40, with T the option expiry",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "netting_set_status",
+      "rule": "CRE52.1",
+      "text": "VALID",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "Engine contract, issue #36",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    }
+  ]
+}

@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "CRR: lambda = 0.10% - (-0.20%) = 0.30%; BCBS: no lambda entered -> rejected"
     }
   ]

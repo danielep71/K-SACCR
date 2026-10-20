@@ -69,6 +69,8 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
     "lambda_price": ("number", True),
     "attachment_rate": ("number", True),
     "detachment_rate": ("number", True),
+    "settlement_type": ("settlement_type", False),
+    "next_reset_date": ("date", True),
     "description": ("text", True),
 }
 # Params codes a fixture may set for its own run -> kind of the value, with
@@ -84,6 +86,7 @@ ENUMS = {
     "option_type": {"call", "put"},
     "nature": {"standard", "basis", "volatility"},
     "clearing_role": {"none", "clearing_member", "client"},
+    "settlement_type": {"ordinary", "settled_to_market"},
 }
 
 NETTING_SET_QUANTITIES = {
@@ -93,7 +96,7 @@ NETTING_SET_QUANTITIES = {
 }
 TRADE_QUANTITIES = {
     "adjusted_notional", "supervisory_delta", "supervisory_factor", "lambda_shift",
-    "hedging_set", "bucket", "trade_status",
+    "hedging_set", "bucket", "trade_status", "maturity_factor", "remaining_maturity",
 }
 TEXT_QUANTITIES = {"cap_applied", "hedging_set", "bucket", "trade_status", "netting_set_status"}
 REFERENCE_FIELDS = {"class", "source", "locator", "derivation", "derived_by", "reviewed_by", "date"}
@@ -225,8 +228,10 @@ def check_parameters(where: str, parameters: object) -> list[str]:
 def quantity_unit(output: dict[str, Any], fixture: dict[str, Any]) -> str:
     """Resolve the documented unit, including the lambda trade's underlying."""
     quantity = output.get("quantity")
-    if quantity in {"multiplier", "supervisory_delta", "supervisory_factor"}:
+    if quantity in {"multiplier", "supervisory_delta", "supervisory_factor", "maturity_factor"}:
         return "1"
+    if quantity == "remaining_maturity":
+        return "years"
     if quantity == "margin_period_of_risk":
         return "business_days"
     if quantity == "lambda_shift":
@@ -305,6 +310,10 @@ def check_output(where: str, output: object, fixture: dict[str, Any], register: 
         findings.append(f"{where}: {quantity} needs 'trade' naming a trade of the fixture")
     if quantity in NETTING_SET_QUANTITIES and "trade" in output:
         findings.append(f"{where}: {quantity} is a netting-set quantity and takes no 'trade'")
+    # TradeCalc reports the margined maturity factor separately; the
+    # quantity is the unmargined one, so it is checked only where it applies.
+    if quantity == "maturity_factor" and (fixture.get("netting_set") or {}).get("margined"):
+        findings.append(f"{where}: maturity_factor is the unmargined maturity factor; the netting set is margined")
     if "catalogue" in output and not CATALOGUE.match(str(output["catalogue"])):
         findings.append(f"{where}: catalogue must look like T01")
     findings += check_measure(where, output, fixture)

@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "10y IRS pay fixed - Basel ex.1 trade 1"
     },
     {
@@ -67,6 +69,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "4y IRS receive fixed - Basel ex.1 trade 2"
     },
     {
@@ -90,6 +94,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Bought 1y-into-10y receiver swaption - Basel ex.1 trade 3"
     },
     {
@@ -113,6 +119,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "9m WTI forward (Basel treats WTI and Brent as one type)"
     },
     {
@@ -136,6 +144,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "2y Brent forward"
     },
     {
@@ -159,6 +169,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "5y silver forward"
     }
   ]

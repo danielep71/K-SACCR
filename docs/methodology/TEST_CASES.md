@@ -80,6 +80,8 @@ counterparties, collateral agreements or portfolio extracts.
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Five-year swap, format example"
     }
   ]
@@ -122,6 +124,8 @@ counterparties, collateral agreements or portfolio extracts.
 | `start_date`, `end_date`, `maturity_date`, `option_expiry_date` | date or `null` | As on the Trades sheet; `null` when not given |
 | `underlying_price`, `strike_price`, `lambda_price` | number or `null` | Options; `lambda_price` is an entered shift |
 | `attachment_rate`, `detachment_rate` | decimal or `null` | CDO tranches |
+| `settlement_type` | `ordinary` or `settled_to_market` | Trades *Settlement type*: `ordinary` leaves it blank, `settled_to_market` writes `STM` (#360) |
+| `next_reset_date` | date or `null` | Trades *Next reset date*; `null` when not given, as for an ordinary trade |
 | `description` | text or `null` | Free text; never read by the engine |
 
 <a id="expected-format"></a>
@@ -175,10 +179,12 @@ Quantities use stable names, each with one meaning only:
 | Netting set | `multiplier` | Number, unit `1` |
 | Netting set | `margin_period_of_risk` | Number, unit `business_days` |
 | Netting set | `cap_applied` | Text: `Y` when the unmargined cap sets the exposure value |
-| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected`, `INVALID: <e> input error(s)` or, for a netting set declared as facing a CCP or as a multi-level client structure, `INVALID: facing a CCP, not supported` or `INVALID: multi-level client structure, not supported` (followed by `; <e> other input error(s)` when there are), when the exposure value is withheld; or `NO TRADES` |
+| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected`, `INVALID: <e> input error(s)` or, for a netting set declared as facing a CCP or as a multi-level client structure, `INVALID: facing a CCP, not supported` or `INVALID: multi-level client structure, not supported`, or, for a settled-to-market trade in a margined netting set, `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported` (followed by `; <e> other input error(s)` when there are), when the exposure value is withheld; or `NO TRADES` |
 | Trade | `adjusted_notional` | Number in the calculation currency |
 | Trade | `supervisory_delta`, `supervisory_factor` | Number, unit `1` |
 | Trade | `lambda_shift` | Number in the underlying's unit: `1` for a rate, `price` otherwise |
+| Trade | `remaining_maturity` | Number, unit `years`: M as the maturity factor uses it, the time to the next reset date for a settled-to-market trade (TradeCalc column M) |
+| Trade | `maturity_factor` | Number, unit `1`: the unmargined maturity factor (TradeCalc column MF unmargined); only for a netting set that is not margined |
 | Trade | `hedging_set` | Text: the engine's hedging-set key, for example `CO\|CLIMATIC\|STD` |
 | Trade | `bucket` | Text: the bucket within the hedging set: the maturity bucket `<1Y`, `1-5Y` or `>5Y` of an interest-rate trade, the reference or commodity type otherwise |
 | Trade | `trade_status` | Text: `OK` or `EXCLUDED` |

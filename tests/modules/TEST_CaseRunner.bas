@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '
 ' AUTHOR
 '   Daniele Penza
@@ -454,7 +454,9 @@ Public Sub AddTrade( _
     ByVal StrikePrice As String, _
     ByVal LambdaPrice As String, _
     ByVal AttachmentRate As String, _
-    ByVal DetachmentRate As String)
+    ByVal DetachmentRate As String, _
+    Optional ByVal SettlementType As String = "", _
+    Optional ByVal NextResetDate As String = "")
 '
 '==============================================================================
 '                                   AddTrade
@@ -466,10 +468,11 @@ Public Sub AddTrade( _
 ' INPUTS
 '   The fixture fields as text, already in the Trades sheet's vocabulary
 '   (IR, Linear, Long, ...): numbers with a "." decimal point, dates as
-'   YYYY-MM-DD, empty for null.
+'   YYYY-MM-DD, empty for null. SettlementType and NextResetDate are blank
+'   for an ordinary trade (#360).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -504,6 +507,8 @@ Public Sub AddTrade( _
         RowValues(1, TR_LAMBDA) = NumberOrBlank(LambdaPrice)
         RowValues(1, TR_ATTACH) = NumberOrBlank(AttachmentRate)
         RowValues(1, TR_DETACH) = NumberOrBlank(DetachmentRate)
+        RowValues(1, TR_SETTLE) = TextOrBlank(SettlementType)
+        RowValues(1, TR_RESET) = IsoDate(NextResetDate)
         WriteRow GetSheet(SH_TRADES), mNextTradeRow, TR_NCOLS, RowValues
         mNextTradeRow = mNextTradeRow + 1
 
@@ -1045,13 +1050,14 @@ Private Function MustBeNonNegative( _
 '   Supervisory delta and adjusted notional carry a sign and are excluded.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
         Select Case Quantity
             Case "exposure_value", "replacement_cost", "potential_future_exposure", _
                  "aggregate_add_on", "multiplier", "margin_period_of_risk", _
-                 "supervisory_factor", "lambda_shift"
+                 "supervisory_factor", "lambda_shift", "maturity_factor", _
+                 "remaining_maturity"
                 MustBeNonNegative = True
             Case Else
                 MustBeNonNegative = (Left$(Quantity, 7) = "add_on.")
@@ -1075,7 +1081,7 @@ Private Function OutputColumn( _
 '   The column number; 0 for an unknown quantity.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -1098,6 +1104,10 @@ Private Function OutputColumn( _
                     OutputColumn = 16
                 Case "lambda_shift"
                     OutputColumn = 23
+                Case "remaining_maturity"
+                    OutputColumn = 12
+                Case "maturity_factor"
+                    OutputColumn = 17
             End Select
         Else
             Select Case Quantity
