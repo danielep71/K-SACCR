@@ -13,7 +13,8 @@ them.
 The images below show sheets of the workbook built from
 `src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. The owner
 took them in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
-retaken on 2026-10-17 to show the colours of #296.
+retaken on 2026-10-17 to show the colours of #296 and on 2026-10-20 after the
+revision of its rows (#389).
 
 | Image | Shows |
 | --- | --- |

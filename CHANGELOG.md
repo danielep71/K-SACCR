@@ -112,6 +112,60 @@ Use only the categories needed by a release.
   from the new template, or change the list of the data validation on
   NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
   facing a CCP but entered with role `N` is still calculated as bilateral.
+- Tests for client clearing (#359): two illustrative numerical cases, a
+  listed equity index future and call option in a margined netting set where
+  the bank is the clearing member (`illustrative-clearing-member-listed`,
+  daily remargining, MPOR 5 in both regimes) or the client
+  (`illustrative-clearing-client-listed`, weekly remargining, MPOR 9 under
+  CRR and 14 under BCBS), each under CRR and BCBS, with MPOR, RC, the
+  option's delta, the equity add-on, multiplier, EAD, cap flag and status;
+  their values come from `tests/derivations/clearing_listed.py`, a separate
+  Python implementation, and stay illustrative until reviewed by someone
+  other than the code's author. `TEST_InputValidation` adds the clearing
+  member's large-or-illiquid floor (20 days in both regimes, the
+  conservative limitation), the client's floor doubled by disputes (10 under
+  CRR, 20 under BCBS) and an MPOR override below and above the clearing
+  member's floor. `tools/check_test_cases.py` accepts `CRE54.<paragraph>`
+  rule IDs. The owner decided that there will be no independent reviewer,
+  so these values stay illustrative and #359's criterion on independently
+  reviewed values is recorded as not met (decision 8 of the clearing
+  coverage). Totals: `TEST_Cases` 24 cases and 71 checks,
+  `TEST_InputValidation` 143 cases and 235 checks.
+- NettingSets: Client clearing role `MULTI` declares a multi-level client
+  structure (a client clearing for its own clients), whose conditions apply
+  at every level (CRE54.14(3); CRR Art. 305(4)) and are not modelled: the
+  netting set is `INVALID: multi-level client structure, not supported`,
+  with an error on Checks, instead of taking an ordinary role's floor. The
+  template's dropdown, input message and guidance list it; as for `CCP`, an
+  existing workbook needs the new template, or `MULTI` added to the
+  validation list of NettingSets column F, to enter it (#359).
+- Checks: every `CM` and `CLIENT` netting set gets an INFO line naming its
+  role, the MPOR floor and the rule applied, the BCBS client's 10 days marked
+  as the conservative interpretation, and the 20 days of the large or
+  illiquid flag when it raises the floor; an unmargined one says that no
+  floor applies. The role and method are thus in the run's evidence without a
+  new Results column (#359).
+- Basel_vs_CRR (#389): eight rows completed or qualified after the owner's
+  review: Basel's lambda is one value per currency for IR options, and the
+  engine accepts an entered lambda for other options only as a technical
+  shift; listed credit indices and other multi-name positions under CRR
+  Art. 280c(5)(b), with the engine's limits; the BCBS client's 10 days as an
+  adopted conservative interpretation, the dispute difference, the clearing
+  perimeter and the specific client-clearing tests; the CRR conditions on
+  basis hedging sets; the conditions of the optional reductions for sold
+  options and sold protection, whose omission gives an EAD not lower than
+  with them, not necessarily higher; the CRE52.74 FAQ on one RC and add-ons
+  by MPOR; and the cap columns on Results. Three rows are added, as grouped
+  on the wiki page: equity and commodity adjusted notional, variable notional
+  or quantity, and multiple exchanges and leverage. The Source check header says it records a text
+  check, not numerical validation; column J is wider and the edited rows
+  taller. The methodology's wording on the omitted reductions is aligned.
+- TestCatalogue T07 (CRE99 Example 3 on the demo) says why the demo is
+  1.38 below the published 5,406: its 9-month leg is 274 days, 0.7507 years,
+  because no date gives 0.75 years at 365 days; tolerance 2 covers this
+  input difference, not engine rounding, and the case `cre99-example-3`
+  reproduces the example exactly with `DaysPerYear` 360. The owner kept the
+  274-day input.
 - Results: a conditional format highlights in light red every netting-set
   row whose status is `INVALID` or `INCOMPLETE`, so withheld EADs stand out;
   `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of

@@ -107,6 +107,7 @@ documents govern.
 | `tests/modules/` | The harness, the case runner, the suites, `TEST_Suite` and the benchmark |
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
+| `tests/derivations/` | Separate implementations that compute expected values, cited in their `derivation` |
 | `examples/modules/` | Example modules calling the public facade; created with the first example |
 
 `tools/check_source.py` enforces the placement rules below on every run of
