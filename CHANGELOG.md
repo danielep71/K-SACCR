@@ -181,9 +181,13 @@ Use only the categories needed by a release.
   which moves from AB to AD. Daily variation margin alone is not `STM`. For
   an `STM` trade the maturity factor uses the time to the next reset date,
   floored at 10 business days, while M, E, S and T keep their meaning. The
-  reset date must be after the reporting date and not after M. Blank or `N`
-  with a reset date, `STM` without one, `STM` in a margined netting set and
-  legs of one economic trade that differ are rejected. Existing workbooks
+  reset date must be after the reporting date and not after the contractual
+  maturity M (a reset on M is accepted). Blank or `N` with a reset date and
+  `STM` without one are rejected, and so are legs of one economic trade
+  whose settlement type (blank and `N` alike) or reset date differ. A netting
+  set with Margined = Y holding an `STM` trade is `INVALID`, a limitation of
+  the implementation: an all-`STM` set is misclassified, and a mixed set
+  needs the CRE52.74 treatment, which is not implemented. Existing workbooks
   with both columns blank keep their results; a workbook with the old layout
   fails the Trades header check until it is rebuilt or the two columns are
   inserted.

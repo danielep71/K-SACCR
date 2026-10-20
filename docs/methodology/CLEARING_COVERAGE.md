@@ -156,15 +156,16 @@ substance (CRE52.37(5), CRE52.48; CRR Art. 279b(1)(a), 279c(1)(a), 279c(2)).
 | --- | --- | --- |
 | 1 | `STM` declares that, on specified dates, the contract settles its outstanding exposure and its terms reset so that its value is zero. The settlement is a contractual payment of the same transaction (Art. 279b(1)(a)). Daily variation margin alone does not qualify: a contract margined daily but not settled is collateralised-to-market and belongs in a margined netting set with an MPOR (Basel FAQ to CRE52.31–.32). `STM` is the user's attestation of these contractual facts: no input can prove them, so the engine validates the declaration and the dates (rules 2–7), not the contract | — |
 | 2 | For an `STM` trade, the remaining maturity used in the unmargined maturity factor is the time from the reporting date to the next reset date, in years on the `DaysPerYear` basis. It keeps the floor of 10 business days (`MinMaturityBD` / `BusinessDaysPerYear`; CRE52.48; Art. 279c(1)(a)) | — |
-| 3 | The other dates keep their meaning. M stays the contractual maturity and keeps its checks, including that an option's expiry T is not after M. E and S keep the supervisory duration and the interest-rate maturity bucket (Basel FAQ to CRE52.31–.32). T keeps the supervisory delta | Next reset date after M (or, where M is blank, after the E or T used in its place) |
+| 3 | The other dates keep their meaning. M stays the contractual maturity and keeps its checks, including that an option's expiry T is not after M. E and S keep the supervisory duration and the interest-rate maturity bucket (Basel FAQ to CRE52.31–.32). T keeps the supervisory delta. The reset date is compared with the contractual maturity as entered, before the reset replaces it in the maturity factor; a reset on the maturity date is accepted, since the final reset may fall on it | Next reset date after M (or, where M is blank, after the E or T used in its place) |
 | 4 | The MtM is the value at the reporting date after any settlement due that day, so the next reset date is the first reset after the reporting date. A reset on or before the reporting date is rejected: accepting the reporting date would give the 10-day floor even to a contract whose next reset is months away. The shortest horizon is the floor: a daily settled contract, reset the next business day, gets M = 10 business days and MF = √(10/250) = 0.2 with the regulatory parameters | Next reset date on or before the reporting date |
 | 5 | Blank or `N` with a next reset date is contradictory, and `STM` needs one | Blank or `N` with a date; `STM` without a date; any other settlement type; a reset date that is not a date |
-| 6 | The Basel FAQ to CRE52.31–.32 treats settled trades as unmargined. An `STM` trade in a margined netting set would put margined and unmargined trades in one netting set, which K-SACCR does not support (CRE52.74; Art. 274(4)), as for `MIXED` | `STM` in a netting set with Margined = Y |
-| 7 | The legs of one economic trade (#38) share the settlement type and the next reset date | Legs that differ in either |
+| 6 | The Basel FAQ to CRE52.31–.32 treats daily-settled trades as unmargined, so an `STM` trade needs the unmargined treatment. In a netting set with Margined = Y there are two cases. If every trade is `STM`, the netting set's classification is inconsistent; the set is not necessarily mixed. If it also holds genuinely margined trades, it is a mixed netting set: CRE52.74 and Art. 274(4) give a calculation treatment for it, which K-SACCR does not implement, as for `MIXED`. Rejecting both cases is a limitation of the current implementation, not a regulatory prohibition. The netting set is `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported`, with an error on Checks | `STM` in a netting set with Margined = Y |
+| 7 | The legs of one economic trade (#38), the rows that decompose one contractual trade under one Economic trade ID, share the settlement type and the next reset date. Blank and `N` are the same settlement type for this comparison. Separately contracted trades, such as a hedge or a back-to-back transaction, have their own Economic trade ID or none, and may have different settlement arrangements | Legs of one economic trade that differ in either, after reading blank as `N` |
 
-A trade that breaks a rule is rejected like any other invalid trade: an error
-on Checks names the rule, the trade is `EXCLUDED`, and its netting set is
-`INCOMPLETE`. No calendar is derived: K-SACCR has no exchange calendar, and the
+A trade that breaks rules 3 to 5 is rejected like any other invalid trade:
+an error on Checks names the rule, the trade is `EXCLUDED`, and its netting set
+is `INCOMPLETE`. Under rule 7 every leg of the economic trade is rejected, as
+for #38's other leg rules. Rule 6 makes the whole netting set `INVALID`. No calendar is derived: K-SACCR has no exchange calendar, and the
 user enters the reset date.
 
 **Existing workbooks.** With both columns blank, every trade keeps its
@@ -189,8 +190,15 @@ for #359:
 - daily settlement (next business day: the floor applies) and non-daily
   settlement (a reset beyond 10 business days), for a linear trade and for an
   option whose expiry is after the reset;
-- a reset the day after the reporting date, and a reset equal to M;
-- every input in the rules table that breaks a rule;
+- a reset the day after the reporting date, a reset equal to M (accepted)
+  and a reset the day after M (rejected);
+- a netting set with Margined = Y whose trades are all `STM`, and one mixing
+  `STM` with ordinary trades: both `INVALID` with the rule 6 status;
+- legs of one economic trade with blank and `N` (accepted), with `STM` and
+  `N` or different reset dates (every leg rejected), and two separately
+  contracted trades in one netting set with different settlement types
+  (both accepted);
+- every other input in the rules table that breaks a rule;
 - regression showing that existing cases, with both columns blank, keep
   their results.
 
