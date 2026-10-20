@@ -174,6 +174,19 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
+  settled-to-market trades (#360), not yet implemented. Trades will get
+  *Settlement type* (blank or `N` for the ordinary treatment, `STM` for
+  settled-to-market) and *Next reset date* in AB and AC, before Comment,
+  which moves from AB to AD. Daily variation margin alone is not `STM`. For
+  an `STM` trade the maturity factor uses the time to the next reset date,
+  floored at 10 business days, while M, E, S and T keep their meaning. The
+  reset date must be after the reporting date and not after M. Blank or `N`
+  with a reset date, `STM` without one, `STM` in a margined netting set and
+  legs of one economic trade that differ are rejected. Existing workbooks
+  with both columns blank keep their results; a workbook with the old layout
+  fails the Trades header check until it is rebuilt or the two columns are
+  inserted.
 - The README's Regimes section says why the toolkit has two regimes: `CRR`
   is the default and binding for EU institutions; `BCBS` does not replace it
   but shows the effect of the EU deviations, traces results to the Basel
