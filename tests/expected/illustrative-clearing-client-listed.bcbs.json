@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "illustrative-clearing-client-listed",
+  "regime": "BCBS",
+  "outputs": [
+    {
+      "quantity": "margin_period_of_risk",
+      "rule": "CRE52.50",
+      "value": 14,
+      "unit": "business_days",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 0
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.50 and CRE54.8(2), CRE54.14-.17: the client keeps 10 business days; F + N - 1 (decision 1 of the clearing coverage)",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRE52.18",
+      "value": 80000.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.18",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "supervisory_delta",
+      "trade": "T2",
+      "rule": "CRE52.40",
+      "value": 0.5247407331449113,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.40",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRE52.68",
+      "value": 448097.0282678014,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.65-.68, with the maturity factor of CRE52.52",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRE52.23",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.23",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRE52.1",
+      "value": 739335.8395749219,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.1, CRE52.2",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "cap_applied",
+      "rule": "CRE52.2",
+      "text": "N",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.2",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    },
+    {
+      "quantity": "netting_set_status",
+      "rule": "CRE52.1",
+      "text": "VALID",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.1",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-18"
+      }
+    }
+  ]
+}

@@ -109,7 +109,7 @@ Attribute VB_Name = "CORE_Engine"
         ID                As String     'Netting-set ID, upper case
         Counterparty      As String     'Counterparty name
         Margined          As Boolean    'Subject to a margin agreement
-        ClearingRole      As String     'Client-clearing role: N, CM, CLIENT or CCP
+        ClearingRole      As String     'Client-clearing role: N, CM, CLIENT, CCP or MULTI
         RemarginBD        As Double     'Remargining frequency, business days, at least 1
         LargeOrIlliquid   As Boolean    'Over 5,000 trades or illiquid collateral
         Disputes          As Boolean    'Margin disputes; doubles the MPOR
@@ -2308,7 +2308,8 @@ Private Function LoadNettingSets() As Boolean
 '   Params. VM on an unmargined set CRE52.2, CRE52.10 and CRR Art. 272(7),
 '   (7a). Margin-agreement structures CRE52.74, CRE52.75 and CRR Art.
 '   274(4), 275(3). A netting set facing a CCP is rejected: CRE54 and CRR
-'   Art. 300-311 are not applied (#112).
+'   Art. 300-311 are not applied (#112); so is a multi-level client
+'   structure, CRE54.14(3) and CRR Art. 305(4) (#359).
 '
 ' UPDATED
 '   2026-10-18
@@ -2329,6 +2330,8 @@ Private Function LoadNettingSets() As Boolean
     Dim FloorBD            As Double       'MPOR floor before remargining, business days
     Dim EffectiveMPOR      As Double       'Effective MPOR, business days
     Dim MPOROverride       As Double       'MPOR override entered; 0 when none
+    Dim RoleText           As String       'Clearing role named on Checks; empty for role N
+    Dim RoleRule           As String       'Rule of that role's MPOR floor
     Dim NettingSetRegime   As String       'Regime of the netting set
     Dim FieldErrors        As Long         'Invalid fields found on the row
 
@@ -2391,7 +2394,7 @@ Private Function LoadNettingSets() As Boolean
                 .Counterparty = SafeStr(InputBlock(i, NS_CPTY))
                 .Margined = NsFlag(InputBlock(i, NS_MARGINED), False, "Margined", NettingSetRef, RowNumber, FieldErrors)
                 .ClearingRole = NsCode(InputBlock(i, NS_CLEARED), CL_NONE, _
-                                       CL_NONE & "|" & CL_CM & "|" & CL_CLIENT & "|" & CL_CCP, _
+                                       CL_NONE & "|" & CL_CM & "|" & CL_CLIENT & "|" & CL_CCP & "|" & CL_MULTI, _
                                        "Client clearing role", NettingSetRef, RowNumber, FieldErrors)
                 .RemarginBD = NsNumber(InputBlock(i, NS_FREQ), 1#, "Remargin frequency", NettingSetRef, RowNumber, FieldErrors)
                 If .RemarginBD < 0# Or .RemarginBD > 10000# Or .RemarginBD <> Int(.RemarginBD) Then
@@ -2461,14 +2464,21 @@ Private Function LoadNettingSets() As Boolean
                     End If
                 End If
 
-    'A netting set facing a CCP is declared so that it is rejected rather
-    'than calculated as bilateral: the engine does not yet apply the CCP
-    'rules, such as the horizon when the CCP retains VM (#112).
-                If .ClearingRole = CL_CCP Then
-                    FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A netting set facing a CCP is not supported " & _
-                           "(CRE54; CRR Art. 300-311).", RowNumber
-                End If
+    'A netting set facing a CCP, or a multi-level client structure, is
+    'declared so that it is rejected rather than calculated as bilateral
+    'or as an ordinary client-clearing set: the engine does not yet apply
+    'the CCP rules, such as the horizon when the CCP retains VM (#112), nor
+    'the conditions at each level of a multi-level structure (#359).
+                Select Case .ClearingRole
+                    Case CL_CCP
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A netting set facing a CCP is not supported " & _
+                               "(CRE54; CRR Art. 300-311).", RowNumber
+                    Case CL_MULTI
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A multi-level client structure is not supported " & _
+                               "(CRE54.14(3); CRR Art. 305(4)).", RowNumber
+                End Select
 
     'Margin-agreement structures the engine does not model are declared, so
     'that the netting set is rejected rather than calculated as one with a
@@ -2505,23 +2515,43 @@ Private Function LoadNettingSets() As Boolean
     'that. The client-clearing floor applies to the clearing member facing
     'its client [CRE54.12; CRR Art. 279c(1)], and under CRR also to the
     'client facing its clearing member; under BCBS the client keeps the
-    'bilateral floor [CRE54.8, CRE54.14].
+    'bilateral floor, a conservative interpretation [CRE54.8, CRE54.14].
+    'Every CM and CLIENT netting set gets an INFO line naming its role, the
+    'floor and the rule applied, so that the evidence shows them (#359); it
+    'is written after the large-or-illiquid adjustment, so that it names the
+    'floor actually applied.
                 If .Margined Then
+                    RoleText = ""
+                    RoleRule = ""
                     Select Case .ClearingRole
                         Case CL_CM
                             FloorBD = pMPORClr
+                            RoleText = "Clearing member facing its client"
+                            RoleRule = "CRE54.12; CRR Art. 279c(1)"
                         Case CL_CLIENT
                             If .IsCRR Then
                                 FloorBD = pMPORClr
+                                RoleText = "Client facing its clearing member under CRR"
+                                RoleRule = "CRR Art. 279c(1)"
                             Else
                                 FloorBD = pMPORBil
-                                LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client facing its clearing member under BCBS: " & _
-                                       "bilateral MPOR floor; the client-clearing floor is for the clearing " & _
-                                       "member (CRE54.12).", RowNumber
+                                RoleText = "Client facing its clearing member under BCBS"
+                                RoleRule = "a conservative interpretation: CRE54.8(2), CRE54.14-.17; the client-clearing " & _
+                                           "floor of CRE54.12 is for the clearing member"
                             End If
                         Case Else
                             FloorBD = pMPORBil
                     End Select
+                    If Len(RoleText) > 0 Then
+                        If .LargeOrIlliquid And pMPORLarge > FloorBD Then
+                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
+                                   RoleRule & "), raised to " & CStr(pMPORLarge) & " BD by the large or illiquid flag " & _
+                                   "(CRE52.51; CRR Art. 285(3)).", RowNumber
+                        Else
+                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
+                                   RoleRule & ").", RowNumber
+                        End If
+                    End If
                     If .LargeOrIlliquid Then
                         FloorBD = Max2(FloorBD, pMPORLarge)
                     End If
@@ -2539,6 +2569,10 @@ Private Function LoadNettingSets() As Boolean
                     End If
                     .MPOR = EffectiveMPOR
                     .MFMargined = FormulaNumber(SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
+                ElseIf .ClearingRole = CL_CM Or .ClearingRole = CL_CLIENT Then
+                    LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client clearing role " & .ClearingRole & " on an unmargined " & _
+                           "netting set: no MPOR floor applies; each trade's maturity factor uses its remaining " & _
+                           "maturity (CRE52.48; CRR Art. 279c(1)(a)).", RowNumber
                 End If
             End With
             KeyAdd mNSIndex, NettingSetRef, mNSCount
@@ -4354,8 +4388,8 @@ Private Sub ComputeNettingSets( _
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
 '   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
 '   CRE52.10 and EBA-QA-2023_6962; trade-count warning CRE52.51(1) and
-'   CRR Art. 285(3)(a). The status of a netting set facing a CCP names the
-'   reason (#112).
+'   CRR Art. 285(3)(a). The status of a netting set facing a CCP or of a
+'   multi-level client structure names the reason (#112, #359).
 '
 ' UPDATED
 '   2026-10-18
@@ -4421,13 +4455,18 @@ Private Sub ComputeNettingSets( _
                 mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
-                If mNS(k).ClearingRole = CL_CCP Then
-                    StatusText = "INVALID: facing a CCP, not supported"
-                    If mNS(k).InputErrors > 1 Then
-                        StatusText = StatusText & "; " & (mNS(k).InputErrors - 1) & " other input error(s)"
-                    End If
-                Else
+                Select Case mNS(k).ClearingRole
+                    Case CL_CCP
+                        StatusText = "INVALID: facing a CCP, not supported"
+                    Case CL_MULTI
+                        StatusText = "INVALID: multi-level client structure, not supported"
+                    Case Else
+                        StatusText = ""
+                End Select
+                If Len(StatusText) = 0 Then
                     StatusText = "INVALID: " & mNS(k).InputErrors & " input error(s)"
+                ElseIf mNS(k).InputErrors > 1 Then
+                    StatusText = StatusText & "; " & (mNS(k).InputErrors - 1) & " other input error(s)"
                 End If
                 OutputCount = OutputCount + 1
                 WriteStatusRow OutputBlock, OutputCount, k, StatusText
