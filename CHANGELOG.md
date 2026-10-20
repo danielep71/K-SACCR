@@ -174,6 +174,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- The README's Regimes section says why the toolkit has two regimes: `CRR`
+  is the default and binding for EU institutions; `BCBS` does not replace it
+  but shows the effect of the EU deviations, traces results to the Basel
+  standard and supports Basel monitoring and non-EU group entities, with a
+  link to the wiki's "Why two regimes".
 - The source descriptions are more exact. The consolidated CRR text has no
   legal effect; the methodology implements Articles 274–280f, and Articles
   273a, 281 and 282 are context only. The client's 10-day MPOR floor under

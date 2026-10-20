@@ -462,6 +462,13 @@ EU CRR is the baseline and the default; Basel CRE52 is implemented as the
 differences from it. The regime is set on Params and can be overridden per
 netting set, and every result reports the regime it used.
 
+The toolkit supports two regimes: `CRR` (default, binding for EU institutions)
+and `BCBS` (Basel CRE52). The Basel regime does not replace the CRR. It shows
+the effect of the EU-specific deviations, traces results back to the
+international standard, and supports Basel monitoring exercises and non-EU
+group entities. See
+[Why two regimes](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki/Basel-vs-CRR#why-two-regimes).
+
 | Topic | EU CRR | Basel CRE52 |
 | --- | --- | --- |
 | Asset classes | Six, with other risks (Art. 277(1)(f), 280f; 8%) | Five (CRE52.72); other-risk trades are rejected |
