@@ -39,8 +39,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   EndSuite restores calculation mode, events and screen updating.
 '
 ' ERROR POLICY
-'   A failed engine run or a missing output is a failed check, and the
-'   suite continues. Restoration steps run independently and a failed one
+'   A failed engine run is a failure of the case and a missing output a
+'   failed check; the suite continues. Restoration steps run independently and a failed one
 '   makes the suite fail with restore=FAIL.
 '
 ' REPORTING
@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -917,11 +917,11 @@ Public Sub ExpectChecksLine( _
 ' PURPOSE
 '   After RunCase, check that the Checks sheet has a line of the given
 '   Severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
-'   MessagePart, ignoring case: for a warning that does not change the
-'   netting set's status.
+'   MessagePart, ignoring case: for an ERROR, WARNING or INFO line that the
+'   netting set's status alone does not show.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
         Record Label, ReferenceClass, ChecksHasLine(Severity, MessagePart), _
@@ -1047,10 +1047,11 @@ Private Function MustBeNonNegative( _
 ' PURPOSE
 '   Tell whether a quantity is non-negative by definition, so that a
 '   negative result fails whatever the tolerance (TEST_CASES.md).
-'   Supervisory delta and adjusted notional carry a sign and are excluded.
+'   Supervisory delta carries the trade's sign and is excluded; adjusted
+'   notional, never negative, is not listed either.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-21
 '==============================================================================
 '
         Select Case Quantity

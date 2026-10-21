@@ -50,14 +50,14 @@ Attribute VB_Name = "TEST_Invariants"
 '   Run TEST_Invariants.RunInvariantTests from the Immediate window.
 '
 ' REFERENCE
-'   CRE52.1 and CRR Art. 274(2) (EAD), CRE52.10 to 52.20 and CRR Art. 275
-'   (RC), CRE52.23 and CRR Art. 278(3) (multiplier), CRE52.24 (aggregate
-'   add-on), CRE52.2 and CRR Art. 274(3) (cap of a margined netting set),
+'   CRE52.1 and CRR Art. 274(2) (EAD), CRE52.10 to 52.19 and CRR Art. 275
+'   (RC), CRE52.20 (PFE), CRE52.23 and CRR Art. 278(3) (multiplier),
+'   CRE52.25 (aggregate add-on), CRE52.2 and CRR Art. 274(3) (cap of a margined netting set),
 '   CRE52.57 and CRR Art. 280a(3) (IR bucket formula, the only one the
 '   CRR allows).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -387,13 +387,13 @@ Private Function AggregateGap( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Check that the aggregate add-on is the sum of the six asset-class
-'   add-ons and that none of them is negative [CRE52.24].
+'   add-ons and that none of them is negative [CRE52.25].
 '
 ' RETURNS
 '   The first violation; "" when none.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -738,15 +738,16 @@ Private Function WithheldGap( _
 '                                 WithheldGap
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check that a netting set whose EAD is withheld (INVALID, INCOMPLETE or
-'   NO TRADES) shows no figures from MPOR to the cap-basis multiplier, so
-'   that no partial result can be read as an EAD.
+'   Check that a netting set that is not VALID (INVALID or INCOMPLETE,
+'   whose EAD is withheld, or NO TRADES, which has none) shows no figures
+'   from MPOR to the cap-basis multiplier, so that no partial result can be
+'   read as an EAD.
 '
 ' RETURNS
 '   The first violation; "" when none.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 

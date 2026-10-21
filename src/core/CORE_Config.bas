@@ -30,7 +30,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -64,8 +64,9 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
-    'Every sheet has two narrow margin columns (A:B) and two margin rows
-    '(1:2). Every table starts in column C. The tables are located through
+    'Every sheet has two narrow margin columns (A:B); rows 1:2 hold the
+    'title (K-SACCR in B1, the sheet title in B2). Every table starts in
+    'column C. The tables are located through
     'workbook names, so their rows can move: each input and output table
     'through the name of its first header cell, in column C, with data from
     'the next row (CORE_Util.TableHeaderRow, TableFirstRow and, for the
@@ -420,9 +421,9 @@ Attribute VB_Name = "CORE_Config"
     'Result of each Reconciliation row.
         Public Const RES_MATCH      As String = "MATCH"                    'Within a tolerance
         Public Const RES_DIFF       As String = "DIFFERENCE"               'Outside both tolerances
-        Public Const RES_MISSING    As String = "MISSING IN CALCULATOR"    'Bank ID not on Results
-        Public Const RES_NOTINBANK  As String = "NOT IN BANK FILE"         'Results netting set not in the bank file
-        Public Const RES_DUPLICATE  As String = "DUPLICATE"                'Bank ID listed more than once
+        Public Const RES_MISSING    As String = "MISSING IN CALCULATOR"    'Bank ID not on Results or TradeCalc
+        Public Const RES_NOTINBANK  As String = "NOT IN BANK FILE"         'Results netting set or TradeCalc leg not in the bank file
+        Public Const RES_DUPLICATE  As String = "DUPLICATE"                'Bank ID, or Trade ID on TradeCalc, listed more than once
         Public Const RES_REGIME     As String = "REGIME MISMATCH"          'Bank and Results regimes differ
         Public Const RES_WITHHELD   As String = "WITHHELD"                 'Results status is not VALID
         Public Const RES_INVALID    As String = "INVALID INPUT"            'Bank row or figure not usable

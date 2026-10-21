@@ -37,13 +37,17 @@ Attribute VB_Name = "CORE_Engine"
 '   Calculate runs, in order:
 '     ClearOutputSheets, ValidateSchema: clear old results, check the layout;
 '     LoadParams, LoadSFTable, LoadFXTable, LoadNettingSets: read the inputs;
+'     ClassifyRun: regulatory or what-if run;
 '     ProcessTrades: one row per trade, collected into buckets;
 '     ComputeHedgingSets: buckets into hedging-set and asset-class add-ons;
 '     ComputeNettingSets: RC, multiplier, PFE and EAD per netting set;
-'     WriteBuckets, WriteHedgingSets, WriteChecks, WriteRunInfo
-'     (RunInfoText): outputs.
-'   Each trade, bucket and hedging set is stored once in an array, with a
-'   Collection (see CORE_Util.KeyIndex) mapping its key to its array position.
+'     WriteBuckets, WriteHedgingSets, WriteChecks: outputs;
+'     InputFingerprint, RememberRunInputs: remember the inputs of a
+'     completed run; WriteRunInfo (RunInfoText): the run summary.
+'   Each netting set, factor row, FX rate, bucket and hedging set is stored
+'   once in an array, with a Collection (see CORE_Util.KeyIndex) mapping its
+'   key to its array position; each trade is processed in one tTrade record
+'   and not kept.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. Calculate, the run counters (with the
@@ -58,7 +62,9 @@ Attribute VB_Name = "CORE_Engine"
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access,
-'   SACCR_Formulas for every regulatory formula, and CORE_Export.NumberText
+'   SACCR_Formulas for the trade-level formulas, the IR bucket aggregation,
+'   the replacement cost and the multiplier (the other aggregation steps,
+'   PFE, EAD and the cap are computed here), and CORE_Export.NumberText
 '   for the run time in the run summary, with a decimal point in every
 '   locale (#45).
 '
@@ -66,12 +72,16 @@ Attribute VB_Name = "CORE_Engine"
 '   Owns the module state below. ResetState clears it at the start of each
 '   run; the run counters stay readable until the next run. Reads the input
 '   sheets and Params; writes the TradeCalc, Buckets, HedgingSets, Results
-'   and Checks sheets. Changes no Excel application setting.
+'   and Checks sheets, and the input fingerprint of a completed run in the
+'   hidden workbook name SACCR_RunInputs. Changes no Excel application
+'   setting.
 '
 ' ERROR POLICY
 '   Invalid inputs are not VBA errors. They are logged as ERROR, WARNING or
-'   INFO lines for the Checks sheet: an invalid trade is excluded and the
-'   run continues; invalid parameters or netting sets stop the run.
+'   INFO lines for the Checks sheet: an invalid trade is excluded and its
+'   netting set is INCOMPLETE; an invalid netting set is INVALID, with its
+'   EAD withheld; an invalid layout, parameter or Params table, or no
+'   usable netting set, stops the run.
 '   LoadParams, WriteChecks and WriteRunInfo contain their own errors. A
 '   Checks sheet that cannot be written withdraws the results and raises
 '   ERR_CHECKS_WRITE (#36). Any other unexpected error during a run also
@@ -87,7 +97,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -126,7 +136,7 @@ Attribute VB_Name = "CORE_Engine"
         Trades            As Long       'Number of valid trade legs
         Rejected          As Long       'Number of trade legs rejected by validation
         EconTrades        As Long       'Number of economic trades, each counted once (#38)
-        InputErrors       As Long       'Invalid netting-set fields; EAD withheld when > 0
+        InputErrors       As Long       'Input errors that make the set INVALID; EAD withheld when > 0
         MarginedSTM       As Boolean    'Margined, with a settled-to-market trade: INVALID (#360)
     End Type
 
@@ -224,10 +234,10 @@ Attribute VB_Name = "CORE_Engine"
         NSIdx    As Long      'Netting set, position in mNS
         AC       As Long      'Asset class
         Key      As String    'Hedging-set key
-        D1U      As Double    'IR bucket under 1 year, unmargined
+        D1U      As Double    'IR bucket 1: under 1 year (CRR: up to 1 year), unmargined
         D2U      As Double    'IR bucket 1 to 5 years, unmargined
         D3U      As Double    'IR bucket over 5 years, unmargined
-        D1M      As Double    'IR bucket under 1 year, margined
+        D1M      As Double    'IR bucket 1: under 1 year (CRR: up to 1 year), margined
         D2M      As Double    'IR bucket 1 to 5 years, margined
         D3M      As Double    'IR bucket over 5 years, margined
         SysU     As Double    'Sum of rho * add-on, unmargined
@@ -290,7 +300,7 @@ Attribute VB_Name = "CORE_Engine"
         Private mErrCount     As Long            'ERROR messages
         Private mWarnCount    As Long            'WARNING messages
 
-        Private mTradesRead   As Long            'Trades with an ID
+        Private mTradesRead   As Long            'Trade rows read: with an ID, or with data but no ID
         Private mTradesUsed   As Long            'Trades included in the calculation
         Private mRegEAD(1 To 2)       As Double  'Sum of VALID EADs per regime: 1 CRR, 2 BCBS (#198)
         Private mRegSets(1 To 2)      As Long    'Netting sets per regime
@@ -364,8 +374,9 @@ Public Function Calculate( _
 '   and netting set, and write the outputs.
 '
 ' INPUTS
-'   WriteOutputs: True writes every output sheet; False validates only and
-'   writes the Checks sheet alone.
+'   WriteOutputs: True writes every output sheet; False validates only: it
+'   clears the output tables and writes the Checks sheet and the run
+'   summary.
 '
 ' RETURNS
 '   True when the run completed. Individual trades may still have been
@@ -387,7 +398,7 @@ Public Function Calculate( _
 '   Resets all module state, then fills it for this run.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -718,10 +729,10 @@ Public Property Get IncompleteCount() As Long
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Number of netting sets in the last run whose EAD was withheld because
-'   a trade was rejected or a netting-set field was invalid.
+'   a trade was rejected or the netting set is INVALID.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
         IncompleteCount = mIncomplete
@@ -772,10 +783,11 @@ Public Property Get TradesRead() As Long
 '                                  TradesRead
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Number of trade rows (legs) with an ID read by the last run.
+'   Number of trade rows (legs) read by the last run: every row with an
+'   ID, and every row with data but no ID, which is rejected.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
         TradesRead = mTradesRead
@@ -987,7 +999,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -1010,7 +1022,8 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' INPUT SHEETS
 '------------------------------------------------------------------------------
-    'A missing output sheet has already raised in ClearOutputSheets.
+    'A missing TradeCalc, Buckets, HedgingSets or Results sheet has already
+    'raised in ClearOutputSheets; a missing Checks sheet fails WriteChecks.
         AllValid = SheetPresent(SH_PARAMS)
         AllValid = SheetPresent(SH_NS) And AllValid
         AllValid = SheetPresent(SH_TRADES) And AllValid
@@ -2297,8 +2310,9 @@ Private Function LoadNettingSets() As Boolean
 '   margined netting set.
 '
 ' RETURNS
-'   True when at least one valid netting set was read. False, with an error
-'   logged, otherwise.
+'   True when at least one netting set with a usable ID was read, even if
+'   its fields make it INVALID. False, with an error logged, when there is
+'   none.
 '
 ' STATE OWNERSHIP
 '   Fills mNS, mNSCount and mNSIndex, and sizes the asset-class add-on
@@ -2315,7 +2329,7 @@ Private Function LoadNettingSets() As Boolean
 '   structure, CRE54.14(3) and CRR Art. 305(4) (#359).
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-21
 '==============================================================================
 '
 
@@ -4495,7 +4509,8 @@ Private Sub ComputeNettingSets( _
 ' PURPOSE
 '   Calculate RC, multiplier, PFE and EAD for every netting set whose
 '   trades are all valid, apply the margined-EAD cap, and write the Results
-'   sheet with one row per input netting set, a status and a total row.
+'   sheet with one row per input netting set, with its status, and a TOTAL
+'   row for each regime that has netting sets.
 '   A netting set with a rejected trade is INCOMPLETE: its EAD is withheld,
 '   because a figure on the remaining trades would understate the exposure
 '   (#36). One without trades is NO TRADES.
@@ -4518,7 +4533,7 @@ Private Sub ComputeNettingSets( _
 '   multi-level client structure names the reason (#112, #359).
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-21
 '==============================================================================
 '
 
