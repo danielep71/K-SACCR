@@ -1,8 +1,8 @@
 #==============================================================================
-# Canonical Excel/VBA .gitattributes
+# K-SACCR .gitattributes
 #------------------------------------------------------------------------------
 # PURPOSE
-#   Define the canonical Git behavior for new Excel/VBA repositories created from this template.
+#   Define Git behavior for the K-SACCR repository.
 #
 # POLICY
 #   - Exported VBA source is normalized in Git and checked out as CRLF.
@@ -91,7 +91,7 @@
 
 
 #------------------------------------------------------------------------------
-# R / MPFR TOOLING
+# R TOOLING
 #------------------------------------------------------------------------------
 *.r     text eol=lf
 *.R     text eol=lf
@@ -238,9 +238,9 @@ Makefile        text eol=lf
 #------------------------------------------------------------------------------
 # GITHUB LANGUAGE REPORTING
 #------------------------------------------------------------------------------
-# These directories contain project documentation visuals, not vendored code.
-assets/**        linguist-documentation
-images/**        linguist-documentation
+# Documentation images, not vendored code.
+docs/assets/**              linguist-documentation
+docs/user-manual/**/assets/** linguist-documentation
 
 
 #------------------------------------------------------------------------------

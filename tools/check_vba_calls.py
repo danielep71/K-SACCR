@@ -1359,7 +1359,7 @@ def analyze_project(files: dict[str, str], manifest: dict[str, Any], tracked: se
             "controls and built-in members of UserForms (reported as unknown)",
             "procedures never called (no unused-code verdict; external entry points are classified instead)",
             "callback and event-handler signatures",
-            "document modules (ThisWorkbook, worksheets), which are not exported",
+            "document modules (ThisWorkbook, worksheets), not analyzed: their Excel members are unknown to the checker",
             "project-defined #Const symbols (analysis fails closed, as in check_vba_conditionals)",
         ],
     }

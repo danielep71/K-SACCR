@@ -6,8 +6,9 @@ checks that the record is complete and consistent, that the declared source
 inventory is the exact Git content of the candidate, and that the retained logs
 match their digests and the reports of the harness and of every other suite the
 policy lists, each run on its own, and of the optional Test_RunAll summary.
-With --check-policy it instead checks that the policy's suites and counts match
-the test modules of the working tree. See docs/EXCEL_EVIDENCE.md.
+With --check-policy it instead checks that the policy matches the test modules
+of the working tree, the suites Test_RunAll runs (with SUITE_COUNT), and the
+suites and counts the root README.md shows. See docs/EXCEL_EVIDENCE.md.
 Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44: manual execution only, and
 the source inventory is derived from the repository layout.
 """
@@ -262,7 +263,8 @@ def single(log: str, key: str, label: str = "harness") -> str:
 
 
 def require_candidate(log: str, sha: str, label: str) -> None:
-    """Each test log starts with the operator's CANDIDATE= line, so it cannot serve another commit."""
+    """Each test log holds exactly one operator-typed CANDIDATE= line naming the candidate, so it
+    cannot serve another commit; its position is not checked (step 5 puts it first)."""
     require(single(log, "CANDIDATE", label) == sha, f"{label} log names another candidate")
 
 
@@ -694,7 +696,8 @@ def main(arguments: list[str] | None = None) -> int:
     parser.add_argument("--inventory", action="store_true",
                         help="print the candidate's source inventory for the record and exit")
     parser.add_argument("--check-policy", action="store_true",
-                        help="check the working tree's policy against the test modules and exit")
+                        help="check the working tree's policy against the test modules, Test_RunAll "
+                             "and README.md, and exit")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--summary", type=Path)
     options = parser.parse_args(arguments)
