@@ -345,7 +345,7 @@ def read_manifest(
     path = root / relative
     if not path.is_file():
         return set(), {}, [
-            {"path": relative, "message": "Configured public API manifest is missing."}
+            {"path": relative, "message": "Public API manifest docs/PUBLIC_API.txt is missing."}
         ]
     rows: set[str] = set()
     signatures: dict[str, set[str]] = {}
@@ -412,7 +412,8 @@ def property_pair(first: dict[str, Any], second: dict[str, Any]) -> bool:
 def _parse_components(
     root: Path, components: dict[str, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse every tracked configured component; only public-role ones contribute declarations."""
+    """Parse every tracked component that has a role from its location; only public-role ones
+    contribute declarations."""
     declarations: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
     tracked = set(tracked_vba(root))
