@@ -61,7 +61,7 @@ Attribute VB_Name = "TEST_Reconcile"
 '   with RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -665,7 +665,7 @@ Private Sub CaseWorkbook()
 '   withdraw the reconciliation. The bank table and settings are put back.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -713,7 +713,8 @@ Private Sub CaseWorkbook()
 ' FIGURES TAKEN FROM RESULTS
 '------------------------------------------------------------------------------
     'The first VALID netting set: its EAD as on Results (MATCH) and its RC
-    'ten percent higher (DIFFERENCE); and an ID that Results does not have.
+    'ten percent higher plus 100, so that it differs even when RC is 0
+    '(DIFFERENCE); and an ID that Results does not have.
         LastRow = LastDataRow(ResultsSheet, OutputFirstRow(SH_RESULTS), RS_ID)
         For i = LastRow To OutputFirstRow(SH_RESULTS) Step -1
             If SafeStr(TableCell(ResultsSheet, i, RS_STATUS_COL).Value) = "VALID" Then

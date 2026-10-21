@@ -66,9 +66,11 @@ Attribute VB_Name = "M_Main"
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
 '   raise ERR_INJECTED_FAULT in WriteEvidence before the new report is
 '   opened, while it is written and while the older file is replaced
-'   (#312). tests/modules/TEST_MainState.bas uses the first four and
-'   tests/modules/TEST_Reconcile.bas the others. gLastMessage keeps the last
-'   message shown or printed, so that a test can read it in silent mode.
+'   (#312). tests/modules/TEST_MainState.bas uses the first four;
+'   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
+'   evidence faults. gLastMessage keeps the last message passed to Notify
+'   (a failure message is not kept), so that a test can read it in silent
+'   mode.
 '   Production code never sets gTestFault.
 '
 ' KNOWN DEVIATION
@@ -79,7 +81,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -119,7 +121,7 @@ Attribute VB_Name = "M_Main"
         Public gSilent      As Boolean    'Silent mode for automation and tests
         Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile" or "evidence-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
-        Public gLastMessage As String     'Test seam: the last message shown or printed
+        Public gLastMessage As String     'Test seam: the last message passed to Notify
         Private mRunning    As Boolean    'True while an operation is in progress
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
@@ -143,14 +145,14 @@ Public Sub RunSACCR()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the full SA-CCR calculation and write every output sheet, then
-'   report the trades used, the total EAD and the number of errors and
-'   warnings.
+'   report the economic trades and legs used, the total EAD of each regime
+'   and the number of errors and warnings.
 '
 ' USAGE
 '   Assigned to the Run SA-CCR button.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
 
@@ -2074,8 +2076,8 @@ Private Function ExecuteOperation( _
 '   Operation: OP_RUN, OP_VALIDATE or OP_CLEAR.
 '
 ' RETURNS
-'   The result line built by ReportOutcome; empty when the operation did
-'   not complete.
+'   The result line built by ReportOutcome; empty when the operation raised
+'   an error or was refused because another was running.
 '
 ' STATE OWNERSHIP
 '   Captures calculation mode, events and screen updating before changing
@@ -2089,7 +2091,7 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -2534,7 +2536,7 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -2548,8 +2550,7 @@ Private Function ReportOutcome( _
 '------------------------------------------------------------------------------
 ' BUILD THE MESSAGE
 '------------------------------------------------------------------------------
-    'Messages and sheet activation are those of the original macros. A
-    'completed run can still have excluded trades, so it points to Checks
+    'A completed run can still have excluded trades, so it points to Checks
     'whenever there are errors or warnings. ShowChecksSheet never raises.
         Select Case Operation
             Case OP_RUN
@@ -2705,7 +2706,7 @@ Private Sub ReportFailure( _
 '   failure appended to its description.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -2727,8 +2728,8 @@ Private Sub ReportFailure( _
 '------------------------------------------------------------------------------
 ' SHOW OTHERWISE
 '------------------------------------------------------------------------------
-    'The project's own errors carry a readable description; anything else
-    'is shown with its number.
+    'ERR_RUN_ACTIVE and ERR_CHECKS_WRITE are shown with their description
+    'alone; any other error, the project's own included, with its number.
         If ErrorNumber = ERR_RUN_ACTIVE Or ErrorNumber = ERR_CHECKS_WRITE Then
             Message = ErrorDescription
         Else

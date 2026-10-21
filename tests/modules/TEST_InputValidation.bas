@@ -70,8 +70,8 @@ Attribute VB_Name = "TEST_InputValidation"
 '   workbook and reports. These inputs cannot be expressed as JSON
 '   fixtures, so they are written here directly, as TEST_CASES.md allows
 '   for invalid inputs. The table cases find their rows on Params by key
-'   (CO_OTHER, OT, USD, JPY, CHF), so they need the template's Params
-'   sheet.
+'   (CO_OTHER, EQ_INDEX, OT, EUR, USD, JPY, CHF), so they need the
+'   template's Params sheet.
 '
 ' WORKSHEET SAFETY
 '   As TEST_CaseRunner: inputs, outputs, and the headers, Params cells and
@@ -83,7 +83,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1216,11 +1216,11 @@ Private Sub AddSwapTo( _
 '                                  AddSwapTo
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Add a EUR interest-rate swap to NS1 starting on the reporting date and
-'   ending on EndDate (yyyy-mm-dd), which is also its maturity (#40).
+'   Add a EUR interest-rate swap to NS1 with no start date (S = 0), ending
+'   on EndDate (yyyy-mm-dd), which is also its maturity (#40).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
         TEST_CaseRunner.AddTrade TradeId, "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
