@@ -212,22 +212,26 @@ function Get-VbaCodeBody {
     $lines = [System.IO.File]::ReadAllLines($SourcePath, (Get-VbaEncoding))
     if ($lines.Count -eq 0) { return "" }
 
+    # The module header is Attribute VB_<name> = ...; a member attribute
+    # has a dot after the member's name, which may itself start with VB_,
+    # so it never counts as the header and cuts no code above it.
     $lastAttribute = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\s*Attribute\s+VB_') {
+        if ($lines[$i] -match '^\s*Attribute\s+VB_[^\s.=]*\s*=') {
             $lastAttribute = $i
         }
     }
+    if (($lastAttribute + 1) -ge $lines.Count) { return "" }
+    $body = $lines[($lastAttribute + 1)..($lines.Count - 1)]
 
-    if ($lastAttribute -ge 0) {
-        if (($lastAttribute + 1) -ge $lines.Count) { return "" }
-        return [string]::Join(
-            [Environment]::NewLine,
-            $lines[($lastAttribute + 1)..($lines.Count - 1)]
-        )
-    }
-
-    return [string]::Join([Environment]::NewLine, $lines)
+    # An exported member attribute, such as
+    # Attribute Worksheet_Change.VB_Description = "...", follows its
+    # procedure's first line and is not valid as code, so it is dropped
+    # wherever it is, with or without a module header (#394). The member
+    # name may hold code-page letters, so it is any run of characters
+    # other than space, dot and equals sign.
+    $code = @($body | Where-Object { $_ -notmatch '^\s*Attribute\s+[^\s.=]+\.VB_' })
+    return [string]::Join([Environment]::NewLine, $code)
 }
 
 function Copy-WithCrlf {

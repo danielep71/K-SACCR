@@ -245,6 +245,17 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- `tools/Sync-SACCR-VBA.ps1` drops exported member attributes, such as
+  `Attribute Worksheet_Change.VB_Description = "..."`, from the code it
+  writes into a document module (#394). They are not valid as code, so a
+  synchronized worksheet or workbook module with one would not compile. The
+  lines around them, and comments and strings that name `Attribute`, are
+  kept, with or without a module header, CRLF or LF, and for member names
+  with code-page letters such as `Évaluer`. The header scan now matches
+  only `Attribute VB_<name> =`, so a member whose name starts with `VB_` can
+  no longer be taken for the header and cut the code above it. No module in
+  the repository has a member attribute today. Synchronization only: no
+  SA-CCR calculation changes.
 - `tools/check_test_cases.py` validates the fields of a numerical fixture
   that depend on each other with the engine's rules (#401). Each field was
   checked alone, so a fixture the engine would reject could pass the gate
