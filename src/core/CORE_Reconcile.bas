@@ -44,7 +44,7 @@ Attribute VB_Name = "CORE_Reconcile"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -68,7 +68,7 @@ Attribute VB_Name = "CORE_Reconcile"
         Public Const RCN_DIFF        As Long = 4     'Figures outside both tolerances
         Public Const RCN_MISSING     As Long = 5     'Bank IDs not on Results or TradeCalc
         Public Const RCN_NOTINBANK   As Long = 6     'Calculator IDs not in the bank file
-        Public Const RCN_DUPLICATE   As Long = 7     'Bank rows of an ID listed more than once
+        Public Const RCN_DUPLICATE   As Long = 7     'Bank rows of an ID listed more than once, and Trade IDs repeated on TradeCalc
         Public Const RCN_REGIME      As Long = 8     'Netting sets whose regimes differ
         Public Const RCN_WITHHELD    As Long = 9     'Netting sets without a VALID status on Results
         Public Const RCN_INVALID     As Long = 10    'Unusable bank rows and figures
