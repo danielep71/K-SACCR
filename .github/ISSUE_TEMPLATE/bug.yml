@@ -9,7 +9,7 @@ body:
       value: |
         ## 🐛 Bug report
 
-        **Reproducible · Exact commit · Independent reference · No real portfolio data**
+        **Reproducible · Exact commit · Sourced expected value · No real portfolio data**
 
         A useful report names the exact commit, gives steps anyone can repeat, and states where the expected value comes from. Triage sets the milestone and confirms the priority (default `P2`).
 
@@ -76,7 +76,7 @@ body:
     id: expected
     attributes:
       label: "✅ Expected behavior"
-      description: The expected result, error or state, with its independent source (regulatory paragraph, published example or independent calculation).
+      description: The expected result, error or state, with its source (regulatory paragraph, published example, or a calculation separate from K-SACCR's code).
     validations:
       required: true
 
@@ -116,7 +116,7 @@ body:
       description: What must be true for this to be fixed, including the regression test that must pass.
       placeholder: |
         - [ ] ...
-        - [ ] Regression case with an independent expected value
+        - [ ] Regression case with a published expected value, or an illustrative one from a separate derivation
     validations:
       required: true
 

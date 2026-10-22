@@ -105,9 +105,12 @@ TEXT_QUANTITIES = {"cap_applied", "hedging_set", "bucket", "trade_status", "nett
 REFERENCE_FIELDS = {"class", "source", "locator", "derivation", "derived_by", "reviewed_by", "date"}
 REQUIRED_REFERENCE = {
     "published": ("source", "locator"),
-    "independent": ("source", "locator", "derivation", "derived_by", "reviewed_by"),
+    "independent": ("source", "locator", "derivation", "derived_by"),
     "illustrative": ("derivation",),
 }
+# Source IDs of external implementations: the only sources an independent
+# value may cite, and never the source of a published one (TEST_CASES.md).
+IMPLEMENTATION_SOURCE = re.compile(r"^IMPL-")
 
 
 def is_number(value: object) -> bool:
@@ -369,8 +372,13 @@ def check_reference(where: str, reference: object, register: set[str]) -> list[s
     source = reference.get("source")
     if source is not None and source not in register:
         findings.append(f"{where}: source '{source}' is not in the source register")
-    if kind == "independent" and reference.get("reviewed_by") == reference.get("derived_by"):
-        findings.append(f"{where}: an independent value must be reviewed by someone other than its author")
+    if isinstance(source, str) and source.strip():
+        implementation = bool(IMPLEMENTATION_SOURCE.match(source))
+        if kind == "independent" and not implementation:
+            findings.append(f"{where}: an independent reference needs an external implementation "
+                            f"source (IMPL-), not '{source}'")
+        if kind == "published" and implementation:
+            findings.append(f"{where}: a published reference cannot cite the implementation '{source}'")
     if "date" in reference and not valid_date(reference["date"]):
         findings.append(f"{where}: date must be YYYY-MM-DD")
     return findings

@@ -31,9 +31,11 @@ Rules:
 - Test modules are never part of the production import set.
 - Fixtures are synthetic. Never commit real trades, counterparties, collateral
   agreements or portfolio extracts.
-- Expected values come from a source independent of the implementation, such as
-  published regulatory examples. Cases named `illustrative-*` hold only
-  illustrative values: they show a behaviour and validate nothing.
+- Expected values never come from running the implementation: they come from
+  published regulatory examples, from an external implementation registered
+  as a source, or, for `illustrative` cases, from a separate derivation.
+  Cases named `illustrative-*` hold only illustrative values: they show a
+  behaviour and validate nothing.
 - Run output, logs and generated workbooks are not committed.
 - `python tools/check.py` validates every fixture and expected file against
   the format (`check_test_cases`) and checks that the generated
@@ -101,7 +103,7 @@ and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
 `DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository or from
-unreviewed hand calculations, and stay illustrative until an independent
-derivation is committed and reviewed (#100). The values and tolerances of
+hand calculations, and stay illustrative unless an external implementation
+registered as a source reproduces them (#100). The values and tolerances of
 T15 to T28 are the catalogue's, except T16, revised in #39 (#130) to the cap
 with C = NICA only.
