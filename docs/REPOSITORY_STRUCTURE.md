@@ -49,7 +49,7 @@ docs/               contracts, architecture, governance, evidence record
   assets/           images and diagrams of the documentation, with their sources
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
-  user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/)
+  user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/)
 src/                production VBA source: the only input to the workbook
   core/             calculation engine (internal)
   modules/          public worksheet functions
@@ -196,7 +196,6 @@ enforced by `tools/check_source.py`; the others by review.
 - [`../tests/README.md`](../tests/README.md)
 - [`assets/README.md`](assets/README.md)
 - [`methodology/README.md`](methodology/README.md)
-- [`user-manual/v1.0.1/README.md`](user-manual/v1.0.1/README.md)
 - [`user-manual/v1.0.2/README.md`](user-manual/v1.0.2/README.md)
 - [`../tools/README.md`](../tools/README.md)
 
