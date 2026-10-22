@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "illustrative-settled-to-market-periodic",
+  "regime": "CRR",
+  "outputs": [
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRR.275.1",
+      "value": 0.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 275(1)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "aggregate_add_on",
+      "rule": "CRR.278.1",
+      "value": 190270.07043504342,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 278(1)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRR.278.3",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 278(3)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "potential_future_exposure",
+      "rule": "CRR.278.1",
+      "value": 190270.07043504342,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 278(1)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRR.274.2",
+      "value": 266378.0986090608,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 274(2)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "add_on.interest_rate",
+      "rule": "CRR.280a",
+      "value": 63446.428061956656,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 280a, with the maturity factor of Art. 279c(1)(a) and (2)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRR.280d",
+      "value": 75219.24625579714,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 280d, with the maturity factor of Art. 279c(1)(a) and (2)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "add_on.commodity",
+      "rule": "CRR.280e",
+      "value": 51604.39611728962,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 280e, with the maturity factor of Art. 279c(1)(a) and (2)",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "remaining_maturity",
+      "trade": "T1",
+      "rule": "CRR.279c.2",
+      "value": 0.0821917808219178,
+      "unit": "years",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(2): the time until the next reset date",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "maturity_factor",
+      "trade": "T1",
+      "rule": "CRR.279c.1",
+      "value": 0.28669108954049793,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(1)(a), with M from Art. 279c(2), floored at 10 business days",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "adjusted_notional",
+      "trade": "T1",
+      "rule": "CRR.279b",
+      "value": 44261178.93210226,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279b(1)(a): S and E unchanged by the reset",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "bucket",
+      "trade": "T1",
+      "rule": "CRR.280a",
+      "text": ">5Y",
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 280a(3): bucket by E, unchanged by the reset",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "remaining_maturity",
+      "trade": "T2",
+      "rule": "CRR.279c.2",
+      "value": 0.0821917808219178,
+      "unit": "years",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(2): the time until the next reset date",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "maturity_factor",
+      "trade": "T2",
+      "rule": "CRR.279c.1",
+      "value": 0.28669108954049793,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(1)(a), with M from Art. 279c(2), floored at 10 business days",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "supervisory_delta",
+      "trade": "T2",
+      "rule": "CRR.279a",
+      "value": 0.5247407331449113,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279a(1)(a), with T the option expiry",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "remaining_maturity",
+      "trade": "T3",
+      "rule": "CRR.279c.2",
+      "value": 0.0821917808219178,
+      "unit": "years",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(2): the time until the next reset date",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "maturity_factor",
+      "trade": "T3",
+      "rule": "CRR.279c.1",
+      "value": 0.28669108954049793,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(1)(a), with M from Art. 279c(2), floored at 10 business days",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    },
+    {
+      "quantity": "netting_set_status",
+      "rule": "CRR.274.2",
+      "text": "VALID",
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Engine contract, issue #36",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-20"
+      }
+    }
+  ]
+}

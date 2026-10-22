@@ -41,7 +41,7 @@ Attribute VB_Name = "SACCR_Formulas"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -978,11 +978,12 @@ Private Function CellValue( _
 '                                  CellValue
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return the value of a worksheet argument: the Value of a Range (a
-'   2-D array, or one value for a single cell), anything else unchanged.
+'   Return the value of a worksheet argument: the Value2 of a Range (a
+'   2-D array, or one value for a single cell), so that a cell's number
+'   format does not convert it (#196); anything else unchanged.
 '
 ' UPDATED
-'   2026-10-12
+'   2026-10-21
 '==============================================================================
 '
         If IsObject(v) Then

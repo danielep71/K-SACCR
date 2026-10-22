@@ -27,6 +27,8 @@ WORDS = {"linear": "Linear", "option": "Option", "cdo": "CDO", "long": "Long", "
          "volatility": "Volatility"}
 # JSON clearing role -> the NettingSets code.
 CLEARING_ROLE = {"none": "N", "clearing_member": "CM", "client": "CLIENT"}
+# JSON settlement type -> the Trades code; ordinary leaves the cell blank.
+SETTLEMENT = {"ordinary": None, "settled_to_market": "STM"}
 
 HEADER = '''Attribute VB_Name = "TEST_Cases"
 '==============================================================================
@@ -101,7 +103,8 @@ def case_lines(name: str, fixture: dict[str, Any], expected: dict[str, Any]) -> 
             t["hedging_set_label"], t["notional_amount"], t["market_value_amount"],
             t["start_date"], t["end_date"], t["maturity_date"], t["option_expiry_date"],
             t["underlying_price"], t["strike_price"], t["lambda_price"],
-            t["attachment_rate"], t["detachment_rate"]))
+            t["attachment_rate"], t["detachment_rate"], SETTLEMENT[t["settlement_type"]],
+            t["next_reset_date"]))
     lines.append("        TEST_CaseRunner.RunCase")
     for o in expected["outputs"]:
         label = o.get("catalogue") or o["quantity"]

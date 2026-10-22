@@ -171,9 +171,52 @@ Use only the categories needed by a release.
   `VALID`, `NO TRADES` and the `TOTAL` rows are not highlighted. It is part of
   the template: a workbook that only receives the synchronized VBA keeps its
   Results sheet without it.
+- Trades: settled-to-market trades (#360). Two columns before Comment,
+  *Settlement type (N/STM)* in AB and *Next reset date* in AC; Comment moves
+  from AB to AD. `STM` declares that the contract settles its outstanding
+  exposure and resets its value to zero on set dates (daily variation margin
+  alone is not `STM`; the qualification is the user's). Its remaining
+  maturity M is then the time to the next reset date, floored at 10 business
+  days in the maturity factor [CRE52.37(5), CRE52.48; CRR Art. 279c(1)(a),
+  (2)], while S, E and the option expiry T keep their meaning, so a settled
+  option can expire after its reset date. The reset date must be after the
+  reporting date (the MtM is the value after that day's settlement) and not
+  after the maturity as entered; a reset on the maturity date is accepted.
+  Blank or `N` with a reset date, `STM` without one, another code, a reset
+  that is not a date, and legs of one economic trade that differ in
+  settlement type (blank and `N` alike) or reset date are rejected, the
+  trade `EXCLUDED` and its netting set `INCOMPLETE`. An `STM` trade in a
+  margined netting set makes it `INVALID: STM requires unmargined treatment;
+  mixed margined/unmargined netting sets are not supported`, a limitation of
+  the engine (an all-`STM` set is misclassified; a mixed set needs the
+  CRE52.74 treatment, not implemented). With both columns blank every trade
+  keeps its result. The template has the columns, their dropdown and date
+  validation, and a sentence on README D19; the status formulas of Results,
+  Reconciliation and TradeReconciliation C5 watch `Trades!$C:$AC`.
+  Upgrade: a workbook built from an earlier template stops at the Trades
+  header check until it is rebuilt from the new template, or two columns
+  are inserted before Comment with the new headers and `Trades!$C:$AA` is
+  changed to `Trades!$C:$AC` in those three formulas. Tests: the
+  illustrative fixtures `illustrative-settled-to-market-daily` (equity index
+  future and call reset the next business day: MF 0.2) and
+  `illustrative-settled-to-market-periodic` (a five-year swap, an equity call
+  and a Brent forward reset in 30 days, the swap keeping its bucket by E, the
+  forward's reset on its maturity), each under CRR and BCBS, with values from
+  `tests/derivations/settled_to_market.py`; 20 `TEST_InputValidation` cases
+  for the rules. The fixture format gains `settlement_type` and
+  `next_reset_date`, and the expected format the trade quantities
+  `remaining_maturity` and `maturity_factor` (unmargined netting sets only).
+  The R cross-check translates a settled-to-market trade with M as the time
+  to its reset, and skips the cases it cannot represent. Totals: `TEST_Cases`
+  28 cases and 131 checks, `TEST_InputValidation` 163 cases and 267 checks.
 
 ### Documentation
 
+- `docs/methodology/CLEARING_COVERAGE.md` records the input contract for
+  settled-to-market trades (#360), which the Trades entry under Added
+  implements: the columns, the seven rules and their rationale, the upgrade
+  and the tests. The methodology's scope, status and traceability tables,
+  `TEST_CASES.md` and the README's capability table describe it.
 - The README's Regimes section says why the toolkit has two regimes: `CRR`
   is the default and binding for EU institutions; `BCBS` does not replace it
   but shows the effect of the EU deviations, traces results to the Basel
@@ -192,8 +235,10 @@ Use only the categories needed by a release.
   registered sources, and CRR-specific numerical validation remains
   incomplete.
 - The `RunSACCR_Silent` result line in `INSTALLATION.md` gives the input
-  fingerprint the demonstration portfolio has today, `7B68D18F`, as seen in
-  the 1.0.1 release workbook; `74A6C31F` was recorded before later changes to
+  fingerprint the demonstration portfolio has today, `409B031E`, as seen in a
+  workbook built from the template with the settled-to-market columns
+  (#360), whose headers are part of the fingerprint. The 1.0.1 release
+  workbook gives `7B68D18F`; `74A6C31F` was recorded before later changes to
   the template's inputs. The 1.0.0 and 1.0.1 user manuals are released and
   keep the older value in an example they label illustrative.
 - The README shows the total downloads of the release assets as a badge

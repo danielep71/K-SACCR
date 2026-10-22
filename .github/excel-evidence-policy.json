@@ -41,8 +41,8 @@
       "entry_point": "TEST_Cases.RunCaseTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 24,
-      "checks": {"32-bit": 71, "64-bit": 71},
+      "cases": 28,
+      "checks": {"32-bit": 131, "64-bit": 131},
       "restoration": "restore=PASS",
       "first_case": "cre99-example-1"
     },
@@ -50,8 +50,8 @@
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 143,
-      "checks": {"32-bit": 235, "64-bit": 235},
+      "cases": 163,
+      "checks": {"32-bit": 267, "64-bit": 267},
       "restoration": "restore=PASS",
       "first_case": "input-trade-middle-row-without-id"
     },

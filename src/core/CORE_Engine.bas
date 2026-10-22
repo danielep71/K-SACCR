@@ -37,13 +37,17 @@ Attribute VB_Name = "CORE_Engine"
 '   Calculate runs, in order:
 '     ClearOutputSheets, ValidateSchema: clear old results, check the layout;
 '     LoadParams, LoadSFTable, LoadFXTable, LoadNettingSets: read the inputs;
+'     ClassifyRun: regulatory or what-if run;
 '     ProcessTrades: one row per trade, collected into buckets;
 '     ComputeHedgingSets: buckets into hedging-set and asset-class add-ons;
 '     ComputeNettingSets: RC, multiplier, PFE and EAD per netting set;
-'     WriteBuckets, WriteHedgingSets, WriteChecks, WriteRunInfo
-'     (RunInfoText): outputs.
-'   Each trade, bucket and hedging set is stored once in an array, with a
-'   Collection (see CORE_Util.KeyIndex) mapping its key to its array position.
+'     WriteBuckets, WriteHedgingSets, WriteChecks: outputs;
+'     InputFingerprint, RememberRunInputs: remember the inputs of a
+'     completed run; WriteRunInfo (RunInfoText): the run summary.
+'   Each netting set, factor row, FX rate, bucket and hedging set is stored
+'   once in an array, with a Collection (see CORE_Util.KeyIndex) mapping its
+'   key to its array position; each trade is processed in one tTrade record
+'   and not kept.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. Calculate, the run counters (with the
@@ -58,7 +62,9 @@ Attribute VB_Name = "CORE_Engine"
 '
 ' DEPENDENCIES
 '   CORE_Config for the layout, CORE_Util for conversions and sheet access,
-'   SACCR_Formulas for every regulatory formula, and CORE_Export.NumberText
+'   SACCR_Formulas for the trade-level formulas, the IR bucket aggregation,
+'   the replacement cost and the multiplier (the other aggregation steps,
+'   PFE, EAD and the cap are computed here), and CORE_Export.NumberText
 '   for the run time in the run summary, with a decimal point in every
 '   locale (#45).
 '
@@ -66,12 +72,16 @@ Attribute VB_Name = "CORE_Engine"
 '   Owns the module state below. ResetState clears it at the start of each
 '   run; the run counters stay readable until the next run. Reads the input
 '   sheets and Params; writes the TradeCalc, Buckets, HedgingSets, Results
-'   and Checks sheets. Changes no Excel application setting.
+'   and Checks sheets, and the input fingerprint of a completed run in the
+'   hidden workbook name SACCR_RunInputs. Changes no Excel application
+'   setting.
 '
 ' ERROR POLICY
 '   Invalid inputs are not VBA errors. They are logged as ERROR, WARNING or
-'   INFO lines for the Checks sheet: an invalid trade is excluded and the
-'   run continues; invalid parameters or netting sets stop the run.
+'   INFO lines for the Checks sheet: an invalid trade is excluded and its
+'   netting set is INCOMPLETE; an invalid netting set is INVALID, with its
+'   EAD withheld; an invalid layout, parameter or Params table, or no
+'   usable netting set, stops the run.
 '   LoadParams, WriteChecks and WriteRunInfo contain their own errors. A
 '   Checks sheet that cannot be written withdraws the results and raises
 '   ERR_CHECKS_WRITE (#36). Any other unexpected error during a run also
@@ -87,7 +97,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -126,7 +136,8 @@ Attribute VB_Name = "CORE_Engine"
         Trades            As Long       'Number of valid trade legs
         Rejected          As Long       'Number of trade legs rejected by validation
         EconTrades        As Long       'Number of economic trades, each counted once (#38)
-        InputErrors       As Long       'Invalid netting-set fields; EAD withheld when > 0
+        InputErrors       As Long       'Input errors that make the set INVALID; EAD withheld when > 0
+        MarginedSTM       As Boolean    'Margined, with a settled-to-market trade: INVALID (#360)
     End Type
 
     'One row of the supervisory-factor table on Params.
@@ -177,9 +188,11 @@ Attribute VB_Name = "CORE_Engine"
         dEnd          As Double     'End date
         dMat          As Double     'Maturity date
         dExp          As Double     'Option expiry date
+        stm           As Boolean    'Settled-to-market: settlement type STM (#360)
+        dReset        As Double     'Next reset date; -1 when blank
         S             As Double     'Start S, years, at least 0
         E             As Double     'End E, years
-        M             As Double     'Maturity M, years
+        M             As Double     'Maturity M, years; for STM the time to the next reset date
         T             As Double     'Option expiry T, years
         sd            As Double     'Supervisory duration (IR and credit)
         adjN          As Double     'Adjusted notional d
@@ -221,10 +234,10 @@ Attribute VB_Name = "CORE_Engine"
         NSIdx    As Long      'Netting set, position in mNS
         AC       As Long      'Asset class
         Key      As String    'Hedging-set key
-        D1U      As Double    'IR bucket under 1 year, unmargined
+        D1U      As Double    'IR bucket 1: under 1 year (CRR: up to 1 year), unmargined
         D2U      As Double    'IR bucket 1 to 5 years, unmargined
         D3U      As Double    'IR bucket over 5 years, unmargined
-        D1M      As Double    'IR bucket under 1 year, margined
+        D1M      As Double    'IR bucket 1: under 1 year (CRR: up to 1 year), margined
         D2M      As Double    'IR bucket 1 to 5 years, margined
         D3M      As Double    'IR bucket over 5 years, margined
         SysU     As Double    'Sum of rho * add-on, unmargined
@@ -287,7 +300,7 @@ Attribute VB_Name = "CORE_Engine"
         Private mErrCount     As Long            'ERROR messages
         Private mWarnCount    As Long            'WARNING messages
 
-        Private mTradesRead   As Long            'Trades with an ID
+        Private mTradesRead   As Long            'Trade rows read: with an ID, or with data but no ID
         Private mTradesUsed   As Long            'Trades included in the calculation
         Private mRegEAD(1 To 2)       As Double  'Sum of VALID EADs per regime: 1 CRR, 2 BCBS (#198)
         Private mRegSets(1 To 2)      As Long    'Netting sets per regime
@@ -361,8 +374,9 @@ Public Function Calculate( _
 '   and netting set, and write the outputs.
 '
 ' INPUTS
-'   WriteOutputs: True writes every output sheet; False validates only and
-'   writes the Checks sheet alone.
+'   WriteOutputs: True writes every output sheet; False validates only: it
+'   clears the output tables and writes the Checks sheet and the run
+'   summary.
 '
 ' RETURNS
 '   True when the run completed. Individual trades may still have been
@@ -384,7 +398,7 @@ Public Function Calculate( _
 '   Resets all module state, then fills it for this run.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -715,10 +729,10 @@ Public Property Get IncompleteCount() As Long
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Number of netting sets in the last run whose EAD was withheld because
-'   a trade was rejected or a netting-set field was invalid.
+'   a trade was rejected or the netting set is INVALID.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
         IncompleteCount = mIncomplete
@@ -769,10 +783,11 @@ Public Property Get TradesRead() As Long
 '                                  TradesRead
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Number of trade rows (legs) with an ID read by the last run.
+'   Number of trade rows (legs) read by the last run: every row with an
+'   ID, and every row with data but no ID, which is rejected.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
         TradesRead = mTradesRead
@@ -984,7 +999,7 @@ Private Function ValidateSchema() As Boolean
 '   each problem found.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
 
@@ -1007,7 +1022,8 @@ Private Function ValidateSchema() As Boolean
 '------------------------------------------------------------------------------
 ' INPUT SHEETS
 '------------------------------------------------------------------------------
-    'A missing output sheet has already raised in ClearOutputSheets.
+    'A missing TradeCalc, Buckets, HedgingSets or Results sheet has already
+    'raised in ClearOutputSheets; a missing Checks sheet fails WriteChecks.
         AllValid = SheetPresent(SH_PARAMS)
         AllValid = SheetPresent(SH_NS) And AllValid
         AllValid = SheetPresent(SH_TRADES) And AllValid
@@ -2294,8 +2310,9 @@ Private Function LoadNettingSets() As Boolean
 '   margined netting set.
 '
 ' RETURNS
-'   True when at least one valid netting set was read. False, with an error
-'   logged, otherwise.
+'   True when at least one netting set with a usable ID was read, even if
+'   its fields make it INVALID. False, with an error logged, when there is
+'   none.
 '
 ' STATE OWNERSHIP
 '   Fills mNS, mNSCount and mNSIndex, and sizes the asset-class add-on
@@ -2312,7 +2329,7 @@ Private Function LoadNettingSets() As Boolean
 '   structure, CRE54.14(3) and CRR Art. 305(4) (#359).
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-21
 '==============================================================================
 '
 
@@ -2911,7 +2928,9 @@ Private Sub CheckEconomicTrades( _
 '     decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs in
 '     different asset classes map one transaction to several risk
 '     categories [CRE52.28; CRR Art. 277(3)];
-'   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N.
+'   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N;
+'   - its legs differ in settlement type (blank read as N) or next reset
+'     date (#360).
 '
 ' INPUTS
 '   InputBlock: the Trades block read by ProcessTrades, (row, column).
@@ -2924,7 +2943,7 @@ Private Sub CheckEconomicTrades( _
 '   EconTrades.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -2938,6 +2957,8 @@ Private Sub CheckEconomicTrades( _
     Dim GroupLegs()            As Long          'Legs of the group
     Dim GroupMtmLegs()         As Long          'Legs flagged Y
     Dim GroupHasEconomicID()   As Boolean       'The group has an Economic trade ID
+    Dim GroupSettlement()      As String        'Settlement type of the first leg, blank read as N
+    Dim GroupReset()           As Double        'Next reset date of the first leg; -1 when blank
     Dim ClassLegs()            As Long          'Legs in one asset class of one group
     Dim ClassLinearLegs()      As Long          'Of those, legs that are not options
     Dim ClassGroup()           As Long          'Group of each asset-class entry
@@ -2951,6 +2972,7 @@ Private Sub CheckEconomicTrades( _
     Dim GroupKey               As String        'Key of the row's group
     Dim MtmLegFlag             As String        'MtM leg flag of the row
     Dim NSPosition             As Long          'Netting set of a new group; 0 if unknown
+    Dim Settlement             As String        'Settlement type of the row, blank read as N
 
 '------------------------------------------------------------------------------
 ' GROUP THE LEGS
@@ -2963,6 +2985,8 @@ Private Sub CheckEconomicTrades( _
         ReDim GroupLegs(0 To DataRowCount)
         ReDim GroupMtmLegs(0 To DataRowCount)
         ReDim GroupHasEconomicID(0 To DataRowCount)
+        ReDim GroupSettlement(0 To DataRowCount)
+        ReDim GroupReset(0 To DataRowCount)
         ReDim ClassLegs(1 To DataRowCount + 1)
         ReDim ClassLinearLegs(1 To DataRowCount + 1)
         ReDim ClassGroup(1 To DataRowCount + 1)
@@ -2975,6 +2999,8 @@ Private Sub CheckEconomicTrades( _
             TradeID = SafeStr(InputBlock(i, TR_ID))
             If Len(TradeID) > 0 Then
                 EconomicID = SafeStr(InputBlock(i, TR_ECON))
+                Settlement = UTxt(InputBlock(i, TR_SETTLE))
+                If Len(Settlement) = 0 Then Settlement = ST_NONE
                 If Len(EconomicID) = 0 Then
                     GroupKey = "L|" & UCase$(TradeID)
                 Else
@@ -2987,14 +3013,28 @@ Private Sub CheckEconomicTrades( _
                     KeyAdd Groups, GroupKey, g
                     GroupName(g) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
                     GroupHasEconomicID(g) = (Len(EconomicID) > 0)
+                    GroupSettlement(g) = Settlement
+                    GroupReset(g) = ToSerial(InputBlock(i, TR_RESET))
                     GroupNS(g) = UTxt(InputBlock(i, TR_NS))
                     NSPosition = KeyIndex(mNSIndex, GroupNS(g))
                     If NSPosition > 0 Then
                         mNS(NSPosition).EconTrades = mNS(NSPosition).EconTrades + 1
                     End If
-                ElseIf GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
-                    AddGroupError g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
-                                  UTxt(InputBlock(i, TR_NS)) & ")"
+                ElseIf GroupHasEconomicID(g) Then
+                    If UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
+                        AddGroupError g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
+                                      UTxt(InputBlock(i, TR_NS)) & ")"
+                    End If
+
+    'The legs decompose one contractual trade, so they share its settlement
+    'arrangement; separately contracted trades have their own Economic
+    'trade ID, or none, and may differ (#360).
+                    If Settlement <> GroupSettlement(g) Then
+                        AddGroupError g, "its legs have different settlement types (" & GroupSettlement(g) & _
+                                      ", " & Settlement & ")"
+                    ElseIf ToSerial(InputBlock(i, TR_RESET)) <> GroupReset(g) Then
+                        AddGroupError g, "its legs have different next reset dates"
+                    End If
                 End If
                 mRowGroup(i) = g
                 GroupLegs(g) = GroupLegs(g) + 1
@@ -3115,8 +3155,8 @@ Private Sub ProcessTrades( _
 '   notional. Each valid trade is added to its bucket; every trade, valid or
 '   not, gets one TradeCalc row. The steps run in this order for each
 '   trade, on one tTrade record: ReadTradeClass, ReadTradeAmounts,
-'   ReadTradeDates, TradeDelta, TradeHedgingSet, UseTrade and
-'   TradeCalcRow (#60).
+'   ReadTradeDates, ReadTradeSettlement, TradeDelta, TradeHedgingSet,
+'   UseTrade and TradeCalcRow (#60, #360).
 '
 ' INPUTS
 '   WriteOutputs: True writes the TradeCalc sheet.
@@ -3132,7 +3172,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -3206,6 +3246,7 @@ Private Sub ProcessTrades( _
             ReadTradeClass Trade, InputBlock, i, RowNumber, SeenIDs
             ReadTradeAmounts Trade, InputBlock, i
             ReadTradeDates Trade, InputBlock, i
+            ReadTradeSettlement Trade, InputBlock, i
             TradeDelta Trade, InputBlock, i
             TradeHedgingSet Trade
             UseTrade Trade, RowNumber
@@ -3505,6 +3546,105 @@ Private Sub ReadTradeDates( _
                        "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
                        "start of the first period)"
             End If
+        End If
+
+End Sub
+
+
+Private Sub ReadTradeSettlement( _
+    ByRef Trade As tTrade, _
+    ByRef InputBlock As Variant, _
+    ByVal DataRow As Long)
+'
+'==============================================================================
+'                             ReadTradeSettlement
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a trade's settlement type and next reset date (#360). A
+'   settled-to-market trade (STM) settles its outstanding exposure on set
+'   dates and resets its value to zero, so its remaining maturity M is the
+'   time to the next reset date [CRE52.37(5); CRR Art. 279c(2)]. STM is the
+'   user's attestation of these contractual facts; daily variation margin
+'   alone is not STM. The engine checks the declaration and the dates.
+'
+' INPUTS
+'   Trade: the trade being processed, after ReadTradeDates.
+'   InputBlock, DataRow: the Trades input block and the trade's row in it.
+'
+' STATE OWNERSHIP
+'   Sets MarginedSTM and adds one input error to a margined netting set
+'   on its first STM trade: the set becomes INVALID.
+'
+' UPDATED
+'   2026-10-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SettlementType   As String    'Settlement type as entered, upper case
+
+'------------------------------------------------------------------------------
+' SETTLEMENT TYPE
+'------------------------------------------------------------------------------
+    'Blank and N are the ordinary treatment.
+        SettlementType = TradeText(InputBlock(DataRow, TR_SETTLE), "Settlement type", Trade.ok, Trade.msg)
+        If SettlementType = ST_STM Then
+            Trade.stm = True
+        ElseIf Len(SettlementType) > 0 And SettlementType <> ST_NONE Then
+            AddErr Trade.ok, Trade.msg, "settlement type must be N, STM or blank (found " & _
+                   DescribeValue(InputBlock(DataRow, TR_SETTLE)) & ")"
+        End If
+
+'------------------------------------------------------------------------------
+' NEXT RESET DATE
+'------------------------------------------------------------------------------
+    'The MtM is the value after any settlement due on the reporting date,
+    'so the next reset is the first one after it; a reset on the reporting
+    'date would give the 10-day floor to a contract reset months later. The
+    'reset is compared with the maturity as entered (or the end date or
+    'expiry that fills it), before it replaces M; a final reset on the
+    'maturity date is allowed. The floor of 10 business days still applies
+    'in the maturity factor [CRE52.48; CRR Art. 279c(1)(a)].
+        Trade.dReset = TradeDate(InputBlock(DataRow, TR_RESET), "next reset date", Trade.ok, Trade.msg)
+        If Not Trade.stm Then
+            If Trade.dReset >= 0# Then
+                AddErr Trade.ok, Trade.msg, "a next reset date is given but the settlement type is not STM " & _
+                       "(blank or N is the ordinary treatment, without a reset date)"
+            End If
+        ElseIf Trade.dReset < 0# Then
+            If IsBlankCell(InputBlock(DataRow, TR_RESET)) And Not IsError(InputBlock(DataRow, TR_RESET)) Then
+                AddErr Trade.ok, Trade.msg, "a settled-to-market trade (STM) needs its next reset date"
+            End If
+        ElseIf Trade.dReset <= pAsOf Then
+            AddErr Trade.ok, Trade.msg, "next reset date must be after the reporting date (the MtM is the " & _
+                   "value after that day's settlement)"
+        ElseIf Trade.dMat >= 0# And Trade.dReset > Trade.dMat Then
+            AddErr Trade.ok, Trade.msg, "next reset date is after the maturity date"
+        Else
+            Trade.M = (Trade.dReset - pAsOf) / pDaysYear
+        End If
+
+'------------------------------------------------------------------------------
+' MARGINED NETTING SET
+'------------------------------------------------------------------------------
+    'A settled trade is unmargined (Basel FAQ to CRE52.31-32). In a margined
+    'netting set the classification is inconsistent, or the set mixes
+    'margined and unmargined trades, whose treatment [CRE52.74; CRR Art.
+    '274(4)] is not implemented: the netting set is INVALID. This is a
+    'limitation of the engine, not a regulatory prohibition.
+        If Trade.stm And Trade.nsIdx > 0 Then
+            With mNS(Trade.nsIdx)
+                If .Margined And Not .MarginedSTM Then
+                    .MarginedSTM = True
+                    .InputErrors = .InputErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, .ID, "Trade " & Trade.tid & " is settled-to-market (STM) in a " & _
+                           "margined netting set: STM requires unmargined treatment; mixed margined/" & _
+                           "unmargined netting sets are not supported (CRE52.74; CRR Art. 274(4)) - netting " & _
+                           "set INVALID, EAD withheld."
+                End If
+            End With
         End If
 
 End Sub
@@ -4369,7 +4509,8 @@ Private Sub ComputeNettingSets( _
 ' PURPOSE
 '   Calculate RC, multiplier, PFE and EAD for every netting set whose
 '   trades are all valid, apply the margined-EAD cap, and write the Results
-'   sheet with one row per input netting set, a status and a total row.
+'   sheet with one row per input netting set, with its status, and a TOTAL
+'   row for each regime that has netting sets.
 '   A netting set with a rejected trade is INCOMPLETE: its EAD is withheld,
 '   because a figure on the remaining trades would understate the exposure
 '   (#36). One without trades is NO TRADES.
@@ -4392,7 +4533,7 @@ Private Sub ComputeNettingSets( _
 '   multi-level client structure names the reason (#112, #359).
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-21
 '==============================================================================
 '
 
@@ -4461,7 +4602,12 @@ Private Sub ComputeNettingSets( _
                     Case CL_MULTI
                         StatusText = "INVALID: multi-level client structure, not supported"
                     Case Else
-                        StatusText = ""
+                        If mNS(k).MarginedSTM Then
+                            StatusText = "INVALID: STM requires unmargined treatment; mixed margined/" & _
+                                         "unmargined netting sets are not supported"
+                        Else
+                            StatusText = ""
+                        End If
                 End Select
                 If Len(StatusText) = 0 Then
                     StatusText = "INVALID: " & mNS(k).InputErrors & " input error(s)"

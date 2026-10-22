@@ -30,7 +30,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -190,11 +190,11 @@ Private Sub StartCase( _
 '                                  StartCase
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Start a CRR case with one unmargined netting set NS1, blank flags and
+'   Start a CRR case with one unmargined netting set NS1, every flag N and
 '   no collateral.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
         TEST_CaseRunner.BeginCase CaseId, "CRR", VALUATION, "EUR"

@@ -73,6 +73,23 @@ def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float)
     return max(0.0, start or 0.0), end, maturity
 
 
+def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, days_per_year: float) -> float:
+    """M as the engine uses it: for a settled-to-market trade, the time to its next reset date (#360).
+
+    The engine rejects a reset date on an ordinary trade, a settled-to-market
+    trade without one, and a reset on or before the valuation date or after
+    the maturity; such a fixture compares a different netting set.
+    """
+    reset = years(trade["next_reset_date"], valuation, days_per_year)
+    if trade["settlement_type"] != "settled_to_market":
+        if reset is not None:
+            raise Unsupported(f"{trade['id']} has a reset date but is not settled-to-market, which the engine rejects")
+        return maturity
+    if reset is None or reset <= 0 or reset > maturity + 1e-12:
+        raise Unsupported(f"{trade['id']} has a reset date the engine rejects")
+    return reset
+
+
 def reference(trade: dict[str, Any]) -> str:
     """The risk factor as the engine compares it: trimmed and in upper case."""
     return str(trade["risk_factor"]).strip().upper()
@@ -158,6 +175,7 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
     if trade["instrument"] == "option" and trade["option_expiry_date"] is None:
         raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
     start, end, maturity = trade_times(trade, valuation, days_per_year)
+    maturity = settled_maturity(trade, maturity, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
     if expiry is not None and expiry <= 0:
         raise Unsupported(f"{trade['id']} expires on or before the valuation date, which the engine rejects")
@@ -235,6 +253,11 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
             sub_class = str(trade["sub_class"] or "").strip().upper()
             if sub_classes.setdefault(key, sub_class) != sub_class:
                 raise Unsupported(f"{key[1]} has two sub-classes: the engine withholds the netting set's EAD")
+    # The engine marks a margined netting set with a settled-to-market trade
+    # INVALID and withholds its EAD (#360).
+    if fixture["netting_set"]["margined"] and any(
+            t["settlement_type"] == "settled_to_market" for t in fixture["trades"]):
+        raise Unsupported("a settled-to-market trade in a margined netting set: the engine withholds the EAD")
     ns_id = fixture["netting_set"]["id"]
     trades = []
     for trade in fixture["trades"]:

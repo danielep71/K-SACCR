@@ -39,8 +39,8 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   EndSuite restores calculation mode, events and screen updating.
 '
 ' ERROR POLICY
-'   A failed engine run or a missing output is a failed check, and the
-'   suite continues. Restoration steps run independently and a failed one
+'   A failed engine run is a failure of the case and a missing output a
+'   failed check; the suite continues. Restoration steps run independently and a failed one
 '   makes the suite fail with restore=FAIL.
 '
 ' REPORTING
@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -454,7 +454,9 @@ Public Sub AddTrade( _
     ByVal StrikePrice As String, _
     ByVal LambdaPrice As String, _
     ByVal AttachmentRate As String, _
-    ByVal DetachmentRate As String)
+    ByVal DetachmentRate As String, _
+    Optional ByVal SettlementType As String = "", _
+    Optional ByVal NextResetDate As String = "")
 '
 '==============================================================================
 '                                   AddTrade
@@ -466,10 +468,11 @@ Public Sub AddTrade( _
 ' INPUTS
 '   The fixture fields as text, already in the Trades sheet's vocabulary
 '   (IR, Linear, Long, ...): numbers with a "." decimal point, dates as
-'   YYYY-MM-DD, empty for null.
+'   YYYY-MM-DD, empty for null. SettlementType and NextResetDate are blank
+'   for an ordinary trade (#360).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -504,6 +507,8 @@ Public Sub AddTrade( _
         RowValues(1, TR_LAMBDA) = NumberOrBlank(LambdaPrice)
         RowValues(1, TR_ATTACH) = NumberOrBlank(AttachmentRate)
         RowValues(1, TR_DETACH) = NumberOrBlank(DetachmentRate)
+        RowValues(1, TR_SETTLE) = TextOrBlank(SettlementType)
+        RowValues(1, TR_RESET) = IsoDate(NextResetDate)
         WriteRow GetSheet(SH_TRADES), mNextTradeRow, TR_NCOLS, RowValues
         mNextTradeRow = mNextTradeRow + 1
 
@@ -912,11 +917,11 @@ Public Sub ExpectChecksLine( _
 ' PURPOSE
 '   After RunCase, check that the Checks sheet has a line of the given
 '   Severity (SEV_ERROR, SEV_WARN or SEV_INFO) whose message contains
-'   MessagePart, ignoring case: for a warning that does not change the
-'   netting set's status.
+'   MessagePart, ignoring case: for an ERROR, WARNING or INFO line that the
+'   netting set's status alone does not show.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
         Record Label, ReferenceClass, ChecksHasLine(Severity, MessagePart), _
@@ -1042,16 +1047,18 @@ Private Function MustBeNonNegative( _
 ' PURPOSE
 '   Tell whether a quantity is non-negative by definition, so that a
 '   negative result fails whatever the tolerance (TEST_CASES.md).
-'   Supervisory delta and adjusted notional carry a sign and are excluded.
+'   Supervisory delta carries the trade's sign and is excluded; adjusted
+'   notional, never negative, is not listed either.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '==============================================================================
 '
         Select Case Quantity
             Case "exposure_value", "replacement_cost", "potential_future_exposure", _
                  "aggregate_add_on", "multiplier", "margin_period_of_risk", _
-                 "supervisory_factor", "lambda_shift"
+                 "supervisory_factor", "lambda_shift", "maturity_factor", _
+                 "remaining_maturity"
                 MustBeNonNegative = True
             Case Else
                 MustBeNonNegative = (Left$(Quantity, 7) = "add_on.")
@@ -1075,7 +1082,7 @@ Private Function OutputColumn( _
 '   The column number; 0 for an unknown quantity.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -1098,6 +1105,10 @@ Private Function OutputColumn( _
                     OutputColumn = 16
                 Case "lambda_shift"
                     OutputColumn = 23
+                Case "remaining_maturity"
+                    OutputColumn = 12
+                Case "maturity_factor"
+                    OutputColumn = 17
             End Select
         Else
             Select Case Quantity

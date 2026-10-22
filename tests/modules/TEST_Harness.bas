@@ -19,7 +19,7 @@ Attribute VB_Name = "TEST_Harness"
 ' DEPENDENCIES
 '   SACCR_Formulas, TEST_Suite.Say for its log lines, and the built-in
 '   VBA/Excel object models only. No external references, workbook fixture,
-'   worksheet, donor project, or test framework.
+'   worksheet or test framework.
 '
 ' STATE OWNERSHIP
 '   Owns private counters, failure text, suite-completeness state, and a re-entry
@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_Harness"
 '   TEST_Harness.RunTests from the VBE Immediate window.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-21
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1055,22 +1055,26 @@ Private Sub ResetRun()
 '                                   ResetRun
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Return all harness-owned state to its idle baseline.
+'   Return the run state (counters, failure text, active-run and completion
+'   flags) to its idle baseline; the injection flag is left to its owner.
 '
 ' STATE OWNERSHIP
 '   Clear counters, failure text, active-run state, and completion.
 '   This helper never changes Excel application properties.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-21
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' RESET
 '------------------------------------------------------------------------------
-    'Clear all harness-owned state together so no count, diagnostic, or
-    'completion flag can leak from a previous execution into the next one.
+    'Clear the run state together so no count, diagnostic, or completion
+    'flag can leak from a previous execution into the next one. The
+    'injection flag survives: RunTestsWithInjectedFailure sets it before
+    'RunTests calls this and clears it afterwards, and ResetTests clears it
+    'too.
         mCaseCount = 0
         mAssertionCount = 0
         mFailureCount = 0
