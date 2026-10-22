@@ -218,6 +218,84 @@ def check_fixture(name: str, stem: str, data: dict[str, Any]) -> list[str]:
     return findings
 
 
+def iso_date(value: object) -> date | None:
+    """The date of a well-formed field, or None; a malformed one is reported by check_fields."""
+    return date.fromisoformat(value) if isinstance(value, str) and valid_date(value) else None
+
+
+def input_errors(data: dict[str, Any]) -> tuple[dict[str, list[str]], list[str]]:
+    """The settlement and CCP inputs the engine rejects, as the engine checks them:
+    per trade (the trade is EXCLUDED; CORE_Engine.ReadTradeSettlement, #360) and
+    per netting set (it is INVALID; CORE_Engine.LoadNettingSets, #112). Each field
+    is validated alone by check_fields; these rules relate fields to each other."""
+    trade_errors: dict[str, list[str]] = {}
+    set_errors: list[str] = []
+    netting_set = data.get("netting_set")
+    netting_set = netting_set if isinstance(netting_set, dict) else {}
+    margined = netting_set.get("margined") is True
+    valuation = iso_date(data.get("valuation_date"))
+    trades = data.get("trades")
+    for trade in trades if isinstance(trades, list) else []:
+        if not isinstance(trade, dict):
+            continue
+        errors: list[str] = []
+        settled = trade.get("settlement_type") == "settled_to_market"
+        reset_value = trade.get("next_reset_date")
+        reset = iso_date(reset_value)
+        # M is the maturity date, or else the end date, or else the option expiry.
+        maturity = next((d for d in (iso_date(trade.get(k)) for k in
+                                     ("maturity_date", "end_date", "option_expiry_date")) if d), None)
+        if not settled:
+            if reset_value is not None:
+                errors.append("next_reset_date is given but settlement_type is not settled_to_market")
+        elif reset_value is None:
+            errors.append("a settled_to_market trade needs next_reset_date")
+        elif reset is not None and valuation is not None and reset <= valuation:
+            errors.append("next_reset_date must be after valuation_date")
+        elif reset is not None and maturity is not None and reset > maturity:
+            errors.append("next_reset_date is after the maturity (maturity_date, else end_date, "
+                          "else option_expiry_date)")
+        if errors:
+            trade_errors[str(trade.get("id"))] = errors
+        if settled and margined:
+            set_errors.append(f"trade {trade.get('id')} is settled_to_market in a margined netting set")
+    ccp = netting_set.get("clearing_role") == "ccp"
+    for field in ("qccp", "ccp_retains_variation_margin"):
+        if field not in netting_set:
+            continue
+        if ccp and netting_set[field] is None:
+            set_errors.append(f"{field} is required for clearing_role ccp")
+        elif not ccp and netting_set[field] is not None:
+            set_errors.append(f"{field} applies only to clearing_role ccp and must be null")
+    if ccp and netting_set.get("ccp_retains_variation_margin") is True and not margined:
+        set_errors.append("ccp_retains_variation_margin needs a margined netting set")
+    return trade_errors, set_errors
+
+
+def check_declared_rejections(case: str, data: dict[str, Any],
+                              expected: list[tuple[str, list[dict[str, Any]]]]) -> list[str]:
+    """A fixture holds valid inputs, except where it tests a rejection: every
+    expected file of the fixture must then declare the outcome the engine
+    gives, trade_status EXCLUDED for the trade or a netting_set_status
+    starting with INVALID. A rejected input without that declaration is a
+    malformed fixture, whose figures would not describe the calculation (#401)."""
+    trade_errors, set_errors = input_errors(data)
+    findings: list[str] = []
+    for name, outputs in expected:
+        excluded = {o.get("trade") for o in outputs
+                    if o.get("quantity") == "trade_status" and o.get("text") == "EXCLUDED"}
+        invalid = any(o.get("quantity") == "netting_set_status" and str(o.get("text", "")).startswith("INVALID")
+                      for o in outputs)
+        for trade, errors in sorted(trade_errors.items()):
+            if trade not in excluded:
+                findings += [f"{FIXTURES}/{case}.json: trade {trade}: {e}; the engine rejects it, but {name} "
+                             f"does not expect trade_status EXCLUDED" for e in errors]
+        if not invalid:
+            findings += [f"{FIXTURES}/{case}.json: {e}; the engine makes the netting set INVALID, but {name} "
+                         f"does not expect a netting_set_status starting with INVALID" for e in set_errors]
+    return findings
+
+
 def check_parameters(where: str, parameters: object) -> list[str]:
     """Params values a case runs with instead of the template's; {} for none."""
     if not isinstance(parameters, dict):
@@ -430,6 +508,7 @@ def run_check(root: Path) -> dict[str, Any]:
             findings += check_fixture(name, path.stem, data)
             fixtures[path.stem] = data
     case_outputs: dict[str, list[dict[str, Any]]] = {}
+    case_files: dict[str, list[tuple[str, list[dict[str, Any]]]]] = {}
     expected_files = sorted((root / EXPECTED).glob("*.json"))
     for path in expected_files:
         name = f"{EXPECTED}/{path.name}"
@@ -437,7 +516,12 @@ def run_check(root: Path) -> dict[str, Any]:
         if data is not None:
             more, outputs = check_expected(name, path.stem, data, fixtures, register)
             findings += more
-            case_outputs.setdefault(path.stem.rpartition(".")[0], []).extend(outputs)
+            case = path.stem.rpartition(".")[0]
+            case_outputs.setdefault(case, []).extend(outputs)
+            case_files.setdefault(case, []).append((name, outputs))
+    for case, files in sorted(case_files.items()):
+        if case in fixtures:
+            findings += check_declared_rejections(case, fixtures[case], files)
     findings += check_cases(case_outputs, set(fixtures))
     findings += check_citations(root, register)
     outputs = [o for group in case_outputs.values() for o in group]
