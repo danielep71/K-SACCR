@@ -51,7 +51,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -387,7 +387,9 @@ Public Sub AddNettingSet( _
     ByVal NicaAmount As String, _
     ByVal ThresholdAmount As String, _
     ByVal MtaAmount As String, _
-    ByVal AlphaFactor As String)
+    ByVal AlphaFactor As String, _
+    Optional ByVal QccpFlag As String = "", _
+    Optional ByVal RetainedVmFlag As String = "")
 '
 '==============================================================================
 '                                AddNettingSet
@@ -398,11 +400,12 @@ Public Sub AddNettingSet( _
 '   blank: one agreement, or none, covering this netting set only.
 '
 ' INPUTS
-'   The fixture fields as text: Y or N for flags, N, CM or CLIENT for the
-'   clearing role, numbers with a "." decimal point, empty for null.
+'   The fixture fields as text: Y or N for flags, N, CM, CLIENT or CCP for
+'   the clearing role, numbers with a "." decimal point, empty for null.
+'   QccpFlag and RetainedVmFlag are blank except for role CCP (#112).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-22
 '==============================================================================
 '
 
@@ -429,6 +432,8 @@ Public Sub AddNettingSet( _
         RowValues(1, NS_MTA) = NumberOrBlank(MtaAmount)
         RowValues(1, NS_ALPHA) = NumberOrBlank(AlphaFactor)
         RowValues(1, NS_REGIME) = mRegime
+        RowValues(1, NS_QCCP) = TextOrBlank(QccpFlag)
+        RowValues(1, NS_RETAINVM) = TextOrBlank(RetainedVmFlag)
         WriteRow GetSheet(SH_NS), InputTop(SH_NS), NS_NCOLS, RowValues
 
 End Sub
@@ -1051,14 +1056,14 @@ Private Function MustBeNonNegative( _
 '   notional, never negative, is not listed either.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '==============================================================================
 '
         Select Case Quantity
             Case "exposure_value", "replacement_cost", "potential_future_exposure", _
                  "aggregate_add_on", "multiplier", "margin_period_of_risk", _
                  "supervisory_factor", "lambda_shift", "maturity_factor", _
-                 "remaining_maturity"
+                 "maturity_factor_margined", "remaining_maturity"
                 MustBeNonNegative = True
             Case Else
                 MustBeNonNegative = (Left$(Quantity, 7) = "add_on.")
@@ -1082,7 +1087,7 @@ Private Function OutputColumn( _
 '   The column number; 0 for an unknown quantity.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-22
 '==============================================================================
 '
 
@@ -1109,6 +1114,8 @@ Private Function OutputColumn( _
                     OutputColumn = 12
                 Case "maturity_factor"
                     OutputColumn = 17
+                Case "maturity_factor_margined"
+                    OutputColumn = 18
             End Select
         Else
             Select Case Quantity

@@ -20,7 +20,9 @@
     "independent_collateral_net_amount": 2000000,
     "threshold_amount": 0,
     "minimum_transfer_amount": 250000,
-    "alpha_factor": null
+    "alpha_factor": null,
+    "qccp": null,
+    "ccp_retains_variation_margin": null
   },
   "trades": [
     {

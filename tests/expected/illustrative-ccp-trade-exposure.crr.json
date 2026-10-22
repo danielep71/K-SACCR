@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "illustrative-ccp-trade-exposure",
+  "regime": "CRR",
+  "outputs": [
+    {
+      "quantity": "margin_period_of_risk",
+      "rule": "CRR.304.3",
+      "value": 10.0,
+      "unit": "business_days",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 304(3)(b), with Art. 285(5) (F + N - 1)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRR.275.2",
+      "value": 80000.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 275(2)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRR.280d",
+      "value": 378711.1099717368,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 280d, with the margined maturity factor of Art. 279c(1)(b)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRR.278.3",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 278(3)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "potential_future_exposure",
+      "rule": "CRR.278.1",
+      "value": 378711.1099717368,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 278(1)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRR.274.2",
+      "value": 642195.5539604315,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 274(2), (3); Art. 306(3)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "cap_applied",
+      "rule": "CRR.274.3",
+      "text": "N",
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 274(3), the cap's collateral being NICA (EBA-QA-2023_6962)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "maturity_factor_margined",
+      "trade": "T1",
+      "rule": "CRR.279c.1",
+      "value": 0.30000000000000004,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(1)(b), with the horizon of Art. 304(3)(b) and, where the CCP retains VM, (d)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "maturity_factor_margined",
+      "trade": "T2",
+      "rule": "CRR.279c.1",
+      "value": 0.30000000000000004,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279c(1)(b), with the horizon of Art. 304(3)(b) and, where the CCP retains VM, (d)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "supervisory_delta",
+      "trade": "T2",
+      "rule": "CRR.279a",
+      "value": 0.5247407331449113,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Art. 279a(1)(a)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "netting_set_status",
+      "rule": "CRR.274.2",
+      "text": "VALID",
+      "reference": {
+        "class": "illustrative",
+        "source": "CRR",
+        "locator": "Engine contract, issue #36",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    }
+  ]
+}

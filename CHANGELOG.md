@@ -96,22 +96,53 @@ Use only the categories needed by a release.
 
 ### Added
 
-- NettingSets: Client clearing role `CCP` declares a netting set facing a
-  central counterparty. Until CCP exposures are supported (#112), such a
-  netting set is `INVALID: facing a CCP, not supported` on Results (any
-  other invalid field is counted after it), with an error on Checks,
-  instead of being calculated with the bilateral floors, which can
-  understate its exposure
-  (for example where the CCP retains variation margin; CRE54.8(3), CRR Art.
-  304(3)(d)). The template's dropdown, input message and guidance list the
-  code; the NettingSets guidance in C3 is now three lines, wrapped across
-  the table. The column header keeps its text, so an existing workbook still
-  passes the header check after its VBA is synchronized, but its dropdown
-  still offers only N, CM and CLIENT and Excel refuses `CCP` typed into the
-  column. To declare CCP-facing netting sets in such a workbook, rebuild it
-  from the new template, or change the list of the data validation on
-  NettingSets column F (rows 7 to 206) to `N,CM,CLIENT,CCP`. A netting set
-  facing a CCP but entered with role `N` is still calculated as bilateral.
+- NettingSets: trade exposures to a central counterparty (#112, part (a)).
+  Client clearing role `CCP` is the bank's trade exposure, as clearing
+  member, to a CCP, for its own trades and for client trades it must
+  reimburse on the CCP's default; client trades it need not reimburse are
+  not entered. Two columns after Margin agreements are required for `CCP`
+  and must be blank for every other role: *QCCP (Y/N)* in R (under `CRR` a
+  CCP authorised or recognised under EMIR, Art. 4(1)(88); under `BCBS` a
+  QCCP of CRE50.3) and *CCP retains VM, collateral not protected (Y/N)* in
+  S, which needs Margined = Y. A missing, invalid or misplaced value makes
+  the netting set `INVALID`, with an error on Checks. A margined `CCP` set
+  has an MPOR floor of 10 business days in both regimes [CRE54.8(2); CRR
+  Art. 304(3)(b)], plus N - 1, doubled with disputes and raised by an
+  override that is not below it; the large or illiquid flag still sets 20
+  days, a conservative limitation, although the 5,000-trade floor does not
+  apply to trade exposures. With retained VM each trade takes the larger of
+  the netting set's MPOR and the lower of one year and its remaining
+  maturity, at least 10 business days, in its own margined maturity factor
+  [CRE54.8(3); CRR Art. 304(3)(d)]. The exposure value stays in the regime's
+  EAD total. Checks gives each `CCP` set an INFO line with its role, floor,
+  rule and risk-weight rule, stated and not applied (2% for a QCCP; for a
+  non-qualifying CCP the standardised weight, to be determined outside
+  K-SACCR), and each regime with `CCP` sets an INFO line with their number,
+  how many are `VALID`, and their EAD. Before this change, from the start of
+  this release, role `CCP` rejected the netting set as not supported; that
+  interim status `INVALID: facing a CCP, not supported` no longer exists.
+  Default-fund contributions, their own funds requirements and the cap of
+  Art. 303(2) / CRE54.40 are not calculated (#400). A CCP entered as the
+  counterparty of a role-`N` netting set is still calculated as bilateral.
+  The template has the columns, their dropdowns and input messages, and
+  guidance; the status formulas of Results, Reconciliation and
+  TradeReconciliation C5 watch `NettingSets!$C:$S`. Upgrade: a workbook
+  built from an earlier template stops at the NettingSets header check until
+  it is rebuilt from the new template, or the two columns are added after
+  Margin agreements with the new headers, `NettingSets!$C:$Q` is changed to
+  `NettingSets!$C:$S` in those three formulas, and `CCP` and `MULTI` are
+  added to the validation list of column F; with R and S blank every other
+  netting set keeps its result. Tests: the illustrative fixtures
+  `illustrative-ccp-trade-exposure` (CRR and BCBS, MPOR 10, the same EAD),
+  `illustrative-ccp-retained-vm` (CRR and BCBS, trade maturity factors 0.3,
+  1.0592 and 1.5) and `illustrative-ccp-non-qualifying`, with values from
+  `tests/derivations/ccp_trade_exposure.py`; 16 `TEST_InputValidation`
+  cases replace the two of the interim rejection. The fixture format gains
+  `qccp`, `ccp_retains_variation_margin` and the `ccp` role, and the
+  expected format the trade quantity `maturity_factor_margined` (margined
+  netting sets only). The source register adds `CRE50`, with a registered
+  copy. Totals: `TEST_Cases` 33 cases and 186 checks,
+  `TEST_InputValidation` 177 cases and 305 checks.
 - Tests for client clearing (#359): two illustrative numerical cases, a
   listed equity index future and call option in a margined netting set where
   the bank is the clearing member (`illustrative-clearing-member-listed`,
@@ -213,7 +244,8 @@ Use only the categories needed by a release.
 ### Documentation
 
 - `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
-  CCP trade exposures (#112), not yet implemented. Role `CCP` becomes the
+  CCP trade exposures (#112), which the NettingSets entry under Added
+  implements. Role `CCP` becomes the
   clearing member's trade exposure to a CCP, calculated with SA-CCR, with two
   NettingSets columns after Margin agreements: *QCCP (Y/N)* in R and *CCP
   retains VM, collateral not protected (Y/N)* in S, required for `CCP` and
@@ -276,8 +308,8 @@ Use only the categories needed by a release.
   EAD totals and risk weights and capital outside them; the single *large or
   illiquid* flag stays as a conservative limitation; settled-to-market trades
   get a settlement type and a next reset date; and a declared CCP-facing
-  netting set is rejected until CCP support exists, which the `CCP` role
-  under Added implements. A netting set facing a CCP but entered with role N
+  netting set is rejected until CCP support exists, an interim rejection the
+  CCP trade exposures under Added replace. A netting set facing a CCP but entered with role N
   is still calculated as bilateral, as the support matrix says. The source
   register adds `CRR-CCP`, Articles 4(1)(88)–(91) and 300–311 of the
   consolidated CRR, with a registered extract. The documentation itself

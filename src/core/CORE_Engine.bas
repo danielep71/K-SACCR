@@ -97,7 +97,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -138,6 +138,8 @@ Attribute VB_Name = "CORE_Engine"
         EconTrades        As Long       'Number of economic trades, each counted once (#38)
         InputErrors       As Long       'Input errors that make the set INVALID; EAD withheld when > 0
         MarginedSTM       As Boolean    'Margined, with a settled-to-market trade: INVALID (#360)
+        QCCP              As Boolean    'Role CCP: the CCP is qualifying (#112)
+        RetainedVM        As Boolean    'Role CCP: the CCP retains VM, collateral not protected
     End Type
 
     'One row of the supervisory-factor table on Params.
@@ -2324,12 +2326,14 @@ Private Function LoadNettingSets() As Boolean
 '   client-clearing floor CRE54.12 and CRR Art. 279c(1), configurable on
 '   Params. VM on an unmargined set CRE52.2, CRE52.10 and CRR Art. 272(7),
 '   (7a). Margin-agreement structures CRE52.74, CRE52.75 and CRR Art.
-'   274(4), 275(3). A netting set facing a CCP is rejected: CRE54 and CRR
-'   Art. 300-311 are not applied (#112); so is a multi-level client
-'   structure, CRE54.14(3) and CRR Art. 305(4) (#359).
+'   274(4), 275(3). A clearing member's trade exposure to a CCP: MPOR
+'   floor CRE54.8(2) and CRR Art. 304(3)(b), risk weight CRE54.7, CRE54.41
+'   and CRR Art. 306(1) (stated, not applied), retained VM CRE54.8(3) and
+'   CRR Art. 304(3)(d) (#112). A multi-level client structure is
+'   rejected, CRE54.14(3) and CRR Art. 305(4) (#359).
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '==============================================================================
 '
 
@@ -2349,6 +2353,7 @@ Private Function LoadNettingSets() As Boolean
     Dim MPOROverride       As Double       'MPOR override entered; 0 when none
     Dim RoleText           As String       'Clearing role named on Checks; empty for role N
     Dim RoleRule           As String       'Rule of that role's MPOR floor
+    Dim InfoText           As String       'INFO line naming the role, floor and rule
     Dim NettingSetRegime   As String       'Regime of the netting set
     Dim FieldErrors        As Long         'Invalid fields found on the row
 
@@ -2481,21 +2486,43 @@ Private Function LoadNettingSets() As Boolean
                     End If
                 End If
 
-    'A netting set facing a CCP, or a multi-level client structure, is
-    'declared so that it is rejected rather than calculated as bilateral
-    'or as an ordinary client-clearing set: the engine does not yet apply
-    'the CCP rules, such as the horizon when the CCP retains VM (#112), nor
-    'the conditions at each level of a multi-level structure (#359).
-                Select Case .ClearingRole
-                    Case CL_CCP
+    'A multi-level client structure is declared so that it is rejected
+    'rather than calculated as an ordinary client-clearing set: the engine
+    'does not model the conditions at each level (#359).
+                If .ClearingRole = CL_MULTI Then
+                    FieldErrors = FieldErrors + 1
+                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A multi-level client structure is not supported " & _
+                           "(CRE54.14(3); CRR Art. 305(4)).", RowNumber
+                End If
+
+    'A clearing member's trade exposure to a CCP (role CCP, #112) needs its
+    'QCCP status and whether the CCP retains VM without protecting the
+    'bank's collateral; both are blank for every other role, so that a
+    'value meant for a CCP cannot sit unnoticed on another netting set.
+    'Retained VM is variation margin, so it needs a margined netting set.
+                .QCCP = False
+                .RetainedVM = False
+                If .ClearingRole = CL_CCP Then
+                    .QCCP = NsRequiredFlag(InputBlock(i, NS_QCCP), "QCCP", NettingSetRef, RowNumber, FieldErrors)
+                    .RetainedVM = NsRequiredFlag(InputBlock(i, NS_RETAINVM), "CCP retains VM", NettingSetRef, RowNumber, _
+                                                 FieldErrors)
+                    If .RetainedVM And Not .Margined Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A netting set facing a CCP is not supported " & _
-                               "(CRE54; CRR Art. 300-311).", RowNumber
-                    Case CL_MULTI
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM is Y on an unmargined netting set: " & _
+                               "variation margin needs Margined = Y.", RowNumber
+                    End If
+                Else
+                    If Not IsBlankCell(InputBlock(i, NS_QCCP)) Or IsError(InputBlock(i, NS_QCCP)) Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A multi-level client structure is not supported " & _
-                               "(CRE54.14(3); CRR Art. 305(4)).", RowNumber
-                End Select
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "QCCP applies only to Client clearing role CCP - " & _
+                               "leave it blank (found " & DescribeValue(InputBlock(i, NS_QCCP)) & ").", RowNumber
+                    End If
+                    If Not IsBlankCell(InputBlock(i, NS_RETAINVM)) Or IsError(InputBlock(i, NS_RETAINVM)) Then
+                        FieldErrors = FieldErrors + 1
+                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM applies only to Client clearing role " & _
+                               "CCP - leave it blank (found " & DescribeValue(InputBlock(i, NS_RETAINVM)) & ").", RowNumber
+                    End If
+                End If
 
     'Margin-agreement structures the engine does not model are declared, so
     'that the netting set is rejected rather than calculated as one with a
@@ -2532,10 +2559,14 @@ Private Function LoadNettingSets() As Boolean
     'that. The client-clearing floor applies to the clearing member facing
     'its client [CRE54.12; CRR Art. 279c(1)], and under CRR also to the
     'client facing its clearing member; under BCBS the client keeps the
-    'bilateral floor, a conservative interpretation [CRE54.8, CRE54.14].
-    'Every CM and CLIENT netting set gets an INFO line naming its role, the
-    'floor and the rule applied, so that the evidence shows them (#359); it
-    'is written after the large-or-illiquid adjustment, so that it names the
+    'bilateral floor, a conservative interpretation [CRE54.8, CRE54.14]. A
+    'clearing member's trade exposure to a CCP has a floor of 10 business
+    'days [CRE54.8(2); CRR Art. 304(3)(b)]; the large or illiquid flag stays
+    'one input and still sets 20 days, a conservative limitation (#112).
+    'Every CM, CLIENT and CCP netting set gets an INFO line naming its role,
+    'the floor and the rule applied, and for CCP the retained-VM horizon and
+    'the risk weight, so that the evidence shows them (#359, #112); it is
+    'written after the large-or-illiquid adjustment, so that it names the
     'floor actually applied.
                 If .Margined Then
                     RoleText = ""
@@ -2556,18 +2587,30 @@ Private Function LoadNettingSets() As Boolean
                                 RoleRule = "a conservative interpretation: CRE54.8(2), CRE54.14-.17; the client-clearing " & _
                                            "floor of CRE54.12 is for the clearing member"
                             End If
+                        Case CL_CCP
+                            FloorBD = MPOR_CCP_BD
+                            RoleText = CcpRoleText(.QCCP)
+                            RoleRule = "CRE54.8(2); CRR Art. 304(3)(b)"
                         Case Else
                             FloorBD = pMPORBil
                     End Select
                     If Len(RoleText) > 0 Then
                         If .LargeOrIlliquid And pMPORLarge > FloorBD Then
-                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
-                                   RoleRule & "), raised to " & CStr(pMPORLarge) & " BD by the large or illiquid flag " & _
-                                   "(CRE52.51; CRR Art. 285(3)).", RowNumber
+                            InfoText = RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & RoleRule & "), raised to " & _
+                                       CStr(pMPORLarge) & " BD by the large or illiquid flag (CRE52.51; CRR Art. 285(3))"
                         Else
-                            LogMsg SEV_INFO, SH_NS, NettingSetRef, RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & _
-                                   RoleRule & ").", RowNumber
+                            InfoText = RoleText & ": MPOR floor " & CStr(FloorBD) & " BD (" & RoleRule & ")"
                         End If
+                        If .ClearingRole = CL_CCP Then
+                            If .RetainedVM Then
+                                InfoText = InfoText & "; the CCP retains VM and the collateral is not protected, so " & _
+                                           "each trade's horizon is the lower of one year and its remaining maturity, at " & _
+                                           "least " & CStr(pMinMatBD) & " BD, where it exceeds the MPOR (CRE54.8(3); " & _
+                                           "CRR Art. 304(3)(d))"
+                            End If
+                            InfoText = InfoText & "; " & CcpRiskWeightText(.QCCP)
+                        End If
+                        LogMsg SEV_INFO, SH_NS, NettingSetRef, InfoText & ".", RowNumber
                     End If
                     If .LargeOrIlliquid Then
                         FloorBD = Max2(FloorBD, pMPORLarge)
@@ -2590,6 +2633,10 @@ Private Function LoadNettingSets() As Boolean
                     LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client clearing role " & .ClearingRole & " on an unmargined " & _
                            "netting set: no MPOR floor applies; each trade's maturity factor uses its remaining " & _
                            "maturity (CRE52.48; CRR Art. 279c(1)(a)).", RowNumber
+                ElseIf .ClearingRole = CL_CCP Then
+                    LogMsg SEV_INFO, SH_NS, NettingSetRef, CcpRoleText(.QCCP) & " on an unmargined netting set: no MPOR " & _
+                           "floor applies; each trade's maturity factor uses its remaining maturity (CRE52.48; CRR " & _
+                           "Art. 279c(1)(a)); " & CcpRiskWeightText(.QCCP) & ".", RowNumber
                 End If
             End With
             KeyAdd mNSIndex, NettingSetRef, mNSCount
@@ -2652,6 +2699,87 @@ Private Function NsFlag( _
             LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be Y or N (found " & DescribeValue(RawValue) & ").", RowNumber
         End If
         NsFlag = Result
+
+End Function
+
+
+Private Function NsRequiredFlag( _
+    ByVal RawValue As Variant, _
+    ByVal FieldName As String, _
+    ByVal NettingSetRef As String, _
+    ByVal RowNumber As Long, _
+    ByRef FieldErrors As Long) _
+    As Boolean
+'
+'==============================================================================
+'                                NsRequiredFlag
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read a Y/N field of a netting set that has no default: blank is an
+'   input error, like an unrecognised value (#112).
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+        If IsBlankCell(RawValue) And Not IsError(RawValue) Then
+            FieldErrors = FieldErrors + 1
+            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " (Y/N) is required for Client clearing role CCP.", _
+                   RowNumber
+        Else
+            NsRequiredFlag = NsFlag(RawValue, False, FieldName, NettingSetRef, RowNumber, FieldErrors)
+        End If
+
+End Function
+
+
+Private Function CcpRoleText( _
+    ByVal Qualifying As Boolean) _
+    As String
+'
+'==============================================================================
+'                                 CcpRoleText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Name a CCP netting set's role on Checks: a clearing member's trade
+'   exposure to a qualifying or a non-qualifying CCP (#112).
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+        If Qualifying Then
+            CcpRoleText = "Trade exposure to a QCCP"
+        Else
+            CcpRoleText = "Trade exposure to a non-qualifying CCP"
+        End If
+
+End Function
+
+
+Private Function CcpRiskWeightText( _
+    ByVal Qualifying As Boolean) _
+    As String
+'
+'==============================================================================
+'                              CcpRiskWeightText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   State the risk weight that applies to a CCP trade exposure. K-SACCR
+'   calculates exposure values only, so the weight is stated, not applied;
+'   for a non-qualifying CCP it depends on the CCP's counterparty category
+'   and credit quality, which the workbook does not take (#112).
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+        If Qualifying Then
+            CcpRiskWeightText = "risk weight 2% (CRE54.7; CRR Art. 306(1)(a)), not applied"
+        Else
+            CcpRiskWeightText = "standardised risk weight of the CCP (CRE54.41; CRR Art. 306(1)(b)), to be " & _
+                                "determined outside K-SACCR"
+        End If
 
 End Function
 
@@ -3885,21 +4013,39 @@ Private Sub UseTrade( _
 '   reference sub-classes through CheckReferenceClass.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-22
 '==============================================================================
 '
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim HorizonBD   As Double    'Retained-VM horizon of the trade, business days
 
 '------------------------------------------------------------------------------
 ' MATURITY FACTOR AND EFFECTIVE NOTIONAL
 '------------------------------------------------------------------------------
     'The effective notional is kept on both bases: unmargined MF from the
     'trade's maturity, and margined MF from the netting set's MPOR. The
-    'margined basis equals the unmargined one for an unmargined set.
+    'margined basis equals the unmargined one for an unmargined set. When a
+    'CCP retains VM and the bank's collateral is not protected, each trade's
+    'horizon is the lower of one year and its remaining maturity, floored at
+    'MinMaturityBD [CRE54.8(3); CRR Art. 304(3)(d)]; CRE54.8(3) makes it a
+    'minimum, so it applies only where it exceeds the netting set's MPOR
+    '(#112).
         If Trade.ok Then
             Trade.sfEff = mSF(Trade.sfIdx).SF * Trade.natFactor
             Trade.corrEff = mSF(Trade.sfIdx).Corr
             Trade.mfU = FormulaNumber(SACCR_MaturityFactor(Trade.M, False, 0#, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
-            If mNS(Trade.nsIdx).Margined Then
+            If mNS(Trade.nsIdx).Margined And mNS(Trade.nsIdx).RetainedVM Then
+                HorizonBD = Max2(pMinMatBD, Min2(pBDYear, Trade.M * pBDYear))
+                If HorizonBD > mNS(Trade.nsIdx).MPOR Then
+                    Trade.mfM = FormulaNumber(SACCR_MaturityFactor(0#, True, HorizonBD, pMinMatBD, pBDYear), _
+                                              "SACCR_MaturityFactor")
+                Else
+                    Trade.mfM = mNS(Trade.nsIdx).MFMargined
+                End If
+            ElseIf mNS(Trade.nsIdx).Margined Then
                 Trade.mfM = mNS(Trade.nsIdx).MFMargined
             Else
                 Trade.mfM = Trade.mfU
@@ -4529,11 +4675,12 @@ Private Sub ComputeNettingSets( _
 '   EAD CRE52.1; cap CRE52.2 and CRR Art. 274(3); RC CRE52.10, CRE52.18 and
 '   CRR Art. 275(1); multiplier CRE52.23; collateral of the cap, NICA, per
 '   CRE52.10 and EBA-QA-2023_6962; trade-count warning CRE52.51(1) and
-'   CRR Art. 285(3)(a). The status of a netting set facing a CCP or of a
-'   multi-level client structure names the reason (#112, #359).
+'   CRR Art. 285(3)(a). The status of a multi-level client structure names
+'   the reason (#359). Trade exposures to CCPs stay in their regime's total,
+'   with their share on Checks (#112).
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '==============================================================================
 '
 
@@ -4569,6 +4716,9 @@ Private Sub ComputeNettingSets( _
     Dim OutputTop          As Long         'First Results data row
     Dim StatusText         As String       'Status of an INVALID netting set
     Dim Totals(1 To 2, 1 To RS_NCOLS) As Double    'Column totals of each regime's TOTAL row
+    Dim CcpSets(1 To 2)    As Long         'CCP netting sets per regime (#112)
+    Dim CcpValid(1 To 2)   As Long         'Of those, VALID
+    Dim CcpEAD(1 To 2)     As Double       'EAD of the VALID CCP netting sets, in the regime's total
 
 '------------------------------------------------------------------------------
 ' CALCULATE EACH NETTING SET
@@ -4578,6 +4728,7 @@ Private Sub ComputeNettingSets( _
         For k = 1 To mNSCount
             RegimePosition = RegimeIndex(mNS(k).Regime)
             mRegSets(RegimePosition) = mRegSets(RegimePosition) + 1
+            If mNS(k).ClearingRole = CL_CCP Then CcpSets(RegimePosition) = CcpSets(RegimePosition) + 1
 
     'More than 5,000 trades at any point in a quarter sets the 20-day MPOR
     'floor for the following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
@@ -4597,8 +4748,6 @@ Private Sub ComputeNettingSets( _
                 LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
                 Select Case mNS(k).ClearingRole
-                    Case CL_CCP
-                        StatusText = "INVALID: facing a CCP, not supported"
                     Case CL_MULTI
                         StatusText = "INVALID: multi-level client structure, not supported"
                     Case Else
@@ -4672,6 +4821,10 @@ Private Sub ComputeNettingSets( _
                 End If
                 mRegEAD(RegimePosition) = mRegEAD(RegimePosition) + ReportedEAD
                 mRegValid(RegimePosition) = mRegValid(RegimePosition) + 1
+                If .ClearingRole = CL_CCP Then
+                    CcpValid(RegimePosition) = CcpValid(RegimePosition) + 1
+                    CcpEAD(RegimePosition) = CcpEAD(RegimePosition) + ReportedEAD
+                End If
 
     'Results row. A margined netting set shows its margined figures in
     'columns 9 to 18 and the cap figures in 21 and 24 to 27.
@@ -4727,6 +4880,17 @@ Private Sub ComputeNettingSets( _
             End With
 NextNS:
         Next k
+
+    'Trade exposures to CCPs stay in their regime's EAD total; an INFO line
+    'gives their share of it, so that it is identifiable (#112).
+        For RegimePosition = 1 To 2
+            If CcpSets(RegimePosition) > 0 Then
+                LogMsg SEV_INFO, SH_RESULTS, "TOTAL " & Choose(RegimePosition, RG_CRR, RG_BCBS), _
+                       "Trade exposures to CCPs in this total: " & CcpValid(RegimePosition) & " of " & _
+                       CcpSets(RegimePosition) & " CCP netting set(s) VALID, EAD " & _
+                       Format$(CcpEAD(RegimePosition), "#,##0") & "; risk weights not applied."
+            End If
+        Next RegimePosition
 
 '------------------------------------------------------------------------------
 ' WRITE RESULTS

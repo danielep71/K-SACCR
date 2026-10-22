@@ -18,8 +18,13 @@ Attribute VB_Name = "TEST_InputValidation"
 '   values in a CRR netting set and an IR risk factor with a suffix other
 '   than -INFL; and, for the netting-set terms (#39), VM on an unmargined
 '   netting set, a clearing role or margin-agreement structure that is not a
-'   code, and the structures the engine does not model, including a netting
-'   set declared as facing a CCP (#112). A blank optional field, a duplicate
+'   code, and the structures the engine does not model. For a trade
+'   exposure to a CCP (#112): QCCP and CCP retains VM missing, not a code or
+'   filled for another role, and retained VM on an unmargined set, are
+'   rejected; the MPOR floor of 10 business days in both regimes, with
+'   weekly remargining, disputes, the large flag and an override below and
+'   above it, the per-trade horizon with retained VM, the INFO lines and the
+'   per-regime subtotal are checked. A blank optional field, a duplicate
 '   with the same values, an inflation risk factor such as EUR-INFL, the sum
 '   of absolutes in a BCBS netting set and VM posted on an unmargined BCBS
 '   netting set must still be accepted. The same section checks the MPOR of
@@ -89,7 +94,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -105,8 +110,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 163               'Cases in a complete run
-        Private Const CHECKS      As Long = 267               'Checks in a complete run
+        Private Const CASES       As Long = 177               'Cases in a complete run
+        Private Const CHECKS      As Long = 305               'Checks in a complete run
 
 
 '
@@ -126,7 +131,7 @@ Public Sub RunInputValidationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-18
+'   2026-10-22
 '==============================================================================
 '
 
@@ -457,21 +462,116 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
 
-    'A netting set declared as facing a CCP is rejected, margined or not,
-    'rather than calculated with the bilateral floors, and its status names
-    'the reason; another invalid field is counted after it (#112).
-        StartCase "netting-set-clearing-role-ccp", "N"
+    'A clearing member's trade exposure to a CCP (#112). QCCP (R) and CCP
+    'retains VM (S) are required for role CCP and blank for every other
+    'role, and retained VM needs a margined netting set; a value that breaks
+    'this makes the netting set INVALID. A margined CCP set has a floor of
+    '10 business days in both regimes, plus N - 1, doubled with disputes,
+    'raised by the large or illiquid flag (a conservative limitation) and by
+    'an override that is not below it. With retained VM, a five-year swap's
+    'horizon is capped at a year: MF 1.5 sqrt(250/250) = 1.5. Checks names
+    'the role, floor, rule and risk weight, and the CCP share of the total.
+        StartMarginedCase "netting-set-ccp-qccp-missing", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "qccp-missing", SEV_ERROR, "QCCP (Y/N) is required for Client clearing role CCP", _
+                                         "illustrative"
+
+        StartMarginedCase "netting-set-ccp-retained-vm-missing", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "Y", ""
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "retained-missing", SEV_ERROR, "CCP retains VM (Y/N) is required", "illustrative"
+
+        StartMarginedCase "netting-set-ccp-qccp-not-a-code", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "X", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "qccp-code", SEV_ERROR, "QCCP must be Y or N", "illustrative"
+
+        StartCase "netting-set-ccp-retained-vm-unmargined", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CCP
         AddSwap "T1"
-        ExpectStatus "INVALID: facing a CCP, not supported"
-        TEST_CaseRunner.ExpectChecksLine "error", SEV_ERROR, "facing a CCP is not supported", "illustrative"
+        SetCcp "Y", "Y"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "retained-unmargined", SEV_ERROR, "variation margin needs Margined = Y", _
+                                         "illustrative"
 
-        StartMarginedCase "netting-set-clearing-role-ccp-margined", "CRR", CL_CCP, "1", "N", "N"
-        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -1#
-        ExpectStatus "INVALID: facing a CCP, not supported; 1 other input error(s)"
+        StartCase "netting-set-qccp-on-role-n", "N"
+        AddSwap "T1"
+        SetCcp "Y", ""
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "qccp-role-n", SEV_ERROR, "QCCP applies only to Client clearing role CCP", _
+                                         "illustrative"
 
-    'So is a declared multi-level client structure, whose conditions apply
-    'at every level and are not modelled (#359).
+        StartMarginedCase "netting-set-retained-vm-on-role-cm", "CRR", CL_CM, "1", "N", "N"
+        SetCcp "", "N"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksLine "retained-role-cm", SEV_ERROR, "CCP retains VM applies only to Client clearing role", _
+                                         "illustrative"
+
+        StartMarginedCase "netting-set-ccp-crr", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "Y", "N"
+        ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Trade exposure to a QCCP: MPOR floor 10 BD", "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "risk-weight", SEV_INFO, "risk weight 2% (CRE54.7; CRR Art. 306(1)(a)), not applied", _
+                                         "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "subtotal", SEV_INFO, _
+                                         "Trade exposures to CCPs in this total: 1 of 1 CCP netting set(s) VALID", _
+                                         "illustrative"
+
+        StartMarginedCase "netting-set-ccp-bcbs", "BCBS", CL_CCP, "1", "N", "N"
+        SetCcp "Y", "N"
+        ExpectMPOR 10
+
+        StartMarginedCase "netting-set-ccp-weekly", "CRR", CL_CCP, "5", "N", "N"
+        SetCcp "Y", "N"
+        ExpectMPOR 14
+
+        StartMarginedCase "netting-set-ccp-disputes", "CRR", CL_CCP, "1", "N", "Y"
+        SetCcp "Y", "N"
+        ExpectMPOR 20
+
+        StartMarginedCase "netting-set-ccp-large", "CRR", CL_CCP, "1", "Y", "N"
+        SetCcp "Y", "N"
+        ExpectMPOR 20
+        TEST_CaseRunner.ExpectChecksLine "large", SEV_INFO, "raised to 20 BD by the large or illiquid flag", "illustrative"
+
+        StartMarginedCase "netting-set-ccp-override-below-floor", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "Y", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 5#
+        ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "override", SEV_WARN, "below the regulatory floor", "illustrative"
+
+        StartMarginedCase "netting-set-ccp-override-above-floor", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "Y", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 15#
+        ExpectMPOR 15
+
+        StartMarginedCase "netting-set-ccp-non-qualifying", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "N", "N"
+        ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "info", SEV_INFO, "Trade exposure to a non-qualifying CCP: MPOR floor 10 BD", _
+                                         "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "risk-weight", SEV_INFO, "to be determined outside K-SACCR", "illustrative"
+
+        StartMarginedCase "netting-set-ccp-retained-vm", "CRR", CL_CCP, "1", "N", "N"
+        SetCcp "Y", "Y"
+        ExpectMPOR 10
+        TEST_CaseRunner.ExpectChecksLine "retained", SEV_INFO, "the CCP retains VM and the collateral is not protected", _
+                                         "illustrative"
+        TEST_CaseRunner.ExpectNumber "horizon", "T1", "maturity_factor_margined", "1.5", "0.000000000001", "0", _
+                                     "illustrative"
+
+        StartCase "netting-set-ccp-unmargined", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CCP
+        AddSwap "T1"
+        SetCcp "Y", "N"
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectChecksLine "unmargined", SEV_INFO, _
+                                         "Trade exposure to a QCCP on an unmargined netting set: no MPOR floor applies", _
+                                         "illustrative"
+
+    'A declared multi-level client structure is rejected: its conditions
+    'apply at every level and are not modelled (#359).
         StartCase "netting-set-clearing-role-multi-level", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_MULTI
         AddSwap "T1"
@@ -1828,6 +1928,27 @@ Private Sub SetLeg( _
 '
         TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_ECON, EconomicTradeId
         TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_MTMLEG, MtmLegFlag
+
+End Sub
+
+
+Private Sub SetCcp( _
+    ByVal QccpFlag As String, _
+    ByVal RetainedVmFlag As String)
+'
+'==============================================================================
+'                                    SetCcp
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write NS1's QCCP and CCP-retains-VM flags (#112); empty leaves a cell
+'   blank.
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_QCCP, IIf(Len(QccpFlag) = 0, Empty, QccpFlag)
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_RETAINVM, IIf(Len(RetainedVmFlag) = 0, Empty, RetainedVmFlag)
 
 End Sub
 
