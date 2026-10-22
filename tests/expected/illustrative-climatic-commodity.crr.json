@@ -13,7 +13,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "CRR Art. 277(4)(b), 277a",
-        "derivation": "Prototype TestCatalogue T27 (Climatic variable mapped to its own commodity hedging set; CRR Art. 277(4)(b), 277a; hand calculation from the regulation; workbook reference CL-1, Hedging set). Catalogue note: SF value to be confirmed against Art. 280e. Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T27 (Climatic variable mapped to its own commodity hedging set; CRR Art. 277(4)(b), 277a; hand calculation from the regulation; workbook reference CL-1, Hedging set). Catalogue note: SF value to be confirmed against Art. 280e. Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

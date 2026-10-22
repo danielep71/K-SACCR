@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "EBA SA-CCR RTS work, as cited (~761)",
-        "derivation": "Prototype TestCatalogue T19 (Swaption forward 1%: EAD (lambda = 0); EBA SA-CCR RTS work, as cited (~761); derived - independent python implementation; workbook reference CRR-EX1-1PCT, EAD). Catalogue note: Cited figures: PFE ~483, EAD ~761 - source not opened here. Value from an independent Python implementation that is not in the repository; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T19 (Swaption forward 1%: EAD (lambda = 0); EBA SA-CCR RTS work, as cited (~761); derived - independent python implementation; workbook reference CRR-EX1-1PCT, EAD). Catalogue note: Cited figures: PFE ~483, EAD ~761 - source not opened here. Value from a separate Python implementation that is not in the repository; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

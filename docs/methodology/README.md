@@ -8,8 +8,8 @@ test-case format is in [`TEST_CASES.md`](TEST_CASES.md).
 > [!IMPORTANT]
 > The engine implements CRR and Basel CRE52. Under
 > [`TEST_CASES.md`](TEST_CASES.md), only Basel rules are validated, by the
-> published CRE99 examples (T01–T14); no CRR rule is validated in v1.0.1
-> ([evidence for v1.0.1](#assumptions-and-scope)). The [traceability](#traceability)
+> published CRE99 examples (T01–T14); no CRR rule is validated in v1.0.2
+> ([evidence for v1.0.2](#assumptions-and-scope)). The [traceability](#traceability)
 > table gives the status of each rule. The CRR and CRE52 versions in the
 > source register and the supervisory parameters were checked against the
 > official texts on 2026-10-09.
@@ -64,7 +64,9 @@ a later version is a new row, not an edit.
 | `CRE99` | Basel Framework, chapter CRE99, *Application guidance*: the SA-CCR worked examples | Published values of the `cre99-example-*` cases. Amounts in USD thousands; intermediate results unrounded, displayed results and final EAD rounded (CRE99.20); 250 business days a year (CRE99.28) | Effective 1 January 2023, published 27 March 2020 | Examples 1–5: the values used by the cases checked 2026-10-09 |
 
 Reference values may only be taken from a source in this register. Add a row
-before citing a new one.
+before citing a new one. An external implementation, the only source of an
+`independent` value, is registered with an ID starting `IMPL-`
+([reference classes](TEST_CASES.md#reference-classes)).
 
 Copies of the checked versions, with their addresses and SHA-256 hashes, are in
 [`sources/`](sources/README.md).
@@ -79,9 +81,9 @@ Copies of the checked versions, with their addresses and SHA-256 hashes, are in
 | Inputs | Trade-level data supplied by the caller; K-SACCR does not price trades or source market data |
 | Supervisory parameters | Taken from the cited regime text and recorded in the parameter table below, never typed in code without a reference |
 | Running test cases | VBA generated from the JSON by a checked tool; cases feed the engine through its input sheets. See [`TEST_CASES.md`](TEST_CASES.md#consumption) (#44) |
-| Evidence for v1.0.1 | Release 1.0.1, like 1.0.0, validates rules only with the `published` values of CRE99 (the BCBS 279 Annex 4a examples), checked against the registered text. It has no `independent` values: the project has one maintainer, who also wrote the code under test. Every other case stays `illustrative`. Because the published examples are Basel examples, they substantiate the Basel cases and the calculation paths they exercise, not the whole framework; CRR provisions were checked against the registered sources, but CRR-specific numerical validation remains incomplete under this policy, and the release says so. The comparison with the R package `SACCR` 3.4 in `tools/rsaccr_crosscheck.py` agrees on the values it can compute, but agreement between two implementations is not validation and is not counted as such (#352). A later release cross-checks the results against a second source ([#100](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/100)) (#44) |
+| Evidence for v1.0.2 | Release 1.0.2, like 1.0.0 and 1.0.1, validates rules only with the `published` values of CRE99 (the BCBS 279 Annex 4a examples), checked against the registered text. It has no `independent` values: no external implementation is registered as a source. Every other case stays `illustrative`, including those of the clearing, CCP and settled-to-market rules added in 1.0.2, whose values come from the derivations in `tests/derivations/` ([clearing coverage](CLEARING_COVERAGE.md)). Because the published examples are Basel examples, they substantiate the Basel cases and the calculation paths they exercise, not the whole framework; CRR provisions were checked against the registered sources, but CRR-specific numerical validation remains incomplete under this policy, and the release says so. The comparison with the R package `SACCR` 3.4 in `tools/rsaccr_crosscheck.py` agrees on the values it can compute, but agreement between two implementations is not validation and is not counted as such (#352). A later release cross-checks the results against a second source ([#100](https://github.com/danielep71/VBA-SACCR-Toolkit/issues/100)) (#44) |
 | Sources | `CRR` is the consolidated CRR of 26.06.2026 (version 021.001), checked on 2026-10-09, with Delegated Regulation (EU) 2021/931 as amended by (EU) 2025/855 and the EBA Q&A `EBA-QA-2023_6962`; `BCBS` is the Basel Framework CRE52 effective 1 January 2023, last updated 5 June 2020, checked on 2026-10-09 (#33) |
-| Scope | The full SA-CCR only. Simplified SA-CCR (CRR Article 281), the original exposure method (Article 282), exposures to central counterparties, securities financing transactions, CVA and RWA are outside v1.0.1. Inputs that ask for them are rejected; a limitation stated only in prose is not enough. Each is planned in its own issue, listed in the [support matrix](#support-matrix); the [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones) hold the current schedule (#33) |
+| Scope | The full SA-CCR only, including a clearing member's trade exposures to a CCP since v1.0.2 ([clearing coverage](CLEARING_COVERAGE.md)). Simplified SA-CCR (CRR Article 281), the original exposure method (Article 282), default-fund contributions to CCPs, risk weights applied to CCP exposures, securities financing transactions, CVA and RWA are outside v1.0.2. Inputs that ask for them are rejected; a limitation stated only in prose is not enough. Each is planned in its own issue, listed in the [support matrix](#support-matrix); the [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones) hold the current schedule (#33) |
 | Margined netting sets | In scope since v1.0.0, with VM, NICA, threshold, MTA and MPOR as inputs (#33) |
 | Day count | S, E, M and T in years of 365 calendar days (`DaysPerYear`); floors and MPOR in business days of 250 a year (`BusinessDaysPerYear`). Articles 279b and 279c say "the relevant business day convention"; this is the convention K-SACCR uses, without holiday calendars. A test case may set `DaysPerYear` to reproduce a published maturity (#33) |
 | Currency | Trade amounts are converted into the reporting currency with the FX table on Params, whose rates the user supplies; K-SACCR sources no market data. A test fixture holds amounts already in its calculation currency, whose rate is set to 1 (#33) |
@@ -96,7 +98,7 @@ Copies of the checked versions, with their addresses and SHA-256 hashes, are in
 
 ## 🧾 Support matrix
 
-What v1.0.1 calculates, what the user must enter in a supported form, and what
+What v1.0.2 calculates, what the user must enter in a supported form, and what
 is outside it (#33). "Not supported" means nothing is calculated for the case:
 it cannot be entered or, where it can be declared, the netting set is
 rejected. Whether a supported rule is also validated is in the

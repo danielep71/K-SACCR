@@ -13,7 +13,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.40 FAQ (lambda by judgement)",
-        "derivation": "Prototype TestCatalogue T22 (Negative forward without lambda under BCBS is rejected; CRE52.40 FAQ (lambda by judgement); hand calculation from the regulation; workbook reference NIR-B, Status). The catalogue reads trade NIR-B, which has the same inputs as NIR-C in this fixture. Catalogue note: Enter lambda on the trade for BCBS. Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T22 (Negative forward without lambda under BCBS is rejected; CRE52.40 FAQ (lambda by judgement); hand calculation from the regulation; workbook reference NIR-B, Status). The catalogue reads trade NIR-B, which has the same inputs as NIR-C in this fixture. Catalogue note: Enter lambda on the trade for BCBS. Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

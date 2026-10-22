@@ -28,8 +28,7 @@ Examples 1–5) is a bilateral netting set, and no `independent` value exists
 yet. The clearing tests are all `illustrative`, including the expected values
 of the `illustrative-clearing-*-listed` cases, computed by
 [`tests/derivations/clearing_listed.py`](../../tests/derivations/clearing_listed.py),
-a separate implementation that no reviewer other than the code's author has
-checked.
+a derivation separate from the engine.
 
 ## 🔀 Arrangements
 
@@ -372,7 +371,13 @@ column or an EAD total:
   CRE54.13); that is permitted reuse.
 - Results totals add EAD across all `VALID` netting sets of a regime. CCP
   trade EAD stays in that total and is separately identifiable there
-  ([decision 2](#decisions)).
+  ([decision 2](#decisions)). `TEST_Aggregation`
+  (`aggregation-mixed-clearing-population`) runs an ordinary, a `CM`, a
+  `CLIENT` and a `CCP` netting set, margined, with the same swap, and a
+  `CCP` set without its QCCP status: each `VALID` set takes its role's
+  MPOR (10, 5, 5 and 10 business days under CRR), `TOTAL CRR` is the sum of
+  their EADs with the invalid set withheld, and the CCP line on Checks
+  names one of two CCP sets `VALID` and its EAD (#361).
 
 <a id="decisions"></a>
 
@@ -391,7 +396,7 @@ described above stays.
 | 5 | Until CCP support is implemented, a netting set declared as facing a CCP is rejected | Documentation alone cannot prevent the understated exposure of a CCP-facing set calculated as bilateral, for example where the CCP retains VM (decision 2) | A recognised declaration makes the netting set `INVALID`, with a message naming the missing support; a netting set not declared stays undetectable, as stated above | #112 |
 | 6 | A multi-level client structure is declared with role `MULTI` and rejected | Its treatment depends on conditions at every level (CRE54.14(3); CRR Art. 305(4)), which the engine does not model; entered as `CM` or `CLIENT` it would silently take an ordinary role's floor | The netting set is `INVALID: multi-level client structure, not supported`, with an error on Checks | #359 |
 | 7 | The role and method applied are shown as an INFO line on Checks for every `CM` and `CLIENT` netting set, not as a Results column | The evidence must show the selected role; a Checks line does so without changing the Results layout, the reconciliation or the CSV export | Margined: the role, the MPOR floor and its rule (for a BCBS client, marked as the conservative interpretation), and the floor applied when the large or illiquid flag raises it; unmargined: that no floor applies | #359 |
-| 8 | There will be no independent reviewer | The project has one maintainer, who wrote the code under test, so an `independent` value cannot exist under the evidence policy | The client-clearing values stay `illustrative`, computed by a separate implementation (`tests/derivations/clearing_listed.py`); #359's criterion on independently reviewed values is not met and is recorded as such | #359, #361 |
+| 8 | There will be no independent reviewer, and none is required | The project has one maintainer, who wrote the code under test. An `independent` value can come only from an external implementation registered as a source; a derivation by the maintainer is `illustrative` | Acceptance criteria ask for `published` values where a registered source prints them, otherwise for `illustrative` values from a derivation separate from the code under test, never for independent review. The client-clearing, CCP and settled-to-market values are `illustrative`, computed by the scripts in `tests/derivations/` | #359, #360, #361, #112 |
 | 9 | CCP support in v1.0.2 covers trade exposures; default-fund contributions follow much later, in their own issue | Trade exposures fit the SA-CCR engine with two inputs; default funds are a separate own funds calculation needing K_CCP, DF_CCP, DF_CM and unfunded commitments from the CCP, with no data in the repository to test it | Role `CCP` calculates the trade exposure; default funds, own funds requirements and the cap of Art. 303(2) and CRE54.40 stay unsupported and are listed as such | #112 |
 | 10 | QCCP status and retained VM are two NettingSets columns after Margin agreements, R and S, required for role `CCP` and blank for every other role | Appended columns move no existing input; requiring both keeps a CCP set from defaulting silently (decision 2) | A missing, invalid or misplaced value makes the netting set `INVALID`; S = `Y` needs a margined set | #112 |
 | 11 | With retained VM and unprotected collateral, each trade takes the larger of the netting set's MPOR and its own horizon, the lower of one year and its remaining maturity, floored at 10 business days | CRE54.8(3) gives that horizon as a minimum; Art. 304(3)(d) gives the same horizon; taking the larger never lowers the exposure below the netting set's MPOR | Each trade's margined maturity factor uses its horizon; the cases cover a trade under 10 business days, one between the MPOR and a year, and one over a year | #112 |

@@ -94,8 +94,21 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-23
+
 ### Added
 
+- `TEST_Aggregation` adds a mixed clearing population (#361): one CRR
+  portfolio with an ordinary, a clearing-member, a client and a CCP
+  netting set, margined with daily remargining and holding the same swap,
+  and a CCP netting set without its QCCP status. It checks that each
+  `VALID` set takes its own role's MPOR floor (10, 5, 5 and 10 business
+  days), so no role is calculated as another; that `TOTAL CRR` is the sum
+  of the four `VALID` sets' EADs and reads
+  `4 of 5 netting set(s) VALID; 1 withheld`; that the invalid set is
+  `INVALID: 1 input error(s)`; and that the CCP line on Checks names one of
+  two CCP sets `VALID` with its EAD. Totals: `TEST_Aggregation` 12 cases and
+  15 checks; all suites 288 cases and 1,283 checks.
 - NettingSets: trade exposures to a central counterparty (#112, part (a)).
   Client clearing role `CCP` is the bank's trade exposure, as clearing
   member, to a CCP, for its own trades and for client trades it must
@@ -273,6 +286,36 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Independent review is no longer required anywhere: the project has one
+  maintainer and no reviewer (decision 8 of the clearing coverage). An
+  `independent` value is now one computed by an external implementation the
+  maintainer did not write, registered as a source (for example the R
+  package SACCR of #352); it names that implementation in `derived_by`, and
+  `reviewed_by` may be null. `tools/check_test_cases.py` no longer requires
+  `reviewed_by` for it, and now requires its `source` to be an external
+  implementation, registered with an ID starting `IMPL-`; a `published`
+  value cannot cite one. Decision 8, the methodology, the tests README,
+  the `derivation` texts of the expected files and the reference-class
+  comment in `TEST_CaseRunner` say the same (#411). `TEST_CASES.md` says
+  that acceptance criteria ask for `published` values where a registered
+  source prints them and otherwise for `illustrative` values from a
+  derivation separate from the code under test, never for independent
+  review; CONTRIBUTING and the bug and feature issue templates say the
+  same.
+- The user manual for 1.0.2 is prepared in `docs/user-manual/v1.0.2/`,
+  from the 1.0.1 manual: trade exposures to a CCP and the NettingSets
+  columns `QCCP (Y/N)` and `CCP retains VM, collateral not protected (Y/N)`;
+  settled-to-market trades and the Trades columns `Settlement type (N/STM)`
+  and `Next reset date`, with Comment moving two columns right; the role
+  `MULTI`; the INFO lines on Checks for client clearing and CCPs and the CCP
+  subtotal per regime; the highlighted Results rows; moving inputs from
+  1.0.1; the known limitations; the test counts; and CRE50 and CRR Articles
+  300–311 among the sources. The worksheet-function table of section 10.2,
+  whose signatures overflowed into the next column in the 1.0.0 and 1.0.1
+  PDFs, is a list with the full signatures, `SACCR_MaturityFactor`'s
+  included, and a note that arguments in square brackets are optional
+  (#379); the built PDF has no line wider than the page. The 1.0.0 and
+  1.0.1 manuals are not changed.
 - `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
   CCP trade exposures (#112), which the NettingSets entry under Added
   implements. Role `CCP` becomes the
@@ -763,6 +806,7 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2
 [1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
 [1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0

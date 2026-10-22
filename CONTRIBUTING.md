@@ -85,9 +85,12 @@ with the [record template](docs/EXCEL_EVIDENCE.md#record-template) of
   suites, and exercise the specific scenario the change addresses. State
   plainly what was and was not run.
 - **A skipped test is not a pass.**
-- **Expected values come from independent references**, such as published
-  regulatory examples or an independent calculation, never from running the
-  implementation under test.
+- **Expected values never come from running the implementation under test.**
+  They come from published regulatory examples, from an external
+  implementation registered as a source, or, as `illustrative` values, from a
+  derivation separate from the code under test. No independent reviewer is
+  required: the project has one maintainer
+  ([test-case policy](docs/methodology/TEST_CASES.md#reference-classes)).
 
 ## 📚 Where detailed rules live
 
