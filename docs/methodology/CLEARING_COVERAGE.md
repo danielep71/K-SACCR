@@ -45,7 +45,7 @@ remaining maturity whatever the role.
 | Bilateral, no clearing | Role `N` | 10 business days (Art. 285(2)(b)) | 10 business days with daily margining, 9 + N otherwise (CRE52.50(1)–(2)) | Implemented; exercised; validated under BCBS through CRE99 (MPOR with remargining) |
 | Clearing member facing its client | Role `CM` | 5 business days (Art. 279c(1), last subparagraph; Art. 304(3)(a)) | 5 business days (CRE54.12) | Implemented; exercised, also with a listed future and option (`illustrative-clearing-member-listed`, both regimes) |
 | Bank as client facing its clearing member | Role `CLIENT` | 5 business days (Art. 279c(1), last subparagraph) | 10 business days: the CCP treatment where CRE54.15 is met (CRE54.14; 10 days for OTC derivatives, CRE54.8(2)), with a 4% risk weight instead of 2% where only the joint-default protection is missing (CRE54.16); a bilateral trade otherwise (CRE54.17; CRE52.50) | Implemented; exercised, also with a listed future and option and weekly remargining: MPOR 9 under CRR, 14 under BCBS (`illustrative-clearing-client-listed`). The conditions of CRE54.15 and CRR Art. 305(2)–(3) are the user's. They set the risk weight and, under BCBS, whether the 5,000-trade floor applies (CRE54.8(1), not implemented); the MPOR floor stays as shown |
-| Bank facing a CCP: a clearing member's trade exposure, for itself or for clients, or a client's exposure to the CCP guaranteed by its clearing member (CRE54.14(2)) | Role `CCP`, which rejects the netting set | At least 10 business days (Art. 304(3)(b)); the 20-day floor for more than 5,000 trades does not apply to trade exposures (Art. 285(3)(a)); VM retained by the CCP without protection of the member's collateral: the lesser of one year and the remaining maturity, floored at 10 business days (Art. 304(3)(d)) | 10 days for OTC derivatives (CRE54.8(2)); the 5,000-trade floor does not apply (CRE54.8(1)); VM retained by the CCP: as CRR (CRE54.8(3)) | Not supported, as in v1.0.0 and v1.0.1. Declared with role `CCP`, the netting set is `INVALID` (`netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined`). A CCP entered as the counterparty of a role-`N` netting set still cannot be told apart from a bilateral one and gets the bilateral floors (#112) |
+| Bank facing a CCP: a clearing member's trade exposure, for itself or for clients, or a client's exposure to the CCP guaranteed by its clearing member (CRE54.14(2)) | Role `CCP`, which rejects the netting set | At least 10 business days (Art. 304(3)(b)); the 20-day floor for more than 5,000 trades does not apply to trade exposures (Art. 285(3)(a)); VM retained by the CCP without protection of the member's collateral: the lesser of one year and the remaining maturity, floored at 10 business days (Art. 304(3)(d)) | 10 days for OTC derivatives (CRE54.8(2)); the 5,000-trade floor does not apply (CRE54.8(1)); VM retained by the CCP: as CRR (CRE54.8(3)) | Not supported, as in v1.0.0 and v1.0.1. Declared with role `CCP`, the netting set is `INVALID` (`netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined`). Specified for #112: the [CCP trade-exposure input contract](#ccp-trade-exposure-input-contract). A CCP entered as the counterparty of a role-`N` netting set still cannot be told apart from a bilateral one and gets the bilateral floors (#112) |
 | Multi-level client structure: a higher-level client facing a lower-level client | Role `MULTI`, which rejects the netting set | The CRR five-day floor is for transactions "between a client and a clearing member" (Art. 279c(1)); the multi-level treatment is in Art. 300(6)–(9), 304(7), 305(4) | Treated as the clearing member–client leg (CRE54.2, CRE54.13, CRE54.14(3)) | Not supported. Declared with role `MULTI`, the netting set is `INVALID: multi-level client structure, not supported` (`netting-set-clearing-role-multi-level`); entered as `CM` or `CLIENT` instead, it cannot be detected |
 
 The clearing-member–client leg of an exchange-traded derivative conducted under
@@ -70,6 +70,89 @@ calculated.
 | Unfunded default-fund contribution | 0% (Art. 310) | In K = DF + UC (Art. 309) | Not supported |
 | Cap | Trade exposure and default-fund requirements together capped at the non-qualifying requirement (Art. 303(2); CRE54.40) | — | Not supported |
 | CCP ceasing to qualify | Non-qualifying treatment within three months (Art. 311; CRE54.6) | — | Not supported |
+
+<a id="ccp-trade-exposure-input-contract"></a>
+
+### CCP trade-exposure input contract (#112)
+
+Specified from [decisions 2, 3 and 9 to 14](#decisions); the engine and template
+implement it in #112. Until then a netting set with role `CCP` stays rejected
+([decision 5](#decisions)). Default-fund contributions, own funds requirements
+and the cap of Art. 303(2) and CRE54.40 are outside it ([decision
+9](#decisions)).
+
+**Scope.** Role `CCP` is the bank's trade exposure, as clearing member, to a
+CCP: for its own trades, and for client trades where it must reimburse the
+client for losses on the CCP's default (Art. 306(1)(a), (b), (d); CRE54.7). Its
+exposure value is SA-CCR, as for any netting set (Art. 306(3); CRE54.8). Client
+trades it need not reimburse have an exposure value of zero (Art. 306(1)(c);
+CRE54.7) and are not entered: entered, they would only overstate the exposure
+([decision 13](#decisions)).
+
+**Columns.** NettingSets gets two columns after *Margin agreements* (Q):
+
+| Column | Header | Content |
+| --- | --- | --- |
+| R | QCCP (Y/N) | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. CRE50 is added to the source register before the implementation relies on it. `N`: non-qualifying. Changes the risk weight only, not the exposure value |
+| S | CCP retains VM, collateral not protected (Y/N) | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
+
+**Rules.** Each holds under both regimes unless stated.
+
+| # | Rule | Inputs that break it |
+| --- | --- | --- |
+| 1 | R and S are required for role `CCP` and must be blank for every other role | Role `CCP` with R or S blank or not Y/N; another role with R or S filled |
+| 2 | S = `Y` needs a margined netting set: variation margin is exchanged | S = `Y` with Margined = N |
+| 3 | A margined `CCP` netting set has an MPOR floor of 10 business days (Art. 304(3)(b); CRE54.8(2)), plus N − 1 for remargining every N business days, doubled with disputes, raised by an override that is not below it, as for other netting sets | — |
+| 4 | The *large or illiquid* flag stays one input ([decision 12](#decisions)): Y sets the 20-day floor for a `CCP` netting set too. The 5,000-trade floor does not apply to trade exposures (Art. 285(3)(a); CRE54.8(1)), so a flag set only for the trade count overstates the exposure: a recorded, conservative limitation | — |
+| 5 | With S = `Y`, each trade's horizon is the lower of one year and its remaining maturity M, floored at 10 business days (Art. 304(3)(d); CRE54.8(3)): min(`BusinessDaysPerYear`, M × `BusinessDaysPerYear`), at least `MinMaturityBD`. CRE54.8(3) calls it a minimum, so the trade takes the larger of that horizon and the netting set's MPOR ([decision 11](#decisions)), in its own margined maturity factor 1.5 √(horizon / `BusinessDaysPerYear`) | — |
+| 6 | An unmargined `CCP` netting set takes each trade's unmargined maturity factor, as any unmargined netting set | — |
+| 7 | QCCP status sets which risk-weight rule applies; K-SACCR states it and applies none. For a QCCP the weight is 2% (Art. 306(1)(a); CRE54.7). For a non-qualifying CCP it is the standardised risk weight of the CCP as a counterparty (Art. 306(1)(b); CRE54.41), which needs its counterparty category and credit quality; K-SACCR has no input for them, so it states that the weight must be determined outside the workbook | — |
+
+An input that breaks rule 1 or 2 makes the netting set `INVALID`, with an
+error on Checks naming the column, as for any invalid netting-set field.
+
+**Outputs** ([decision 14](#decisions)):
+
+- The exposure value is on Results as for any netting set and stays in its
+  regime's EAD total.
+- Each `CCP` netting set gets an INFO line on Checks, as `CM` and `CLIENT` do
+  (decision 7): the role, the MPOR floor and rule (with the retained-VM
+  horizon when S = `Y`), and the risk-weight rule as text: for a QCCP
+  "risk weight 2% (CRR Art. 306(1)(a)), not applied"; for a non-qualifying
+  CCP "standardised risk weight of the CCP (CRR Art. 306(1)(b)), to be
+  determined outside K-SACCR".
+- Each regime with a `CCP` netting set gets an INFO line on Checks with the
+  number of `CCP` netting sets and their EAD, so the CCP share of the regime's
+  total is identifiable.
+- No risk-weighted amount, own funds requirement or cap is calculated.
+
+**Unchanged.** A CCP entered as the counterparty of a role-`N` netting set is
+still calculated as bilateral and cannot be detected. An `STM` trade in a
+margined `CCP` netting set makes it `INVALID`, as in any margined netting set.
+
+**Upgrade.** A workbook built from an earlier template has no columns R and S:
+the NettingSets header check stops the run until the workbook is rebuilt from
+the new template, or the two columns are added with the headers above and
+`NettingSets!$C:$Q` is changed to `NettingSets!$C:$S` in the formulas of
+Results C5, Reconciliation C5 and TradeReconciliation C5. With R and S blank,
+every netting set that is not `CCP` keeps its result.
+
+**Planned tests.** Numerical cases with values from a separate derivation, as
+for #359 and #360, `illustrative` ([decision 8](#decisions)):
+
+- a margined `CCP` netting set, QCCP, daily remargining, under CRR and BCBS:
+  MPOR 10, the same EAD in both regimes;
+- the same set with S = `Y` and trades of different remaining maturities, one
+  shorter than 10 business days, one between the netting set's MPOR and a
+  year, one over a year: each trade's horizon and maturity factor;
+- the same set with QCCP = `N`: the same EAD, a different INFO line;
+- an unmargined `CCP` netting set.
+
+`TEST_InputValidation`: R or S blank or not a code for `CCP`; R or S filled for
+`N`, `CM` and `CLIENT`; S = `Y` on an unmargined set; weekly remargining,
+disputes, the large flag and an override below and above the floor on a `CCP`
+set; the INFO lines and the per-regime subtotal; existing netting sets with R
+and S blank unchanged.
 
 ## 📦 Products
 
@@ -234,13 +317,13 @@ issue is done, each case stays as described under *Today*.
 
 | Case | Today | Required |
 | --- | --- | --- |
-| Netting set facing a CCP | Declared with role `CCP`: rejected. Entered with role `N`: calculated as bilateral, undetectable | Rejected when declared until CCP support exists ([decision 5](#decisions), implemented); then a CCP role with the attributes below, without which it is rejected ([decision 2](#decisions)) (#112) |
-| VM retained by the CCP, member collateral unprotected | Cannot be declared; a margined set gets 10 days or less | Declared through the retained-VM and protection inputs and given the Art. 304(3)(d) / CRE54.8(3) horizon ([decision 2](#decisions)) (#112) |
+| Netting set facing a CCP | Declared with role `CCP`: rejected. Entered with role `N`: calculated as bilateral, undetectable | Rejected when declared until CCP support exists ([decision 5](#decisions), implemented); then calculated as a trade exposure with its QCCP and retained-VM inputs, without which it is rejected ([decisions 2 and 10](#decisions); [input contract](#ccp-trade-exposure-input-contract)) (#112) |
+| VM retained by the CCP, member collateral unprotected | Cannot be declared; a margined set gets 10 days or less | Declared in column S and given the Art. 304(3)(d) / CRE54.8(3) horizon per trade ([decisions 2 and 11](#decisions); [input contract](#ccp-trade-exposure-input-contract)) (#112) |
 | Multi-level client structure | Declared with role `MULTI`: rejected. Entered as `CM` or `CLIENT`: calculated as that role, undetectable | Rejected when declared ([decision 6](#decisions), implemented) |
-| QCCP status missing or unknown | No input | Rejected once CCP-facing sets exist (#112) |
+| QCCP status missing or unknown | No input | Rejected once CCP-facing sets exist: column R required for role `CCP` ([decision 10](#decisions); [input contract](#ccp-trade-exposure-input-contract)) (#112) |
 | Settled-to-market option with a reset date before expiry | Entered with `STM` and its reset date, M and T kept (#360, implemented) | [Decision 4](#decisions); [input contract](#settled-to-market-input-contract) |
 | Settled-to-market trade in a margined netting set | `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported` (#360, implemented) | A limitation: an all-`STM` set is misclassified, and a mixed set needs the CRE52.74 treatment, not implemented |
-| More than 5,000 trades where the floor does not apply | 20 days if the flag is set: a conservative limitation | Separated with CCP support, waiving only the trade-count floor where eligible ([decision 3](#decisions)) (#112, #359) |
+| More than 5,000 trades where the floor does not apply | 20 days if the flag is set: a conservative limitation | Kept as one flag in v1.0.2, also for `CCP` netting sets, a conservative limitation ([decision 12](#decisions)); a later split waives only the trade-count floor where eligible ([decision 3](#decisions)) (#112, #359) |
 
 Attributes a CCP-facing netting set needs for #112: the CCP's identity; QCCP
 status (authorised or recognised); whether the bank is a clearing member or a
@@ -296,6 +379,12 @@ described above stays.
 | 6 | A multi-level client structure is declared with role `MULTI` and rejected | Its treatment depends on conditions at every level (CRE54.14(3); CRR Art. 305(4)), which the engine does not model; entered as `CM` or `CLIENT` it would silently take an ordinary role's floor | The netting set is `INVALID: multi-level client structure, not supported`, with an error on Checks | #359 |
 | 7 | The role and method applied are shown as an INFO line on Checks for every `CM` and `CLIENT` netting set, not as a Results column | The evidence must show the selected role; a Checks line does so without changing the Results layout, the reconciliation or the CSV export | Margined: the role, the MPOR floor and its rule (for a BCBS client, marked as the conservative interpretation), and the floor applied when the large or illiquid flag raises it; unmargined: that no floor applies | #359 |
 | 8 | There will be no independent reviewer | The project has one maintainer, who wrote the code under test, so an `independent` value cannot exist under the evidence policy | The client-clearing values stay `illustrative`, computed by a separate implementation (`tests/derivations/clearing_listed.py`); #359's criterion on independently reviewed values is not met and is recorded as such | #359, #361 |
+| 9 | CCP support in v1.0.2 covers trade exposures; default-fund contributions follow much later, in their own issue | Trade exposures fit the SA-CCR engine with two inputs; default funds are a separate own funds calculation needing K_CCP, DF_CCP, DF_CM and unfunded commitments from the CCP, with no data in the repository to test it | Role `CCP` calculates the trade exposure; default funds, own funds requirements and the cap of Art. 303(2) and CRE54.40 stay unsupported and are listed as such | #112 |
+| 10 | QCCP status and retained VM are two NettingSets columns after Margin agreements, R and S, required for role `CCP` and blank for every other role | Appended columns move no existing input; requiring both keeps a CCP set from defaulting silently (decision 2) | A missing, invalid or misplaced value makes the netting set `INVALID`; S = `Y` needs a margined set | #112 |
+| 11 | With retained VM and unprotected collateral, each trade takes the larger of the netting set's MPOR and its own horizon, the lower of one year and its remaining maturity, floored at 10 business days | CRE54.8(3) gives that horizon as a minimum; Art. 304(3)(d) gives the same horizon; taking the larger never lowers the exposure below the netting set's MPOR | Each trade's margined maturity factor uses its horizon; the cases cover a trade under 10 business days, one between the MPOR and a year, and one over a year | #112 |
+| 12 | The single *large or illiquid* flag stays in v1.0.2, also for `CCP` netting sets | Splitting it would change column G for every workbook; keeping it can only overstate the exposure of a CCP set flagged for the trade count alone | The limitation is recorded; a `CCP` set with the flag gets 20 days | #112, #359 |
+| 13 | Client trades a clearing member need not reimburse on the CCP's default are not entered | Their exposure value is zero (Art. 306(1)(c); CRE54.7); an input to zero them would add a way to understate, while entering them can only overstate | The input contract says so; no column is added | #112 |
+| 14 | A `CCP` netting set's role, MPOR rule and risk-weight rule are an INFO line on Checks, and each regime gets an INFO line with its CCP EAD subtotal | As decision 7: the evidence names the method without changing Results; the subtotal makes the CCP share of the total identifiable (decision 2) | The QCCP weight of 2% is stated, not applied; for a non-qualifying CCP the line says the standardised weight is determined outside K-SACCR, which has no counterparty category or credit quality input; no risk-weighted amount is calculated | #112 |
 
 ## 📜 Earlier releases
 

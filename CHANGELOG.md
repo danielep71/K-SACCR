@@ -212,6 +212,23 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
+  CCP trade exposures (#112), not yet implemented. Role `CCP` becomes the
+  clearing member's trade exposure to a CCP, calculated with SA-CCR, with two
+  NettingSets columns after Margin agreements: *QCCP (Y/N)* in R and *CCP
+  retains VM, collateral not protected (Y/N)* in S, required for `CCP` and
+  blank otherwise. A margined `CCP` set has an MPOR floor of 10 business days
+  in both regimes; with retained VM each trade takes the larger of that MPOR
+  and the lower of one year and its remaining maturity, floored at 10
+  business days. The combined large-or-illiquid flag stays, as a
+  conservative limitation; client trades the member need not reimburse are
+  not entered. QCCP status follows the netting set's regime (EMIR under
+  CRR, CRE50 under BCBS). Checks names each `CCP` set's role, MPOR rule and
+  risk-weight rule (2% for a QCCP, stated and not applied; for a
+  non-qualifying CCP, a standardised weight to be determined outside
+  K-SACCR), and each regime's CCP EAD subtotal. Default-fund contributions, own funds requirements and the
+  Art. 303(2) cap are left for a later issue. Decisions 9 to 14 record the
+  choices.
 - `docs/methodology/CLEARING_COVERAGE.md` records the input contract for
   settled-to-market trades (#360), which the Trades entry under Added
   implements: the columns, the seven rules and their rationale, the upgrade
