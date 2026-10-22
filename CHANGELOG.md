@@ -96,6 +96,17 @@ Use only the categories needed by a release.
 
 ### Added
 
+- `TEST_Aggregation` adds a mixed clearing population (#361): one CRR
+  portfolio with an ordinary, a clearing-member, a client and a CCP
+  netting set, margined with daily remargining and holding the same swap,
+  and a CCP netting set without its QCCP status. It checks that each
+  `VALID` set takes its own role's MPOR floor (10, 5, 5 and 10 business
+  days), so no role is calculated as another; that `TOTAL CRR` is the sum
+  of the four `VALID` sets' EADs and reads
+  `4 of 5 netting set(s) VALID; 1 withheld`; that the invalid set is
+  `INVALID: 1 input error(s)`; and that the CCP line on Checks names one of
+  two CCP sets `VALID` with its EAD. Totals: `TEST_Aggregation` 12 cases and
+  15 checks; all suites 288 cases and 1,283 checks.
 - NettingSets: trade exposures to a central counterparty (#112, part (a)).
   Client clearing role `CCP` is the bank's trade exposure, as clearing
   member, to a CCP, for its own trades and for client trades it must
