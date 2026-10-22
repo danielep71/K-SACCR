@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Five-year swap, valid"
     },
     {
@@ -67,6 +69,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Matured before the valuation date, rejected"
     }
   ]

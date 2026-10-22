@@ -57,9 +57,15 @@ Attribute VB_Name = "TEST_InputValidation"
 '   legs sharing an Economic trade ID form one trade with exactly one MtM
 '   leg, legs in different risk categories are accepted, legs in one asset
 '   class must be options, and an error value in either leg column is
-'   rejected. Results has one TOTAL row per regime, after the netting sets,
-'   with the number of VALID and withheld netting sets it covers, and a
-'   netting set may not take the label of a TOTAL row (#198).
+'   rejected. For settled-to-market trades (#360): the next reset date must
+'   be after the reporting date and not after the maturity, a reset on the
+'   maturity is accepted, blank or N with a reset date, STM without one,
+'   another code and a reset that is not a date are rejected, an STM trade
+'   in a margined netting set makes it INVALID, and the legs of one
+'   economic trade share the settlement type and reset date. Results has
+'   one TOTAL row per regime, after the netting sets, with the number of
+'   VALID and withheld netting sets it covers, and a netting set may not
+'   take the label of a TOTAL row (#198).
 '
 ' PUBLIC SURFACE
 '   RunInputValidationTests is the entry point. Option Private Module keeps
@@ -99,8 +105,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 143               'Cases in a complete run
-        Private Const CHECKS      As Long = 235               'Checks in a complete run
+        Private Const CASES       As Long = 163               'Cases in a complete run
+        Private Const CHECKS      As Long = 267               'Checks in a complete run
 
 
 '
@@ -792,6 +798,158 @@ Public Sub RunInputValidationTests()
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
         TEST_CaseRunner.ExpectChecksLine "mtm-flag-error", SEV_ERROR, _
                                          "MtM leg must be Y or N (found an error value", "illustrative"
+
+    'Settled-to-market trades (#360). The next reset date must be after the
+    'reporting date and not after the maturity as entered; a reset on the
+    'maturity date is accepted. Blank or N with a reset date, STM without
+    'one, another code and a reset that is not a date are rejected. Lower
+    'case stm is read as STM; a daily reset gives M = 1/365, floored at 10
+    'business days in the maturity factor: sqrt(10/250) = 0.2.
+        StartCase "stm-reset-on-reporting-date", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", DateSerial(2026, 9, 30)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "reset-on-date", SEV_ERROR, _
+                                         "next reset date must be after the reporting date", "illustrative"
+
+        StartCase "stm-reset-before-reporting-date", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", DateSerial(2026, 9, 29)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+        StartCase "stm-reset-after-maturity", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", DateSerial(2031, 10, 1)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "reset-after-maturity", SEV_ERROR, _
+                                         "next reset date is after the maturity date", "illustrative"
+
+        StartCase "stm-reset-on-maturity", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", DateSerial(2031, 9, 30)
+        ExpectStatus "VALID"
+
+    'With M blank, the reset is compared with the end date that fills it.
+        StartCase "stm-reset-after-end-date", "N"
+        AddEquityForward "T1", "0"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MAT, Empty
+        SetSettlement 1, "STM", DateSerial(2031, 10, 1)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+        StartCase "stm-without-reset", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", Empty
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "no-reset", SEV_ERROR, "needs its next reset date", "illustrative"
+
+        StartCase "settlement-blank-with-reset", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, Empty, DateSerial(2026, 10, 30)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "blank-with-reset", SEV_ERROR, _
+                                         "a next reset date is given but the settlement type is not STM", _
+                                         "illustrative"
+
+        StartCase "settlement-n-with-reset", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, ST_NONE, DateSerial(2026, 10, 30)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+        StartCase "settlement-type-not-a-code", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "X", Empty
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "not-a-code", SEV_ERROR, "settlement type must be N, STM or blank", _
+                                         "illustrative"
+
+        StartCase "settlement-type-error", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, CVErr(xlErrNA), DateSerial(2026, 10, 1)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "type-error", SEV_ERROR, _
+                                         "Settlement type must be text or blank (found an error value)", "illustrative"
+
+        StartCase "stm-reset-not-a-date", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "STM", "soon"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "reset-not-a-date", SEV_ERROR, "next reset date is not a date", _
+                                         "illustrative"
+
+        StartCase "stm-daily-lower-case", "N"
+        AddEquityForward "T1", "0"
+        SetSettlement 1, "stm", DateSerial(2026, 10, 1)
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "remaining-maturity", "T1", "remaining_maturity", "0.0027397260273972603", _
+                                     "0.000000000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "maturity-factor", "T1", "maturity_factor", "0.2", "0.000000000001", "0", _
+                                     "illustrative"
+
+    'A settled trade is unmargined (Basel FAQ to CRE52.31-32): in a margined
+    'netting set, whether all its trades are STM (an inconsistent
+    'classification) or only some (a mixed set, whose CRE52.74 treatment is
+    'not implemented), the netting set is INVALID, and another invalid field
+    'is counted after the reason.
+        StartMarginedCase "stm-margined-all-crr", "CRR", "N", "1", "N", "N"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 1)
+        ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
+                     "not supported"
+        TEST_CaseRunner.ExpectChecksLine "margined-stm", SEV_ERROR, "STM requires unmargined treatment", _
+                                         "illustrative"
+
+        StartMarginedCase "stm-margined-all-bcbs", "BCBS", "N", "1", "N", "N"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 1)
+        ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
+                     "not supported"
+
+        StartMarginedCase "stm-margined-mixed", "CRR", "N", "1", "N", "N"
+        AddSwap "T2"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 1)
+        ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
+                     "not supported"
+
+        StartMarginedCase "stm-margined-other-error", "CRR", "N", "1", "N", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_TH, -1#
+        SetSettlement 1, "STM", DateSerial(2026, 10, 1)
+        ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
+                     "not supported; 1 other input error(s)"
+
+    'The legs of one economic trade share its settlement arrangement, blank
+    'and N alike; separately contracted trades may differ.
+        StartCase "legs-settlement-blank-and-n", "N"
+        AddEquityCall "L1", "Long", "100", "30"
+        AddEquityCall "L2", "Short", "110", "0"
+        SetLeg 1, "E1", "Y"
+        SetLeg 2, "E1", "N"
+        SetSettlement 2, ST_NONE, Empty
+        ExpectStatus "VALID"
+
+        StartCase "legs-settlement-differ", "N"
+        AddEquityCall "L1", "Long", "100", "30"
+        AddEquityCall "L2", "Short", "110", "0"
+        SetLeg 1, "E1", "Y"
+        SetLeg 2, "E1", "N"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 30)
+        ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "settlement-differ", SEV_ERROR, "its legs have different settlement types", _
+                                         "illustrative"
+
+        StartCase "legs-reset-differ", "N"
+        AddEquityCall "L1", "Long", "100", "30"
+        AddEquityCall "L2", "Short", "110", "0"
+        SetLeg 1, "E1", "Y"
+        SetLeg 2, "E1", "N"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 30)
+        SetSettlement 2, "STM", DateSerial(2026, 11, 30)
+        ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "reset-differ", SEV_ERROR, "its legs have different next reset dates", _
+                                         "illustrative"
+
+        StartCase "separate-trades-settlement-differ", "N"
+        AddEquityForward "T1", "0"
+        AddSwap "T2"
+        SetSettlement 1, "STM", DateSerial(2026, 10, 1)
+        ExpectStatus "VALID"
 
     'Dates (#40). Text is read as a date only in the ISO form yyyy-mm-dd,
     'whatever the regional settings; 30/09/2031, a serial written as text
@@ -1670,6 +1828,29 @@ Private Sub SetLeg( _
 '
         TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_ECON, EconomicTradeId
         TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_MTMLEG, MtmLegFlag
+
+End Sub
+
+
+Private Sub SetSettlement( _
+    ByVal DataRow As Long, _
+    ByVal SettlementType As Variant, _
+    ByVal NextResetDate As Variant)
+'
+'==============================================================================
+'                                SetSettlement
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write a trade row's settlement type and next reset date (#360). Empty
+'   leaves a cell blank; a date is passed as a Date, so that Excel does not
+'   read text in the regional format.
+'
+' UPDATED
+'   2026-10-20
+'==============================================================================
+'
+        TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_SETTLE, SettlementType
+        TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_RESET, NextResetDate
 
 End Sub
 

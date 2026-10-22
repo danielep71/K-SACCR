@@ -81,7 +81,7 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 | --- | --- | --- |
 | Listed future | Instrument `Linear`, with M, and S and E for interest-rate and credit futures | Implemented; exercised as a bilateral linear trade, and in the `CM` and `CLIENT` netting sets of `illustrative-clearing-member-listed` and `illustrative-clearing-client-listed` (equity index future) |
 | Ordinary listed option, on a security, an index or a future | Instrument `Option`, with price, strike and expiry T; for an option on an interest-rate future, S and E of the underlying | Implemented; exercised as a bilateral option, and in the same clearing cases (equity index call; its supervisory delta is checked) |
-| Daily settled (settled-to-market) contract | Today: Margined = N, and as M the next reset date. Specified for #360: Settlement type `STM` and a next reset date | User's: see [Settlement and reset](#settlement-and-reset) |
+| Daily settled (settled-to-market) contract | Settlement type `STM` and its next reset date, in an unmargined netting set (#360) | Implemented; the qualification is the user's: see [Settlement and reset](#settlement-and-reset). Exercised by `illustrative-settled-to-market-daily` and `illustrative-settled-to-market-periodic` |
 | Exotic options | No separate input | Relevant to the clearing member's relief from the 20-day floor (Art. 304(3)(c); CRE54.8(1)), which is not implemented |
 | SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are #113; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
 
@@ -123,29 +123,28 @@ keeps E, so the interest-rate maturity bucket does not change. A contract
 that is daily margined but not settled (collateralised-to-market) is a
 margined netting set with an MPOR.
 
-| Item | K-SACCR today | Gap (#360) |
+| Item | K-SACCR | Note |
 | --- | --- | --- |
-| Settled-to-market linear contract | Margined = N and M = next reset date; the unmargined maturity factor floors M at 10 business days; E stays the contractual end | No input says the trade is settled-to-market, so nothing checks that M is a reset date rather than a maturity, or that the contract qualifies. Specified: [input contract](#settled-to-market-input-contract) |
-| Settled-to-market option | Rejected when the expiry T is after M, so M cannot be the next reset date | Specified: [input contract](#settled-to-market-input-contract), with M and T kept and the reset date separate |
+| Settled-to-market linear contract | Settlement type `STM` and the next reset date, in an unmargined netting set: M is the time to the reset, floored at 10 business days in the maturity factor; E stays the contractual end | Implemented (#360); the [input contract](#settled-to-market-input-contract) below |
+| Settled-to-market option | The same, with the expiry T kept for the supervisory delta, so the expiry may be after the reset | Implemented (#360). Before, the next reset date had to be entered as M, and an option expiring after it was rejected |
 | Collateralised-to-market contract | Margined = Y with the MPOR rules above | — |
-| Exchange calendar | None: business days are 250 a year without holidays | Listing does not define a calendar; a date derivation would need an explicit one |
-| Past or inconsistent dates | M on or before the reporting date is rejected; M after E is not checked | Rules for reset dates: [input contract](#settled-to-market-input-contract) |
+| Exchange calendar | None: business days are 250 a year without holidays | Listing does not define a calendar; the user enters the reset date |
+| Past or inconsistent dates | M on or before the reporting date is rejected; M after E is not checked. A reset date on or before the reporting date or after M is rejected | [Input contract](#settled-to-market-input-contract), rules 3 and 4 |
 
 <a id="settled-to-market-input-contract"></a>
 
 ### Settled-to-market input contract (#360)
 
-Specified here from [decision 4](#decisions); the engine and template
-implement it in #360. Until then they behave as in the table above.
+Specified from [decision 4](#decisions) and implemented in #360.
 
-**Columns.** Trades gets two columns immediately before *Comment*, after
-#38's *Economic trade ID* and *MtM leg*. Comment moves from AB to AD:
+**Columns.** Trades has two columns immediately before *Comment*, after
+#38's *Economic trade ID* and *MtM leg*. Comment moved from AB to AD:
 
 | Column | Header | Content |
 | --- | --- | --- |
 | Z | Economic trade ID | Unchanged (#38) |
 | AA | MtM leg (Y/N) | Unchanged (#38) |
-| AB | Settlement type | Blank or `N`: ordinary treatment. `STM`: settled-to-market |
+| AB | Settlement type (N/STM) | Blank or `N`: ordinary treatment. `STM`: settled-to-market; lower case is read as upper |
 | AC | Next reset date | A date. Required for `STM`; must be blank for blank or `N` |
 | AD | Comment | Moved from AB; still not read |
 
@@ -169,35 +168,45 @@ for #38's other leg rules. Rule 6 makes the whole netting set `INVALID`. No cale
 user enters the reset date.
 
 **Existing workbooks.** With both columns blank, every trade keeps its
-current treatment and result. A settled contract entered today with Margined
-= N and the next reset date as M keeps its result; to use the contract,
-enter `STM`, the next reset date, and the contractual maturity as M. A settled
-option, rejected today when its expiry is after the reset date, can then be
-entered.
+earlier treatment and result. A settled contract entered with Margined = N and
+the next reset date as M keeps its result; to use the contract, enter `STM`,
+the next reset date, and the contractual maturity as M. A settled option whose
+expiry is after the reset date, rejected before, can now be entered.
 
 **Upgrade.** A workbook built from an earlier template has Comment in AB. The
 Trades header check rejects that layout, so the run stops rather than reading
 the wrong columns. To upgrade it, rebuild it from the new template, or insert
-two columns before Comment (AB:AC) with the headers above. Data validation for
-the new columns is in the new template only.
+two columns before Comment (AB:AC) with the headers above. In the second case
+also change `Trades!$C:$AA` to `Trades!$C:$AC` in the formulas of Results C5,
+Reconciliation C5 and TradeReconciliation C5, so that an edit in AB or AC
+updates those statuses; data validation for the new columns is in the new
+template only.
 
 **Run validity.** A change in AB or AC marks the previous results as stale,
-as a change in any other Trades input does.
+as a change in any other Trades input does: the input fingerprint covers
+every Trades column before Comment.
 
-**Planned tests.** Each new case has expected values derived separately, as
-for #359:
+**Tests.** The numerical cases have expected values from
+[`tests/derivations/settled_to_market.py`](../../tests/derivations/settled_to_market.py),
+a separate implementation, and are `illustrative`, as for #359:
 
-- daily settlement (next business day: the floor applies) and non-daily
-  settlement (a reset beyond 10 business days), for a linear trade and for an
-  option whose expiry is after the reset;
-- a reset the day after the reporting date, a reset equal to M (accepted)
-  and a reset the day after M (rejected);
-- a netting set with Margined = Y whose trades are all `STM`, and one mixing
-  `STM` with ordinary trades: both `INVALID` with the rule 6 status;
-- legs of one economic trade with blank and `N` (accepted), with `STM` and
-  `N` or different reset dates (every leg rejected), and two separately
-  contracted trades in one netting set with different settlement types
-  (both accepted);
+- `illustrative-settled-to-market-daily`, both regimes: a listed equity
+  index future and call reset the next business day, so M is the 10-day
+  floor (MF 0.2) while the call keeps its expiry for the delta;
+- `illustrative-settled-to-market-periodic`, both regimes: a five-year EUR
+  swap, an equity index call and a Brent forward reset in 30 days (MF
+  √(30/365)); the swap keeps its duration and its bucket over five years by
+  E, and the forward's reset falls on its maturity date (accepted);
+- `TEST_InputValidation`: a reset on and before the reporting date, after M,
+  after the end date that fills a blank M (rejected) and on M (accepted); `STM`
+  without a reset date, blank or `N` with one, another code, an error value
+  and a reset that is not a date (rejected); lower-case `stm` with a daily
+  reset (M = 1/365, MF 0.2); a margined netting set whose trades are all
+  `STM` (both regimes), one mixing `STM` with ordinary trades and one with
+  another invalid field (`INVALID` with the rule 6 status); legs with blank
+  and `N` (accepted), with `STM` and `N` or different reset dates (every leg
+  rejected), and two separately contracted trades with different settlement
+  types (both accepted);
 - every other input in the rules table that breaks a rule;
 - regression showing that existing cases, with both columns blank, keep
   their results.
@@ -215,7 +224,7 @@ The supported clearing rules and where each is carried.
 | CCP-facing netting set rejected ([decision 5](#decisions)) | Role `CCP`, margined or not | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-role-ccp`, `netting-set-clearing-role-ccp-margined` | Implemented; exercised: the status is `INVALID: facing a CCP, not supported`, with any other invalid field counted after it, and Checks has the error |
 | Multi-level client structure rejected ([decision 6](#decisions)) | Role `MULTI` | `CORE_Engine.LoadNettingSets` | `netting-set-clearing-role-multi-level` | Implemented; exercised: the status is `INVALID: multi-level client structure, not supported`, and Checks has the error |
 | Role, floor and rule on Checks ([decision 7](#decisions)) | Role `CM` or `CLIENT`, margined or not | `CORE_Engine.LoadNettingSets` | The four role cases and `netting-set-clearing-member-unmargined` check the INFO line | Implemented; exercised |
-| Next reset date as remaining maturity (CRE52.37(5); Art. 279c(2)) | Today Trades *Maturity date (M)*; specified for #360: *Settlement type* `STM` and *Next reset date* ([input contract](#settled-to-market-input-contract)) | `CORE_Engine` trade dates, `SACCR_MaturityFactor` | None specific; planned in the input contract | User's |
+| Next reset date as remaining maturity (CRE52.37(5); Art. 279c(2)) | Trades *Settlement type* `STM` and *Next reset date* ([input contract](#settled-to-market-input-contract)) | `CORE_Engine.ReadTradeSettlement`, `CORE_Engine.CheckEconomicTrades`, `SACCR_MaturityFactor` | `illustrative-settled-to-market-daily`, `illustrative-settled-to-market-periodic`; the `TEST_InputValidation` cases listed under the input contract | Implemented; exercised. The qualification of the contract is the user's |
 | Posted collateral not bankruptcy remote in NICA (CRE54.23) | NettingSets NICA | `CORE_Engine` replacement cost and PFE multiplier | Existing NICA cases, none clearing-specific | User's |
 
 ## 🚫 Rejections and required attributes
@@ -229,7 +238,8 @@ issue is done, each case stays as described under *Today*.
 | VM retained by the CCP, member collateral unprotected | Cannot be declared; a margined set gets 10 days or less | Declared through the retained-VM and protection inputs and given the Art. 304(3)(d) / CRE54.8(3) horizon ([decision 2](#decisions)) (#112) |
 | Multi-level client structure | Declared with role `MULTI`: rejected. Entered as `CM` or `CLIENT`: calculated as that role, undetectable | Rejected when declared ([decision 6](#decisions), implemented) |
 | QCCP status missing or unknown | No input | Rejected once CCP-facing sets exist (#112) |
-| Settled-to-market option with a reset date before expiry | Rejected as expiry after maturity | Settlement type and next reset date, with M and T kept ([decision 4](#decisions); [input contract](#settled-to-market-input-contract)) (#360) |
+| Settled-to-market option with a reset date before expiry | Entered with `STM` and its reset date, M and T kept (#360, implemented) | [Decision 4](#decisions); [input contract](#settled-to-market-input-contract) |
+| Settled-to-market trade in a margined netting set | `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported` (#360, implemented) | A limitation: an all-`STM` set is misclassified, and a mixed set needs the CRE52.74 treatment, not implemented |
 | More than 5,000 trades where the floor does not apply | 20 days if the flag is set: a conservative limitation | Separated with CCP support, waiving only the trade-count floor where eligible ([decision 3](#decisions)) (#112, #359) |
 
 Attributes a CCP-facing netting set needs for #112: the CCP's identity; QCCP

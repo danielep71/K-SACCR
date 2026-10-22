@@ -46,6 +46,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "9m WTI forward (Basel treats WTI and Brent as one type)"
     },
     {
@@ -69,6 +71,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "2y Brent forward"
     },
     {
@@ -92,6 +96,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "5y silver forward"
     }
   ]

@@ -353,7 +353,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$AA,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$AC,
 '                        Params!$1:$1048576)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -381,7 +381,7 @@ Public Function ResultsStatusText( _
 '   function must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
 
@@ -434,7 +434,7 @@ Public Function ReconciliationStatusText( _
 ' PURPOSE
 '   Worksheet function for the status cell in Reconciliation C5 (#45):
 '     =ReconciliationStatusText(SACCR_ReconInputs, SACCR_RunInputs,
-'        BankNettingSets!$1:$1048576, NettingSets!$C:$Q, Trades!$C:$AA,
+'        BankNettingSets!$1:$1048576, NettingSets!$C:$Q, Trades!$C:$AC,
 '        Params!$1:$1048576)
 '   As ResultsStatusText: a run changes the hidden names and an edit
 '   changes a watched range, and either makes Excel recalculate the cell.
@@ -451,7 +451,7 @@ Public Function ReconciliationStatusText( _
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
         ReconciliationStatusText = ReconStatus(RECON_NS, StoredRecon, StoredRun)
@@ -476,7 +476,7 @@ Public Function TradeReconciliationStatusText( _
 '   (#45), as ReconciliationStatusText:
 '     =TradeReconciliationStatusText(SACCR_TradeReconInputs,
 '        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$Q,
-'        Trades!$C:$AA, Params!$1:$1048576)
+'        Trades!$C:$AC, Params!$1:$1048576)
 '
 ' INPUTS
 '   StoredRecon: the value of SACCR_TradeReconInputs; the others as
@@ -486,7 +486,7 @@ Public Function TradeReconciliationStatusText( _
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-20
 '==============================================================================
 '
         TradeReconciliationStatusText = ReconStatus(RECON_TR, StoredRecon, StoredRun)

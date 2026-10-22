@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Heating-degree-day swap"
     }
   ]

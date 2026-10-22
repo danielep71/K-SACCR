@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "4y CDS protection sold - credit quality step 2 (CRR Art. 280c)"
     }
   ]

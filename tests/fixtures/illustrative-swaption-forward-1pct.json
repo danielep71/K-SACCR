@@ -44,6 +44,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "10y IRS pay fixed - Basel ex.1 trade 1"
     },
     {
@@ -67,6 +69,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "4y IRS receive fixed - Basel ex.1 trade 2"
     },
     {
@@ -90,6 +94,8 @@
       "lambda_price": null,
       "attachment_rate": null,
       "detachment_rate": null,
+      "settlement_type": "ordinary",
+      "next_reset_date": null,
       "description": "Swaption with forward 1% (strike 5%)"
     }
   ]

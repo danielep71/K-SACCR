@@ -190,6 +190,13 @@ Attribute VB_Name = "CORE_Config"
         Public Const LARGE_NS_TRADES As Long = 5000
 
 '------------------------------------------------------------------------------
+' TRADE CODES
+'------------------------------------------------------------------------------
+    'Settlement type of a trade; blank is N (#360).
+        Public Const ST_NONE     As String = "N"         'Ordinary treatment
+        Public Const ST_STM      As String = "STM"       'Settled-to-market: M is the time to the next reset date
+
+'------------------------------------------------------------------------------
 ' PARAMS TABLE HEADERS
 '------------------------------------------------------------------------------
     'Header text of the first column of each lookup table, at the top-left
@@ -224,7 +231,9 @@ Attribute VB_Name = "CORE_Config"
     'Column number of each field on the Trades sheet. Each row is a leg; its
     'Trade ID is unique. Legs sharing an Economic trade ID form one economic
     'trade whose MtM is carried by exactly one leg, the MtM leg; a blank
-    'Economic trade ID makes the row a whole trade on its own (#38).
+    'Economic trade ID makes the row a whole trade on its own (#38). A
+    'settled-to-market leg (STM) gives its next reset date, which replaces
+    'the maturity in the unmargined maturity factor (#360).
         Public Const TR_ID         As Long = 1     'Trade ID: the leg, unique
         Public Const TR_NS         As Long = 2     'Netting-set ID
         Public Const TR_AC         As Long = 3     'Asset class: IR, FX, CR, EQ, CO or OT
@@ -250,8 +259,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const TR_DETACH     As Long = 23    'CDO detachment point D
         Public Const TR_ECON       As Long = 24    'Economic trade ID; blank: the row is a whole trade
         Public Const TR_MTMLEG     As Long = 25    'MtM leg: Y on the one leg carrying the MtM, else N
-        Public Const TR_COMMENT    As Long = 26    'Free-text comment, not read
-        Public Const TR_NCOLS      As Long = 26    'Number of input columns
+        Public Const TR_SETTLE     As Long = 26    'Settlement type: blank or N ordinary, STM settled-to-market
+        Public Const TR_RESET      As Long = 27    'Next reset date: STM only, blank otherwise
+        Public Const TR_COMMENT    As Long = 28    'Free-text comment, not read
+        Public Const TR_NCOLS      As Long = 28    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' EXPECTED HEADERS
@@ -273,7 +284,7 @@ Attribute VB_Name = "CORE_Config"
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
             "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
             "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|" & _
-            "Economic trade ID|MtM leg (Y/N)|"
+            "Economic trade ID|MtM leg (Y/N)|Settlement type (N/STM)|Next reset date|"
         Public Const PRM_CODE_HEADER As String = "Code"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _

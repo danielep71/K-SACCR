@@ -22,7 +22,8 @@ TRADE = {
     "hedging_set_label": None, "notional_amount": 10000, "market_value_amount": 30,
     "start_date": None, "end_date": "2031-01-02", "maturity_date": "2031-01-02",
     "option_expiry_date": None, "underlying_price": None, "strike_price": None,
-    "lambda_price": None, "attachment_rate": None, "detachment_rate": None, "description": None,
+    "lambda_price": None, "attachment_rate": None, "detachment_rate": None,
+    "settlement_type": "ordinary", "next_reset_date": None, "description": None,
 }
 FIXTURE = {
     "schema_version": 1, "kind": "saccr-fixture", "id": "sample-case", "synthetic": True,
@@ -263,6 +264,7 @@ class TestCaseValidatorTests(unittest.TestCase):
             "adjusted_notional": "EUR", "multiplier": "1",
             "supervisory_delta": "1", "supervisory_factor": "1",
             "margin_period_of_risk": "business_days",
+            "maturity_factor": "1", "remaining_maturity": "years",
             **{f"add_on.{asset}": "EUR" for asset in cases.ASSET_CLASSES},
         }
         for quantity, unit in units.items():
@@ -271,6 +273,23 @@ class TestCaseValidatorTests(unittest.TestCase):
                     output = dict(EXPECTED["outputs"][0], quantity=quantity, unit=candidate)
                     findings = cases.check_measure("output", output, self.fixture)
                     self.assertEqual(bool(findings), candidate != unit, findings)
+
+    def test_settlement_type_and_reset_date(self) -> None:
+        self.fixture["trades"][0].update(settlement_type="settled_to_market", next_reset_date="2026-01-05")
+        self.assertEqual(self.findings(), [])
+        self.fixture["trades"][0].update(settlement_type="STM", next_reset_date="2026-02-30")
+        findings = self.findings()
+        self.assertFinding("settlement_type", findings)
+        self.assertFinding("next_reset_date: invalid date", findings)
+        del self.fixture["trades"][0]["settlement_type"]
+        self.assertFinding("missing field 'settlement_type'", self.findings())
+
+    def test_maturity_factor_is_the_unmargined_one(self) -> None:
+        output = {"quantity": "maturity_factor", "rule": "CRE52.48", "trade": "T1", "value": 0.2, "unit": "1",
+                  "tolerance": {"absolute": 1e-9, "relative": 0}, "reference": PUBLISHED}
+        self.assertEqual(cases.check_output("output", output, self.fixture, {"BCBS-279"}), [])
+        self.fixture["netting_set"]["margined"] = True
+        self.assertFinding("the netting set is margined", cases.check_output("output", output, self.fixture, {"BCBS-279"}))
 
     def test_lambda_unit_follows_referenced_trade(self) -> None:
         self.fixture["trades"].append(dict(TRADE, id="T2", asset_class="commodity"))
