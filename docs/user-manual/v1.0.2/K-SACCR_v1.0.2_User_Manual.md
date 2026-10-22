@@ -408,7 +408,8 @@ The Margin Period of Risk (MPOR) is measured in **business days**. The engine ca
 | Ordinary margined bilateral | Base floor of 10 business days. |
 | Clearing member (`CM`) facing client | 5-day floor under both CRR and BCBS, subject to eligibility. |
 | Client (`CLIENT`) facing clearing member | 5-day floor under **CRR**; under **BCBS** the 10-day floor, a conservative interpretation of the Basel text. |
-| Trade exposure to a CCP (`CCP`) | 10-day floor under both regimes. If the CCP retains VM and the collateral is not protected, each trade's horizon is the lower of one year and its remaining maturity, at least 10 business days, when that exceeds the netting set's MPOR. |
+| Trade exposure to a CCP (`CCP`), margined | 10-day floor under both regimes. If the CCP retains VM and the collateral is not protected, each trade's horizon is the lower of one year and its remaining maturity, at least 10 business days, when that exceeds the netting set's MPOR. |
+| Trade exposure to a CCP (`CCP`), unmargined | No MPOR floor: each trade's maturity factor uses its remaining maturity, as in any unmargined netting set. |
 | Multi-level client structure (`MULTI`) | Not calculated: the netting set is `INVALID`. |
 | Large/illiquid conditions | Relevant 20-business-day floor, with frequency treatment. One flag covers both more than 5,000 trades and illiquid collateral, so it also sets 20 days where the trade-count floor does not apply (for example a `CCP` netting set): a conservative limitation. |
 | Remargin every N business days | MPOR floor plus `N-1`. |
@@ -417,7 +418,7 @@ The Margin Period of Risk (MPOR) is measured in **business days**. The engine ca
 
 **Important:** `CM`, `CLIENT` and `CCP` are bank-role declarations, **not** evidence that a transaction qualifies for the corresponding treatment. The user must separately establish regulatory eligibility and documentation, including the QCCP status. A CCP entered with role `N` is calculated as a bilateral counterparty and cannot be detected.
 
-Every `CM`, `CLIENT` and `CCP` netting set gets an INFO line on `Checks` naming its role, the MPOR floor and the rule applied. For `CCP` it also states the risk-weight rule, which K-SACCR does not apply: 2% for a QCCP, or the CCP's standardised risk weight, to be determined outside the workbook, for a non-qualifying CCP; with `QCCP` blank or invalid, it names a CCP of unknown QCCP status and states no rule. Each regime with `CCP` netting sets gets an INFO line with their number, how many are `VALID`, and their EAD, which stays in that regime's total. Client trades for which the clearing member need not reimburse the client on the CCP's default have an exposure value of zero and are not entered.
+Every `CM`, `CLIENT` and `CCP` netting set gets an INFO line on `Checks` naming its role, the MPOR floor and the rule applied, or, for an unmargined set, that no floor applies. For `CCP` it also states the risk-weight rule, which K-SACCR does not apply: 2% for a QCCP, or the CCP's standardised risk weight, to be determined outside the workbook, for a non-qualifying CCP; with `QCCP` blank or invalid, it names a CCP of unknown QCCP status and states no rule. Each regime with `CCP` netting sets gets an INFO line with their number, how many are `VALID`, and their EAD, which stays in that regime's total. Client trades for which the clearing member need not reimburse the client on the CCP's default have an exposure value of zero and are not entered.
 
 
 \Needspace{9\baselineskip}
@@ -1190,7 +1191,7 @@ When a conflict arises between general explanatory prose and the **actual applic
 | **CRR / BCBS** | EU CRR / Basel CRE52 calculation regimes. |
 | **REGULATORY / WHAT-IF** | Parameter-reference classification; not a certification grade. |
 | **CURRENT / EDITED / STALE / NONE** | Completed-run status: current, an output edited after the run, inputs changed since, or no completed run. |
-| **INVALID / INCOMPLETE / NO TRADES / VALID** | Netting-set calculation status (INVALID and INCOMPLETE are followed by a count); only VALID produces EAD. |
+| **INVALID / INCOMPLETE / NO TRADES / VALID** | Netting-set calculation status (INCOMPLETE is followed by a count, INVALID by a count or a reason); only VALID produces EAD. |
 | **Economic trade ID** | Shared identifier linking modeled legs of one economic trade. |
 | **TradeID** | Unique input **leg** identifier and trade comparison key. |
 | **Evidence CSV** | Semicolon-delimited versioned run report; not a regulatory return. |
