@@ -415,12 +415,21 @@ class TestCaseValidatorTests(unittest.TestCase):
 
     def test_reference_classes(self) -> None:
         self.expected["outputs"][0]["reference"] = dict(PUBLISHED, locator="", source="WIKI")
-        self.expected["outputs"][1]["reference"] = dict(PUBLISHED, **{"class": "independent",
-                                                                     "reviewed_by": "Author"})
+        self.expected["outputs"][1]["reference"] = dict(PUBLISHED, **{"class": "independent", "derived_by": ""})
         findings = self.findings()
         self.assertFinding("a published reference needs 'locator'", findings)
         self.assertFinding("source 'WIKI' is not in the source register", findings)
-        self.assertFinding("reviewed by someone other than its author", findings)
+        self.assertFinding("independent reference needs 'derived_by'", findings)
+
+    def test_independent_value_needs_no_reviewer(self) -> None:
+        # The project has one maintainer and no reviewer (CLEARING_COVERAGE
+        # decision 8): an independent value names the external
+        # implementation that produced it, and reviewed_by may be null.
+        self.expected["outputs"][1]["reference"] = dict(PUBLISHED, **{"class": "independent",
+                                                                     "derived_by": "R package SACCR 3.4",
+                                                                     "reviewed_by": None})
+        self.fixture["id"] = "sample-case"
+        self.assertEqual([f for f in self.findings() if "reference" in f or "independent" in f], [])
 
     def test_illustrative_prefix_matches_the_classes(self) -> None:
         illustrative = {"class": "illustrative", "derivation": "Format example"}

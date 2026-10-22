@@ -233,11 +233,17 @@ not that a figure is correct.
 | Class | Meaning | Required fields |
 | --- | --- | --- |
 | `published` | Printed in a source from the register, for example a worked example | `source`, exact `locator` (section, example, table) |
-| `independent` | Computed outside K-SACCR's code, by a separate method such as a reviewer's spreadsheet or script, from the cited rules | `source`, `locator`, `derivation`, `derived_by`, `reviewed_by` |
+| `independent` | Computed by an external implementation that the project's maintainer did not write, registered as a source, from the same inputs, for example the R package SACCR (#352) | `source`, `locator`, `derivation`, `derived_by` (the implementation and its version); `reviewed_by` may be `null` |
 | `illustrative` | Shows the format or a behaviour; not a validated SA-CCR figure | `derivation` saying why it exists |
 
-An `independent` value is never produced by running K-SACCR itself, and never
-reviewed only by the person who wrote the code under test. Test output reports
+An `independent` value is never produced by running K-SACCR itself. No
+independent reviewer is required, and none is available: the project has one
+maintainer, who writes the code under test ([decision 8](CLEARING_COVERAGE.md#decisions)
+of the clearing coverage). Acceptance criteria therefore ask for `published`
+values where a registered source prints them, and otherwise for
+`illustrative` values from a derivation separate from the code under test
+(for example a script under `tests/derivations/`), with their provenance and
+tolerances; they do not ask for independent review. Test output reports
 illustrative results separately and never as validation.
 
 <a id="tolerance"></a>
@@ -303,8 +309,8 @@ Each fixture declares one `category`:
   every expected case and assertion is incomplete, not a pass.
 - v1.0.1 validates rules with `published` values only
   ([evidence for v1.0.1](README.md#assumptions-and-scope)); `independent` values
-  start in a later release, with a reviewer other than the author of the
-  code under test.
+  can come only from an external implementation registered as a source, such
+  as the R package SACCR of #352, not from a reviewer.
 
 Where each [regime difference](README.md#regime-differences) is covered:
 

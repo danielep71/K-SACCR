@@ -105,7 +105,7 @@ TEXT_QUANTITIES = {"cap_applied", "hedging_set", "bucket", "trade_status", "nett
 REFERENCE_FIELDS = {"class", "source", "locator", "derivation", "derived_by", "reviewed_by", "date"}
 REQUIRED_REFERENCE = {
     "published": ("source", "locator"),
-    "independent": ("source", "locator", "derivation", "derived_by", "reviewed_by"),
+    "independent": ("source", "locator", "derivation", "derived_by"),
     "illustrative": ("derivation",),
 }
 
@@ -369,8 +369,6 @@ def check_reference(where: str, reference: object, register: set[str]) -> list[s
     source = reference.get("source")
     if source is not None and source not in register:
         findings.append(f"{where}: source '{source}' is not in the source register")
-    if kind == "independent" and reference.get("reviewed_by") == reference.get("derived_by"):
-        findings.append(f"{where}: an independent value must be reviewed by someone other than its author")
     if "date" in reference and not valid_date(reference["date"]):
         findings.append(f"{where}: date must be YYYY-MM-DD")
     return findings

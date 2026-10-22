@@ -273,6 +273,17 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Independent review is no longer required anywhere: the project has one
+  maintainer and no reviewer (decision 8 of the clearing coverage). An
+  `independent` value is now one computed by an external implementation the
+  maintainer did not write, registered as a source (for example the R
+  package SACCR of #352); it names that implementation in `derived_by`, and
+  `reviewed_by` may be null. `tools/check_test_cases.py` no longer requires
+  `reviewed_by` for it. `TEST_CASES.md` says that acceptance criteria ask for
+  `published` values where a registered source prints them and otherwise for
+  `illustrative` values from a derivation separate from the code under
+  test, never for independent review; CONTRIBUTING and the bug and feature
+  issue templates say the same.
 - The user manual for 1.0.2 is prepared in `docs/user-manual/v1.0.2/`,
   from the 1.0.1 manual: trade exposures to a CCP and the NettingSets
   columns `QCCP (Y/N)` and `CCP retains VM, collateral not protected (Y/N)`;
