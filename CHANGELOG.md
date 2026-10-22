@@ -243,6 +243,23 @@ Use only the categories needed by a release.
   to its reset, and skips the cases it cannot represent. Totals: `TEST_Cases`
   28 cases and 131 checks, `TEST_InputValidation` 163 cases and 267 checks.
 
+### Fixed
+
+- `tools/check_test_cases.py` validates the fields of a numerical fixture
+  that depend on each other with the engine's rules (#401). Each field was
+  checked alone, so a fixture the engine would reject could pass the gate
+  while its expected figures described a calculation that never happens: an
+  ordinary trade with a next reset date, a settled-to-market trade without
+  one, or with one on or before the valuation date or after M (the maturity
+  date, else the end date, else the option expiry); a settled-to-market trade
+  in a margined netting set; and, for the CCP inputs of #112, `qccp` or
+  `ccp_retains_variation_margin` missing for role `ccp` or given for another
+  role, or retained VM on an unmargined netting set. Such an input is now
+  accepted only where every expected file of the fixture declares the
+  engine's outcome, `trade_status` `EXCLUDED` or a `netting_set_status`
+  starting with `INVALID`; a reset on M stays valid. `TEST_CASES.md` states
+  the rule. Tooling only: no fixture, expected value or calculation changes.
+
 ### Documentation
 
 - `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for

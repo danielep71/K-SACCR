@@ -168,6 +168,25 @@ An output is a number (`value`, `unit`, `tolerance`) or a text result
 `T01`. An invalid input is expected as a rejection status, `trade_status` or
 `netting_set_status`.
 
+A fixture holds inputs the engine accepts, unless it tests a rejection. For
+the inputs whose fields depend on each other, `tools/check_test_cases.py`
+applies the engine's rules (#401):
+
+- **Settlement (#360):** a `next_reset_date` only with `settled_to_market`,
+  which needs one, after `valuation_date` and not after M (`maturity_date`,
+  else `end_date`, else `option_expiry_date`); a reset on M is accepted. A
+  trade that breaks a rule is rejected by the engine.
+- **Netting set:** a `settled_to_market` trade in a margined netting set;
+  `qccp` and `ccp_retains_variation_margin` required for `clearing_role`
+  `ccp` and `null` for any other role; `ccp_retains_variation_margin` true
+  only on a margined netting set (#112). A netting set that breaks a rule is
+  `INVALID`.
+
+Such a fixture is accepted only when every one of its expected files
+declares the outcome: `trade_status` `EXCLUDED` for the rejected trade, or a
+`netting_set_status` starting with `INVALID`. Otherwise it is a malformed
+fixture, whose figures would not describe a calculation, and the check fails.
+
 A third form, `error`, is reserved and not supported. It would replace
 `value`, `unit` and `tolerance` with the name of a public `SACCR_ERROR_*`
 constant. `tools/check_test_cases.py` accepts that form, but no such constant
@@ -324,4 +343,6 @@ The file format is enforced by `tools/check_test_cases.py`, part of
 `python tools/check.py`: envelopes, field names, types and units, quantity
 names and forms, trade references, tolerances, reference classes and their
 required fields, sources from the register, the `illustrative-` naming rule,
-and unique catalogue IDs. It does not check any value against the engine.
+unique catalogue IDs, and the settlement and CCP inputs above together with
+the rejection their expected files declare. It does not check any value
+against the engine.

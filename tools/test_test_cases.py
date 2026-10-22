@@ -309,6 +309,72 @@ class TestCaseValidatorTests(unittest.TestCase):
         del self.fixture["netting_set"]["ccp_retains_variation_margin"]
         self.assertFinding("missing field 'ccp_retains_variation_margin'", self.findings())
 
+    def test_settlement_fields_are_validated_together(self) -> None:
+        # The five combinations of #401 (valuation 2026-01-02, maturity 2031-01-02)
+        # are each rejected; a reset on the maturity date is accepted.
+        cases_401 = (
+            ("ordinary", "2026-01-05", "settlement_type is not settled_to_market"),
+            ("settled_to_market", None, "needs next_reset_date"),
+            ("settled_to_market", "2026-01-01", "must be after valuation_date"),
+            ("settled_to_market", "2026-01-02", "must be after valuation_date"),
+            ("settled_to_market", "2031-01-03", "is after the maturity"),
+        )
+        for settlement, reset, fragment in cases_401:
+            with self.subTest(settlement=settlement, reset=reset):
+                self.fixture["trades"][0].update(settlement_type=settlement, next_reset_date=reset)
+                findings = self.findings()
+                self.assertFinding(fragment, findings)
+                self.assertFinding("does not expect trade_status EXCLUDED", findings)
+        self.fixture["trades"][0].update(settlement_type="settled_to_market", next_reset_date="2031-01-02")
+        self.assertEqual(self.findings(), [])
+
+    def test_reset_is_compared_with_the_maturity_fallback(self) -> None:
+        # M is the maturity date, or else the end date, or else the option expiry.
+        self.fixture["trades"][0].update(maturity_date=None, end_date="2028-06-30",
+                                         settlement_type="settled_to_market", next_reset_date="2028-07-01")
+        self.assertFinding("is after the maturity", self.findings())
+        self.fixture["trades"][0].update(next_reset_date="2028-06-30")
+        self.assertEqual(self.findings(), [])
+
+    def test_declared_rejection_is_accepted(self) -> None:
+        # A fixture may test a rejection when every expected file declares it.
+        self.fixture["trades"][0].update(settlement_type="settled_to_market", next_reset_date=None)
+        self.expected["outputs"][1]["text"] = "EXCLUDED"
+        self.assertEqual(self.findings(), [])
+
+    def test_settled_trade_in_a_margined_netting_set(self) -> None:
+        self.fixture["netting_set"].update(margined=True, remargin_period_business_days=1)
+        self.fixture["trades"][0].update(settlement_type="settled_to_market", next_reset_date="2026-01-05")
+        self.assertFinding("settled_to_market in a margined netting set", self.findings())
+        self.expected["outputs"].append({"quantity": "netting_set_status", "rule": "CRE52.74",
+                                         "text": "INVALID: 1 input error(s)", "reference": PUBLISHED})
+        self.assertEqual(self.findings(), [])
+
+    def test_ccp_fields_follow_the_role(self) -> None:
+        self.fixture["netting_set"].update(clearing_role="ccp", qccp=None, ccp_retains_variation_margin=False)
+        self.assertFinding("qccp is required for clearing_role ccp", self.findings())
+        self.fixture["netting_set"].update(qccp=True, ccp_retains_variation_margin=True)
+        self.assertFinding("ccp_retains_variation_margin needs a margined netting set", self.findings())
+        self.fixture["netting_set"].update(clearing_role="clearing_member", margined=True,
+                                           remargin_period_business_days=1)
+        findings = self.findings()
+        self.assertFinding("qccp applies only to clearing_role ccp", findings)
+        self.assertFinding("ccp_retains_variation_margin applies only to clearing_role ccp", findings)
+        self.assertFinding("does not expect a netting_set_status starting with INVALID", findings)
+        self.fixture["netting_set"].update(clearing_role="ccp")
+        self.assertEqual(self.findings(), [])
+
+    def test_malformed_records_give_findings_not_exceptions(self) -> None:
+        self.fixture["trades"][0].update(settlement_type="settled_to_market", next_reset_date="2026-13-01")
+        self.fixture["trades"].append("not a trade")
+        self.fixture["netting_set"]["clearing_role"] = "ccp"
+        del self.fixture["netting_set"]["qccp"]
+        findings = self.findings()
+        self.assertFinding("next_reset_date: invalid date", findings)
+        self.assertFinding("missing field 'qccp'", findings)
+        self.fixture["netting_set"] = "not a netting set"
+        self.assertFinding("netting_set: must be an object", self.findings())
+
     def test_lambda_unit_follows_referenced_trade(self) -> None:
         self.fixture["trades"].append(dict(TRADE, id="T2", asset_class="commodity"))
         for trade, unit in (("T1", "1"), ("T2", "price")):
