@@ -372,7 +372,13 @@ column or an EAD total:
   CRE54.13); that is permitted reuse.
 - Results totals add EAD across all `VALID` netting sets of a regime. CCP
   trade EAD stays in that total and is separately identifiable there
-  ([decision 2](#decisions)).
+  ([decision 2](#decisions)). `TEST_Aggregation`
+  (`aggregation-mixed-clearing-population`) runs an ordinary, a `CM`, a
+  `CLIENT` and a `CCP` netting set, margined, with the same swap, and a
+  `CCP` set without its QCCP status: each `VALID` set takes its role's
+  MPOR (10, 5, 5 and 10 business days under CRR), `TOTAL CRR` is the sum of
+  their EADs with the invalid set withheld, and the CCP line on Checks
+  names one of two CCP sets `VALID` and its EAD (#361).
 
 <a id="decisions"></a>
 
