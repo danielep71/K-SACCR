@@ -158,7 +158,7 @@ Use a **Git clone**:
 ```sh
 git clone https://github.com/danielep71/VBA-SACCR-Toolkit.git
 cd VBA-SACCR-Toolkit
-git switch release/1.0.2
+git switch release/1.1.0
 ```
 
 The branch to switch to is the
