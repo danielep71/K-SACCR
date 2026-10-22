@@ -68,6 +68,44 @@ class SyncScriptTests(unittest.TestCase):
 
     def test_document_code_without_body_or_header(self) -> None:
         self.assertEqual(self.code_body(HEADER.encode("cp1252")), "")
+
+    def test_member_attributes_are_dropped(self) -> None:
+        # Exported procedure-level attributes are not code; the lines
+        # around them, and comments and strings naming Attribute, stay (#394).
+        code = ("Option Explicit\r\n"
+                "' Attribute Foo.VB_Description in a comment stays\r\n"
+                "Private Sub Worksheet_Change(ByVal Target As Range)\r\n"
+                "Attribute Worksheet_Change.VB_Description = \"Recalculate\"\r\n"
+                "    Debug.Print \"Attribute X.VB_Description\"\r\n"
+                "End Sub\r\n"
+                "Public Property Get Item() As Long\r\n"
+                "    Attribute Item.VB_UserMemId = 0\r\n"
+                "    Item = 1\r\n"
+                "End Property\r\n"
+                "Public Function Évaluer() As Long\r\n"
+                "Attribute Évaluer.VB_Description = \"Évalue\"\r\n"
+                "    Évaluer = 2\r\n"
+                "End Function\r\n"
+                "Private Sub VB_Helper()\r\n"
+                "Attribute VB_Helper.VB_Description = \"Helper\"\r\n"
+                "End Sub\r\n")
+        expected = ("Option Explicit\n"
+                    "' Attribute Foo.VB_Description in a comment stays\n"
+                    "Private Sub Worksheet_Change(ByVal Target As Range)\n"
+                    "    Debug.Print \"Attribute X.VB_Description\"\n"
+                    "End Sub\n"
+                    "Public Property Get Item() As Long\n"
+                    "    Item = 1\n"
+                    "End Property\n"
+                    "Public Function Évaluer() As Long\n"
+                    "    Évaluer = 2\n"
+                    "End Function\n"
+                    "Private Sub VB_Helper()\n"
+                    "End Sub")
+        for label, text in (("header, CRLF", HEADER + code), ("header, LF", (HEADER + code).replace("\r\n", "\n")),
+                            ("no header, CRLF", code), ("no header, LF", code.replace("\r\n", "\n"))):
+            with self.subTest(label):
+                self.assertEqual(self.code_body(text.encode("cp1252")), expected)
         self.assertEqual(self.code_body(b""), "")
         self.assertEqual(self.code_body("Option Explicit\r\n' é\r\n".encode("cp1252")), "Option Explicit\n' é")
 
