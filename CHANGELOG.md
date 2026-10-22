@@ -284,10 +284,11 @@ Use only the categories needed by a release.
   registered sources, and CRR-specific numerical validation remains
   incomplete.
 - The `RunSACCR_Silent` result line in `INSTALLATION.md` gives the input
-  fingerprint the demonstration portfolio has today, `409B031E`, as seen in a
-  workbook built from the template with the settled-to-market columns
-  (#360), whose headers are part of the fingerprint. The 1.0.1 release
-  workbook gives `7B68D18F`; `74A6C31F` was recorded before later changes to
+  fingerprint the demonstration portfolio has today, `3B2754CA`, as seen in a
+  workbook built from the template with the CCP columns of NettingSets
+  (#112), whose headers are part of the fingerprint. The 1.0.1 release
+  workbook gives `7B68D18F`; `74A6C31F` and `409B031E` (the template with
+  the settled-to-market columns, #360) were recorded before later changes to
   the template's inputs. The 1.0.0 and 1.0.1 user manuals are released and
   keep the older value in an example they label illustrative.
 - The README shows the total downloads of the release assets as a badge

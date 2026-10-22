@@ -252,16 +252,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-22 11:10:40
+SACCR TEST SUMMARY 2026-10-22 19:01:20
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (25,6 s)
-  PASS  TEST_Cases            cases=28; checks=131; failures=0; restore=PASS  (11,6 s)
-  PASS  TEST_InputValidation  cases=163; checks=267; failures=0; restore=PASS  (32,3 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,4 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (19,9 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (5,0 s)
+  PASS  TEST_InputValidation  cases=177; checks=305; failures=0; restore=PASS  (21,9 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,7 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
-  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (8,3 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=81,6
+  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (9,1 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=59,9
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
