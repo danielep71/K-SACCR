@@ -81,7 +81,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -353,7 +353,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$Q, Trades!$C:$AC,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$S, Trades!$C:$AC,
 '                        Params!$1:$1048576)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -381,7 +381,7 @@ Public Function ResultsStatusText( _
 '   function must not interrupt Excel.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-22
 '==============================================================================
 '
 
@@ -434,7 +434,7 @@ Public Function ReconciliationStatusText( _
 ' PURPOSE
 '   Worksheet function for the status cell in Reconciliation C5 (#45):
 '     =ReconciliationStatusText(SACCR_ReconInputs, SACCR_RunInputs,
-'        BankNettingSets!$1:$1048576, NettingSets!$C:$Q, Trades!$C:$AC,
+'        BankNettingSets!$1:$1048576, NettingSets!$C:$S, Trades!$C:$AC,
 '        Params!$1:$1048576)
 '   As ResultsStatusText: a run changes the hidden names and an edit
 '   changes a watched range, and either makes Excel recalculate the cell.
@@ -451,7 +451,7 @@ Public Function ReconciliationStatusText( _
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-22
 '==============================================================================
 '
         ReconciliationStatusText = ReconStatus(RECON_NS, StoredRecon, StoredRun)
@@ -475,7 +475,7 @@ Public Function TradeReconciliationStatusText( _
 '   Worksheet function for the status cell in TradeReconciliation C5
 '   (#45), as ReconciliationStatusText:
 '     =TradeReconciliationStatusText(SACCR_TradeReconInputs,
-'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$Q,
+'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$S,
 '        Trades!$C:$AC, Params!$1:$1048576)
 '
 ' INPUTS
@@ -486,7 +486,7 @@ Public Function TradeReconciliationStatusText( _
 '   As ReconStatus.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-22
 '==============================================================================
 '
         TradeReconciliationStatusText = ReconStatus(RECON_TR, StoredRecon, StoredRun)

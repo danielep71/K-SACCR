@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.1-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-268_cases_%C2%B7_1183_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-287_cases_%C2%B7_1279_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -135,7 +135,7 @@ inspected. This toolkit is the opposite:
 | Multi-risk trades | Economic trades entered as legs, one per risk category, with one MtM leg |
 | Settled-to-market trades | Declared with settlement type `STM` and the next reset date, which sets the remaining maturity (floored at 10 business days) while the contractual dates keep their roles ([input contract](docs/methodology/CLEARING_COVERAGE.md#settled-to-market-input-contract)) |
 | Netting sets | Unmargined and margined; VM, NICA, threshold, MTA; MPOR from floor, remargining frequency, large or illiquid flag, disputes and override; cap at the unmargined EAD |
-| Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it; netting sets facing a CCP are not yet supported (see the [clearing coverage](docs/methodology/CLEARING_COVERAGE.md)) |
+| Client clearing | Clearing-member and client roles with the 5-business-day MPOR floor where the regime allows it, and a clearing member's trade exposures to a CCP with the 10-day floor, its QCCP status and retained variation margin; the CCP risk weight is stated, not applied (see the [clearing coverage](docs/methodology/CLEARING_COVERAGE.md)) |
 | CRR specifics | Other-risks class (8%), climatic commodity hedging set (18%), credit quality steps, lambda-shifted option delta (`CRR-RTS` Art. 5) |
 | Run classification | Every run is `REGULATORY` against parameter set `CRE52-CRR-2026-10-09`, otherwise `WHAT-IF` with each difference on Checks |
 | Input validation | Unreadable or locale-dependent dates, the 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names reject the trade or netting set or stop the run; nothing is silently read as blank |
@@ -143,7 +143,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Eight Excel suites (268 cases, 1183 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (287 cases, 1279 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the owner's 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -252,16 +252,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-22 11:10:40
+SACCR TEST SUMMARY 2026-10-22 19:16:11
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (25,6 s)
-  PASS  TEST_Cases            cases=28; checks=131; failures=0; restore=PASS  (11,6 s)
-  PASS  TEST_InputValidation  cases=163; checks=267; failures=0; restore=PASS  (32,3 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (2,4 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
-  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (8,3 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=81,6
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (24,8 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (6,5 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (31,3 s)
+  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (3,4 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,1 s)
+  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (11,8 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=80,1
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -529,12 +529,12 @@ wrote the code under test (#100).
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
 | `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 29 | 501 |
-| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 28 | 131 |
-| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 163 | 267 |
+| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 33 | 186 |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 177 | 308 |
 | `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 20 | 162 |
-| **Total** | | **268** | **1183** |
+| **Total** | | **287** | **1279** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -632,9 +632,8 @@ and the VBA references are listed in `INSTALLATION.md`.
   from local market practice.
 - **Not supported:** digital options (#120), the optional reductions for sold
   options and sold credit protection, several margin agreements in one netting
-  set, the 1904 date system, exposures to CCPs (trade exposures and
-  default-fund contributions), and the simplified SA-CCR, OEM, SFT, CVA and RWA
-  calculations.
+  set, the 1904 date system, default-fund contributions to a CCP (#400), and
+  the simplified SA-CCR, OEM, SFT, CVA and RWA calculations.
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
   owner's host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
@@ -665,7 +664,7 @@ and risk-weighted assets.
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
 | v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
-| v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP exposures and default funds (#112), reconciliation evidence and published perimeter (#361) |
+| v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330) and worksheet navigation sidebar (#329) |
 | v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165) |
@@ -674,7 +673,7 @@ and risk-weighted assets.
 | v1.6.0 | Original exposure method (#111) |
 | v1.8.0 | Securities financing transactions (#113) |
 | v1.9.0 | Regulatory CVA risk (#114) |
-| v1.10.0 | Risk-weighted assets and capital (#115) |
+| v1.10.0 | Risk-weighted assets and capital (#115), default-fund contributions to CCPs (#400) |
 
 The [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones)
 hold the current scope of each release.

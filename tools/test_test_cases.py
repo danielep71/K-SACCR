@@ -15,6 +15,7 @@ NETTING_SET = {
     "large_or_illiquid": False, "margin_disputes": False, "mpor_override_business_days": None,
     "variation_margin_net_amount": 0, "independent_collateral_net_amount": 0,
     "threshold_amount": 0, "minimum_transfer_amount": 0, "alpha_factor": None,
+    "qccp": None, "ccp_retains_variation_margin": None,
 }
 TRADE = {
     "id": "T1", "asset_class": "interest_rate", "sub_class": None, "risk_factor": "EUR",
@@ -264,7 +265,7 @@ class TestCaseValidatorTests(unittest.TestCase):
             "adjusted_notional": "EUR", "multiplier": "1",
             "supervisory_delta": "1", "supervisory_factor": "1",
             "margin_period_of_risk": "business_days",
-            "maturity_factor": "1", "remaining_maturity": "years",
+            "maturity_factor": "1", "maturity_factor_margined": "1", "remaining_maturity": "years",
             **{f"add_on.{asset}": "EUR" for asset in cases.ASSET_CLASSES},
         }
         for quantity, unit in units.items():
@@ -290,6 +291,23 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertEqual(cases.check_output("output", output, self.fixture, {"BCBS-279"}), [])
         self.fixture["netting_set"]["margined"] = True
         self.assertFinding("the netting set is margined", cases.check_output("output", output, self.fixture, {"BCBS-279"}))
+
+    def test_maturity_factor_margined_needs_a_margined_set(self) -> None:
+        output = {"quantity": "maturity_factor_margined", "rule": "CRE54.8", "trade": "T1", "value": 1.5, "unit": "1",
+                  "tolerance": {"absolute": 1e-9, "relative": 0}, "reference": PUBLISHED}
+        self.assertFinding("needs a margined netting set",
+                           cases.check_output("output", output, self.fixture, {"BCBS-279"}))
+        self.fixture["netting_set"]["margined"] = True
+        self.assertEqual(cases.check_output("output", output, self.fixture, {"BCBS-279"}), [])
+
+    def test_ccp_netting_set_fields(self) -> None:
+        self.fixture["netting_set"].update(margined=True, remargin_period_business_days=1, clearing_role="ccp",
+                                           qccp=True, ccp_retains_variation_margin=False)
+        self.assertEqual(self.findings(), [])
+        self.fixture["netting_set"].update(qccp="Y")
+        self.assertFinding("qccp", self.findings())
+        del self.fixture["netting_set"]["ccp_retains_variation_margin"]
+        self.assertFinding("missing field 'ccp_retains_variation_margin'", self.findings())
 
     def test_lambda_unit_follows_referenced_trade(self) -> None:
         self.fixture["trades"].append(dict(TRADE, id="T2", asset_class="commodity"))
