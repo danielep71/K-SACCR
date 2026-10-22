@@ -93,7 +93,7 @@ CRE54.7) and are not entered: entered, they would only overstate the exposure
 
 | Column | Header | Content |
 | --- | --- | --- |
-| R | QCCP (Y/N) | `Y`: a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88); the Basel definition is in CRE50). `N`: non-qualifying. Changes the risk weight only, not the exposure value |
+| R | QCCP (Y/N) | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. CRE50 is added to the source register before the implementation relies on it. `N`: non-qualifying. Changes the risk weight only, not the exposure value |
 | S | CCP retains VM, collateral not protected (Y/N) | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
 
 **Rules.** Each holds under both regimes unless stated.
@@ -106,7 +106,7 @@ CRE54.7) and are not entered: entered, they would only overstate the exposure
 | 4 | The *large or illiquid* flag stays one input ([decision 12](#decisions)): Y sets the 20-day floor for a `CCP` netting set too. The 5,000-trade floor does not apply to trade exposures (Art. 285(3)(a); CRE54.8(1)), so a flag set only for the trade count overstates the exposure: a recorded, conservative limitation | — |
 | 5 | With S = `Y`, each trade's horizon is the lower of one year and its remaining maturity M, floored at 10 business days (Art. 304(3)(d); CRE54.8(3)): min(`BusinessDaysPerYear`, M × `BusinessDaysPerYear`), at least `MinMaturityBD`. CRE54.8(3) calls it a minimum, so the trade takes the larger of that horizon and the netting set's MPOR ([decision 11](#decisions)), in its own margined maturity factor 1.5 √(horizon / `BusinessDaysPerYear`) | — |
 | 6 | An unmargined `CCP` netting set takes each trade's unmargined maturity factor, as any unmargined netting set | — |
-| 7 | QCCP status sets the applicable risk weight, which K-SACCR states and does not apply: 2% for a QCCP (Art. 306(1)(a); CRE54.7), the counterparty's standardised risk weight otherwise (Art. 306(1)(b); CRE54.41) | — |
+| 7 | QCCP status sets which risk-weight rule applies; K-SACCR states it and applies none. For a QCCP the weight is 2% (Art. 306(1)(a); CRE54.7). For a non-qualifying CCP it is the standardised risk weight of the CCP as a counterparty (Art. 306(1)(b); CRE54.41), which needs its counterparty category and credit quality; K-SACCR has no input for them, so it states that the weight must be determined outside the workbook | — |
 
 An input that breaks rule 1 or 2 makes the netting set `INVALID`, with an
 error on Checks naming the column, as for any invalid netting-set field.
@@ -117,8 +117,10 @@ error on Checks naming the column, as for any invalid netting-set field.
   regime's EAD total.
 - Each `CCP` netting set gets an INFO line on Checks, as `CM` and `CLIENT` do
   (decision 7): the role, the MPOR floor and rule (with the retained-VM
-  horizon when S = `Y`), and the applicable risk weight as text, for example
-  "QCCP: risk weight 2% (CRR Art. 306(1)(a)), not applied".
+  horizon when S = `Y`), and the risk-weight rule as text: for a QCCP
+  "risk weight 2% (CRR Art. 306(1)(a)), not applied"; for a non-qualifying
+  CCP "standardised risk weight of the CCP (CRR Art. 306(1)(b)), to be
+  determined outside K-SACCR".
 - Each regime with a `CCP` netting set gets an INFO line on Checks with the
   number of `CCP` netting sets and their EAD, so the CCP share of the regime's
   total is identifiable.
@@ -382,7 +384,7 @@ described above stays.
 | 11 | With retained VM and unprotected collateral, each trade takes the larger of the netting set's MPOR and its own horizon, the lower of one year and its remaining maturity, floored at 10 business days | CRE54.8(3) gives that horizon as a minimum; Art. 304(3)(d) gives the same horizon; taking the larger never lowers the exposure below the netting set's MPOR | Each trade's margined maturity factor uses its horizon; the cases cover a trade under 10 business days, one between the MPOR and a year, and one over a year | #112 |
 | 12 | The single *large or illiquid* flag stays in v1.0.2, also for `CCP` netting sets | Splitting it would change column G for every workbook; keeping it can only overstate the exposure of a CCP set flagged for the trade count alone | The limitation is recorded; a `CCP` set with the flag gets 20 days | #112, #359 |
 | 13 | Client trades a clearing member need not reimburse on the CCP's default are not entered | Their exposure value is zero (Art. 306(1)(c); CRE54.7); an input to zero them would add a way to understate, while entering them can only overstate | The input contract says so; no column is added | #112 |
-| 14 | A `CCP` netting set's role, MPOR rule and applicable risk weight are an INFO line on Checks, and each regime gets an INFO line with its CCP EAD subtotal | As decision 7: the evidence names the method without changing Results; the subtotal makes the CCP share of the total identifiable (decision 2) | The risk weight is stated, not applied; no risk-weighted amount is calculated | #112 |
+| 14 | A `CCP` netting set's role, MPOR rule and risk-weight rule are an INFO line on Checks, and each regime gets an INFO line with its CCP EAD subtotal | As decision 7: the evidence names the method without changing Results; the subtotal makes the CCP share of the total identifiable (decision 2) | The QCCP weight of 2% is stated, not applied; for a non-qualifying CCP the line says the standardised weight is determined outside K-SACCR, which has no counterparty category or credit quality input; no risk-weighted amount is calculated | #112 |
 
 ## 📜 Earlier releases
 

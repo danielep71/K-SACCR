@@ -222,9 +222,11 @@ Use only the categories needed by a release.
   and the lower of one year and its remaining maturity, floored at 10
   business days. The combined large-or-illiquid flag stays, as a
   conservative limitation; client trades the member need not reimburse are
-  not entered. Checks names each `CCP` set's role, MPOR rule and the risk
-  weight that applies (stated, not applied), and each regime's CCP EAD
-  subtotal. Default-fund contributions, own funds requirements and the
+  not entered. QCCP status follows the netting set's regime (EMIR under
+  CRR, CRE50 under BCBS). Checks names each `CCP` set's role, MPOR rule and
+  risk-weight rule (2% for a QCCP, stated and not applied; for a
+  non-qualifying CCP, a standardised weight to be determined outside
+  K-SACCR), and each regime's CCP EAD subtotal. Default-fund contributions, own funds requirements and the
   Art. 303(2) cap are left for a later issue. Decisions 9 to 14 record the
   choices.
 - `docs/methodology/CLEARING_COVERAGE.md` records the input contract for
