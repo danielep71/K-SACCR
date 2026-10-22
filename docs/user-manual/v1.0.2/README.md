@@ -1,8 +1,9 @@
 # K-SACCR user manual, version 1.0.2
 
 The source of the user manual for K-SACCR 1.0.2. The PDF built from it is
-attached to the 1.0.2 GitHub Release when that version is released; it is not
-stored in this repository.
+attached to the
+[1.0.2 GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2);
+it is not stored in this repository.
 
 | File | Contents |
 | --- | --- |
@@ -16,21 +17,21 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 
 ## Status
 
-Prepared for 1.0.2, not yet released: the release date, the delivered file
-names and the test counts are confirmed when 1.0.2 is released. Started from
-the 1.0.1 manual and updated for the changes of 1.0.2: trade exposures to a
-CCP and the two NettingSets columns they need, settled-to-market trades and
-the two Trades columns before Comment, the role `MULTI`, the INFO lines on
-Checks for client clearing and CCPs, the highlighted Results rows, the
-migration from 1.0.1, and the worksheet-function list of section 10.2, whose
-signatures no longer overflow the page (#379).
+Released with 1.0.2 (tag `v1.0.2`, 23 October 2026). Started from the 1.0.1
+manual and updated for the changes of 1.0.2: trade exposures to a CCP and the
+two NettingSets columns they need, settled-to-market trades and the two Trades
+columns before Comment, the role `MULTI`, the INFO lines on Checks for client
+clearing and CCPs, the highlighted Results rows, the migration from 1.0.1, and
+the worksheet-function list of section 10.2, whose signatures no longer
+overflow the page (#379).
 
 As before, the manual is written for someone who receives only the workbook
 `K-SACCR_1.0.2.xlsm` and `SHA256SUMS.txt`: it does not mention the source
 repository, building the workbook from source or the release process, and of
-the testing it gives only the summary result. The 1.0.0 and 1.0.1 manuals stay
-as released in [`../v1.0.0/`](../v1.0.0/README.md) and
-[`../v1.0.1/`](../v1.0.1/README.md).
+the testing it gives only the summary result. The release's PDF is built from
+this folder at the tag, and its SHA-256 is in the release's `SHA256SUMS.txt`.
+The 1.0.0 and 1.0.1 manuals stay as released in
+[`../v1.0.0/`](../v1.0.0/README.md) and [`../v1.0.1/`](../v1.0.1/README.md).
 
 ## Building the PDF
 

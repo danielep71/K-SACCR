@@ -94,6 +94,8 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-23
+
 ### Added
 
 - `TEST_Aggregation` adds a mixed clearing population (#361): one CRR
@@ -310,9 +312,8 @@ Use only the categories needed by a release.
   whose signatures overflowed into the next column in the 1.0.0 and 1.0.1
   PDFs, is a list with the full signatures, `SACCR_MaturityFactor`'s
   included, and a note that arguments in square brackets are optional
-  (#379); the built PDF has no line wider than the page. The release date
-  and the delivered file names are confirmed when 1.0.2 is released. The
-  1.0.0 and 1.0.1 manuals are not changed.
+  (#379); the built PDF has no line wider than the page. The 1.0.0 and
+  1.0.1 manuals are not changed.
 - `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
   CCP trade exposures (#112), which the NettingSets entry under Added
   implements. Role `CCP` becomes the
@@ -803,6 +804,7 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2
 [1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
 [1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0

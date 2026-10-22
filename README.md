@@ -11,7 +11,7 @@
 [![Excel VBA](https://img.shields.io/badge/Excel_VBA-64--bit-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#requirements)
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
-[![Release](https://img.shields.io/badge/Release-1.0.1-2ea44f?style=for-the-badge)](#status)
+[![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
 [![Regression](https://img.shields.io/badge/Regression-288_cases_%C2%B7_1283_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
@@ -63,11 +63,11 @@
 </div>
 
 > [!IMPORTANT]
-> **Version 1.0.1** is the current release: the
-> [1.0.1 GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1)
+> **Version 1.0.2** is the current release: the
+> [1.0.2 GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2)
 > carries the workbook and the user manual. The engine
 > implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
-> v1.0.1, by the published CRE99 examples. CRR rules are implemented and tested
+> v1.0.2, by the published CRE99 examples. CRR rules are implemented and tested
 > against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
 
 > [!NOTE]
@@ -156,8 +156,8 @@ supported, what the user must enter in a given form, and what is out of scope.
 # ⚡ Quick start
 
 To use the released workbook without building it, download
-`K-SACCR_1.0.1.xlsm` from the
-[1.0.1 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1)
+`K-SACCR_1.0.2.xlsm` from the
+[1.0.2 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2)
 and check it as in [INSTALLATION.md › Released workbook](INSTALLATION.md#released-workbook),
 then go to [section 3](#3-run). The steps below build the workbook from source.
 
@@ -166,11 +166,11 @@ then go to [section 3](#3-run). The steps below build the workbook from source.
 ```sh
 git clone https://github.com/danielep71/VBA-SACCR-Toolkit.git
 cd VBA-SACCR-Toolkit
-git switch --detach v1.0.1
+git switch --detach v1.0.2
 python tools/check.py
 ```
 
-`v1.0.1` is the released source; for current development, switch to the
+`v1.0.2` is the released source; for current development, switch to the
 [active release branch](docs/GOVERNANCE.md#branches) instead.
 
 Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
@@ -621,7 +621,7 @@ and the VBA references are listed in `INSTALLATION.md`.
 
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
-  next release; use the `v1.0.1` tag or its workbook for stable results.
+  next release; use the `v1.0.2` tag or its workbook for stable results.
 - **CRR is implemented, not validated.** The only published reference values
   are Basel examples; CRR results are tested against illustrative values.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
@@ -690,7 +690,7 @@ hold the current scope of each release.
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
-| [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) | Source of the user manual for 1.0.1; its PDF is attached to the [1.0.1 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1). The 1.0.0 manual stays in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md). The manual for 1.0.2, prepared for that release, is in [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) |
+| [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) | Source of the user manual for 1.0.2; its PDF is attached to the [1.0.2 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2). The 1.0.0 and 1.0.1 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md) and [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
@@ -708,10 +708,10 @@ hold the current scope of each release.
 
 ## 📌 Status
 
-**Version 1.0.1**, released on 2026-10-18 and tagged `v1.0.1`, after 1.0.0
-on 2026-10-17. Its
-[GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1)
-carries the production workbook `K-SACCR_1.0.1.xlsm`, the user manual PDF and
+**Version 1.0.2**, released on 2026-10-23 and tagged `v1.0.2`, after 1.0.1
+on 2026-10-18 and 1.0.0 on 2026-10-17. Its
+[GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2)
+carries the production workbook `K-SACCR_1.0.2.xlsm`, the user manual PDF and
 their SHA-256 sums. The release notes and the tag message record the Excel
 certification of the tagged source: compile, the eight suites each run on its
 own, and the evidence validator.
