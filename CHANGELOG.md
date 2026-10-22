@@ -94,6 +94,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Documentation
+
+- The website's download buttons, checksum link, status line and release
+  links point to release 1.0.2, now published.
+
 ## [1.0.2] - 2026-10-23
 
 ### Added
