@@ -59,8 +59,8 @@
       "entry_point": "TEST_Aggregation.RunAggregationTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 11,
-      "checks": {"32-bit": 11, "64-bit": 11},
+      "cases": 12,
+      "checks": {"32-bit": 15, "64-bit": 15},
       "restoration": "restore=PASS",
       "first_case": "aggregation-demo-original-order"
     },

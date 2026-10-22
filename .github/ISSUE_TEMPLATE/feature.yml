@@ -65,7 +65,7 @@ body:
       label: "🏁 Acceptance criteria"
       placeholder: |
         - [ ] ...
-        - [ ] Regression case with an independent expected value
+        - [ ] Regression case with a published expected value, or an illustrative one from a separate derivation
     validations:
       required: true
 
@@ -105,7 +105,7 @@ body:
     id: validation
     attributes:
       label: "✅ Validation evidence required"
-      description: Static checks, Excel compile, harness, the specific scenario and, for a calculation, the independent reference and tolerance.
+      description: Static checks, Excel compile, harness, the specific scenario and, for a calculation, the source of the expected value and its tolerance.
     validations:
       required: true
 

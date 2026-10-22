@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.1-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-287_cases_%C2%B7_1279_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-288_cases_%C2%B7_1283_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -143,7 +143,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Eight Excel suites (287 cases, 1279 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (288 cases, 1283 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the owner's 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -252,16 +252,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-22 19:16:11
+SACCR TEST SUMMARY 2026-10-22 22:24:39
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (24,8 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (6,5 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (31,3 s)
-  PASS  TEST_Aggregation      cases=11; checks=11; failures=0; restore=PASS  (3,4 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,1 s)
-  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (11,8 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=80,1
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (38,2 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (4,6 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (20,5 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,6 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,4 s)
+  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (11,7 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=79,1
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -507,10 +507,11 @@ them in the workbook.
 | Class | Meaning | Used for |
 | --- | --- | --- |
 | `published` | Printed in Basel CRE99 (BCBS 279 Annex 4a), checked against the text | T01–T14: validates Basel rules |
-| `illustrative` | Hand calculation or a format example, not independently reviewed | Every other expected value; never counted as validation |
+| `illustrative` | A derivation separate from the code under test, a hand calculation or a format example | Every other expected value; never counted as validation |
 
-There are no `independent` values: the project has one maintainer, who also
-wrote the code under test (#100).
+There are no `independent` values yet: they can come only from an external
+implementation registered as a source (#100). No independent review is
+required; the project has one maintainer, who also wrote the code under test.
 
 ## Published CRE99 examples
 
@@ -531,10 +532,10 @@ wrote the code under test (#100).
 | `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 29 | 501 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 33 | 186 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 177 | 308 |
-| `TEST_Aggregation` | Row-order independence and offsets | 11 | 11 |
+| `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 20 | 162 |
-| **Total** | | **287** | **1279** |
+| **Total** | | **288** | **1283** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).

@@ -9,7 +9,10 @@ Attribute VB_Name = "TEST_Aggregation"
 '   rotated row order; two opposite trades in one bucket offset exactly;
 '   there is no offset across currencies, between interest rate and
 '   inflation in one currency (#33), across credit entities or netting
-'   sets, or between a standard and a basis hedging set.
+'   sets, or between a standard and a basis hedging set. A margined
+'   portfolio with every calculated clearing role and an invalid CCP
+'   netting set gives each role its own MPOR and adds up without double
+'   counting or the invalid set (#361).
 '
 ' PUBLIC SURFACE
 '   RunAggregationTests is the entry point. Option Private Module keeps it
@@ -30,7 +33,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -46,11 +49,13 @@ Attribute VB_Name = "TEST_Aggregation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of the built cases
-        Private Const CASES       As Long = 11                'Cases in a complete run
-        Private Const CHECKS      As Long = 11                'Checks in a complete run
+        Private Const CASES       As Long = 12                'Cases in a complete run
+        Private Const CHECKS      As Long = 15                'Checks in a complete run
         Private Const REL_TOL     As Double = 0.000000001     'Relative tolerance for equal outputs
         Private Const IR_ADDON    As String = "add_on.interest_rate"
         Private Const CR_ADDON    As String = "add_on.credit"
+        Private Const EAD_QUANTITY As String = "exposure_value"
+        Private Const MPOR_QUANTITY As String = "margin_period_of_risk"
 
 
 '
@@ -70,7 +75,7 @@ Public Sub RunAggregationTests()
 '   Run every case and print the TEST_CaseRunner report.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-22
 '==============================================================================
 '
 
@@ -80,6 +85,8 @@ Public Sub RunAggregationTests()
     Dim OriginalRows    As Variant    'Results rows of the demo portfolio in its own order
     Dim IRSingleAddOn   As Double     'IR add-on of one swap
     Dim CRSingleAddOn   As Double     'Credit add-on of one credit default swap
+    Dim SetsEAD         As Double     'Sum of the EADs of the mixed population's VALID netting sets
+    Dim CcpEAD          As Double     'EAD of its VALID CCP netting set
 
 '------------------------------------------------------------------------------
 ' ROW ORDER
@@ -165,6 +172,49 @@ Public Sub RunAggregationTests()
         AddCredit "C2", "FIRM B", "Short"
         TEST_CaseRunner.RunCase
         ExpectNear "add-on", TEST_CaseRunner.OutputNumber("NS1", CR_ADDON), Sqr(1.5) * CRSingleAddOn, CRSingleAddOn
+
+'------------------------------------------------------------------------------
+' MIXED CLEARING POPULATION
+'------------------------------------------------------------------------------
+    'Every calculated role in one portfolio (#361): an ordinary, a
+    'clearing-member, a client and a CCP netting set, margined with daily
+    'remargining and each holding the same swap, and a CCP netting set
+    'without its QCCP status. Each VALID set takes its own role's MPOR floor
+    '(10, 5, 5 under CRR and 10 business days), so a role calculated as
+    'another would fail; TOTAL CRR adds the four VALID sets once each and
+    'withholds the invalid one; Checks names the CCP share of the total.
+        TEST_CaseRunner.BeginCase "aggregation-mixed-clearing-population", "CRR", VALUATION, "EUR"
+        TEST_CaseRunner.AddNettingSet "NS1", "Y", "N", "1", "N", "N", "", "0", "0", "0", "0", ""
+        AddSwap "S1", "EUR", "Long", "Standard"
+        AddClearedSet 2, "NS-CM", CL_CM, ""
+        AddClearedSet 3, "NS-CLIENT", CL_CLIENT, ""
+        AddClearedSet 4, "NS-CCP", CL_CCP, "Y"
+        AddClearedSet 5, "NS-CCP-NOQ", CL_CCP, ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectTrue "role-mpor", _
+                                   TEST_CaseRunner.OutputNumber("NS1", MPOR_QUANTITY) = 10# And _
+                                   TEST_CaseRunner.OutputNumber("NS-CM", MPOR_QUANTITY) = 5# And _
+                                   TEST_CaseRunner.OutputNumber("NS-CLIENT", MPOR_QUANTITY) = 5# And _
+                                   TEST_CaseRunner.OutputNumber("NS-CCP", MPOR_QUANTITY) = 10#, _
+                                   "MPOR of NS1, NS-CM, NS-CLIENT, NS-CCP: " & _
+                                   TEST_CaseRunner.OutputNumber("NS1", MPOR_QUANTITY) & ", " & _
+                                   TEST_CaseRunner.OutputNumber("NS-CM", MPOR_QUANTITY) & ", " & _
+                                   TEST_CaseRunner.OutputNumber("NS-CLIENT", MPOR_QUANTITY) & ", " & _
+                                   TEST_CaseRunner.OutputNumber("NS-CCP", MPOR_QUANTITY), "illustrative"
+        SetsEAD = TEST_CaseRunner.OutputNumber("NS1", EAD_QUANTITY) + _
+                  TEST_CaseRunner.OutputNumber("NS-CM", EAD_QUANTITY) + _
+                  TEST_CaseRunner.OutputNumber("NS-CLIENT", EAD_QUANTITY) + _
+                  TEST_CaseRunner.OutputNumber("NS-CCP", EAD_QUANTITY)
+        CcpEAD = TEST_CaseRunner.OutputNumber("NS-CCP", EAD_QUANTITY)
+        ExpectNear "total", TEST_CaseRunner.OutputNumber("TOTAL " & RG_CRR, EAD_QUANTITY), SetsEAD, SetsEAD
+        TEST_CaseRunner.ExpectTrue "withheld", _
+                                   StatusOf("NS-CCP-NOQ") = "INVALID: 1 input error(s)" And _
+                                   StatusOf("TOTAL " & RG_CRR) = "4 of 5 netting set(s) VALID; 1 withheld", _
+                                   "statuses are '" & StatusOf("NS-CCP-NOQ") & "' and '" & _
+                                   StatusOf("TOTAL " & RG_CRR) & "'", "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "ccp-share", SEV_INFO, _
+                                         "Trade exposures to CCPs in this total: 1 of 2 CCP netting set(s) VALID, EAD " & _
+                                         Format$(CcpEAD, "#,##0"), "illustrative"
 
         TEST_CaseRunner.EndSuite ""
         Exit Sub
@@ -258,6 +308,80 @@ Private Sub AddCredit( _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub
+
+
+Private Sub AddClearedSet( _
+    ByVal DataRow As Long, _
+    ByVal NettingSetKey As String, _
+    ByVal RoleCode As String, _
+    ByVal QccpFlag As String)
+'
+'==============================================================================
+'                                AddClearedSet
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write netting set DataRow, margined with daily remargining and no
+'   collateral, threshold or MTA, with the given clearing role and, for
+'   role CCP, QCCP (empty leaves it blank) and CCP retains VM N; then add
+'   the five-year EUR swap Sn to it, n being DataRow, on trade row DataRow.
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_ID, NettingSetKey
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_MARGINED, "Y"
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_CLEARED, RoleCode
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_FREQ, 1
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_VM, 0
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_NICA, 0
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_TH, 0
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_MTA, 0
+        TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_REGIME, RG_CRR
+        If RoleCode = CL_CCP Then
+            If Len(QccpFlag) > 0 Then
+                TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_QCCP, QccpFlag
+            End If
+            TEST_CaseRunner.SetInputCell SH_NS, DataRow, NS_RETAINVM, "N"
+        End If
+        AddSwap "S" & DataRow, "EUR", "Long", "Standard"
+        TEST_CaseRunner.SetInputCell SH_TRADES, DataRow, TR_NS, NettingSetKey
+
+End Sub
+
+
+Private Function StatusOf( _
+    ByVal RowKey As String) _
+    As String
+'
+'==============================================================================
+'                                   StatusOf
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the status text of a Results row, found by its netting-set ID or
+'   TOTAL label in the first table column; empty when there is no such row.
+'
+' UPDATED
+'   2026-10-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultsSheet   As Worksheet    'Results sheet
+    Dim ResultRow      As Long         'Row of RowKey; 0 when not found
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        ResultRow = FindHeaderRow(ResultsSheet, 1, RowKey)
+        If ResultRow >= OutputFirstRow(SH_RESULTS) Then
+            StatusOf = SafeStr(TableCell(ResultsSheet, ResultRow, RS_STATUS_COL).Value)
+        End If
+
+End Function
 
 
 Private Sub ExpectNear( _
