@@ -294,12 +294,14 @@ Use only the categories needed by a release.
   `reviewed_by` may be null. `tools/check_test_cases.py` no longer requires
   `reviewed_by` for it, and now requires its `source` to be an external
   implementation, registered with an ID starting `IMPL-`; a `published`
-  value cannot cite one. Decision 8, the methodology and the tests README
-  say the same. `TEST_CASES.md` says that acceptance criteria ask for
-  `published` values where a registered source prints them and otherwise for
-  `illustrative` values from a derivation separate from the code under
-  test, never for independent review; CONTRIBUTING and the bug and feature
-  issue templates say the same.
+  value cannot cite one. Decision 8, the methodology, the tests README,
+  the `derivation` texts of the expected files and the reference-class
+  comment in `TEST_CaseRunner` say the same (#411). `TEST_CASES.md` says
+  that acceptance criteria ask for `published` values where a registered
+  source prints them and otherwise for `illustrative` values from a
+  derivation separate from the code under test, never for independent
+  review; CONTRIBUTING and the bug and feature issue templates say the
+  same.
 - The user manual for 1.0.2 is prepared in `docs/user-manual/v1.0.2/`,
   from the 1.0.1 manual: trade exposures to a CCP and the NettingSets
   columns `QCCP (Y/N)` and `CCP retains VM, collateral not protected (Y/N)`;

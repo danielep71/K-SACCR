@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 275(1)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(1)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -55,7 +55,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(3)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -74,7 +74,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(1)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -93,7 +93,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(2)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -112,7 +112,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 280d, with the maturity factor of Art. 279c(1)(a) and (2)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -132,7 +132,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(2): the time until the next reset date",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -152,7 +152,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(1)(a), with M from Art. 279c(2), floored at 10 business days",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -172,7 +172,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(2): the time until the next reset date",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -192,7 +192,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(1)(a), with M from Art. 279c(2), floored at 10 business days",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -212,7 +212,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279a(1)(a), with T the option expiry",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -226,7 +226,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Engine contract, issue #36",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"

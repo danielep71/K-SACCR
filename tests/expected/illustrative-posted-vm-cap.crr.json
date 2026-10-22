@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "CRR Art. 274(3), 275(1); EBA-QA-2023_6962",
-        "derivation": "Prototype TestCatalogue T17 (Posted VM: CRR cap excludes VM from NICA -> cap binds (~41); CRR Art. 274(3), 275(1); EBA-QA-2023_6962; engineering scenario - not authoritative; workbook reference CRR-VMCAP, EAD). Catalogue note: scenario of EBA Q&A 2022_6354, a question on Art. 274(3) that the EBA rejected on 26/07/2022 without an answer: 41 (cap) vs 378 (margined). Value from an independent Python implementation that is not in the repository; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T17 (Posted VM: CRR cap excludes VM from NICA -> cap binds (~41); CRR Art. 274(3), 275(1); EBA-QA-2023_6962; engineering scenario - not authoritative; workbook reference CRR-VMCAP, EAD). Catalogue note: scenario of EBA Q&A 2022_6354, a question on Art. 274(3) that the EBA rejected on 26/07/2022 without an answer: 41 (cap) vs 378 (margined). Value from a separate Python implementation that is not in the repository; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"
@@ -32,7 +32,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "CRR Art. 274(3); EBA-QA-2023_6962",
-        "derivation": "Prototype TestCatalogue T18 (Posted VM: cap applied flag; EBA-QA-2023_6962; engineering scenario - not authoritative; workbook reference CRR-VMCAP, Cap applied). Value from an independent Python implementation that is not in the repository; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T18 (Posted VM: cap applied flag; EBA-QA-2023_6962; engineering scenario - not authoritative; workbook reference CRR-VMCAP, Cap applied). Value from a separate Python implementation that is not in the repository; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

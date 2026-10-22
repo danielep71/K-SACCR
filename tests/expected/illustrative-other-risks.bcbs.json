@@ -13,7 +13,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52 (five asset classes)",
-        "derivation": "Prototype TestCatalogue T26 (Other-risks trade in a BCBS netting set is rejected; CRE52 (five asset classes); hand calculation from the regulation; workbook reference OT-X, Status). The catalogue reads trade OT-X, which has the same inputs as OT-1 in this fixture. Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T26 (Other-risks trade in a BCBS netting set is rejected; CRE52 (five asset classes); hand calculation from the regulation; workbook reference OT-X, Status). The catalogue reads trade OT-X, which has the same inputs as OT-1 in this fixture. Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

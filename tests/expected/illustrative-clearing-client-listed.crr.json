@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(1), last subparagraph (5 business days for the clearing member and the client), and Art. 285(5) (F + N - 1)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 275(2)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -56,7 +56,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279a(1)(a)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -75,7 +75,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 280d, with the maturity factor of Art. 279c(1)(b)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -94,7 +94,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(3)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -113,7 +113,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(2), (3)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -127,7 +127,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(3)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -141,7 +141,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(2)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
