@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "illustrative-ccp-trade-exposure",
+  "regime": "BCBS",
+  "outputs": [
+    {
+      "quantity": "margin_period_of_risk",
+      "rule": "CRE54.8",
+      "value": 10.0,
+      "unit": "business_days",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE54.8(2), with CRE52.50 (F + N - 1)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRE52.18",
+      "value": 80000.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.18",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRE52.68",
+      "value": 378711.1099717368,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.65-.68, with the margined maturity factor of CRE52.52",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRE52.23",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.23",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "potential_future_exposure",
+      "rule": "CRE52.20",
+      "value": 378711.1099717368,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.20",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRE52.1",
+      "value": 642195.5539604315,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.1, CRE52.2; CRE54.8",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "cap_applied",
+      "rule": "CRE52.2",
+      "text": "N",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.2, CRE52.10",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "maturity_factor_margined",
+      "trade": "T1",
+      "rule": "CRE52.52",
+      "value": 0.30000000000000004,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.52, with the horizon of CRE54.8(2) and, where the CCP retains VM, CRE54.8(3)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "maturity_factor_margined",
+      "trade": "T2",
+      "rule": "CRE52.52",
+      "value": 0.30000000000000004,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.52, with the horizon of CRE54.8(2) and, where the CCP retains VM, CRE54.8(3)",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "supervisory_delta",
+      "trade": "T2",
+      "rule": "CRE52.40",
+      "value": 0.5247407331449113,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "CRE52.40",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "quantity": "netting_set_status",
+      "rule": "CRE52.1",
+      "text": "VALID",
+      "reference": {
+        "class": "illustrative",
+        "source": "BCBS",
+        "locator": "Engine contract, issue #36",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; not reviewed, so illustrative",
+        "derived_by": null,
+        "reviewed_by": null,
+        "date": "2026-10-22"
+      }
+    }
+  ]
+}

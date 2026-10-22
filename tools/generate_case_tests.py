@@ -26,7 +26,7 @@ WORDS = {"linear": "Linear", "option": "Option", "cdo": "CDO", "long": "Long", "
          "call": "Call", "put": "Put", "standard": "Standard", "basis": "Basis",
          "volatility": "Volatility"}
 # JSON clearing role -> the NettingSets code.
-CLEARING_ROLE = {"none": "N", "clearing_member": "CM", "client": "CLIENT"}
+CLEARING_ROLE = {"none": "N", "clearing_member": "CM", "client": "CLIENT", "ccp": "CCP"}
 # JSON settlement type -> the Trades code; ordinary leaves the cell blank.
 SETTLEMENT = {"ordinary": None, "settled_to_market": "STM"}
 
@@ -94,7 +94,8 @@ def case_lines(name: str, fixture: dict[str, Any], expected: dict[str, Any]) -> 
                  ns["id"], ns["margined"], CLEARING_ROLE[ns["clearing_role"]], ns["remargin_period_business_days"],
                  ns["large_or_illiquid"], ns["margin_disputes"], ns["mpor_override_business_days"],
                  ns["variation_margin_net_amount"], ns["independent_collateral_net_amount"],
-                 ns["threshold_amount"], ns["minimum_transfer_amount"], ns["alpha_factor"])]
+                 ns["threshold_amount"], ns["minimum_transfer_amount"], ns["alpha_factor"],
+                 ns["qccp"], ns["ccp_retains_variation_margin"])]
     for t in fixture["trades"]:
         lines.append("        TEST_CaseRunner.AddTrade " + args(
             t["id"], ASSET_CLASS[t["asset_class"]], t["sub_class"], t["risk_factor"],

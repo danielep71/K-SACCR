@@ -56,7 +56,9 @@ counterparties, collateral agreements or portfolio extracts.
     "independent_collateral_net_amount": 0,
     "threshold_amount": 0,
     "minimum_transfer_amount": 0,
-    "alpha_factor": null
+    "alpha_factor": null,
+    "qccp": null,
+    "ccp_retains_variation_margin": null
   },
   "trades": [
     {
@@ -101,12 +103,13 @@ counterparties, collateral agreements or portfolio extracts.
 | --- | --- | --- |
 | `id` | text | Netting-set ID |
 | `margined`, `large_or_illiquid`, `margin_disputes` | Boolean | As on the NettingSets sheet |
-| `clearing_role` | `none`, `clearing_member` or `client` | Client clearing role on the NettingSets sheet: N, CM or CLIENT |
+| `clearing_role` | `none`, `clearing_member`, `client` or `ccp` | Client clearing role on the NettingSets sheet: N, CM, CLIENT or CCP (#112) |
 | `remargin_period_business_days` | whole number from 0 to 10000, or `null` | Remargining period of a margined set; `null` leaves the cell blank, so the engine uses 1, and the engine raises 0 to 1 with a warning |
 | `mpor_override_business_days` | whole number above 0, or `null` | MPOR override, with no upper bound; `null` for none, never 0 |
 | `variation_margin_net_amount`, `independent_collateral_net_amount` | amount | Net VM and NICA, held minus posted |
 | `threshold_amount`, `minimum_transfer_amount` | amount, at least 0 | Margin agreement terms |
 | `alpha_factor` | number above 0, or `null` | Alpha override; `null` uses the regime's alpha |
+| `qccp`, `ccp_retains_variation_margin` | Boolean, or `null` | NettingSets *QCCP* and *CCP retains VM, collateral not protected* (columns R and S): `true` writes Y, `false` N, `null` leaves the cell blank. The engine requires both for `ccp` and neither for another role (#112) |
 
 | Trade field | Type | Meaning |
 | --- | --- | --- |
@@ -179,12 +182,13 @@ Quantities use stable names, each with one meaning only:
 | Netting set | `multiplier` | Number, unit `1` |
 | Netting set | `margin_period_of_risk` | Number, unit `business_days` |
 | Netting set | `cap_applied` | Text: `Y` when the unmargined cap sets the exposure value |
-| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected`, `INVALID: <e> input error(s)` or, for a netting set declared as facing a CCP or as a multi-level client structure, `INVALID: facing a CCP, not supported` or `INVALID: multi-level client structure, not supported`, or, for a settled-to-market trade in a margined netting set, `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported` (followed by `; <e> other input error(s)` when there are), when the exposure value is withheld; or `NO TRADES` |
+| Netting set | `netting_set_status` | Text: `VALID`; `INCOMPLETE: <r> of <n> trade(s) rejected`, `INVALID: <e> input error(s)` or, for a netting set declared as a multi-level client structure, `INVALID: multi-level client structure, not supported`, or, for a settled-to-market trade in a margined netting set, `INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are not supported` (followed by `; <e> other input error(s)` when there are), when the exposure value is withheld; or `NO TRADES` |
 | Trade | `adjusted_notional` | Number in the calculation currency |
 | Trade | `supervisory_delta`, `supervisory_factor` | Number, unit `1` |
 | Trade | `lambda_shift` | Number in the underlying's unit: `1` for a rate, `price` otherwise |
 | Trade | `remaining_maturity` | Number, unit `years`: M as the maturity factor uses it, the time to the next reset date for a settled-to-market trade (TradeCalc column M) |
 | Trade | `maturity_factor` | Number, unit `1`: the unmargined maturity factor (TradeCalc column MF unmargined); only for a netting set that is not margined |
+| Trade | `maturity_factor_margined` | Number, unit `1`: the margined maturity factor (TradeCalc column MF margined), the netting set's or, where a CCP retains VM, the trade's own (#112); only for a margined netting set |
 | Trade | `hedging_set` | Text: the engine's hedging-set key, for example `CO\|CLIMATIC\|STD` |
 | Trade | `bucket` | Text: the bucket within the hedging set: the maturity bucket `<1Y`, `1-5Y` or `>5Y` of an interest-rate trade, the reference or commodity type otherwise |
 | Trade | `trade_status` | Text: `OK` or `EXCLUDED` |

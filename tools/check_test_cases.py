@@ -47,6 +47,8 @@ NETTING_SET_FIELDS: dict[str, tuple[str, bool]] = {
     "threshold_amount": ("non_negative", False),
     "minimum_transfer_amount": ("non_negative", False),
     "alpha_factor": ("positive", True),
+    "qccp": ("bool", True),
+    "ccp_retains_variation_margin": ("bool", True),
 }
 TRADE_FIELDS: dict[str, tuple[str, bool]] = {
     "id": ("text", False),
@@ -85,7 +87,7 @@ ENUMS = {
     "direction": {"long", "short"},
     "option_type": {"call", "put"},
     "nature": {"standard", "basis", "volatility"},
-    "clearing_role": {"none", "clearing_member", "client"},
+    "clearing_role": {"none", "clearing_member", "client", "ccp"},
     "settlement_type": {"ordinary", "settled_to_market"},
 }
 
@@ -96,7 +98,8 @@ NETTING_SET_QUANTITIES = {
 }
 TRADE_QUANTITIES = {
     "adjusted_notional", "supervisory_delta", "supervisory_factor", "lambda_shift",
-    "hedging_set", "bucket", "trade_status", "maturity_factor", "remaining_maturity",
+    "hedging_set", "bucket", "trade_status", "maturity_factor", "maturity_factor_margined",
+    "remaining_maturity",
 }
 TEXT_QUANTITIES = {"cap_applied", "hedging_set", "bucket", "trade_status", "netting_set_status"}
 REFERENCE_FIELDS = {"class", "source", "locator", "derivation", "derived_by", "reviewed_by", "date"}
@@ -228,7 +231,8 @@ def check_parameters(where: str, parameters: object) -> list[str]:
 def quantity_unit(output: dict[str, Any], fixture: dict[str, Any]) -> str:
     """Resolve the documented unit, including the lambda trade's underlying."""
     quantity = output.get("quantity")
-    if quantity in {"multiplier", "supervisory_delta", "supervisory_factor", "maturity_factor"}:
+    if quantity in {"multiplier", "supervisory_delta", "supervisory_factor", "maturity_factor",
+                    "maturity_factor_margined"}:
         return "1"
     if quantity == "remaining_maturity":
         return "years"
@@ -314,6 +318,8 @@ def check_output(where: str, output: object, fixture: dict[str, Any], register: 
     # quantity is the unmargined one, so it is checked only where it applies.
     if quantity == "maturity_factor" and (fixture.get("netting_set") or {}).get("margined"):
         findings.append(f"{where}: maturity_factor is the unmargined maturity factor; the netting set is margined")
+    if quantity == "maturity_factor_margined" and not (fixture.get("netting_set") or {}).get("margined"):
+        findings.append(f"{where}: maturity_factor_margined needs a margined netting set")
     if "catalogue" in output and not CATALOGUE.match(str(output["catalogue"])):
         findings.append(f"{where}: catalogue must look like T01")
     findings += check_measure(where, output, fixture)

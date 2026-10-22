@@ -30,7 +30,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -178,7 +178,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const CL_NONE     As String = "N"         'Not a client-clearing netting set
         Public Const CL_CM       As String = "CM"        'Clearing member facing its client
         Public Const CL_CLIENT   As String = "CLIENT"    'Client facing its clearing member
-        Public Const CL_CCP      As String = "CCP"       'Facing a CCP: declared so the netting set is rejected (#112)
+        Public Const CL_CCP      As String = "CCP"       'Clearing member's trade exposure to a CCP (#112)
         Public Const CL_MULTI    As String = "MULTI"     'Multi-level client structure: declared so it is rejected (#359)
     'Margin-agreement structure; blank is one agreement, or none, covering
     'this netting set only. Both codes are declared so that the netting set
@@ -188,6 +188,9 @@ Attribute VB_Name = "CORE_Config"
     'Trades in a netting set above which the 20-day MPOR floor applies in the
     'following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
         Public Const LARGE_NS_TRADES As Long = 5000
+    'MPOR floor of a clearing member's trade exposure to a CCP, business
+    'days [CRE54.8(2); CRR Art. 304(3)(b)].
+        Public Const MPOR_CCP_BD     As Long = 10
 
 '------------------------------------------------------------------------------
 ' TRADE CODES
@@ -223,7 +226,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_ALPHA      As Long = 13    'Alpha override
         Public Const NS_REGIME     As Long = 14    'Regime override; blank uses Params
         Public Const NS_STRUCT     As Long = 15    'Margin-agreement structure: blank, MIXED or SHARED
-        Public Const NS_NCOLS      As Long = 15    'Number of input columns
+        Public Const NS_QCCP       As Long = 16    'QCCP (Y/N): role CCP only (#112)
+        Public Const NS_RETAINVM   As Long = 17    'CCP retains VM, collateral not protected (Y/N): role CCP only
+        Public Const NS_NCOLS      As Long = 17    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -278,7 +283,8 @@ Attribute VB_Name = "CORE_Config"
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
-            "Margin agreements (blank / MIXED / SHARED)"
+            "Margin agreements (blank / MIXED / SHARED)|QCCP (Y/N)|" & _
+            "CCP retains VM, collateral not protected (Y/N)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
