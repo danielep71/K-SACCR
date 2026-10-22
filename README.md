@@ -507,10 +507,11 @@ them in the workbook.
 | Class | Meaning | Used for |
 | --- | --- | --- |
 | `published` | Printed in Basel CRE99 (BCBS 279 Annex 4a), checked against the text | T01–T14: validates Basel rules |
-| `illustrative` | Hand calculation or a format example, not independently reviewed | Every other expected value; never counted as validation |
+| `illustrative` | A derivation separate from the code under test, a hand calculation or a format example | Every other expected value; never counted as validation |
 
-There are no `independent` values: the project has one maintainer, who also
-wrote the code under test (#100).
+There are no `independent` values yet: they can come only from an external
+implementation registered as a source (#100). No independent review is
+required; the project has one maintainer, who also wrote the code under test.
 
 ## Published CRE99 examples
 

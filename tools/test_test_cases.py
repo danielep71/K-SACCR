@@ -421,15 +421,39 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding("source 'WIKI' is not in the source register", findings)
         self.assertFinding("independent reference needs 'derived_by'", findings)
 
+    def register_implementation(self) -> None:
+        """Add an external implementation to the copied source register."""
+        register = self.root / cases.REGISTER
+        text = register.read_text(encoding="utf-8")
+        row = "| `CRE99` |"
+        self.assertIn(row, text)
+        register.write_text(text.replace(row, "| `IMPL-R-SACCR` | R package SACCR | Test | 3.4 | Test |\n" + row, 1),
+                            encoding="utf-8")
+
     def test_independent_value_needs_no_reviewer(self) -> None:
         # The project has one maintainer and no reviewer (CLEARING_COVERAGE
         # decision 8): an independent value names the external
         # implementation that produced it, and reviewed_by may be null.
+        self.register_implementation()
         self.expected["outputs"][1]["reference"] = dict(PUBLISHED, **{"class": "independent",
+                                                                     "source": "IMPL-R-SACCR",
+                                                                     "locator": "sa_ccr_calculation",
                                                                      "derived_by": "R package SACCR 3.4",
                                                                      "reviewed_by": None})
-        self.fixture["id"] = "sample-case"
         self.assertEqual([f for f in self.findings() if "reference" in f or "independent" in f], [])
+
+    def test_independent_value_needs_an_external_implementation(self) -> None:
+        # A value the maintainer derived from a regulation is illustrative,
+        # whatever derived_by says; an implementation prints no published value.
+        self.register_implementation()
+        self.expected["outputs"][0]["reference"] = dict(PUBLISHED, **{"class": "independent",
+                                                                     "source": "CRR",
+                                                                     "derived_by": "Maintainer script"})
+        self.expected["outputs"][1]["reference"] = dict(PUBLISHED, source="IMPL-R-SACCR")
+        findings = self.findings()
+        self.assertFinding("an independent reference needs an external implementation source (IMPL-), "
+                           "not 'CRR'", findings)
+        self.assertFinding("a published reference cannot cite the implementation 'IMPL-R-SACCR'", findings)
 
     def test_illustrative_prefix_matches_the_classes(self) -> None:
         illustrative = {"class": "illustrative", "derivation": "Format example"}
