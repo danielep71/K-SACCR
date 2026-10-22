@@ -253,6 +253,11 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
             sub_class = str(trade["sub_class"] or "").strip().upper()
             if sub_classes.setdefault(key, sub_class) != sub_class:
                 raise Unsupported(f"{key[1]} has two sub-classes: the engine withholds the netting set's EAD")
+    # The engine marks a margined netting set with a settled-to-market trade
+    # INVALID and withholds its EAD (#360).
+    if fixture["netting_set"]["margined"] and any(
+            t["settlement_type"] == "settled_to_market" for t in fixture["trades"]):
+        raise Unsupported("a settled-to-market trade in a margined netting set: the engine withholds the EAD")
     ns_id = fixture["netting_set"]["id"]
     trades = []
     for trade in fixture["trades"]:

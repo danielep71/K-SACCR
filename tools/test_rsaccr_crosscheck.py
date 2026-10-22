@@ -220,6 +220,12 @@ class RegimeDifferenceTests(unittest.TestCase):
         with self.assertRaisesRegex(xc.Unsupported, "expiry differs"):
             xc.translate_fixture(fixture("illustrative-settled-to-market-daily"))
 
+    def test_settled_to_market_in_a_margined_netting_set_is_not_run(self) -> None:
+        data = fixture("cre99-example-5")
+        data["trades"][3].update(settlement_type="settled_to_market", next_reset_date="2026-10-01")
+        with self.assertRaisesRegex(xc.Unsupported, "margined netting set"):
+            xc.translate_fixture(data)
+
     def test_reset_dates_the_engine_rejects_are_not_run(self) -> None:
         for settlement, reset in (("ordinary", "2026-10-01"), ("settled_to_market", None),
                                   ("settled_to_market", "2026-09-30"), ("settled_to_market", "2026-12-19")):
