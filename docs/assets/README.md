@@ -203,7 +203,7 @@ It is a promotional image.
   -4 to +1.
 - **Name:** the title is the project name, K-SACCR; the method, SA-CCR, is
   named in the label beside the status.
-- **Status:** the image names the current release, "Release 1.0.1"; update
+- **Status:** the image names the current release, "Release 1.0.2"; update
   it with each release.
 
 Regenerate by opening the HTML in a Chromium browser with a 1280 x 640 viewport
