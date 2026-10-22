@@ -118,7 +118,9 @@ Use only the categories needed by a release.
   rule and risk-weight rule, stated and not applied (2% for a QCCP; for a
   non-qualifying CCP the standardised weight, to be determined outside
   K-SACCR), and each regime with `CCP` sets an INFO line with their number,
-  how many are `VALID`, and their EAD. Before this change, from the start of
+  how many are `VALID`, and their EAD. A blank or invalid QCCP value leaves
+  the status unknown: the INFO line says so and names no risk-weight rule.
+  Before this change, from the start of
   this release, role `CCP` rejected the netting set as not supported; that
   interim status `INVALID: facing a CCP, not supported` no longer exists.
   Default-fund contributions, their own funds requirements and the cap of
@@ -142,7 +144,7 @@ Use only the categories needed by a release.
   expected format the trade quantity `maturity_factor_margined` (margined
   netting sets only). The source register adds `CRE50`, with a registered
   copy. Totals: `TEST_Cases` 33 cases and 186 checks,
-  `TEST_InputValidation` 177 cases and 305 checks.
+  `TEST_InputValidation` 177 cases and 308 checks.
 - Tests for client clearing (#359): two illustrative numerical cases, a
   listed equity index future and call option in a margined netting set where
   the bank is the clearing member (`illustrative-clearing-member-listed`,

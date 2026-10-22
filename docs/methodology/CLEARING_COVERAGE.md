@@ -123,7 +123,9 @@ error on Checks naming the column, as for any invalid netting-set field.
   "risk weight 2% (CRE54.7; CRR Art. 306(1)(a)), not applied"; for a
   non-qualifying CCP "standardised risk weight of the CCP (CRE54.41; CRR Art.
   306(1)(b)), to be determined outside K-SACCR". An unmargined `CCP` netting
-  set gets the line too, saying that no MPOR floor applies.
+  set gets the line too, saying that no MPOR floor applies. When R is blank
+  or not Y/N, the netting set is `INVALID` and the line names a CCP "of
+  unknown QCCP status" and no risk-weight rule.
 - Each regime with a `CCP` netting set gets an INFO line on Checks with the
   number of its `VALID` `CCP` netting sets out of all of them and their EAD,
   so the CCP share of the regime's total is identifiable.

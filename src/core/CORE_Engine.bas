@@ -2356,6 +2356,8 @@ Private Function LoadNettingSets() As Boolean
     Dim InfoText           As String       'INFO line naming the role, floor and rule
     Dim NettingSetRegime   As String       'Regime of the netting set
     Dim FieldErrors        As Long         'Invalid fields found on the row
+    Dim ErrorsBefore       As Long         'FieldErrors before the QCCP field was read
+    Dim QccpKnown          As Boolean      'Role CCP: the QCCP field is a valid Y or N
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
@@ -2502,8 +2504,11 @@ Private Function LoadNettingSets() As Boolean
     'Retained VM is variation margin, so it needs a margined netting set.
                 .QCCP = False
                 .RetainedVM = False
+                QccpKnown = False
                 If .ClearingRole = CL_CCP Then
+                    ErrorsBefore = FieldErrors
                     .QCCP = NsRequiredFlag(InputBlock(i, NS_QCCP), "QCCP", NettingSetRef, RowNumber, FieldErrors)
+                    QccpKnown = (FieldErrors = ErrorsBefore)
                     .RetainedVM = NsRequiredFlag(InputBlock(i, NS_RETAINVM), "CCP retains VM", NettingSetRef, RowNumber, _
                                                  FieldErrors)
                     If .RetainedVM And Not .Margined Then
@@ -2589,7 +2594,7 @@ Private Function LoadNettingSets() As Boolean
                             End If
                         Case CL_CCP
                             FloorBD = MPOR_CCP_BD
-                            RoleText = CcpRoleText(.QCCP)
+                            RoleText = CcpRoleText(.QCCP, QccpKnown)
                             RoleRule = "CRE54.8(2); CRR Art. 304(3)(b)"
                         Case Else
                             FloorBD = pMPORBil
@@ -2608,7 +2613,7 @@ Private Function LoadNettingSets() As Boolean
                                            "least " & CStr(pMinMatBD) & " BD, where it exceeds the MPOR (CRE54.8(3); " & _
                                            "CRR Art. 304(3)(d))"
                             End If
-                            InfoText = InfoText & "; " & CcpRiskWeightText(.QCCP)
+                            InfoText = InfoText & "; " & CcpRiskWeightText(.QCCP, QccpKnown)
                         End If
                         LogMsg SEV_INFO, SH_NS, NettingSetRef, InfoText & ".", RowNumber
                     End If
@@ -2634,9 +2639,9 @@ Private Function LoadNettingSets() As Boolean
                            "netting set: no MPOR floor applies; each trade's maturity factor uses its remaining " & _
                            "maturity (CRE52.48; CRR Art. 279c(1)(a)).", RowNumber
                 ElseIf .ClearingRole = CL_CCP Then
-                    LogMsg SEV_INFO, SH_NS, NettingSetRef, CcpRoleText(.QCCP) & " on an unmargined netting set: no MPOR " & _
+                    LogMsg SEV_INFO, SH_NS, NettingSetRef, CcpRoleText(.QCCP, QccpKnown) & " on an unmargined netting set: no MPOR " & _
                            "floor applies; each trade's maturity factor uses its remaining maturity (CRE52.48; CRR " & _
-                           "Art. 279c(1)(a)); " & CcpRiskWeightText(.QCCP) & ".", RowNumber
+                           "Art. 279c(1)(a)); " & CcpRiskWeightText(.QCCP, QccpKnown) & ".", RowNumber
                 End If
             End With
             KeyAdd mNSIndex, NettingSetRef, mNSCount
@@ -2734,7 +2739,8 @@ End Function
 
 
 Private Function CcpRoleText( _
-    ByVal Qualifying As Boolean) _
+    ByVal Qualifying As Boolean, _
+    ByVal Known As Boolean) _
     As String
 '
 '==============================================================================
@@ -2742,13 +2748,17 @@ Private Function CcpRoleText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Name a CCP netting set's role on Checks: a clearing member's trade
-'   exposure to a qualifying or a non-qualifying CCP (#112).
+'   exposure to a qualifying or a non-qualifying CCP (#112). When the QCCP
+'   field is blank or invalid (Known is False) the status is unknown, and
+'   the line says so rather than naming one.
 '
 ' UPDATED
 '   2026-10-22
 '==============================================================================
 '
-        If Qualifying Then
+        If Not Known Then
+            CcpRoleText = "Trade exposure to a CCP of unknown QCCP status"
+        ElseIf Qualifying Then
             CcpRoleText = "Trade exposure to a QCCP"
         Else
             CcpRoleText = "Trade exposure to a non-qualifying CCP"
@@ -2758,7 +2768,8 @@ End Function
 
 
 Private Function CcpRiskWeightText( _
-    ByVal Qualifying As Boolean) _
+    ByVal Qualifying As Boolean, _
+    ByVal Known As Boolean) _
     As String
 '
 '==============================================================================
@@ -2768,13 +2779,16 @@ Private Function CcpRiskWeightText( _
 '   State the risk weight that applies to a CCP trade exposure. K-SACCR
 '   calculates exposure values only, so the weight is stated, not applied;
 '   for a non-qualifying CCP it depends on the CCP's counterparty category
-'   and credit quality, which the workbook does not take (#112).
+'   and credit quality, which the workbook does not take (#112). With the
+'   QCCP status unknown, no rule is named.
 '
 ' UPDATED
 '   2026-10-22
 '==============================================================================
 '
-        If Qualifying Then
+        If Not Known Then
+            CcpRiskWeightText = "risk weight not stated: the QCCP status is not a valid Y or N"
+        ElseIf Qualifying Then
             CcpRiskWeightText = "risk weight 2% (CRE54.7; CRR Art. 306(1)(a)), not applied"
         Else
             CcpRiskWeightText = "standardised risk weight of the CCP (CRE54.41; CRR Art. 306(1)(b)), to be " & _

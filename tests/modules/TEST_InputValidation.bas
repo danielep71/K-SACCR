@@ -111,7 +111,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
         Private Const CASES       As Long = 177               'Cases in a complete run
-        Private Const CHECKS      As Long = 305               'Checks in a complete run
+        Private Const CHECKS      As Long = 308               'Checks in a complete run
 
 
 '
@@ -476,6 +476,9 @@ Public Sub RunInputValidationTests()
         ExpectStatus "INVALID: 1 input error(s)"
         TEST_CaseRunner.ExpectChecksLine "qccp-missing", SEV_ERROR, "QCCP (Y/N) is required for Client clearing role CCP", _
                                          "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, _
+                                         "Trade exposure to a CCP of unknown QCCP status: MPOR floor 10 BD", "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "weight-unknown", SEV_INFO, "risk weight not stated", "illustrative"
 
         StartMarginedCase "netting-set-ccp-retained-vm-missing", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", ""
@@ -486,6 +489,8 @@ Public Sub RunInputValidationTests()
         SetCcp "X", "N"
         ExpectStatus "INVALID: 1 input error(s)"
         TEST_CaseRunner.ExpectChecksLine "qccp-code", SEV_ERROR, "QCCP must be Y or N", "illustrative"
+        TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, "Trade exposure to a CCP of unknown QCCP status", _
+                                         "illustrative"
 
         StartCase "netting-set-ccp-retained-vm-unmargined", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_CCP

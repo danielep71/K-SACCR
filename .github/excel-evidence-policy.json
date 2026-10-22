@@ -51,7 +51,7 @@
       "header": "SACCR CASE TESTS",
       "mode_line": true,
       "cases": 177,
-      "checks": {"32-bit": 305, "64-bit": 305},
+      "checks": {"32-bit": 308, "64-bit": 308},
       "restoration": "restore=PASS",
       "first_case": "input-trade-middle-row-without-id"
     },
