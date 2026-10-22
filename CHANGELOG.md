@@ -273,6 +273,21 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- The user manual for 1.0.2 is prepared in `docs/user-manual/v1.0.2/`,
+  from the 1.0.1 manual: trade exposures to a CCP and the NettingSets
+  columns `QCCP (Y/N)` and `CCP retains VM, collateral not protected (Y/N)`;
+  settled-to-market trades and the Trades columns `Settlement type (N/STM)`
+  and `Next reset date`, with Comment moving two columns right; the role
+  `MULTI`; the INFO lines on Checks for client clearing and CCPs and the CCP
+  subtotal per regime; the highlighted Results rows; moving inputs from
+  1.0.1; the known limitations; the test counts; and CRE50 and CRR Articles
+  300–311 among the sources. The worksheet-function table of section 10.2,
+  whose signatures overflowed into the next column in the 1.0.0 and 1.0.1
+  PDFs, is a list with the full signatures, `SACCR_MaturityFactor`'s
+  included, and a note that arguments in square brackets are optional
+  (#379); the built PDF has no line wider than the page. The release date
+  and the delivered file names are confirmed when 1.0.2 is released. The
+  1.0.0 and 1.0.1 manuals are not changed.
 - `docs/methodology/CLEARING_COVERAGE.md` specifies the input contract for
   CCP trade exposures (#112), which the NettingSets entry under Added
   implements. Role `CCP` becomes the

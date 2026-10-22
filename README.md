@@ -689,7 +689,7 @@ hold the current scope of each release.
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
-| [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) | Source of the user manual for 1.0.1; its PDF is attached to the [1.0.1 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1). The 1.0.0 manual stays in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md) |
+| [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) | Source of the user manual for 1.0.1; its PDF is attached to the [1.0.1 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1). The 1.0.0 manual stays in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md). The manual for 1.0.2, prepared for that release, is in [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |

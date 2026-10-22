@@ -197,6 +197,7 @@ enforced by `tools/check_source.py`; the others by review.
 - [`assets/README.md`](assets/README.md)
 - [`methodology/README.md`](methodology/README.md)
 - [`user-manual/v1.0.1/README.md`](user-manual/v1.0.1/README.md)
+- [`user-manual/v1.0.2/README.md`](user-manual/v1.0.2/README.md)
 - [`../tools/README.md`](../tools/README.md)
 
 ---
