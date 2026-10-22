@@ -2,8 +2,7 @@
 # .editorconfig
 #------------------------------------------------------------------------------
 # PURPOSE
-#   Provide a portable editing baseline for Excel/VBA projects created from
-#   this template.
+#   Provide the editing baseline for the K-SACCR repository.
 #
 # POLICY
 #   - Exported VBA source uses CRLF and 4-space indentation.
@@ -20,10 +19,6 @@
 #   .editorconfig controls how supporting editors create and save working-tree
 #   files. .gitattributes remains authoritative for Git normalization, binary
 #   classification, merge and diff behavior, Linguist, and release archives.
-#
-# CUSTOMIZATION
-#   Keep the VBA and repository-control rules. Optional tooling sections may be
-#   removed when a project does not use the corresponding file type.
 #==============================================================================
 
 root = true

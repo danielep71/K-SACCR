@@ -1,5 +1,5 @@
 #==============================================================================
-# Canonical VBA project template .gitignore
+# K-SACCR .gitignore
 #------------------------------------------------------------------------------
 # PURPOSE
 #   Keep the repository source-first, reviewable, reproducible, and safe to
@@ -263,13 +263,10 @@ renv/local/
 #------------------------------------------------------------------------------
 # These are documentation guardrails, not negation rules:
 #   *.bas, *.cls, *.frm, *.frx, *.xml
-#   src/**, examples/**, tests/**, tools/**
-#   demo/**, test/** only for documented legacy/profile alternatives
-#   docs/**, benchmark/**, evidence/**
+#   src/**, tests/**, tools/**, docs/**, .github/**, examples/** (reserved)
 #   *.md, *.txt, *.yml, *.yaml, *.json, *.csv
-#   assets/**, images/**, .github/**
 #   .editorconfig, .gitattributes, .gitignore
 #
-# Do not ignore exported VBA extensions or authoritative source, documentation,
-# benchmark, evidence, asset, or .github directories.
+# Do not ignore exported VBA extensions or the source, test, tool,
+# documentation or .github directories.
 #==============================================================================

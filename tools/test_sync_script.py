@@ -150,7 +150,7 @@ class SyncScriptTests(unittest.TestCase):
         return list(names)
 
     def test_manifest_sources_per_mode(self) -> None:
-        # Production: the five standard modules and the document modules;
+        # Production: the production modules of vba-projects.json and the document modules;
         # development adds every test module and nothing else (#34).
         manifest = json.loads((SCRIPT.parent / "vba-projects.json").read_text(encoding="utf-8"))
         documents = {Path(p).name for p in manifest["document_modules"]}

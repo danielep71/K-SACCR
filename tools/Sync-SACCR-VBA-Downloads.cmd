@@ -29,8 +29,9 @@ set "DEFAULT_SOURCE=%USERPROFILE%\Downloads"
 
 echo SACCR VBA synchronization from a folder
 echo.
-echo Imports only the repository modules found in the folder, for example
-echo modules downloaded for a test. The repository files are not changed.
+echo Imports the repository modules found in the folder, for example modules
+echo downloaded for a test, and new modules with a project prefix. The
+echo repository files are not changed.
 echo.
 
 if not exist "%WORKBOOK%" (

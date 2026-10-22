@@ -45,8 +45,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.p
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SkipSheets
 
-Imports the standard modules only and leaves the code of every worksheet and
-of ThisWorkbook as it is, without asking.
+Asks for production or development, then imports the standard modules only
+and leaves the code of every worksheet and of ThisWorkbook as it is, without
+asking about it.
 
 With -SourceDir, only the modules found in that folder are imported, for
 example modules downloaded for a test, without copying them into the
@@ -619,8 +620,8 @@ try {
         Write-Host ""
     }
 
-    # -SourceDir: import only the repository modules found in that folder,
-    # after the user has seen the list. The repository source is used above
+    # -SourceDir: import the repository modules found in that folder, and new
+    # modules with a project prefix, after the user has seen the list. The repository source is used above
     # only to know which component names are valid.
     $sourceLabel = $repoFullPath
     if (-not [string]::IsNullOrWhiteSpace($SourceDir)) {
@@ -761,8 +762,8 @@ try {
     Assert-SheetSnapshotUnchanged -Before $before -After $after
 
     # The synchronization uses manual calculation only to avoid recalculation
-    # while modules are being replaced. The development workbook must leave
-    # this isolated Excel instance in Automatic mode before it is saved.
+    # while modules are being replaced. The workbook must leave this isolated
+    # Excel instance in Automatic mode before it is saved, in either mode.
     $excel.Calculation = $xlCalculationAutomatic
     $excel.CalculateBeforeSave = $true
 

@@ -3,10 +3,11 @@
 #
 # Usage: Rscript tools/rsaccr_run.R <inputs.json> <results.json>
 #
-# Each netting set is one counterparty. A margined netting set also gets a
-# CSA and its collateral; it is run a second time without them, which gives
-# the unmargined EAD the package caps the margined EAD with. The package is
-# called, not copied: it is GPL-3 and this repository is MPL-2.0.
+# Each netting set is one counterparty, run first without a CSA. A margined
+# netting set is then run again with its CSA and collateral; the package's own
+# cap ignores NICA, so the script rebuilds the cap of the margined EAD from the
+# unmargined run with C = NICA, as the engine does. The package is called, not
+# copied: it is GPL-3 and this repository is MPL-2.0.
 
 suppressPackageStartupMessages({
     library(SACCR)
