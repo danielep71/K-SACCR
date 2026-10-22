@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '------------------------------------------------------------------------------
     'Reference classes, as indexes into the per-class counters.
         Private Const CLASS_PUBLISHED      As Long = 0    'Printed in a registered source
-        Private Const CLASS_INDEPENDENT    As Long = 1    'Independently derived and reviewed
+        Private Const CLASS_INDEPENDENT    As Long = 1    'From a registered external implementation
         Private Const CLASS_ILLUSTRATIVE   As Long = 2    'Shows a behaviour; validates nothing
 
 '------------------------------------------------------------------------------

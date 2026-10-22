@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "CRR Art. 280f",
-        "derivation": "Prototype TestCatalogue T24 (Other risks add-on = 8% x (|6,000| + |5,000|); CRR Art. 280f; hand calculation from the regulation; workbook reference CRR-OTHER, AddOn OT). Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T24 (Other risks add-on = 8% x (|6,000| + |5,000|); CRR Art. 280f; hand calculation from the regulation; workbook reference CRR-OTHER, AddOn OT). Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"
@@ -37,7 +37,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "CRR Art. 274(2), 280f",
-        "derivation": "Prototype TestCatalogue T25 (Other risks EAD = 1.4 x 880; CRR Art. 274(2), 280f; hand calculation from the regulation; workbook reference CRR-OTHER, EAD). Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T25 (Other risks EAD = 1.4 x 880; CRR Art. 274(2), 280f; hand calculation from the regulation; workbook reference CRR-OTHER, EAD). Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"

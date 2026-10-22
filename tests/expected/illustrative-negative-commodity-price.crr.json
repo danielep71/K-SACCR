@@ -18,7 +18,7 @@
         "class": "illustrative",
         "source": "CRR-RTS",
         "locator": "Del. Reg. 2021/931 Art. 5 (am. 2025/855)",
-        "derivation": "Prototype TestCatalogue T23 (Negative commodity price: lambda = -(1 + 0.1) x min(P, K); Del. Reg. 2021/931 Art. 5 (am. 2025/855); hand calculation from the regulation; workbook reference NCO-1, Lambda). Value from a hand calculation from the regulation that has not been reviewed; illustrative until an independent derivation is committed and reviewed.",
+        "derivation": "Prototype TestCatalogue T23 (Negative commodity price: lambda = -(1 + 0.1) x min(P, K); Del. Reg. 2021/931 Art. 5 (am. 2025/855); hand calculation from the regulation; workbook reference NCO-1, Lambda). Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-06"
