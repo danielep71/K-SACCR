@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from _gatelib import parse_report_args, run_gate
-from csv_contract import load_contract, template_findings, validate
+from csv_contract import load_contract, rule_columns, template_findings, validate
 
 CONFIG = "src/core/CORE_Config.bas"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
@@ -117,9 +117,8 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
         if spec["key"] not in names:
             findings.append(f"{kind}: key {spec['key']!r} is not a column")
         for rule in spec.get("row_rules", []):
-            used = list(rule.get("when", {})) + rule.get("required", []) + rule.get("otherwise_blank", []) \
-                + rule.get("after", []) + rule.get("above", [])
-            findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}" for n in used if n not in names]
+            findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
+                         for n in sorted(rule_columns(rule)) if n not in names]
     return findings
 
 

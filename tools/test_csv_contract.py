@@ -77,6 +77,12 @@ class FileTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 self.assertEqual(csv.validate(csv.template_text(kind, CONTRACT).encode(), kind, CONTRACT), ([], []))
 
+    def test_a_header_error_stops_reading(self) -> None:
+        bad_header = NS_HEADER.replace("netting_set_id", "bad_header")
+        self.assertEqual(codes(bad_header + '\n"unclosed,quote\n'),
+                         [("CSV-HEADER-UNKNOWN", 1, 0, "bad_header"), ("CSV-HEADER-MISSING", 1, 0, "netting_set_id")])
+        self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
+
     def test_header_order_is_free_and_names_are_exact(self) -> None:
         names = NS_HEADER.split(",")
         values = NS_ROW.split(",")
@@ -154,6 +160,9 @@ def netting_set(role: str, qccp: str = "", retains: str = "") -> str:
 class RowRuleTests(unittest.TestCase):
     def test_a_rule_is_not_judged_on_a_flawed_predicate(self) -> None:
         self.assertEqual(codes(netting_set("BAD", "Y", "N")), [("CSV-ALLOWED", 2, 1, "clearing_role")])
+
+    def test_a_rule_is_not_judged_on_a_flawed_target(self) -> None:
+        self.assertEqual(codes(netting_set("CCP", "BAD")), [("CSV-ALLOWED", 2, 1, "qccp")])
 
     def test_conditional_rule_both_ways(self) -> None:
         self.assertEqual([c[3] for c in codes(netting_set("CCP"))], ["ccp_retains_variation_margin", "qccp"])
