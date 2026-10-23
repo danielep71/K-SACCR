@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT: dict[str, Any] = csv.load_contract(ROOT)
 NS_HEADER = csv.template_text("NettingSets", CONTRACT).rstrip("\n")
 TR_HEADER = csv.template_text("Trades", CONTRACT).rstrip("\n")
-NS_ROW = "NS-1,CPTY,Y,N,1,N,N,,0,0,0,0,,,,,"
-TR_ROW = "T1,NS-1,IR,,EUR,Linear,Long,,,,1000,EUR,0,,,2031-01-02,2031-01-02,,,,,,,,,,,"
+NS_ROW = "NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;"
+TR_ROW = "T1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;"
 
 
 def codes(data: str | bytes, kind: str = "NettingSets", **options: Any) -> list[tuple[str, int, int, str]]:
@@ -24,10 +24,14 @@ def codes(data: str | bytes, kind: str = "NettingSets", **options: Any) -> list[
 
 class ParserTests(unittest.TestCase):
     def test_quoting_rules(self) -> None:
-        records, findings = csv.parse('a,"b,c","d ""e""",\r\n"multi\nline",x,,\n')
+        records, findings = csv.parse('a;"b;c";"d ""e""";\r\n"multi\nline";x;;\n')
         self.assertEqual(findings, [])
-        self.assertEqual([r.fields for r in records], [["a", "b,c", 'd "e"', ""], ["multi\nline", "x", "", ""]])
+        self.assertEqual([r.fields for r in records], [["a", "b;c", 'd "e"', ""], ["multi\nline", "x", "", ""]])
         self.assertEqual([r.line for r in records], [1, 2])
+
+    def test_a_comma_does_not_separate_fields(self) -> None:
+        records, findings = csv.parse("1,5;a,b\n")
+        self.assertEqual((findings, [r.fields for r in records]), ([], [["1,5", "a,b"]]))
 
     def test_line_numbers_follow_quoted_line_breaks(self) -> None:
         records, _ = csv.parse('h\n"one\ntwo\nthree"\nnext\n')
@@ -42,7 +46,7 @@ class ParserTests(unittest.TestCase):
                 self.assertIn(message, findings[0].message)
 
     def test_last_record_needs_no_line_end(self) -> None:
-        records, findings = csv.parse("a,b\nc,d")
+        records, findings = csv.parse("a;b\nc;d")
         self.assertEqual((findings, [r.fields for r in records]), ([], [["a", "b"], ["c", "d"]]))
 
 
@@ -84,9 +88,9 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
 
     def test_header_order_is_free_and_names_are_exact(self) -> None:
-        names = NS_HEADER.split(",")
-        values = NS_ROW.split(",")
-        reordered = ",".join(reversed(names)) + "\n" + ",".join(reversed(values)) + "\n"
+        names = NS_HEADER.split(";")
+        values = NS_ROW.split(";")
+        reordered = ";".join(reversed(names)) + "\n" + ";".join(reversed(values)) + "\n"
         rows, findings = csv.validate(reordered.encode(), "NettingSets", CONTRACT)
         self.assertEqual((findings, rows[0]["netting_set_id"]), ([], "NS-1"))
         self.assertEqual(codes(NS_HEADER.replace("margined", "Margined") + "\n"),
@@ -98,23 +102,23 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(text, max_records=3), [])
 
     def test_a_rejected_file_returns_no_records(self) -> None:
-        text = NS_HEADER + "\n" + NS_ROW + "\n" + NS_ROW.replace("NS-1", "NS-2").replace(",Y,N,", ",X,N,") + "\n"
+        text = NS_HEADER + "\n" + NS_ROW + "\n" + NS_ROW.replace("NS-1", "NS-2").replace(";Y;N;", ";X;N;") + "\n"
         rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT)
         self.assertEqual((rows, [f.code for f in findings]), ([], ["CSV-ALLOWED"]))
 
 
 class FieldTests(unittest.TestCase):
     def check_trade(self, column: str, value: str) -> list[str]:
-        names = TR_HEADER.split(",")
-        values = TR_ROW.split(",")
+        names = TR_HEADER.split(";")
+        values = TR_ROW.split(";")
         values[names.index(column)] = value
-        return [code for code, _, _, _ in codes(TR_HEADER + "\n" + ",".join(values) + "\n", "Trades")]
+        return [code for code, _, _, _ in codes(TR_HEADER + "\n" + ";".join(values) + "\n", "Trades")]
 
     def test_numbers(self) -> None:
         for value in ("1000", "0.5", "1.25e6", "1E+7", "123456789012345", "1000000000000000000"):
             with self.subTest(value=value):
                 self.assertEqual(self.check_trade("notional_amount", value), [])
-        for value in ("+5", '"1,000"', "1 000", "0x10", ".5", "5.", "007", "1234567890123456", "NaN", "inf"):
+        for value in ("+5", "1,000", "1,5", '"1;000"', "1 000", "0x10", ".5", "5.", "007", "1234567890123456", "NaN", "inf"):
             with self.subTest(value=value):
                 self.assertEqual(self.check_trade("notional_amount", value), ["CSV-TYPE"])
         self.assertEqual(self.check_trade("market_value_amount", "-250000.75"), [])
@@ -152,9 +156,9 @@ class FieldTests(unittest.TestCase):
 
 
 def netting_set(role: str, qccp: str = "", retains: str = "") -> str:
-    values = NS_ROW.split(",")
+    values = NS_ROW.split(";")
     values[3], values[-2], values[-1] = role, qccp, retains
-    return NS_HEADER + "\n" + ",".join(values) + "\n"
+    return NS_HEADER + "\n" + ";".join(values) + "\n"
 
 
 class RowRuleTests(unittest.TestCase):
@@ -203,6 +207,21 @@ class GateTests(unittest.TestCase):
     def test_templates_must_be_regenerated(self) -> None:
         self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"][1].update(name="counterparty_name"))
         self.assertTrue(any("is not what the contract generates" in f for f in gate.run_check(self.root)["findings"]))
+
+    def test_export_constants_must_match_the_contract(self) -> None:
+        config = self.root / gate.CONFIG
+        text = config.read_bytes()
+        config.write_bytes(text.replace(b'"K-SACCR_Trades_v1.csv"', b'"K-SACCR_Trades.csv"')
+                           .replace(b'"trade_id;netting_set_id;', b'"netting_set_id;trade_id;'))
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn(f"Trades: CSV_TR_FILE in {gate.CONFIG} differs from the template name K-SACCR_Trades_v1.csv",
+                      findings)
+        self.assertIn(f"Trades: CSV_TR_HEADER in {gate.CONFIG} differs from the contract's header line", findings)
+        self.assertFalse(any(f.startswith("NettingSets: CSV_") for f in findings))
+
+    def test_delimiter_must_be_the_parsers(self) -> None:
+        self.edit_contract(lambda c: c["format"].update(delimiter=","))
+        self.assertIn("format: delimiter ',' is not the parser's ';'", gate.run_check(self.root)["findings"])
 
     def test_fixture_outcomes_are_pinned(self) -> None:
         (self.root / gate.FIXTURES / "valid/extra.csv").write_text(NS_HEADER + "\n", encoding="utf-8")

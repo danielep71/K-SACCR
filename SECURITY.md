@@ -56,13 +56,14 @@ exposure figure, which are reported as issues.
 - **Workbook macros** read the input sheets, write the output sheets, show
   message boxes, and switch screen updating, events and calculation mode during
   a run, restoring them afterwards.
-- **Export evidence** (`M_Main.ExportEvidence`) asks for a file name with
-  `Application.GetSaveAsFilename` and writes the evidence CSV there. An existing
-  file of that name, hidden ones included, is deleted and replaced without a
-  further prompt from the macro; a read-only file is left unchanged and the
-  export fails.
+- **Export evidence** (`M_Main.ExportEvidence`) and **Export CSV template**
+  (`M_Main.ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`) ask for
+  a file name with `Application.GetSaveAsFilename` and write the evidence CSV
+  or the blank template there. An existing file of that name, hidden ones
+  included, is deleted and replaced without a further prompt from the macro; a
+  read-only file is left unchanged and the export fails.
 - **Test suites** and the benchmark `TEST_Benchmark` also write the input and
-  output sheets, and `TEST_Reconcile` writes and deletes three CSV files in
+  output sheets, and `TEST_Reconcile` writes and deletes five CSV files in
   `%TEMP%` (or the workbook's folder); run them only in a development workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.

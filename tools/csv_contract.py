@@ -23,6 +23,7 @@ CONTRACT = "docs/csv/contract.json"
 TEMPLATES = "docs/csv/templates"
 DOCUMENT = "docs/csv/CSV_CONTRACT.md"
 BOM = b"\xef\xbb\xbf"
+DELIMITER = ";"
 NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -73,7 +74,7 @@ def decode(data: bytes) -> tuple[str | None, list[Finding]]:
 
 
 class _Parser:
-    """RFC 4180 records with CRLF or LF separators; quotes only around whole fields."""
+    """RFC 4180 records with ";" between fields and CRLF or LF separators; quotes only around whole fields."""
 
     def __init__(self, text: str) -> None:
         self.text = text
@@ -102,13 +103,13 @@ class _Parser:
                 continue
             self.pos = close + 1
             following = self.text[self.pos:self.pos + 1]
-            if following not in ("", ",") and not self.end_of_line():
+            if following not in ("", DELIMITER) and not self.end_of_line():
                 raise SyntaxError("text after a closing quote")
             return "".join(parts)
 
     def plain(self) -> str:
         start = self.pos
-        while self.pos < len(self.text) and self.text[self.pos] not in ",\n" \
+        while self.pos < len(self.text) and self.text[self.pos] not in DELIMITER + "\n" \
                 and not self.text.startswith("\r\n", self.pos):
             char = self.text[self.pos]
             if char == '"':
@@ -122,7 +123,7 @@ class _Parser:
         fields: list[str] = []
         while True:
             fields.append(self.quoted() if self.text.startswith('"', self.pos) else self.plain())
-            if self.text.startswith(",", self.pos):
+            if self.text.startswith(DELIMITER, self.pos):
                 self.pos += 1
                 continue
             separator = self.end_of_line()
@@ -355,7 +356,7 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
 
 def template_text(kind: str, contract: dict[str, Any]) -> str:
     """The blank template of kind: the header record only, ending in LF."""
-    return ",".join(column["name"] for column in contract["files"][kind]["columns"]) + "\n"
+    return DELIMITER.join(column["name"] for column in contract["files"][kind]["columns"]) + "\n"
 
 
 def describe_type(column: dict[str, Any], types: dict[str, Any]) -> str:

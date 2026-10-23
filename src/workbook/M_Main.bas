@@ -27,15 +27,20 @@ Attribute VB_Name = "M_Main"
 '   ExportEvidence: write the evidence report of the last run to a CSV
 '   file (#45); ExportEvidence_Silent: the same to a given file, for
 '   automation and tests.
-'   The sheet buttons call the first three and ExportEvidence by name.
+'   ExportNettingSetsCsvTemplate and ExportTradesCsvTemplate: write the
+'   blank CSV template of the input contract to a file (#206);
+'   ExportCsvTemplate_Silent: the same to a given file, for automation and
+'   tests.
+'   The sheet buttons call the first three, ExportEvidence and the two
+'   template exports by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
-'   evidence report; CORE_Util and CORE_Config for the
-'   output sheets and the error numbers.
+'   evidence report and its UTF-8 encoding; CORE_Util and CORE_Config for
+'   the output sheets, the CSV template header lines and the error numbers.
 '
 ' STATE OWNERSHIP
 '   Each operation captures calculation mode, events and screen updating,
@@ -64,9 +69,10 @@ Attribute VB_Name = "M_Main"
 '   thrown by it would (#204); gTestFault = "reconcile" raises
 '   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
-'   raise ERR_INJECTED_FAULT in WriteEvidence before the new report is
-'   opened, while it is written and while the older file is replaced
-'   (#312). tests/modules/TEST_MainState.bas uses the first four;
+'   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
+'   report and the CSV templates, before the new file is opened, while it
+'   is written and while the older file is replaced (#312).
+'   tests/modules/TEST_MainState.bas uses the first four;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
 '   evidence faults. gLastMessage keeps the last message passed to Notify
 '   (a failure message is not kept), so that a test can read it in silent
@@ -81,7 +87,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-10-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1426,40 +1432,77 @@ Private Function WriteEvidence( _
 '                                WriteEvidence
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write the evidence report to FilePath as UTF-8 without a byte-order
-'   mark, replacing any file of that name, hidden ones included; a
-'   read-only file is left as it is and the write fails.
-'
-' METHOD
-'   The report is written whole to a new file beside FilePath first. Only
-'   then is an older file moved aside, the new one renamed to FilePath and
-'   the older one deleted, so a failed write leaves the older file as it
-'   was (#312). A failed replacement puts the older file back with its
-'   attributes. The replacement is as atomic as the file system's rename,
-'   no more.
+'   Write the evidence report to FilePath through WriteTextFile.
 '
 ' RETURNS
 '   The number of lines written.
 '
 ' ERROR POLICY
-'   Raises the first error when the report cannot be written or replaced,
-'   after closing the file number, deleting the new file and putting an
-'   older file back; an error in that cleanup does not replace the first
-'   one. An older file that cannot be deleted once replaced is left beside
-'   the report.
+'   Raises the error of WriteTextFile.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-23
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ReportText          As String     'The report
-    Dim ReportBytes()       As Byte       'Its UTF-8 bytes
+    Dim ReportText   As String    'The report
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        ReportText = EvidenceText()
+        WriteTextFile FilePath, ReportText
+        WriteEvidence = (Len(ReportText) - Len(Replace(ReportText, vbCrLf, ""))) \ 2
+
+End Function
+
+
+Private Sub WriteTextFile( _
+    ByVal FilePath As String, _
+    ByVal FileText As String)
+'
+'==============================================================================
+'                                WriteTextFile
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write FileText to FilePath as UTF-8 without a byte-order mark,
+'   replacing any file of that name, hidden ones included; a read-only
+'   file is left as it is and the write fails. Used by the evidence export
+'   and the CSV template export.
+'
+' METHOD
+'   The text is written whole to a new file beside FilePath first. Only
+'   then is an older file moved aside, the new one renamed to FilePath and
+'   the older one deleted, so a failed write leaves the older file as it
+'   was (#312). A failed replacement puts the older file back with its
+'   attributes. The replacement is as atomic as the file system's rename,
+'   no more.
+'
+' ERROR POLICY
+'   Raises the first error when the file cannot be written or replaced,
+'   after closing the file number, deleting the new file and putting an
+'   older file back; an error in that cleanup does not replace the first
+'   one. An older file that cannot be deleted once replaced is left beside
+'   the new one.
+'
+' TEST SEAM
+'   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
+'   raise ERR_INJECTED_FAULT here, whichever export calls it.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim TextBytes()         As Byte       'The text's UTF-8 bytes
     Dim FileNumber          As Integer    'File number; 0 while none is open
-    Dim NewPath             As String     'The report before it replaces FilePath; "" once renamed
+    Dim NewPath             As String     'The file before it replaces FilePath; "" once renamed
     Dim OldPath             As String     'An older FilePath while it is moved aside; "" otherwise
     Dim OldAttributes       As Long       'Its attributes, put back if the replacement fails
     Dim AttributesCleared   As Boolean    'Its attributes were cleared
@@ -1469,26 +1512,25 @@ Private Function WriteEvidence( _
 '------------------------------------------------------------------------------
 ' WRITE THE NEW FILE
 '------------------------------------------------------------------------------
-        ReportText = EvidenceText()
-        ReportBytes = CORE_Export.Utf8Bytes(ReportText)
+        TextBytes = CORE_Export.Utf8Bytes(FileText)
         On Error GoTo Failed
         If FileExists(FilePath) Then
             If (GetAttr(FilePath) And vbReadOnly) <> 0 Then
-                Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the file is read-only"
+                Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteTextFile", "the file is read-only"
             End If
         End If
         NewPath = SiblingPath(FilePath, "new")
         If gTestFault = "evidence-open" Then
-            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure before the report was opened."
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteTextFile", "Injected failure before the file was opened."
         End If
         FileNumber = FreeFile
         Open NewPath For Binary Access Write As #FileNumber
-        Put #FileNumber, , ReportBytes
+        Put #FileNumber, , TextBytes
         If gTestFault = "evidence-write" Then
-            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the report was written."
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteTextFile", "Injected failure while the file was written."
         End If
-        If LOF(FileNumber) <> UBound(ReportBytes) - LBound(ReportBytes) + 1 Then
-            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteEvidence", "the report was not written whole"
+        If LOF(FileNumber) <> UBound(TextBytes) - LBound(TextBytes) + 1 Then
+            Err.Raise ERR_EXPORT_WRITE, "M_Main.WriteTextFile", "the file was not written whole"
         End If
         Close #FileNumber
         FileNumber = 0
@@ -1504,11 +1546,10 @@ Private Function WriteEvidence( _
             Name FilePath As OldPath
         End If
         If gTestFault = "evidence-replace" Then
-            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteEvidence", "Injected failure while the older file was replaced."
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.WriteTextFile", "Injected failure while the older file was replaced."
         End If
         Name NewPath As FilePath
         NewPath = ""
-        WriteEvidence = (Len(ReportText) - Len(Replace(ReportText, vbCrLf, ""))) \ 2
 
 '------------------------------------------------------------------------------
 ' CLEAN UP AND REPORT
@@ -1538,9 +1579,9 @@ CleanUp:
         End If
         On Error GoTo 0
         If ErrorNumber <> 0 Then
-            Err.Raise ErrorNumber, "M_Main.WriteEvidence", "Could not write " & FilePath & ": " & ErrorText
+            Err.Raise ErrorNumber, "M_Main.WriteTextFile", "Could not write " & FilePath & ": " & ErrorText
         End If
-        Exit Function
+        Exit Sub
 
 '------------------------------------------------------------------------------
 ' HANDLE ERROR
@@ -1550,7 +1591,7 @@ Failed:
         ErrorText = Err.Description
         Resume CleanUp
 
-End Function
+End Sub
 
 
 Private Function FileExists( _
@@ -1837,14 +1878,34 @@ Private Function DefaultEvidenceName() As String
 '   time, in the workbook's folder when it has one.
 '
 ' UPDATED
-'   2026-10-16
+'   2026-10-23
 '==============================================================================
 '
-        DefaultEvidenceName = "K-SACCR_evidence_" & Format$(Now, "yyyymmdd-hhnnss") & ".csv"
+        DefaultEvidenceName = InWorkbookFolder("K-SACCR_evidence_" & Format$(Now, "yyyymmdd-hhnnss") & ".csv")
+
+End Function
+
+
+Private Function InWorkbookFolder( _
+    ByVal FileName As String) _
+    As String
+'
+'==============================================================================
+'                              InWorkbookFolder
+'------------------------------------------------------------------------------
+' PURPOSE
+'   FileName in the workbook's folder, for a save dialog to offer; FileName
+'   alone when the workbook has no folder the dialog can start from.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        InWorkbookFolder = FileName
     'A workbook opened from OneDrive or SharePoint has a URL as its path,
     'which the save dialog cannot start from.
         If Len(ThisWorkbook.Path) > 0 And InStr(ThisWorkbook.Path, "://") = 0 Then
-            DefaultEvidenceName = ThisWorkbook.Path & Application.PathSeparator & DefaultEvidenceName
+            InWorkbookFolder = ThisWorkbook.Path & Application.PathSeparator & FileName
         End If
 
 End Function
@@ -2051,6 +2112,200 @@ Private Sub ForgetRunOutputs()
 Failed:
 
 End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                             CSV TEMPLATE EXPORT
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ExportNettingSetsCsvTemplate()
+'
+'==============================================================================
+'                         ExportNettingSetsCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank NettingSets CSV template of the input contract (#206)
+'   to a file chosen by the user: its header line only.
+'
+' USAGE
+'   Assigned to the Export CSV template button on NettingSets.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        ExportCsvTemplate "NettingSets"
+
+End Sub
+
+
+Public Sub ExportTradesCsvTemplate()
+'
+'==============================================================================
+'                           ExportTradesCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank Trades CSV template of the input contract (#206) to a
+'   file chosen by the user: its header line only.
+'
+' USAGE
+'   Assigned to the Export CSV template button on Trades.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        ExportCsvTemplate "Trades"
+
+End Sub
+
+
+Public Function ExportCsvTemplate_Silent( _
+    ByVal Kind As String, _
+    ByVal FilePath As String) _
+    As String
+'
+'==============================================================================
+'                          ExportCsvTemplate_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The CSV template exports for automation and tests: write the blank
+'   template of Kind ("NettingSets" or "Trades") to FilePath without
+'   asking.
+'
+' RETURNS
+'   "RESULT=OK; file=..." or "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   A file that cannot be written raises to the caller.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim TemplateText   As String    'The template; "" for an unknown kind
+
+'------------------------------------------------------------------------------
+' CHECK AND WRITE
+'------------------------------------------------------------------------------
+        TemplateText = CsvTemplateText(Kind)
+        If Len(TemplateText) = 0 Then
+            ExportCsvTemplate_Silent = "RESULT=REFUSED; reason=unknown template kind " & Kind
+        Else
+            WriteTextFile FilePath, TemplateText
+            ExportCsvTemplate_Silent = "RESULT=OK; file=" & FilePath
+        End If
+
+End Function
+
+
+Private Sub ExportCsvTemplate( _
+    ByVal Kind As String)
+'
+'==============================================================================
+'                              ExportCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask for a file, offering the template's file name in the workbook's
+'   folder, and write the blank template of Kind to it through
+'   WriteTextFile. A cancelled dialog writes nothing.
+'
+' ERROR POLICY
+'   Reports a write failure in a message, or in the Immediate window in
+'   silent mode; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ChosenFile   As Variant    'Chosen file, or False when cancelled
+
+'------------------------------------------------------------------------------
+' ASK AND WRITE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        ChosenFile = Application.GetSaveAsFilename(InitialFileName:=InWorkbookFolder(CsvTemplateFile(Kind)), _
+                                               FileFilter:="CSV files (*.csv), *.csv", _
+                                               Title:="Export " & Kind & " CSV template")
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        WriteTextFile CStr(ChosenFile), CsvTemplateText(Kind)
+        Notify Kind & " CSV template exported: " & CStr(ChosenFile) & ".", vbInformation
+        Exit Sub
+
+Failed:
+        Notify Kind & " CSV template not exported: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function CsvTemplateText( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+'                               CsvTemplateText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The blank CSV template of Kind: its header line and a line feed, as in
+'   docs/csv/templates; "" for an unknown kind.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        Select Case Kind
+            Case "NettingSets"
+                CsvTemplateText = CSV_NS_HEADER & vbLf
+            Case "Trades"
+                CsvTemplateText = CSV_TR_HEADER & vbLf
+        End Select
+
+End Function
+
+
+Private Function CsvTemplateFile( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+'                               CsvTemplateFile
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The file name of the blank CSV template of Kind; "" for an unknown
+'   kind.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        Select Case Kind
+            Case "NettingSets"
+                CsvTemplateFile = CSV_NS_FILE
+            Case "Trades"
+                CsvTemplateFile = CSV_TR_FILE
+        End Select
+
+End Function
 
 
 '

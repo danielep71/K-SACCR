@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Check the CSV input contract (docs/csv/contract.json) against the engine's
 expected headers, the template's headers and validation lists, the generated
-templates and the CSV fixtures, without running Excel."""
+templates, the VBA constants of the template export and the CSV fixtures,
+without running Excel."""
 from __future__ import annotations
 
 import json
@@ -13,13 +14,21 @@ from pathlib import Path
 from typing import Any
 
 from _gatelib import parse_report_args, run_gate
-from csv_contract import load_contract, rule_columns, template_findings, validate
+from csv_contract import (
+    DELIMITER,
+    load_contract,
+    rule_columns,
+    template_findings,
+    template_text,
+    validate,
+)
 
 CONFIG = "src/core/CORE_Config.bas"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
+EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
 TYPES = {"id", "text", "code", "flag", "currency", "integer", "number", "date"}
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
@@ -28,13 +37,18 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 
 
-def engine_headers(root: Path, constant: str) -> list[str]:
-    """The headers of a "|"-separated VBA string constant, concatenated over continuation lines."""
+def vba_string(root: Path, constant: str) -> str:
+    """The value of a VBA string constant in CORE_Config, concatenated over continuation lines."""
     text = (root / CONFIG).read_text(encoding="cp1252")
     match = re.search(rf"Public Const {constant} As String = (.*?)\r?\n(?!\s*\")", text, re.S)
     if not match:
         raise ValueError(f"{CONFIG}: {constant} not found")
-    return "".join(re.findall(r'"((?:[^"]|"")*)"', match.group(1))).replace('""', '"').split("|")
+    return "".join(re.findall(r'"((?:[^"]|"")*)"', match.group(1))).replace('""', '"')
+
+
+def engine_headers(root: Path, constant: str) -> list[str]:
+    """The headers of a "|"-separated VBA string constant."""
+    return vba_string(root, constant).split("|")
 
 
 def header_key(text: str) -> str:
@@ -105,6 +119,8 @@ class Workbook:
 
 def check_shape(contract: dict[str, Any]) -> list[str]:
     findings: list[str] = []
+    if contract["format"]["delimiter"] != DELIMITER:
+        findings.append(f"format: delimiter {contract['format']['delimiter']!r} is not the parser's {DELIMITER!r}")
     for kind, spec in contract["files"].items():
         names = [c["name"] for c in spec["columns"]]
         findings += [f"{kind}: column name {n!r} is not snake_case" for n in names if not NAME.match(n)]
@@ -145,6 +161,18 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
     return findings
 
 
+def check_export(root: Path, contract: dict[str, Any]) -> list[str]:
+    """The file name and header line that M_Main writes for each blank template."""
+    findings: list[str] = []
+    for kind, spec in contract["files"].items():
+        file_constant, header_constant = EXPORT_CONSTANTS[kind]
+        if vba_string(root, file_constant) != spec["template"]:
+            findings.append(f"{kind}: {file_constant} in {CONFIG} differs from the template name {spec['template']}")
+        if vba_string(root, header_constant) + "\n" != template_text(kind, contract):
+            findings.append(f"{kind}: {header_constant} in {CONFIG} differs from the contract's header line")
+    return findings
+
+
 def check_fixtures(root: Path, contract: dict[str, Any]) -> tuple[list[str], int]:
     expected = json.loads((root / EXPECTED).read_text(encoding="utf-8"))["fixtures"]
     files = {p.relative_to(root / FIXTURES).as_posix() for p in (root / FIXTURES).glob("*/*.csv")}
@@ -168,6 +196,7 @@ def run_check(root: Path) -> dict[str, Any]:
     findings = check_shape(contract)
     findings += check_workbook(root, contract)
     findings += template_findings(root, contract)
+    findings += check_export(root, contract)
     fixture_findings, fixtures = check_fixtures(root, contract)
     findings += fixture_findings
     columns = {kind: len(spec["columns"]) for kind, spec in contract["files"].items()}

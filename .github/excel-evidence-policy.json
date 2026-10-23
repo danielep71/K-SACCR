@@ -77,8 +77,8 @@
       "entry_point": "TEST_Reconcile.RunReconcileTests",
       "header": "SACCR RECONCILIATION TESTS",
       "mode_line": false,
-      "cases": 20,
-      "checks": {"32-bit": 162, "64-bit": 162},
+      "cases": 21,
+      "checks": {"32-bit": 180, "64-bit": 180},
       "restoration": null,
       "first_case": null
     }

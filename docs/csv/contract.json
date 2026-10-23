@@ -4,7 +4,7 @@
   "description": "Field-level contract of the K-SACCR Trades and NettingSets CSV input files, version 1. CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
   "format": {
     "encoding": "UTF-8, with or without a byte-order mark",
-    "delimiter": ",",
+    "delimiter": ";",
     "quote": "\"",
     "record_separator": "CRLF or LF",
     "decimal_separator": ".",

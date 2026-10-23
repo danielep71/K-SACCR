@@ -7,7 +7,8 @@ Attribute VB_Name = "CORE_Config"
 '   header and first data rows, the column of each input field, the width of
 '   each output table, parameter codes, regime and asset-class codes, the
 '   severity labels written to the Checks sheet, the expected column
-'   headers, the bank-figure and reconciliation layout, the names of the
+'   headers, the file names and header lines of the blank CSV templates,
+'   the bank-figure and reconciliation layout, the names of the
 '   hidden fingerprints, the regulatory reference parameter set, the FX
 '   quote order and the error numbers raised by the workbook macros. When
 '   a sheet layout changes, it changes here and nowhere else.
@@ -30,7 +31,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-10-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -298,6 +299,29 @@ Attribute VB_Name = "CORE_Config"
         Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"
 
 '------------------------------------------------------------------------------
+' CSV TEMPLATES
+'------------------------------------------------------------------------------
+    'File name and header line of each blank CSV template of the input
+    'contract (docs/csv/contract.json, #206): the column names in contract
+    'order, separated by semicolons. M_Main writes the header line with a line
+    'feed, which makes the file the template in docs/csv/templates byte for
+    'byte; tools/check_csv_contract.py checks these constants against the
+    'contract.
+        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v1.csv"
+        Public Const CSV_NS_HEADER As String = "netting_set_id;counterparty;margined;clearing_role;" & _
+            "remargin_period_business_days;large_or_illiquid;margin_disputes;" & _
+            "mpor_override_business_days;variation_margin_net_amount;" & _
+            "independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;" & _
+            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin"
+        Public Const CSV_TR_FILE As String = "K-SACCR_Trades_v1.csv"
+        Public Const CSV_TR_HEADER As String = "trade_id;netting_set_id;asset_class;sub_class;" & _
+            "risk_factor;instrument;direction;option_type;nature;hedging_set_label;" & _
+            "notional_amount;notional_currency;market_value_amount;market_value_currency;" & _
+            "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
+            "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
+            "mtm_leg;settlement_type;next_reset_date;comment"
+
+'------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS
 '------------------------------------------------------------------------------
     'Number of columns the engine clears and writes on each output sheet.
@@ -474,7 +498,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
-        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Evidence file read-only or not written whole
+        Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Export file read-only or not written whole
         Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
 
 '------------------------------------------------------------------------------

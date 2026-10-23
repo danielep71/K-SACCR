@@ -98,13 +98,22 @@ Use only the categories needed by a release.
 
 - Define version 1 of the Trades and NettingSets CSV input contract (#206):
   `docs/csv/contract.json` and `docs/csv/CSV_CONTRACT.md` specify the columns,
-  types, allowed values, blank rules, encoding, quoting, header and version
-  policy, limits and finding codes, with blank templates generated from the
+  types, allowed values, blank rules, encoding, `;` as the field separator,
+  quoting, header and version policy, limits and finding codes, with blank templates generated from the
   contract. `tools/csv_contract.py` is the reference implementation, tested
   on synthetic valid and invalid fixtures in `tests/csv/`, and the new
   `check_csv_contract` gate keeps the contract consistent with the engine's
   headers, the template's validation lists, the templates and the fixtures.
   No workbook import yet: that is #207 to #211.
+- Add an **Export CSV template** button to `Trades` and `NettingSets` (#206).
+  It writes the blank template of the CSV input contract, the header line and
+  a line feed, to a file the user chooses; the file is the committed template
+  in `docs/csv/templates/` byte for byte. `ExportCsvTemplate_Silent` does the
+  same without a dialog for automation and tests. The evidence export and the
+  template export share one writer, which writes the new file whole before it
+  replaces an older one. `check_csv_contract` also compares the header lines
+  in `CORE_Config` with the contract. `TEST_Reconcile` gains the case
+  `export.csv-templates`: 21 cases, 180 checks.
 
 ### Changed
 
