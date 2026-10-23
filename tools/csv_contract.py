@@ -232,10 +232,12 @@ def check_date(value: str, limits: dict[str, str]) -> tuple[str, str] | None:
 
 def check_row_rules(row: dict[str, str], rules: list[dict[str, Any]],
                     flawed: set[str]) -> list[tuple[str, str]]:
-    """(column, message) for each rule the row breaks; a rule over a flawed field is not judged."""
+    """(column, message) for each rule the row breaks; a rule naming a flawed field is not judged."""
     problems: list[tuple[str, str]] = []
     for rule in rules:
-        if "when" in rule and not flawed.intersection(rule["when"]):
+        if flawed.intersection(rule_columns(rule)):
+            continue
+        if "when" in rule:
             active = all(row.get(name) == value for name, value in rule["when"].items())
             names = rule["required"] if active else rule["otherwise_blank"]
             for name in names:
@@ -244,11 +246,17 @@ def check_row_rules(row: dict[str, str], rules: list[dict[str, Any]],
                 elif not active and row.get(name, "") != "":
                     problems.append((name, f"{rule['id']}: must be blank unless {rule['when']}"))
         for key in ("after", "above"):
-            if key in rule and not flawed.intersection(rule[key]):
+            if key in rule:
                 later, earlier = rule[key]
                 if row.get(later) and row.get(earlier) and _ordered(row[later], row[earlier], key) is False:
                     problems.append((later, f"{rule['id']}: {later} must be {key} {earlier}"))
     return problems
+
+
+def rule_columns(rule: dict[str, Any]) -> set[str]:
+    """Every column a row rule reads: its condition, its targets and its ordered pair."""
+    return set(rule.get("when", {})) | set(rule.get("required", [])) | set(rule.get("otherwise_blank", [])) \
+        | set(rule.get("after", [])) | set(rule.get("above", []))
 
 
 def _ordered(later: str, earlier: str, key: str) -> bool | None:
@@ -319,9 +327,10 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
     if not records:
         return [], findings or [Finding("CSV-EMPTY", 1, 0, "", "the file has no header record")]
     header, body = records[0], records[1:]
-    findings = check_header(header, names) + findings
-    if any(f.code.startswith("CSV-HEADER") for f in findings):
-        return [], findings
+    # A header error stops reading: nothing found in the body is reported with it.
+    header_findings = check_header(header, names)
+    if header_findings:
+        return [], header_findings
     limit = spec["max_records"] if max_records is None else max_records
     if len(body) > limit:
         findings.append(Finding("CSV-TOO-MANY-RECORDS", body[limit].line, limit + 1, "",
