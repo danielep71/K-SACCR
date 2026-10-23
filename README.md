@@ -328,6 +328,7 @@ the exposure value (select it to open it full size):
 | `README` | In-workbook guide |
 | `Params` | Run parameters, supervisory-factor table, FX rates |
 | `NettingSets` · `Trades` | Inputs |
+| `Import_NettingSets` · `Import_Trades` | CSV staging: a file's records as text, to check and correct before they replace the inputs |
 | `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; a TOTAL row per regime over its `VALID` netting sets; run summary and stale-result indicator |
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |

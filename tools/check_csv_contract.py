@@ -31,6 +31,10 @@ CASES = "tests/csv/cases.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
+# Staging sheet and its header anchor per file (#208); the header row starts with the CSV line column.
+STAGING = {"NettingSets": ("Import_NettingSets", "ImportNettingSets_Header"),
+           "Trades": ("Import_Trades", "ImportTrades_Header")}
+STAGING_KEY = "CSV line"
 TYPES = {"id", "text", "code", "flag", "currency", "integer", "number", "date"}
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
@@ -97,13 +101,36 @@ class Workbook:
 
     def header(self, sheet: ET.Element, key: str) -> tuple[int, list[str]]:
         """The header row's first column and texts, found by its key header."""
+        _, first, texts = self.header_row(sheet, key)
+        return first, texts
+
+    def header_row(self, sheet: ET.Element, key: str) -> tuple[int, int, list[str]]:
+        """The header row's number, first column and texts, found by its key header."""
         for row in sheet.iter(f"{{{NS['m']}}}row"):
-            cells = {column_index(str(c.get("r"))): self.cell_text(c) for c in row.findall("m:c", NS)}
+            cells = self.row_cells(row)
             first = next((i for i, text in sorted(cells.items()) if text == key), None)
             if first is not None:
                 last = max(i for i, text in cells.items() if text)
-                return first, [cells.get(i, "") for i in range(first, last + 1)]
+                return int(str(row.get("r"))), first, [cells.get(i, "") for i in range(first, last + 1)]
         raise ValueError(f"{TEMPLATE}: header {key} not found")
+
+    def row_cells(self, row: ET.Element) -> dict[int, str]:
+        return {column_index(str(c.get("r"))): self.cell_text(c) for c in row.findall("m:c", NS)}
+
+    def row_texts(self, sheet: ET.Element, number: int, first: int, last: int) -> list[str]:
+        """The texts of one row from column first to column last."""
+        for row in sheet.iter(f"{{{NS['m']}}}row"):
+            if int(str(row.get("r"))) == number:
+                cells = self.row_cells(row)
+                return [cells.get(i, "") for i in range(first, last + 1)]
+        return [""] * (last - first + 1)
+
+    def defined_name(self, name: str) -> str | None:
+        book = ET.fromstring(self.package.read("xl/workbook.xml"))
+        for item in book.iter(f"{{{NS['m']}}}definedName"):
+            if item.get("name") == name and item.get("localSheetId") is None:
+                return item.text
+        return None
 
     @staticmethod
     def lists(sheet: ET.Element) -> dict[int, set[str]]:
@@ -152,6 +179,7 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
         first, template = workbook.header(sheet, KEY_COLUMN[kind])
         if [header_key(h) for h in template] != headers:
             findings.append(f"{kind}: sheet headers differ from the {spec['sheet']} header row of {TEMPLATE}")
+        findings += check_staging(workbook, kind, spec)
         lists = workbook.lists(sheet)
         for offset, column in enumerate(spec["columns"]):
             if column["type"] in ("code", "flag"):
@@ -160,6 +188,32 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
                     findings.append(f"{kind}.{column['name']}: allowed values {sorted(allowed)} differ from the "
                                     f"template's list {sorted(lists.get(first + offset, set()))}")
     return findings
+
+
+def check_staging(workbook: Workbook, kind: str, spec: dict[str, Any]) -> list[str]:
+    """The staging sheet: the CSV line column, then the sheet headers with the CSV names above them."""
+    findings: list[str] = []
+    name, anchor = STAGING[kind]
+    sheet = workbook.sheet(name)
+    number, first, texts = workbook.header_row(sheet, STAGING_KEY)
+    headers = [header_key(c["sheet_header"]) for c in spec["columns"]]
+    if [header_key(h) for h in texts[1:]] != headers:
+        findings.append(f"{kind}: the {name} header row differs from the contract's sheet headers")
+    names = workbook.row_texts(sheet, number - 1, first + 1, first + len(spec["columns"]))
+    if names != [c["name"] for c in spec["columns"]]:
+        findings.append(f"{kind}: the CSV names above the {name} header row differ from the contract's columns")
+    expected = f"{name}!${column_letters(first)}${number}"
+    if workbook.defined_name(anchor) != expected:
+        findings.append(f"{kind}: {anchor} is {workbook.defined_name(anchor)!r}, not {expected}")
+    return findings
+
+
+def column_letters(index: int) -> str:
+    letters = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
 
 
 def check_export(root: Path, contract: dict[str, Any]) -> list[str]:
