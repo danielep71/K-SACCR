@@ -547,13 +547,13 @@ TEST_Benchmark.RunCsvBenchmark "10000,100000,100001"
 ```
 
 Times the [CSV reader](docs/csv/CSV_CONTRACT.md#-the-workbooks-reader) on
-synthetic files written to `%TEMP%` and deleted: one Trades file per size
-(10,000 and 100,000 records, the contract's limit, by default) and a
-NettingSets file of 10,000 records. Each prints a `BENCH_CSV` line with the
-file's bytes, the seconds to build and write it and the seconds to read it,
-and checks the outcome: accepted with every record within the limit, rejected
-with `CSV-TOO-MANY-RECORDS` above it. A last `BENCH_CSV_RESULT=` line says
-whether every outcome was as expected. It touches no sheet.
+synthetic files written to `%TEMP%`, under names not already taken, and
+deleted: one Trades file per size (10,000 and 100,000 records, the contract's
+limit, by default) and a NettingSets file of 10,000 records. Each prints a
+`BENCH_CSV` line with the file's bytes, the seconds to build and write it and
+the seconds to read it, and checks the outcome: accepted with every record
+within the limit, rejected with `CSV-TOO-MANY-RECORDS` above it. A last
+`BENCH_CSV_RESULT=` line says whether every outcome was as expected. It touches no sheet.
 
 <a id="automation-entry-points"></a>
 

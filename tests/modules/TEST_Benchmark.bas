@@ -79,7 +79,8 @@ Attribute VB_Name = "TEST_Benchmark"
 '   TEST_Benchmark.RunBenchmark "1000,10000,50000".
 '   TEST_Benchmark.RunCsvBenchmark reads Trades files of 10,000 and
 '   100,000 records and a NettingSets file of 10,000, writing each to the
-'   TEMP folder and deleting it; give other sizes the same way.
+'   TEMP folder under a name not already taken and deleting it; give
+'   other sizes the same way.
 '
 ' UPDATED
 '   2026-10-23
@@ -124,7 +125,7 @@ Attribute VB_Name = "TEST_Benchmark"
 
     'CSV reader (RunCsvBenchmark). The limits are the contract's, in
     'docs/csv/contract.json.
-        Private Const CSV_BENCH_FILE                As String = "K-SACCR_csv_benchmark.csv"    'File in TEMP
+        Private Const CSV_BENCH_FILE                As String = "K-SACCR_csv_benchmark"    'File in TEMP, before its number
         Private Const CSV_BENCH_NETTING_SETS        As Long = 10000     'Records of the NettingSets file
         Private Const CSV_BENCH_SETS                As Long = 200       'Netting sets the trades refer to
         Private Const CSV_BENCH_TRADES_LIMIT        As Long = 100000    'Trades records per file
@@ -1176,7 +1177,8 @@ Public Sub RunCsvBenchmark( _
 '   taken to read it, and checks the outcome: a file within the record
 '   limit is accepted whole; a larger one is rejected for its record
 '   count. A final BENCH_CSV_RESULT line says whether every outcome was
-'   as expected. No sheet is touched.
+'   as expected. No sheet is touched, and no file that was there before:
+'   each file gets a name not already taken.
 '
 ' INPUTS
 '   SizesText: the Trades records of each file, as for RunBenchmark;
@@ -1184,7 +1186,8 @@ Public Sub RunCsvBenchmark( _
 '
 ' ERROR POLICY
 '   Sizes that cannot be read print a BENCH_REJECTED line. An unexpected
-'   error is printed as BENCH_CSV_RESULT=FAIL, after the file is deleted.
+'   error is printed as BENCH_CSV_RESULT=FAIL, after CsvScenario has
+'   closed and deleted its file.
 '
 ' UPDATED
 '   2026-10-23
@@ -1197,7 +1200,7 @@ Public Sub RunCsvBenchmark( _
     Dim Sizes()     As Long       'Records of each Trades file
     Dim Reason      As String     'Why SizesText was rejected
     Dim AllAsExpected As Boolean  'Every outcome was as expected
-    Dim TargetFile  As String     'The benchmark file
+    Dim Folder      As String     'Folder of the benchmark files
     Dim i           As Long       'Index into Sizes
 
 '------------------------------------------------------------------------------
@@ -1207,31 +1210,27 @@ Public Sub RunCsvBenchmark( _
             TEST_Suite.Say "BENCH_REJECTED=" & Reason
             Exit Sub
         End If
-        TargetFile = Environ$("TEMP")
-        If Len(TargetFile) = 0 Then
-            TargetFile = ThisWorkbook.Path
+        Folder = Environ$("TEMP")
+        If Len(Folder) = 0 Then
+            Folder = ThisWorkbook.Path
         End If
-        TargetFile = TargetFile & Application.PathSeparator & CSV_BENCH_FILE
         On Error GoTo Failed
         AllAsExpected = True
         For i = 1 To UBound(Sizes)
-            AllAsExpected = CsvScenario(TargetFile, "Trades", Sizes(i)) And AllAsExpected
+            AllAsExpected = CsvScenario(Folder, "Trades", Sizes(i)) And AllAsExpected
         Next i
-        AllAsExpected = CsvScenario(TargetFile, "NettingSets", CSV_BENCH_NETTING_SETS) And AllAsExpected
+        AllAsExpected = CsvScenario(Folder, "NettingSets", CSV_BENCH_NETTING_SETS) And AllAsExpected
         TEST_Suite.Say "BENCH_CSV_RESULT=" & IIf(AllAsExpected, "PASS", "FAIL")
         Exit Sub
 
 Failed:
         TEST_Suite.Say "BENCH_CSV_RESULT=FAIL; unexpected error " & Err.Number & ": " & Err.Description
-        On Error Resume Next
-        Kill TargetFile
-        Err.Clear
 
 End Sub
 
 
 Private Function CsvScenario( _
-    ByVal TargetFile As String, _
+    ByVal Folder As String, _
     ByVal Kind As String, _
     ByVal RecordCount As Long) _
     As Boolean
@@ -1240,9 +1239,9 @@ Private Function CsvScenario( _
 '                                 CsvScenario
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a synthetic file of RecordCount records of Kind to TargetFile,
-'   read it with CORE_CsvReader.ReadCsvFile, print a BENCH_CSV line and
-'   delete the file.
+'   Write a synthetic file of RecordCount records of Kind to Folder, under
+'   a name not already taken, read it with CORE_CsvReader.ReadCsvFile,
+'   print a BENCH_CSV line and delete the file.
 '
 ' RETURNS
 '   True when the outcome is the expected one: accepted with every record
@@ -1250,7 +1249,9 @@ Private Function CsvScenario( _
 '   above it.
 '
 ' ERROR POLICY
-'   Errors propagate to RunCsvBenchmark, which deletes the file.
+'   Raises the first error after closing the file number and deleting
+'   the file, if it was created; an error in that cleanup does not
+'   replace the first one.
 '
 ' UPDATED
 '   2026-10-23
@@ -1262,7 +1263,13 @@ Private Function CsvScenario( _
 '------------------------------------------------------------------------------
     Dim Records()   As String           'Header and records, one line each
     Dim Bytes()     As Byte             'The file
-    Dim FileNumber  As Integer          'File number
+    Dim TargetFile  As String           'Its path
+    Dim n           As Long             'Counter that makes the name unique
+    Dim FileNumber  As Integer          'File number; 0 while none is open
+    Dim Created     As Boolean          'The file was created
+    Dim ErrorNumber As Long             'First error
+    Dim ErrorSource As String           'Its source
+    Dim ErrorText   As String           'Its description
     Dim StartTime   As Double           'Timer at the start of a step
     Dim BuildSeconds As Double          'Seconds to build and write the file
     Dim ReadSeconds As Double           'Seconds to read it
@@ -1285,13 +1292,17 @@ Private Function CsvScenario( _
         Next r
         Bytes = CORE_Export.Utf8Bytes(Join(Records, vbLf) & vbLf)
         Erase Records
-        If Len(Dir$(TargetFile)) > 0 Then
-            Kill TargetFile
-        End If
+        Do
+            n = n + 1
+            TargetFile = Folder & Application.PathSeparator & CSV_BENCH_FILE & "_" & n & ".csv"
+        Loop While Len(Dir$(TargetFile, vbHidden Or vbSystem)) > 0
+        On Error GoTo Failed
         FileNumber = FreeFile
         Open TargetFile For Binary Access Write As #FileNumber
+        Created = True
         Put #FileNumber, 1, Bytes
         Close #FileNumber
+        FileNumber = 0
         BuildSeconds = SecondsSince(StartTime)
 
 '------------------------------------------------------------------------------
@@ -1315,6 +1326,24 @@ Private Function CsvScenario( _
                        "; read_seconds=" & Format$(ReadSeconds, "0.00") & _
                        "; outcome=" & Outcome & "; " & IIf(CsvScenario, "PASS", "FAIL")
         Kill TargetFile
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
+        On Error Resume Next
+        If FileNumber <> 0 Then
+            Close #FileNumber
+        End If
+        If Created Then
+            Kill TargetFile
+        End If
+        On Error GoTo 0
+        Err.Raise ErrorNumber, ErrorSource, ErrorText
 
 End Function
 
