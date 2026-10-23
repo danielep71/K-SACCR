@@ -233,16 +233,16 @@ not that a figure is correct.
 | Class | Meaning | Required fields |
 | --- | --- | --- |
 | `published` | Printed in a source from the register, for example a worked example | `source`, exact `locator` (section, example, table) |
-| `independent` | Computed by an external implementation that the project's maintainer did not write, registered as a source, from the same inputs, for example the R package SACCR (#352) | `source` (a register ID starting `IMPL-`), `locator`, `derivation`, `derived_by` (the implementation and its version); `reviewed_by` may be `null` |
+| `independent` | Computed by an external implementation written outside the project, registered as a source, from the same inputs, for example the R package SACCR (#352) | `source` (a register ID starting `IMPL-`), `locator`, `derivation`, `derived_by` (the implementation and its version); `reviewed_by` may be `null` |
 | `illustrative` | Shows the format or a behaviour; not a validated SA-CCR figure | `derivation` saying why it exists |
 
 An `independent` value is never produced by running K-SACCR itself, and its
 `source` is an external implementation, registered with an ID starting
 `IMPL-`; a `published` value never cites one. The checker rejects either
-mismatch, so a value the maintainer derives from a regulation stays
+mismatch, so a value derived within the project from a regulation stays
 `illustrative` whatever its `derived_by` says. No
-independent reviewer is required, and none is available: the project has one
-maintainer, who writes the code under test ([decision 8](CLEARING_COVERAGE.md#decisions)
+independent reviewer is required, and none is available: the code under test
+and its expected values come from the same hand ([decision 8](CLEARING_COVERAGE.md#decisions)
 of the clearing coverage). Acceptance criteria therefore ask for `published`
 values where a registered source prints them, and otherwise for
 `illustrative` values from a derivation separate from the code under test

@@ -185,8 +185,8 @@ modules are replaced from source; `ThisWorkbook` and worksheet document modules
 keep their workbook objects and only their code text is replaced. It disables
 Excel events, macro execution, external-link updates and automatic calculation
 while synchronizing, checks that the sheet names/CodeNames are unchanged, and
-creates a timestamped safety backup unless `-NoBackup` is supplied. As requested
-by the owner, it deletes this temporary backup after a successful save and
+creates a timestamped safety backup unless `-NoBackup` is supplied. It
+deletes this temporary backup after a successful save and
 retains it on failure. It is not a persistent rollback archive.
 
 `check_source.py` keeps the synchronizer complete: it fails when the

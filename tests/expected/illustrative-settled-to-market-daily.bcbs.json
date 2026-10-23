@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.10",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.25",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -55,7 +55,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.23",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -74,7 +74,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.20",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -93,7 +93,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.1",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -112,7 +112,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.65-.68, with the maturity factor of CRE52.48 and CRE52.37(5)",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -132,7 +132,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.37(5): the time until the next reset date",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -152,7 +152,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.48, with M from CRE52.37(5), floored at 10 business days; Basel FAQ to CRE52.31-.32",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -172,7 +172,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.37(5): the time until the next reset date",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -192,7 +192,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.48, with M from CRE52.37(5), floored at 10 business days; Basel FAQ to CRE52.31-.32",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -212,7 +212,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.40, with T the option expiry",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"
@@ -226,7 +226,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "Engine contract, issue #36",
-        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-20"

@@ -61,7 +61,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 
 ## 🖥️ Supported hosts
 
-Decided by the owner on 2026-10-06 in issue #4.
+Decided on 2026-10-06 in issue #4.
 
 | Host | Support level |
 | --- | --- |
@@ -83,7 +83,7 @@ or as an evidence bundle bound to a commit as described in
 
 ### Portfolio size
 
-Measured by the owner with the [benchmark](#benchmark) on 2026-10-17, on the
+Measured with the [benchmark](#benchmark) on 2026-10-17, on the
 supported 64-bit Windows host (#291): every leg was used and every netting
 set was `VALID` at each size.
 
@@ -106,7 +106,7 @@ set was `VALID` at each size.
   in which 1,000 legs took 0.33 s without the stray row.
 - These timings were measured on the five-class mix of #291: interest
   rates, FX, credit, equity and commodities. The benchmark now adds an
-  other-risks leg to every 21 legs (#309); on that six-class mix the owner
+  other-risks leg to every 21 legs (#309); on that six-class mix it
   measured, on the same host on 2026-10-17 with the benchmark at `beff699`,
   1,000 legs in 0.06 s and 0.49 s (writing, engine run), 10,000 legs in
   0.34 s and 1.84 s, and 1,000 legs with the used range inflated to row

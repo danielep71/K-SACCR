@@ -11,8 +11,8 @@ them.
 ## 📸 Screenshots
 
 The images below show sheets of the workbook built from
-`src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. The owner
-took them in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
+`src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. They were
+taken in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
 retaken on 2026-10-17 to show the colours of #296 and on 2026-10-20 after the
 revision of its rows (#389).
 
@@ -125,7 +125,7 @@ source: K-SACCR calculates only the exposure value at its centre.
   exposure value feeding several frameworks follows the European Banking
   Federation's annex on the use of SA-CCR across the prudential framework; no
   part of that figure is reproduced.
-- **Sources:** Art. 429c(3)–(5) and 465(4) were checked by the owner on
+- **Sources:** Art. 429c(3)–(5) and 465(4) were checked on
   EUR-Lex on 2026-10-17, in the consolidated CRR of 26 June 2026 (the version
   registered as `CRR` in the
   [source register](../methodology/README.md#source-register)) and in
@@ -178,8 +178,8 @@ source; the card holds the parameters and the full formulas.
 ## 🏙️ Website banner
 
 `SACCR_banner.webp` is the background of the banner under the navigation of
-the website (`docs/index.html`). It is a decorative photograph supplied by the
-owner, cropped to 1536 x 512 px from the middle of the original so that none of
+the website (`docs/index.html`). It is a decorative photograph provided for the
+project, cropped to 1536 x 512 px from the middle of the original so that none of
 its own lettering remains, and saved as WebP at quality 80. The banner's text
 (SA-CCR for derivatives, Basel CRE52, EU CRR) is HTML, not part of the image.
 It is a promotional image: it shows no workbook, data or result.
