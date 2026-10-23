@@ -32,8 +32,10 @@ force-push or reset shared branches.
 When a new release branch is created, update this section, the
 release-deletion row under [GitHub settings](#github-settings),
 `target-branch` in `.github/dependabot.yml`, which Dependabot reads from
-`main`, and the `git switch` command under
-[Get the source](../INSTALLATION.md#get-the-source) in `INSTALLATION.md`.
+`main`, the `git switch` command under
+[Get the source](../INSTALLATION.md#get-the-source) in `INSTALLATION.md`, and
+the section of the current milestone in the
+[README roadmap](../README.md#roadmap), which names the branch.
 
 <a id="integrating-the-release-branch-into-main"></a>
 

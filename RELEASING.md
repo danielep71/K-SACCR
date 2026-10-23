@@ -197,8 +197,10 @@ from the release page:
 Once the release assets exist, update the website as
 [`docs/WEBSITE.md`](docs/WEBSITE.md#maintenance-and-checks) describes: the
 release named on the page, the download buttons and the `SHA256SUMS.txt` link.
-The change goes through a task PR into the active release branch and reaches
-`main` with the next integration.
+The change goes through a task PR into the active release branch and then an
+owner-authorized integration into `main`, from which Pages deploys `/docs`.
+The website counts as updated only when that deployment has succeeded and the
+public page names the new release and starts its downloads.
 
 ## 🧾 Evidence record
 
@@ -233,4 +235,4 @@ it does not replace it.
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |
-| 11 | Website updated to the published release | ☐ |
+| 11 | Website change integrated into `main`, Pages deployed, and the public page names and downloads the published release | ☐ |
