@@ -62,7 +62,7 @@ exposure figure, which are reported as issues.
   further prompt from the macro; a read-only file is left unchanged and the
   export fails.
 - **Test suites** and the benchmark `TEST_Benchmark` also write the input and
-  output sheets, and `TEST_Reconcile` writes and deletes two CSV files in
+  output sheets, and `TEST_Reconcile` writes and deletes three CSV files in
   `%TEMP%` (or the workbook's folder); run them only in a development workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.

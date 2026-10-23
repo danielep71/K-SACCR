@@ -151,6 +151,8 @@ holds the demonstration portfolio of the template.
 To run the test suites, build a **development** workbook from source instead,
 as below; the tests write to the input and output sheets.
 
+<a id="get-the-source"></a>
+
 ## 📥 Get the source
 
 Use a **Git clone**:
@@ -195,6 +197,9 @@ python tools/check.py --ci --base <base-sha>   # for a pull request's full range
 ```
 
 Optional label-catalogue checks are in [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#labels).
+The **Repository integrity** job in CI also runs Ruff, mypy and actionlint,
+which `check.py` does not; [GitHub Actions](tools/README.md#github-actions)
+shows how to run Ruff and mypy locally.
 
 The gates are described in [`tools/README.md`](tools/README.md). They are static
 checks: they never compile VBA or run Excel.

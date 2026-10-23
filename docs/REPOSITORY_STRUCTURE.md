@@ -25,14 +25,15 @@ issue #3.
 | Lifecycle | The workbook is the deliverable; it is built from the exported source in this repository. |
 | Supported environments | Excel for Windows; see [supported hosts](../INSTALLATION.md#supported-hosts). |
 
-**Why not `library`:** the milestone plan defers business UI and production
-workbook packaging to later milestones, so the end product is a workbook, not
-only callable functions. Choosing `library` now would force a profile change
-later.
+**Why not `library`:** the end product is a workbook, with its business UI and
+production packaging, not only callable functions. Choosing `library` would
+have forced a profile change later.
 
-**What stays library-like:** the calculation core is host-independent. It never
-touches workbook objects, so the engine remains testable without a workbook and
-reusable if a library deliverable is ever wanted.
+**What stays library-like:** the calculation core is meant to be
+host-independent, never touching workbook objects, so that the engine can be
+tested without a workbook and reused if a library deliverable is ever wanted.
+The engine imported from the prototype does not meet this yet: see
+[Known deviations](#known-deviations) and #220.
 
 `.github/label-policy.json` already selects the `application` profile for the
 label catalogue; this document makes it the architecture decision as well.

@@ -21,7 +21,7 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
 | Version file | `VERSION`, holding `1.0.2` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
-| Excel certification | All eight suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
+| Excel certification | The harness and the seven suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
 
 <a id="versioning"></a>
@@ -52,7 +52,7 @@ A release is valid only when:
 2. the changelog entry for the version is dated and matches the scope;
 3. `python tools/check.py --ci` passes on that candidate, and the hosted
    **Repository integrity** check is green;
-4. VBA compiles and all eight suites listed in
+4. VBA compiles and the harness and the seven suites listed in
    `.github/excel-evidence-policy.json` pass in Excel on that candidate,
    recorded and validated as described in
    [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md);
@@ -108,9 +108,9 @@ Confirm the hosted **Repository integrity** check is green on the same SHA.
 
 ### 5. Certify in Excel
 
-Import the exact candidate into a clean workbook, compile, and run all eight
-suites listed in `.github/excel-evidence-policy.json`, each on its own,
-following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
+Import the exact candidate into a clean workbook, compile, and run the harness
+and the seven suites listed in `.github/excel-evidence-policy.json`, each on
+its own, following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
 Validate the bundle against the candidate SHA:
 
 ```sh
@@ -140,7 +140,7 @@ Check the **development** workbook certified in step 5 the same way: export
 it and run the source round trip in development mode against the candidate
 SHA. It is not published, but its round trip shows that the suites ran on
 exactly the candidate's code, test modules included, among them
-`TEST_Benchmark`, which the eight-suite policy does not run. The comparison
+`TEST_Benchmark`, which the evidence policy does not run. The comparison
 takes the expected components from `tools/vba-projects.json` at the
 candidate. Only `RESULT=PASS` with `binding=VERIFIED` qualifies it.
 
@@ -194,6 +194,12 @@ from the release page:
 5. Close without saving, and record what was done and seen with the release
    evidence.
 
+Once the release assets exist, update the website as
+[`docs/WEBSITE.md`](docs/WEBSITE.md#maintenance-and-checks) describes: the
+release named on the page, the download buttons and the `SHA256SUMS.txt` link.
+The change goes through a task PR into the active release branch and reaches
+`main` with the next integration.
+
 ## 🧾 Evidence record
 
 Retain at least: candidate SHA, previous tag, static-check result, Excel
@@ -223,7 +229,8 @@ it does not replace it.
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
-| 7 | Excel certification passes for all eight suites on the candidate | ☐ |
+| 7 | Excel certification passes for the harness and the seven policy suites on the candidate | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |
+| 11 | Website updated to the published release | ☐ |

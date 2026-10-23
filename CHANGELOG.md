@@ -106,6 +106,16 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Correct inconsistencies found in a repository audit: the expected files
+  without a catalogue ID and their origins in `tests/README.md`, the boundary
+  fixtures and the clearing fixtures among the regime differences, the CCP
+  articles K-SACCR applies, the 10-day CCP MPOR floor in the parameter table,
+  the CCP label of the CRR diagram, the core's host independence as a goal
+  with known deviations, the number of CSV files `TEST_Reconcile` writes, the
+  harness and seven policy suites of the release certification, the website
+  update after publication, every place that names the active branch, the CI
+  steps beyond `check.py`, the `check_test_cases` rules, the roadmap rows of
+  v1.2.0 and v1.3.0, and a broken link in the VBA house style.
 - Describe measurements, screenshots, sources and test derivations without
   referring to the author in the third person: descriptive text no longer
   names "the owner" or "the maintainer", and the expected-value notes of the
