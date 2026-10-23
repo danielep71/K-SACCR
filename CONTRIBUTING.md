@@ -33,7 +33,9 @@ label, milestone) is described in
 3. Reproduce the current behavior, then make the smallest coherent change;
    avoid unrelated formatting, generated output or opportunistic refactoring.
 4. Run `python tools/check.py` before every push; all gates must pass. The
-   gates are described in [`tools/README.md`](tools/README.md).
+   gates are described in [`tools/README.md`](tools/README.md). CI also runs
+   Ruff, mypy and actionlint; when you change `tools/`, run Ruff and mypy
+   locally as [GitHub Actions](tools/README.md#github-actions) describes.
 5. Update the affected documentation and add a user-facing entry under
    `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md).
 6. Open a pull request **against the active release branch** using

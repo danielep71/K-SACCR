@@ -27,7 +27,8 @@ Markdown is not converted to HTML by this static deployment.
 
 - Keep the page's scope, release status, evidence classes, and installation
   links aligned with the root README and methodology. At each release, update
-  the release named on the page and in the social preview together. The
+  the release named in the social preview before tagging (RELEASING step 2)
+  and the release named on the page after publication (RELEASING step 8). The
   download buttons and the `SHA256SUMS.txt` link point straight at the release
   assets, whose URLs and file names carry the version: update all three and
   check that each still starts a download, with the `data-direct-download`

@@ -29,9 +29,13 @@ released without the owner's explicit authorization. Closing a milestone does
 not publish a tag, release or workbook, or authorize a merge into main. Never
 force-push or reset shared branches.
 
-When a new release branch is created, update this section and
+When a new release branch is created, update this section, the
+release-deletion row under [GitHub settings](#github-settings),
 `target-branch` in `.github/dependabot.yml`, which Dependabot reads from
-`main`.
+`main`, the `git switch` command under
+[Get the source](../INSTALLATION.md#get-the-source) in `INSTALLATION.md`, and
+the section of the current milestone in the
+[README roadmap](../README.md#roadmap), which names the branch.
 
 <a id="integrating-the-release-branch-into-main"></a>
 

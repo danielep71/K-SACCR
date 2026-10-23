@@ -299,9 +299,11 @@ Each fixture declares one `category`:
 - Each implemented rule also needs at least one boundary case, and each public
   input domain at least one invalid case. Such a case is a fixture or a case
   of a VBA test suite, mostly `TEST_InputValidation`, which also covers inputs
-  JSON cannot express. There are no fixtures of category `boundary`: the
-  boundary cases are suite cases, such as `ir-bucket-boundaries-crr` and
-  `ir-bucket-boundaries-bcbs`. No tool checks that every rule has one; the
+  JSON cannot express. Three fixtures have category `boundary`:
+  `illustrative-ccp-non-qualifying`, `illustrative-ccp-retained-vm` and
+  `illustrative-settled-to-market-daily`; the other boundary cases are suite
+  cases, such as `ir-bucket-boundaries-crr` and `ir-bucket-boundaries-bcbs`.
+  No tool checks that every rule has one; the
   [traceability](README.md#traceability) table lists the cases of each rule.
 - Every recorded regime difference has a case that shows it, as a fixture or
   a suite case. The table below lists them; where only one regime has a case,
@@ -326,13 +328,16 @@ Where each [regime difference](README.md#regime-differences) is covered:
 | Single-name credit factor | Fixture `illustrative-credit-quality-step`, `CRR` only (T28) |
 | Supervisory delta of interest-rate and commodity options | Fixture `illustrative-negative-ir-forward`, both regimes (T20–T22); fixture `illustrative-negative-commodity-price`, `CRR` only (T23) |
 | Interest-rate maturity bucket 1 | `TEST_InputValidation` cases `ir-bucket-boundaries-crr`, `ir-bucket-boundaries-bcbs`, `ir-bucket-offset-crr` and `ir-bucket-offset-bcbs` |
-| MPOR floor of a client facing its clearing member | `TEST_InputValidation` cases `netting-set-clearing-client-crr` and `netting-set-clearing-client-bcbs` |
+| MPOR floor of a client facing its clearing member | Fixture `illustrative-clearing-client-listed`, both regimes (MPOR 9 under `CRR`, 14 under `BCBS`); `TEST_InputValidation` cases `netting-set-clearing-client-crr` and `netting-set-clearing-client-bcbs` |
 | Variation margin posted under a one-way margin agreement | `TEST_InputValidation` cases `netting-set-unmargined-vm-posted-crr` and `netting-set-unmargined-vm-posted-bcbs` |
 
 The fixture `illustrative-posted-vm-cap` has category `regime`, but the cap of
 a margined netting set that it tests is not a regime difference: both regimes
 give the same capped EAD (T16, T17), as the note under
-[Regime differences](README.md#regime-differences) explains.
+[Regime differences](README.md#regime-differences) explains. Likewise, the
+fixture `illustrative-clearing-member-listed` has category `regime` but gives
+the same outputs in both regimes: a clearing member's MPOR of 5 business days
+is the same under both.
 
 <a id="consumption"></a>
 

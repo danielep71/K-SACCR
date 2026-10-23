@@ -106,6 +106,31 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
+  scope was delivered in v1.0.2 and default-fund contributions moved to
+  v1.10.0.
+- Count the release website as updated only once its change is integrated
+  into `main` and the Pages deployment shows the new release, and add the
+  README roadmap section of the current milestone to the places updated when
+  a new release branch is created (#434).
+- Correct the references of illustrative expected values: the MPOR outputs of
+  the CCP cases cite `CRR-CCP` and `CRE54`, the CCP articles' own sources; the
+  Basel commodity add-on cites CRE52.69, CRE52.70 and CRE52.72 instead of the
+  basis and volatility multiplier of CRE52.73; T21 cites `CRR-RTS` with rule
+  `CRR-RTS.5`, as T20 does; T19 gets a CRR locator; the unmargined swap cites
+  CRE52.10; and the notes of T15, T19 and T21 no longer call their Python
+  implementation independent. The CCP derivation script now prints the
+  non-qualifying case its expected file cites. No expected value changes.
+- Correct inconsistencies found in a repository audit: the expected files
+  without a catalogue ID and their origins in `tests/README.md`, the boundary
+  fixtures and the clearing fixtures among the regime differences, the CCP
+  articles K-SACCR applies, the 10-day CCP MPOR floor in the parameter table,
+  the CCP label of the CRR diagram, the core's host independence as a goal
+  with known deviations, the number of CSV files `TEST_Reconcile` writes, the
+  harness and seven policy suites of the release certification, the website
+  update after publication, every place that names the active branch, the CI
+  steps beyond `check.py`, the `check_test_cases` rules, the roadmap rows of
+  v1.2.0 and v1.3.0, and a broken link in the VBA house style.
 - Describe measurements, screenshots, sources and test derivations without
   referring to the author in the third person: descriptive text no longer
   names "the owner" or "the maintainer", and the expected-value notes of the
