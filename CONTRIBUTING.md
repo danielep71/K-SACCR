@@ -39,9 +39,17 @@ label, milestone) is described in
 6. Open a pull request **against the active release branch** using
    [the PR template](.github/PULL_REQUEST_TEMPLATE.md), which holds the review
    checklist.
-7. The pull request is squash-merged once **Repository integrity** is green
-   and every review conversation, including the automated code review, is
-   resolved.
+7. Keep the task branch up to date with the target release branch before
+   merging. If the target advances, incorporate its latest changes and rerun
+   validation. The pull request is squash-merged once **Repository integrity**
+   is green on the updated candidate and every review conversation, including
+   the automated code review, is resolved. For a VBA or template change, the
+   owner's Excel verification still counts after such an update only if the
+   incoming changes touch nothing in `src/`, `tests/modules/` or the
+   template; otherwise compile and the affected suites are run again. This
+   applies to the check before a pull request merges; release certification
+   always runs on the exact candidate commit, and its evidence record names
+   that commit ([RELEASING.md](RELEASING.md)).
 
 ### Commit messages
 
