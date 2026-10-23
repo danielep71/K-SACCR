@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -25,6 +27,9 @@ NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+# The magnitudes a worksheet cell can hold: larger values overflow, smaller non-zero ones underflow.
+EXCEL_LARGEST = 9.99999999999999e307
+EXCEL_SMALLEST = 2.2250738585072014e-308
 
 
 @dataclass(frozen=True)
@@ -172,7 +177,7 @@ def check_text(value: str, column: dict[str, Any], types: dict[str, Any]) -> tup
     if kind == "id" and any(char in value for char in types["id"]["forbidden"]):
         return "CSV-TYPE", "identifier contains | or #"
     line_breaks = "\n\r" if kind == "text" else ""
-    if any(ord(char) < 32 and char not in line_breaks for char in value):
+    if any(unicodedata.category(char) == "Cc" and char not in line_breaks for char in value):
         return "CSV-TYPE", "control character"
     return None
 
@@ -203,7 +208,11 @@ def check_value(value: str, column: dict[str, Any], types: dict[str, Any]) -> tu
             return "CSV-TYPE", f"{value!r} is not {'an integer' if kind == 'integer' else 'a number'}"
         if significant_digits(value) > 15:
             return "CSV-TYPE", "more than 15 significant digits"
-        return check_range(float(value), column)
+        number = float(value)
+        if not math.isfinite(number) or abs(number) > EXCEL_LARGEST or \
+                (significant_digits(value) and abs(number) < EXCEL_SMALLEST):
+            return "CSV-RANGE", "outside the magnitudes a worksheet cell can hold"
+        return check_range(number, column)
     if kind == "date":
         return check_date(value, types["date"])
     return None
@@ -226,7 +235,7 @@ def check_row_rules(row: dict[str, str], rules: list[dict[str, Any]],
     """(column, message) for each rule the row breaks; a rule over a flawed field is not judged."""
     problems: list[tuple[str, str]] = []
     for rule in rules:
-        if "when" in rule:
+        if "when" in rule and not flawed.intersection(rule["when"]):
             active = all(row.get(name) == value for name, value in rule["when"].items())
             names = rule["required"] if active else rule["otherwise_blank"]
             for name in names:

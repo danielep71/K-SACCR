@@ -70,13 +70,13 @@ mapped to a contract by guessing what a column means.
 
 | Type | Written as | Rules |
 | --- | --- | --- |
-| `id` | Text | At most 64 characters; no `\|` or `#`; no control character. Read as text, so leading zeros are kept (`00123`). Keys are compared case-insensitively, as the engine compares them |
-| `text` | Text | At most 500 characters; line breaks allowed, other control characters not |
+| `id` | Text | At most 64 characters; no `\|` or `#`; no control character (Unicode category Cc, which includes DEL and the C1 controls). Read as text, so leading zeros are kept (`00123`). Keys are compared case-insensitively, as the engine compares them |
+| `text` | Text | At most 500 characters; line breaks allowed, other control characters (category Cc) not |
 | `code` | One of the listed values | Exact spelling and case, as in the sheet's validation list (`Linear`, `IR`, `CLIENT`); `linear` is rejected |
 | `flag` | `Y` or `N` | Exact; `y`, `Yes`, `TRUE` or `1` are rejected |
 | `currency` | Three capital letters | `EUR`, not `eur` or `€` |
 | `integer` | `-?digits` | No sign `+`, no leading zero, no decimal point |
-| `number` | `-?digits[.digits][e±digits]` | Decimal point `.`, no thousands separator, no sign `+`; at most 15 significant digits, so a value is never rounded when it is read; `NaN` and `inf` are not numbers |
+| `number` | `-?digits[.digits][e±digits]` | Decimal point `.`, no thousands separator, no sign `+`; at most 15 significant digits, so a value is never rounded when it is read; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307, as a worksheet cell holds; `NaN` and `inf` are not numbers |
 | `date` | `yyyy-mm-dd` | A calendar date from 1950-01-01 to 2200-12-31, as the sheet's validation allows; `31/03/2027` and serial numbers are rejected |
 
 Text that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is
@@ -184,7 +184,7 @@ total rows on `Results` and are rejected as netting-set IDs.
 | Trades | `end-after-start` | When both are given, `end_date` is after `start_date` |
 | Trades | `detachment-above-attachment` | When both are given, `detachment_rate` is above `attachment_rate` |
 
-A rule is not judged on a field that already has a finding of its own.
+A rule is not judged when one of its fields, the field its condition reads included, already has a finding of its own.
 
 ## 🚫 What the contract does not check
 

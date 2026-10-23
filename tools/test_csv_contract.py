@@ -113,6 +113,10 @@ class FieldTests(unittest.TestCase):
                 self.assertEqual(self.check_trade("notional_amount", value), ["CSV-TYPE"])
         self.assertEqual(self.check_trade("market_value_amount", "-250000.75"), [])
         self.assertEqual(self.check_trade("notional_amount", "0"), ["CSV-RANGE"])
+        for value in ("1e9999", "-1e309", "1e-9999", "1e308"):
+            with self.subTest(value=value):
+                self.assertIn(self.check_trade("market_value_amount", value), (["CSV-RANGE"],))
+        self.assertEqual(self.check_trade("market_value_amount", "0e-9999"), [])
 
     def test_dates(self) -> None:
         self.assertEqual(self.check_trade("maturity_date", "2200-12-31"), [])
@@ -129,12 +133,32 @@ class FieldTests(unittest.TestCase):
         self.assertEqual(self.check_trade("trade_id", "T#1"), ["CSV-TYPE"])
         self.assertEqual(self.check_trade("comment", '"@SUM(A1)"'), ["CSV-FORMULA"])
         self.assertEqual(self.check_trade("comment", '"a\nb"'), [])
+        for char in ("\x7f", "\x85", "\x9f"):
+            with self.subTest(char=hex(ord(char))):
+                self.assertEqual(self.check_trade("trade_id", "T" + char), ["CSV-TYPE"])
+                self.assertEqual(self.check_trade("comment", "note" + char), ["CSV-TYPE"])
 
     def test_codes_are_exact(self) -> None:
         self.assertEqual(self.check_trade("instrument", "Option"), [])
         self.assertEqual(self.check_trade("instrument", "OPTION"), ["CSV-ALLOWED"])
         self.assertEqual(self.check_trade("mtm_leg", "y"), ["CSV-ALLOWED"])
         self.assertEqual(self.check_trade("notional_currency", "Eur"), ["CSV-TYPE"])
+
+
+def netting_set(role: str, qccp: str = "", retains: str = "") -> str:
+    values = NS_ROW.split(",")
+    values[3], values[-2], values[-1] = role, qccp, retains
+    return NS_HEADER + "\n" + ",".join(values) + "\n"
+
+
+class RowRuleTests(unittest.TestCase):
+    def test_a_rule_is_not_judged_on_a_flawed_predicate(self) -> None:
+        self.assertEqual(codes(netting_set("BAD", "Y", "N")), [("CSV-ALLOWED", 2, 1, "clearing_role")])
+
+    def test_conditional_rule_both_ways(self) -> None:
+        self.assertEqual([c[3] for c in codes(netting_set("CCP"))], ["ccp_retains_variation_margin", "qccp"])
+        self.assertEqual(codes(netting_set("CCP", "Y", "N")), [])
+        self.assertEqual([c[3] for c in codes(netting_set("CM", "Y"))], ["qccp"])
 
 
 class GateTests(unittest.TestCase):
