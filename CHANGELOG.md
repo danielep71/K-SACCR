@@ -106,6 +106,14 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Correct the references of illustrative expected values: the MPOR outputs of
+  the CCP cases cite `CRR-CCP` and `CRE54`, the CCP articles' own sources; the
+  Basel commodity add-on cites CRE52.69, CRE52.70 and CRE52.72 instead of the
+  basis and volatility multiplier of CRE52.73; T21 cites `CRR-RTS` with rule
+  `CRR-RTS.5`, as T20 does; T19 gets a CRR locator; the unmargined swap cites
+  CRE52.10; and the notes of T15, T19 and T21 no longer call their Python
+  implementation independent. The CCP derivation script now prints the
+  non-qualifying case its expected file cites. No expected value changes.
 - Correct inconsistencies found in a repository audit: the expected files
   without a catalogue ID and their origins in `tests/README.md`, the boundary
   fixtures and the clearing fixtures among the regime differences, the CCP

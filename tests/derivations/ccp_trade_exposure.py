@@ -62,6 +62,9 @@ CASES = {
         ],
     },
 }
+# The trades of illustrative-ccp-trade-exposure facing a non-qualifying CCP:
+# QCCP status changes the risk weight only, so every output is the same.
+CASES["illustrative-ccp-non-qualifying"] = CASES["illustrative-ccp-trade-exposure"]
 
 
 def phi(x: float) -> float:

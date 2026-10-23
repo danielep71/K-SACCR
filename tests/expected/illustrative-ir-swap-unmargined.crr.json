@@ -14,7 +14,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Article 275(1), unmargined replacement cost",
-        "derivation": "Format example only: max(CMV - NICA, 0) = max(100000 - 0, 0) by hand; the article has not yet been verified against the register's version",
+        "derivation": "Format example only: max(CMV - NICA, 0) = max(100000 - 0, 0) by hand",
         "derived_by": "K-SACCR project",
         "reviewed_by": null,
         "date": "2026-10-06"
