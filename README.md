@@ -679,7 +679,9 @@ and risk-weighted assets.
 | v1.10.0 | Risk-weighted assets and capital (#115), default-fund contributions to CCPs (#400) |
 
 The [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones)
-hold the current scope of each release.
+hold the current scope of each release. v1.7.0 is not used: its scope,
+exposures to CCPs, was delivered in v1.0.2 (#112), and default-fund
+contributions moved to v1.10.0 (#400).
 
 ### v1.1.0 — CSV import, staging and workbook protection
 

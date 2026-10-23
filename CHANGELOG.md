@@ -106,6 +106,9 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
+  scope was delivered in v1.0.2 and default-fund contributions moved to
+  v1.10.0.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
   README roadmap section of the current milestone to the places updated when
