@@ -905,6 +905,34 @@
       "findings": []
     },
     {
+      "name": "header-comma-delimiter",
+      "kind": "Trades",
+      "text": "trade_id,netting_set_id,asset_class,sub_class,risk_factor,instrument,direction,option_type,nature,hedging_set_label,notional_amount,notional_currency,market_value_amount,market_value_currency,start_date,end_date,maturity_date,option_expiry_date,underlying_price,strike_price,lambda_price,attachment_rate,detachment_rate,economic_trade_id,mtm_leg,settlement_type,next_reset_date,comment\r\nT1,NS-1,IR,,EUR,Linear,Long,,,,1000,EUR,0,,,2031-01-02,2031-01-02,,,,,,,,,,,\r\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-DELIMITER",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "header-tab-delimiter",
+      "kind": "NettingSets",
+      "text": "netting_set_id\tcounterparty\tmargined\tclearing_role\tremargin_period_business_days\tlarge_or_illiquid\tmargin_disputes\tmpor_override_business_days\tvariation_margin_net_amount\tindependent_collateral_net_amount\tthreshold_amount\tminimum_transfer_amount\talpha_factor\tregime_override\tmargin_agreements\tqccp\tccp_retains_variation_margin\nNS-1\tCPTY\tY\tN\t1\tN\tN\t\t0\t0\t0\t0\t\t\t\t\t\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-DELIMITER",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
       "name": "last-record-no-line-end",
       "kind": "NettingSets",
       "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;",

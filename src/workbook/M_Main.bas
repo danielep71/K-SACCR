@@ -116,10 +116,13 @@ Attribute VB_Name = "M_Main"
     'Title of every message box: the project name.
         Private Const MSG_TITLE     As String = "K-SACCR"
 
-    'Findings a CSV check lists in its message, and the characters of each
-    'finding's text, so that the message box stays readable.
-        Private Const CSV_MESSAGE_FINDINGS  As Long = 10
-        Private Const CSV_MESSAGE_WIDTH     As Long = 90
+    'A CSV check's message. A message box shows 1,024 characters at most,
+    'so the message is kept shorter and lists fewer findings when it must.
+        Private Const CSV_MESSAGE_FINDINGS  As Long = 10      'Findings listed at most
+        Private Const CSV_MESSAGE_WIDTH     As Long = 120     'Characters of a finding's line
+        Private Const CSV_MESSAGE_COLUMN    As Long = 32      'Characters of its column name
+        Private Const CSV_MESSAGE_PATH      As Long = 200     'Characters of the file path, from its end
+        Private Const CSV_MESSAGE_LENGTH    As Long = 1000    'Characters of the whole message
 
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
@@ -2485,7 +2488,14 @@ Private Function CsvCheckMessage( _
 ' PURPOSE
 '   The outcome of a CSV check for the user: an accepted file's record
 '   count, or a rejected file's findings, the first CSV_MESSAGE_FINDINGS of
-'   them with their line, record and column.
+'   them with their line, record and column, then how many more there are
+'   and where the codes are explained.
+'
+' METHOD
+'   A long path is shown by its end, a long column name and a long line
+'   are cut, and a finding is listed only while the whole message stays
+'   within CSV_MESSAGE_LENGTH characters, so a message box never cuts the
+'   count of the findings left or the pointer to the contract.
 '
 ' UPDATED
 '   2026-10-23
@@ -2495,32 +2505,77 @@ Private Function CsvCheckMessage( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Text    As String    'The message
-    Dim f       As Long      'Finding counter
+    Dim Head        As String    'The path and the verdict
+    Dim Body        As String    'The findings listed
+    Dim Tail        As String    'Where the codes are explained
+    Dim MoreText    As String    'The longest "... and N more." line
+    Dim LineText    As String    'One finding's line
+    Dim Shown       As Long      'Findings listed
+    Dim f           As Long      'Finding counter
 
 '------------------------------------------------------------------------------
 ' COMPOSE
 '------------------------------------------------------------------------------
+        Head = CutText(FilePath, CSV_MESSAGE_PATH, True) & vbLf & vbLf
         If Result.Accepted Then
-            CsvCheckMessage = FilePath & vbLf & vbLf & "The file follows the " & Result.Kind & _
+            CsvCheckMessage = Head & "The file follows the " & Result.Kind & _
                               " CSV contract: " & Result.RecordCount & " records." & vbLf & _
                               "It was only checked: nothing was written to the workbook."
             Exit Function
         End If
-        Text = FilePath & vbLf & vbLf & "The file does not follow the " & Result.Kind & _
-               " CSV contract: " & Result.FindingCount & IIf(Result.FindingCount = 1, " finding.", " findings.") & vbLf
+        Head = Head & "The file does not follow the " & Result.Kind & " CSV contract: " & _
+               Result.FindingCount & IIf(Result.FindingCount = 1, " finding.", " findings.") & vbLf
+        Tail = vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
+        MoreText = vbLf & "... and " & Result.FindingCount & " more."
         For f = 1 To Result.FindingCount
-            If f > CSV_MESSAGE_FINDINGS Then
-                Text = Text & vbLf & "... and " & (Result.FindingCount - CSV_MESSAGE_FINDINGS) & " more."
+            If Shown = CSV_MESSAGE_FINDINGS Then
                 Exit For
             End If
             With Findings(f)
-                Text = Text & vbLf & "Line " & .LineNumber & ", record " & .RecordNumber & _
-                       IIf(Len(.ColumnName) > 0, ", " & .ColumnName, "") & ": " & .Code & ": " & _
-                       Left$(.Message, CSV_MESSAGE_WIDTH)
+                LineText = "Line " & .LineNumber & ", record " & .RecordNumber & _
+                           IIf(Len(.ColumnName) > 0, ", " & CutText(.ColumnName, CSV_MESSAGE_COLUMN, False), "") & _
+                           ": " & .Code & ": " & .Message
             End With
+            LineText = vbLf & CutText(LineText, CSV_MESSAGE_WIDTH, False)
+            If Len(Head) + Len(Body) + Len(LineText) + Len(MoreText) + Len(Tail) > CSV_MESSAGE_LENGTH Then
+                Exit For
+            End If
+            Body = Body & LineText
+            Shown = Shown + 1
         Next f
-        CsvCheckMessage = Text & vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
+        If Shown < Result.FindingCount Then
+            Body = Body & vbLf & "... and " & (Result.FindingCount - Shown) & " more."
+        End If
+        CsvCheckMessage = Head & Body & Tail
+
+End Function
+
+
+Private Function CutText( _
+    ByVal Text As String, _
+    ByVal MaxLength As Long, _
+    ByVal KeepEnd As Boolean) _
+    As String
+'
+'==============================================================================
+'                                   CutText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Text as it is when it has at most MaxLength characters; otherwise cut to
+'   MaxLength with "..." where the text was cut: at the start when KeepEnd is
+'   True, as for a path, and at the end otherwise.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        If Len(Text) <= MaxLength Then
+            CutText = Text
+        ElseIf KeepEnd Then
+            CutText = "..." & Right$(Text, MaxLength - 3)
+        Else
+            CutText = Left$(Text, MaxLength - 3) & "..."
+        End If
 
 End Function
 

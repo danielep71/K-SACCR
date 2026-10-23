@@ -59,6 +59,7 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const CSV_ENCODING          As String = "CSV-ENCODING"
         Private Const CSV_SYNTAX            As String = "CSV-SYNTAX"
         Private Const CSV_EMPTY             As String = "CSV-EMPTY"
+        Private Const CSV_OTHER_DELIMITER   As String = "CSV-DELIMITER"
         Private Const CSV_HEADER_DUPLICATE  As String = "CSV-HEADER-DUPLICATE"
         Private Const CSV_HEADER_MISSING    As String = "CSV-HEADER-MISSING"
         Private Const CSV_HEADER_UNKNOWN    As String = "CSV-HEADER-UNKNOWN"
@@ -846,7 +847,9 @@ Private Function HeaderAccepted( _
 '   Check that the header names every contract column exactly once, in
 '   any order, with no other column; names are case-sensitive. Reports a
 '   repeated or unknown name in header order, then each missing column in
-'   contract order.
+'   contract order. A header of one field that contains a comma or a tab
+'   is a file of another CSV dialect: it gets one CSV-DELIMITER finding
+'   instead.
 '
 ' RETURNS
 '   True when the header has no finding.
@@ -868,6 +871,19 @@ Private Function HeaderAccepted( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
+        If UBound(Header) = 0 Then
+            If InStr(1, Header(0), ",", vbBinaryCompare) > 0 Then
+                AddFinding Result, Findings, CSV_OTHER_DELIMITER, HeaderLine, 0, "", _
+                           "the header is one field that contains ','; the delimiter is ';'"
+                HeaderAccepted = False
+                Exit Function
+            ElseIf InStr(1, Header(0), vbTab, vbBinaryCompare) > 0 Then
+                AddFinding Result, Findings, CSV_OTHER_DELIMITER, HeaderLine, 0, "", _
+                           "the header is one field that contains a tab; the delimiter is ';'"
+                HeaderAccepted = False
+                Exit Function
+            End If
+        End If
         ReDim Seen(1 To Spec.ColumnCount)
         For h = 0 To UBound(Header)
             Repeated = False

@@ -37,8 +37,8 @@ Attribute VB_Name = "TEST_CsvReader"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 91    'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 195    'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 93    'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 199    'Checks in a complete run
         Private Const ROUND_TRIP_LAST_LINE As Long = 11    'Line of the last record of valid/trades.csv
         Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records=9"    'ReadCsv_Silent on it
         Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings=16; first=CSV-RANGE|2|1|attachment_rate"    'ReadCsv_Silent on invalid/trades-fields-and-rules.csv
@@ -128,6 +128,8 @@ Public Sub RunCsvReaderTests()
         Case50
         Case51
         Case52
+        Case53
+        Case54
         CaseUnknownKind
         CaseMissingFile
         CaseFileRoundTrip
@@ -2871,6 +2873,43 @@ End Sub
 
 
 Private Sub Case45()
+    'Case header-comma-delimiter.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "74726164655F69642C6E657474696E675F7365745F69642C61737365745F636C6173732C7375625F636C6173732C7269736B5F666163746F722C696E737472756D656E742C646972656374696F6E2C6F"
+        HexText = HexText & "7074696F6E5F747970652C6E61747572652C68656467696E675F7365745F6C6162656C2C6E6F74696F6E616C5F616D6F756E742C6E6F74696F6E616C5F63757272656E63792C6D61726B65745F76616C"
+        HexText = HexText & "75655F616D6F756E742C6D61726B65745F76616C75655F63757272656E63792C73746172745F646174652C656E645F646174652C6D617475726974795F646174652C6F7074696F6E5F6578706972795F"
+        HexText = HexText & "646174652C756E6465726C79696E675F70726963652C737472696B655F70726963652C6C616D6264615F70726963652C6174746163686D656E745F726174652C6465746163686D656E745F726174652C"
+        HexText = HexText & "65636F6E6F6D69635F74726164655F69642C6D746D5F6C65672C736574746C656D656E745F747970652C6E6578745F72657365745F646174652C636F6D6D656E740D0A54312C4E532D312C49522C2C45"
+        HexText = HexText & "55522C4C696E6561722C4C6F6E672C2C2C2C313030302C4555522C302C2C2C323033312D30312D30322C323033312D30312D30322C2C2C2C2C2C2C2C2C2C2C0D0A"
+        Expected = ""
+        Expected = "CSV-DELIMITER|1|0|"
+        Values = ""
+        RunInline "header-comma-delimiter", "Trades", HexText, 0, 0, Expected, 0, Values
+
+End Sub
+
+
+Private Sub Case46()
+    'Case header-tab-delimiter.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F696409636F756E7465727061727479096D617267696E656409636C656172696E675F726F6C650972656D617267696E5F706572696F645F627573696E6573735F64617973"
+        HexText = HexText & "096C617267655F6F725F696C6C6971756964096D617267696E5F6469737075746573096D706F725F6F766572726964655F627573696E6573735F6461797309766172696174696F6E5F6D617267696E5F"
+        HexText = HexText & "6E65745F616D6F756E7409696E646570656E64656E745F636F6C6C61746572616C5F6E65745F616D6F756E74097468726573686F6C645F616D6F756E74096D696E696D756D5F7472616E736665725F61"
+        HexText = HexText & "6D6F756E7409616C7068615F666163746F7209726567696D655F6F76657272696465096D617267696E5F61677265656D656E74730971636370096363705F72657461696E735F766172696174696F6E5F"
+        HexText = HexText & "6D617267696E0A4E532D3109435054590959094E0931094E094E09093009300930093009090909090A"
+        Expected = ""
+        Expected = "CSV-DELIMITER|1|0|"
+        Values = ""
+        RunInline "header-tab-delimiter", "NettingSets", HexText, 0, 0, Expected, 0, Values
+
+End Sub
+
+
+Private Sub Case47()
     'Case last-record-no-line-end.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -2914,7 +2953,7 @@ Private Sub Case45()
 End Sub
 
 
-Private Sub Case46()
+Private Sub Case48()
     'Case too-many-records.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -2933,7 +2972,7 @@ Private Sub Case46()
 End Sub
 
 
-Private Sub Case47()
+Private Sub Case49()
     'Case too-many-records-and-syntax.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -2953,7 +2992,7 @@ Private Sub Case47()
 End Sub
 
 
-Private Sub Case48()
+Private Sub Case50()
     'Case too-large.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -2971,7 +3010,7 @@ Private Sub Case48()
 End Sub
 
 
-Private Sub Case49()
+Private Sub Case51()
     'Case not-too-large.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3015,7 +3054,7 @@ Private Sub Case49()
 End Sub
 
 
-Private Sub Case50()
+Private Sub Case52()
     'Case quoted-field-dense-with-quotes.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3104,7 +3143,7 @@ Private Sub Case50()
 End Sub
 
 
-Private Sub Case51()
+Private Sub Case53()
     'Case quoted-field-dense-too-long.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3135,7 +3174,7 @@ Private Sub Case51()
 End Sub
 
 
-Private Sub Case52()
+Private Sub Case54()
     'Case too-many-empty-lines.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings

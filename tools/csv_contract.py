@@ -24,6 +24,7 @@ TEMPLATES = "docs/csv/templates"
 DOCUMENT = "docs/csv/CSV_CONTRACT.md"
 BOM = b"\xef\xbb\xbf"
 DELIMITER = ";"
+OTHER_DELIMITERS = {",": "','", "\t": "a tab"}  # Delimiters of other CSV dialects
 NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -147,6 +148,12 @@ def parse(text: str) -> tuple[list[Record], list[Finding]]:
 
 
 def check_header(header: Record, names: list[str]) -> list[Finding]:
+    if len(header.fields) == 1:
+        # One field that holds another dialect's delimiter: a file of that dialect, not one unknown column.
+        for other, shown in OTHER_DELIMITERS.items():
+            if other in header.fields[0]:
+                return [Finding("CSV-DELIMITER", header.line, 0, "",
+                                f"the header is one field that contains {shown}; the delimiter is ';'")]
     findings: list[Finding] = []
     seen: set[str] = set()
     for name in header.fields:

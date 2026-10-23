@@ -164,6 +164,7 @@
     "CSV-ENCODING": "The file is not valid UTF-8 or contains a NUL character.",
     "CSV-SYNTAX": "The record is not valid CSV: a quote inside an unquoted field, text after a closing quote, a lone CR, or a quoted field left open at the end of the file.",
     "CSV-EMPTY": "The file has no header record.",
+    "CSV-DELIMITER": "The header is a single field that contains a comma or a tab: the file uses another delimiter than ';'.",
     "CSV-HEADER-DUPLICATE": "A column name appears more than once in the header.",
     "CSV-HEADER-MISSING": "A column of the contract is missing from the header.",
     "CSV-HEADER-UNKNOWN": "The header names a column that is not in the contract.",

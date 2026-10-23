@@ -69,7 +69,10 @@ this rule (see the
 
 The first record is the header. It names every column of the file's
 contract exactly once, in any order; names are case-sensitive. A repeated,
-missing or unknown column is an error, and the file is not read further.
+missing or unknown column is an error, and the file is not read further. A
+header that is one field containing a comma or a tab is a file of another
+CSV dialect, such as Excel's comma-separated save: it gets one
+`CSV-DELIMITER` finding instead.
 There are no optional columns: an optional field is a column whose value may
 be blank.
 
@@ -231,6 +234,7 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-ENCODING` | Not valid UTF-8, or a NUL character |
 | `CSV-SYNTAX` | Not valid CSV; reading stops at the first syntax error |
 | `CSV-EMPTY` | No header record |
+| `CSV-DELIMITER` | A header of one field that contains a comma or a tab: another delimiter than `;` |
 | `CSV-HEADER-DUPLICATE` | A column named twice in the header |
 | `CSV-HEADER-MISSING` | A contract column missing from the header |
 | `CSV-HEADER-UNKNOWN` | A header column not in the contract |

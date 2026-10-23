@@ -499,8 +499,8 @@ and expects exactly the findings the reference implementation
 `tools/csv_contract.py` pinned, the same record count and, for an accepted
 file, every value as written. The cases cover invalid UTF-8, characters
 outside the basic plane, spaces and control characters, formula starts,
-number forms, digits and magnitudes, dates, keys, quoting and the record and
-size limits. Six more cases read a fixture from a file in `%TEMP%`, refuse a
+number forms, digits and magnitudes, dates, keys, quoting, a comma or tab
+delimiter and the record and size limits. Six more cases read a fixture from a file in `%TEMP%`, refuse a
 file too large from its size, expect `ERR_CSV_READ` for a missing file, a
 malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
 returns for an accepted and a rejected file. It touches no sheet.
