@@ -6,15 +6,15 @@
   "outputs": [
     {
       "quantity": "replacement_cost",
-      "rule": "CRE52",
+      "rule": "CRE52.10",
       "value": 100000,
       "unit": "EUR",
       "tolerance": {"absolute": 0.000001, "relative": 0.000000001},
       "reference": {
         "class": "illustrative",
         "source": "BCBS",
-        "locator": "CRE52, replacement cost for unmargined netting sets",
-        "derivation": "Format example only: max(V - C, 0) = max(100000 - 0, 0) by hand; the paragraph is to be located in the register's version",
+        "locator": "CRE52.10, replacement cost for unmargined netting sets",
+        "derivation": "Format example only: max(V - C, 0) = max(100000 - 0, 0) by hand",
         "derived_by": "K-SACCR project",
         "reviewed_by": null,
         "date": "2026-10-06"

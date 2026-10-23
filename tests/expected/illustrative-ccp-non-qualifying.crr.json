@@ -15,7 +15,7 @@
       },
       "reference": {
         "class": "illustrative",
-        "source": "CRR",
+        "source": "CRR-CCP",
         "locator": "Art. 304(3)(b), with Art. 285(5) (F + N - 1)",
         "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,

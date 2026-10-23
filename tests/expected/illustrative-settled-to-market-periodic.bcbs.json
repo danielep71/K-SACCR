@@ -149,7 +149,7 @@
       "reference": {
         "class": "illustrative",
         "source": "BCBS",
-        "locator": "CRE52.69, CRE52.73, with the maturity factor of CRE52.48 and CRE52.37(5)",
+        "locator": "CRE52.69, CRE52.70, CRE52.72, with the maturity factor of CRE52.48 and CRE52.37(5)",
         "derivation": "tests/derivations/settled_to_market.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,

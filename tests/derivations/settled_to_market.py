@@ -13,7 +13,7 @@ repository root with ``python tests/derivations/settled_to_market.py``.
 Rules: unmargined RC CRE52.10, CRR Art. 275(1); supervisory duration
 CRE52.34, CRR Art. 279b(1)(a); option delta CRE52.40, CRR Art. 279a(1)(a);
 interest-rate add-on CRE52.57, CRR Art. 280a; equity add-on CRE52.68 and
-CRE52.72, CRR Art. 280d; commodity add-on CRE52.69 and CRE52.73, CRR Art.
+CRE52.72, CRR Art. 280d; commodity add-on CRE52.69-.70 and CRE52.72, CRR Art.
 280e; multiplier CRE52.23, CRR Art. 278(3); exposure value CRE52.1, CRR Art.
 274(2).
 """
