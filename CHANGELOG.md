@@ -98,8 +98,8 @@ Use only the categories needed by a release.
 
 - Define version 1 of the Trades and NettingSets CSV input contract (#206):
   `docs/csv/contract.json` and `docs/csv/CSV_CONTRACT.md` specify the columns,
-  types, allowed values, blank rules, encoding, quoting, header and version
-  policy, limits and finding codes, with blank templates generated from the
+  types, allowed values, blank rules, encoding, `;` as the field separator,
+  quoting, header and version policy, limits and finding codes, with blank templates generated from the
   contract. `tools/csv_contract.py` is the reference implementation, tested
   on synthetic valid and invalid fixtures in `tests/csv/`, and the new
   `check_csv_contract` gate keeps the contract consistent with the engine's

@@ -1,6 +1,6 @@
-trade_id,netting_set_id,asset_class,sub_class,risk_factor,instrument,direction,option_type,nature,hedging_set_label,notional_amount,notional_currency,market_value_amount,market_value_currency,start_date,end_date,maturity_date,option_expiry_date,underlying_price,strike_price,lambda_price,attachment_rate,detachment_rate,economic_trade_id,mtm_leg,settlement_type,next_reset_date,comment
-T1,NS-001,IR,,EUR,Linear,Long,,,,0,EUR,100,,2027-01-01,2026-12-31,2031-02-30,31/03/2027,,,-1,1,0.5,,,,,
-T2,NS-001,ir,,EUR,linear,,,,,1000,eur,,,,,2031-01-01,,,,,,,,maybe,,,
-T3,NS-001,EQ,INDEX,SPX,Linear,Long,,,,1000,USD,0,,,,2031-01-01,,,,,,,,,STM,,
-T4,NS-001,EQ,INDEX,SPX,Linear,Long,,,,1000,USD,0,,,,2031-01-01,,,,,,,,,N,2027-01-01,
-t1,NS-001,EQ,INDEX,SPX,Linear,Long,,,,1000,USD,0,,,,2031-01-01,,,,,,,,,,,+1 call me
+trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment
+T1;NS-001;IR;;EUR;Linear;Long;;;;0;EUR;100;;2027-01-01;2026-12-31;2031-02-30;31/03/2027;;;-1;1;0.5;;;;;
+T2;NS-001;ir;;EUR;linear;;;;;1000;eur;;;;;2031-01-01;;;;;;;;maybe;;;
+T3;NS-001;EQ;INDEX;SPX;Linear;Long;;;;1000;USD;0;;;;2031-01-01;;;;;;;;;STM;;
+T4;NS-001;EQ;INDEX;SPX;Linear;Long;;;;1000;USD;0;;;;2031-01-01;;;;;;;;;N;2027-01-01;
+t1;NS-001;EQ;INDEX;SPX;Linear;Long;;;;1000;USD;0;;;;2031-01-01;;;;;;;;;;;+1 call me

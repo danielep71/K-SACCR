@@ -47,11 +47,17 @@ this rule (see the
 - **Records.** Records are separated by CRLF or LF; the last record may end
   without one. A carriage return anywhere else, outside a quoted field, is an
   error.
-- **Fields.** Fields are separated by commas. A field that contains a comma, a
-  quote or a line break is enclosed in double quotes, and a quote inside it is
-  written twice (`""`), as in RFC 4180. A quote inside an unquoted field, text
-  after a closing quote, or a quoted field left open at the end of the file is
-  a syntax error.
+- **Fields.** Fields are separated by semicolons (`;`), as in the evidence
+  export. Where the comma is the decimal or thousands separator, as in Italy,
+  Excel also uses `;` as its list separator, so the file opens in columns;
+  and a value such as `1,5` or `1,000` stays one field and is rejected as a
+  number, instead of shifting the fields after it. A field that contains a
+  semicolon, a quote or a line break is enclosed in double quotes, and a
+  quote inside it is written twice (`""`), as in RFC 4180 with `;` in place
+  of the comma. A quote inside an unquoted field, text after a closing quote,
+  or a quoted field left open at the end of the file is a syntax error. A
+  file saved by Excel in such a locale still writes decimal commas and local
+  dates, which the [value types](#-value-types) reject.
 - **Lines and records.** A quoted field can span several physical lines.
   Every finding names the physical line on which its record starts and the
   record number, counted from 1 after the header; the header is record 0.

@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from _gatelib import parse_report_args, run_gate
-from csv_contract import load_contract, rule_columns, template_findings, template_text, validate
+from csv_contract import (
+    DELIMITER,
+    load_contract,
+    rule_columns,
+    template_findings,
+    template_text,
+    validate,
+)
 
 CONFIG = "src/core/CORE_Config.bas"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
@@ -112,6 +119,8 @@ class Workbook:
 
 def check_shape(contract: dict[str, Any]) -> list[str]:
     findings: list[str] = []
+    if contract["format"]["delimiter"] != DELIMITER:
+        findings.append(f"format: delimiter {contract['format']['delimiter']!r} is not the parser's {DELIMITER!r}")
     for kind, spec in contract["files"].items():
         names = [c["name"] for c in spec["columns"]]
         findings += [f"{kind}: column name {n!r} is not snake_case" for n in names if not NAME.match(n)]

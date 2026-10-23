@@ -303,23 +303,23 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
     'File name and header line of each blank CSV template of the input
     'contract (docs/csv/contract.json, #206): the column names in contract
-    'order, separated by commas. M_Main writes the header line with a line
+    'order, separated by semicolons. M_Main writes the header line with a line
     'feed, which makes the file the template in docs/csv/templates byte for
     'byte; tools/check_csv_contract.py checks these constants against the
     'contract.
         Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v1.csv"
-        Public Const CSV_NS_HEADER As String = "netting_set_id,counterparty,margined,clearing_role," & _
-            "remargin_period_business_days,large_or_illiquid,margin_disputes," & _
-            "mpor_override_business_days,variation_margin_net_amount," & _
-            "independent_collateral_net_amount,threshold_amount,minimum_transfer_amount," & _
-            "alpha_factor,regime_override,margin_agreements,qccp,ccp_retains_variation_margin"
+        Public Const CSV_NS_HEADER As String = "netting_set_id;counterparty;margined;clearing_role;" & _
+            "remargin_period_business_days;large_or_illiquid;margin_disputes;" & _
+            "mpor_override_business_days;variation_margin_net_amount;" & _
+            "independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;" & _
+            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin"
         Public Const CSV_TR_FILE As String = "K-SACCR_Trades_v1.csv"
-        Public Const CSV_TR_HEADER As String = "trade_id,netting_set_id,asset_class,sub_class," & _
-            "risk_factor,instrument,direction,option_type,nature,hedging_set_label," & _
-            "notional_amount,notional_currency,market_value_amount,market_value_currency," & _
-            "start_date,end_date,maturity_date,option_expiry_date,underlying_price," & _
-            "strike_price,lambda_price,attachment_rate,detachment_rate,economic_trade_id," & _
-            "mtm_leg,settlement_type,next_reset_date,comment"
+        Public Const CSV_TR_HEADER As String = "trade_id;netting_set_id;asset_class;sub_class;" & _
+            "risk_factor;instrument;direction;option_type;nature;hedging_set_label;" & _
+            "notional_amount;notional_currency;market_value_amount;market_value_currency;" & _
+            "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
+            "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
+            "mtm_leg;settlement_type;next_reset_date;comment"
 
 '------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS
