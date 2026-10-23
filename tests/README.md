@@ -8,6 +8,7 @@
 | `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
+| `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, and `expected.json` with the findings of each |
 | `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root |
 
 `TEST_Suite.Test_RunAll` runs the harness and every suite and prints a
