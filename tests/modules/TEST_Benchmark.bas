@@ -29,8 +29,10 @@ Attribute VB_Name = "TEST_Benchmark"
 '   engine must use them all.
 '
 ' PUBLIC SURFACE
-'   RunBenchmark is the entry point. Option Private Module keeps it out of
-'   the external workbook automation API. It is not a test suite:
+'   RunBenchmark is the entry point for the engine; RunCsvBenchmark times
+'   the CSV reader on synthetic files of up to the contract's record limit
+'   and beyond (#207). Option Private Module keeps both out of
+'   the external workbook automation API. Neither is a test suite:
 '   Test_RunAll does not run it and the Excel evidence policy does not list
 '   it, because its timings depend on the machine.
 '
@@ -44,7 +46,8 @@ Attribute VB_Name = "TEST_Benchmark"
 '   alone and whether it completed is a check of its own. TEST_Suite.Say
 '   prints the lines. The workbook must be built from the template: the
 '   portfolio uses the factor-table categories and the FX currencies of its
-'   Params sheet.
+'   Params sheet. RunCsvBenchmark uses CORE_CsvReader, CORE_Export for the
+'   UTF-8 bytes and the CSV header lines of CORE_Config, and no sheet.
 '
 ' WORKSHEET SAFETY
 '   As TEST_CaseRunner: inputs and outputs are rewritten during the run and
@@ -74,9 +77,13 @@ Attribute VB_Name = "TEST_Benchmark"
 '   In the Immediate window, TEST_Benchmark.RunBenchmark runs 1,000 and
 '   10,000 legs; give the sizes as text for others, for example
 '   TEST_Benchmark.RunBenchmark "1000,10000,50000".
+'   TEST_Benchmark.RunCsvBenchmark reads Trades files of 10,000 and
+'   100,000 records and a NettingSets file of 10,000, writing each to the
+'   TEMP folder under a name not already taken and deleting it; give
+'   other sizes the same way.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -115,6 +122,14 @@ Attribute VB_Name = "TEST_Benchmark"
         Private Const CHECKS_PER_CASE   As Long = 7     'Checks of every scenario
         Private Const STRAY_CHECKS      As Long = 2     'Further checks of the used-range scenario
         Private Const REFERENCE_CLASS   As String = "illustrative"    'Reference class of every check
+
+    'CSV reader (RunCsvBenchmark). The limits are the contract's, in
+    'docs/csv/contract.json.
+        Private Const CSV_BENCH_FILE                As String = "K-SACCR_csv_benchmark"    'File in TEMP, before its number
+        Private Const CSV_BENCH_NETTING_SETS        As Long = 10000     'Records of the NettingSets file
+        Private Const CSV_BENCH_SETS                As Long = 200       'Netting sets the trades refer to
+        Private Const CSV_BENCH_TRADES_LIMIT        As Long = 100000    'Trades records per file
+        Private Const CSV_BENCH_NETTING_SETS_LIMIT  As Long = 10000     'NettingSets records per file
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -1135,6 +1150,228 @@ Private Function SecondsSince( _
         SecondsSince = Timer - StartTime
         If SecondsSince < 0# Then
             SecondsSince = SecondsSince + 86400#
+        End If
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                 CSV READER
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub RunCsvBenchmark( _
+    Optional ByVal SizesText As String = "10000,100000")
+'
+'==============================================================================
+'                               RunCsvBenchmark
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Measure how long CORE_CsvReader takes to read synthetic CSV files
+'   (#207): one Trades file per size, then a NettingSets file of
+'   CSV_BENCH_NETTING_SETS records. Each prints a BENCH_CSV line with the
+'   file's bytes, the seconds taken to build and write it and the seconds
+'   taken to read it, and checks the outcome: a file within the record
+'   limit is accepted whole; a larger one is rejected for its record
+'   count. A final BENCH_CSV_RESULT line says whether every outcome was
+'   as expected. No sheet is touched, and no file that was there before:
+'   each file gets a name not already taken.
+'
+' INPUTS
+'   SizesText: the Trades records of each file, as for RunBenchmark;
+'   10,000 and 100,000, the contract's limit, when omitted.
+'
+' ERROR POLICY
+'   Sizes that cannot be read print a BENCH_REJECTED line. An unexpected
+'   error is printed as BENCH_CSV_RESULT=FAIL, after CsvScenario has
+'   closed and deleted its file.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sizes()     As Long       'Records of each Trades file
+    Dim Reason      As String     'Why SizesText was rejected
+    Dim AllAsExpected As Boolean  'Every outcome was as expected
+    Dim Folder      As String     'Folder of the benchmark files
+    Dim i           As Long       'Index into Sizes
+
+'------------------------------------------------------------------------------
+' RUN
+'------------------------------------------------------------------------------
+        If Not ParseSizes(SizesText, Sizes, Reason) Then
+            TEST_Suite.Say "BENCH_REJECTED=" & Reason
+            Exit Sub
+        End If
+        Folder = Environ$("TEMP")
+        If Len(Folder) = 0 Then
+            Folder = ThisWorkbook.Path
+        End If
+        On Error GoTo Failed
+        AllAsExpected = True
+        For i = 1 To UBound(Sizes)
+            AllAsExpected = CsvScenario(Folder, "Trades", Sizes(i)) And AllAsExpected
+        Next i
+        AllAsExpected = CsvScenario(Folder, "NettingSets", CSV_BENCH_NETTING_SETS) And AllAsExpected
+        TEST_Suite.Say "BENCH_CSV_RESULT=" & IIf(AllAsExpected, "PASS", "FAIL")
+        Exit Sub
+
+Failed:
+        TEST_Suite.Say "BENCH_CSV_RESULT=FAIL; unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Function CsvScenario( _
+    ByVal Folder As String, _
+    ByVal Kind As String, _
+    ByVal RecordCount As Long) _
+    As Boolean
+'
+'==============================================================================
+'                                 CsvScenario
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write a synthetic file of RecordCount records of Kind to Folder, under
+'   a name not already taken, read it with CORE_CsvReader.ReadCsvFile,
+'   print a BENCH_CSV line and delete the file.
+'
+' RETURNS
+'   True when the outcome is the expected one: accepted with every record
+'   within the contract's record limit, rejected for its record count
+'   above it.
+'
+' ERROR POLICY
+'   Raises the first error after closing the file number and deleting
+'   the file, if it was created; an error in that cleanup does not
+'   replace the first one.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Records()   As String           'Header and records, one line each
+    Dim Bytes()     As Byte             'The file
+    Dim TargetFile  As String           'Its path
+    Dim n           As Long             'Counter that makes the name unique
+    Dim FileNumber  As Integer          'File number; 0 while none is open
+    Dim Created     As Boolean          'The file was created
+    Dim ErrorNumber As Long             'First error
+    Dim ErrorSource As String           'Its source
+    Dim ErrorText   As String           'Its description
+    Dim StartTime   As Double           'Timer at the start of a step
+    Dim BuildSeconds As Double          'Seconds to build and write the file
+    Dim ReadSeconds As Double           'Seconds to read it
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records read
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+    Dim Limit       As Long             'The contract's record limit
+    Dim Outcome     As String           'What the reader returned
+    Dim r           As Long             'Record counter
+
+'------------------------------------------------------------------------------
+' BUILD AND WRITE
+'------------------------------------------------------------------------------
+        StartTime = Timer
+        ReDim Records(0 To RecordCount)
+        Records(0) = IIf(Kind = "Trades", CSV_TR_HEADER, CSV_NS_HEADER)
+        For r = 1 To RecordCount
+            Records(r) = CsvRecord(Kind, r)
+        Next r
+        Bytes = CORE_Export.Utf8Bytes(Join(Records, vbLf) & vbLf)
+        Erase Records
+        Do
+            n = n + 1
+            TargetFile = Folder & Application.PathSeparator & CSV_BENCH_FILE & "_" & n & ".csv"
+        Loop While Len(Dir$(TargetFile, vbHidden Or vbSystem)) > 0
+        On Error GoTo Failed
+        FileNumber = FreeFile
+        Open TargetFile For Binary Access Write As #FileNumber
+        Created = True
+        Put #FileNumber, 1, Bytes
+        Close #FileNumber
+        FileNumber = 0
+        BuildSeconds = SecondsSince(StartTime)
+
+'------------------------------------------------------------------------------
+' READ AND REPORT
+'------------------------------------------------------------------------------
+        StartTime = Timer
+        ReadCsvFile TargetFile, Kind, Result, Values, Lines, Findings
+        ReadSeconds = SecondsSince(StartTime)
+        Limit = IIf(Kind = "Trades", CSV_BENCH_TRADES_LIMIT, CSV_BENCH_NETTING_SETS_LIMIT)
+        If Result.Accepted Then
+            Outcome = "ACCEPTED " & Result.RecordCount
+            CsvScenario = (RecordCount <= Limit And Result.RecordCount = RecordCount)
+        Else
+            Outcome = "REJECTED " & FindingText(Findings(1))
+            CsvScenario = (RecordCount > Limit And Result.FindingCount = 1 And _
+                           Findings(1).Code = "CSV-TOO-MANY-RECORDS")
+        End If
+        TEST_Suite.Say "BENCH_CSV kind=" & Kind & "; records=" & RecordCount & _
+                       "; bytes=" & (UBound(Bytes) + 1) & _
+                       "; build_seconds=" & Format$(BuildSeconds, "0.00") & _
+                       "; read_seconds=" & Format$(ReadSeconds, "0.00") & _
+                       "; outcome=" & Outcome & "; " & IIf(CsvScenario, "PASS", "FAIL")
+        Kill TargetFile
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
+        On Error Resume Next
+        If FileNumber <> 0 Then
+            Close #FileNumber
+        End If
+        If Created Then
+            Kill TargetFile
+        End If
+        On Error GoTo 0
+        Err.Raise ErrorNumber, ErrorSource, ErrorText
+
+End Function
+
+
+Private Function CsvRecord( _
+    ByVal Kind As String, _
+    ByVal Index As Long) _
+    As String
+'
+'==============================================================================
+'                                  CsvRecord
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One synthetic record of Kind, valid under the contract and unique by
+'   its key: for Trades an interest-rate swap leg of one of
+'   CSV_BENCH_SETS netting sets with a comment, for NettingSets a margined
+'   netting set with a counterparty name.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        If Kind = "Trades" Then
+            CsvRecord = "T" & Index & ";NS-" & (Index Mod CSV_BENCH_SETS) & ";IR;;EUR;Linear;" & _
+                        IIf(Index Mod 2 = 0, "Long", "Short") & ";;;;" & (1000000 + Index) & _
+                        ";EUR;1250.5;EUR;2026-01-02;2031-01-02;2031-01-02;;;;;;;;;;;Synthetic leg " & Index
+        Else
+            CsvRecord = "NS-" & Index & ";Counterparty " & Index & ";Y;N;1;N;N;;0;0;0;0;;;;;"
         End If
 
 End Function

@@ -87,6 +87,13 @@ class FileTests(unittest.TestCase):
                          [("CSV-HEADER-UNKNOWN", 1, 0, "bad_header"), ("CSV-HEADER-MISSING", 1, 0, "netting_set_id")])
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
 
+    def test_another_delimiter_is_one_finding(self) -> None:
+        for other in (",", "\t"):
+            with self.subTest(delimiter=other):
+                text = NS_HEADER.replace(";", other) + "\n" + NS_ROW.replace(";", other) + "\n"
+                self.assertEqual(codes(text), [("CSV-DELIMITER", 1, 0, "")])
+        self.assertEqual(codes(NS_HEADER.replace(";", ",", 1) + "\n")[0], ("CSV-HEADER-UNKNOWN", 1, 0, "netting_set_id,counterparty"))
+
     def test_header_order_is_free_and_names_are_exact(self) -> None:
         names = NS_HEADER.split(";")
         values = NS_ROW.split(";")
@@ -179,7 +186,7 @@ class GateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED):
+        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
         shutil.copytree(ROOT / csv.TEMPLATES, self.root / csv.TEMPLATES)

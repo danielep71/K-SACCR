@@ -56,6 +56,9 @@ exposure figure, which are reported as issues.
 - **Workbook macros** read the input sheets, write the output sheets, show
   message boxes, and switch screen updating, events and calculation mode during
   a run, restoring them afterwards.
+- **CSV check** (`M_Main.CheckTradesCsv` and `CheckNettingSetsCsv`) reads the
+  file chosen in `Application.GetOpenFilename` up to the contract's 128 MiB
+  limit and writes nothing; the size is checked before the file is read.
 - **Export evidence** (`M_Main.ExportEvidence`) and **Export CSV template**
   (`M_Main.ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`) ask for
   a file name with `Application.GetSaveAsFilename` and write the evidence CSV
@@ -63,8 +66,9 @@ exposure figure, which are reported as issues.
   included, is deleted and replaced without a further prompt from the macro; a
   read-only file is left unchanged and the export fails.
 - **Test suites** and the benchmark `TEST_Benchmark` also write the input and
-  output sheets, and `TEST_Reconcile` writes and deletes five CSV files in
-  `%TEMP%` (or the workbook's folder); run them only in a development workbook.
+  output sheets, and `TEST_Reconcile` and `TEST_CsvReader` write and delete
+  five CSV files and one in `%TEMP%` (or the workbook's folder); run them only
+  in a development workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1` and `tools/Export-SACCR-VBA.ps1`

@@ -114,6 +114,31 @@ Use only the categories needed by a release.
   replaces an older one. `check_csv_contract` also compares the header lines
   in `CORE_Config` with the contract. `TEST_Reconcile` gains the case
   `export.csv-templates`: 21 cases, 180 checks.
+- Add the workbook's CSV reader (#207): `CORE_CsvReader` reads a Trades or
+  NettingSets file under the CSV input contract and reports every finding
+  with its code, line, record and column, or returns the records of an
+  accepted file as their raw text. It decodes UTF-8 itself and checks numbers
+  and dates as text, so the outcome does not depend on the Windows locale,
+  and it writes nothing; staging the records is #208. The contract gains a
+  file size limit of 128 MiB, checked from the size before reading
+  (`CSV-TOO-LARGE`), and states that keys compare in upper case one character
+  at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
+  the contract into `CORE_CsvSchema` and the fixtures and the new inline
+  cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`,
+  which expects exactly the findings of the reference implementation;
+  `Test_RunAll` runs nine suites.
+- Check a CSV file from the workbook (#207): the macros `CheckTradesCsv` and
+  `CheckNettingSetsCsv`, run from the Macros dialog, read a chosen file with
+  the CSV reader and show whether it follows the contract, with its record
+  count or its first findings, as many as the message box shows whole;
+  `ReadCsv_Silent` does the same for automation. Nothing is written to the
+  workbook. A file whose header is one field holding a comma or a tab, such
+  as Excel's comma-separated save, gets one `CSV-DELIMITER` finding instead
+  of a finding per column. `TEST_Benchmark` gains
+  `RunCsvBenchmark`, which times the reader on synthetic files of up to the
+  record limit. The reader now trims the zeros of a number and of its
+  exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
+  is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
 
 ### Changed
 

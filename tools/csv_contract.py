@@ -24,6 +24,7 @@ TEMPLATES = "docs/csv/templates"
 DOCUMENT = "docs/csv/CSV_CONTRACT.md"
 BOM = b"\xef\xbb\xbf"
 DELIMITER = ";"
+OTHER_DELIMITERS = {",": "','", "\t": "a tab"}  # Delimiters of other CSV dialects
 NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -147,6 +148,12 @@ def parse(text: str) -> tuple[list[Record], list[Finding]]:
 
 
 def check_header(header: Record, names: list[str]) -> list[Finding]:
+    if len(header.fields) == 1:
+        # One field that holds another dialect's delimiter: a file of that dialect, not one unknown column.
+        for other, shown in OTHER_DELIMITERS.items():
+            if other in header.fields[0]:
+                return [Finding("CSV-DELIMITER", header.line, 0, "",
+                                f"the header is one field that contains {shown}; the delimiter is ';'")]
     findings: list[Finding] = []
     seen: set[str] = set()
     for name in header.fields:
@@ -292,15 +299,21 @@ def check_record(record: Record, index: int, names: list[str], columns: dict[str
     return findings
 
 
+def fold(key: str) -> str:
+    """A key in upper case, one character at a time, as the engine's UCase$ compares IDs: a character
+    whose upper case is longer, such as the German sharp s, is kept as it is."""
+    return "".join(char.upper() if len(char.upper()) == 1 else char for char in key)
+
+
 def check_keys(records: list[tuple[int, Record, dict[str, str]]], spec: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = []
     first: dict[str, int] = {}
-    reserved = {key.upper() for key in spec.get("reserved_keys", [])}
+    reserved = {fold(key) for key in spec.get("reserved_keys", [])}
     for index, record, row in records:
         key = row.get(spec["key"], "")
         if not key:
             continue
-        folded = key.upper()
+        folded = fold(key)
         if folded in reserved:
             findings.append(Finding("CSV-RESERVED-KEY", record.line, index, spec["key"], f"{key!r} is reserved"))
         elif folded in first:
@@ -312,7 +325,8 @@ def check_keys(records: list[tuple[int, Record, dict[str, str]]], spec: dict[str
 
 
 def validate(data: bytes, kind: str, contract: dict[str, Any],
-             max_records: int | None = None) -> tuple[list[dict[str, str]], list[Finding]]:
+             max_records: int | None = None,
+             max_bytes: int | None = None) -> tuple[list[dict[str, str]], list[Finding]]:
     """The records of a CSV file of kind (Trades or NettingSets) as dictionaries, and all findings.
 
     The records are returned only when there is no finding: a file is accepted or
@@ -321,6 +335,9 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
     spec = contract["files"][kind]
     names = [column["name"] for column in spec["columns"]]
     columns = {column["name"]: column for column in spec["columns"]}
+    byte_limit = contract["format"]["max_bytes"] if max_bytes is None else max_bytes
+    if len(data) > byte_limit:
+        return [], [Finding("CSV-TOO-LARGE", 0, 0, "", f"{len(data)} bytes, at most {byte_limit}")]
     text, findings = decode(data)
     if text is None:
         return [], findings
@@ -336,6 +353,7 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
     if len(body) > limit:
         findings.append(Finding("CSV-TOO-MANY-RECORDS", body[limit].line, limit + 1, "",
                                 f"{len(body)} records, at most {limit}"))
+        findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
         return [], findings
     rows: list[tuple[int, Record, dict[str, str]]] = []
     for index, record in enumerate(body, start=1):

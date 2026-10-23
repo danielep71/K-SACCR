@@ -1,0 +1,1038 @@
+{
+  "description": "Inline cases of the CSV contract, read like the fixtures in tests/csv by tools/csv_contract.py and the VBA reader: the content as UTF-8 text or as hex bytes, optional limits replacing the contract's, the records accepted and every finding as [code, line, record, column].",
+  "cases": [
+    {
+      "name": "utf8-invalid-byte",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532d313bff0a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-overlong",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532dc0af0a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-overlong-three-bytes",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532de080af0a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-surrogate",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532deda0800a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-above-u10ffff",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532df49080800a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-truncated",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532de282",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "utf8-stray-continuation",
+      "kind": "NettingSets",
+      "hex": "6e657474696e675f7365745f69643b636f756e74657270617274793b6d617267696e65643b636c656172696e675f726f6c653b72656d617267696e5f706572696f645f627573696e6573735f646179733b6c617267655f6f725f696c6c69717569643b6d617267696e5f64697370757465733b6d706f725f6f766572726964655f627573696e6573735f646179733b766172696174696f6e5f6d617267696e5f6e65745f616d6f756e743b696e646570656e64656e745f636f6c6c61746572616c5f6e65745f616d6f756e743b7468726573686f6c645f616d6f756e743b6d696e696d756d5f7472616e736665725f616d6f756e743b616c7068615f666163746f723b726567696d655f6f766572726964653b6d617267696e5f61677265656d656e74733b716363703b6363705f72657461696e735f766172696174696f6e5f6d617267696e0a4e532d800a",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "nul-on-line-3",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;A\u0000B;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ENCODING",
+          3,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "empty-file",
+      "kind": "NettingSets",
+      "text": "",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-EMPTY",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "bom-only",
+      "kind": "NettingSets",
+      "hex": "efbbbf",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-EMPTY",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "non-ascii-and-astral",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;Soci\u00e9t\u00e9 G\u00e9n\u00e9rale \ud83d\ude00 \u4e2d\u6587;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "id-64-code-points-with-astral",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\ud83d\ude00;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "id-65-code-points",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\ud83d\ude00;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-LENGTH",
+          2,
+          1,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "text-500-and-501",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-LENGTH",
+          3,
+          2,
+          "counterparty"
+        ]
+      ]
+    },
+    {
+      "name": "id-trailing-no-break-space",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1\u00a0;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "id-leading-ideographic-space",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n\u3000NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "id-trailing-separator-1f",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1\u001f;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "text-keeps-spaces",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1; Bank A ;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "text-control-characters",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;A\u0085B;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;A\u007fB;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "counterparty"
+        ],
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "counterparty"
+        ]
+      ]
+    },
+    {
+      "name": "text-quoted-line-breaks",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;\"Line one\r\nline two\nline three\";Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 2,
+      "findings": []
+    },
+    {
+      "name": "id-control-character",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS\u007f1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "id-forbidden-characters",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS|1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS#2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "netting_set_id"
+        ],
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "formula-starts",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;@SUM(A1);Y;N;1;N;N;;0;0;0;0;;;;;\nNS-3;+1;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-4;\"\tTab\";Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-FORMULA",
+          2,
+          1,
+          "netting_set_id"
+        ],
+        [
+          "CSV-FORMULA",
+          3,
+          2,
+          "counterparty"
+        ],
+        [
+          "CSV-FORMULA",
+          4,
+          3,
+          "counterparty"
+        ],
+        [
+          "CSV-FORMULA",
+          5,
+          4,
+          "counterparty"
+        ]
+      ]
+    },
+    {
+      "name": "negative-numbers-are-not-formulas",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;-150000.5;-1e3;0;0;;;;;\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "number-forms",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT0;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1,5;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1,000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;+5;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;.5;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;5.;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;007;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT6;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1 000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT7;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0x10;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT8;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;NaN;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT9;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;inf;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT10;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT11;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e+;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT12;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;--1;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT13;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1.2.3;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          4,
+          3,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          5,
+          4,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          6,
+          5,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          7,
+          6,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          8,
+          7,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          9,
+          8,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          10,
+          9,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          11,
+          10,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          12,
+          11,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          13,
+          12,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          14,
+          13,
+          "market_value_amount"
+        ],
+        [
+          "CSV-TYPE",
+          15,
+          14,
+          "market_value_amount"
+        ]
+      ]
+    },
+    {
+      "name": "number-digits",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT0;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;123456789012345;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1234567890123456;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;123456789012345000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0.000000000000000000001;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1.000000000000000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;-0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT6;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0e-9999;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT7;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0.0e5;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "market_value_amount"
+        ]
+      ]
+    },
+    {
+      "name": "number-magnitudes",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT0;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;9.99999999999999e307;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e308;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;-1e308;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e9999;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;99999999999999.9e294;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;2.22507385850721e-308;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT6;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;2.22507385850720e-308;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT7;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;-2.2250738585072e-308;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT8;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e-309;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT9;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e-99999999999999999999;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT10;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0.00000000000000000001e-288;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT11;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;100000000000000e293;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-RANGE",
+          3,
+          2,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          4,
+          3,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          5,
+          4,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          8,
+          7,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          9,
+          8,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          10,
+          9,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          11,
+          10,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          12,
+          11,
+          "market_value_amount"
+        ]
+      ]
+    },
+    {
+      "name": "number-long-runs-of-zeros-accepted",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000301;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;25e-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 4,
+      "findings": []
+    },
+    {
+      "name": "number-long-runs-of-zeros-rejected",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;1e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000999;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-RANGE",
+          2,
+          1,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          3,
+          2,
+          "market_value_amount"
+        ],
+        [
+          "CSV-RANGE",
+          4,
+          3,
+          "market_value_amount"
+        ]
+      ]
+    },
+    {
+      "name": "number-bounds",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;0;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;-1;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1e-300;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;CDO;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;0.9999;1;;;;;\nT5;NS-1;IR;;EUR;CDO;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;0.99991;1.0000000000001;;;;;\nT6;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;-0.0000001;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-RANGE",
+          2,
+          1,
+          "notional_amount"
+        ],
+        [
+          "CSV-RANGE",
+          3,
+          2,
+          "notional_amount"
+        ],
+        [
+          "CSV-RANGE",
+          6,
+          5,
+          "attachment_rate"
+        ],
+        [
+          "CSV-RANGE",
+          6,
+          5,
+          "detachment_rate"
+        ],
+        [
+          "CSV-RANGE",
+          7,
+          6,
+          "lambda_price"
+        ]
+      ]
+    },
+    {
+      "name": "integer-forms",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1.5;N;N;;0;0;0;0;;;;;\nNS-2;CPTY;Y;N;1e1;N;N;;0;0;0;0;;;;;\nNS-3;CPTY;Y;N;10000;N;N;;0;0;0;0;;;;;\nNS-4;CPTY;Y;N;10001;N;N;;0;0;0;0;;;;;\nNS-5;CPTY;Y;N;1;N;N;0;0;0;0;0;;;;;\nNS-6;CPTY;Y;N;-0;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          2,
+          1,
+          "remargin_period_business_days"
+        ],
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "remargin_period_business_days"
+        ],
+        [
+          "CSV-RANGE",
+          5,
+          4,
+          "remargin_period_business_days"
+        ],
+        [
+          "CSV-RANGE",
+          6,
+          5,
+          "mpor_override_business_days"
+        ]
+      ]
+    },
+    {
+      "name": "rule-above-compares-numbers",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;CDO;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;0.1;0.05;;;;;\nT2;NS-1;IR;;EUR;CDO;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;0.1;0.1;;;;;\nT3;NS-1;IR;;EUR;CDO;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;0.05;0.1;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ROW-RULE",
+          2,
+          1,
+          "detachment_rate"
+        ],
+        [
+          "CSV-ROW-RULE",
+          3,
+          2,
+          "detachment_rate"
+        ]
+      ]
+    },
+    {
+      "name": "dates",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT0;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2024-02-29;;;;;;;;;;;\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2100-02-29;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2000-02-29;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2031-04-31;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;0000-01-01;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2031-13-01;;;;;;;;;;;\nT6;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2031-00-10;;;;;;;;;;;\nT7;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2031-1-02;;;;;;;;;;;\nT8;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;1949-12-31;;;;;;;;;;;\nT9;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;1950-01-01;;;;;;;;;;;\nT10;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2200-12-31;;;;;;;;;;;\nT11;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;2201-01-01;;;;;;;;;;;\nT12;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;02/01/2031;;;;;;;;;;;\nT13;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;;47756;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          5,
+          4,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          6,
+          5,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          7,
+          6,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          8,
+          7,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          9,
+          8,
+          "maturity_date"
+        ],
+        [
+          "CSV-RANGE",
+          10,
+          9,
+          "maturity_date"
+        ],
+        [
+          "CSV-RANGE",
+          13,
+          12,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          14,
+          13,
+          "maturity_date"
+        ],
+        [
+          "CSV-TYPE",
+          15,
+          14,
+          "maturity_date"
+        ]
+      ]
+    },
+    {
+      "name": "rule-after-compares-dates",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;2031-01-02;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;2031-01-03;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;2030-12-31;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ROW-RULE",
+          2,
+          1,
+          "end_date"
+        ],
+        [
+          "CSV-ROW-RULE",
+          3,
+          2,
+          "end_date"
+        ]
+      ]
+    },
+    {
+      "name": "codes-and-currencies",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;option;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;eur;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EURO;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;\u00c9UR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;y;;;\nT6;NS-1; IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ALLOWED",
+          2,
+          1,
+          "instrument"
+        ],
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "notional_currency"
+        ],
+        [
+          "CSV-TYPE",
+          4,
+          3,
+          "notional_currency"
+        ],
+        [
+          "CSV-TYPE",
+          5,
+          4,
+          "notional_currency"
+        ],
+        [
+          "CSV-ALLOWED",
+          6,
+          5,
+          "mtm_leg"
+        ],
+        [
+          "CSV-TYPE",
+          7,
+          6,
+          "asset_class"
+        ]
+      ]
+    },
+    {
+      "name": "keys-ignore-case",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nns-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nTotal CRR;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\ncaf\u00e9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nCAF\u00c9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-DUPLICATE-KEY",
+          3,
+          2,
+          "netting_set_id"
+        ],
+        [
+          "CSV-RESERVED-KEY",
+          4,
+          3,
+          "netting_set_id"
+        ],
+        [
+          "CSV-DUPLICATE-KEY",
+          6,
+          5,
+          "netting_set_id"
+        ]
+      ]
+    },
+    {
+      "name": "required-blank",
+      "kind": "Trades",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\n;NS-1;IR;;;Linear;Long;;;;;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-REQUIRED",
+          2,
+          1,
+          "notional_amount"
+        ],
+        [
+          "CSV-REQUIRED",
+          2,
+          1,
+          "risk_factor"
+        ],
+        [
+          "CSV-REQUIRED",
+          2,
+          1,
+          "trade_id"
+        ]
+      ]
+    },
+    {
+      "name": "syntax-lone-cr",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\rNS-2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-SYNTAX",
+          2,
+          1,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "syntax-text-after-quote",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;\"Bank\" A;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-SYNTAX",
+          2,
+          1,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "syntax-quote-in-header",
+      "kind": "NettingSets",
+      "text": "net\"ting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-SYNTAX",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "syntax-after-good-records",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;\"open;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-SYNTAX",
+          3,
+          2,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "field-count",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-FIELD-COUNT",
+          2,
+          1,
+          ""
+        ],
+        [
+          "CSV-FIELD-COUNT",
+          3,
+          2,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "blank-records",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n\n;;;;;;;;;;;;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-BLANK-RECORD",
+          2,
+          1,
+          ""
+        ],
+        [
+          "CSV-BLANK-RECORD",
+          3,
+          2,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "header-only-no-line-end",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin",
+      "records": 0,
+      "findings": []
+    },
+    {
+      "name": "header-comma-delimiter",
+      "kind": "Trades",
+      "text": "trade_id,netting_set_id,asset_class,sub_class,risk_factor,instrument,direction,option_type,nature,hedging_set_label,notional_amount,notional_currency,market_value_amount,market_value_currency,start_date,end_date,maturity_date,option_expiry_date,underlying_price,strike_price,lambda_price,attachment_rate,detachment_rate,economic_trade_id,mtm_leg,settlement_type,next_reset_date,comment\r\nT1,NS-1,IR,,EUR,Linear,Long,,,,1000,EUR,0,,,2031-01-02,2031-01-02,,,,,,,,,,,\r\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-DELIMITER",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "header-tab-delimiter",
+      "kind": "NettingSets",
+      "text": "netting_set_id\tcounterparty\tmargined\tclearing_role\tremargin_period_business_days\tlarge_or_illiquid\tmargin_disputes\tmpor_override_business_days\tvariation_margin_net_amount\tindependent_collateral_net_amount\tthreshold_amount\tminimum_transfer_amount\talpha_factor\tregime_override\tmargin_agreements\tqccp\tccp_retains_variation_margin\nNS-1\tCPTY\tY\tN\t1\tN\tN\t\t0\t0\t0\t0\t\t\t\t\t\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-DELIMITER",
+          1,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "last-record-no-line-end",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "too-many-records",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-0;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-3;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "max_records": 3,
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TOO-MANY-RECORDS",
+          5,
+          4,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "too-many-records-and-syntax",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-0;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-3;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n\"open\n",
+      "max_records": 3,
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TOO-MANY-RECORDS",
+          5,
+          4,
+          ""
+        ],
+        [
+          "CSV-SYNTAX",
+          6,
+          5,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "too-large",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "max_bytes": 360,
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TOO-LARGE",
+          0,
+          0,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "not-too-large",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "max_bytes": 361,
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "quoted-field-dense-with-quotes",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\";Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"a\"\"\";Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 2,
+      "findings": []
+    },
+    {
+      "name": "quoted-field-dense-too-long",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\";Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-LENGTH",
+          2,
+          1,
+          "counterparty"
+        ]
+      ]
+    },
+    {
+      "name": "too-many-empty-lines",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;A;Y;N;1;N;N;;0;0;0;0;;;;;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "max_records": 3,
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TOO-MANY-RECORDS",
+          5,
+          4,
+          ""
+        ]
+      ]
+    }
+  ]
+}

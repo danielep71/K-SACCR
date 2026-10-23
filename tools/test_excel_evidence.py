@@ -489,7 +489,7 @@ class ExcelEvidenceTests(unittest.TestCase):
         shutil.copy(ROOT / "README.md", copy_root / "README.md")
         (copy_root / ".github").mkdir()
         policy = copy.deepcopy(self.policy)
-        policy["suites"][-1]["cases"] = 18
+        next(spec for spec in policy["suites"] if spec["entry_point"].startswith("TEST_Reconcile."))["cases"] = 18
         policy["suites"][0]["checks"]["64-bit"] = 81
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         problems = " ".join(evidence.policy_problems(copy_root))
@@ -561,8 +561,9 @@ class ExcelEvidenceTests(unittest.TestCase):
         checks = self.policy["assertions"] + sum(spec["checks"]["64-bit"] for spec in self.policy["suites"])
         reconcile = self.spec("TEST_Reconcile")
         rc, rk = reconcile["cases"], reconcile["checks"]["64-bit"]
+        n = 1 + len(self.policy["suites"])
         for old, new, message in (
-                ("Excel_suites-8%2F8_PASS", "Excel_suites-7%2F7_PASS", "Excel suites badge"),
+                (f"Excel_suites-{n}%2F{n}_PASS", f"Excel_suites-{n - 1}%2F{n - 1}_PASS", "Excel suites badge"),
                 (f"Regression-{cases}_cases", f"Regression-{cases - 1}_cases", "Regression badge"),
                 (f"| {rc} | {rk} |", f"| {rc - 1} | {rk - 3} |", "suite table rows differ"),
                 ("| `TEST_Formulas` |", "| `TEST_Formulas` | stale | 9 | 80 |\n| `TEST_Formulas` |",
@@ -572,14 +573,14 @@ class ExcelEvidenceTests(unittest.TestCase):
                 (f"| **{cases}** | **{checks}** |", f"| **{cases - 1}** | **{checks}** |", "suite table total"),
                 (f"TEST_Reconcile        cases={rc}; checks={rk}", f"TEST_Reconcile        cases={rc - 1}; checks={rk - 3}",
                  "Test_RunAll output differs"),
-                ("RESULT=PASS; suites=8; passed=8", "RESULT=PASS; suites=7; passed=7", "Test_RunAll result"),
+                (f"RESULT=PASS; suites={n}; passed={n}", f"RESULT=PASS; suites={n - 1}; passed={n - 1}", "Test_RunAll result"),
                 # A stale copy beside the corrected display contradicts it.
-                ("[![Excel suites]", "![stale](https://img.shields.io/badge/Excel_suites-7%2F7_PASS-2ea44f)\n"
+                ("[![Excel suites]", f"![stale](https://img.shields.io/badge/Excel_suites-{n - 1}%2F{n - 1}_PASS-2ea44f)\n"
                  "[![Excel suites]", "Excel suites badge"),
                 ("| **Total** |", f"| **Total** | | **{cases - 1}** | **{checks}** |\n| **Total** |", "suite table total"),
-                ("RESULT=PASS; suites=8", "RESULT=FAIL; suites=8; passed=7; failed=1; seconds=1\n"
-                 "RESULT=PASS; suites=8", "Test_RunAll result"),
-                ("Excel_suites-8%2F8_PASS", "Excel_suites-8%2F8_FAIL", "Excel suites badge"),
+                (f"RESULT=PASS; suites={n}", f"RESULT=FAIL; suites={n}; passed={n - 1}; failed=1; seconds=1\n"
+                 f"RESULT=PASS; suites={n}", "Test_RunAll result"),
+                (f"Excel_suites-{n}%2F{n}_PASS", f"Excel_suites-{n}%2F{n}_FAIL", "Excel suites badge"),
                 (f"Excel suites ({cases}", f"Excel suites (**{cases - 1}** cases, {checks} checks); also ({cases}",
                  "Testing capability"),
                 ("| `TEST_Formulas` |", "   | `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
