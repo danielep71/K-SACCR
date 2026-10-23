@@ -56,6 +56,9 @@ exposure figure, which are reported as issues.
 - **Workbook macros** read the input sheets, write the output sheets, show
   message boxes, and switch screen updating, events and calculation mode during
   a run, restoring them afterwards.
+- **CSV check** (`M_Main.CheckTradesCsv` and `CheckNettingSetsCsv`) reads the
+  file chosen in `Application.GetOpenFilename` up to the contract's 128 MiB
+  limit and writes nothing; the size is checked before the file is read.
 - **Export evidence** (`M_Main.ExportEvidence`) and **Export CSV template**
   (`M_Main.ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`) ask for
   a file name with `Application.GetSaveAsFilename` and write the evidence CSV

@@ -31,6 +31,10 @@ Attribute VB_Name = "M_Main"
 '   blank CSV template of the input contract to a file (#206);
 '   ExportCsvTemplate_Silent: the same to a given file, for automation and
 '   tests.
+'   CheckTradesCsv and CheckNettingSetsCsv: check a CSV file against the
+'   input contract and report the outcome, writing nothing (#207), from
+'   the Macros dialog; ReadCsv_Silent: the same for a given file, for
+'   automation and tests.
 '   The sheet buttons call the first three, ExportEvidence and the two
 '   template exports by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
@@ -39,8 +43,9 @@ Attribute VB_Name = "M_Main"
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
-'   evidence report and its UTF-8 encoding; CORE_Util and CORE_Config for
-'   the output sheets, the CSV template header lines and the error numbers.
+'   evidence report and its UTF-8 encoding; CORE_CsvReader for the CSV
+'   check; CORE_Util and CORE_Config for the output sheets, the CSV
+'   template header lines and the error numbers.
 '
 ' STATE OWNERSHIP
 '   Each operation captures calculation mode, events and screen updating,
@@ -110,6 +115,11 @@ Attribute VB_Name = "M_Main"
 
     'Title of every message box: the project name.
         Private Const MSG_TITLE     As String = "K-SACCR"
+
+    'Findings a CSV check lists in its message, and the characters of each
+    'finding's text, so that the message box stays readable.
+        Private Const CSV_MESSAGE_FINDINGS  As Long = 10
+        Private Const CSV_MESSAGE_WIDTH     As Long = 90
 
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
@@ -2304,6 +2314,213 @@ Private Function CsvTemplateFile( _
             Case "Trades"
                 CsvTemplateFile = CSV_TR_FILE
         End Select
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                 CSV CHECK
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub CheckTradesCsv()
+'
+'==============================================================================
+'                               CheckTradesCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check a Trades CSV file chosen by the user against the CSV input
+'   contract (#207) and report the outcome. Nothing is written to the
+'   workbook.
+'
+' USAGE
+'   Run from the Macros dialog (Alt+F8).
+'
+' ERROR POLICY
+'   As CheckCsvFile; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        CheckCsvFile "Trades"
+
+End Sub
+
+
+Public Sub CheckNettingSetsCsv()
+'
+'==============================================================================
+'                             CheckNettingSetsCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check a NettingSets CSV file chosen by the user against the CSV input
+'   contract (#207) and report the outcome. Nothing is written to the
+'   workbook.
+'
+' USAGE
+'   Run from the Macros dialog (Alt+F8).
+'
+' ERROR POLICY
+'   As CheckCsvFile; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+        CheckCsvFile "NettingSets"
+
+End Sub
+
+
+Public Function ReadCsv_Silent( _
+    ByVal Kind As String, _
+    ByVal FilePath As String) _
+    As String
+'
+'==============================================================================
+'                               ReadCsv_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The CSV check for automation and tests: read FilePath as a file of
+'   Kind ("Trades" or "NettingSets") without asking, and write nothing.
+'
+' RETURNS
+'   "RESULT=ACCEPTED; records=N; file=..." or
+'   "RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=...".
+'
+' ERROR POLICY
+'   An unknown kind and a file that cannot be read raise ERR_CSV_READ to
+'   the caller.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of an accepted file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        ReadCsvFile FilePath, Kind, Result, Values, Lines, Findings
+        If Result.Accepted Then
+            ReadCsv_Silent = "RESULT=ACCEPTED; records=" & Result.RecordCount & "; file=" & FilePath
+        Else
+            ReadCsv_Silent = "RESULT=REJECTED; findings=" & Result.FindingCount & _
+                             "; first=" & FindingText(Findings(1)) & "; file=" & FilePath
+        End If
+
+End Function
+
+
+Private Sub CheckCsvFile( _
+    ByVal Kind As String)
+'
+'==============================================================================
+'                                CheckCsvFile
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask for a CSV file, read it as a file of Kind and report whether it
+'   follows the contract: the number of records of an accepted file, or
+'   the number of findings and the first of them. A cancelled dialog does
+'   nothing; nothing is ever written to the workbook.
+'
+' ERROR POLICY
+'   Reports a file that cannot be read in a message, or in the Immediate
+'   window in silent mode; never raises.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of an accepted file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' ASK AND READ
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
+                                                 Title:="Check " & Kind & " CSV file")
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings
+        Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings), _
+               IIf(Result.Accepted, vbInformation, vbExclamation)
+        Exit Sub
+
+Failed:
+        Notify Kind & " CSV file not checked: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function CsvCheckMessage( _
+    ByVal FilePath As String, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding) _
+    As String
+'
+'==============================================================================
+'                               CsvCheckMessage
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The outcome of a CSV check for the user: an accepted file's record
+'   count, or a rejected file's findings, the first CSV_MESSAGE_FINDINGS of
+'   them with their line, record and column.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Text    As String    'The message
+    Dim f       As Long      'Finding counter
+
+'------------------------------------------------------------------------------
+' COMPOSE
+'------------------------------------------------------------------------------
+        If Result.Accepted Then
+            CsvCheckMessage = FilePath & vbLf & vbLf & "The file follows the " & Result.Kind & _
+                              " CSV contract: " & Result.RecordCount & " records." & vbLf & _
+                              "It was only checked: nothing was written to the workbook."
+            Exit Function
+        End If
+        Text = FilePath & vbLf & vbLf & "The file does not follow the " & Result.Kind & _
+               " CSV contract: " & Result.FindingCount & IIf(Result.FindingCount = 1, " finding.", " findings.") & vbLf
+        For f = 1 To Result.FindingCount
+            If f > CSV_MESSAGE_FINDINGS Then
+                Text = Text & vbLf & "... and " & (Result.FindingCount - CSV_MESSAGE_FINDINGS) & " more."
+                Exit For
+            End If
+            With Findings(f)
+                Text = Text & vbLf & "Line " & .LineNumber & ", record " & .RecordNumber & _
+                       IIf(Len(.ColumnName) > 0, ", " & .ColumnName, "") & ": " & .Code & ": " & _
+                       Left$(.Message, CSV_MESSAGE_WIDTH)
+            End With
+        Next f
+        CsvCheckMessage = Text & vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
 
 End Function
 

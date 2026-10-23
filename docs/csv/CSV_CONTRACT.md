@@ -275,7 +275,11 @@ checks numbers as text and converts them with `Val`, which always reads a
 `.` decimal point, and checks dates digit by digit, so the outcome does not
 depend on the Windows locale. It writes nothing: a file is accepted or
 rejected whole, and an accepted file's records are returned as their raw
-text, in contract column order, for the staging sheets (#208).
+text, in contract column order, for the staging sheets (#208). Until they
+exist, the macros `CheckTradesCsv` and `CheckNettingSetsCsv` (Macros dialog,
+Alt+F8) check a file and list its first findings with their line, record and
+column, and `TEST_Benchmark.RunCsvBenchmark` measures the reader on files of
+up to the record limit.
 
 `tools/generate_csv_vba.py` writes the contract into `CORE_CsvSchema` and
 every fixture and case into the test suite `TEST_CsvReader`, which expects
