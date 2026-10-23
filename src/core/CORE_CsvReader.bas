@@ -304,7 +304,10 @@ Public Sub ReadCsvBytes( _
 '------------------------------------------------------------------------------
 ' RECORDS AND HEADER
 '------------------------------------------------------------------------------
-        ParseRecords Text, RecordFields, RecordLines, RecordTotal, SyntaxLine, SyntaxMessage
+    'The header and one record past the limit are all a rejected file needs:
+    'the parser counts the others without keeping them.
+        Limit = IIf(MaxRecords > 0, MaxRecords, Spec.MaxRecords)
+        ParseRecords Text, Limit + 2, RecordFields, RecordLines, RecordTotal, SyntaxLine, SyntaxMessage
         If RecordTotal = 0 Then
             If SyntaxLine > 0 Then
                 AddFinding Result, Findings, CSV_SYNTAX, SyntaxLine, 0, "", SyntaxMessage
@@ -319,7 +322,6 @@ Public Sub ReadCsvBytes( _
         If SyntaxLine > 0 Then
             AddFinding Result, Findings, CSV_SYNTAX, SyntaxLine, RecordTotal, "", SyntaxMessage
         End If
-        Limit = IIf(MaxRecords > 0, MaxRecords, Spec.MaxRecords)
         If RecordTotal - 1 > Limit Then
             AddFinding Result, Findings, CSV_TOO_MANY_RECORDS, RecordLines(Limit + 2), Limit + 1, "", _
                        (RecordTotal - 1) & " records, at most " & Limit
@@ -528,6 +530,7 @@ End Function
 
 Private Sub ParseRecords( _
     ByRef Text As String, _
+    ByVal MaxKept As Long, _
     ByRef RecordFields() As Variant, _
     ByRef RecordLines() As Long, _
     ByRef RecordTotal As Long, _
@@ -544,15 +547,22 @@ Private Sub ParseRecords( _
 '   an unquoted field, text after a closing quote, a carriage return that
 '   does not end a line, or a quoted field still open at the end.
 '
+' INPUTS
+'   MaxKept: the records kept, the header included; later records are
+'   parsed and counted but not kept, so that a file of many short records
+'   cannot exhaust memory before its record limit is reported.
+'
 ' RETURNS
-'   RecordFields(1 To RecordTotal), each a String array from 0, and the
-'   physical line each record starts on; SyntaxLine and SyntaxMessage for
-'   a syntax error, SyntaxLine 0 when there is none.
+'   RecordTotal, the records parsed; RecordFields(1 To the smaller of
+'   RecordTotal and MaxKept), each a String array from 0, and the physical
+'   line each kept record starts on; SyntaxLine and SyntaxMessage for a
+'   syntax error, SyntaxLine 0 when there is none.
 '
 ' METHOD
 '   Each delimiter's next position is found with InStr and kept until the
 '   parser passes it, so the text is scanned once per delimiter however
-'   far apart they are.
+'   far apart they are. A quoted field is taken whole once its closing
+'   quote is found, its doubled quotes replaced in one pass.
 '
 ' UPDATED
 '   2026-10-23
@@ -572,6 +582,7 @@ Private Sub ParseRecords( _
     Dim NextLineFeed    As Long         'Next line feed
     Dim NextReturn      As Long         'Next carriage return
     Dim CloseAt         As Long         'Closing quote of a quoted field
+    Dim FieldStart      As Long         'First character inside a quoted field
     Dim StopAt          As Long         'End of an unquoted field
     Dim Value           As String       'The field being read
     Dim Fields()        As String       'Fields of the record being read
@@ -597,7 +608,7 @@ Private Sub ParseRecords( _
                     'A quoted field, up to the quote that is not doubled.
                     QuoteLine = CurrentLine
                     Position = Position + 1
-                    Value = vbNullString
+                    FieldStart = Position
                     Do
                         CloseAt = NextOf(Text, """", Position, NextQuote)
                         If CloseAt = 0 Then
@@ -605,16 +616,15 @@ Private Sub ParseRecords( _
                             SyntaxMessage = "quoted field opened on line " & QuoteLine & " is not closed"
                             Exit Sub
                         End If
-                        Value = Value & Mid$(Text, Position, CloseAt - Position)
                         CurrentLine = CurrentLine + LineFeedsBetween(Text, Position, CloseAt - 1, NextLineFeed)
                         If Mid$(Text, CloseAt + 1, 1) = """" Then
-                            Value = Value & """"
                             Position = CloseAt + 2
                         Else
                             Position = CloseAt + 1
                             Exit Do
                         End If
                     Loop
+                    Value = Replace(Mid$(Text, FieldStart, CloseAt - FieldStart), """""", """", 1, -1, vbBinaryCompare)
                     Following = Mid$(Text, Position, 1)
                     If Len(Following) > 0 And Following <> CSV_DELIMITER And LineEndLength(Text, Position) = 0 Then
                         SyntaxLine = StartLine
@@ -659,7 +669,7 @@ Private Sub ParseRecords( _
             If Ending > 0 Then
                 CurrentLine = CurrentLine + 1
             End If
-            AddRecord RecordFields, RecordLines, RecordTotal, Fields, FieldCount, StartLine
+            AddRecord RecordFields, RecordLines, RecordTotal, MaxKept, Fields, FieldCount, StartLine
         Loop
 
 End Sub
@@ -767,13 +777,15 @@ Private Sub AddRecord( _
     ByRef RecordFields() As Variant, _
     ByRef RecordLines() As Long, _
     ByRef RecordTotal As Long, _
+    ByVal MaxKept As Long, _
     ByRef Fields() As String, _
     ByVal FieldCount As Long, _
     ByVal StartLine As Long)
 '
 '==============================================================================
 ' PURPOSE
-'   Append a record of FieldCount fields, doubling the arrays when full.
+'   Count a record of FieldCount fields and keep it while fewer than
+'   MaxKept are kept, doubling the arrays when full.
 '==============================================================================
 '
 
@@ -787,6 +799,9 @@ Private Sub AddRecord( _
 ' APPEND
 '------------------------------------------------------------------------------
         RecordTotal = RecordTotal + 1
+        If RecordTotal > MaxKept Then
+            Exit Sub
+        End If
         If RecordTotal > UBound(RecordLines) Then
             ReDim Preserve RecordFields(1 To 2 * UBound(RecordLines))
             ReDim Preserve RecordLines(1 To 2 * UBound(RecordLines))

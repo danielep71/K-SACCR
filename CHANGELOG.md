@@ -125,7 +125,7 @@ Use only the categories needed by a release.
   at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
   the contract into `CORE_CsvSchema` and the fixtures and the new inline
   cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`
-  (84 cases, 180 checks), which expects exactly the findings of the
+  (87 cases, 187 checks), which expects exactly the findings of the
   reference implementation; `Test_RunAll` runs nine suites.
 
 ### Changed

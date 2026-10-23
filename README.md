@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-9%2F9_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-373_cases_%C2%B7_1481_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-376_cases_%C2%B7_1488_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -143,7 +143,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Nine Excel suites (373 cases, 1481 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Nine Excel suites (376 cases, 1488 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -253,17 +253,17 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-23 15:45:00
+SACCR TEST SUMMARY 2026-10-23 19:54:34
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (18,6 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (4,8 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (20,6 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,0 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (10,0 s)
-  PASS  TEST_CsvReader        cases=84; checks=180; failures=0  (0,0 s)
-RESULT=PASS; suites=9; passed=9; failed=0; seconds=58,6
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (18,7 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (4,6 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (20,3 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,6 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,1 s)
+  PASS  TEST_CsvReader        cases=87; checks=187; failures=0  (0,0 s)
+RESULT=PASS; suites=9; passed=9; failed=0; seconds=56,8
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -537,8 +537,8 @@ required; the project has no separate reviewer.
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 84 | 180 |
-| **Total** | | **373** | **1481** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 87 | 187 |
+| **Total** | | **376** | **1488** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
