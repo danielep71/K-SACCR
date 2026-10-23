@@ -11,8 +11,9 @@ tables below are generated from it, and
 [`tools/csv_contract.py`](../../tools/csv_contract.py) implements it as the
 reference against which the importer is tested. The
 `check_csv_contract` gate keeps the contract, the engine's expected headers,
-the template's validation lists, the blank templates, this document's tables
-and the [test fixtures](../../tests/csv/) consistent.
+the template's validation lists, the blank templates, the header lines the
+workbook exports, this document's tables and the
+[test fixtures](../../tests/csv/) consistent.
 
 ## 📄 Files and templates
 
@@ -25,6 +26,11 @@ A template is the header record alone. Each CSV column maps to exactly one
 column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
+
+In the workbook, the **Export CSV template** button on `Trades` and on
+`NettingSets` writes the same file, byte for byte, to a file the user
+chooses. The macros take the header line from constants in `CORE_Config`,
+which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An
 economic trade with several risk drivers has one record per leg, all with the

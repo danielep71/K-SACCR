@@ -19,7 +19,10 @@ Attribute VB_Name = "TEST_Reconcile"
 '   the bank figures or an output cell changed after the run or a
 '   recalculation is pending, and leaves an older report as it was when
 '   writing or replacing it fails (#312). A failed reconciliation keeps
-'   its cause in the run message and the summary (#318).
+'   its cause in the run message and the summary (#318). The blank CSV
+'   templates (M_Main.ExportCsvTemplate_Silent) are the header line and a
+'   line feed, byte for byte, and are written through the same
+'   replacement (#206).
 '
 ' PUBLIC SURFACE
 '   RunReconcileTests is the entry point. Option Private Module keeps it out
@@ -31,15 +34,17 @@ Attribute VB_Name = "TEST_Reconcile"
 '   M_Main, with its test seams gTestFault and gLastMessage, for the
 '   workbook and export cases, which need a workbook built from the
 '   template with the full source and its demonstration inputs; CORE_Util
-'   and CORE_Config for sheet access and the column layout; TEST_Suite.Say
-'   for the log lines. Every figure is synthetic.
+'   and CORE_Config for sheet access, the column layout and the CSV
+'   template header lines; TEST_Suite.Say for the log lines. Every figure
+'   is synthetic.
 '
 ' WORKSHEET SAFETY
 '   The workbook cases write bank figures on BankNettingSets and
 '   BankTrades, run the macros, which rewrite every output sheet, and put
 '   the bank tables and settings back, also after an unexpected error. The
-'   export cases write three files to the TEMP folder
-'   (K-SACCR_evidence_test_a.csv, _b.csv and _c.csv) and delete them;
+'   export cases write files to the TEMP folder
+'   (K-SACCR_evidence_test_a.csv, _b.csv and _c.csv, and
+'   K-SACCR_template_test_NettingSets.csv and _Trades.csv) and delete them;
 '   export.workbook also edits an input, a bank cell and an output cell and
 '   adds a currency below the FX table, and puts them back. They leave the
 '   outputs of a normal run. Use a development workbook.
@@ -61,7 +66,7 @@ Attribute VB_Name = "TEST_Reconcile"
 '   with RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-10-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -77,8 +82,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 20              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 162              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 21              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 180              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -152,6 +157,7 @@ Public Sub RunReconcileTests()
         CaseExportFields
         CaseExportWorkbook
         CaseExportReplaceFailure
+        CaseExportCsvTemplates
 
         Application.Calculation = CallerCalculation
         M_Main.gSilent = CallerSilent
@@ -1487,6 +1493,95 @@ Unexpected:
         M_Main.gTestFault = ""
         On Error Resume Next
         SetAttr TargetFile, vbNormal
+        RemoveFile TargetFile
+
+End Sub
+
+
+Private Sub CaseExportCsvTemplates()
+'
+'==============================================================================
+' PURPOSE
+'   The blank CSV templates of the input contract (#206): each export
+'   writes the header line and a line feed, byte for byte, replaces an
+'   older file, and leaves the older file as it was, with no file beside
+'   it, when the write fails. An unknown kind is refused and writes
+'   nothing.
+'
+' UPDATED
+'   2026-10-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim TempFolder    As String     'Folder for the test files
+    Dim TargetFile    As String     'The template's file
+    Dim OlderText     As String     'Content of the older file
+    Dim Expected      As String     'The template's bytes, one character each
+    Dim ResultLine    As String     'Result line
+    Dim Kinds         As Variant    'Template kinds
+    Dim Kind          As Variant    'One of them
+    Dim ErrorNumber   As Long       'Error raised by the export
+    Dim FileNumber    As Integer    'File number of the older file
+
+'------------------------------------------------------------------------------
+' EXPORT EACH TEMPLATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "export.csv-templates"
+        M_Main.gSilent = True
+        TempFolder = Environ$("TEMP")
+        If Len(TempFolder) = 0 Then
+            TempFolder = ThisWorkbook.Path
+        End If
+        Kinds = Array("NettingSets", "Trades")
+        For Each Kind In Kinds
+            TargetFile = TempFolder & Application.PathSeparator & "K-SACCR_template_test_" & Kind & ".csv"
+            Expected = IIf(Kind = "NettingSets", CSV_NS_HEADER, CSV_TR_HEADER) & vbLf
+            RemoveFile TargetFile
+            OlderText = "An older file" & vbCrLf
+            FileNumber = FreeFile
+            Open TargetFile For Output As #FileNumber
+            Print #FileNumber, "An older file"
+            Close #FileNumber
+
+            M_Main.gTestFault = "evidence-write"
+            ErrorNumber = 0
+            On Error Resume Next
+            ResultLine = M_Main.ExportCsvTemplate_Silent(CStr(Kind), TargetFile)
+            ErrorNumber = Err.Number
+            On Error GoTo Unexpected
+            M_Main.gTestFault = ""
+            Check ErrorNumber = ERR_INJECTED_FAULT, Kind & " with a failure: error " & ErrorNumber
+            Check FileText(TargetFile) = OlderText, Kind & " with a failure: the older file changed"
+            Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & " with a failure: a file was left beside it"
+
+            ResultLine = M_Main.ExportCsvTemplate_Silent(CStr(Kind), TargetFile)
+            Check ResultLine = "RESULT=OK; file=" & TargetFile, Kind & ": " & ResultLine
+            Check FileText(TargetFile) = Expected, Kind & ": the file is not the header line and a line feed"
+            ResultLine = M_Main.ExportCsvTemplate_Silent(CStr(Kind), TargetFile)
+            Check Left$(ResultLine, 9) = "RESULT=OK", Kind & " exported again: " & ResultLine
+            Check FileText(TargetFile) = Expected, Kind & " exported again: the file changed"
+            Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & ": a file was left beside the template"
+            RemoveFile TargetFile
+        Next Kind
+
+'------------------------------------------------------------------------------
+' REFUSE AN UNKNOWN KIND
+'------------------------------------------------------------------------------
+        TargetFile = TempFolder & Application.PathSeparator & "K-SACCR_template_test_Other.csv"
+        RemoveFile TargetFile
+        ResultLine = M_Main.ExportCsvTemplate_Silent("Other", TargetFile)
+        Check Left$(ResultLine, 14) = "RESULT=REFUSED", "unknown kind: " & ResultLine
+        Check Len(Dir$(TargetFile, vbHidden Or vbSystem)) = 0, "unknown kind: a file was written"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
+        On Error Resume Next
         RemoveFile TargetFile
 
 End Sub

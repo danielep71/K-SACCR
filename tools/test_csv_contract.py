@@ -204,6 +204,17 @@ class GateTests(unittest.TestCase):
         self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"][1].update(name="counterparty_name"))
         self.assertTrue(any("is not what the contract generates" in f for f in gate.run_check(self.root)["findings"]))
 
+    def test_export_constants_must_match_the_contract(self) -> None:
+        config = self.root / gate.CONFIG
+        text = config.read_bytes()
+        config.write_bytes(text.replace(b'"K-SACCR_Trades_v1.csv"', b'"K-SACCR_Trades.csv"')
+                           .replace(b'"trade_id,netting_set_id,', b'"netting_set_id,trade_id,'))
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn(f"Trades: CSV_TR_FILE in {gate.CONFIG} differs from the template name K-SACCR_Trades_v1.csv",
+                      findings)
+        self.assertIn(f"Trades: CSV_TR_HEADER in {gate.CONFIG} differs from the contract's header line", findings)
+        self.assertFalse(any(f.startswith("NettingSets: CSV_") for f in findings))
+
     def test_fixture_outcomes_are_pinned(self) -> None:
         (self.root / gate.FIXTURES / "valid/extra.csv").write_text(NS_HEADER + "\n", encoding="utf-8")
         self.assertIn(f"{gate.FIXTURES}/valid/extra.csv: no entry in {gate.EXPECTED}",
