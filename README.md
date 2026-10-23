@@ -144,7 +144,7 @@ inspected. This toolkit is the opposite:
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
 | Testing | Eight Excel suites (288 cases, 1283 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
-| Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the owner's 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
+| Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
 supported, what the user must enter in a given form, and what is out of scope.
@@ -511,7 +511,7 @@ them in the workbook.
 
 There are no `independent` values yet: they can come only from an external
 implementation registered as a source (#100). No independent review is
-required; the project has one maintainer, who also wrote the code under test.
+required; the project has no separate reviewer.
 
 ## Published CRE99 examples
 
@@ -636,7 +636,7 @@ and the VBA references are listed in `INSTALLATION.md`.
   set, the 1904 date system, default-fund contributions to a CCP (#400), and
   the simplified SA-CCR, OEM, SFT, CVA and RWA calculations.
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
-  owner's host, but the Trades dropdowns and validation cover rows 5 to 5,000
+  supported host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
   ([portfolio size](INSTALLATION.md#portfolio-size), #291).
 - **Windows desktop Excel only.**

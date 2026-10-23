@@ -97,7 +97,7 @@ with the [record template](docs/EXCEL_EVIDENCE.md#record-template) of
   They come from published regulatory examples, from an external
   implementation registered as a source, or, as `illustrative` values, from a
   derivation separate from the code under test. No independent reviewer is
-  required: the project has one maintainer
+  required: the project has no separate reviewer
   ([test-case policy](docs/methodology/TEST_CASES.md#reference-classes)).
 
 ## 📚 Where detailed rules live

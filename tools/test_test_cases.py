@@ -431,7 +431,7 @@ class TestCaseValidatorTests(unittest.TestCase):
                             encoding="utf-8")
 
     def test_independent_value_needs_no_reviewer(self) -> None:
-        # The project has one maintainer and no reviewer (CLEARING_COVERAGE
+        # The project has no separate reviewer (CLEARING_COVERAGE
         # decision 8): an independent value names the external
         # implementation that produced it, and reviewed_by may be null.
         self.register_implementation()
@@ -443,12 +443,12 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertEqual([f for f in self.findings() if "reference" in f or "independent" in f], [])
 
     def test_independent_value_needs_an_external_implementation(self) -> None:
-        # A value the maintainer derived from a regulation is illustrative,
+        # A value derived within the project from a regulation is illustrative,
         # whatever derived_by says; an implementation prints no published value.
         self.register_implementation()
         self.expected["outputs"][0]["reference"] = dict(PUBLISHED, **{"class": "independent",
                                                                      "source": "CRR",
-                                                                     "derived_by": "Maintainer script"})
+                                                                     "derived_by": "Project script"})
         self.expected["outputs"][1]["reference"] = dict(PUBLISHED, source="IMPL-R-SACCR")
         findings = self.findings()
         self.assertFinding("an independent reference needs an external implementation source (IMPL-), "

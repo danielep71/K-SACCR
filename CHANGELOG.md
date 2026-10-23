@@ -106,6 +106,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe measurements, screenshots, sources and test derivations without
+  referring to the author in the third person: descriptive text no longer
+  names "the owner" or "the maintainer", and the expected-value notes of the
+  illustrative cases say "derived within the project". Process rules that
+  name the owner's role are unchanged.
 - Record the owner-authorized retirement of historical branches `release/1.0.1`
   and `release/1.0.2`, preserving all commits in `main`, published tags and
   release artifacts, and retaining `traffic-history` for automation.

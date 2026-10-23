@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRE54",
         "locator": "CRE54.12 (5 business days for the clearing member facing its client); CRE52.50(2) (F + N - 1)",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.18",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -56,7 +56,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.40",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -75,7 +75,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.65-.68, with the maturity factor of CRE52.52",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -94,7 +94,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.23",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -113,7 +113,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.1, CRE52.2",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -127,7 +127,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.2",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
@@ -141,7 +141,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.1",
-        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/clearing_listed.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-18"
