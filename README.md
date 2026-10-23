@@ -560,7 +560,7 @@ Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
 </details>
 
 `python tools/check.py` runs the [static gates](tools/README.md) locally and
-in CI. Static checks never stand in for Excel evidence; the
+in CI, where Ruff, mypy and actionlint run as well. Static checks never stand in for Excel evidence; the
 [Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
 suite by suite, and `tools/check_excel_evidence.py` validates a record against
 the exact commit it claims.
@@ -667,8 +667,8 @@ and risk-weighted assets.
 | v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
-| v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330) and worksheet navigation sidebar (#329) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165) |
+| v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), worksheet navigation sidebar (#329) and a Restore Parameter Defaults command (#357) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |

@@ -11,6 +11,8 @@ component lives is owned by
 by [`INSTALLATION.md`](../INSTALLATION.md#importing-vba-into-excel). It adapts
 `docs/VBA_HOUSE_STYLE.md` from EXCEL-VBA-PROJECT-TEMPLATE.
 
+<a id="naming"></a>
+
 ## 🏷️ Naming
 
 The VBE lists all components in one flat project, so component names carry

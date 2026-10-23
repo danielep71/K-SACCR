@@ -89,12 +89,16 @@ fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
 | T27 | `illustrative-climatic-commodity.crr` | `hedging_set` (CL-1) | `CO\|CLIMATIC\|STD` | illustrative |
 | T28 | `illustrative-credit-quality-step.crr` | `supervisory_factor` (B03) | 0.0042 | illustrative |
 
-The expected files with no catalogue ID, `illustrative-ir-sum-of-absolutes.bcbs`,
-`illustrative-ir-swap-unmargined.bcbs`, `illustrative-ir-swap-unmargined.crr`
-and `illustrative-partly-rejected.crr`, are additional illustrative cases.
-They do not come from the catalogue: each expected file records its own
-derivation, a hand calculation, a format example or the engine behaviour it
-checks.
+The 17 expected files with no catalogue ID are additional illustrative cases
+that do not come from the catalogue; each records its own derivation:
+
+- `illustrative-ir-sum-of-absolutes.bcbs`, `illustrative-ir-swap-unmargined.bcbs`,
+  `illustrative-ir-swap-unmargined.crr` and `illustrative-partly-rejected.crr`:
+  a hand calculation, a format example or the engine behaviour it checks;
+- the five CCP files `illustrative-ccp-*`, the four client-clearing files
+  `illustrative-clearing-*` and the four settled-to-market files
+  `illustrative-settled-to-market-*`: the scripts in
+  [`derivations/`](derivations/), which share no code with the engine.
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
@@ -102,8 +106,8 @@ on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,
 and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
 `DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
-values came from a Python implementation that is not in the repository or from
-hand calculations, and stay illustrative unless an external implementation
+values came from a Python implementation that is not in the repository, from
+hand calculations or from the scripts in `derivations/`, and stay illustrative unless an external implementation
 registered as a source reproduces them (#100). The values and tolerances of
 T15 to T28 are the catalogue's, except T16, revised in #39 (#130) to the cap
 with C = NICA only.

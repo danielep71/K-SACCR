@@ -39,7 +39,7 @@
     <text x="1036" y="246" font-size="18" fill="#2b3a4d">Trade exposures to a CCP are measured with the</text>
     <text x="1036" y="272" font-size="18" fill="#2b3a4d">Chapter 6 methods (Art. 301–311)</text>
     <text x="1036" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
-    <text x="1036" y="334" font-size="16" fill="#4a5a70">K-SACCR: planned in v1.0.2</text>
+    <text x="1036" y="334" font-size="16" fill="#4a5a70">K-SACCR: trade exposures since v1.0.2; default fund v1.10.0</text>
   </g>
   <!-- 3 Large exposures -->
   <g>

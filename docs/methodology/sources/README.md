@@ -52,8 +52,11 @@ the simplified methods), 281 (simplified SA-CCR) and 282 (original exposure
 method) are in the extract as context only; K-SACCR does not implement them.
 The second extract holds the definitions of Article 4(1)(88)–(91) and Section 9
 on exposures to central counterparties, which the
-[clearing coverage](../CLEARING_COVERAGE.md) relies on; K-SACCR calculates
-nothing from them yet. The consolidated text itself has no legal effect, as its
+[clearing coverage](../CLEARING_COVERAGE.md) relies on. K-SACCR applies
+Article 304(3)(b) and (d), the 10-day MPOR floor and the retained variation
+margin of a clearing member's trade exposure to a CCP, and Article 305(4), which
+rejects a multi-level client structure; it states the risk weight of Article
+306(1) without applying it. The consolidated text itself has no legal effect, as its
 first page states.
 
 BCBS 279 (2014) is the original SA-CCR standard, now part of the consolidated
