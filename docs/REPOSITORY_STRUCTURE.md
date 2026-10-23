@@ -48,6 +48,7 @@ label catalogue; this document makes it the architecture decision as well.
 docs/               contracts, architecture, governance, evidence record
   index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
   assets/           images and diagrams of the documentation, with their sources
+  csv/              CSV input contract, its specification and blank templates
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
   user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/)
@@ -59,6 +60,7 @@ tests/              verification source and test data
   modules/          harness, case runner, suites and Test_RunAll
   fixtures/         synthetic case inputs
   expected/         expected results with their reference class
+  csv/              synthetic CSV input files and their expected findings
 tools/              static checks, case generator, VBA synchronizer and
                     exporter, Excel evidence validator
 ```
@@ -109,6 +111,7 @@ documents govern.
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
 | `tests/derivations/` | Separate implementations that compute expected values, cited in their `derivation` |
+| `tests/csv/` | Synthetic CSV input files and their expected findings under the [CSV contract](csv/CSV_CONTRACT.md) |
 | `examples/modules/` | Example modules calling the public facade; created with the first example |
 
 `tools/check_source.py` enforces the placement rules below on every run of

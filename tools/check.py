@@ -30,7 +30,8 @@ def main() -> int:
                  "check_vba_public_api"):
         commands.append((name + "-fixtures", [sys.executable, f"tools/{name}.py", "--self-test"]))
     for name in ("check_source", "check_committed_whitespace", "check_vba_jumps",
-                 "check_vba_conditionals", "check_vba_public_api", "check_test_cases"):
+                 "check_vba_conditionals", "check_vba_public_api", "check_test_cases",
+                 "check_csv_contract"):
         command = [sys.executable, f"tools/{name}.py", "--root", str(root),
                    "--output", str(output / f"{name}.json")]
         if name == "check_committed_whitespace":

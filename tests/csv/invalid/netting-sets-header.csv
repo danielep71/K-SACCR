@@ -1,0 +1,2 @@
+netting_set_id,counterparty,margined,clearing_role,remargin_period_business_days,large_or_illiquid,margin_disputes,mpor_override_business_days,variation_margin_net_amount,independent_collateral_net_amount,threshold_amount,minimum_transfer_amount,alpha_factor,regime_override,margin_agreements,qccp,qccp,cpty_rating
+NS-001,A,Y,N,1,N,N,,0,0,0,0,,,,,,

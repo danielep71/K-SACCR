@@ -1,0 +1,113 @@
+{
+  "description": "Expected outcome of each CSV fixture under docs/csv/contract.json: the kind of file and every finding as [code, line, record, column]; a valid fixture has none.",
+  "fixtures": {
+    "invalid/netting-sets-fields.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-RANGE", 2, 1, "alpha_factor"],
+        ["CSV-ALLOWED", 2, 1, "clearing_role"],
+        ["CSV-FORMULA", 2, 1, "counterparty"],
+        ["CSV-TYPE", 2, 1, "independent_collateral_net_amount"],
+        ["CSV-ALLOWED", 2, 1, "margined"],
+        ["CSV-RANGE", 2, 1, "mpor_override_business_days"],
+        ["CSV-ALLOWED", 2, 1, "regime_override"],
+        ["CSV-TYPE", 2, 1, "remargin_period_business_days"],
+        ["CSV-RANGE", 2, 1, "threshold_amount"],
+        ["CSV-TYPE", 2, 1, "variation_margin_net_amount"],
+        ["CSV-ALLOWED", 3, 2, "margin_agreements"],
+        ["CSV-TYPE", 3, 2, "netting_set_id"],
+        ["CSV-RANGE", 3, 2, "remargin_period_business_days"],
+        ["CSV-TYPE", 3, 2, "variation_margin_net_amount"],
+        ["CSV-TYPE", 4, 3, "netting_set_id"]
+      ]
+    },
+    "invalid/netting-sets-header.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-HEADER-DUPLICATE", 1, 0, "qccp"],
+        ["CSV-HEADER-UNKNOWN", 1, 0, "cpty_rating"],
+        ["CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"]
+      ]
+    },
+    "invalid/netting-sets-keys-and-rules.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-ROW-RULE", 2, 1, "ccp_retains_variation_margin"],
+        ["CSV-ROW-RULE", 2, 1, "qccp"],
+        ["CSV-ROW-RULE", 3, 2, "ccp_retains_variation_margin"],
+        ["CSV-ROW-RULE", 3, 2, "qccp"],
+        ["CSV-DUPLICATE-KEY", 4, 3, "netting_set_id"],
+        ["CSV-RESERVED-KEY", 5, 4, "netting_set_id"],
+        ["CSV-REQUIRED", 6, 5, "netting_set_id"]
+      ]
+    },
+    "invalid/netting-sets-quote-in-field.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-SYNTAX", 2, 1, ""]
+      ]
+    },
+    "invalid/netting-sets-records.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-FIELD-COUNT", 2, 1, ""],
+        ["CSV-BLANK-RECORD", 3, 2, ""],
+        ["CSV-BLANK-RECORD", 4, 3, ""]
+      ]
+    },
+    "invalid/netting-sets-unclosed-quote.csv": {
+      "kind": "NettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-SYNTAX", 2, 1, ""]
+      ]
+    },
+    "invalid/trades-fields-and-rules.csv": {
+      "kind": "Trades",
+      "records": 0,
+      "findings": [
+        ["CSV-RANGE", 2, 1, "attachment_rate"],
+        ["CSV-ROW-RULE", 2, 1, "end_date"],
+        ["CSV-RANGE", 2, 1, "lambda_price"],
+        ["CSV-TYPE", 2, 1, "maturity_date"],
+        ["CSV-RANGE", 2, 1, "notional_amount"],
+        ["CSV-TYPE", 2, 1, "option_expiry_date"],
+        ["CSV-ALLOWED", 3, 2, "asset_class"],
+        ["CSV-REQUIRED", 3, 2, "direction"],
+        ["CSV-ALLOWED", 3, 2, "instrument"],
+        ["CSV-REQUIRED", 3, 2, "market_value_amount"],
+        ["CSV-ALLOWED", 3, 2, "mtm_leg"],
+        ["CSV-TYPE", 3, 2, "notional_currency"],
+        ["CSV-ROW-RULE", 4, 3, "next_reset_date"],
+        ["CSV-ROW-RULE", 5, 4, "next_reset_date"],
+        ["CSV-FORMULA", 6, 5, "comment"],
+        ["CSV-DUPLICATE-KEY", 6, 5, "trade_id"]
+      ]
+    },
+    "valid/netting-sets-reordered.csv": {
+      "kind": "NettingSets",
+      "records": 2,
+      "findings": []
+    },
+    "valid/netting-sets.csv": {
+      "kind": "NettingSets",
+      "records": 8,
+      "findings": []
+    },
+    "valid/trades-header-only.csv": {
+      "kind": "Trades",
+      "records": 0,
+      "findings": []
+    },
+    "valid/trades.csv": {
+      "kind": "Trades",
+      "records": 9,
+      "findings": []
+    }
+  }
+}
