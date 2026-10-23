@@ -106,6 +106,10 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Count the release website as updated only once its change is integrated
+  into `main` and the Pages deployment shows the new release, and add the
+  README roadmap section of the current milestone to the places updated when
+  a new release branch is created (#434).
 - Correct the references of illustrative expected values: the MPOR outputs of
   the CCP cases cite `CRR-CCP` and `CRE54`, the CCP articles' own sources; the
   Basel commodity add-on cites CRE52.69, CRE52.70 and CRE52.72 instead of the
