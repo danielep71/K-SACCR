@@ -15,8 +15,8 @@ how VBA is written by [`VBA_HOUSE_STYLE.md`](VBA_HOUSE_STYLE.md).
 
 ## 🧭 Profile decision
 
-**K-SACCR uses the `application` profile.** Decided by the owner on 2026-10-06
-in issue #3.
+**K-SACCR uses the `application` profile.** Decided on 2026-10-06 in
+issue #3.
 
 | Question | Answer for K-SACCR |
 | --- | --- |

@@ -58,7 +58,7 @@ first page states.
 
 BCBS 279 (2014) is the original SA-CCR standard, now part of the consolidated
 Basel Framework; its Annex 4a prints the same worked examples as CRE99. The
-copy was supplied by the owner from the BIS publication page; a fresh download
+copy was taken from the BIS publication page; a fresh download
 for comparing hashes was not possible here because bis.org answered with a
 browser check. Every published value used by the test cases is still cited
 from CRE99.

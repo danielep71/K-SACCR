@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 304(3)(b), with Art. 285(5) (F + N - 1)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 275(2)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -55,7 +55,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 280d, with the margined maturity factor of Art. 279c(1)(b)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -74,7 +74,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(3)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -93,7 +93,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 278(1)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -112,7 +112,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(2), (3); Art. 306(3)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -126,7 +126,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 274(3), the cap's collateral being NICA (EBA-QA-2023_6962)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -146,7 +146,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(1)(b), with the horizon of Art. 304(3)(b) and, where the CCP retains VM, (d)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -166,7 +166,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279c(1)(b), with the horizon of Art. 304(3)(b) and, where the CCP retains VM, (d)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -186,7 +186,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Art. 279a(1)(a)",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"
@@ -200,7 +200,7 @@
         "class": "illustrative",
         "source": "CRR",
         "locator": "Engine contract, issue #36",
-        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; a derivation by the maintainer, so illustrative",
+        "derivation": "tests/derivations/ccp_trade_exposure.py, a separate Python implementation of the cited rules that shares no code with the engine; derived within the project, so illustrative",
         "derived_by": null,
         "reviewed_by": null,
         "date": "2026-10-22"

@@ -14,11 +14,12 @@ The active release branch is `release/1.1.0`.
 | Branch | Purpose and allowed work |
 | --- | --- |
 | `release/1.1.0` | Active integration branch for all development. Retained and fast-forwarded to `main` after each integration. |
-| `release/1.0.2` | Closed: released as `v1.0.2`. Kept for history; takes no new work. |
-| `release/1.0.1` | Closed: released as `v1.0.1`. Kept for history; takes no new work. |
+| `release/1.0.2` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.2` and its release artifacts; all former branch commits are retained in `main`. |
+| `release/1.0.1` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.1` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
 | Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
+| `traffic-history` | Retained for the traffic-export automation; not a release branch or cleanup target. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
 
 The default branch remains `main`; this does not make it the active development
@@ -139,8 +140,8 @@ configuration.
 | Control | State and working response |
 | --- | --- |
 | Repository visibility | Public. |
-| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. **Protect release branches**: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion, with an administrator bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass; the administrator exception in the other ruleset does not override it. Keep following the review checklist for what rulesets cannot check. |
-| Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the retained historical branches (`release/1.0.1` and `release/1.0.2`), the active `release/1.1.0`, and future matching branches. The removed `release/1.0.0` exception does not recreate that branch. Retain historical release branches; recheck Settings before any separately authorized cleanup. |
+| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. **Protect release branches**: pull request required, squash only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion, with an administrator bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass; the administrator exception in the other ruleset does not override it. Keep following the review checklist for what rulesets cannot check. |
+| Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the active `release/1.1.0` and future matching branches. Historical `release/1.0.0`, `release/1.0.1` and `release/1.0.2` have been deleted; their published tags and artifacts remain. Any future historical-branch deletion requires separate owner authorization, commit-reachability and link checks, and immediate removal of temporary ruleset exceptions. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
 | Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain and fast-forward the active release branch after integration. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |

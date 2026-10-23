@@ -96,10 +96,24 @@ Use only the categories needed by a release.
 
 ### Changed
 
-- Set `release/1.1.0` as the active development branch and the target for Dependabot updates; retain `release/1.0.2` as released history.
+- Require pull requests into `release/**` to be up to date with their target
+  branch before merging, with **Repository integrity** passing on the updated
+  candidate. An Excel verification of a VBA or template change survives such
+  an update only when the incoming changes leave the VBA and the template
+  untouched, as the pull-request checklist now says; release certification
+  still runs on the exact candidate commit.
+- Set `release/1.1.0` as the active development branch and the target for Dependabot updates; preserve released history through immutable tags and published artifacts.
 
 ### Documentation
 
+- Describe measurements, screenshots, sources and test derivations without
+  referring to the author in the third person: descriptive text no longer
+  names "the owner" or "the maintainer", and the expected-value notes of the
+  illustrative cases say "derived within the project". Process rules that
+  name the owner's role are unchanged.
+- Record the owner-authorized retirement of historical branches `release/1.0.1`
+  and `release/1.0.2`, preserving all commits in `main`, published tags and
+  release artifacts, and retaining `traffic-history` for automation.
 - Correct the branch governance: retain and safely fast-forward the active
   release branch after integration into `main`, describe the separate deletion
   ruleset with no branch exclusions or bypass actors, and record

@@ -17,7 +17,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.57(5)",
-        "derivation": "Hand calculation from the fixture, valuation 2026-09-30, 365 days a year: USD hedging set, bucket 2 (EX1-T2, short) -36,253,849.38 and bucket 3 (EX1-T1, long) 78,693,868.06; EUR hedging set, bucket 3 (EX1-T3, bought put, delta -0.269395) -10,082,913.81; maturity factors 1. Sum of absolutes: 0.5% x (36,253,849.38 + 78,693,868.06) = 574,738.59 for USD and 0.5% x 10,082,913.81 = 50,414.57 for EUR, together 625,153.16. The same inputs with offsets give 346,764.39, the published 347 thousand of CRE99 Example 1. Illustrative: derived by the maintainer, not independently (#100).",
+        "derivation": "Hand calculation from the fixture, valuation 2026-09-30, 365 days a year: USD hedging set, bucket 2 (EX1-T2, short) -36,253,849.38 and bucket 3 (EX1-T1, long) 78,693,868.06; EUR hedging set, bucket 3 (EX1-T3, bought put, delta -0.269395) -10,082,913.81; maturity factors 1. Sum of absolutes: 0.5% x (36,253,849.38 + 78,693,868.06) = 574,738.59 for USD and 0.5% x 10,082,913.81 = 50,414.57 for EUR, together 625,153.16. The same inputs with offsets give 346,764.39, the published 347 thousand of CRE99 Example 1. Illustrative: derived within the project, not independently (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-11"
@@ -36,7 +36,7 @@
         "class": "illustrative",
         "source": "BCBS",
         "locator": "CRE52.1, CRE52.57(5)",
-        "derivation": "Hand calculation from the fixture, valuation 2026-09-30, 365 days a year: USD hedging set, bucket 2 (EX1-T2, short) -36,253,849.38 and bucket 3 (EX1-T1, long) 78,693,868.06; EUR hedging set, bucket 3 (EX1-T3, bought put, delta -0.269395) -10,082,913.81; maturity factors 1. Sum of absolutes: 0.5% x (36,253,849.38 + 78,693,868.06) = 574,738.59 for USD and 0.5% x 10,082,913.81 = 50,414.57 for EUR, together 625,153.16. The same inputs with offsets give 346,764.39, the published 347 thousand of CRE99 Example 1. EAD = 1.4 x (RC 60,000 + multiplier 1 x 625,153.16) = 959,214.42; V = 60,000 > 0, so the multiplier is 1. Illustrative: derived by the maintainer, not independently (#100).",
+        "derivation": "Hand calculation from the fixture, valuation 2026-09-30, 365 days a year: USD hedging set, bucket 2 (EX1-T2, short) -36,253,849.38 and bucket 3 (EX1-T1, long) 78,693,868.06; EUR hedging set, bucket 3 (EX1-T3, bought put, delta -0.269395) -10,082,913.81; maturity factors 1. Sum of absolutes: 0.5% x (36,253,849.38 + 78,693,868.06) = 574,738.59 for USD and 0.5% x 10,082,913.81 = 50,414.57 for EUR, together 625,153.16. The same inputs with offsets give 346,764.39, the published 347 thousand of CRE99 Example 1. EAD = 1.4 x (RC 60,000 + multiplier 1 x 625,153.16) = 959,214.42; V = 60,000 > 0, so the multiplier is 1. Illustrative: derived within the project, not independently (#100).",
         "derived_by": "danielep71",
         "reviewed_by": null,
         "date": "2026-10-11"
