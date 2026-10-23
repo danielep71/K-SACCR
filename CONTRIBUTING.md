@@ -39,9 +39,11 @@ label, milestone) is described in
 6. Open a pull request **against the active release branch** using
    [the PR template](.github/PULL_REQUEST_TEMPLATE.md), which holds the review
    checklist.
-7. The pull request is squash-merged once **Repository integrity** is green
-   and every review conversation, including the automated code review, is
-   resolved.
+7. Keep the task branch up to date with the target release branch before
+   merging. If the target advances, incorporate its latest changes and rerun
+   validation. The pull request is squash-merged once **Repository integrity**
+   is green on the updated candidate and every review conversation, including
+   the automated code review, is resolved.
 
 ### Commit messages
 
