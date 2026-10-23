@@ -258,7 +258,7 @@ The layout and file conventions are defined in
    | 4 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 5 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 6 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
+   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
    | 8 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 9 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 10 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -271,8 +271,9 @@ The layout and file conventions are defined in
    | 17 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
    | 18 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
-   The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs` and
-   `ExportEvidence`, so they work once `M_Main` is imported.
+   The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
+   `ExportEvidence`, `ExportTradesCsvTemplate` and
+   `ExportNettingSetsCsvTemplate`, so they work once `M_Main` is imported.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
@@ -472,11 +473,15 @@ Calls `CORE_Reconcile` with synthetic figures and no sheet, per netting set
 and per trade leg: tolerances, amount scale, figures missing on either side,
 duplicates, other regimes, withheld netting sets, excluded legs and unusable
 rows. It then runs the macros on the workbook's own portfolio and checks the
-Reconciliation and TradeReconciliation sheets and their status. Two cases
-cover the evidence export: the CSV encoding of each field, and, in the
-workbook, an export that is the same byte for byte when written twice and is
-refused after an input, bank-figure or output edit. The BankNettingSets and
-BankTrades tables are put back and the exported files removed.
+Reconciliation and TradeReconciliation sheets and their status. Three cases
+cover the evidence export: the CSV encoding of each field; in the workbook, an
+export that is the same byte for byte when written twice and is refused after
+an input, bank-figure or output edit; and a write that fails, or meets a
+read-only file, leaving the older file as it was. A last case writes each
+blank CSV template, checks it byte for byte against its header line, and
+checks that a failed write leaves the older file as it was. The
+BankNettingSets and BankTrades tables are put back and the exported files
+removed.
 
 ### Benchmark
 
@@ -608,6 +613,18 @@ names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and tolerances are in
 `SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
 range.
+
+### ExportCsvTemplate_Silent
+
+`ExportCsvTemplate_Silent(kind, filePath)` writes the blank CSV template of
+`kind` (`Trades` or `NettingSets`) without a dialog and returns
+`RESULT=OK; file=...`, or `RESULT=REFUSED; reason=...` for another kind. The
+file is the template of the [CSV input contract](docs/csv/CSV_CONTRACT.md) in
+`docs/csv/templates/`, byte for byte: the header line and a line feed, ASCII
+without a byte-order mark. It is replaced as the evidence report is: written
+whole beside the target first, so that a failed write leaves an older file as
+it was, and a read-only file is not replaced. A file that cannot be written
+raises to the caller.
 
 <a id="validation-record"></a>
 

@@ -1,0 +1,3 @@
+qccp;ccp_retains_variation_margin;netting_set_id;margined;clearing_role;counterparty;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements
+Y;N;NS-CCP;Y;CCP;CCP-1;1;N;N;;0;0;0;0;;;
+;;NS-BIL;N;N;CPTY-A;;;;;;;;;;CRR;

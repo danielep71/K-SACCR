@@ -1,0 +1,4 @@
+netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin
+NS-001;=SUM(A1);yes;cm;1.5;N;N;0;1,5;1 000;-1;0;0;EU;;;
+ NS-002;B;N;N;10001;N;N;;1234567890123456;0;0;0;1.4;CRR;NONE;;
+ns-003|x;C;N;N;;;;;;;;;;;;;

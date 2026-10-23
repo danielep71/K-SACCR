@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-8%2F8_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-288_cases_%C2%B7_1283_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-289_cases_%C2%B7_1301_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -143,7 +143,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Eight Excel suites (288 cases, 1283 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eight Excel suites (289 cases, 1301 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -206,6 +206,7 @@ further illustrative netting sets.
 | **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
 | **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
+| **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
@@ -252,16 +253,16 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-22 22:24:39
+SACCR TEST SUMMARY 2026-10-23 15:45:00
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (38,2 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (4,6 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (20,5 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,6 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,4 s)
-  PASS  TEST_Reconcile        cases=20; checks=162; failures=0  (11,7 s)
-RESULT=PASS; suites=8; passed=8; failed=0; seconds=79,1
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (18,6 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (4,8 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (20,6 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,0 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (10,0 s)
+RESULT=PASS; suites=8; passed=8; failed=0; seconds=58,6
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -534,8 +535,8 @@ required; the project has no separate reviewer.
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 177 | 308 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
-| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, and the evidence export | 20 | 162 |
-| **Total** | | **288** | **1283** |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
+| **Total** | | **289** | **1301** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -721,6 +722,7 @@ and the gates in [RELEASING.md](RELEASING.md).
 | [Wiki](https://github.com/danielep71/VBA-SACCR-Toolkit/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
+| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, and its blank templates (import planned for v1.1.0) |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) | Source of the user manual for 1.0.2; its PDF is attached to the [1.0.2 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2). The 1.0.0 and 1.0.1 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md) and [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) |
