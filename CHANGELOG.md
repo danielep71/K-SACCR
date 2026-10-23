@@ -102,7 +102,8 @@ Use only the categories needed by a release.
 
 - Correct the branch governance: retain and safely fast-forward the active
   release branch after integration into `main`, describe the separate deletion
-  ruleset, and record `release/1.0.0` as deleted with its tag preserved.
+  ruleset with no branch exclusions or bypass actors, and record
+  `release/1.0.0` as deleted with its tag preserved.
 - Align the v1.1.0 roadmap with the approved CSV/staging and workbook-protection
   scope, the released v1.0.2 baseline and combined closeout under #212;
   distinguish planned work from released functionality.
