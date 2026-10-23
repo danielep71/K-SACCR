@@ -233,7 +233,7 @@ not that a figure is correct.
 | Class | Meaning | Required fields |
 | --- | --- | --- |
 | `published` | Printed in a source from the register, for example a worked example | `source`, exact `locator` (section, example, table) |
-| `independent` | Computed by an external implementation written outside the project, registered as a source, from the same inputs, for example the R package SACCR (#352) | `source` (a register ID starting `IMPL-`), `locator`, `derivation`, `derived_by` (the implementation and its version); `reviewed_by` may be `null` |
+| `independent` | Computed by an external implementation by another author, registered as a source, from the same inputs, for example the R package SACCR (#352) | `source` (a register ID starting `IMPL-`), `locator`, `derivation`, `derived_by` (the implementation and its version); `reviewed_by` may be `null` |
 | `illustrative` | Shows the format or a behaviour; not a validated SA-CCR figure | `derivation` saying why it exists |
 
 An `independent` value is never produced by running K-SACCR itself, and its
