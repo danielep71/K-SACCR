@@ -27,6 +27,7 @@ CONFIG = "src/core/CORE_Config.bas"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
+CASES = "tests/csv/cases.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
@@ -191,6 +192,25 @@ def check_fixtures(root: Path, contract: dict[str, Any]) -> tuple[list[str], int
     return findings, len(files)
 
 
+def case_bytes(case: dict[str, Any]) -> bytes:
+    """The content of an inline case: its hex bytes, or its text as UTF-8."""
+    return bytes.fromhex(case["hex"]) if "hex" in case else str(case["text"]).encode("utf-8")
+
+
+def check_cases(root: Path, contract: dict[str, Any]) -> tuple[list[str], int]:
+    cases = json.loads((root / CASES).read_text(encoding="utf-8"))["cases"]
+    findings: list[str] = []
+    names = [case["name"] for case in cases]
+    findings += [f"{CASES}: case {name!r} repeats" for name in sorted(set(names)) if names.count(name) > 1]
+    for case in cases:
+        rows, found = validate(case_bytes(case), case["kind"], contract,
+                               max_records=case.get("max_records"), max_bytes=case.get("max_bytes"))
+        actual = [[f.code, f.line, f.record, f.column] for f in found]
+        if actual != case["findings"] or len(rows) != case["records"]:
+            findings.append(f"{CASES}: case {case['name']!r}: findings or record count differ")
+    return findings, len(cases)
+
+
 def run_check(root: Path) -> dict[str, Any]:
     contract = load_contract(root)
     findings = check_shape(contract)
@@ -199,14 +219,16 @@ def run_check(root: Path) -> dict[str, Any]:
     findings += check_export(root, contract)
     fixture_findings, fixtures = check_fixtures(root, contract)
     findings += fixture_findings
+    case_findings, cases = check_cases(root, contract)
+    findings += case_findings
     columns = {kind: len(spec["columns"]) for kind, spec in contract["files"].items()}
     return {"schema_version": 1, "status": "fail" if findings else "pass", "columns": columns,
-            "fixtures": fixtures, "findings": findings}
+            "fixtures": fixtures, "cases": cases, "findings": findings}
 
 
 def markdown_report(report: dict[str, Any]) -> str:
     columns = ", ".join(f"{kind} {count}" for kind, count in report["columns"].items())
-    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s))"]
+    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s), {report['cases']} case(s))"]
     lines.extend(report["findings"])
     return "\n".join(lines) + "\n"
 

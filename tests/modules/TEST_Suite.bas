@@ -17,8 +17,8 @@ Attribute VB_Name = "TEST_Suite"
 '
 ' DEPENDENCIES
 '   TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
-'   TEST_InputValidation, TEST_Aggregation, TEST_Invariants and
-'   TEST_Reconcile, with TEST_CaseRunner for TEST_Cases,
+'   TEST_InputValidation, TEST_Aggregation, TEST_Invariants,
+'   TEST_Reconcile and TEST_CsvReader, with TEST_CaseRunner for TEST_Cases,
 '   TEST_InputValidation, TEST_Aggregation and TEST_Invariants;
 '   M_Main.gQuietLog, set while a suite runs, so that the macros'
 '   silent-mode messages are not printed either.
@@ -36,7 +36,7 @@ Attribute VB_Name = "TEST_Suite"
 '   Immediate window.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -52,7 +52,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 8    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 9    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -76,7 +76,7 @@ Public Sub Test_RunAll()
 '                                 Test_RunAll
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the eight suites in turn and print the summary.
+'   Run the nine suites in turn and print the summary.
 '
 ' UPDATED
 '   2026-10-17
@@ -99,7 +99,7 @@ Public Sub Test_RunAll()
                        "TEST_MainState.RunMainStateTests", "TEST_Cases.RunCaseTests", _
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
-                       "TEST_Reconcile.RunReconcileTests")
+                       "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests")
         Debug.Print "SACCR TEST SUMMARY " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
         StartTime = Timer
         For i = LBound(Suites) To UBound(Suites)
@@ -216,6 +216,8 @@ Private Function RunOneSuite( _
                 TEST_Invariants.RunInvariantTests
             Case "TEST_Reconcile.RunReconcileTests"
                 TEST_Reconcile.RunReconcileTests
+            Case "TEST_CsvReader.RunCsvReaderTests"
+                TEST_CsvReader.RunCsvReaderTests
         End Select
 
 Report:

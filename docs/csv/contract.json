@@ -9,7 +9,8 @@
     "record_separator": "CRLF or LF",
     "decimal_separator": ".",
     "date_format": "yyyy-mm-dd",
-    "max_significant_digits": 15
+    "max_significant_digits": 15,
+    "max_bytes": 134217728
   },
   "types": {
     "id": {"max_length": 64, "forbidden": "|#"},
@@ -169,6 +170,7 @@
     "CSV-FIELD-COUNT": "The record has a different number of fields from the header.",
     "CSV-BLANK-RECORD": "Every field of the record is blank.",
     "CSV-TOO-MANY-RECORDS": "The file has more records than the contract allows.",
+    "CSV-TOO-LARGE": "The file has more bytes than the contract allows.",
     "CSV-REQUIRED": "A required field is blank.",
     "CSV-TYPE": "The field does not have the form its type requires.",
     "CSV-RANGE": "The value is outside the range the contract allows.",

@@ -82,7 +82,7 @@ mapped to a contract by guessing what a column means.
 
 | Type | Written as | Rules |
 | --- | --- | --- |
-| `id` | Text | At most 64 characters; no `\|` or `#`; no control character (Unicode category Cc, which includes DEL and the C1 controls). Read as text, so leading zeros are kept (`00123`). Keys are compared case-insensitively, as the engine compares them |
+| `id` | Text | At most 64 characters; no `\|` or `#`; no control character (Unicode category Cc, which includes DEL and the C1 controls). Read as text, so leading zeros are kept (`00123`). Keys are compared case-insensitively, as the engine compares them: in upper case, one character at a time |
 | `text` | Text | At most 500 characters; line breaks allowed, other control characters (category Cc) not |
 | `code` | One of the listed values | Exact spelling and case, as in the sheet's validation list (`Linear`, `IR`, `CLIENT`); `linear` is rejected |
 | `flag` | `Y` or `N` | Exact; `y`, `Yes`, `TRUE` or `1` are rejected |
@@ -115,6 +115,11 @@ written to a sheet. The rule covers `id` and `text` fields; a negative
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
+
+A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
+is rejected from its size alone, before any of it is read
+(`CSV-TOO-LARGE`). 100,000 Trades records of the size of the fixtures' are
+about 10 MB.
 
 A file with more records is rejected whole (`CSV-TOO-MANY-RECORDS`). These
 limits are the import's, and differ from two other numbers. The sheets'
@@ -232,6 +237,7 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-FIELD-COUNT` | A record with more or fewer fields than the header |
 | `CSV-BLANK-RECORD` | A record with every field blank, or an empty line |
 | `CSV-TOO-MANY-RECORDS` | More records than the file's limit |
+| `CSV-TOO-LARGE` | More bytes than the file size limit |
 | `CSV-REQUIRED` | A required field is blank |
 | `CSV-TYPE` | A value not of its type's form |
 | `CSV-RANGE` | A value outside its allowed range |
@@ -254,6 +260,24 @@ writes the blank templates and the field tables of this document from the
 contract. The fixtures in [`tests/csv/`](../../tests/csv/) are synthetic:
 `valid/` files must be accepted, `invalid/` files must be rejected with
 exactly the findings recorded in
-[`expected.json`](../../tests/csv/expected.json). The tests in
-`tools/test_csv_contract.py` also read every fixture with a byte-order mark
-and with CRLF line ends, and expect the same outcome.
+[`expected.json`](../../tests/csv/expected.json). The inline cases of
+[`cases.json`](../../tests/csv/cases.json) pin the edge cases the fixtures
+leave out: invalid UTF-8, characters outside the basic plane, spaces and
+control characters, number forms and magnitudes, dates, keys, quoting and the
+limits. The tests in `tools/test_csv_contract.py` also read every fixture
+with a byte-order mark and with CRLF line ends, and expect the same outcome.
+
+## 📥 The workbook's reader
+
+The workbook reads a file with `CORE_CsvReader` (#207), which applies this
+contract without Excel converting anything: it decodes the bytes itself,
+checks numbers as text and converts them with `Val`, which always reads a
+`.` decimal point, and checks dates digit by digit, so the outcome does not
+depend on the Windows locale. It writes nothing: a file is accepted or
+rejected whole, and an accepted file's records are returned as their raw
+text, in contract column order, for the staging sheets (#208).
+
+`tools/generate_csv_vba.py` writes the contract into `CORE_CsvSchema` and
+every fixture and case into the test suite `TEST_CsvReader`, which expects
+the reader to report exactly the findings `tools/csv_contract.py` reports;
+`python tools/check.py` fails when either module is out of date.

@@ -33,6 +33,8 @@
       "gating": true,
       "modules": [
         "src/core/CORE_Config.bas",
+        "src/core/CORE_CsvReader.bas",
+        "src/core/CORE_CsvSchema.bas",
         "src/core/CORE_Engine.bas",
         "src/core/CORE_Export.bas",
         "src/core/CORE_Reconcile.bas",
@@ -46,6 +48,8 @@
       "gating": true,
       "modules": [
         "src/core/CORE_Config.bas",
+        "src/core/CORE_CsvReader.bas",
+        "src/core/CORE_CsvSchema.bas",
         "src/core/CORE_Engine.bas",
         "src/core/CORE_Export.bas",
         "src/core/CORE_Reconcile.bas",
@@ -56,6 +60,7 @@
         "tests/modules/TEST_Benchmark.bas",
         "tests/modules/TEST_CaseRunner.bas",
         "tests/modules/TEST_Cases.bas",
+        "tests/modules/TEST_CsvReader.bas",
         "tests/modules/TEST_Formulas.bas",
         "tests/modules/TEST_Harness.bas",
         "tests/modules/TEST_InputValidation.bas",

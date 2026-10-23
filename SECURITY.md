@@ -63,8 +63,9 @@ exposure figure, which are reported as issues.
   included, is deleted and replaced without a further prompt from the macro; a
   read-only file is left unchanged and the export fails.
 - **Test suites** and the benchmark `TEST_Benchmark` also write the input and
-  output sheets, and `TEST_Reconcile` writes and deletes five CSV files in
-  `%TEMP%` (or the workbook's folder); run them only in a development workbook.
+  output sheets, and `TEST_Reconcile` and `TEST_CsvReader` write and delete
+  five CSV files and one in `%TEMP%` (or the workbook's folder); run them only
+  in a development workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1` and `tools/Export-SACCR-VBA.ps1`

@@ -211,9 +211,10 @@ imported from the prototype.
 Banners use an apostrophe and 78 `=`; section rules an apostrophe and 78 `-`.
 Source decorations are ASCII only.
 
-Generated modules (`TEST_Cases`, written by `tools/generate_case_tests.py`) are
-exempt from the procedure and module banner rules; their header says they are
-generated and must not be edited by hand.
+Generated modules (`TEST_Cases`, written by `tools/generate_case_tests.py`;
+`CORE_CsvSchema` and `TEST_CsvReader`, written by `tools/generate_csv_vba.py`)
+are exempt from the procedure and module banner rules; their header says they
+are generated and must not be edited by hand.
 
 ## 📐 Indentation and wrapping
 

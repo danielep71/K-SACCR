@@ -500,6 +500,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
         Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Export file read-only or not written whole
         Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
+        Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or unknown CSV kind
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS
