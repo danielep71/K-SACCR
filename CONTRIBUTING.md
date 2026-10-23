@@ -43,7 +43,10 @@ label, milestone) is described in
    merging. If the target advances, incorporate its latest changes and rerun
    validation. The pull request is squash-merged once **Repository integrity**
    is green on the updated candidate and every review conversation, including
-   the automated code review, is resolved.
+   the automated code review, is resolved. For a VBA or template change, the
+   owner's Excel verification still counts after such an update only if the
+   incoming changes touch nothing in `src/`, `tests/modules/` or the
+   template; otherwise compile and the affected suites are run again.
 
 ### Commit messages
 

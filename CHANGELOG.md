@@ -98,7 +98,9 @@ Use only the categories needed by a release.
 
 - Require pull requests into `release/**` to be up to date with their target
   branch before merging, with **Repository integrity** passing on the updated
-  candidate.
+  candidate. An Excel verification of a VBA or template change survives such
+  an update only when the incoming changes leave the VBA and the template
+  untouched.
 - Set `release/1.1.0` as the active development branch and the target for Dependabot updates; retain `release/1.0.2` as released history.
 
 ### Documentation
