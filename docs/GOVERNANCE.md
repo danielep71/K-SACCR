@@ -13,10 +13,10 @@ The active release branch is `release/1.1.0`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.1.0` | Active integration branch for all development. Recreated from `main` after each integration. |
+| `release/1.1.0` | Active integration branch for all development. Retained and fast-forwarded to `main` after each integration. |
 | `release/1.0.2` | Closed: released as `v1.0.2`. Kept for history; takes no new work. |
 | `release/1.0.1` | Closed: released as `v1.0.1`. Kept for history; takes no new work. |
-| `release/1.0.0` | Closed: released as `v1.0.0`. Kept for history; takes no new work. |
+| `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
 | Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
@@ -43,11 +43,17 @@ not opened just to record progress.
 2. Open a PR from the release branch into `main`.
 3. Merge it with a **merge commit**, not a squash, once the hosted checks are
    green, so provenance remains visible.
-4. Bring the release branch back level with `main`. Automatic head-branch
-   deletion removes it when the PR merges: recreate it from `main` at the merge
-   commit. If it still exists, fast-forward it to `main`. At a milestone
-   closeout, open the next `release/X.Y.Z` branch from the merge commit
-   instead, and update [Branches](#branches) and Dependabot's `target-branch`.
+4. Keep the release branch and fast-forward it to the integration merge
+   commit on `main`. Check its current head first: it must be an ancestor of
+   that commit. Use an expected-head check when updating the ref; if new work
+   arrived after the integration, stop and reconcile it rather than resetting
+   or force-pushing. The existing administrator bypass of **Protect release
+   branches** permits this ref-only alignment; it does not authorize direct
+   development commits. Do not delete/recreate the branch or weaken the
+   separate **Prevent release branch deletion** ruleset for this operation.
+   At an owner-approved milestone transition, retain the completed branch
+   and create the next `release/X.Y.Z` from the integration commit, then update
+   [Branches](#branches) and Dependabot's `target-branch`.
 5. Verify both branches point to the merge commit and that CI passed on it.
 
 <a id="ownership-authorization-and-review"></a>
@@ -133,9 +139,10 @@ configuration.
 | Control | State and working response |
 | --- | --- |
 | Repository visibility | Public. |
-| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. Release branches: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion; repository admins may always bypass, which is what lets automatic head-branch deletion remove a release branch when it is merged into main. Keep following the review checklist for what rulesets cannot check. |
+| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. **Protect release branches**: pull request required, squash only, conversations resolved, **Repository integrity** required, no force pushes or deletion, with an administrator bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass; the administrator exception in the other ruleset does not override it. Keep following the review checklist for what rulesets cannot check. |
+| Release deletion exceptions | **Prevent release branch deletion** currently excludes `release/1.0.0` (already deleted) and `release/1.0.1` (retained). It covers `release/1.0.2` and `release/1.1.0`. These exceptions are not instructions to delete historical branches; recheck Settings before any separately authorized cleanup. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
-| Automatic head-branch deletion | Enabled. Merged PR branches are deleted automatically. |
+| Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain and fast-forward the active release branch after integration. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |
 | Private vulnerability reporting | Enabled; the primary reporting channel in [`SECURITY.md`](../SECURITY.md). |
 | Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
