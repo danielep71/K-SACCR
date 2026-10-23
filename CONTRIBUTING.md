@@ -46,7 +46,10 @@ label, milestone) is described in
    the automated code review, is resolved. For a VBA or template change, the
    owner's Excel verification still counts after such an update only if the
    incoming changes touch nothing in `src/`, `tests/modules/` or the
-   template; otherwise compile and the affected suites are run again.
+   template; otherwise compile and the affected suites are run again. This
+   applies to the check before a pull request merges; release certification
+   always runs on the exact candidate commit, and its evidence record names
+   that commit ([RELEASING.md](RELEASING.md)).
 
 ### Commit messages
 
