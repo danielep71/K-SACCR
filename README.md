@@ -666,7 +666,7 @@ and risk-weighted assets.
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
 | v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
-| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#212) |
+| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330) and worksheet navigation sidebar (#329) |
 | v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
@@ -678,6 +678,35 @@ and risk-weighted assets.
 
 The [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones)
 hold the current scope of each release.
+
+### v1.1.0 — CSV import, staging and workbook protection
+
+Development starts from the released **v1.0.2** baseline on
+`release/1.1.0`, retaining its clearing and settlement input contracts.
+The following work is planned; it is not part of the released workbook:
+
+| Workstream | Deliverables | Issues |
+| --- | --- | --- |
+| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution | #206, #207 |
+| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211 |
+| Workbook protection | Editable input cells, protected generated content and workbook structure, macro-compatible protection, recovery tests and documented maintenance unlock | #420–#422 |
+| Integration and closeout | Combined regressions, candidate-bound Excel evidence, operating guidance and release checks for both workstreams | #212 |
+
+Acceptance requires equivalent manual and CSV portfolios to produce the
+same results, invalid or stale candidates to be refused at commit, and
+normal supported workflows to work with protection active. Error and
+cancellation paths must preserve or explicitly report recovery of data,
+protection and Excel state. Protection prevents accidental edits; it does
+not replace validation, freshness checks or output-integrity checks.
+
+The scope does not change SA-CCR calculation methodology or add automatic
+post-import calculation, incremental upserts, online feeds or XLSX/JSON
+imports. The keyboard-interruption proposal (#417) was closed as not
+planned and is excluded. The existing recalculation guard remains in place.
+
+The milestone's due date is a planning target, not a release commitment.
+Release publication remains subject to the owner's explicit authorization
+and the gates in [RELEASING.md](RELEASING.md).
 
 ---
 
