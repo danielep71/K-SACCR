@@ -102,10 +102,13 @@ Use only the categories needed by a release.
   an update only when the incoming changes leave the VBA and the template
   untouched, as the pull-request checklist now says; release certification
   still runs on the exact candidate commit.
-- Set `release/1.1.0` as the active development branch and the target for Dependabot updates; retain `release/1.0.2` as released history.
+- Set `release/1.1.0` as the active development branch and the target for Dependabot updates; preserve released history through immutable tags and published artifacts.
 
 ### Documentation
 
+- Record the owner-authorized retirement of historical branches `release/1.0.1`
+  and `release/1.0.2`, preserving all commits in `main`, published tags and
+  release artifacts, and retaining `traffic-history` for automation.
 - Correct the branch governance: retain and safely fast-forward the active
   release branch after integration into `main`, describe the separate deletion
   ruleset with no branch exclusions or bypass actors, and record
