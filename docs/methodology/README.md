@@ -192,7 +192,8 @@ engine's cap uses NICA in both regimes (#39).
 Values checked on 2026-10-09 against the consolidated CRR of 26.06.2026,
 `CRR-RTS` Article 5 and the CRE52.72 table; each matches the template's Params
 sheet, except the CCP MPOR floor, a constant in `CORE_Config`. Rows marked
-`CRR` are as printed in the CRR; rows marked `BCBS` are the CRE52.72 values, which equal the CRR values wherever both texts give one.
+`CRR` are as printed in the CRR; rows marked `BCBS` are the CRE52.72 values,
+which equal the CRR values wherever both texts give one.
 
 | Parameter | Value | Regime | Source locator | Used by |
 | --- | --- | --- | --- | --- |
