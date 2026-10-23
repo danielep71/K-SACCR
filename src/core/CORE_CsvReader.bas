@@ -59,6 +59,7 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const CSV_ENCODING          As String = "CSV-ENCODING"
         Private Const CSV_SYNTAX            As String = "CSV-SYNTAX"
         Private Const CSV_EMPTY             As String = "CSV-EMPTY"
+        Private Const CSV_OTHER_DELIMITER   As String = "CSV-DELIMITER"
         Private Const CSV_HEADER_DUPLICATE  As String = "CSV-HEADER-DUPLICATE"
         Private Const CSV_HEADER_MISSING    As String = "CSV-HEADER-MISSING"
         Private Const CSV_HEADER_UNKNOWN    As String = "CSV-HEADER-UNKNOWN"
@@ -147,7 +148,8 @@ Public Sub ReadCsvFile( _
 '
 ' ERROR POLICY
 '   Raises ERR_CSV_READ for an unknown kind and for a file that does not
-'   exist or cannot be read whole; the file number is closed first.
+'   exist or cannot be read whole, a malformed path included; the file
+'   number is closed first.
 '
 ' UPDATED
 '   2026-10-23
@@ -175,13 +177,15 @@ Public Sub ReadCsvFile( _
         If Len(FilePath) = 0 Then
             Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "no file given"
         End If
-        If Len(Dir$(FilePath, vbHidden Or vbSystem Or vbReadOnly)) = 0 Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "the file does not exist: " & FilePath
-        End If
         If MaxBytes <= 0 Then
             MaxBytes = CSV_MAX_BYTES
         End If
+    'Dir$ itself raises for a malformed or inaccessible path, so the handler
+    'is in place before it (#446).
         On Error GoTo Failed
+        If Len(Dir$(FilePath, vbHidden Or vbSystem Or vbReadOnly)) = 0 Then
+            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "the file does not exist: " & FilePath
+        End If
         ByteCount = FileLen(FilePath)
         If ByteCount < 0 Or ByteCount > MaxBytes Then
             On Error GoTo 0
@@ -218,6 +222,9 @@ Failed:
             Close #FileNumber
         End If
         On Error GoTo 0
+        If ErrorNumber = ERR_CSV_READ Then
+            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", ErrorText
+        End If
         Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", _
                   "Could not read " & FilePath & ": " & ErrorText & " (error " & ErrorNumber & ")"
 
@@ -840,7 +847,9 @@ Private Function HeaderAccepted( _
 '   Check that the header names every contract column exactly once, in
 '   any order, with no other column; names are case-sensitive. Reports a
 '   repeated or unknown name in header order, then each missing column in
-'   contract order.
+'   contract order. A header of one field that contains a comma or a tab
+'   is a file of another CSV dialect: it gets one CSV-DELIMITER finding
+'   instead.
 '
 ' RETURNS
 '   True when the header has no finding.
@@ -862,6 +871,19 @@ Private Function HeaderAccepted( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
+        If UBound(Header) = 0 Then
+            If InStr(1, Header(0), ",", vbBinaryCompare) > 0 Then
+                AddFinding Result, Findings, CSV_OTHER_DELIMITER, HeaderLine, 0, "", _
+                           "the header is one field that contains ','; the delimiter is ';'"
+                HeaderAccepted = False
+                Exit Function
+            ElseIf InStr(1, Header(0), vbTab, vbBinaryCompare) > 0 Then
+                AddFinding Result, Findings, CSV_OTHER_DELIMITER, HeaderLine, 0, "", _
+                           "the header is one field that contains a tab; the delimiter is ';'"
+                HeaderAccepted = False
+                Exit Function
+            End If
+        End If
         ReDim Seen(1 To Spec.ColumnCount)
         For h = 0 To UBound(Header)
             Repeated = False
@@ -1403,7 +1425,9 @@ Private Sub NumberProblem( _
 '   zero, an optional fraction and, for a number, an optional exponent),
 '   at most CSV_MAX_DIGITS significant digits, a magnitude a worksheet cell
 '   holds, then the column's bounds. The magnitude is judged from the
-'   digits and the exponent as text, so that no value overflows.
+'   digits and the exponent as text, so that no value overflows. Zeros
+'   are skipped by position, never by shortening a string, so that a long
+'   run of them costs one pass (#446).
 '
 ' RETURNS
 '   Code and Message for the first problem; unchanged when none.
@@ -1421,6 +1445,7 @@ Private Sub NumberProblem( _
     Dim Digits          As String     'Mantissa without the point
     Dim IntegerDigits   As Long       'Digits before the point
     Dim FirstSignificant As Long      'Position of the first non-zero digit in Digits
+    Dim LastSignificant As Long       'Position of the last non-zero digit in Digits
     Dim Significant     As String     'Significant digits, without leading or trailing zeros
     Dim Exponent        As Double     'Power of ten of the first significant digit
     Dim Number          As Double     'The value
@@ -1437,10 +1462,11 @@ Private Sub NumberProblem( _
         IntegerDigits = InStr(1, Mantissa & ".", ".", vbBinaryCompare) - 1
         FirstSignificant = FirstNonZero(Digits)
         If FirstSignificant > 0 Then
-            Significant = Mid$(Digits, FirstSignificant)
-            Do While Right$(Significant, 1) = "0"
-                Significant = Left$(Significant, Len(Significant) - 1)
+            LastSignificant = Len(Digits)
+            Do While Mid$(Digits, LastSignificant, 1) = "0"
+                LastSignificant = LastSignificant - 1
             Loop
+            Significant = Mid$(Digits, FirstSignificant, LastSignificant - FirstSignificant + 1)
         End If
         If Len(Significant) > CSV_MAX_DIGITS Then
             Code = CSV_TYPE
@@ -1635,18 +1661,20 @@ Private Function ExponentValue( _
 '------------------------------------------------------------------------------
     Dim Negative    As Boolean    'The exponent is negative
     Dim Digits      As String     'Its digits without leading zeros
+    Dim Start       As Long       'Position of the first digit other than 0
 
 '------------------------------------------------------------------------------
 ' CONVERT
 '------------------------------------------------------------------------------
         Negative = (Left$(ExponentText, 1) = "-")
-        Digits = ExponentText
-        If Left$(Digits, 1) = "-" Or Left$(Digits, 1) = "+" Then
-            Digits = Mid$(Digits, 2)
+        Start = 1
+        If Left$(ExponentText, 1) = "-" Or Left$(ExponentText, 1) = "+" Then
+            Start = 2
         End If
-        Do While Left$(Digits, 1) = "0"
-            Digits = Mid$(Digits, 2)
+        Do While Mid$(ExponentText, Start, 1) = "0"
+            Start = Start + 1
         Loop
+        Digits = Mid$(ExponentText, Start)
         If Len(Digits) > 9 Then
             ExponentValue = 1000000000#
         ElseIf Len(Digits) > 0 Then

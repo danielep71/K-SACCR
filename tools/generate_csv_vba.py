@@ -22,6 +22,7 @@ TESTS = "tests/modules/TEST_CsvReader.bas"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
+REJECTED_FIXTURE = "invalid/trades-fields-and-rules.csv"
 # What the reader implements for each type; a contract that asks for anything else needs reader code first.
 TYPES = {"id": {"max_length", "forbidden"}, "text": {"max_length"}, "code": set(), "flag": {"allowed"},
          "currency": {"pattern"}, "integer": set(), "number": set(), "date": {"min", "max"}}
@@ -310,9 +311,11 @@ TESTS_HEADER = """Attribute VB_Name = "TEST_CsvReader"
 '   findings the reference implementation tools/csv_contract.py pinned in
 '   tests/csv/expected.json and tests/csv/cases.json: every fixture as
 '   written, with a byte-order mark and with CRLF line ends, and every
-'   inline case; that an accepted file keeps every value as written; and
-'   that a file is read from disk, refused when too large from its size,
-'   and that a missing file and an unknown kind raise ERR_CSV_READ.
+'   inline case; that an accepted file keeps every value as written; that
+'   a file is read from disk and refused when too large from its size;
+'   that a missing file, a malformed path and an unknown kind raise
+'   ERR_CSV_READ; and that M_Main.ReadCsv_Silent reports an accepted and a
+'   rejected file.
 '
 ' USAGE
 '   Run TEST_CsvReader.RunCsvReaderTests from the Immediate window. It
@@ -365,6 +368,8 @@ TESTS_FOOTER = r"""        CaseUnknownKind
         CaseMissingFile
         CaseFileRoundTrip
         CaseFileTooLarge
+        CaseMalformedPath
+        CaseSilentEntry
         If mCaseCount <> EXPECTED_CASES Then
             Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
         End If
@@ -550,6 +555,49 @@ Private Sub CaseFileTooLarge()
         ReadCsvFile TargetFile, "Trades", Result, Values, Lines, Findings, ByteCount - 1
         Check FindingsText(Result, Findings) = "CSV-TOO-LARGE|0|0|", "findings [" & FindingsText(Result, Findings) & "]"
         Check Not Result.Accepted And Result.RecordCount = 0, "a file too large was accepted"
+        RemoveTestFile TargetFile
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        RemoveTestFile TargetFile
+
+End Sub
+
+
+Private Sub CaseMalformedPath()
+    'A path the file system rejects raises ERR_CSV_READ, not its own error.
+    Dim Result      As CsvReadResult    'Not filled
+    Dim Values()    As String           'Not filled
+    Dim Lines()     As Long             'Not filled
+    Dim Findings()  As CsvFinding       'Not filled
+    Dim ErrorNumber As Long             'Error raised
+        BeginCase "reader.malformed-path"
+        On Error Resume Next
+        ReadCsvFile TestFolder() & Application.PathSeparator & "K-SACCR|<bad>?.csv", "Trades", Result, Values, Lines, Findings
+        ErrorNumber = Err.Number
+        On Error GoTo 0
+        Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
+
+End Sub
+
+
+Private Sub CaseSilentEntry()
+    'M_Main.ReadCsv_Silent on an accepted and on a rejected file.
+    Dim Bytes()     As Byte             'A fixture
+    Dim ByteCount   As Long             'Its length
+    Dim TargetFile  As String           'The test file
+        On Error GoTo Unexpected
+        BeginCase "main.read-csv-silent"
+        TargetFile = TestFolder() & Application.PathSeparator & "K-SACCR_csv_reader_test.csv"
+        ByteCount = HexToBytes(RoundTripHex(), Bytes)
+        WriteTestFile TargetFile, Bytes, ByteCount
+        Check M_Main.ReadCsv_Silent("Trades", TargetFile) = ROUND_TRIP_RESULT & "; file=" & TargetFile, _
+              "accepted file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
+        ByteCount = HexToBytes(RejectedHex(), Bytes)
+        WriteTestFile TargetFile, Bytes, ByteCount
+        Check M_Main.ReadCsv_Silent("Trades", TargetFile) = REJECTED_RESULT & "; file=" & TargetFile, _
+              "rejected file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
         RemoveTestFile TargetFile
         Exit Sub
 
@@ -810,9 +858,15 @@ def tests_module(root: Path, contract: dict[str, Any]) -> str:
         procedures.append(lines)
         case_count += 1
         check_count += 2 + (1 if rows else 0)
-    # The file cases: unknown kind 1, missing file 1, round trip 3, too large 2.
-    case_count += 4
-    check_count += 1 + 1 + 3 + 2
+    # The file cases: unknown kind 1, missing file 1, round trip 3, too large 2, malformed path 1,
+    # ReadCsv_Silent 2.
+    case_count += 6
+    check_count += 1 + 1 + 3 + 2 + 1 + 2
+    rejected = (root / FIXTURES / REJECTED_FIXTURE).read_bytes()
+    _, rejected_found = validate(rejected, "Trades", contract)
+    if not rejected_found:
+        raise ValueError(f"{REJECTED_FIXTURE} must be rejected for the ReadCsv_Silent case")
+    first = rejected_found[0]
     trip = (root / FIXTURES / "valid/trades.csv").read_bytes()
     trip_rows, trip_found = validate(trip, "Trades", contract)
     if trip_found or not trip_rows:
@@ -822,6 +876,9 @@ def tests_module(root: Path, contract: dict[str, Any]) -> str:
            f"        Private Const EXPECTED_CASES    As Long = {case_count}    'Cases in a complete run",
            f"        Private Const EXPECTED_CHECKS   As Long = {check_count}    'Checks in a complete run",
            f"        Private Const ROUND_TRIP_LAST_LINE As Long = {records[-1].line}    'Line of the last record of valid/trades.csv",
+           f'        Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records={len(trip_rows)}"    \'ReadCsv_Silent on it',
+           f'        Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings={len(rejected_found)}; '
+           f'first={first.code}|{first.line}|{first.record}|{first.column}"    \'ReadCsv_Silent on {REJECTED_FIXTURE}',
            TESTS_RUNNER.rstrip("\n")]
     out += calls
     out.append(TESTS_FOOTER.rstrip("\n"))
@@ -835,7 +892,11 @@ def tests_module(root: Path, contract: dict[str, Any]) -> str:
             "Private Function RoundTripValues() As String", "    'The values of valid/trades.csv.",
             "    Dim Values As String    'The values"]
     out += values_lines("Values", trip_rows)
-    out += ["        RoundTripValues = Values", "", "End Function"]
+    out += ["        RoundTripValues = Values", "", "End Function", "", "",
+            "Private Function RejectedHex() As String", f"    '{REJECTED_FIXTURE}, for ReadCsv_Silent.",
+            "    Dim HexText As String    'The file"]
+    out += hex_lines("HexText", rejected)
+    out += ["        RejectedHex = HexText", "", "End Function"]
     return "\r\n".join(out) + "\r\n"
 
 

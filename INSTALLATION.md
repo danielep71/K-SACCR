@@ -260,7 +260,7 @@ The layout and file conventions are defined in
    | 6 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 7 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 8 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
+   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
    | 10 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 11 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 12 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -499,10 +499,11 @@ and expects exactly the findings the reference implementation
 `tools/csv_contract.py` pinned, the same record count and, for an accepted
 file, every value as written. The cases cover invalid UTF-8, characters
 outside the basic plane, spaces and control characters, formula starts,
-number forms, digits and magnitudes, dates, keys, quoting and the record and
-size limits. Four more cases read a fixture from a file in `%TEMP%`, refuse a
-file too large from its size, and expect `ERR_CSV_READ` for a missing file and
-an unknown kind. It touches no sheet.
+number forms, digits and magnitudes, dates, keys, quoting, a comma or tab
+delimiter and the record and size limits. Six more cases read a fixture from a file in `%TEMP%`, refuse a
+file too large from its size, expect `ERR_CSV_READ` for a missing file, a
+malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
+returns for an accepted and a rejected file. It touches no sheet.
 
 ### Benchmark
 
@@ -539,6 +540,20 @@ checked, so a large portfolio does not leave the next scenario, or the
 workbook, with an inflated used range. The inputs are
 restored. Sizes that cannot be read print a `BENCH_REJECTED=` line and change
 nothing. The measured results are under [Portfolio size](#portfolio-size).
+
+```text
+TEST_Benchmark.RunCsvBenchmark
+TEST_Benchmark.RunCsvBenchmark "10000,100000,100001"
+```
+
+Times the [CSV reader](docs/csv/CSV_CONTRACT.md#-the-workbooks-reader) on
+synthetic files written to `%TEMP%`, under names not already taken, and
+deleted: one Trades file per size (10,000 and 100,000 records, the contract's
+limit, by default) and a NettingSets file of 10,000 records. Each prints a
+`BENCH_CSV` line with the file's bytes, the seconds to build and write it and
+the seconds to read it, and checks the outcome: accepted with every record
+within the limit, rejected with `CSV-TOO-MANY-RECORDS` above it. A last
+`BENCH_CSV_RESULT=` line says whether every outcome was as expected. It touches no sheet.
 
 <a id="automation-entry-points"></a>
 
@@ -634,6 +649,19 @@ names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and tolerances are in
 `SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
 range.
+
+### ReadCsv_Silent
+
+`ReadCsv_Silent(kind, filePath)` checks a CSV file of `kind` (`Trades` or
+`NettingSets`) against the [CSV input contract](docs/csv/CSV_CONTRACT.md)
+without a dialog and writes nothing. It returns
+`RESULT=ACCEPTED; records=N; file=...`, or
+`RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=...` with
+the first finding in the reader's order. An unknown kind and a file that
+does not exist or cannot be read raise `ERR_CSV_READ`. The macros
+`CheckTradesCsv` and `CheckNettingSetsCsv`, run from the Macros dialog, do
+the same for a file chosen in a dialog and show the outcome with the first
+ten findings; cancelling the dialog does nothing.
 
 ### ExportCsvTemplate_Silent
 

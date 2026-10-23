@@ -124,9 +124,21 @@ Use only the categories needed by a release.
   (`CSV-TOO-LARGE`), and states that keys compare in upper case one character
   at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
   the contract into `CORE_CsvSchema` and the fixtures and the new inline
-  cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`
-  (87 cases, 187 checks), which expects exactly the findings of the
-  reference implementation; `Test_RunAll` runs nine suites.
+  cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`,
+  which expects exactly the findings of the reference implementation;
+  `Test_RunAll` runs nine suites.
+- Check a CSV file from the workbook (#207): the macros `CheckTradesCsv` and
+  `CheckNettingSetsCsv`, run from the Macros dialog, read a chosen file with
+  the CSV reader and show whether it follows the contract, with its record
+  count or its first findings, as many as the message box shows whole;
+  `ReadCsv_Silent` does the same for automation. Nothing is written to the
+  workbook. A file whose header is one field holding a comma or a tab, such
+  as Excel's comma-separated save, gets one `CSV-DELIMITER` finding instead
+  of a finding per column. `TEST_Benchmark` gains
+  `RunCsvBenchmark`, which times the reader on synthetic files of up to the
+  record limit. The reader now trims the zeros of a number and of its
+  exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
+  is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
 
 ### Changed
 
