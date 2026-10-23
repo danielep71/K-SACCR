@@ -704,8 +704,7 @@ post-import calculation, incremental upserts, online feeds or XLSX/JSON
 imports. The keyboard-interruption proposal (#417) was closed as not
 planned and is excluded. The existing recalculation guard remains in place.
 
-The milestone's currently recorded **31 October 2026** target needs
-reassessment against this expanded scope; it is not a release commitment.
+The milestone's due date is a planning target, not a release commitment.
 Release publication remains subject to the owner's explicit authorization
 and the gates in [RELEASING.md](RELEASING.md).
 
