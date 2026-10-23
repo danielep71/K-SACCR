@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, seven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, eight suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -253,23 +253,26 @@ The layout and file conventions are defined in
    | # | File | Component | Role |
    | ---: | --- | --- | --- |
    | 1 | `src/core/CORE_Config.bas` | `CORE_Config` | Internal; sheet names, the workbook names of the tables, column numbers, parameter codes and error numbers |
-   | 2 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
-   | 3 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes |
-   | 4 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
-   | 5 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
-   | 6 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 7 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
-   | 8 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 9 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
-   | 10 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
-   | 11 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 12 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 13 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 14 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 15 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 16 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 17 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 18 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 2 | `src/core/CORE_CsvReader.bas` | `CORE_CsvReader` | Internal; reads a Trades or NettingSets CSV file under the [CSV input contract](docs/csv/CSV_CONTRACT.md) and reports its findings; writes nothing |
+   | 3 | `src/core/CORE_CsvSchema.bas` | `CORE_CsvSchema` | Internal; the CSV input contract for `CORE_CsvReader`, generated from `docs/csv/contract.json` |
+   | 4 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
+   | 5 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes |
+   | 6 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
+   | 7 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
+   | 8 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
+   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
+   | 10 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 11 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 12 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 13 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 14 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
+   | 15 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 16 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 17 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 18 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 19 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 20 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 21 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
    `ExportEvidence`, `ExportTradesCsvTemplate` and
@@ -309,8 +312,8 @@ match the file name.
 
 To run every suite at once, type `Test_RunAll` in the Immediate window
 (**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
-`TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`
-and `TEST_Reconcile` in turn and prints only a summary: one line per suite
+`TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`,
+`TEST_Reconcile` and `TEST_CsvReader` in turn and prints only a summary: one line per suite
 with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final `RESULT=` line with the number of suites passed and
 failed. An error raised by a suite counts as its failure and the next suite
@@ -482,6 +485,24 @@ blank CSV template, checks it byte for byte against its header line, and
 checks that a failed write leaves the older file as it was. The
 BankNettingSets and BankTrades tables are put back and the exported files
 removed.
+
+### CSV reader tests
+
+```text
+TEST_CsvReader.RunCsvReaderTests
+```
+
+Generated by `tools/generate_csv_vba.py` from `tests/csv`: reads every CSV
+fixture as written, with a byte-order mark and with CRLF line ends, and every
+inline case of `tests/csv/cases.json`, through `CORE_CsvReader.ReadCsvBytes`,
+and expects exactly the findings the reference implementation
+`tools/csv_contract.py` pinned, the same record count and, for an accepted
+file, every value as written. The cases cover invalid UTF-8, characters
+outside the basic plane, spaces and control characters, formula starts,
+number forms, digits and magnitudes, dates, keys, quoting and the record and
+size limits. Four more cases read a fixture from a file in `%TEMP%`, refuse a
+file too large from its size, and expect `ERR_CSV_READ` for a missing file and
+an unknown kind. It touches no sheet.
 
 ### Benchmark
 

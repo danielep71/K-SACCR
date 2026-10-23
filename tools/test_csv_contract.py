@@ -179,7 +179,7 @@ class GateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED):
+        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
         shutil.copytree(ROOT / csv.TEMPLATES, self.root / csv.TEMPLATES)

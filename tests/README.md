@@ -5,10 +5,10 @@
 
 | Location | Contents |
 | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
+| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
-| `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, and `expected.json` with the findings of each |
+| `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, `expected.json` with the findings of each, and `cases.json`, inline cases with their findings; `tools/generate_csv_vba.py` turns both into `TEST_CsvReader` |
 | `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root |
 
 `TEST_Suite.Test_RunAll` runs the harness and every suite and prints a
@@ -16,10 +16,10 @@ summary. In the order it runs them, the entry points of the single suites are
 `TEST_Harness.RunTests`, `TEST_Formulas.RunFormulaTests`,
 `TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
 `TEST_InputValidation.RunInputValidationTests`,
-`TEST_Aggregation.RunAggregationTests`, `TEST_Invariants.RunInvariantTests`
-and `TEST_Reconcile.RunReconcileTests`; `TEST_Cases`, `TEST_InputValidation`,
-`TEST_Aggregation` and `TEST_Invariants` need `TEST_CaseRunner`. How to run
-them and what a passing log looks like is in
+`TEST_Aggregation.RunAggregationTests`, `TEST_Invariants.RunInvariantTests`,
+`TEST_Reconcile.RunReconcileTests` and `TEST_CsvReader.RunCsvReaderTests`;
+`TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation` and `TEST_Invariants`
+need `TEST_CaseRunner`. How to run them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
 
 `TEST_Benchmark.RunBenchmark` is not a suite: it times the engine on large

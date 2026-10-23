@@ -9,6 +9,11 @@ Current source:
 
 - `core/CORE_Config.bas`: sheet names, the workbook names of the tables,
   column numbers, parameter codes and error numbers;
+- `core/CORE_CsvReader.bas`: the reading of a Trades or NettingSets CSV file
+  under the [CSV input contract](../docs/csv/CSV_CONTRACT.md); it writes no
+  sheet;
+- `core/CORE_CsvSchema.bas`: the CSV input contract for the reader, generated
+  from `docs/csv/contract.json` by `tools/generate_csv_vba.py`;
 - `core/CORE_Engine.bas`: the calculation of EAD per netting set, which reads
   the input sheets and writes the output sheets;
 - `core/CORE_Export.bas`: the CSV encoding of the evidence report; it reads no

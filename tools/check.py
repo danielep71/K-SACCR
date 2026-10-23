@@ -43,6 +43,8 @@ def main() -> int:
                      [sys.executable, "tools/check_excel_evidence.py", "--root", str(root), "--check-policy"]))
     commands.append(("generated-case-tests",
                      [sys.executable, "tools/generate_case_tests.py", "--root", str(root), "--check"]))
+    commands.append(("generated-csv-modules",
+                     [sys.executable, "tools/generate_csv_vba.py", "--root", str(root), "--check"]))
     results = []
     for name, command in commands:
         try:
