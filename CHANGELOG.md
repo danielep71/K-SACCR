@@ -160,11 +160,11 @@ Use only the categories needed by a release.
   before it replaces changes, found by fingerprint even with events off,
   and a load that fails while writing puts the sheet back, formulas
   included. A value longer than a cell holds (32,767 characters) loads
-  nothing. Trades,
-  NettingSets, Results and the run fingerprints are not changed. The reader
-  gains a staging mode that keeps the records of a file with value findings
-  only, checked against the reference implementation for every fixture and
-  case. `Test_RunAll` runs ten suites; `TEST_CsvReader`: 93 cases, 286
+  nothing. Trades, NettingSets, Results and the run fingerprints are not
+  changed. The reader gains a staging mode that keeps the records of a file
+  with value findings only, checked against the reference implementation for
+  every fixture and case. A blank record is never kept, whether written as
+  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites; `TEST_CsvReader`: 93 cases, 286
   checks; the new `TEST_Import`: 10 cases, 52 checks.
 
 ### Changed

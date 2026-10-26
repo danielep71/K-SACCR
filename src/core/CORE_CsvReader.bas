@@ -955,10 +955,11 @@ Private Sub CheckBody( _
 '   Check every record after the header: an empty line, the field count,
 '   then each field and the rules between fields (CheckRecord); then the
 '   keys across the records. Keeps each record with the header's field
-'   count in Values and Lines, in contract column order.
+'   count in Values and Lines, in contract column order, except a record
+'   whose fields are all blank (#467).
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -1008,13 +1009,14 @@ Private Sub CheckBody( _
                 For c = 1 To Spec.ColumnCount
                     Row(c) = Fields(Position(c))
                 Next c
-                CheckRecord Row, RecordLines(r), r - 1, Spec, Columns, Rules, Result, Findings
-                RowCount = RowCount + 1
-                For c = 1 To Spec.ColumnCount
-                    Values(RowCount, c) = Row(c)
-                Next c
-                Lines(RowCount) = RecordLines(r)
-                RowRecord(RowCount) = r - 1
+                If CheckRecord(Row, RecordLines(r), r - 1, Spec, Columns, Rules, Result, Findings) Then
+                    RowCount = RowCount + 1
+                    For c = 1 To Spec.ColumnCount
+                        Values(RowCount, c) = Row(c)
+                    Next c
+                    Lines(RowCount) = RecordLines(r)
+                    RowRecord(RowCount) = r - 1
+                End If
             End If
         Next r
         Result.RecordCount = RowCount
@@ -1025,7 +1027,7 @@ Private Sub CheckBody( _
 End Sub
 
 
-Private Sub CheckRecord( _
+Private Function CheckRecord( _
     ByRef Row() As String, _
     ByVal LineNumber As Long, _
     ByVal RecordNumber As Long, _
@@ -1033,7 +1035,8 @@ Private Sub CheckRecord( _
     ByRef Columns() As CsvColumn, _
     ByRef Rules() As CsvRule, _
     ByRef Result As CsvReadResult, _
-    ByRef Findings() As CsvFinding)
+    ByRef Findings() As CsvFinding) _
+    As Boolean
 '
 '==============================================================================
 '                                 CheckRecord
@@ -1045,8 +1048,11 @@ Private Sub CheckRecord( _
 '   fields must hold. A rule that reads a field with a finding is not
 '   judged.
 '
+' RETURNS
+'   False for a blank record, which is not kept (#467); True otherwise.
+'
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -1071,7 +1077,7 @@ Private Sub CheckRecord( _
         Next c
         If Blank Then
             AddFinding Result, Findings, CSV_BLANK_RECORD, LineNumber, RecordNumber, "", "every field is blank"
-            Exit Sub
+            Exit Function
         End If
 
 '------------------------------------------------------------------------------
@@ -1099,8 +1105,9 @@ Private Sub CheckRecord( _
                 CheckRule Row, Spec, Columns, Rules(c), LineNumber, RecordNumber, Result, Findings
             End If
         Next c
+        CheckRecord = True
 
-End Sub
+End Function
 
 
 Private Function RuleReadsFlawed( _

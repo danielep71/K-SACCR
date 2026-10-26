@@ -247,10 +247,12 @@ Private Sub CaseTradesValueFindings()
 '==============================================================================
 ' PURPOSE
 '   A CRLF Trades file with findings about values only: a notional that
-'   is not a number, a comment that starts like a formula and a blank
-'   record. The three other records are loaded, on lines 2, 4 and 6, the
-'   second with a quoted line break; leading zeros and the formula-like
-'   comment stay as written, and Import_NettingSets is left as it was.
+'   is not a number, a comment that starts like a formula, and a blank
+'   record twice, as an empty line and as delimiters only. The three
+'   other records are loaded, on lines 2, 5 and 7, the second with a
+'   quoted line break; neither blank record is (#467). Leading zeros and
+'   the formula-like comment stay as written, and Import_NettingSets is
+'   left as it was.
 '==============================================================================
 '
 
@@ -266,11 +268,12 @@ Private Sub CaseTradesValueFindings()
         On Error GoTo Unexpected
         BeginCase "import.trades-value-findings"
         WriteCsv CSV_TR_HEADER & vbCrLf & TradeRow("00123", "abc", "=1+1") & vbCrLf & vbCrLf & _
+                 String$(UBound(Split(CSV_TR_HEADER, ";")), ";") & vbCrLf & _
                  TradeRow("T3", "1000", """two" & vbCrLf & "lines""") & vbCrLf & TradeRow("T4", "2000", "") & vbCrLf
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
-        CheckText "result", ResultLine, "RESULT=LOADED; records=3; findings=3; file=" & mTestFile
-        Check CellValue(KIND_TR, 1, COL_LINE) = 2 And CellValue(KIND_TR, 2, COL_LINE) = 4 And _
-              CellValue(KIND_TR, 3, COL_LINE) = 6, "CSV lines"
+        CheckText "result", ResultLine, "RESULT=LOADED; records=3; findings=4; file=" & mTestFile
+        Check CellValue(KIND_TR, 1, COL_LINE) = 2 And CellValue(KIND_TR, 2, COL_LINE) = 5 And _
+              CellValue(KIND_TR, 3, COL_LINE) = 7, "CSV lines"
         CheckText "leading zeros", CStr(CellValue(KIND_TR, 1, COL_ID)), "00123"
         CheckText "notional that is not a number", CStr(CellValue(KIND_TR, 1, COL_TR_NOTIONAL)), "abc"
         CheckText "formula-like comment", CStr(CellValue(KIND_TR, 1, COL_TR_COMMENT)), "=1+1"

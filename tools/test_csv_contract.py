@@ -89,9 +89,12 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
 
     def test_value_findings_keep_the_records_for_staging(self) -> None:
-        text = NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + NS_ROW.replace("NS-1", "NS-2") + "\n"
+        blank = ";" * NS_HEADER.count(";")
+        text = (NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + blank + "\n"
+                + NS_ROW.replace("NS-1", "NS-2") + "\n")
         rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT, keep_records=True)
-        self.assertEqual([(f.code, f.record) for f in findings], [("CSV-ALLOWED", 1), ("CSV-BLANK-RECORD", 2)])
+        self.assertEqual([(f.code, f.record) for f in findings],
+                         [("CSV-ALLOWED", 1), ("CSV-BLANK-RECORD", 2), ("CSV-BLANK-RECORD", 3)])
         self.assertTrue(csv.readable(findings))
         self.assertEqual([r["netting_set_id"] for r in rows], ["NS-1", "NS-2"])
         self.assertEqual(csv.validate(text.encode(), "NettingSets", CONTRACT)[0], [])

@@ -378,7 +378,8 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
             continue
         ordered = Record([dict(zip(header.fields, record.fields))[name] for name in names], record.line)
         findings += check_record(ordered, index, names, columns, spec, contract["types"])
-        rows.append((index, record, dict(zip(names, ordered.fields))))
+        if any(ordered.fields):  # A blank record is reported, never kept (#467).
+            rows.append((index, record, dict(zip(names, ordered.fields))))
     findings += check_keys(rows, spec)
     findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
     keep = not findings or (keep_records and readable(findings))

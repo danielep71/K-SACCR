@@ -2866,7 +2866,7 @@ Private Sub Case43()
         Expected = "CSV-BLANK-RECORD|2|1|"
         Expected = Expected & vbLf & "CSV-BLANK-RECORD|3|2|"
         Values = ""
-        RunInline "blank-records", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 2
+        RunInline "blank-records", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
