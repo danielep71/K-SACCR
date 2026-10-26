@@ -152,6 +152,10 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Correct the source register to describe CRR Article 305(4) as unsupported,
+  explaining the implementation's rejection of declared multi-level client
+  structures (#445). Align the roadmap with the planned v1.7.0 standalone
+  Python engine (#450–#459), without claiming implementation or validation.
 - Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
   scope was delivered in v1.0.2 and default-fund contributions moved to
   v1.10.0.

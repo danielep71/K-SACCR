@@ -678,14 +678,16 @@ and risk-weighted assets.
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
+| v1.7.0 | Planned standalone Python engine, with versioned contracts, independent numerical tests, VBA/Python reconciliation and release evidence (#450–#459) |
 | v1.8.0 | Securities financing transactions (#113) |
 | v1.9.0 | Regulatory CVA risk (#114) |
 | v1.10.0 | Risk-weighted assets and capital (#115), default-fund contributions to CCPs (#400) |
 
 The [milestones](https://github.com/danielep71/VBA-SACCR-Toolkit/milestones)
-hold the current scope of each release. v1.7.0 is not used: its scope,
-exposures to CCPs, was delivered in v1.0.2 (#112), and default-fund
-contributions moved to v1.10.0 (#400).
+hold the current scope of each release. v1.7.0 now plans a standalone Python
+engine alongside the supported VBA engine; no Python calculation engine has
+been delivered. Its former CCP trade-exposure scope was delivered in v1.0.2
+(#112), and default-fund contributions moved to v1.10.0 (#400).
 
 ### v1.1.0 — CSV import, staging and workbook protection
 
