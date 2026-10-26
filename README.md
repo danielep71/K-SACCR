@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-391_cases_%C2%B7_1635_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-392_cases_%C2%B7_1639_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -167,7 +167,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (391 cases, 1635 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (392 cases, 1639 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -289,7 +289,7 @@ SACCR TEST SUMMARY 2026-10-23 20:47:43
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
   PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (8,5 s)
   PASS  TEST_CsvReader        cases=93; checks=286; failures=0  (0,2 s)
-  PASS  TEST_Import           cases=9; checks=48; failures=0  (0,5 s)
+  PASS  TEST_Import           cases=10; checks=52; failures=0  (0,5 s)
 RESULT=PASS; suites=10; passed=10; failed=0; seconds=84,9
 ```
 
@@ -566,8 +566,8 @@ required; the project has no separate reviewer.
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 93 | 286 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone | 9 | 48 |
-| **Total** | | **391** | **1635** |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone | 10 | 52 |
+| **Total** | | **392** | **1639** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).

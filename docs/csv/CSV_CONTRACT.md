@@ -321,5 +321,7 @@ cell below the header changes. The fingerprint of the block as loaded is kept
 in a hidden name. When the block no longer matches it, a new load asks before
 it replaces the changes, even if they were made with events off and the
 status still reads `LOADED`. A load that fails while writing puts the sheet
-back as it was. Staged records are not validated: validation and the commit
+back as it was, formulas included. A value longer than an Excel cell holds,
+32,767 characters, cannot be staged whole: the load stops before the sheet
+changes. Staged records are not validated: validation and the commit
 into the input sheets come with #209 to #211.

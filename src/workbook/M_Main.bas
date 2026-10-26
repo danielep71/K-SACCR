@@ -140,6 +140,7 @@ Attribute VB_Name = "M_Main"
         Private Const STAGING_LINE_FILL     As Long = 16250871    'RGB(247, 247, 247)
         Private Const STAGING_VALUE_FILL    As Long = 13431551    'RGB(255, 242, 204)
         Private Const STAGING_BORDER        As Long = 12566463    'RGB(191, 191, 191)
+        Private Const EXCEL_CELL_CHARS      As Long = 32767       'Characters a cell holds
 
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
@@ -2688,9 +2689,10 @@ Public Function ImportCsv_Silent( _
 '
 ' ERROR POLICY
 '   An unknown kind and a file that cannot be read raise ERR_CSV_READ. A
-'   staging sheet or name that is missing raises ERR_STAGING_WRITE; an
-'   error while the sheet is written is raised after the sheet has been
-'   put back as it was, as LoadStaging.
+'   staging sheet or name that is missing, and a value longer than a cell
+'   holds, raise ERR_STAGING_WRITE before the sheet changes; an error
+'   while the sheet is written is raised after the sheet has been put back
+'   as it was, as LoadStaging.
 '
 ' UPDATED
 '   2026-10-26
@@ -2981,12 +2983,14 @@ Private Sub LoadStaging( _
 '   block in STAGED_*_NAME.
 '
 ' METHOD
-'   The new block is built in memory before the sheet is touched. The old
-'   block and the metadata are kept, then cleared and written over; on an
-'   error they are written back. The data cells are formatted as text
-'   before their values are written, so that nothing is converted, and
-'   the block is then checked for formulas. The fingerprint is stored
-'   last, so a load that fails leaves the earlier one.
+'   The new block is built in memory before the sheet is touched; a value
+'   longer than a cell holds stops the load there. The old block, its
+'   formulas with their formats and the metadata are kept, then cleared
+'   and written over; on an error they are written back. The data cells
+'   are formatted as text before their values are written, so that nothing
+'   is converted, and the block is then checked for formulas. The
+'   fingerprint is stored last, so a load that fails leaves the earlier
+'   one.
 '
 ' STATE OWNERSHIP
 '   Captures calculation mode, events and screen updating, switches events
@@ -2996,8 +3000,9 @@ Private Sub LoadStaging( _
 '   while one runs.
 '
 ' ERROR POLICY
-'   Raises ERR_RUN_ACTIVE while an operation runs and ERR_STAGING_WRITE
-'   when the sheet or its names are missing, before anything is changed.
+'   Raises ERR_RUN_ACTIVE while an operation runs, and ERR_STAGING_WRITE
+'   when the sheet or its names are missing or a value is longer than a
+'   cell holds (EXCEL_CELL_CHARS), before anything is changed.
 '   Any later error is raised after the old block and metadata have been
 '   written back; a failure to write them back, or to restore a setting,
 '   is added to its description. A setting not restored after a
@@ -3023,6 +3028,13 @@ Private Sub LoadStaging( _
     Dim OldBlock            As Variant         'The block before the load
     Dim OldLast             As Long            'Its last row with a value; below FirstRow for none
     Dim OldMeta(1 To 4)     As Variant         'The metadata before the load
+    Dim FormulaAddresses()  As String          'Cells of the old block that hold a formula
+    Dim FormulaTexts()      As String          'Their formulas
+    Dim FormulaFormats()    As String          'Their number formats
+    Dim FormulaCount        As Long            'How many there are
+    Dim Spec                As CsvSpec         'The file's contract
+    Dim Columns()           As CsvColumn       'Its columns, for a message
+    Dim Rules()             As CsvRule         'Its rules
     Dim Cleared             As Boolean         'The old block has been cleared
     Dim FormulaAt           As String          'A cell that became a formula
     Dim SavedCalculation    As XlCalculation   'Calculation mode before the load
@@ -3050,10 +3062,19 @@ Private Sub LoadStaging( _
             Set MetaCells(m) = StagingMetaCell(Kind, m)
         Next m
         If Result.RecordCount > 0 Then
+            If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+                Err.Raise ERR_CSV_READ, "M_Main.LoadStaging", "unknown CSV kind '" & Kind & "'"
+            End If
             ReDim NewBlock(1 To Result.RecordCount, 1 To Width)
             For r = 1 To Result.RecordCount
                 NewBlock(r, 1) = Lines(r)
                 For c = 1 To Width - 1
+                    If Len(Values(r, c)) > EXCEL_CELL_CHARS Then
+                        Err.Raise ERR_STAGING_WRITE, "M_Main.LoadStaging", _
+                                  "The " & Columns(c).ColumnName & " value on line " & Lines(r) & " has " & _
+                                  Len(Values(r, c)) & " characters; a cell holds " & EXCEL_CELL_CHARS & _
+                                  ". Nothing was loaded."
+                    End If
                     NewBlock(r, c + 1) = Values(r, c)
                 Next c
             Next r
@@ -3074,6 +3095,8 @@ Private Sub LoadStaging( _
         OldLast = LastStagingRow(Sheet, FirstRow, Width)
         If OldLast >= FirstRow Then
             OldBlock = TableRange(Sheet, FirstRow, 1, OldLast, Width).Value2
+            KeepFormulas TableRange(Sheet, FirstRow, 1, OldLast, Width), FormulaAddresses, FormulaTexts, _
+                         FormulaFormats, FormulaCount
         End If
         For m = 1 To 4
             OldMeta(m) = MetaCells(m).Value2
@@ -3104,7 +3127,8 @@ Private Sub LoadStaging( _
 CleanUp:
         On Error GoTo 0
         If ErrorNumber <> 0 And Cleared Then
-            RestoreDetail = RestoreStaging(Sheet, FirstRow, Width, OldLast, OldBlock, MetaCells, OldMeta)
+            RestoreDetail = RestoreStaging(Sheet, FirstRow, Width, OldLast, OldBlock, MetaCells, OldMeta, _
+                                           FormulaAddresses, FormulaTexts, FormulaFormats, FormulaCount)
         End If
         If StateCaptured Then
             CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
@@ -3144,7 +3168,11 @@ Private Function RestoreStaging( _
     ByVal OldLast As Long, _
     ByRef OldBlock As Variant, _
     ByRef MetaCells() As Range, _
-    ByRef OldMeta() As Variant) _
+    ByRef OldMeta() As Variant, _
+    ByRef FormulaAddresses() As String, _
+    ByRef FormulaTexts() As String, _
+    ByRef FormulaFormats() As String, _
+    ByVal FormulaCount As Long) _
     As String
 '
 '==============================================================================
@@ -3152,7 +3180,9 @@ Private Function RestoreStaging( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write back the block and the metadata a failed load kept, with the
-'   staging formats.
+'   staging formats, then the formulas the block held, each with its own
+'   number format, so that a formula pasted there is still found by
+'   StagingFormulaCell.
 '
 ' RETURNS
 '   Empty on success; otherwise what failed.
@@ -3169,6 +3199,7 @@ Private Function RestoreStaging( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim m   As Long    'Metadata cell
+    Dim i   As Long    'Formula cell
 
 '------------------------------------------------------------------------------
 ' WRITE BACK
@@ -3178,6 +3209,12 @@ Private Function RestoreStaging( _
         If OldLast >= FirstRow Then
             WriteStagingBlock Sheet, FirstRow, Width, OldBlock
         End If
+        For i = 1 To FormulaCount
+            With Sheet.Range(FormulaAddresses(i))
+                .NumberFormat = FormulaFormats(i)
+                .Formula = FormulaTexts(i)
+            End With
+        Next i
         For m = 1 To 4
             MetaCells(m).Value2 = OldMeta(m)
         Next m
@@ -3190,6 +3227,62 @@ Failed:
         RestoreStaging = CStr(Err.Number) & " / " & Err.Description
 
 End Function
+
+
+Private Sub KeepFormulas( _
+    ByVal Block As Range, _
+    ByRef FormulaAddresses() As String, _
+    ByRef FormulaTexts() As String, _
+    ByRef FormulaFormats() As String, _
+    ByRef FormulaCount As Long)
+'
+'==============================================================================
+'                                 KeepFormulas
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Keep the address, formula and number format of every cell of Block
+'   that holds a formula, for RestoreStaging: a values-only copy would put
+'   a formula back as its result.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Found     As Range    'The formula cells; Nothing for none
+    Dim OneCell   As Range    'One of them
+
+'------------------------------------------------------------------------------
+' KEEP
+'------------------------------------------------------------------------------
+    'HasFormula is False when no cell has one; SpecialCells raises when it
+    'finds none.
+        FormulaCount = 0
+        If Not IsNull(Block.HasFormula) Then
+            If Not Block.HasFormula Then
+                Exit Sub
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Block.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Found Is Nothing Then
+            Exit Sub
+        End If
+        ReDim FormulaAddresses(1 To Found.Count)
+        ReDim FormulaTexts(1 To Found.Count)
+        ReDim FormulaFormats(1 To Found.Count)
+        For Each OneCell In Found.Cells
+            FormulaCount = FormulaCount + 1
+            FormulaAddresses(FormulaCount) = OneCell.Address
+            FormulaTexts(FormulaCount) = OneCell.Formula
+            FormulaFormats(FormulaCount) = OneCell.NumberFormat
+        Next OneCell
+
+End Sub
 
 
 Private Sub ClearStagingBlock( _

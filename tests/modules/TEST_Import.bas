@@ -13,9 +13,10 @@ Attribute VB_Name = "TEST_Import"
 '   A change since the last load is found with events off and refuses a
 '   new load unless replacement is asked for; with events on, the change
 '   handler shows EDITED. A shorter file clears the rows below it. A load
-'   that fails while writing puts the sheet back as it was. A formula in
-'   the block is found (M_Main.StagingFormulaCell). The live inputs, the
-'   run fingerprints and the other staging sheet are never changed.
+'   that fails while writing puts the sheet back as it was, a formula in
+'   it included. A value longer than a cell holds loads nothing. A formula
+'   in the block is found (M_Main.StagingFormulaCell). The live inputs,
+'   the run fingerprints and the other staging sheet are never changed.
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -68,8 +69,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 9                            'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 48                           'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 10                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 52                           'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -167,6 +168,7 @@ Public Sub RunImportTests()
         CaseMissingFile
         CaseEdits
         CaseWriteFailure
+        CaseCellLimit
         CaseFormulaCell
         CaseHeaderOnly
         CaseLiveSheets LiveBefore
@@ -469,24 +471,64 @@ Unexpected:
 End Sub
 
 
-Private Sub CaseFormulaCell()
+Private Sub CaseCellLimit()
 '
 '==============================================================================
 ' PURPOSE
-'   A formula in a staging block is found by M_Main.StagingFormulaCell,
-'   and no longer once it is removed.
+'   A value longer than a cell holds (32,767 characters) raises
+'   ERR_STAGING_WRITE and loads nothing.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Target   As Range      'The cell given a formula
-    Dim Saved    As Variant    'Its value
-    Dim Events   As Boolean    'EnableEvents before the case
+    Dim ResultLine    As String    'What the load returned
+    Dim Before        As String    'The block before
+    Dim ErrorNumber   As Long      'Error raised by the load
 
 '------------------------------------------------------------------------------
-' WRITE AND REMOVE A FORMULA
+' LOAD
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "import.cell-limit"
+        Before = BlockState(KIND_TR)
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("TL", "1", String$(40000, "x")) & vbLf
+        On Error Resume Next
+        ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        Check ErrorNumber = ERR_STAGING_WRITE, "error " & ErrorNumber
+        Check BlockState(KIND_TR) = Before, "the block changed"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseFormulaCell()
+'
+'==============================================================================
+' PURPOSE
+'   A formula in a staging block is found by M_Main.StagingFormulaCell; a
+'   load that fails while writing puts it back as a formula; once it is
+'   removed, none is found.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Target        As Range      'The cell given a formula
+    Dim Saved         As Variant    'Its value
+    Dim Events        As Boolean    'EnableEvents before the case
+    Dim ResultLine    As String     'What the load returned
+    Dim ErrorNumber   As Long       'Error raised by the load
+
+'------------------------------------------------------------------------------
+' WRITE A FORMULA, FAIL A LOAD, REMOVE IT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "import.formula-cell"
@@ -497,6 +539,15 @@ Private Sub CaseFormulaCell()
         Target.NumberFormat = "General"
         Target.Formula = "=1+1"
         CheckText "formula found", M_Main.StagingFormulaCell("Trades"), Target.Address(False, False)
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T6", "6", "") & vbLf
+        M_Main.gTestFault = "staging-write"
+        On Error Resume Next
+        ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check ErrorNumber = ERR_INJECTED_FAULT, "failed load: error " & ErrorNumber
+        CheckText "formula after the failed load", M_Main.StagingFormulaCell("Trades"), Target.Address(False, False)
         Target.NumberFormat = "@"
         Target.Value2 = Saved
         CheckText "formula removed", M_Main.StagingFormulaCell("Trades"), ""
@@ -505,6 +556,7 @@ Private Sub CaseFormulaCell()
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
         Application.EnableEvents = Events
 
 End Sub

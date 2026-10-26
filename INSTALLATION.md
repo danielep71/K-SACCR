@@ -522,8 +522,9 @@ file, a missing file and an unknown kind, which load nothing; a change made
 with events off, which refuses a new load until replacement is asked for,
 and one made with events on, which shows `EDITED`; a shorter file, which
 clears the rows below it; a failure while writing (`gTestFault =
-"staging-write"`), which puts the sheet back; a formula in the block, which
-`StagingFormulaCell` finds; and a header-only file. The live inputs and the
+"staging-write"`), which puts the sheet back, a formula in it included; a
+value longer than a cell holds, which loads nothing; a formula in the block,
+which `StagingFormulaCell` finds; and a header-only file. The live inputs and the
 run fingerprints must be unchanged at the end. Both staging sheets are put
 back as they were, as values. It needs a workbook built from the current
 template.
@@ -697,9 +698,11 @@ loaded, K being the findings about values to correct on the sheet;
 structural finding (see [staging](docs/csv/CSV_CONTRACT.md#-staging)) stopped
 the load; or `RESULT=REFUSED; reason=...; file=...` when the sheet has
 changes since its last load and `replaceEdits` is not True. The sheet changes
-only on `LOADED`; a load that fails while writing puts it back as it was. An
-unknown kind and a file that cannot be read raise `ERR_CSV_READ`; a staging
-sheet or name that is missing raises `ERR_STAGING_WRITE`. The buttons
+only on `LOADED`; a load that fails while writing puts it back as it was,
+formulas included. An unknown kind and a file that cannot be read raise
+`ERR_CSV_READ`; a staging sheet or name that is missing, and a value longer
+than a cell holds (32,767 characters), raise `ERR_STAGING_WRITE` before the
+sheet changes. The buttons
 **Import CSV** on the two staging sheets do the same for a file chosen in a
 dialog, list the findings, and ask before they replace changes.
 
