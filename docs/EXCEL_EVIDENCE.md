@@ -214,7 +214,7 @@ Replace every value with what was observed. This shape is not evidence.
 ```json
 {
   "schema_version": 2,
-  "repository": "danielep71/VBA-SACCR-Toolkit",
+  "repository": "danielep71/K-SACCR",
   "candidate_sha": "FULL_40_CHARACTER_SHA",
   "execution": "manual",
   "availability_reason": null,

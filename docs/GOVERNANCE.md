@@ -122,10 +122,10 @@ return no results. Closed issues are included because the metadata rule applies
 to every issue. Keep the missing-milestone search repository-wide: filtering by
 milestone would hide orphans.
 
-- [Issues without a milestone](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20no%3Amilestone%20-author%3Aapp%2Fgithub-actions), excluding traffic alerts, which the workflow opens as `github-actions`
-- [Issues without an assignee](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20no%3Aassignee)
-- [Issues without a priority label](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20-label%3AP1%20-label%3AP2%20-label%3AP3)
-- Issues with more than one priority label: [P1 and P2](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20label%3AP1%20label%3AP2), [P1 and P3](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20label%3AP1%20label%3AP3), [P2 and P3](https://github.com/danielep71/VBA-SACCR-Toolkit/issues?q=is%3Aissue%20label%3AP2%20label%3AP3)
+- [Issues without a milestone](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20no%3Amilestone%20-author%3Aapp%2Fgithub-actions), excluding traffic alerts, which the workflow opens as `github-actions`
+- [Issues without an assignee](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20no%3Aassignee)
+- [Issues without a priority label](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20-label%3AP1%20-label%3AP2%20-label%3AP3)
+- Issues with more than one priority label: [P1 and P2](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20label%3AP1%20label%3AP2), [P1 and P3](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20label%3AP1%20label%3AP3), [P2 and P3](https://github.com/danielep71/K-SACCR/issues?q=is%3Aissue%20label%3AP2%20label%3AP3)
 
 ### Closing an issue
 
