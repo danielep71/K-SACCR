@@ -4,7 +4,7 @@ What K-SACCR does today for client clearing, central counterparties (CCPs) and
 listed derivatives, which rules govern each arrangement, and what is still to
 be defined (#358). It is the specification for the clearing work of v1.0.2:
 client-clearing verification (#359), settlement and reset inputs (#360), CCP
-trade exposures (#112; default funds follow in #400), and the closing evidence
+trade exposures (#112; default funds are outside K-SACCR, #400), and the closing evidence
 (#361). It changes
 no calculation.
 
@@ -80,7 +80,7 @@ which risk-weight rule applies.
 Specified from [decisions 2, 3 and 9 to 14](#decisions) and implemented in
 #112; it replaces the interim rejection of [decision 5](#decisions).
 Default-fund contributions, own funds requirements and the cap of Art. 303(2)
-and CRE54.40 are outside it ([decision 9](#decisions)) and follow in #400.
+and CRE54.40 are outside it ([decision 9](#decisions)) and outside K-SACCR (#400).
 
 **Scope.** Role `CCP` is the bank's trade exposure, as clearing member, to a
 CCP: for its own trades, and for client trades where it must reimburse the
@@ -175,7 +175,7 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 | Ordinary listed option, on a security, an index or a future | Instrument `Option`, with price, strike and expiry T; for an option on an interest-rate future, S and E of the underlying | Implemented; exercised as a bilateral option, and in the same clearing cases (equity index call; its supervisory delta is checked) |
 | Daily settled (settled-to-market) contract | Settlement type `STM` and its next reset date, in an unmargined netting set (#360) | Implemented; the qualification is the user's: see [Settlement and reset](#settlement-and-reset). Exercised by `illustrative-settled-to-market-daily` and `illustrative-settled-to-market-periodic` |
 | Exotic options | No separate input | Relevant to the clearing member's relief from the 20-day floor (Art. 304(3)(c); CRE54.8(1)), which is not implemented |
-| SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are #113; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
+| SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are developed in K-SFTs; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
 
 ## 🛡️ Margin, collateral and segregation
 
@@ -344,7 +344,7 @@ client guaranteed by its member entering `CLIENT`; client trades the member
 need not reimburse on the CCP's default are not entered (Art. 306(1)(c)–(d);
 [decision 13](#decisions)); bankruptcy-remote posted collateral is left out of
 NICA by the user. Default funds need DF_i, unfunded commitments, K_CCP, DF_CCP
-and DF_CM as communicated by the CCP (Art. 308(2)); they follow in #400.
+and DF_CM as communicated by the CCP (Art. 308(2)); they are outside K-SACCR (#400).
 
 ## 🧮 Exposure, risk weights and capital
 
