@@ -219,7 +219,7 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 16 sheets, named ranges, formulas and buttons, and no VBA. Built
+   holds the 18 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto

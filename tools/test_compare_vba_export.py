@@ -21,6 +21,7 @@ import compare_vba_export as tool
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = json.loads((ROOT / "tools" / "vba-projects.json").read_text(encoding="utf-8"))
+PRODUCTION = len(MANIFEST["configurations"]["production"]["modules"]) + len(MANIFEST["document_modules"])
 
 
 def source(path: str) -> bytes:
@@ -179,7 +180,7 @@ class CompareExportTests(unittest.TestCase):
         code, out = self.run_tool("production", "--workbook", str(workbook))
         self.assertEqual(code, 0, out)
         self.assertIn("Binding:   VERIFIED", out)
-        self.assertIn("RESULT=PASS; components=26; differences=0; binding=VERIFIED", out)
+        self.assertIn(f"RESULT=PASS; components={PRODUCTION}; differences=0; binding=VERIFIED", out)
 
     def test_renamed_workbook_is_verified_with_a_note(self) -> None:
         # A download is often renamed ("K-SACCR_1.0.0 (1).xlsm"): the bytes
@@ -274,7 +275,7 @@ class CompareExportTests(unittest.TestCase):
         code, out = self.run_tool("production", "--workbook", str(self.workbook("A.xlsm")))
         self.assertEqual(code, 0, out)
         self.assertIn("no export-manifest.json: the export is not bound to a workbook", out)
-        self.assertIn("RESULT=PASS; components=26; differences=0; binding=UNVERIFIED", out)
+        self.assertIn(f"RESULT=PASS; components={PRODUCTION}; differences=0; binding=UNVERIFIED", out)
 
     def test_manifest_without_workbook_is_unverified_but_still_checked(self) -> None:
         self.export("production")

@@ -139,6 +139,17 @@ Use only the categories needed by a release.
   record limit. The reader now trims the zeros of a number and of its
   exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
   is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
+- Add the staging sheets `Import_NettingSets` and `Import_Trades` after
+  Trades (#208), where a CSV file will be loaded for checking and correction
+  before it replaces NettingSets or Trades. Each has the source file, load
+  time, record count and status at the top, then a header row with a
+  `CSV line` column and the contract's columns in contract order, their CSV
+  names above, and data columns formatted as text so that every value stays
+  as written. Nothing reads them yet: loading comes with the import macros.
+  `check_csv_contract` checks their headers and anchors against the
+  contract. Rebuild the workbook from the template: a workbook built from an
+  older template has no staging sheets, and a sheet-module synchronization
+  stops on the missing modules.
 
 ### Changed
 
