@@ -175,9 +175,13 @@ Use only the categories needed by a release.
   as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
   shared with K-SFTs and K-Risk Engines and described in
   `docs/assets/README.md`.
-- Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
-  scope was delivered in v1.0.2 and default-fund contributions moved to
-  v1.10.0.
+- Bring the README roadmap in line with the milestones: v1.7.0 is the
+  standalone Python engine (#450–#459); securities financing transactions
+  are developed in K-SFTs, risk-weighted assets, capital and default-fund
+  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
+  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  methodology scope, the clearing coverage, the website and the diagram of
+  where SA-CCR is used say the same.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
   README roadmap section of the current milestone to the places updated when

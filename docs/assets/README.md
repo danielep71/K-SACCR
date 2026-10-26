@@ -118,7 +118,8 @@ below):
 Each part is coloured by the regulation that brought it in, CRR2 (Regulation
 (EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
 2024/1623, applied from 1 January 2025), and names what K-SACCR does with it:
-the roadmap milestone, or out of scope. It is an orientation picture, not a
+the exposure value it supplies, with the calculation that is developed outside
+K-SACCR, or out of scope. It is an orientation picture, not a
 source: K-SACCR calculates only the exposure value at its centre.
 
 - **Origin:** drawn for this repository from the CRR. The idea of a single
