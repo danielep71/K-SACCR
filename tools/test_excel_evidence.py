@@ -58,7 +58,7 @@ class ExcelEvidenceTests(unittest.TestCase):
             "RESULT=PASS; completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS", "",
         ])
         self.record: dict[str, Any] = {
-            "schema_version": 2, "repository": "danielep71/VBA-SACCR-Toolkit", "candidate_sha": self.sha,
+            "schema_version": 2, "repository": "danielep71/K-SACCR", "candidate_sha": self.sha,
             "execution": "manual", "availability_reason": None,
             "started_at": "2026-10-06T09:00:00+02:00", "finished_at": "2026-10-06T09:10:00+02:00",
             "operator": "Synthetic operator, synthetic workstation",
