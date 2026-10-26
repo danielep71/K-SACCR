@@ -147,6 +147,37 @@ from it at 1600 x 1040 px with headless Chromium at a device scale factor of
 1, then quantized to 256 colours as the screenshots above. Render it again
 whenever the SVG changes.
 
+<a id="ccr-framework"></a>
+
+## 🏛️ Counterparty credit risk framework
+
+`CCR_framework.svg` shows where K-SACCR belongs in counterparty credit risk,
+from exposures to capital requirements, in four steps:
+
+1. two exposure engines, K-SA-CCR for derivatives and K-SFT for SFTs;
+2. a classification by counterparty, feeding the ordinary and CCP branches;
+3. the ordinary capital engine (SA or IRB risk weights) and CCP capital
+   (trade exposures and default-fund contributions, qualifying or not);
+4. the aggregation into the capital requirement for counterparty default
+   risk and its RWA.
+
+CVA risk appears below them as a memo item only: it belongs to market risk
+and is excluded from that total.
+
+- **Origin:** drawn on 2026-10-26 at the maintainer's request (#462), as one
+  picture shared by K-SACCR, K-SFTs and K-Risk Engines. It is an orientation
+  picture, not a source: it does not certify implemented functionality, and
+  K-SACCR calculates only the K-SA-CCR box.
+- **Sources:** its reference line names Basel CRE20, CRE22, CRE30-36,
+  CRE51-54 and MAR50, and CRR Art. 111-191, 192-241, 271-311 and 381-386.
+  The risk weights of its CCP table and the Basel citation of the QCCP cap
+  are a summary, not checked against the CRR text for this picture.
+- **Rendering:** the SVG is the source, shown by the README.
+  `CCR_framework.png` is rendered from it with headless Chromium at a device
+  scale factor of 2 (3200 x 3056 px), then quantized to 256 colours as the
+  screenshots above. The same pair is used in the other two repositories:
+  change it there too when it changes here.
+
 <a id="sa-ccr-explainers"></a>
 
 ## 🧩 SA-CCR explainers

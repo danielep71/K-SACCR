@@ -103,6 +103,30 @@ only produce one:
 - every rule is traced to its CRR article and CRE52 paragraph in the
   [methodology](docs/methodology/README.md#traceability).
 
+<a id="where-k-saccr-belongs"></a>
+
+### Where K-SACCR belongs
+
+K-SACCR is one calculator of a counterparty credit risk framework: it
+produces the exposure value of derivatives, the **K-SA-CCR** box of step 1,
+including the trade exposures to CCPs (v1.0.2). The SFT exposure is developed
+in [K-SFTs](https://github.com/danielep71/K-SFTs); the
+[roadmap](#roadmap) follows the framework into SFTs, CVA risk, and
+risk-weighted assets and capital. The portfolio is presented by
+[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines).
+
+<p align="center">
+  <a href="docs/assets/CCR_framework.svg">
+    <img width="100%"
+         alt="Counterparty credit risk from exposures to capital requirements: two exposure engines, ordinary and CCP capital branches, aggregation, and CVA as a separate market-risk memo item"
+         src="docs/assets/CCR_framework.svg">
+  </a>
+</p>
+
+This is an architecture diagram, not a source and not evidence of an
+implemented calculation: today K-SACCR calculates only the exposure value of
+its own box ([details](docs/assets/README.md#ccr-framework)).
+
 <a id="methodology-at-a-glance"></a>
 
 ### Methodology at a glance

@@ -152,6 +152,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Show the counterparty credit risk framework K-SACCR belongs to (#462):
+  a diagram under "What this project is", from the two exposure engines
+  to the ordinary and CCP capital branches and their aggregation, with CVA
+  as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
+  shared with K-SFTs and K-Risk Engines and described in
+  `docs/assets/README.md`.
 - Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
   scope was delivered in v1.0.2 and default-fund contributions moved to
   v1.10.0.
