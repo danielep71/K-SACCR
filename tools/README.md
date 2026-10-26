@@ -16,7 +16,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -32,8 +32,8 @@ pull request's whole range.
 candidate commit: the harness and every other suite the policy lists, each with
 its own log, and the optional `Test_RunAll` summary. `--inventory` prints the
 source digests a record needs, and `--check-policy` is the
-`excel-evidence-policy` gate above. Its synthetic tests, `test_excel_evidence.py`, run in `tool-tests`.
-See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
+`excel-evidence-policy` gate above. Its synthetic tests,
+`test_excel_evidence.py`, run in `tool-tests`. See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
@@ -122,7 +122,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the seven standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the nine standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -157,14 +157,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.p
 In that mode only the modules found in the folder are imported; every other
 module in the workbook is left as it is. A file is identified only by the
 `Attribute VB_Name` it declares, never by its file name: a file with no such
-line, a malformed one, several (even identical) ones or a name that is not a valid
-VBA name is listed as ignored with the reason. A file is taken when its
+line, a malformed one, several (even identical) ones or a name that is not a
+valid VBA name is listed as ignored with the reason. A file is taken when its
 `VB_Name` is a component of the repository source, with the same extension. A
 standard module (`.bas`) that the checkout does not have yet, such as a test
 suite added by the pull request under test, is also taken when its name
 starts with `CORE_`, `SACCR_`, `M_` or `TEST_`; it is listed apart as a new
-module before the confirmation. Other files in the folder are ignored. When several files carry the same
-`VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
+module before the confirmation. Other files in the folder are ignored. When
+several files carry the same `VB_Name`, such as `CORE_Engine.bas` and `CORE_Engine (1).bas`, the newest
 is taken. The script lists the chosen files with their dates and the ignored
 ones with the reason (also when no file is usable, before it stops), and asks
 for confirmation (`-Force` skips it; answering no exits with
@@ -227,8 +227,9 @@ object model** setting. The workbook VBA project must not be password-locked.
 
 `check_vba_jumps.py`, `check_vba_conditionals.py` and `check_vba_public_api.py`
 come from EXCEL-VBA-PROJECT-TEMPLATE at commit
-`b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR now evaluates jumps per reachable compilation environment and checks
-`PtrSafe` in the declaration modifier position. The
+`b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR now evaluates jumps per
+reachable compilation environment and checks `PtrSafe` in the declaration
+modifier position. The
 public-API checker takes each component's role from its folder, as defined in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md): `src/modules/`
 is public; the other `src/` folders are internal; `tests/` and `examples/` are
@@ -266,8 +267,8 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The seven standard modules of a workbook built from the template |
-| `development` | Those plus the eleven test modules of `tests/modules/`, as in INSTALLATION.md |
+| `production` | The nine standard modules of a workbook built from the template |
+| `development` | Those plus the twelve test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
@@ -304,9 +305,8 @@ the candidate SHA, run ID and attempt; `static-checks.json` also records the
 candidate SHA. Missing evidence fails the upload step.
 
 The workflow's token has `contents: read` only, checkout does not persist
-credentials, and actions are pinned to full commit SHAs taken from the
-template.
-It uses GitHub-hosted Ubuntu and Python 3.10.
+credentials, and actions are pinned to full commit SHAs. It uses
+GitHub-hosted Ubuntu and Python 3.10.
 A successful job is static-check evidence only, not Excel validation.
 
 After `check.py`, the same job runs three quality steps. Each runs even if an
@@ -372,7 +372,8 @@ and must never be extended to.
 `.github/dependabot.yml` asks Dependabot for weekly version updates of the
 GitHub Actions pinned in the workflows. They are opened against the active
 release branch (`target-branch`) and labelled `ci` and `P3`. Dependabot reads
-this file from the default branch; PR #24 integrated it into `main`. Update `target-branch` whenever a new release branch is opened.
+this file from the default branch; PR #24 integrated it into `main`. Update
+`target-branch` whenever a new release branch is opened.
 
 Review each update pull request like any other:
 

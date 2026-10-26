@@ -108,7 +108,8 @@ and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
 `DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository, from
-hand calculations or from the scripts in `derivations/`, and stay illustrative unless an external implementation
-registered as a source reproduces them (#100). The values and tolerances of
+hand calculations or from the scripts in `derivations/`, and stay
+illustrative unless an external implementation registered as a source
+reproduces them (#100). The values and tolerances of
 T15 to T28 are the catalogue's, except T16, revised in #39 (#130) to the cap
 with C = NICA only.

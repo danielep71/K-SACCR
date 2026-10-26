@@ -591,8 +591,8 @@ Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
 </details>
 
 `python tools/check.py` runs the [static gates](tools/README.md) locally and
-in CI, where Ruff, mypy and actionlint run as well. Static checks never stand in for Excel evidence; the
-[Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
+in CI, where Ruff, mypy and actionlint run as well. Static checks never stand
+in for Excel evidence; the [Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
 suite by suite, and `tools/check_excel_evidence.py` validates a record against
 the exact commit it claims.
 
@@ -685,8 +685,8 @@ The full list is in the
 K-SACCR calculates the risk-based SA-CCR exposure value. The CRR uses that
 value, or the same method with its own adjustments, well beyond counterparty
 credit risk; the diagram shows where, and which part K-SACCR covers. Its
-milestones stay with the derivatives exposure: CCP trade exposures, the
-simplified methods and an independent Python engine.
+milestones stay with the derivatives exposure value and the workbook that
+produces it.
 
 <p align="center">
   <a href="docs/assets/SACCR_uses_in_CRR.svg">
@@ -720,7 +720,9 @@ an engine of its own.
 
 Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
-The following work is planned; it is not part of the released workbook:
+None of this work is in a released workbook yet. On the release branch so
+far: the CSV contract and its blank templates (#206), the CSV reader and the
+check macros (#207), and the empty staging sheets (#208).
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |

@@ -182,6 +182,12 @@ Use only the categories needed by a release.
   own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
+- Correct the READMEs against the repository: the v1.1.0 work already on the
+  release branch; the README sheet's link to the reference card, which points
+  to C116 since the staging sheets moved its rows; the nine production and
+  twelve test modules of the synchronizer's configurations; the CSV tool
+  tests in `tool-tests`; the action pins, no longer all from the template;
+  and the margin-agreement structures, declared and rejected since #39.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
   README roadmap section of the current milestone to the places updated when
