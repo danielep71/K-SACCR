@@ -87,7 +87,16 @@
       "header": "SACCR CSV READER TESTS",
       "mode_line": false,
       "cases": 93,
-      "checks": {"32-bit": 199, "64-bit": 199},
+      "checks": {"32-bit": 286, "64-bit": 286},
+      "restoration": null,
+      "first_case": null
+    },
+    {
+      "entry_point": "TEST_Import.RunImportTests",
+      "header": "SACCR CSV IMPORT TESTS",
+      "mode_line": false,
+      "cases": 9,
+      "checks": {"32-bit": 48, "64-bit": 48},
       "restoration": null,
       "first_case": null
     }

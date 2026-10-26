@@ -11,3 +11,9 @@ Attribute VB_Exposed = True
 Attribute VB_TemplateDerived = False
 Attribute VB_Customizable = True
 Option Explicit
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+    'A change below the header row shows EDITED in the status cell (#208).
+        M_Main.StagingEdited "NettingSets", Target
+
+End Sub

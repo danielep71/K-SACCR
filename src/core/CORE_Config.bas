@@ -8,10 +8,11 @@ Attribute VB_Name = "CORE_Config"
 '   each output table, parameter codes, regime and asset-class codes, the
 '   severity labels written to the Checks sheet, the expected column
 '   headers, the file names and header lines of the blank CSV templates,
-'   the bank-figure and reconciliation layout, the names of the
-'   hidden fingerprints, the regulatory reference parameter set, the FX
-'   quote order and the error numbers raised by the workbook macros. When
-'   a sheet layout changes, it changes here and nowhere else.
+'   the names and statuses of the CSV staging sheets, the bank-figure and
+'   reconciliation layout, the names of the hidden fingerprints, the
+'   regulatory reference parameter set, the FX quote order and the error
+'   numbers raised by the workbook macros. When a sheet layout changes, it
+'   changes here and nowhere else.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
@@ -31,7 +32,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '
 ' AUTHOR
 '   Daniele Penza
@@ -61,6 +62,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_RECON       As String = "Reconciliation"     'Bank figures against Results (#45)
         Public Const SH_BANK_TR     As String = "BankTrades"             'Bank figures per trade leg (#45)
         Public Const SH_TRADE_RECON As String = "TradeReconciliation"    'Bank figures against TradeCalc (#45)
+        Public Const SH_IMPORT_NS   As String = "Import_NettingSets"     'Staged NettingSets CSV records (#208)
+        Public Const SH_IMPORT_TR   As String = "Import_Trades"          'Staged Trades CSV records (#208)
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -322,6 +325,27 @@ Attribute VB_Name = "CORE_Config"
             "mtm_leg;settlement_type;next_reset_date;comment"
 
 '------------------------------------------------------------------------------
+' CSV STAGING
+'------------------------------------------------------------------------------
+    'Each staging sheet (#208) has a header-row name on its CSV line cell,
+    'the first column of the block, followed by the contract's columns, and
+    'four metadata cells named <prefix>_File, _LoadedAt, _Records and
+    '_Status; tools/check_csv_contract.py checks the header row against the
+    'contract. The hidden name STAGED_*_NAME holds the fingerprint of the
+    'block as the last load wrote it, or "" before any load, so that an
+    'edit since is found even when events were off.
+        Public Const IMPORT_NS_HEADER_NAME  As String = "ImportNettingSets_Header"    'Import_NettingSets: CSV line header cell
+        Public Const IMPORT_TR_HEADER_NAME  As String = "ImportTrades_Header"         'Import_Trades: CSV line header cell
+        Public Const IMPORT_NS_PREFIX       As String = "ImportNS"                    'Prefix of the Import_NettingSets metadata names
+        Public Const IMPORT_TR_PREFIX       As String = "ImportTR"                    'Prefix of the Import_Trades metadata names
+        Public Const STAGED_NS_NAME         As String = "SACCR_ImportNSStaged"        'Fingerprint of the last NettingSets load
+        Public Const STAGED_TR_NAME         As String = "SACCR_ImportTRStaged"        'Fingerprint of the last Trades load
+    'Status of a staging sheet, in its _Status cell.
+        Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded
+        Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
+        Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
+
+'------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS
 '------------------------------------------------------------------------------
     'Number of columns the engine clears and writes on each output sheet.
@@ -489,7 +513,7 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
     'Errors raised by the workbook macros, in the project range
     'vbObjectError + 2048 to + 4095. The regression harness uses its own
-    'numbers from + 2060.
+    'numbers + 2060 and + 2061.
         Public Const ERR_RUN_ACTIVE       As Long = vbObjectError + 2049    'An operation is already running
         Public Const ERR_CLEANUP_FAILED   As Long = vbObjectError + 2050    'Excel settings were not restored
         Public Const ERR_INJECTED_FAULT   As Long = vbObjectError + 2051    'Test seam: injected failure
@@ -501,6 +525,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Export file read-only or not written whole
         Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
         Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or unknown CSV kind
+        Public Const ERR_STAGING_WRITE    As Long = vbObjectError + 2062    'Staging sheet missing or not written as read
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

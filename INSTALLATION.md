@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, eight suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, nine suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -260,7 +260,7 @@ The layout and file conventions are defined in
    | 6 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 7 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 8 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; reads and writes the reconciliation sheets |
+   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv` and `ImportNettingSetsCsv`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 10 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 11 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 12 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -268,11 +268,12 @@ The layout and file conventions are defined in
    | 14 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
    | 15 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
    | 16 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 17 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 18 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 19 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 20 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 21 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 17 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets; development workbook only |
+   | 18 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 19 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 20 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 21 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 22 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
    `ExportEvidence`, `ExportTradesCsvTemplate` and
@@ -313,8 +314,8 @@ match the file name.
 To run every suite at once, type `Test_RunAll` in the Immediate window
 (**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`,
-`TEST_Reconcile` and `TEST_CsvReader` in turn and prints only a summary: one line per suite
-with its verdict, counts and duration, the failure lines of a suite that
+`TEST_Reconcile`, `TEST_CsvReader` and `TEST_Import` in turn and prints only a
+summary: one line per suite with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final `RESULT=` line with the number of suites passed and
 failed. An error raised by a suite counts as its failure and the next suite
 still runs. The summary is not Excel evidence: the evidence record needs the
@@ -497,13 +498,35 @@ fixture as written, with a byte-order mark and with CRLF line ends, and every
 inline case of `tests/csv/cases.json`, through `CORE_CsvReader.ReadCsvBytes`,
 and expects exactly the findings the reference implementation
 `tools/csv_contract.py` pinned, the same record count and, for an accepted
-file, every value as written. The cases cover invalid UTF-8, characters
+file, every value as written; read again as staging reads it, whether the
+file is readable and how many records it keeps. The cases cover invalid UTF-8, characters
 outside the basic plane, spaces and control characters, formula starts,
 number forms, digits and magnitudes, dates, keys, quoting, a comma or tab
 delimiter and the record and size limits. Six more cases read a fixture from a file in `%TEMP%`, refuse a
 file too large from its size, expect `ERR_CSV_READ` for a missing file, a
 malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
 returns for an accepted and a rejected file. It touches no sheet.
+
+### CSV import tests
+
+```text
+TEST_Import.RunImportTests
+```
+
+Loads synthetic CSV files, written to `%TEMP%` and deleted, into
+Import_NettingSets and Import_Trades through `M_Main.ImportCsv_Silent`:
+an accepted file; a CRLF file with findings about values, whose records are
+loaded as text with their CSV lines, leading zeros, a formula-like comment
+and a quoted line break kept, and a blank record left out; a comma-separated
+file, a missing file and an unknown kind, which load nothing; a change made
+with events off, which refuses a new load until replacement is asked for,
+and one made with events on, which shows `EDITED`; a shorter file, which
+clears the rows below it; a failure while writing (`gTestFault =
+"staging-write"`), which puts the sheet back; a formula in the block, which
+`StagingFormulaCell` finds; and a header-only file. The live inputs and the
+run fingerprints must be unchanged at the end. Both staging sheets are put
+back as they were, as values. It needs a workbook built from the current
+template.
 
 ### Benchmark
 
@@ -662,6 +685,23 @@ does not exist or cannot be read raise `ERR_CSV_READ`. The macros
 `CheckTradesCsv` and `CheckNettingSetsCsv`, run from the Macros dialog, do
 the same for a file chosen in a dialog and show the outcome with the first
 ten findings; cancelling the dialog does nothing.
+
+### ImportCsv_Silent
+
+`ImportCsv_Silent(kind, filePath, [replaceEdits])` loads a CSV file of `kind`
+(`Trades` or `NettingSets`) into its staging sheet, Import_Trades or
+Import_NettingSets, without a dialog. It returns
+`RESULT=LOADED; records=N; findings=K; file=...` when the records were
+loaded, K being the findings about values to correct on the sheet;
+`RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=...` when a
+structural finding (see [staging](docs/csv/CSV_CONTRACT.md#-staging)) stopped
+the load; or `RESULT=REFUSED; reason=...; file=...` when the sheet has
+changes since its last load and `replaceEdits` is not True. The sheet changes
+only on `LOADED`; a load that fails while writing puts it back as it was. An
+unknown kind and a file that cannot be read raise `ERR_CSV_READ`; a staging
+sheet or name that is missing raises `ERR_STAGING_WRITE`. The buttons
+**Import CSV** on the two staging sheets do the same for a file chosen in a
+dialog, list the findings, and ask before they replace changes.
 
 ### ExportCsvTemplate_Silent
 

@@ -279,13 +279,47 @@ checks numbers as text and converts them with `Val`, which always reads a
 `.` decimal point, and checks dates digit by digit, so the outcome does not
 depend on the Windows locale. It writes nothing: a file is accepted or
 rejected whole, and an accepted file's records are returned as their raw
-text, in contract column order, for the staging sheets (#208). Until they
-exist, the macros `CheckTradesCsv` and `CheckNettingSetsCsv` (Macros dialog,
-Alt+F8) check a file and list its first findings with their line, record and
-column, and `TEST_Benchmark.RunCsvBenchmark` measures the reader on files of
-up to the record limit.
+text, in contract column order. The macros `CheckTradesCsv` and
+`CheckNettingSetsCsv` (Macros dialog, Alt+F8) check a file and list its first
+findings with their line, record and column, and
+`TEST_Benchmark.RunCsvBenchmark` measures the reader on files of up to the
+record limit.
 
 `tools/generate_csv_vba.py` writes the contract into `CORE_CsvSchema` and
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 📦 Staging
+
+The **Import CSV** button on `Import_Trades` or `Import_NettingSets` (#208)
+loads a file onto that staging sheet, where its records can be checked and
+corrected before they replace `Trades` or `NettingSets` (#209 to #211). The
+input sheets, Results and the run fingerprints are not changed.
+
+A file is staged unless a finding is **structural**: `CSV-ENCODING`,
+`CSV-SYNTAX`, `CSV-EMPTY`, `CSV-DELIMITER`, `CSV-HEADER-DUPLICATE`,
+`CSV-HEADER-MISSING`, `CSV-HEADER-UNKNOWN`, `CSV-FIELD-COUNT`,
+`CSV-TOO-MANY-RECORDS` or `CSV-TOO-LARGE`. With one of those, nothing is
+loaded and the sheet is left as it was. The other findings are about values;
+they are listed when the file is loaded, and the records stay on the sheet to
+be corrected there. A blank record is not loaded. `STRUCTURAL` in
+`tools/csv_contract.py` and `STRUCTURAL_CODES` in `CORE_CsvReader` are this
+list, and `TEST_CsvReader` checks, for every fixture and case, that the
+reader keeps exactly the records the reference implementation keeps.
+
+On the sheet, each record is one row: its **CSV line**, the physical line it
+starts on, then its values in contract order, under the sheet headers with
+the CSV column names above them. Every value is written as text, exactly as
+in the file, into cells formatted as text, so leading zeros, long IDs, ISO
+dates and text that starts like a formula stay as written and nothing is
+calculated. A row added on the sheet has no CSV line; none is ever invented.
+
+At the top, the sheet shows the file, the time of the load, the record count
+and a status: `EMPTY` before any load, `LOADED` after one, `EDITED` once a
+cell below the header changes. The fingerprint of the block as loaded is kept
+in a hidden name. When the block no longer matches it, a new load asks before
+it replaces the changes, even if they were made with events off and the
+status still reads `LOADED`. A load that fails while writing puts the sheet
+back as it was. Staged records are not validated: validation and the commit
+into the input sheets come with #209 to #211.

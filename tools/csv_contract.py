@@ -25,6 +25,11 @@ DOCUMENT = "docs/csv/CSV_CONTRACT.md"
 BOM = b"\xef\xbb\xbf"
 DELIMITER = ";"
 OTHER_DELIMITERS = {",": "','", "\t": "a tab"}  # Delimiters of other CSV dialects
+# Findings that leave the file unreadable as records: the rest are about values and can be
+# corrected on a staging sheet (#208).
+STRUCTURAL = frozenset({"CSV-ENCODING", "CSV-SYNTAX", "CSV-EMPTY", "CSV-DELIMITER", "CSV-HEADER-DUPLICATE",
+                        "CSV-HEADER-MISSING", "CSV-HEADER-UNKNOWN", "CSV-FIELD-COUNT",
+                        "CSV-TOO-MANY-RECORDS", "CSV-TOO-LARGE"})
 NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -324,13 +329,20 @@ def check_keys(records: list[tuple[int, Record, dict[str, str]]], spec: dict[str
     return findings
 
 
+def readable(findings: list[Finding]) -> bool:
+    """No finding is structural: every record was read and has the header's fields."""
+    return not any(f.code in STRUCTURAL for f in findings)
+
+
 def validate(data: bytes, kind: str, contract: dict[str, Any],
              max_records: int | None = None,
-             max_bytes: int | None = None) -> tuple[list[dict[str, str]], list[Finding]]:
+             max_bytes: int | None = None,
+             keep_records: bool = False) -> tuple[list[dict[str, str]], list[Finding]]:
     """The records of a CSV file of kind (Trades or NettingSets) as dictionaries, and all findings.
 
     The records are returned only when there is no finding: a file is accepted or
-    rejected as a whole, never in part.
+    rejected as a whole, never in part. With keep_records, a readable file's records
+    are returned with its value findings, for staging (#208).
     """
     spec = contract["files"][kind]
     names = [column["name"] for column in spec["columns"]]
@@ -369,7 +381,8 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
         rows.append((index, record, dict(zip(names, ordered.fields))))
     findings += check_keys(rows, spec)
     findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
-    return ([row for _, _, row in rows] if not findings else []), findings
+    keep = not findings or (keep_records and readable(findings))
+    return ([row for _, _, row in rows] if keep else []), findings
 
 
 def template_text(kind: str, contract: dict[str, Any]) -> str:

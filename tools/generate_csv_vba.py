@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from csv_contract import DELIMITER, FORMULA_START, load_contract, validate
+from csv_contract import DELIMITER, FORMULA_START, load_contract, readable, validate
 
 SCHEMA = "src/core/CORE_CsvSchema.bas"
 TESTS = "tests/modules/TEST_CsvReader.bas"
@@ -397,7 +397,9 @@ Private Sub RunFixture( _
     ByVal HexText As String, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
     'A fixture as written, with a byte-order mark and with CRLF line ends:
     'the same findings each time, and the same values but for CRLF, which
     'also changes the line breaks inside quoted fields.
@@ -406,11 +408,14 @@ Private Sub RunFixture( _
     Dim Changed()   As Byte    'A variant of it
     Dim ChangedCount As Long   'Its length
         ByteCount = HexToBytes(HexText, Bytes)
-        RunRead "fixture." & FixtureName, Kind, Bytes, ByteCount, 0, 0, Expected, ExpectedRecords, ExpectedValues
+        RunRead "fixture." & FixtureName, Kind, Bytes, ByteCount, 0, 0, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
         ChangedCount = WithBom(Bytes, ByteCount, Changed)
-        RunRead "fixture." & FixtureName & ".bom", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ExpectedValues
+        RunRead "fixture." & FixtureName & ".bom", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
         ChangedCount = WithCrLf(Bytes, ByteCount, Changed)
-        RunRead "fixture." & FixtureName & ".crlf", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ""
+        RunRead "fixture." & FixtureName & ".crlf", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, "", _
+                ExpectedReadable, ExpectedKept
 
 End Sub
 
@@ -423,11 +428,14 @@ Private Sub RunInline( _
     ByVal MaxBytes As Long, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
     Dim Bytes()     As Byte    'The case's content
     Dim ByteCount   As Long    'Its length
         ByteCount = HexToBytes(HexText, Bytes)
-        RunRead "case." & CaseName, Kind, Bytes, ByteCount, MaxRecords, MaxBytes, Expected, ExpectedRecords, ExpectedValues
+        RunRead "case." & CaseName, Kind, Bytes, ByteCount, MaxRecords, MaxBytes, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
 
 End Sub
 
@@ -441,8 +449,12 @@ Private Sub RunRead( _
     ByVal MaxBytes As Long, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
-    'One read: its findings and record count, and its values when given.
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
+    'One read: its findings and record count, and its values when given;
+    'then the same bytes read with KeepRecords, as staging reads them
+    '(#208): whether the file is readable and how many records it keeps.
     Dim Result      As CsvReadResult    'What the reader found
     Dim Values()    As String           'The records
     Dim Lines()     As Long             'Their lines
@@ -457,6 +469,10 @@ Private Sub RunRead( _
         If Len(ExpectedValues) > 0 Then
             Check ValuesText(Result, Values) = ExpectedValues, "values differ from the file"
         End If
+        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, MaxRecords, MaxBytes, True
+        Check Result.Readable = ExpectedReadable And Result.RecordCount = ExpectedKept, _
+              "kept records: readable " & Result.Readable & ", " & Result.RecordCount & " records, expected " & _
+              ExpectedReadable & ", " & ExpectedKept
         Exit Sub
 
 Unexpected:
@@ -829,35 +845,40 @@ def tests_module(root: Path, contract: dict[str, Any]) -> str:
         rows, found = validate(data, entry["kind"], contract)
         if [[f.code, f.line, f.record, f.column] for f in found] != entry["findings"]:
             raise ValueError(f"{name}: findings differ from {EXPECTED}; fix the fixtures first")
+        kept, _ = validate(data, entry["kind"], contract, keep_records=True)
         procedure = f"Fixture{number:02d}"
         calls.append(f"        {procedure}")
         lines = [f"Private Sub {procedure}()", f"    'Fixture {name}.", "    Dim HexText     As String    'The file",
                  "    Dim Expected    As String    'Its findings", "    Dim Values      As String    'Its values"]
         lines += hex_lines("HexText", data) + expected_lines(entry["findings"]) + values_lines("Values", rows)
-        lines.append(f'        RunFixture {vba_string(name)}, "{entry["kind"]}", HexText, Expected, {entry["records"]}, Values')
+        lines.append(f'        RunFixture {vba_string(name)}, "{entry["kind"]}", HexText, Expected, {entry["records"]}, Values, '
+                     f'{vba_bool(readable(found))}, {len(kept)}')
         lines.append("")
         lines.append("End Sub")
         procedures.append(lines)
         case_count += 3
-        check_count += 3 * 2 + (2 if rows else 0)
+        check_count += 3 * 3 + (2 if rows else 0)
     for number, case in enumerate(cases, start=1):
         data = case_bytes(case)
         rows, found = validate(data, case["kind"], contract, max_records=case.get("max_records"),
                                max_bytes=case.get("max_bytes"))
         if [[f.code, f.line, f.record, f.column] for f in found] != case["findings"]:
             raise ValueError(f"{CASES}: case {case['name']}: findings differ; fix the case first")
+        kept, _ = validate(data, case["kind"], contract, max_records=case.get("max_records"),
+                           max_bytes=case.get("max_bytes"), keep_records=True)
         procedure = f"Case{number:02d}"
         calls.append(f"        {procedure}")
         lines = [f"Private Sub {procedure}()", f"    'Case {case['name']}.", "    Dim HexText     As String    'The content",
                  "    Dim Expected    As String    'Its findings", "    Dim Values      As String    'Its values"]
         lines += hex_lines("HexText", data) + expected_lines(case["findings"]) + values_lines("Values", rows)
         lines.append(f'        RunInline {vba_string(case["name"])}, "{case["kind"]}", HexText, {case.get("max_records", 0)}, '
-                     f'{case.get("max_bytes", 0)}, Expected, {case["records"]}, Values')
+                     f'{case.get("max_bytes", 0)}, Expected, {case["records"]}, Values, '
+                     f'{vba_bool(readable(found))}, {len(kept)}')
         lines.append("")
         lines.append("End Sub")
         procedures.append(lines)
         case_count += 1
-        check_count += 2 + (1 if rows else 0)
+        check_count += 3 + (1 if rows else 0)
     # The file cases: unknown kind 1, missing file 1, round trip 3, too large 2, malformed path 1,
     # ReadCsv_Silent 2.
     case_count += 6
