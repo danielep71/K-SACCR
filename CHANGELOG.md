@@ -152,6 +152,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Follow the repository's rename to `danielep71/K-SACCR`: the links in the
+  README, INSTALLATION, governance, methodology, issue templates and
+  website, the website address <https://danielep71.github.io/K-SACCR/>
+  (GitHub Pages does not redirect the old one), the clone commands and the
+  repository named in the Excel evidence policy. Released user manuals and
+  release entries keep the old name; GitHub redirects their links.
 - Show the counterparty credit risk framework K-SACCR belongs to (#462):
   a diagram under "What this project is", from the two exposure engines
   to the ordinary and CCP capital branches and their aggregation, with CVA
@@ -913,7 +919,7 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.2...HEAD
-[1.0.2]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2
-[1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
-[1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
+[1.0.1]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.1
+[1.0.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.0

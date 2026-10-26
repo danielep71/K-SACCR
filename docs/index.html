@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>K-SACCR — SA-CCR Calculator and Validation Toolkit for Excel VBA</title>
   <meta name="description" content="Explore K-SACCR, an open-source Excel VBA toolkit for SA-CCR exposure calculation, Basel benchmarking, reconciliation, and a traceable trade-to-EAD audit trail.">
-  <link rel="canonical" href="https://danielep71.github.io/VBA-SACCR-Toolkit/">
+  <link rel="canonical" href="https://danielep71.github.io/K-SACCR/">
   <meta name="theme-color" content="#00338d">
   <meta property="og:type" content="website">
   <meta property="og:title" content="K-SACCR — SA-CCR in Excel VBA">
   <meta property="og:description" content="Calculate, inspect, and reconcile counterparty credit exposure. Open source, documented methodology, and published Basel examples.">
-  <meta property="og:url" content="https://danielep71.github.io/VBA-SACCR-Toolkit/">
-  <meta property="og:image" content="https://danielep71.github.io/VBA-SACCR-Toolkit/assets/SACCR_social_preview.png">
+  <meta property="og:url" content="https://danielep71.github.io/K-SACCR/">
+  <meta property="og:image" content="https://danielep71.github.io/K-SACCR/assets/SACCR_social_preview.png">
   <meta property="og:image:alt" content="K-SACCR project overview with Basel CRE99 Example 5 and the PFE multiplier curve">
   <meta name="twitter:card" content="summary_large_image">
   <style>
@@ -117,7 +117,7 @@
         <a href="#workflow">How it works</a>
         <a href="#methodology">Scope &amp; validation</a>
         <a href="#documentation">Documentation</a>
-        <a href="https://github.com/danielep71/VBA-SACCR-Toolkit">GitHub ↗</a>
+        <a href="https://github.com/danielep71/K-SACCR">GitHub ↗</a>
       </div>
     </nav>
   </header>
@@ -132,13 +132,13 @@
         <p class="lead">K-SACCR is an independent toolkit for calculating, inspecting, and reconciling SA-CCR exposure under EU CRR and Basel CRE52.</p>
         <p class="lead">Explore the calculation in Excel, trace its methodology, and review the VBA behind every result.</p>
         <div class="actions">
-          <a class="button primary" href="https://github.com/danielep71/VBA-SACCR-Toolkit">Explore the source ↗</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.2/K-SACCR_1.0.2.xlsm" data-direct-download>Download workbook 1.0.2 ↓</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.2/K-SACCR_User_Manual_1.0.2.pdf" data-direct-download>User manual 1.0.2 (PDF) ↓</a>
-          <a class="button" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#building-a-workbook-from-source">Build from source</a>
+          <a class="button primary" href="https://github.com/danielep71/K-SACCR">Explore the source ↗</a>
+          <a class="button" href="https://github.com/danielep71/K-SACCR/releases/download/v1.0.2/K-SACCR_1.0.2.xlsm" data-direct-download>Download workbook 1.0.2 ↓</a>
+          <a class="button" href="https://github.com/danielep71/K-SACCR/releases/download/v1.0.2/K-SACCR_User_Manual_1.0.2.pdf" data-direct-download>User manual 1.0.2 (PDF) ↓</a>
+          <a class="button" href="https://github.com/danielep71/K-SACCR/blob/main/INSTALLATION.md#building-a-workbook-from-source">Build from source</a>
         </div>
         <p class="status">Release 1.0.2 · Windows desktop Excel · No real portfolio data</p>
-        <p class="status">Downloaded the workbook? Check its SHA-256 against <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/download/v1.0.2/SHA256SUMS.txt" data-direct-download>SHA256SUMS.txt</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md#released-workbook">unblock it</a> before you open it.</p>
+        <p class="status">Downloaded the workbook? Check its SHA-256 against <a href="https://github.com/danielep71/K-SACCR/releases/download/v1.0.2/SHA256SUMS.txt" data-direct-download>SHA256SUMS.txt</a> and <a href="https://github.com/danielep71/K-SACCR/blob/main/INSTALLATION.md#released-workbook">unblock it</a> before you open it.</p>
       </div>
       <aside class="example" aria-labelledby="example-title">
         <div class="eyebrow">A published benchmark</div>
@@ -151,7 +151,7 @@
           <div><dt>Potential future exposure</dt><dd>1,342</dd></div>
         </dl>
         <div class="total"><span>Exposure at default</span><strong>1,879</strong></div>
-        <small>Amounts in USD thousands; rounded published example values. A reference benchmark, not a live calculation or portfolio.<br><a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/assets/README.md#social-preview">Source and calculation notes ↗</a></small>
+        <small>Amounts in USD thousands; rounded published example values. A reference benchmark, not a live calculation or portfolio.<br><a href="https://github.com/danielep71/K-SACCR/blob/main/docs/assets/README.md#social-preview">Source and calculation notes ↗</a></small>
       </aside>
     </div>
     <div class="wrap strip" aria-label="Project characteristics">
@@ -168,7 +168,7 @@
       </ol>
       <figure class="screen">
         <a href="assets/SACCR_Results_EAD.png" aria-label="Open the full-size Excel results screenshot"><img src="assets/SACCR_Results_EAD.png" width="1897" height="552" loading="lazy" alt="K-SACCR Excel Results sheet showing add-on, multiplier, PFE, alpha, EAD, cap, and calculation status by netting set"></a>
-        <figcaption>Inside the workbook: results for the synthetic demonstration portfolio. Incomplete netting sets are identified explicitly. <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/assets/README.md#screenshots">Screenshot provenance and demo rounding notes</a>.</figcaption>
+        <figcaption>Inside the workbook: results for the synthetic demonstration portfolio. Incomplete netting sets are identified explicitly. <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/assets/README.md#screenshots">Screenshot provenance and demo rounding notes</a>.</figcaption>
       </figure>
     </section>
     <section class="tint" id="methodology">
@@ -179,7 +179,7 @@
           <p>EU CRR is the default regime; Basel CRE52 is also supported. The selected regime is reported with the result. Documented differences cover asset classes, supervisory parameters, options, and aggregation.</p>
           <div class="formula">EAD = α × (RC + PFE)</div>
           <p class="intro">Replacement cost captures current exposure. Potential future exposure uses the aggregate add-on and PFE multiplier. The methodology documents margin treatment, the unmargined cap, and other supported rules.</p>
-          <p><a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md">Read the methodology and support matrix ↗</a></p>
+          <p><a href="https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md">Read the methodology and support matrix ↗</a></p>
         </div>
         <div>
           <div class="eyebrow">Evidence, with its limits</div>
@@ -191,13 +191,13 @@
             <li><strong>Scale:</strong> a synthetic portfolio of 500,000 trade legs in 1,000 netting sets calculated in under two minutes, every leg used; times depend on the machine.</li>
           </ul>
           <p class="note"><strong>Release 1.0.2.</strong> Its source was certified in Excel before tagging: compile and all eight test suites. That is software evidence, not regulatory approval, which the project does not claim.</p>
-          <p><a href="https://github.com/danielep71/VBA-SACCR-Toolkit#validation">Inspect the current validation evidence ↗</a></p>
+          <p><a href="https://github.com/danielep71/K-SACCR#validation">Inspect the current validation evidence ↗</a></p>
         </div>
       </div>
       <div class="wrap">
         <figure class="screen diagram">
           <a href="assets/SACCR_aggregation.svg" aria-label="Open the full-size diagram of how SA-CCR aggregates a netting set"><img src="assets/SACCR_aggregation.svg" width="1800" height="1550" loading="lazy" alt="How SA-CCR aggregates a netting set: each trade is assigned to its netting set, asset class and hedging set; its effective notional is netted within the hedging set, multiplied by the supervisory factor and aggregated into asset-class add-ons, the aggregate add-on, the PFE and EAD = 1.4 x (RC + PFE)"></a>
-          <figcaption><span class="narrow-hint">Scroll the diagram sideways, or open it full size. </span>From trade to exposure value: assign top-down, aggregate bottom-up. A summary, not a source. <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/assets/README.md#sa-ccr-explainers">How the explainers were made</a>.</figcaption>
+          <figcaption><span class="narrow-hint">Scroll the diagram sideways, or open it full size. </span>From trade to exposure value: assign top-down, aggregate bottom-up. A summary, not a source. <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/assets/README.md#sa-ccr-explainers">How the explainers were made</a>.</figcaption>
         </figure>
       </div>
     </section>
@@ -211,7 +211,7 @@
       </ul>
       <figure class="screen diagram">
         <a href="assets/SACCR_uses_in_CRR.svg" aria-label="Open the full-size diagram of where SA-CCR is used in the EU CRR"><img src="assets/SACCR_uses_in_CRR.svg" width="1600" height="1040" loading="lazy" alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the K-SACCR milestone or scope of each"></a>
-        <figcaption><span class="narrow-hint">Scroll the diagram sideways, or open it full size. </span>An orientation picture, not a source. <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/assets/README.md#saccr-uses-in-crr">Articles, sources and calculation contexts</a>.</figcaption>
+        <figcaption><span class="narrow-hint">Scroll the diagram sideways, or open it full size. </span>An orientation picture, not a source. <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/assets/README.md#saccr-uses-in-crr">Articles, sources and calculation contexts</a>.</figcaption>
       </figure>
     </section>
     <section class="tint" id="documentation">
@@ -220,19 +220,19 @@
       <h2>Explore. Build. Review.</h2>
       <p class="intro">The workbook is built from a macro-free template and exported VBA modules. Start with the installation guide, then use the methodology and tests to understand its behavior.</p>
       <div class="resources">
-        <a class="resource" href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md"><strong>Installation &amp; setup ↗</strong><span>Supported Excel hosts, import steps, and how to run the test suites.</span></a>
-        <a class="resource" href="https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2"><strong>Release 1.0.2 ↗</strong><span>The workbook, the user manual (PDF) and their SHA-256 sums.</span></a>
-        <a class="resource" href="https://github.com/danielep71/VBA-SACCR-Toolkit/wiki"><strong>Project wiki ↗</strong><span>SA-CCR overview, regulatory sources, and worked examples.</span></a>
-        <a class="resource" href="https://github.com/danielep71/VBA-SACCR-Toolkit/tree/main/tests"><strong>Tests &amp; reference cases ↗</strong><span>Synthetic fixtures, expected results, and their evidence classes.</span></a>
+        <a class="resource" href="https://github.com/danielep71/K-SACCR/blob/main/INSTALLATION.md"><strong>Installation &amp; setup ↗</strong><span>Supported Excel hosts, import steps, and how to run the test suites.</span></a>
+        <a class="resource" href="https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2"><strong>Release 1.0.2 ↗</strong><span>The workbook, the user manual (PDF) and their SHA-256 sums.</span></a>
+        <a class="resource" href="https://github.com/danielep71/K-SACCR/wiki"><strong>Project wiki ↗</strong><span>SA-CCR overview, regulatory sources, and worked examples.</span></a>
+        <a class="resource" href="https://github.com/danielep71/K-SACCR/tree/main/tests"><strong>Tests &amp; reference cases ↗</strong><span>Synthetic fixtures, expected results, and their evidence classes.</span></a>
       </div>
       <details>
         <summary>What should I know before using K-SACCR?</summary>
-        <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/VBA-SACCR-Toolkit#limitations">repository README</a> and <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
+        <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/K-SACCR#limitations">repository README</a> and <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
       </details>
       </div>
     </section>
   </main>
-  <footer><div class="wrap"><span>K-SACCR · An independent project by <a href="https://github.com/danielep71">Daniele Penza</a></span><span><a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/LICENSE">MPL 2.0</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/SECURITY.md">Security</a></span></div></footer>
+  <footer><div class="wrap"><span>K-SACCR · An independent project by <a href="https://github.com/danielep71">Daniele Penza</a></span><span><a href="https://github.com/danielep71/K-SACCR/blob/main/LICENSE">MPL 2.0</a> · <a href="https://github.com/danielep71/K-SACCR/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/danielep71/K-SACCR/blob/main/SECURITY.md">Security</a></span></div></footer>
   <script>
     // Start release downloads in a hidden frame so the page does not visibly pass through GitHub; without JavaScript the plain links still work.
     document.querySelectorAll("a[data-direct-download]").forEach(function (link) {
