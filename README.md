@@ -109,11 +109,13 @@ only produce one:
 
 K-SACCR is one calculator of a counterparty credit risk framework: it
 produces the exposure value of derivatives, the **K-SA-CCR** box of step 1,
-including the trade exposures to CCPs (v1.0.2). The SFT exposure is developed
-in [K-SFTs](https://github.com/danielep71/K-SFTs); the
-[roadmap](#roadmap) follows the framework into SFTs, CVA risk, and
-risk-weighted assets and capital. The portfolio is presented by
-[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines).
+including the trade exposures to CCPs (v1.0.2). The other parts of the
+framework are developed outside K-SACCR: the SFT exposure in
+[K-SFTs](https://github.com/danielep71/K-SFTs); risk-weighted assets,
+capital and default-fund contributions to CCPs in
+[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines), which also
+presents the portfolio; and CVA risk in an engine of its own. The
+[roadmap](#roadmap) keeps K-SACCR to the derivatives exposure.
 
 <p align="center">
   <a href="docs/assets/CCR_framework.svg">
@@ -592,8 +594,8 @@ Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
 </details>
 
 `python tools/check.py` runs the [static gates](tools/README.md) locally and
-in CI, where Ruff, mypy and actionlint run as well. Static checks never stand in for Excel evidence; the
-[Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
+in CI, where Ruff, mypy and actionlint run as well. Static checks never stand
+in for Excel evidence; the [Excel evidence record](docs/EXCEL_EVIDENCE.md) defines what a run must show,
 suite by suite, and `tools/check_excel_evidence.py` validates a record against
 the exact commit it claims.
 
@@ -665,8 +667,9 @@ and the VBA references are listed in `INSTALLATION.md`.
   from local market practice.
 - **Not supported:** digital options (#120), the optional reductions for sold
   options and sold credit protection, several margin agreements in one netting
-  set, the 1904 date system, default-fund contributions to a CCP (#400), and
-  the simplified SA-CCR, OEM, SFT, CVA and RWA calculations.
+  set, the 1904 date system, and the simplified SA-CCR and OEM (planned,
+  v1.5.0 and v1.6.0). SFTs, CVA risk, risk-weighted assets and default-fund
+  contributions to a CCP are outside K-SACCR (see the [roadmap](#roadmap)).
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
   supported host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
@@ -684,13 +687,14 @@ The full list is in the
 
 K-SACCR calculates the risk-based SA-CCR exposure value. The CRR uses that
 value, or the same method with its own adjustments, well beyond counterparty
-credit risk, and the later milestones follow it there: CCP exposures, CVA risk
-and risk-weighted assets.
+credit risk; the diagram shows where, and which part K-SACCR covers. Its
+milestones stay with the derivatives exposure value and the workbook that
+produces it.
 
 <p align="center">
   <a href="docs/assets/SACCR_uses_in_CRR.svg">
     <img width="100%"
-         alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the K-SACCR milestone or scope of each"
+         alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the part K-SACCR covers in each"
          src="docs/assets/SACCR_uses_in_CRR.svg">
   </a>
 </p>
@@ -706,20 +710,22 @@ and risk-weighted assets.
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
-| v1.8.0 | Securities financing transactions (#113) |
-| v1.9.0 | Regulatory CVA risk (#114) |
-| v1.10.0 | Risk-weighted assets and capital (#115), default-fund contributions to CCPs (#400) |
+| v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)
-hold the current scope of each release. v1.7.0 is not used: its scope,
-exposures to CCPs, was delivered in v1.0.2 (#112), and default-fund
-contributions moved to v1.10.0 (#400).
+hold the current scope of each release. Securities financing transactions
+are developed in [K-SFTs](https://github.com/danielep71/K-SFTs);
+risk-weighted assets, capital and default-fund contributions to CCPs in
+[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines); CVA risk in
+an engine of its own.
 
 ### v1.1.0 — CSV import, staging and workbook protection
 
 Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
-The following work is planned; it is not part of the released workbook:
+None of this work is in a released workbook yet. On the release branch so
+far: the CSV contract and its blank templates (#206), the CSV reader and the
+check macros (#207), and the empty staging sheets (#208).
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |

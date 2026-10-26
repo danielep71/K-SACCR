@@ -24,9 +24,8 @@ Current source:
 - `modules/SACCR_Formulas.bas`: the public `SACCR_*` worksheet functions,
   listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
 - `workbook/M_Main.bas`: the sheet-button macros, the CSV check macros, the
-  automation entry points
-  and status functions, and the reading and writing of the reconciliation
-  sheets and the evidence file;
+  automation entry points and status functions, and the reading and writing
+  of the reconciliation sheets and the evidence file;
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
   modules, which hold only `Option Explicit`, but for the change handlers of
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as

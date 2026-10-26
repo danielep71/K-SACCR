@@ -204,13 +204,13 @@
     <section class="wrap" id="regulatory-use">
       <div class="eyebrow">03 / Where SA-CCR is used</div>
       <h2>One method, six uses.</h2>
-      <p class="intro">In the EU CRR, the SA-CCR exposure value of a netting set feeds counterparty credit risk under the standardised approach, exposures to CCPs, large exposures, and CVA risk. The leverage ratio and the output floor recalculate SA-CCR with their own adjustments. K-SACCR calculates the risk-based exposure value at the centre; the diagram marks which uses are on its roadmap and which are out of scope.</p>
+      <p class="intro">In the EU CRR, the SA-CCR exposure value of a netting set feeds counterparty credit risk under the standardised approach, exposures to CCPs, large exposures, and CVA risk. The leverage ratio and the output floor recalculate SA-CCR with their own adjustments. K-SACCR calculates the risk-based exposure value at the centre; the diagram marks the part K-SACCR covers in each use, and which uses are out of scope.</p>
       <ul class="scope-list">
         <li><strong>Leverage ratio:</strong> α stays 1.4, the PFE multiplier is 1, and replacement cost recognises only eligible cash variation margin, with exceptions for client trades cleared through a QCCP (Art. 429c).</li>
         <li><strong>Output floor:</strong> until 31 December 2029, α = 1 only for exposures whose un-floored value comes from the internal model method (Art. 465(4)).</li>
       </ul>
       <figure class="screen diagram">
-        <a href="assets/SACCR_uses_in_CRR.svg" aria-label="Open the full-size diagram of where SA-CCR is used in the EU CRR"><img src="assets/SACCR_uses_in_CRR.svg" width="1600" height="1040" loading="lazy" alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the K-SACCR milestone or scope of each"></a>
+        <a href="assets/SACCR_uses_in_CRR.svg" aria-label="Open the full-size diagram of where SA-CCR is used in the EU CRR"><img src="assets/SACCR_uses_in_CRR.svg" width="1600" height="1040" loading="lazy" alt="Where SA-CCR is used in the EU CRR: counterparty credit risk, exposures to CCPs and large exposures take the risk-based exposure value, and so does CVA risk; the leverage ratio and the output floor recalculate SA-CCR with their own adjustments; with the part K-SACCR covers in each"></a>
         <figcaption><span class="narrow-hint">Scroll the diagram sideways, or open it full size. </span>An orientation picture, not a source. <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/assets/README.md#saccr-uses-in-crr">Articles, sources and calculation contexts</a>.</figcaption>
       </figure>
     </section>
@@ -227,7 +227,7 @@
       </div>
       <details>
         <summary>What should I know before using K-SACCR?</summary>
-        <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not currently implement simplified SA-CCR, the original exposure method, CCP default-fund calculations, securities financing transaction exposure methods, CVA, or RWA calculations. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/K-SACCR#limitations">repository README</a> and <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
+        <p>Use Windows desktop Excel and follow your organization's macro policy. The repository holds no real portfolio data; keep yours out of issues and pull requests. The project does not yet implement simplified SA-CCR or the original exposure method; securities financing transactions, CVA risk, RWA and CCP default-fund contributions are developed outside K-SACCR. Additional product and modeling limitations are listed in the <a href="https://github.com/danielep71/K-SACCR#limitations">repository README</a> and <a href="https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md#support-matrix">support matrix</a>.</p>
       </details>
       </div>
     </section>

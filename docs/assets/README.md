@@ -79,7 +79,7 @@ changed; update the card when a supervisory parameter or formula changes.
 
 The workbook carries the card as a picture on its README sheet, under the
 "Reference card" heading, so a user never has to leave Excel (#281).
-README!D23 links to C114, a cell behind the lower part of the picture:
+README!D23 links to C116, a cell behind the lower part of the picture:
 Excel scrolls only until the target cell is in view, so a link to the
 heading would leave the picture below the window. The picture is a PNG of
 this SVG: when the SVG changes, render it again and replace the picture in
@@ -118,7 +118,8 @@ below):
 Each part is coloured by the regulation that brought it in, CRR2 (Regulation
 (EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
 2024/1623, applied from 1 January 2025), and names what K-SACCR does with it:
-the roadmap milestone, or out of scope. It is an orientation picture, not a
+the exposure value it supplies, with the calculation that is developed outside
+K-SACCR, or out of scope. It is an orientation picture, not a
 source: K-SACCR calculates only the exposure value at its centre.
 
 - **Origin:** drawn for this repository from the CRR. The idea of a single
