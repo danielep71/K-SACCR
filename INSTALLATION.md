@@ -231,9 +231,10 @@ The layout and file conventions are defined in
    `tools/vba-projects.json`. Build a production workbook to calculate and a
    development workbook only to run the tests, which write to the input and
    output sheets. It then asks whether to fill the worksheet and
-   `ThisWorkbook` document modules as well (they hold only `Option Explicit`,
-   so either answer works). It needs Excel's **Trust
-   access to the VBA project object model** setting; see
+   `ThisWorkbook` document modules as well: answer Y when building from the
+   template (they hold only `Option Explicit`, except the two staging
+   sheets', which show `EDITED` after a manual change). It needs Excel's
+   **Trust access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
    four default references listed under [supported hosts](#supported-hosts).
@@ -284,7 +285,8 @@ The layout and file conventions are defined in
    below the `Attribute` lines, and paste it into the existing `ThisWorkbook` or
    sheet module. Sheet code names must match the file names (the FormulaTest
    sheet keeps the code name `shTests`). The document modules hold only
-   `Option Explicit`.
+   `Option Explicit`, except `shImportNettingSets` and `shImportTrades`,
+   whose change handler shows `EDITED` on a staging sheet changed by hand.
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.

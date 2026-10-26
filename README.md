@@ -214,8 +214,10 @@ or later and no packages.
    `src/`, or **D**evelopment, which adds the test modules of `tests/modules/`
    that [section 4](#4-test-development-workbook) needs. It then asks whether
    to replace the code of the worksheet and `ThisWorkbook` modules as well;
-   they hold only `Option Explicit`, so either answer works. The tests write
-   to the input and output sheets: never run them on real data.
+   answer **Y** when building from the template. They hold only
+   `Option Explicit`, except the two staging sheets', which show `EDITED`
+   after a manual change. The tests write to the input and output sheets:
+   never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
@@ -725,7 +727,7 @@ Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
 None of this work is in a released workbook yet. On the release branch so
 far: the CSV contract and its blank templates (#206), the CSV reader and the
-check macros (#207), and the empty staging sheets (#208).
+check macros (#207), and the staging sheets with their CSV import (#208).
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |

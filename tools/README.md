@@ -141,7 +141,10 @@ built from a newer template; the standard modules are imported either way.
 `-IncludeSheets` or `-SkipSheets` gives the answer in advance. When N leaves
 nothing to import, the script exits with code 2 and the workbook is not
 changed. The repository's sheet modules hold only `Option Explicit` and
-comments, so skipping them changes no behaviour.
+comments, except the two staging sheets', whose change handler shows
+`EDITED` on a staging sheet changed by hand: without it the status cell
+stays as the last import left it, while the import still refuses to
+replace changed records, because it compares their fingerprint.
 
 To test modules received outside the repository, for example downloaded
 during a review, without copying them into the working tree, drag the
@@ -268,7 +271,7 @@ Anything else is reported as *unknown*, never as a defect.
 | Configuration | Modules |
 | --- | --- |
 | `production` | The nine standard modules of a workbook built from the template |
-| `development` | Those plus the twelve test modules of `tests/modules/`, as in INSTALLATION.md |
+| `development` | Those plus the thirteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
