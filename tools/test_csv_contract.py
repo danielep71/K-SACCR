@@ -88,6 +88,24 @@ class FileTests(unittest.TestCase):
                          [("CSV-HEADER-UNKNOWN", 1, 0, "bad_header"), ("CSV-HEADER-MISSING", 1, 0, "netting_set_id")])
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
 
+    def test_validate_records_gives_each_kept_record_its_line(self) -> None:
+        text = TR_HEADER + "\n\n" + TR_ROW + "\n" + TR_ROW.replace("T1;", "T2;", 1) + "\n"
+        rows, findings = csv.validate_records(text.encode(), "Trades", CONTRACT, keep_records=True)
+        self.assertEqual([(line, row["trade_id"]) for line, row in rows], [(3, "T1"), (4, "T2")])
+        self.assertEqual([f.code for f in findings], ["CSV-BLANK-RECORD"])
+
+    def test_portfolio_finds_unknown_netting_sets_and_mtm_legs(self) -> None:
+        row = dict(zip([c["name"] for c in CONTRACT["files"]["Trades"]["columns"]], TR_ROW.split(";")))
+        legs = [(2, dict(row, trade_id="A", economic_trade_id="E1", mtm_leg="Y")),
+                (3, dict(row, trade_id="B", economic_trade_id="E1", mtm_leg="N", asset_class="FX",
+                          market_value_amount="7")),
+                (0, dict(row, trade_id="C", netting_set_id="NS-9"))]
+        found = csv.check_portfolio(legs, ["ns-1"], CONTRACT)
+        self.assertEqual([(f.code, f.line, f.record, f.column) for f in found],
+                         [("CSV-ECON-MTM-VALUE", 3, 2, "market_value_amount"),
+                          ("CSV-NETTING-SET-UNKNOWN", 0, 3, "netting_set_id")])
+        self.assertEqual(csv.check_portfolio(legs[:1], ["NS-1"], CONTRACT), [])
+
     def test_value_findings_keep_the_records_for_staging(self) -> None:
         blank = ";" * NS_HEADER.count(";")
         text = (NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + blank + "\n"
@@ -202,7 +220,8 @@ class GateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES):
+        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES,
+                     gate.PORTFOLIO):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
         shutil.copytree(ROOT / csv.TEMPLATES, self.root / csv.TEMPLATES)
@@ -217,6 +236,23 @@ class GateTests(unittest.TestCase):
 
     def test_repository_passes(self) -> None:
         self.assertEqual(gate.run_check(self.root)["findings"], [])
+
+    def test_portfolio_cases_must_match_the_reference(self) -> None:
+        path = self.root / gate.PORTFOLIO
+        cases = json.loads(path.read_text(encoding="utf-8"))
+        cases["cases"][1]["findings"] = []
+        path.write_text(json.dumps(cases), encoding="utf-8")
+        self.assertIn(f"{gate.PORTFOLIO}: case 'netting-set-unknown': findings differ",
+                      gate.run_check(self.root)["findings"])
+
+    def test_portfolio_rules_must_name_known_codes_and_columns(self) -> None:
+        def change(contract: dict[str, Any]) -> None:
+            contract["portfolio_rules"][0]["code"] = "CSV-NOWHERE"
+            contract["portfolio_rules"][1]["columns"].append("no_such_column")
+        self.edit_contract(change)
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("portfolio rule netting-set-known: code CSV-NOWHERE is not in errors", findings)
+        self.assertIn("portfolio rule mtm-leg names unknown column 'no_such_column'", findings)
 
     def test_allowed_values_must_match_the_template(self) -> None:
         self.edit_contract(lambda c: c["files"]["Trades"]["columns"][5]["allowed"].append("Swap"))

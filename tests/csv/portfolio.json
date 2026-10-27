@@ -1,0 +1,183 @@
+{
+ "description": "Portfolio cases of the CSV contract (#209): a Trades file read with KeepRecords, the netting set IDs its legs may refer to, and every finding between records as [code, line, record, column], the record being the position among the records kept. Read by tools/csv_contract.py and, through tools/generate_csv_vba.py, by the VBA reader.",
+ "cases": [
+  {
+   "name": "portfolio-valid",
+   "netting_sets": [
+    "NS-1",
+    "NS-2"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-2;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nE1-IR;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;500;;;2031-01-02;2031-01-02;;;;;;;E1;Y;;;\nE1-FX;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;N;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;Y;;;\n",
+   "findings": []
+  },
+  {
+   "name": "netting-set-unknown",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;ns-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-9;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-NETTING-SET-UNKNOWN",
+     3,
+     2,
+     "netting_set_id"
+    ]
+   ]
+  },
+  {
+   "name": "econ-no-mtm-leg",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;N;;;\nB;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-MTM-LEG",
+     2,
+     1,
+     "mtm_leg"
+    ],
+    [
+     "CSV-ECON-MTM-LEG",
+     3,
+     2,
+     "mtm_leg"
+    ]
+   ]
+  },
+  {
+   "name": "econ-two-mtm-legs",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;e1;Y;;;\nB;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;Y;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-MTM-LEG",
+     2,
+     1,
+     "mtm_leg"
+    ],
+    [
+     "CSV-ECON-MTM-LEG",
+     3,
+     2,
+     "mtm_leg"
+    ]
+   ]
+  },
+  {
+   "name": "econ-mtm-on-other-leg",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;10;;;2031-01-02;2031-01-02;;;;;;;E1;Y;;;\nB;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;-5;;;2031-01-02;2031-01-02;;;;;;;E1;N;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-MTM-VALUE",
+     3,
+     2,
+     "market_value_amount"
+    ]
+   ]
+  },
+  {
+   "name": "whole-trade-flagged-n",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;N;;;\nB;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-MTM-LEG",
+     2,
+     1,
+     "mtm_leg"
+    ]
+   ]
+  },
+  {
+   "name": "econ-netting-sets-differ",
+   "netting_sets": [
+    "NS-1",
+    "NS-2"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;Y;;;\nB;NS-2;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;N;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-NETTING-SET",
+     3,
+     2,
+     "netting_set_id"
+    ]
+   ]
+  },
+  {
+   "name": "econ-settlement-differs",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;Y;STM;2026-12-31;\nB;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;N;;;\nC;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E2;Y;N;;\nD;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E2;N;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-SETTLEMENT",
+     3,
+     2,
+     "settlement_type"
+    ]
+   ]
+  },
+  {
+   "name": "econ-reset-differs",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;Y;STM;2026-12-31;\nB;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;N;STM;2027-01-29;\n",
+   "findings": [
+    [
+     "CSV-ECON-SETTLEMENT",
+     3,
+     2,
+     "next_reset_date"
+    ]
+   ]
+  },
+  {
+   "name": "position-among-kept-records",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\n\nA;NS-9;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-NETTING-SET-UNKNOWN",
+     3,
+     1,
+     "netting_set_id"
+    ]
+   ]
+  },
+  {
+   "name": "econ-same-class-not-options",
+   "netting_sets": [
+    "NS-1"
+   ],
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nA;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;E1;Y;;;\nB;NS-1;IR;;EUR;Option;Long;Call;;;1000;EUR;0;;;2031-01-02;2031-01-02;2030-01-02;0.03;0.03;;;;E1;N;;;\nC;NS-1;IR;;EUR;Option;Long;Call;;;1000;EUR;0;;;2031-01-02;2031-01-02;2030-01-02;0.03;0.03;;;;E2;Y;;;\nD;NS-1;IR;;EUR;Option;Long;Call;;;1000;EUR;0;;;2031-01-02;2031-01-02;2030-01-02;0.03;0.03;;;;E2;N;;;\n",
+   "findings": [
+    [
+     "CSV-ECON-ASSET-CLASS",
+     2,
+     1,
+     "asset_class"
+    ],
+    [
+     "CSV-ECON-ASSET-CLASS",
+     3,
+     2,
+     "asset_class"
+    ]
+   ]
+  }
+ ]
+}

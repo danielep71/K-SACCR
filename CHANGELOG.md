@@ -165,8 +165,19 @@ Use only the categories needed by a release.
   changed. The reader gains a staging mode that keeps the records of a file
   with value findings only, checked against the reference implementation for
   every fixture and case. A blank record is never kept, whether written as
-  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites; `TEST_CsvReader`: 93 cases, 286
-  checks; the new `TEST_Import`: 10 cases, 52 checks.
+  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites;
+  the new `TEST_Import`: 10 cases, 52 checks.
+- Check the legs of a Trades portfolio against each other and against the
+  netting sets they refer to (#209, part 1). The contract gains
+  `portfolio_rules`, the engine's own rules between records: a leg's netting
+  set must exist, and an economic trade must have exactly one MtM leg, a MtM
+  of 0 on its other legs, one netting set, one settlement type and reset
+  date, and only options when two legs share an asset class. Each has its
+  finding code (`CSV-NETTING-SET-UNKNOWN`, `CSV-ECON-*`). `CheckPortfolio` in
+  the VBA reader and `check_portfolio` in the reference judge them alike, and
+  `tests/csv/portfolio.json` pins their findings, checked by
+  `check_csv_contract` and `TEST_CsvReader` (104 cases, 297 checks). Nothing
+  in the workbook calls it yet: validating the staging sheets follows.
 
 ### Changed
 

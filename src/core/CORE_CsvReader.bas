@@ -12,12 +12,16 @@ Attribute VB_Name = "CORE_CsvReader"
 '   returned as their raw text, in contract column order. For staging
 '   (#208), a file whose findings are all about values can be read with
 '   its records kept, so that they can be corrected on a staging sheet.
+'   CheckPortfolio judges the rules between Trades records (#209): each
+'   leg's netting set and the legs of each economic trade.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. ReadCsvFile reads a file;
 '   ReadCsvBytes reads bytes already in memory. Both fill a
 '   CsvReadResult and the arrays of values, lines and findings it counts.
-'   FindingText formats one finding for a message or a test.
+'   CheckPortfolio checks Trades records against each other and the
+'   netting sets they refer to. FindingText formats one finding for a
+'   message or a test.
 '
 ' DEPENDENCIES
 '   CORE_CsvSchema for the contract, generated from docs/csv/contract.json;
@@ -41,7 +45,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   IsDate and Excel's own CSV import are never used.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-10-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -78,6 +82,12 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const CSV_DUPLICATE_KEY     As String = "CSV-DUPLICATE-KEY"
         Private Const CSV_RESERVED_KEY      As String = "CSV-RESERVED-KEY"
         Private Const CSV_ROW_RULE          As String = "CSV-ROW-RULE"
+        Private Const CSV_NS_UNKNOWN        As String = "CSV-NETTING-SET-UNKNOWN"
+        Private Const CSV_ECON_MTM_LEG      As String = "CSV-ECON-MTM-LEG"
+        Private Const CSV_ECON_MTM_VALUE    As String = "CSV-ECON-MTM-VALUE"
+        Private Const CSV_ECON_NS           As String = "CSV-ECON-NETTING-SET"
+        Private Const CSV_ECON_SETTLEMENT   As String = "CSV-ECON-SETTLEMENT"
+        Private Const CSV_ECON_ASSET_CLASS  As String = "CSV-ECON-ASSET-CLASS"
 
     'Findings that leave a file unreadable as records, between bars, as
     'STRUCTURAL in tools/csv_contract.py. The others are about values, and
@@ -386,6 +396,367 @@ Public Function FindingText( _
 '==============================================================================
 '
         FindingText = Finding.Code & "|" & Finding.LineNumber & "|" & Finding.RecordNumber & "|" & Finding.ColumnName
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                  PORTFOLIO
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub CheckPortfolio( _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal RowCount As Long, _
+    ByRef NettingSetIDs() As String, _
+    ByVal NettingSetCount As Long, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding)
+'
+'==============================================================================
+'                               CheckPortfolio
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Judge the rules between Trades records (#209), as CORE_Engine judges
+'   the live Trades sheet and as tools/csv_contract.check_portfolio does:
+'   - each leg's netting set is among NettingSetIDs (CSV-NETTING-SET-
+'     UNKNOWN), compared in upper case as the engine compares IDs;
+'   - in an economic trade (legs sharing an Economic trade ID), exactly
+'     one leg has MtM leg Y (CSV-ECON-MTM-LEG, on every leg), every other
+'     leg has a MtM of 0 (CSV-ECON-MTM-VALUE), every leg has the first
+'     leg's netting set (CSV-ECON-NETTING-SET), settlement type, blank
+'     read as N, and next reset date (CSV-ECON-SETTLEMENT), and two legs
+'     in one asset class are both options (CSV-ECON-ASSET-CLASS, on each
+'     of them), the rules of CORE_Engine.CheckEconomicTrades;
+'   - a whole trade, with no Economic trade ID, is not flagged N
+'     (CSV-ECON-MTM-LEG).
+'   A row with a blank Trade ID is left out, as the engine leaves it out.
+'
+' INPUTS
+'   Values(1 To RowCount, 1 To column count): Trades records in contract
+'   column order, as ReadCsvBytes keeps them or as a staging sheet holds
+'   them. Lines(1 To RowCount): the CSV line of each record, 0 for a row
+'   added by hand. NettingSetIDs(1 To NettingSetCount): the netting sets
+'   the legs may refer to. RowCount and NettingSetCount >= 0.
+'
+' RETURNS
+'   Result (kind Trades, RowCount records, Accepted when there is no
+'   finding) and Findings sorted by record, line, column and code. A
+'   finding's record is the row's position in Values, its line the row's
+'   CSV line.
+'
+' ERROR POLICY
+'   None expected: the inputs are checked only as text.
+'
+' UPDATED
+'   2026-10-28
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec                As CsvSpec      'The Trades contract
+    Dim Columns()           As CsvColumn    'Its columns
+    Dim Rules()             As CsvRule      'Its rules, unused here
+    Dim ColID               As Long         'Column of the Trade ID
+    Dim ColNS               As Long         'Column of the netting set
+    Dim ColClass            As Long         'Column of the asset class
+    Dim ColInstrument       As Long         'Column of the instrument
+    Dim ColMtm              As Long         'Column of the MtM
+    Dim ColEconomic         As Long         'Column of the Economic trade ID
+    Dim ColMtmLeg           As Long         'Column of the MtM leg flag
+    Dim ColSettlement       As Long         'Column of the settlement type
+    Dim ColReset            As Long         'Column of the next reset date
+    Dim KnownKeys()         As String       'Netting sets in upper case, by slot
+    Dim KnownUsed()         As Boolean      'Slot holds a netting set
+    Dim GroupKeys()         As String       'Group key of each slot
+    Dim GroupSlot()         As Long         'Group number of each slot; 0 when empty
+    Dim ClassKeys()         As String       'Group and asset class of each slot
+    Dim ClassSlot()         As Long         'Class entry of each slot; 0 when empty
+    Dim RowGroup()          As Long         'Group of each row; 0 for a row left out
+    Dim RowClass()          As Long         'Class entry of each row
+    Dim GroupFirst()        As Long         'First row of each group
+    Dim GroupMtmLegs()      As Long         'Legs flagged Y in each group
+    Dim GroupEconomic()     As Boolean      'The group has an Economic trade ID
+    Dim ClassLegs()         As Long         'Legs of each class entry
+    Dim ClassOthers()       As Long         'Legs that are not options in each class entry
+    Dim GroupCount          As Long         'Groups found
+    Dim ClassCount          As Long         'Class entries found
+    Dim TableSize           As Long         'Slots of the row tables, a power of two
+    Dim KnownSize           As Long         'Slots of the netting-set table, a power of two
+    Dim Key                 As String       'Key looked up
+    Dim Slot                As Long         'Slot found
+    Dim First               As Long         'First row of the current group
+    Dim GroupName           As String       'Economic trade ID of the current group
+    Dim Settlement          As String       'Settlement type of a row, blank read as N
+    Dim g                   As Long         'Group counter
+    Dim n                   As Long         'Netting-set counter
+    Dim r                   As Long         'Row counter
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf("Trades", Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "CORE_CsvReader.CheckPortfolio", "the contract has no Trades file"
+        End If
+        Result.Kind = Spec.Kind
+        Result.Accepted = False
+        Result.Readable = True
+        Result.RecordCount = RowCount
+        Result.ColumnCount = Spec.ColumnCount
+        Result.FindingCount = 0
+        ReDim Findings(1 To 16)
+        ColID = ColumnIndex(Spec, Columns, "trade_id")
+        ColNS = ColumnIndex(Spec, Columns, "netting_set_id")
+        ColClass = ColumnIndex(Spec, Columns, "asset_class")
+        ColInstrument = ColumnIndex(Spec, Columns, "instrument")
+        ColMtm = ColumnIndex(Spec, Columns, "market_value_amount")
+        ColEconomic = ColumnIndex(Spec, Columns, "economic_trade_id")
+        ColMtmLeg = ColumnIndex(Spec, Columns, "mtm_leg")
+        ColSettlement = ColumnIndex(Spec, Columns, "settlement_type")
+        ColReset = ColumnIndex(Spec, Columns, "next_reset_date")
+        KnownSize = TableSizeFor(NettingSetCount)
+        ReDim KnownKeys(0 To KnownSize - 1)
+        ReDim KnownUsed(0 To KnownSize - 1)
+        For n = 1 To NettingSetCount
+            Key = UCase$(NettingSetIDs(n))
+            Slot = SlotOf(KnownKeys, KnownUsed, Key)
+            KnownKeys(Slot) = Key
+            KnownUsed(Slot) = True
+        Next n
+        If RowCount = 0 Then
+            Result.Accepted = True
+            Exit Sub
+        End If
+        TableSize = TableSizeFor(RowCount)
+        ReDim GroupKeys(0 To TableSize - 1)
+        ReDim GroupSlot(0 To TableSize - 1)
+        ReDim ClassKeys(0 To TableSize - 1)
+        ReDim ClassSlot(0 To TableSize - 1)
+        ReDim RowGroup(1 To RowCount)
+        ReDim RowClass(1 To RowCount)
+        ReDim GroupFirst(1 To RowCount)
+        ReDim GroupMtmLegs(1 To RowCount)
+        ReDim GroupEconomic(1 To RowCount)
+        ReDim ClassLegs(1 To RowCount)
+        ReDim ClassOthers(1 To RowCount)
+
+'------------------------------------------------------------------------------
+' GROUP THE LEGS
+'------------------------------------------------------------------------------
+    'Each leg's netting set, and each leg compared with its group's first
+    'leg, as CheckEconomicTrades compares them.
+        For r = 1 To RowCount
+            If Len(Values(r, ColID)) > 0 Then
+                If Len(Values(r, ColNS)) > 0 Then
+                    If Not KnownUsed(SlotOf(KnownKeys, KnownUsed, UCase$(Values(r, ColNS)))) Then
+                        AddFinding Result, Findings, CSV_NS_UNKNOWN, Lines(r), r, "netting_set_id", _
+                                   "netting set '" & Values(r, ColNS) & "' is not on NettingSets"
+                    End If
+                End If
+                If Len(Values(r, ColEconomic)) > 0 Then
+                    Key = "E|" & UCase$(Values(r, ColEconomic))
+                Else
+                    Key = "L|" & UCase$(Values(r, ColID))
+                End If
+                Slot = GroupTableSlot(GroupKeys, GroupSlot, Key)
+                If GroupSlot(Slot) = 0 Then
+                    GroupCount = GroupCount + 1
+                    GroupKeys(Slot) = Key
+                    GroupSlot(Slot) = GroupCount
+                    GroupFirst(GroupCount) = r
+                    GroupEconomic(GroupCount) = (Len(Values(r, ColEconomic)) > 0)
+                Else
+                    g = GroupSlot(Slot)
+                    First = GroupFirst(g)
+                    If GroupEconomic(g) Then
+                        GroupName = Values(First, ColEconomic)
+                        If StrComp(UCase$(Values(r, ColNS)), UCase$(Values(First, ColNS)), vbBinaryCompare) <> 0 Then
+                            AddFinding Result, Findings, CSV_ECON_NS, Lines(r), r, "netting_set_id", _
+                                       "economic trade " & GroupName & ": its legs are in different netting sets"
+                        End If
+                        Settlement = SettlementOf(Values(First, ColSettlement))
+                        If StrComp(SettlementOf(Values(r, ColSettlement)), Settlement, vbBinaryCompare) <> 0 Then
+                            AddFinding Result, Findings, CSV_ECON_SETTLEMENT, Lines(r), r, "settlement_type", _
+                                       "economic trade " & GroupName & ": its legs have different settlement types"
+                        ElseIf StrComp(Values(r, ColReset), Values(First, ColReset), vbBinaryCompare) <> 0 Then
+                            AddFinding Result, Findings, CSV_ECON_SETTLEMENT, Lines(r), r, "next_reset_date", _
+                                       "economic trade " & GroupName & ": its legs have different next reset dates"
+                        End If
+                    End If
+                End If
+                g = GroupSlot(Slot)
+                RowGroup(r) = g
+                If UCase$(Values(r, ColMtmLeg)) = "Y" Then
+                    GroupMtmLegs(g) = GroupMtmLegs(g) + 1
+                End If
+                Key = g & "|" & UCase$(Values(r, ColClass))
+                Slot = GroupTableSlot(ClassKeys, ClassSlot, Key)
+                If ClassSlot(Slot) = 0 Then
+                    ClassCount = ClassCount + 1
+                    ClassKeys(Slot) = Key
+                    ClassSlot(Slot) = ClassCount
+                End If
+                RowClass(r) = ClassSlot(Slot)
+                ClassLegs(RowClass(r)) = ClassLegs(RowClass(r)) + 1
+                If UCase$(Values(r, ColInstrument)) <> "OPTION" Then
+                    ClassOthers(RowClass(r)) = ClassOthers(RowClass(r)) + 1
+                End If
+            End If
+        Next r
+
+'------------------------------------------------------------------------------
+' JUDGE EACH LEG
+'------------------------------------------------------------------------------
+        For r = 1 To RowCount
+            g = RowGroup(r)
+            If g > 0 Then
+                If Not GroupEconomic(g) Then
+                    If UCase$(Values(r, ColMtmLeg)) = "N" Then
+                        AddFinding Result, Findings, CSV_ECON_MTM_LEG, Lines(r), r, "mtm_leg", _
+                                   "a trade without an Economic trade ID carries its own MtM, so MtM leg must be Y or blank"
+                    End If
+                Else
+                    GroupName = Values(GroupFirst(g), ColEconomic)
+                    If GroupMtmLegs(g) <> 1 Then
+                        AddFinding Result, Findings, CSV_ECON_MTM_LEG, Lines(r), r, "mtm_leg", _
+                                   "economic trade " & GroupName & ": exactly one leg must be the MtM leg " & _
+                                   "(MtM leg = Y), found " & GroupMtmLegs(g)
+                    End If
+                    If UCase$(Values(r, ColMtmLeg)) <> "Y" And IsNonZeroNumber(Values(r, ColMtm)) Then
+                        AddFinding Result, Findings, CSV_ECON_MTM_VALUE, Lines(r), r, "market_value_amount", _
+                                   "economic trade " & GroupName & ": leg " & Values(r, ColID) & _
+                                   " is not the MtM leg, so its MtM must be 0"
+                    End If
+                    If ClassLegs(RowClass(r)) > 1 And ClassOthers(RowClass(r)) > 0 Then
+                        AddFinding Result, Findings, CSV_ECON_ASSET_CLASS, Lines(r), r, "asset_class", _
+                                   "economic trade " & GroupName & ": " & ClassLegs(RowClass(r)) & _
+                                   " legs in asset class " & UCase$(Values(r, ColClass)) & _
+                                   " that are not all options"
+                    End If
+                End If
+            End If
+        Next r
+        SortFindings Result, Findings
+        Result.Accepted = (Result.FindingCount = 0)
+
+End Sub
+
+
+Private Function SettlementOf( _
+    ByRef Value As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   A settlement type in upper case, blank read as N as the engine reads it.
+'==============================================================================
+'
+        SettlementOf = UCase$(Value)
+        If Len(SettlementOf) = 0 Then
+            SettlementOf = "N"
+        End If
+
+End Function
+
+
+Private Function TableSizeFor( _
+    ByVal Entries As Long) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   A power of two of at least 16 slots and twice Entries, for the
+'   open-addressing tables of CheckPortfolio.
+'==============================================================================
+'
+        TableSizeFor = 16
+        Do While TableSizeFor < 2 * Entries
+            TableSizeFor = TableSizeFor * 2
+        Loop
+
+End Function
+
+
+Private Function SlotOf( _
+    ByRef Keys() As String, _
+    ByRef Used() As Boolean, _
+    ByRef Key As String) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   The slot of Key in an open-addressing table, or the empty slot where it
+'   goes; keys are compared as binary strings, as CheckKeys compares them.
+'==============================================================================
+'
+        SlotOf = HashOf(Key, UBound(Keys) + 1)
+        Do While Used(SlotOf)
+            If StrComp(Keys(SlotOf), Key, vbBinaryCompare) = 0 Then
+                Exit Function
+            End If
+            SlotOf = (SlotOf + 1) And UBound(Keys)
+        Loop
+
+End Function
+
+
+Private Function GroupTableSlot( _
+    ByRef Keys() As String, _
+    ByRef Numbers() As Long, _
+    ByRef Key As String) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   As SlotOf, for a table whose slots hold an entry number, 0 when empty.
+'==============================================================================
+'
+        GroupTableSlot = HashOf(Key, UBound(Keys) + 1)
+        Do While Numbers(GroupTableSlot) > 0
+            If StrComp(Keys(GroupTableSlot), Key, vbBinaryCompare) = 0 Then
+                Exit Function
+            End If
+            GroupTableSlot = (GroupTableSlot + 1) And UBound(Keys)
+        Loop
+
+End Function
+
+
+Private Function IsNonZeroNumber( _
+    ByRef Value As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether Value is a number with a non-zero digit before its exponent,
+'   as tools/csv_contract.is_nonzero_number tests it, without converting.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Mantissa        As String     'Digits before the exponent
+    Dim ExponentText    As String     'The exponent, unused here
+    Dim i               As Long       'Character counter
+
+'------------------------------------------------------------------------------
+' TEST
+'------------------------------------------------------------------------------
+        If IsNumberForm(Value, True, Mantissa, ExponentText) Then
+            For i = 1 To Len(Mantissa)
+                If InStr(1, "123456789", Mid$(Mantissa, i, 1), vbBinaryCompare) > 0 Then
+                    IsNonZeroNumber = True
+                    Exit Function
+                End If
+            Next i
+        End If
 
 End Function
 

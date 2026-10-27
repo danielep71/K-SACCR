@@ -86,8 +86,8 @@
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
       "header": "SACCR CSV READER TESTS",
       "mode_line": false,
-      "cases": 93,
-      "checks": {"32-bit": 286, "64-bit": 286},
+      "cases": 104,
+      "checks": {"32-bit": 297, "64-bit": 297},
       "restoration": null,
       "first_case": null
     },

@@ -16,11 +16,14 @@ from typing import Any
 from _gatelib import parse_report_args, run_gate
 from csv_contract import (
     DELIMITER,
+    check_portfolio,
     load_contract,
+    readable,
     rule_columns,
     template_findings,
     template_text,
     validate,
+    validate_records,
 )
 
 CONFIG = "src/core/CORE_Config.bas"
@@ -28,6 +31,7 @@ TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
+PORTFOLIO = "tests/csv/portfolio.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
@@ -163,6 +167,14 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
         for rule in spec.get("row_rules", []):
             findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
                          for n in sorted(rule_columns(rule)) if n not in names]
+    trade_names = {c["name"] for c in contract["files"]["Trades"]["columns"]}
+    ids = [rule["id"] for rule in contract["portfolio_rules"]]
+    findings += [f"portfolio rule {i!r} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
+    for rule in contract["portfolio_rules"]:
+        if rule["code"] not in contract["errors"]:
+            findings.append(f"portfolio rule {rule['id']}: code {rule['code']} is not in errors")
+        findings += [f"portfolio rule {rule['id']} names unknown column {n!r}"
+                     for n in rule["columns"] if n not in trade_names]
     return findings
 
 
@@ -265,6 +277,22 @@ def check_cases(root: Path, contract: dict[str, Any]) -> tuple[list[str], int]:
     return findings, len(cases)
 
 
+def check_portfolio_cases(root: Path, contract: dict[str, Any]) -> tuple[list[str], int]:
+    """Each portfolio case (#209) gives exactly its findings between records."""
+    cases = json.loads((root / PORTFOLIO).read_text(encoding="utf-8"))["cases"]
+    names = [case["name"] for case in cases]
+    findings = [f"{PORTFOLIO}: case {name!r} repeats" for name in sorted(set(names)) if names.count(name) > 1]
+    for case in cases:
+        rows, found = validate_records(str(case["text"]).encode("utf-8"), "Trades", contract, keep_records=True)
+        if not readable(found):
+            findings.append(f"{PORTFOLIO}: case {case['name']!r}: the Trades text is not readable")
+            continue
+        actual = [[f.code, f.line, f.record, f.column] for f in check_portfolio(rows, case["netting_sets"], contract)]
+        if actual != case["findings"]:
+            findings.append(f"{PORTFOLIO}: case {case['name']!r}: findings differ")
+    return findings, len(cases)
+
+
 def run_check(root: Path) -> dict[str, Any]:
     contract = load_contract(root)
     findings = check_shape(contract)
@@ -275,14 +303,16 @@ def run_check(root: Path) -> dict[str, Any]:
     findings += fixture_findings
     case_findings, cases = check_cases(root, contract)
     findings += case_findings
+    portfolio_findings, portfolio_cases = check_portfolio_cases(root, contract)
+    findings += portfolio_findings
     columns = {kind: len(spec["columns"]) for kind, spec in contract["files"].items()}
     return {"schema_version": 1, "status": "fail" if findings else "pass", "columns": columns,
-            "fixtures": fixtures, "cases": cases, "findings": findings}
+            "fixtures": fixtures, "cases": cases, "portfolio_cases": portfolio_cases, "findings": findings}
 
 
 def markdown_report(report: dict[str, Any]) -> str:
     columns = ", ".join(f"{kind} {count}" for kind, count in report["columns"].items())
-    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s), {report['cases']} case(s))"]
+    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s), {report['cases']} case(s), {report['portfolio_cases']} portfolio case(s))"]
     lines.extend(report["findings"])
     return "\n".join(lines) + "\n"
 
