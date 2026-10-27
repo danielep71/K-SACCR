@@ -27,7 +27,9 @@ Current source:
   automation entry points and status functions, and the reading and writing
   of the reconciliation sheets and the evidence file;
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
-  modules, which hold only `Option Explicit`;
+  modules, which hold only `Option Explicit`, but for the change handlers of
+  `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
+  edited;
 - `workbook/SACCR_Template.xlsx`: the 18 sheets (README, Params, NettingSets,
   Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
   TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,

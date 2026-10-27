@@ -38,7 +38,7 @@ Attribute VB_Name = "TEST_CsvReader"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 93    'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 199    'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 286    'Checks in a complete run
         Private Const ROUND_TRIP_LAST_LINE As Long = 11    'Line of the last record of valid/trades.csv
         Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records=9"    'ReadCsv_Silent on it
         Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings=16; first=CSV-RANGE|2|1|attachment_rate"    'ReadCsv_Silent on invalid/trades-fields-and-rules.csv
@@ -163,7 +163,9 @@ Private Sub RunFixture( _
     ByVal HexText As String, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
     'A fixture as written, with a byte-order mark and with CRLF line ends:
     'the same findings each time, and the same values but for CRLF, which
     'also changes the line breaks inside quoted fields.
@@ -172,11 +174,14 @@ Private Sub RunFixture( _
     Dim Changed()   As Byte    'A variant of it
     Dim ChangedCount As Long   'Its length
         ByteCount = HexToBytes(HexText, Bytes)
-        RunRead "fixture." & FixtureName, Kind, Bytes, ByteCount, 0, 0, Expected, ExpectedRecords, ExpectedValues
+        RunRead "fixture." & FixtureName, Kind, Bytes, ByteCount, 0, 0, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
         ChangedCount = WithBom(Bytes, ByteCount, Changed)
-        RunRead "fixture." & FixtureName & ".bom", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ExpectedValues
+        RunRead "fixture." & FixtureName & ".bom", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
         ChangedCount = WithCrLf(Bytes, ByteCount, Changed)
-        RunRead "fixture." & FixtureName & ".crlf", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, ""
+        RunRead "fixture." & FixtureName & ".crlf", Kind, Changed, ChangedCount, 0, 0, Expected, ExpectedRecords, "", _
+                ExpectedReadable, ExpectedKept
 
 End Sub
 
@@ -189,11 +194,14 @@ Private Sub RunInline( _
     ByVal MaxBytes As Long, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
     Dim Bytes()     As Byte    'The case's content
     Dim ByteCount   As Long    'Its length
         ByteCount = HexToBytes(HexText, Bytes)
-        RunRead "case." & CaseName, Kind, Bytes, ByteCount, MaxRecords, MaxBytes, Expected, ExpectedRecords, ExpectedValues
+        RunRead "case." & CaseName, Kind, Bytes, ByteCount, MaxRecords, MaxBytes, Expected, ExpectedRecords, ExpectedValues, _
+                ExpectedReadable, ExpectedKept
 
 End Sub
 
@@ -207,8 +215,12 @@ Private Sub RunRead( _
     ByVal MaxBytes As Long, _
     ByVal Expected As String, _
     ByVal ExpectedRecords As Long, _
-    ByVal ExpectedValues As String)
-    'One read: its findings and record count, and its values when given.
+    ByVal ExpectedValues As String, _
+    ByVal ExpectedReadable As Boolean, _
+    ByVal ExpectedKept As Long)
+    'One read: its findings and record count, and its values when given;
+    'then the same bytes read with KeepRecords, as staging reads them
+    '(#208): whether the file is readable and how many records it keeps.
     Dim Result      As CsvReadResult    'What the reader found
     Dim Values()    As String           'The records
     Dim Lines()     As Long             'Their lines
@@ -223,6 +235,10 @@ Private Sub RunRead( _
         If Len(ExpectedValues) > 0 Then
             Check ValuesText(Result, Values) = ExpectedValues, "values differ from the file"
         End If
+        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, MaxRecords, MaxBytes, True
+        Check Result.Readable = ExpectedReadable And Result.RecordCount = ExpectedKept, _
+              "kept records: readable " & Result.Readable & ", " & Result.RecordCount & " records, expected " & _
+              ExpectedReadable & ", " & ExpectedKept
         Exit Sub
 
 Unexpected:
@@ -586,7 +602,7 @@ Private Sub Fixture01()
         Expected = Expected & vbLf & "CSV-TYPE|3|2|variation_margin_net_amount"
         Expected = Expected & vbLf & "CSV-TYPE|4|3|netting_set_id"
         Values = ""
-        RunFixture "invalid/netting-sets-fields.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-fields.csv", "NettingSets", HexText, Expected, 0, Values, True, 3
 
 End Sub
 
@@ -606,7 +622,7 @@ Private Sub Fixture02()
         Expected = Expected & vbLf & "CSV-HEADER-UNKNOWN|1|0|cpty_rating"
         Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|ccp_retains_variation_margin"
         Values = ""
-        RunFixture "invalid/netting-sets-header.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-header.csv", "NettingSets", HexText, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -631,7 +647,7 @@ Private Sub Fixture03()
         Expected = Expected & vbLf & "CSV-RESERVED-KEY|5|4|netting_set_id"
         Expected = Expected & vbLf & "CSV-REQUIRED|6|5|netting_set_id"
         Values = ""
-        RunFixture "invalid/netting-sets-keys-and-rules.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-keys-and-rules.csv", "NettingSets", HexText, Expected, 0, Values, True, 5
 
 End Sub
 
@@ -649,7 +665,7 @@ Private Sub Fixture04()
         Expected = ""
         Expected = "CSV-SYNTAX|2|1|"
         Values = ""
-        RunFixture "invalid/netting-sets-quote-in-field.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-quote-in-field.csv", "NettingSets", HexText, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -670,7 +686,7 @@ Private Sub Fixture05()
         Expected = Expected & vbLf & "CSV-BLANK-RECORD|3|2|"
         Expected = Expected & vbLf & "CSV-BLANK-RECORD|4|3|"
         Values = ""
-        RunFixture "invalid/netting-sets-records.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-records.csv", "NettingSets", HexText, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -688,7 +704,7 @@ Private Sub Fixture06()
         Expected = ""
         Expected = "CSV-SYNTAX|2|1|"
         Values = ""
-        RunFixture "invalid/netting-sets-unclosed-quote.csv", "NettingSets", HexText, Expected, 0, Values
+        RunFixture "invalid/netting-sets-unclosed-quote.csv", "NettingSets", HexText, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -727,7 +743,7 @@ Private Sub Fixture07()
         Expected = Expected & vbLf & "CSV-FORMULA|6|5|comment"
         Expected = Expected & vbLf & "CSV-DUPLICATE-KEY|6|5|trade_id"
         Values = ""
-        RunFixture "invalid/trades-fields-and-rules.csv", "Trades", HexText, Expected, 0, Values
+        RunFixture "invalid/trades-fields-and-rules.csv", "Trades", HexText, Expected, 0, Values, True, 5
 
 End Sub
 
@@ -796,7 +812,7 @@ Private Sub Fixture08()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunFixture "valid/netting-sets-reordered.csv", "NettingSets", HexText, Expected, 2, Values
+        RunFixture "valid/netting-sets-reordered.csv", "NettingSets", HexText, Expected, 2, Values, True, 2
 
 End Sub
 
@@ -1030,7 +1046,7 @@ Private Sub Fixture09()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunFixture "valid/netting-sets.csv", "NettingSets", HexText, Expected, 8, Values
+        RunFixture "valid/netting-sets.csv", "NettingSets", HexText, Expected, 8, Values, True, 8
 
 End Sub
 
@@ -1047,7 +1063,7 @@ Private Sub Fixture10()
         HexText = HexText & "65636F6E6F6D69635F74726164655F69643B6D746D5F6C65673B736574746C656D656E745F747970653B6E6578745F72657365745F646174653B636F6D6D656E740A"
         Expected = ""
         Values = ""
-        RunFixture "valid/trades-header-only.csv", "Trades", HexText, Expected, 0, Values
+        RunFixture "valid/trades-header-only.csv", "Trades", HexText, Expected, 0, Values, True, 0
 
 End Sub
 
@@ -1457,7 +1473,7 @@ Private Sub Fixture11()
         Values = Values & "N"
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunFixture "valid/trades.csv", "Trades", HexText, Expected, 9, Values
+        RunFixture "valid/trades.csv", "Trades", HexText, Expected, 9, Values, True, 9
 
 End Sub
 
@@ -1475,7 +1491,7 @@ Private Sub Case01()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-invalid-byte", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-invalid-byte", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1493,7 +1509,7 @@ Private Sub Case02()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-overlong", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-overlong", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1511,7 +1527,7 @@ Private Sub Case03()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-overlong-three-bytes", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-overlong-three-bytes", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1529,7 +1545,7 @@ Private Sub Case04()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-surrogate", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-surrogate", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1547,7 +1563,7 @@ Private Sub Case05()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-above-u10ffff", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-above-u10ffff", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1565,7 +1581,7 @@ Private Sub Case06()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-truncated", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-truncated", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1583,7 +1599,7 @@ Private Sub Case07()
         Expected = ""
         Expected = "CSV-ENCODING|0|0|"
         Values = ""
-        RunInline "utf8-stray-continuation", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "utf8-stray-continuation", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1601,7 +1617,7 @@ Private Sub Case08()
         Expected = ""
         Expected = "CSV-ENCODING|3|0|"
         Values = ""
-        RunInline "nul-on-line-3", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "nul-on-line-3", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1615,7 +1631,7 @@ Private Sub Case09()
         Expected = ""
         Expected = "CSV-EMPTY|1|0|"
         Values = ""
-        RunInline "empty-file", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "empty-file", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1629,7 +1645,7 @@ Private Sub Case10()
         Expected = ""
         Expected = "CSV-EMPTY|1|0|"
         Values = ""
-        RunInline "bom-only", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "bom-only", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -1673,7 +1689,7 @@ Private Sub Case11()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "non-ascii-and-astral", "NettingSets", HexText, 0, 0, Expected, 1, Values
+        RunInline "non-ascii-and-astral", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -1718,7 +1734,7 @@ Private Sub Case12()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "id-64-code-points-with-astral", "NettingSets", HexText, 0, 0, Expected, 1, Values
+        RunInline "id-64-code-points-with-astral", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -1737,7 +1753,7 @@ Private Sub Case13()
         Expected = ""
         Expected = "CSV-LENGTH|2|1|netting_set_id"
         Values = ""
-        RunInline "id-65-code-points", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-65-code-points", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -1768,7 +1784,7 @@ Private Sub Case14()
         Expected = ""
         Expected = "CSV-LENGTH|3|2|counterparty"
         Values = ""
-        RunInline "text-500-and-501", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "text-500-and-501", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 2
 
 End Sub
 
@@ -1786,7 +1802,7 @@ Private Sub Case15()
         Expected = ""
         Expected = "CSV-TYPE|2|1|netting_set_id"
         Values = ""
-        RunInline "id-trailing-no-break-space", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-trailing-no-break-space", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -1804,7 +1820,7 @@ Private Sub Case16()
         Expected = ""
         Expected = "CSV-TYPE|2|1|netting_set_id"
         Values = ""
-        RunInline "id-leading-ideographic-space", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-leading-ideographic-space", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -1822,7 +1838,7 @@ Private Sub Case17()
         Expected = ""
         Expected = "CSV-TYPE|2|1|netting_set_id"
         Values = ""
-        RunInline "id-trailing-separator-1f", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-trailing-separator-1f", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -1866,7 +1882,7 @@ Private Sub Case18()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "text-keeps-spaces", "NettingSets", HexText, 0, 0, Expected, 1, Values
+        RunInline "text-keeps-spaces", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -1885,7 +1901,7 @@ Private Sub Case19()
         Expected = "CSV-TYPE|2|1|counterparty"
         Expected = Expected & vbLf & "CSV-TYPE|3|2|counterparty"
         Values = ""
-        RunInline "text-control-characters", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "text-control-characters", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 2
 
 End Sub
 
@@ -1958,7 +1974,7 @@ Private Sub Case20()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "text-quoted-line-breaks", "NettingSets", HexText, 0, 0, Expected, 2, Values
+        RunInline "text-quoted-line-breaks", "NettingSets", HexText, 0, 0, Expected, 2, Values, True, 2
 
 End Sub
 
@@ -1976,7 +1992,7 @@ Private Sub Case21()
         Expected = ""
         Expected = "CSV-TYPE|2|1|netting_set_id"
         Values = ""
-        RunInline "id-control-character", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-control-character", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -1995,7 +2011,7 @@ Private Sub Case22()
         Expected = "CSV-TYPE|2|1|netting_set_id"
         Expected = Expected & vbLf & "CSV-TYPE|3|2|netting_set_id"
         Values = ""
-        RunInline "id-forbidden-characters", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "id-forbidden-characters", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 2
 
 End Sub
 
@@ -2017,7 +2033,7 @@ Private Sub Case23()
         Expected = Expected & vbLf & "CSV-FORMULA|4|3|counterparty"
         Expected = Expected & vbLf & "CSV-FORMULA|5|4|counterparty"
         Values = ""
-        RunInline "formula-starts", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "formula-starts", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 4
 
 End Sub
 
@@ -2061,7 +2077,7 @@ Private Sub Case24()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "negative-numbers-are-not-formulas", "NettingSets", HexText, 0, 0, Expected, 1, Values
+        RunInline "negative-numbers-are-not-formulas", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -2106,7 +2122,7 @@ Private Sub Case25()
         Expected = Expected & vbLf & "CSV-TYPE|14|13|market_value_amount"
         Expected = Expected & vbLf & "CSV-TYPE|15|14|market_value_amount"
         Values = ""
-        RunInline "number-forms", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "number-forms", "Trades", HexText, 0, 0, Expected, 0, Values, True, 14
 
 End Sub
 
@@ -2133,7 +2149,7 @@ Private Sub Case26()
         Expected = ""
         Expected = "CSV-TYPE|3|2|market_value_amount"
         Values = ""
-        RunInline "number-digits", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "number-digits", "Trades", HexText, 0, 0, Expected, 0, Values, True, 8
 
 End Sub
 
@@ -2172,7 +2188,7 @@ Private Sub Case27()
         Expected = Expected & vbLf & "CSV-RANGE|11|10|market_value_amount"
         Expected = Expected & vbLf & "CSV-RANGE|12|11|market_value_amount"
         Values = ""
-        RunInline "number-magnitudes", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "number-magnitudes", "Trades", HexText, 0, 0, Expected, 0, Values, True, 12
 
 End Sub
 
@@ -2453,7 +2469,7 @@ Private Sub Case28()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "number-long-runs-of-zeros-accepted", "Trades", HexText, 0, 0, Expected, 4, Values
+        RunInline "number-long-runs-of-zeros-accepted", "Trades", HexText, 0, 0, Expected, 4, Values, True, 4
 
 End Sub
 
@@ -2533,7 +2549,7 @@ Private Sub Case29()
         Expected = Expected & vbLf & "CSV-RANGE|3|2|market_value_amount"
         Expected = Expected & vbLf & "CSV-RANGE|4|3|market_value_amount"
         Values = ""
-        RunInline "number-long-runs-of-zeros-rejected", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "number-long-runs-of-zeros-rejected", "Trades", HexText, 0, 0, Expected, 0, Values, True, 3
 
 End Sub
 
@@ -2561,7 +2577,7 @@ Private Sub Case30()
         Expected = Expected & vbLf & "CSV-RANGE|6|5|detachment_rate"
         Expected = Expected & vbLf & "CSV-RANGE|7|6|lambda_price"
         Values = ""
-        RunInline "number-bounds", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "number-bounds", "Trades", HexText, 0, 0, Expected, 0, Values, True, 6
 
 End Sub
 
@@ -2584,7 +2600,7 @@ Private Sub Case31()
         Expected = Expected & vbLf & "CSV-RANGE|5|4|remargin_period_business_days"
         Expected = Expected & vbLf & "CSV-RANGE|6|5|mpor_override_business_days"
         Values = ""
-        RunInline "integer-forms", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "integer-forms", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 6
 
 End Sub
 
@@ -2606,7 +2622,7 @@ Private Sub Case32()
         Expected = "CSV-ROW-RULE|2|1|detachment_rate"
         Expected = Expected & vbLf & "CSV-ROW-RULE|3|2|detachment_rate"
         Values = ""
-        RunInline "rule-above-compares-numbers", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "rule-above-compares-numbers", "Trades", HexText, 0, 0, Expected, 0, Values, True, 3
 
 End Sub
 
@@ -2645,7 +2661,7 @@ Private Sub Case33()
         Expected = Expected & vbLf & "CSV-TYPE|14|13|maturity_date"
         Expected = Expected & vbLf & "CSV-TYPE|15|14|maturity_date"
         Values = ""
-        RunInline "dates", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "dates", "Trades", HexText, 0, 0, Expected, 0, Values, True, 14
 
 End Sub
 
@@ -2668,7 +2684,7 @@ Private Sub Case34()
         Expected = "CSV-ROW-RULE|2|1|end_date"
         Expected = Expected & vbLf & "CSV-ROW-RULE|3|2|end_date"
         Values = ""
-        RunInline "rule-after-compares-dates", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "rule-after-compares-dates", "Trades", HexText, 0, 0, Expected, 0, Values, True, 3
 
 End Sub
 
@@ -2697,7 +2713,7 @@ Private Sub Case35()
         Expected = Expected & vbLf & "CSV-ALLOWED|6|5|mtm_leg"
         Expected = Expected & vbLf & "CSV-TYPE|7|6|asset_class"
         Values = ""
-        RunInline "codes-and-currencies", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "codes-and-currencies", "Trades", HexText, 0, 0, Expected, 0, Values, True, 6
 
 End Sub
 
@@ -2719,7 +2735,7 @@ Private Sub Case36()
         Expected = Expected & vbLf & "CSV-RESERVED-KEY|4|3|netting_set_id"
         Expected = Expected & vbLf & "CSV-DUPLICATE-KEY|6|5|netting_set_id"
         Values = ""
-        RunInline "keys-ignore-case", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "keys-ignore-case", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 5
 
 End Sub
 
@@ -2740,7 +2756,7 @@ Private Sub Case37()
         Expected = Expected & vbLf & "CSV-REQUIRED|2|1|risk_factor"
         Expected = Expected & vbLf & "CSV-REQUIRED|2|1|trade_id"
         Values = ""
-        RunInline "required-blank", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "required-blank", "Trades", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -2758,7 +2774,7 @@ Private Sub Case38()
         Expected = ""
         Expected = "CSV-SYNTAX|2|1|"
         Values = ""
-        RunInline "syntax-lone-cr", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "syntax-lone-cr", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2776,7 +2792,7 @@ Private Sub Case39()
         Expected = ""
         Expected = "CSV-SYNTAX|2|1|"
         Values = ""
-        RunInline "syntax-text-after-quote", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "syntax-text-after-quote", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2794,7 +2810,7 @@ Private Sub Case40()
         Expected = ""
         Expected = "CSV-SYNTAX|1|0|"
         Values = ""
-        RunInline "syntax-quote-in-header", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "syntax-quote-in-header", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2812,7 +2828,7 @@ Private Sub Case41()
         Expected = ""
         Expected = "CSV-SYNTAX|3|2|"
         Values = ""
-        RunInline "syntax-after-good-records", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "syntax-after-good-records", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2831,7 +2847,7 @@ Private Sub Case42()
         Expected = "CSV-FIELD-COUNT|2|1|"
         Expected = Expected & vbLf & "CSV-FIELD-COUNT|3|2|"
         Values = ""
-        RunInline "field-count", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "field-count", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2850,7 +2866,7 @@ Private Sub Case43()
         Expected = "CSV-BLANK-RECORD|2|1|"
         Expected = Expected & vbLf & "CSV-BLANK-RECORD|3|2|"
         Values = ""
-        RunInline "blank-records", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "blank-records", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -2867,7 +2883,7 @@ Private Sub Case44()
         HexText = HexText & "6D617267696E"
         Expected = ""
         Values = ""
-        RunInline "header-only-no-line-end", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "header-only-no-line-end", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 0
 
 End Sub
 
@@ -2886,7 +2902,7 @@ Private Sub Case45()
         Expected = ""
         Expected = "CSV-DELIMITER|1|0|"
         Values = ""
-        RunInline "header-comma-delimiter", "Trades", HexText, 0, 0, Expected, 0, Values
+        RunInline "header-comma-delimiter", "Trades", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2904,7 +2920,7 @@ Private Sub Case46()
         Expected = ""
         Expected = "CSV-DELIMITER|1|0|"
         Values = ""
-        RunInline "header-tab-delimiter", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "header-tab-delimiter", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2948,7 +2964,7 @@ Private Sub Case47()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "last-record-no-line-end", "NettingSets", HexText, 0, 0, Expected, 1, Values
+        RunInline "last-record-no-line-end", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -2967,7 +2983,7 @@ Private Sub Case48()
         Expected = ""
         Expected = "CSV-TOO-MANY-RECORDS|5|4|"
         Values = ""
-        RunInline "too-many-records", "NettingSets", HexText, 3, 0, Expected, 0, Values
+        RunInline "too-many-records", "NettingSets", HexText, 3, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -2987,7 +3003,7 @@ Private Sub Case49()
         Expected = "CSV-TOO-MANY-RECORDS|5|4|"
         Expected = Expected & vbLf & "CSV-SYNTAX|6|5|"
         Values = ""
-        RunInline "too-many-records-and-syntax", "NettingSets", HexText, 3, 0, Expected, 0, Values
+        RunInline "too-many-records-and-syntax", "NettingSets", HexText, 3, 0, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -3005,7 +3021,7 @@ Private Sub Case50()
         Expected = ""
         Expected = "CSV-TOO-LARGE|0|0|"
         Values = ""
-        RunInline "too-large", "NettingSets", HexText, 0, 360, Expected, 0, Values
+        RunInline "too-large", "NettingSets", HexText, 0, 360, Expected, 0, Values, False, 0
 
 End Sub
 
@@ -3049,7 +3065,7 @@ Private Sub Case51()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "not-too-large", "NettingSets", HexText, 0, 361, Expected, 1, Values
+        RunInline "not-too-large", "NettingSets", HexText, 0, 361, Expected, 1, Values, True, 1
 
 End Sub
 
@@ -3138,7 +3154,7 @@ Private Sub Case52()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
-        RunInline "quoted-field-dense-with-quotes", "NettingSets", HexText, 0, 0, Expected, 2, Values
+        RunInline "quoted-field-dense-with-quotes", "NettingSets", HexText, 0, 0, Expected, 2, Values, True, 2
 
 End Sub
 
@@ -3169,7 +3185,7 @@ Private Sub Case53()
         Expected = ""
         Expected = "CSV-LENGTH|2|1|counterparty"
         Values = ""
-        RunInline "quoted-field-dense-too-long", "NettingSets", HexText, 0, 0, Expected, 0, Values
+        RunInline "quoted-field-dense-too-long", "NettingSets", HexText, 0, 0, Expected, 0, Values, True, 1
 
 End Sub
 
@@ -3188,7 +3204,7 @@ Private Sub Case54()
         Expected = ""
         Expected = "CSV-TOO-MANY-RECORDS|5|4|"
         Values = ""
-        RunInline "too-many-empty-lines", "NettingSets", HexText, 3, 0, Expected, 0, Values
+        RunInline "too-many-empty-lines", "NettingSets", HexText, 3, 0, Expected, 0, Values, False, 0
 
 End Sub
 

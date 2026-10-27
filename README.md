@@ -12,8 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-9%2F9_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-382_cases_%C2%B7_1500_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-392_cases_%C2%B7_1639_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -169,7 +169,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Nine Excel suites (382 cases, 1500 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (392 cases, 1639 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -214,8 +214,10 @@ or later and no packages.
    `src/`, or **D**evelopment, which adds the test modules of `tests/modules/`
    that [section 4](#4-test-development-workbook) needs. It then asks whether
    to replace the code of the worksheet and `ThisWorkbook` modules as well;
-   they hold only `Option Explicit`, so either answer works. The tests write
-   to the input and output sheets: never run them on real data.
+   answer **Y** when building from the template. They hold only
+   `Option Explicit`, except the two staging sheets', which show `EDITED`
+   after a manual change. The tests write to the input and output sheets:
+   never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
@@ -233,6 +235,7 @@ further illustrative netting sets.
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
 | **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
+| **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
 | From the Macros dialog (Alt+F8) | `CheckTradesCsv`, `CheckNettingSetsCsv` | Checks a CSV file against the input contract and lists its findings; writes nothing |
 
 To compare the results with your bank's own figures, enter them on
@@ -280,17 +283,18 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-23 20:47:43
+SACCR TEST SUMMARY 2026-10-27 21:18:03
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (36,0 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (10,0 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (26,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,5 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (8,5 s)
-  PASS  TEST_CsvReader        cases=93; checks=199; failures=0  (0,2 s)
-RESULT=PASS; suites=9; passed=9; failed=0; seconds=84,9
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (27,3 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (6,7 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (30,1 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,7 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,1 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (14,1 s)
+  PASS  TEST_CsvReader        cases=93; checks=286; failures=0  (1,0 s)
+  PASS  TEST_Import           cases=10; checks=52; failures=0  (0,7 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=85,9
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -565,8 +569,9 @@ required; the project has no separate reviewer.
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 93 | 199 |
-| **Total** | | **382** | **1500** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 93 | 286 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone | 10 | 52 |
+| **Total** | | **392** | **1639** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -722,7 +727,7 @@ Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
 None of this work is in a released workbook yet. On the release branch so
 far: the CSV contract and its blank templates (#206), the CSV reader and the
-check macros (#207), and the empty staging sheets (#208).
+check macros (#207), and the staging sheets with their CSV import (#208).
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |

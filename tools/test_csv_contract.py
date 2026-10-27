@@ -88,6 +88,21 @@ class FileTests(unittest.TestCase):
                          [("CSV-HEADER-UNKNOWN", 1, 0, "bad_header"), ("CSV-HEADER-MISSING", 1, 0, "netting_set_id")])
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
 
+    def test_value_findings_keep_the_records_for_staging(self) -> None:
+        blank = ";" * NS_HEADER.count(";")
+        text = (NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + blank + "\n"
+                + NS_ROW.replace("NS-1", "NS-2") + "\n")
+        rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT, keep_records=True)
+        self.assertEqual([(f.code, f.record) for f in findings],
+                         [("CSV-ALLOWED", 1), ("CSV-BLANK-RECORD", 2), ("CSV-BLANK-RECORD", 3)])
+        self.assertTrue(csv.readable(findings))
+        self.assertEqual([r["netting_set_id"] for r in rows], ["NS-1", "NS-2"])
+        self.assertEqual(csv.validate(text.encode(), "NettingSets", CONTRACT)[0], [])
+        short = NS_HEADER + "\n" + NS_ROW + "\nNS-2;CPTY\n"
+        rows, findings = csv.validate(short.encode(), "NettingSets", CONTRACT, keep_records=True)
+        self.assertEqual(([f.code for f in findings], rows), (["CSV-FIELD-COUNT"], []))
+        self.assertFalse(csv.readable(findings))
+
     def test_another_delimiter_is_one_finding(self) -> None:
         for other in (",", "\t"):
             with self.subTest(delimiter=other):

@@ -9,7 +9,9 @@ Attribute VB_Name = "CORE_CsvReader"
 '   header, every field and the rules between fields, and report every
 '   finding with its code, physical line, record and column. A file is
 '   accepted or rejected whole; the records of an accepted file are
-'   returned as their raw text, in contract column order.
+'   returned as their raw text, in contract column order. For staging
+'   (#208), a file whose findings are all about values can be read with
+'   its records kept, so that they can be corrected on a staging sheet.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. ReadCsvFile reads a file;
@@ -39,7 +41,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   IsDate and Excel's own CSV import are never used.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '
 ' AUTHOR
 '   Daniele Penza
@@ -77,6 +79,13 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const CSV_RESERVED_KEY      As String = "CSV-RESERVED-KEY"
         Private Const CSV_ROW_RULE          As String = "CSV-ROW-RULE"
 
+    'Findings that leave a file unreadable as records, between bars, as
+    'STRUCTURAL in tools/csv_contract.py. The others are about values, and
+    'a file with only those can be staged and corrected (#208).
+        Private Const STRUCTURAL_CODES      As String = "|CSV-ENCODING|CSV-SYNTAX|CSV-EMPTY|CSV-DELIMITER|" & _
+                                                        "CSV-HEADER-DUPLICATE|CSV-HEADER-MISSING|CSV-HEADER-UNKNOWN|" & _
+                                                        "CSV-FIELD-COUNT|CSV-TOO-MANY-RECORDS|CSV-TOO-LARGE|"
+
     'Characters a value of a type other than text may not start or end
     'with: those Python's str.strip removes, as the reference does.
         Private Const SPACE_CODES   As String = "|9|10|11|12|13|28|29|30|31|32|133|160|5760|8192|8193|8194|8195|8196|8197|8198|8199|8200|8201|8202|8232|8233|8239|8287|12288|"
@@ -103,12 +112,17 @@ Attribute VB_Name = "CORE_CsvReader"
     'What a read found. The records and findings are separate arrays:
     'Values(1 To RecordCount, 1 To ColumnCount), the raw text in contract
     'order, and Lines(1 To RecordCount), the physical line of each record,
-    'both filled only when the file is accepted; Findings(1 To
-    'FindingCount), sorted by record, line, column and code.
+    'both filled only when the file is accepted, or when it is readable and
+    'was read with KeepRecords; Findings(1 To FindingCount), sorted by
+    'record, line, column and code. A file is readable when no finding is
+    'structural (STRUCTURAL_CODES): every record was read, with the
+    'header's fields, and only values are wrong. Blank records are never
+    'kept.
         Public Type CsvReadResult
             Kind            As String         'Trades or NettingSets
             Accepted        As Boolean        'No finding: every record can be used
-            RecordCount     As Long           'Records of an accepted file; 0 otherwise
+            Readable        As Boolean        'No structural finding: the records can be staged
+            RecordCount     As Long           'Records kept; 0 when none are
             ColumnCount     As Long           'Columns of the contract
             FindingCount    As Long           'Number of findings
         End Type
@@ -129,7 +143,8 @@ Public Sub ReadCsvFile( _
     ByRef Values() As String, _
     ByRef Lines() As Long, _
     ByRef Findings() As CsvFinding, _
-    Optional ByVal MaxBytes As Long = 0)
+    Optional ByVal MaxBytes As Long = 0, _
+    Optional ByVal KeepRecords As Boolean = False)
 '
 '==============================================================================
 '                                 ReadCsvFile
@@ -142,6 +157,7 @@ Public Sub ReadCsvFile( _
 ' INPUTS
 '   FilePath: an existing local file. Kind: "Trades" or "NettingSets".
 '   MaxBytes replaces the contract's size limit when above 0, for tests.
+'   KeepRecords: keep the records of a readable file, as ReadCsvBytes.
 '
 ' RETURNS
 '   Result, with Values, Lines and Findings: see CsvReadResult.
@@ -152,7 +168,7 @@ Public Sub ReadCsvFile( _
 '   number is closed first.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -209,7 +225,7 @@ Public Sub ReadCsvFile( _
             FileNumber = 0
         End If
         On Error GoTo 0
-        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, 0, MaxBytes
+        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, 0, MaxBytes, KeepRecords
         Exit Sub
 
 '------------------------------------------------------------------------------
@@ -240,7 +256,8 @@ Public Sub ReadCsvBytes( _
     ByRef Lines() As Long, _
     ByRef Findings() As CsvFinding, _
     Optional ByVal MaxRecords As Long = 0, _
-    Optional ByVal MaxBytes As Long = 0)
+    Optional ByVal MaxBytes As Long = 0, _
+    Optional ByVal KeepRecords As Boolean = False)
 '
 '==============================================================================
 '                                ReadCsvBytes
@@ -256,6 +273,8 @@ Public Sub ReadCsvBytes( _
 '   Bytes: the file's content, from index 0; unallocated when ByteCount
 '   is 0. ByteCount >= 0. Kind: "Trades" or "NettingSets". MaxRecords and
 '   MaxBytes replace the contract's limits when above 0, for tests.
+'   KeepRecords: keep the records of a file that is readable but not
+'   accepted, for staging (#208); a file that is not readable keeps none.
 '
 ' RETURNS
 '   Result, with Values, Lines and Findings: see CsvReadResult.
@@ -264,7 +283,7 @@ Public Sub ReadCsvBytes( _
 '   Raises ERR_CSV_READ for an unknown kind.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -342,7 +361,8 @@ Public Sub ReadCsvBytes( _
         CheckBody RecordFields, RecordLines, RecordTotal, Spec, Columns, Rules, Result, Values, Lines, Findings
         SortFindings Result, Findings
         Result.Accepted = (Result.FindingCount = 0)
-        If Not Result.Accepted Then
+        Result.Readable = Not HasStructuralFinding(Result, Findings)
+        If Not Result.Accepted And Not (KeepRecords And Result.Readable) Then
             Result.RecordCount = 0
             Erase Values
             Erase Lines
@@ -935,10 +955,11 @@ Private Sub CheckBody( _
 '   Check every record after the header: an empty line, the field count,
 '   then each field and the rules between fields (CheckRecord); then the
 '   keys across the records. Keeps each record with the header's field
-'   count in Values and Lines, in contract column order.
+'   count in Values and Lines, in contract column order, except a record
+'   whose fields are all blank (#467).
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -988,13 +1009,14 @@ Private Sub CheckBody( _
                 For c = 1 To Spec.ColumnCount
                     Row(c) = Fields(Position(c))
                 Next c
-                CheckRecord Row, RecordLines(r), r - 1, Spec, Columns, Rules, Result, Findings
-                RowCount = RowCount + 1
-                For c = 1 To Spec.ColumnCount
-                    Values(RowCount, c) = Row(c)
-                Next c
-                Lines(RowCount) = RecordLines(r)
-                RowRecord(RowCount) = r - 1
+                If CheckRecord(Row, RecordLines(r), r - 1, Spec, Columns, Rules, Result, Findings) Then
+                    RowCount = RowCount + 1
+                    For c = 1 To Spec.ColumnCount
+                        Values(RowCount, c) = Row(c)
+                    Next c
+                    Lines(RowCount) = RecordLines(r)
+                    RowRecord(RowCount) = r - 1
+                End If
             End If
         Next r
         Result.RecordCount = RowCount
@@ -1005,7 +1027,7 @@ Private Sub CheckBody( _
 End Sub
 
 
-Private Sub CheckRecord( _
+Private Function CheckRecord( _
     ByRef Row() As String, _
     ByVal LineNumber As Long, _
     ByVal RecordNumber As Long, _
@@ -1013,7 +1035,8 @@ Private Sub CheckRecord( _
     ByRef Columns() As CsvColumn, _
     ByRef Rules() As CsvRule, _
     ByRef Result As CsvReadResult, _
-    ByRef Findings() As CsvFinding)
+    ByRef Findings() As CsvFinding) _
+    As Boolean
 '
 '==============================================================================
 '                                 CheckRecord
@@ -1025,8 +1048,11 @@ Private Sub CheckRecord( _
 '   fields must hold. A rule that reads a field with a finding is not
 '   judged.
 '
+' RETURNS
+'   False for a blank record, which is not kept (#467); True otherwise.
+'
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -1051,7 +1077,7 @@ Private Sub CheckRecord( _
         Next c
         If Blank Then
             AddFinding Result, Findings, CSV_BLANK_RECORD, LineNumber, RecordNumber, "", "every field is blank"
-            Exit Sub
+            Exit Function
         End If
 
 '------------------------------------------------------------------------------
@@ -1079,8 +1105,9 @@ Private Sub CheckRecord( _
                 CheckRule Row, Spec, Columns, Rules(c), LineNumber, RecordNumber, Result, Findings
             End If
         Next c
+        CheckRecord = True
 
-End Sub
+End Function
 
 
 Private Function RuleReadsFlawed( _
@@ -2014,6 +2041,7 @@ Private Sub StartResult( _
 '
         Result.Kind = Spec.Kind
         Result.Accepted = False
+        Result.Readable = False
         Result.RecordCount = 0
         Result.ColumnCount = Spec.ColumnCount
         Result.FindingCount = 0
@@ -2022,6 +2050,40 @@ Private Sub StartResult( _
         ReDim Findings(1 To 16)
 
 End Sub
+
+
+Private Function HasStructuralFinding( _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding) _
+    As Boolean
+'
+'==============================================================================
+'                             HasStructuralFinding
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether any finding is one of STRUCTURAL_CODES.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim f   As Long    'Finding counter
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+        For f = 1 To Result.FindingCount
+            If InStr(1, STRUCTURAL_CODES, "|" & Findings(f).Code & "|", vbBinaryCompare) > 0 Then
+                HasStructuralFinding = True
+                Exit Function
+            End If
+        Next f
+
+End Function
 
 
 Private Sub AddFinding( _

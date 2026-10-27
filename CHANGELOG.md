@@ -125,8 +125,7 @@ Use only the categories needed by a release.
   at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
   the contract into `CORE_CsvSchema` and the fixtures and the new inline
   cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`,
-  which expects exactly the findings of the reference implementation;
-  `Test_RunAll` runs nine suites.
+  which expects exactly the findings of the reference implementation.
 - Check a CSV file from the workbook (#207): the macros `CheckTradesCsv` and
   `CheckNettingSetsCsv`, run from the Macros dialog, read a chosen file with
   the CSV reader and show whether it follows the contract, with its record
@@ -138,18 +137,35 @@ Use only the categories needed by a release.
   `RunCsvBenchmark`, which times the reader on synthetic files of up to the
   record limit. The reader now trims the zeros of a number and of its
   exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
-  is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
+  is malformed (#446).
 - Add the staging sheets `Import_NettingSets` and `Import_Trades` after
   Trades (#208), where a CSV file will be loaded for checking and correction
   before it replaces NettingSets or Trades. Each has the source file, load
   time, record count and status at the top, then a header row with a
   `CSV line` column and the contract's columns in contract order, their CSV
   names above, and data columns formatted as text so that every value stays
-  as written. Nothing reads them yet: loading comes with the import macros.
-  `check_csv_contract` checks their headers and anchors against the
-  contract. Rebuild the workbook from the template: a workbook built from an
-  older template has no staging sheets, and a sheet-module synchronization
+  as written. `check_csv_contract` checks their headers and anchors against
+  the contract. Rebuild the workbook from the template: a workbook built from
+  an older template has no staging sheets, and a sheet-module synchronization
   stops on the missing modules.
+- Load a CSV file onto a staging sheet (#208): the **Import CSV** button on
+  Import_Trades and Import_NettingSets (`ImportTradesCsv`,
+  `ImportNettingSetsCsv`; `ImportCsv_Silent` for automation) reads a chosen
+  file and writes its records as text, each with its CSV line, so that
+  leading zeros, dates and formula-like text stay as written. A structural
+  finding (encoding, syntax, delimiter, header, field count, size or record
+  limit) loads nothing; findings about values are listed and the records
+  stay on the sheet to be corrected. The sheet shows the file, the load time,
+  the record count and LOADED, then EDITED after a change; a new load asks
+  before it replaces changes, found by fingerprint even with events off,
+  and a load that fails while writing puts the sheet back, formulas
+  included. A value longer than a cell holds (32,767 characters) loads
+  nothing. Trades, NettingSets, Results and the run fingerprints are not
+  changed. The reader gains a staging mode that keeps the records of a file
+  with value findings only, checked against the reference implementation for
+  every fixture and case. A blank record is never kept, whether written as
+  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites; `TEST_CsvReader`: 93 cases, 286
+  checks; the new `TEST_Import`: 10 cases, 52 checks.
 
 ### Changed
 
