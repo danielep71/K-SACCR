@@ -198,6 +198,9 @@ Use only the categories needed by a release.
   own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
+- Link default-fund contributions to their issue's new home: #400 moved to
+  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
+  support matrix now link it there.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the nine production and

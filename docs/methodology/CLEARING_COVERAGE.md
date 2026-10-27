@@ -4,8 +4,9 @@ What K-SACCR does today for client clearing, central counterparties (CCPs) and
 listed derivatives, which rules govern each arrangement, and what is still to
 be defined (#358). It is the specification for the clearing work of v1.0.2:
 client-clearing verification (#359), settlement and reset inputs (#360), CCP
-trade exposures (#112; default funds are outside K-SACCR, #400), and the closing evidence
-(#361). It changes
+trade exposures (#112; default funds are outside K-SACCR,
+[K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)), and the closing
+evidence (#361). It changes
 no calculation.
 
 The inventory was taken at commit `d16eeba` of `release/1.0.2`, whose engine,
@@ -68,9 +69,9 @@ which risk-weight rule applies.
 | Clearing member's trade exposure | 2% risk weight (Art. 306(1)(a); CRE54.7) | Standardised risk weight of the counterparty (Art. 306(1)(b); CRE54.41) | Exposure value calculated with role `CCP`; the risk-weight rule is stated on Checks and not applied (#112) |
 | Client's trade exposure meeting the segregation and portability conditions | 2%; 4% when only the joint-default protection is missing (Art. 305(2)–(3); CRE54.14–.16) | Not available: Art. 305(2)(d) requires a QCCP | Not supported |
 | Clearing member's trade exposure to the CCP for a client trade | Exposure value zero when the member does not reimburse the client for losses on the CCP's default (Art. 306(1)(c)); otherwise as its own trade exposure (Art. 306(1)(d); CRE54.7) | Under CRR the same: zero without reimbursement (Art. 306(1)(c), not limited to QCCPs), otherwise the non-qualifying treatment of its own trade exposure (Art. 306(1)(b), (d)); CRE54.41 does not distinguish the two cases | Not supported |
-| Pre-funded default-fund contribution | K = max(K_CCP · DF_i / (DF_CCP + DF_CM); 8% · 2% · DF_i) (Art. 308; CRE54.25–.39) | K = DF + UC (Art. 309); 1250% (CRE54.42) | Not supported (#400) |
+| Pre-funded default-fund contribution | K = max(K_CCP · DF_i / (DF_CCP + DF_CM); 8% · 2% · DF_i) (Art. 308; CRE54.25–.39) | K = DF + UC (Art. 309); 1250% (CRE54.42) | Not supported ([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)) |
 | Unfunded default-fund contribution | 0% (Art. 310) | In K = DF + UC (Art. 309) | Not supported |
-| Cap | Trade exposure and default-fund requirements together capped at the non-qualifying requirement (Art. 303(2); CRE54.40) | — | Not supported (#400) |
+| Cap | Trade exposure and default-fund requirements together capped at the non-qualifying requirement (Art. 303(2); CRE54.40) | — | Not supported ([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)) |
 | CCP ceasing to qualify | Non-qualifying treatment within three months (Art. 311; CRE54.6) | — | Not supported |
 
 <a id="ccp-trade-exposure-input-contract"></a>
@@ -80,7 +81,8 @@ which risk-weight rule applies.
 Specified from [decisions 2, 3 and 9 to 14](#decisions) and implemented in
 #112; it replaces the interim rejection of [decision 5](#decisions).
 Default-fund contributions, own funds requirements and the cap of Art. 303(2)
-and CRE54.40 are outside it ([decision 9](#decisions)) and outside K-SACCR (#400).
+and CRE54.40 are outside it ([decision 9](#decisions)) and outside K-SACCR
+([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)).
 
 **Scope.** Role `CCP` is the bank's trade exposure, as clearing member, to a
 CCP: for its own trades, and for client trades where it must reimburse the
@@ -344,7 +346,8 @@ client guaranteed by its member entering `CLIENT`; client trades the member
 need not reimburse on the CCP's default are not entered (Art. 306(1)(c)–(d);
 [decision 13](#decisions)); bankruptcy-remote posted collateral is left out of
 NICA by the user. Default funds need DF_i, unfunded commitments, K_CCP, DF_CCP
-and DF_CM as communicated by the CCP (Art. 308(2)); they are outside K-SACCR (#400).
+and DF_CM as communicated by the CCP (Art. 308(2)); they are outside K-SACCR
+([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)).
 
 ## 🧮 Exposure, risk weights and capital
 
