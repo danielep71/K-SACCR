@@ -142,7 +142,8 @@ Use only the categories needed by a release.
   Trades (#208), where a CSV file will be loaded for checking and correction
   before it replaces NettingSets or Trades. Each has the source file, load
   time, record count and status at the top, then a header row with a
-  `CSV line` column and the contract's columns in contract order, their CSV
+  `CSV line` column and the contract's columns in contract order (75 pt high
+  on Import_NettingSets, so that its longest headers show whole), their CSV
   names above, and data columns formatted as text so that every value stays
   as written. `check_csv_contract` checks their headers and anchors against
   the contract. Rebuild the workbook from the template: a workbook built from
