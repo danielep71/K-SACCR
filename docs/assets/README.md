@@ -79,7 +79,7 @@ changed; update the card when a supervisory parameter or formula changes.
 
 The workbook carries the card as a picture on its README sheet, under the
 "Reference card" heading, so a user never has to leave Excel (#281).
-README!D23 links to C114, a cell behind the lower part of the picture:
+README!D23 links to C116, a cell behind the lower part of the picture:
 Excel scrolls only until the target cell is in view, so a link to the
 heading would leave the picture below the window. The picture is a PNG of
 this SVG: when the SVG changes, render it again and replace the picture in
@@ -118,7 +118,8 @@ below):
 Each part is coloured by the regulation that brought it in, CRR2 (Regulation
 (EU) 2019/876, SA-CCR applied from 28 June 2021) or CRR3 (Regulation (EU)
 2024/1623, applied from 1 January 2025), and names what K-SACCR does with it:
-the roadmap milestone, or out of scope. It is an orientation picture, not a
+the exposure value it supplies, with the calculation that is developed outside
+K-SACCR, or out of scope. It is an orientation picture, not a
 source: K-SACCR calculates only the exposure value at its centre.
 
 - **Origin:** drawn for this repository from the CRR. The idea of a single
@@ -146,6 +147,37 @@ The SVG is the source, shown by the README and the website (`docs/index.html`);
 from it at 1600 x 1040 px with headless Chromium at a device scale factor of
 1, then quantized to 256 colours as the screenshots above. Render it again
 whenever the SVG changes.
+
+<a id="ccr-framework"></a>
+
+## 🏛️ Counterparty credit risk framework
+
+`CCR_framework.svg` shows where K-SACCR belongs in counterparty credit risk,
+from exposures to capital requirements, in four steps:
+
+1. two exposure engines, K-SA-CCR for derivatives and K-SFT for SFTs;
+2. a classification by counterparty, feeding the ordinary and CCP branches;
+3. the ordinary capital engine (SA or IRB risk weights) and CCP capital
+   (trade exposures and default-fund contributions, qualifying or not);
+4. the aggregation into the capital requirement for counterparty default
+   risk and its RWA.
+
+CVA risk appears below them as a memo item only: it belongs to market risk
+and is excluded from that total.
+
+- **Origin:** drawn on 2026-10-26 at the maintainer's request (#462), as one
+  picture shared by K-SACCR, K-SFTs and K-Risk Engines. It is an orientation
+  picture, not a source: it does not certify implemented functionality, and
+  K-SACCR calculates only the K-SA-CCR box.
+- **Sources:** its reference line names Basel CRE20, CRE22, CRE30-36,
+  CRE51-54 and MAR50, and CRR Art. 111-191, 192-241, 271-311 and 381-386.
+  The risk weights of its CCP table and the Basel citation of the QCCP cap
+  are a summary, not checked against the CRR text for this picture.
+- **Rendering:** the SVG is the source, shown by the README.
+  `CCR_framework.png` is rendered from it with headless Chromium at a device
+  scale factor of 2 (3200 x 3056 px), then quantized to 256 colours as the
+  screenshots above. The same pair is used in the other two repositories:
+  change it there too when it changes here.
 
 <a id="sa-ccr-explainers"></a>
 

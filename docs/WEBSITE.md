@@ -16,7 +16,7 @@ package installation, build tool, or external font. Its only script, at the
 end of the page, starts the release downloads in a hidden frame so the page
 does not visibly pass through GitHub; the links work without it.
 
-The public address is <https://danielep71.github.io/VBA-SACCR-Toolkit/>. Set
+The public address is <https://danielep71.github.io/K-SACCR/>. Set
 the repository's **About > Website** field to this address after verifying a
 successful deployment. The source HTML uses the existing screenshots in
 [`assets/`](assets/README.md); their provenance and update rules remain there.

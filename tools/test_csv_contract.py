@@ -3,6 +3,7 @@ import json
 import shutil
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -229,6 +230,25 @@ class GateTests(unittest.TestCase):
     def test_delimiter_must_be_the_parsers(self) -> None:
         self.edit_contract(lambda c: c["format"].update(delimiter=","))
         self.assertIn("format: delimiter ',' is not the parser's ';'", gate.run_check(self.root)["findings"])
+
+    def edit_template(self, part: str, change: Any) -> None:
+        path = self.root / gate.TEMPLATE
+        with zipfile.ZipFile(path) as package:
+            parts = {item: package.read(item) for item in package.namelist()}
+        parts[part] = change(parts[part].decode("utf-8")).encode("utf-8")
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as package:
+            for item, data in parts.items():
+                package.writestr(item, data)
+
+    def test_staging_sheet_must_follow_the_contract(self) -> None:
+        self.edit_template("xl/workbook.xml", lambda x: x.replace("Import_Trades!$C$9", "Import_Trades!$C$8"))
+        self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"].reverse())
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("Trades: ImportTrades_Header is 'Import_Trades!$C$8', not Import_Trades!$C$9", findings)
+        self.assertIn("NettingSets: the Import_NettingSets header row differs from the contract's sheet headers",
+                      findings)
+        self.assertIn("NettingSets: the CSV names above the Import_NettingSets header row differ from the "
+                      "contract's columns", findings)
 
     def test_fixture_outcomes_are_pinned(self) -> None:
         (self.root / gate.FIXTURES / "valid/extra.csv").write_text(NS_HEADER + "\n", encoding="utf-8")

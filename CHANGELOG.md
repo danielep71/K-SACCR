@@ -139,6 +139,17 @@ Use only the categories needed by a release.
   record limit. The reader now trims the zeros of a number and of its
   exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
   is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
+- Add the staging sheets `Import_NettingSets` and `Import_Trades` after
+  Trades (#208), where a CSV file will be loaded for checking and correction
+  before it replaces NettingSets or Trades. Each has the source file, load
+  time, record count and status at the top, then a header row with a
+  `CSV line` column and the contract's columns in contract order, their CSV
+  names above, and data columns formatted as text so that every value stays
+  as written. Nothing reads them yet: loading comes with the import macros.
+  `check_csv_contract` checks their headers and anchors against the
+  contract. Rebuild the workbook from the template: a workbook built from an
+  older template has no staging sheets, and a sheet-module synchronization
+  stops on the missing modules.
 
 ### Changed
 
@@ -152,9 +163,31 @@ Use only the categories needed by a release.
 
 ### Documentation
 
-- Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
-  scope was delivered in v1.0.2 and default-fund contributions moved to
-  v1.10.0.
+- Follow the repository's rename to `danielep71/K-SACCR`: the links in the
+  README, INSTALLATION, governance, methodology, issue templates and
+  website, the website address <https://danielep71.github.io/K-SACCR/>
+  (GitHub Pages does not redirect the old one), the clone commands and the
+  repository named in the Excel evidence policy. Released user manuals and
+  release entries keep the old name; GitHub redirects their links.
+- Show the counterparty credit risk framework K-SACCR belongs to (#462):
+  a diagram under "What this project is", from the two exposure engines
+  to the ordinary and CCP capital branches and their aggregation, with CVA
+  as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
+  shared with K-SFTs and K-Risk Engines and described in
+  `docs/assets/README.md`.
+- Bring the README roadmap in line with the milestones: v1.7.0 is the
+  standalone Python engine (#450–#459); securities financing transactions
+  are developed in K-SFTs, risk-weighted assets, capital and default-fund
+  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
+  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  methodology scope, the clearing coverage, the website and the diagram of
+  where SA-CCR is used say the same.
+- Correct the READMEs against the repository: the v1.1.0 work already on the
+  release branch; the README sheet's link to the reference card, which points
+  to C116 since the staging sheets moved its rows; the nine production and
+  twelve test modules of the synchronizer's configurations; the CSV tool
+  tests in `tool-tests`; the action pins, no longer all from the template;
+  and the margin-agreement structures, declared and rejected since #39.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
   README roadmap section of the current milestone to the places updated when
@@ -907,7 +940,7 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.2...HEAD
-[1.0.2]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2
-[1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
-[1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
+[1.0.1]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.1
+[1.0.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.0

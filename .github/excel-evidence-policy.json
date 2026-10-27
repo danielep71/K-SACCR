@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "repository": "danielep71/VBA-SACCR-Toolkit",
+  "repository": "danielep71/K-SACCR",
   "entry_point": "TEST_Harness.RunTests",
   "cases": [
     "replacement-cost.exact",

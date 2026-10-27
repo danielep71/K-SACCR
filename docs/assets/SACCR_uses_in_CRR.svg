@@ -30,7 +30,7 @@
     <text x="96" y="246" font-size="18" fill="#2b3a4d">Exposure value × risk weight of the counterparty</text>
     <text x="96" y="272" font-size="18" fill="#2b3a4d">under the standardised approach (Art. 107)</text>
     <text x="96" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
-    <text x="96" y="334" font-size="16" fill="#4a5a70">K-SACCR: RWA planned in v1.10.0</text>
+    <text x="96" y="334" font-size="16" fill="#4a5a70">K-SACCR: exposure value; RWA in K-Risk Engines</text>
   </g>
   <!-- 2 CCPs -->
   <g>
@@ -39,7 +39,7 @@
     <text x="1036" y="246" font-size="18" fill="#2b3a4d">Trade exposures to a CCP are measured with the</text>
     <text x="1036" y="272" font-size="18" fill="#2b3a4d">Chapter 6 methods (Art. 301–311)</text>
     <text x="1036" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
-    <text x="1036" y="334" font-size="16" fill="#4a5a70">K-SACCR: trade exposures since v1.0.2; default fund v1.10.0</text>
+    <text x="1036" y="334" font-size="16" fill="#4a5a70">K-SACCR: trade exposures since v1.0.2; default fund outside</text>
   </g>
   <!-- 3 Large exposures -->
   <g>
@@ -67,7 +67,7 @@
     <text x="96" y="756" font-size="18" fill="#2b3a4d">BA-CVA uses the netting set's exposure value,</text>
     <text x="96" y="782" font-size="18" fill="#2b3a4d">as the CRR2 standardised method did (Art. 382–386)</text>
     <text x="96" y="816" font-size="16" fill="#2e8b57" font-weight="700">CRR3 · since 1 January 2025</text>
-    <text x="96" y="844" font-size="16" fill="#4a5a70">K-SACCR: planned in v1.9.0</text>
+    <text x="96" y="844" font-size="16" fill="#4a5a70">K-SACCR: exposure value; CVA risk outside</text>
   </g>
   <!-- 6 Output floor -->
   <g>

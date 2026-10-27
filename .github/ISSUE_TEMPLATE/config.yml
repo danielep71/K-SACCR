@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: "🔒 Report a security vulnerability privately"
-    url: "https://github.com/danielep71/VBA-SACCR-Toolkit/security/policy"
+    url: "https://github.com/danielep71/K-SACCR/security/policy"
     about: "Do not open an issue. Report it privately from the Security tab, as SECURITY.md describes."
   - name: "📦 Installation and import help"
-    url: "https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/INSTALLATION.md"
+    url: "https://github.com/danielep71/K-SACCR/blob/main/INSTALLATION.md"
     about: "Building the workbook from source, running the harness and troubleshooting."
   - name: "📐 Methodology and test cases"
-    url: "https://github.com/danielep71/VBA-SACCR-Toolkit/blob/main/docs/methodology/README.md"
+    url: "https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md"
     about: "Regulatory basis (CRR baseline, Basel CRE52), sources and the numerical test-case format."

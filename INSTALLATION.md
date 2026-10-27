@@ -31,7 +31,7 @@ removal**. Contribution workflow is owned by
 ## 🧭 Current status
 
 The current release is **1.0.2**, tagged `v1.0.2`; its
-[GitHub Release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2)
+[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2)
 carries a built production workbook ([released workbook](#released-workbook)).
 Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches). The workbook is built
@@ -128,7 +128,7 @@ set was `VALID` at each size.
 
 ## 📦 Released workbook
 
-The [1.0.2 release](https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2)
+The [1.0.2 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2)
 carries `K-SACCR_1.0.2.xlsm`, a **production** workbook: the template and the
 engine and sheet macros of `src/` at `v1.0.2`, without the test modules. It
 holds the demonstration portfolio of the template.
@@ -158,8 +158,8 @@ as below; the tests write to the input and output sheets.
 Use a **Git clone**:
 
 ```sh
-git clone https://github.com/danielep71/VBA-SACCR-Toolkit.git
-cd VBA-SACCR-Toolkit
+git clone https://github.com/danielep71/K-SACCR.git
+cd K-SACCR
 git switch release/1.1.0
 ```
 
@@ -219,7 +219,7 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 16 sheets, named ranges, formulas and buttons, and no VBA. Built
+   holds the 18 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
 
    Instead of the manual import in steps 4 and 5, drag the saved workbook onto
