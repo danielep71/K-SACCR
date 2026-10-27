@@ -199,6 +199,11 @@ Use only the categories needed by a release.
   own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
+- Describe CRR Article 305(4) as unsupported in the source register (#445):
+  K-SACCR does not model its conditions for multi-level client structures,
+  and rejects a declared `MULTI` structure for that reason, as decision 6 of
+  the clearing coverage says. The rejection is an implementation boundary,
+  not a treatment the article prescribes.
 - Link default-fund contributions to their issue's new home: #400 moved to
   K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
   support matrix now link it there.
