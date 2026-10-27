@@ -57,8 +57,8 @@ Article 304(3)(b) and (d), the 10-day MPOR floor and the retained variation
 margin of a clearing member's trade exposure to a CCP. Article 305(4)'s
 conditions for multi-level client structures are not implemented; the engine
 rejects a declared `MULTI` structure because it does not model those conditions
-at every level. This is an implementation boundary, not a rejection prescribed
-by that article. K-SACCR states the risk weight of Article 306(1) without
+at every level ([decision 6](../CLEARING_COVERAGE.md#decisions)). This is an
+implementation boundary, not a rejection prescribed by that article. K-SACCR states the risk weight of Article 306(1) without
 applying it. The consolidated text itself has no legal effect, as its
 first page states.
 

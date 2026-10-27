@@ -24,16 +24,18 @@ Current source:
 - `modules/SACCR_Formulas.bas`: the public `SACCR_*` worksheet functions,
   listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
 - `workbook/M_Main.bas`: the sheet-button macros, the CSV check macros, the
-  automation entry points
-  and status functions, and the reading and writing of the reconciliation
-  sheets and the evidence file;
+  automation entry points and status functions, and the reading and writing
+  of the reconciliation sheets and the evidence file;
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
-  modules, which hold only `Option Explicit`;
-- `workbook/SACCR_Template.xlsx`: the 16 sheets (README, Params, NettingSets,
-  Trades, Results, HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets,
-  Reconciliation, BankTrades, TradeReconciliation, TestCatalogue,
-  FormulaTest, Basel_vs_CRR) with their formulas, named ranges, data
-  validation and buttons, and no VBA project or document properties.
+  modules, which hold only `Option Explicit`, but for the change handlers of
+  `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
+  edited;
+- `workbook/SACCR_Template.xlsx`: the 18 sheets (README, Params, NettingSets,
+  Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
+  TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,
+  TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR) with their
+  formulas, named ranges, data validation and buttons, and no VBA project or
+  document properties.
 
 The engine does not yet follow every rule of the layout: `CORE_Engine` and
 `CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a

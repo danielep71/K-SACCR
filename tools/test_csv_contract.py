@@ -3,6 +3,7 @@ import json
 import shutil
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,21 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(bad_header + '\n"unclosed,quote\n'),
                          [("CSV-HEADER-UNKNOWN", 1, 0, "bad_header"), ("CSV-HEADER-MISSING", 1, 0, "netting_set_id")])
         self.assertEqual(codes(NS_HEADER + '\n"unclosed,quote\n'), [("CSV-SYNTAX", 2, 1, "")])
+
+    def test_value_findings_keep_the_records_for_staging(self) -> None:
+        blank = ";" * NS_HEADER.count(";")
+        text = (NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + blank + "\n"
+                + NS_ROW.replace("NS-1", "NS-2") + "\n")
+        rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT, keep_records=True)
+        self.assertEqual([(f.code, f.record) for f in findings],
+                         [("CSV-ALLOWED", 1), ("CSV-BLANK-RECORD", 2), ("CSV-BLANK-RECORD", 3)])
+        self.assertTrue(csv.readable(findings))
+        self.assertEqual([r["netting_set_id"] for r in rows], ["NS-1", "NS-2"])
+        self.assertEqual(csv.validate(text.encode(), "NettingSets", CONTRACT)[0], [])
+        short = NS_HEADER + "\n" + NS_ROW + "\nNS-2;CPTY\n"
+        rows, findings = csv.validate(short.encode(), "NettingSets", CONTRACT, keep_records=True)
+        self.assertEqual(([f.code for f in findings], rows), (["CSV-FIELD-COUNT"], []))
+        self.assertFalse(csv.readable(findings))
 
     def test_another_delimiter_is_one_finding(self) -> None:
         for other in (",", "\t"):
@@ -229,6 +245,25 @@ class GateTests(unittest.TestCase):
     def test_delimiter_must_be_the_parsers(self) -> None:
         self.edit_contract(lambda c: c["format"].update(delimiter=","))
         self.assertIn("format: delimiter ',' is not the parser's ';'", gate.run_check(self.root)["findings"])
+
+    def edit_template(self, part: str, change: Any) -> None:
+        path = self.root / gate.TEMPLATE
+        with zipfile.ZipFile(path) as package:
+            parts = {item: package.read(item) for item in package.namelist()}
+        parts[part] = change(parts[part].decode("utf-8")).encode("utf-8")
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as package:
+            for item, data in parts.items():
+                package.writestr(item, data)
+
+    def test_staging_sheet_must_follow_the_contract(self) -> None:
+        self.edit_template("xl/workbook.xml", lambda x: x.replace("Import_Trades!$C$9", "Import_Trades!$C$8"))
+        self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"].reverse())
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("Trades: ImportTrades_Header is 'Import_Trades!$C$8', not Import_Trades!$C$9", findings)
+        self.assertIn("NettingSets: the Import_NettingSets header row differs from the contract's sheet headers",
+                      findings)
+        self.assertIn("NettingSets: the CSV names above the Import_NettingSets header row differ from the "
+                      "contract's columns", findings)
 
     def test_fixture_outcomes_are_pinned(self) -> None:
         (self.root / gate.FIXTURES / "valid/extra.csv").write_text(NS_HEADER + "\n", encoding="utf-8")

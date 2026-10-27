@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "repository": "danielep71/VBA-SACCR-Toolkit",
+  "repository": "danielep71/K-SACCR",
   "entry_point": "TEST_Harness.RunTests",
   "cases": [
     "replacement-cost.exact",
@@ -87,7 +87,16 @@
       "header": "SACCR CSV READER TESTS",
       "mode_line": false,
       "cases": 93,
-      "checks": {"32-bit": 199, "64-bit": 199},
+      "checks": {"32-bit": 286, "64-bit": 286},
+      "restoration": null,
+      "first_case": null
+    },
+    {
+      "entry_point": "TEST_Import.RunImportTests",
+      "header": "SACCR CSV IMPORT TESTS",
+      "mode_line": false,
+      "cases": 10,
+      "checks": {"32-bit": 52, "64-bit": 52},
       "restoration": null,
       "first_case": null
     }

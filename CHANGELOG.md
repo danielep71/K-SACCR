@@ -125,8 +125,7 @@ Use only the categories needed by a release.
   at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
   the contract into `CORE_CsvSchema` and the fixtures and the new inline
   cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`,
-  which expects exactly the findings of the reference implementation;
-  `Test_RunAll` runs nine suites.
+  which expects exactly the findings of the reference implementation.
 - Check a CSV file from the workbook (#207): the macros `CheckTradesCsv` and
   `CheckNettingSetsCsv`, run from the Macros dialog, read a chosen file with
   the CSV reader and show whether it follows the contract, with its record
@@ -138,7 +137,36 @@ Use only the categories needed by a release.
   `RunCsvBenchmark`, which times the reader on synthetic files of up to the
   record limit. The reader now trims the zeros of a number and of its
   exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
-  is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
+  is malformed (#446).
+- Add the staging sheets `Import_NettingSets` and `Import_Trades` after
+  Trades (#208), where a CSV file will be loaded for checking and correction
+  before it replaces NettingSets or Trades. Each has the source file, load
+  time, record count and status at the top, then a header row with a
+  `CSV line` column and the contract's columns in contract order (75 pt high
+  on Import_NettingSets, so that its longest headers show whole), their CSV
+  names above, and data columns formatted as text so that every value stays
+  as written. `check_csv_contract` checks their headers and anchors against
+  the contract. Rebuild the workbook from the template: a workbook built from
+  an older template has no staging sheets, and a sheet-module synchronization
+  stops on the missing modules.
+- Load a CSV file onto a staging sheet (#208): the **Import CSV** button on
+  Import_Trades and Import_NettingSets (`ImportTradesCsv`,
+  `ImportNettingSetsCsv`; `ImportCsv_Silent` for automation) reads a chosen
+  file and writes its records as text, each with its CSV line, so that
+  leading zeros, dates and formula-like text stay as written. A structural
+  finding (encoding, syntax, delimiter, header, field count, size or record
+  limit) loads nothing; findings about values are listed and the records
+  stay on the sheet to be corrected. The sheet shows the file, the load time,
+  the record count and LOADED, then EDITED after a change; a new load asks
+  before it replaces changes, found by fingerprint even with events off,
+  and a load that fails while writing puts the sheet back, formulas
+  included. A value longer than a cell holds (32,767 characters) loads
+  nothing. Trades, NettingSets, Results and the run fingerprints are not
+  changed. The reader gains a staging mode that keeps the records of a file
+  with value findings only, checked against the reference implementation for
+  every fixture and case. A blank record is never kept, whether written as
+  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites; `TEST_CsvReader`: 93 cases, 286
+  checks; the new `TEST_Import`: 10 cases, 52 checks.
 
 ### Changed
 
@@ -152,13 +180,39 @@ Use only the categories needed by a release.
 
 ### Documentation
 
-- Correct the source register to describe CRR Article 305(4) as unsupported,
-  explaining the implementation's rejection of declared multi-level client
-  structures (#445). Align the roadmap with the planned v1.7.0 standalone
-  Python engine (#450–#459), without claiming implementation or validation.
-- Explain in the README roadmap why there is no v1.7.0 milestone: its CCP
-  scope was delivered in v1.0.2 and default-fund contributions moved to
-  v1.10.0.
+- Follow the repository's rename to `danielep71/K-SACCR`: the links in the
+  README, INSTALLATION, governance, methodology, issue templates and
+  website, the website address <https://danielep71.github.io/K-SACCR/>
+  (GitHub Pages does not redirect the old one), the clone commands and the
+  repository named in the Excel evidence policy. Released user manuals and
+  release entries keep the old name; GitHub redirects their links.
+- Show the counterparty credit risk framework K-SACCR belongs to (#462):
+  a diagram under "What this project is", from the two exposure engines
+  to the ordinary and CCP capital branches and their aggregation, with CVA
+  as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
+  shared with K-SFTs and K-Risk Engines and described in
+  `docs/assets/README.md`.
+- Bring the README roadmap in line with the milestones: v1.7.0 is the
+  standalone Python engine (#450–#459); securities financing transactions
+  are developed in K-SFTs, risk-weighted assets, capital and default-fund
+  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
+  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  methodology scope, the clearing coverage, the website and the diagram of
+  where SA-CCR is used say the same.
+- Describe CRR Article 305(4) as unsupported in the source register (#445):
+  K-SACCR does not model its conditions for multi-level client structures,
+  and rejects a declared `MULTI` structure for that reason, as decision 6 of
+  the clearing coverage says. The rejection is an implementation boundary,
+  not a treatment the article prescribes.
+- Link default-fund contributions to their issue's new home: #400 moved to
+  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
+  support matrix now link it there.
+- Correct the READMEs against the repository: the v1.1.0 work already on the
+  release branch; the README sheet's link to the reference card, which points
+  to C116 since the staging sheets moved its rows; the nine production and
+  twelve test modules of the synchronizer's configurations; the CSV tool
+  tests in `tool-tests`; the action pins, no longer all from the template;
+  and the margin-agreement structures, declared and rejected since #39.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
   README roadmap section of the current milestone to the places updated when
@@ -911,7 +965,7 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/VBA-SACCR-Toolkit/compare/v1.0.2...HEAD
-[1.0.2]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.2
-[1.0.1]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.1
-[1.0.0]: https://github.com/danielep71/VBA-SACCR-Toolkit/releases/tag/v1.0.0
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
+[1.0.1]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.1
+[1.0.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.0

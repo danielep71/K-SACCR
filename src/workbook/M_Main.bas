@@ -35,17 +35,24 @@ Attribute VB_Name = "M_Main"
 '   input contract and report the outcome, writing nothing (#207), from
 '   the Macros dialog; ReadCsv_Silent: the same for a given file, for
 '   automation and tests.
-'   The sheet buttons call the first three, ExportEvidence and the two
-'   template exports by name.
+'   ImportNettingSetsCsv and ImportTradesCsv: load a CSV file into the
+'   staging sheet Import_NettingSets or Import_Trades, as text, for
+'   checking and correction before it replaces the inputs (#208);
+'   ImportCsv_Silent: the same for a given file. StagingEdited: the
+'   change handler of the staging sheets. StagingFormulaCell: the first
+'   formula in a staging block, for staging validation and commit.
+'   The sheet buttons call the first three, ExportEvidence, the two
+'   template exports and the two imports by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
 '   CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
-'   evidence report and its UTF-8 encoding; CORE_CsvReader for the CSV
-'   check; CORE_Util and CORE_Config for the output sheets, the CSV
-'   template header lines and the error numbers.
+'   evidence report and its UTF-8 encoding; CORE_CsvReader and
+'   CORE_CsvSchema for the CSV check and the staging load; CORE_Util and
+'   CORE_Config for the output and staging sheets, the CSV template header
+'   lines and the error numbers.
 '
 ' STATE OWNERSHIP
 '   Each operation captures calculation mode, events and screen updating,
@@ -77,11 +84,13 @@ Attribute VB_Name = "M_Main"
 '   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
 '   report and the CSV templates, before the new file is opened, while it
 '   is written and while the older file is replaced (#312).
+'   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
+'   once the new staging block has been written (#208).
 '   tests/modules/TEST_MainState.bas uses the first four;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
-'   evidence faults. gLastMessage keeps the last message passed to Notify
-'   (a failure message is not kept), so that a test can read it in silent
-'   mode.
+'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write".
+'   gLastMessage keeps the last message passed to Notify (a failure
+'   message is not kept), so that a test can read it in silent mode.
 '   Production code never sets gTestFault.
 '
 ' KNOWN DEVIATION
@@ -92,7 +101,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '
 ' AUTHOR
 '   Daniele Penza
@@ -124,6 +133,15 @@ Attribute VB_Name = "M_Main"
         Private Const CSV_MESSAGE_PATH      As Long = 200     'Characters of the file path, from its end
         Private Const CSV_MESSAGE_LENGTH    As Long = 1000    'Characters of the whole message
 
+    'Staging block formats (#208), as the template's input cells: font
+    'size, the grey fill of the CSV line column, the input fill of the
+    'values and the input border colour, as RGB values.
+        Private Const STAGING_FONT_SIZE     As Long = 9           'Points
+        Private Const STAGING_LINE_FILL     As Long = 16250871    'RGB(247, 247, 247)
+        Private Const STAGING_VALUE_FILL    As Long = 13431551    'RGB(255, 242, 204)
+        Private Const STAGING_BORDER        As Long = 12566463    'RGB(191, 191, 191)
+        Private Const EXCEL_CELL_CHARS      As Long = 32767       'Characters a cell holds
+
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
         Private Const RECON_TR      As Long = 2    'BankTrades against TradeCalc
@@ -138,7 +156,7 @@ Attribute VB_Name = "M_Main"
     'TEST_Reconcile), whose output would overflow the Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile" or "evidence-*"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*" or "staging-write"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Private mRunning    As Boolean    'True while an operation is in progress
@@ -2479,17 +2497,22 @@ End Sub
 Private Function CsvCheckMessage( _
     ByVal FilePath As String, _
     ByRef Result As CsvReadResult, _
-    ByRef Findings() As CsvFinding) _
+    ByRef Findings() As CsvFinding, _
+    Optional ByVal Note As String = "") _
     As String
 '
 '==============================================================================
 '                               CsvCheckMessage
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The outcome of a CSV check for the user: an accepted file's record
-'   count, or a rejected file's findings, the first CSV_MESSAGE_FINDINGS of
-'   them with their line, record and column, then how many more there are
-'   and where the codes are explained.
+'   The outcome of a CSV check or load for the user: an accepted file's
+'   record count, or a rejected file's findings, the first
+'   CSV_MESSAGE_FINDINGS of them with their line, record and column, then
+'   how many more there are, Note, and where the codes are explained.
+'
+' INPUTS
+'   Note: what was done with the file, in a sentence or two; "" for a
+'   check, which writes nothing.
 '
 ' METHOD
 '   A long path is shown by its end, a long column name and a long line
@@ -2498,7 +2521,7 @@ Private Function CsvCheckMessage( _
 '   count of the findings left or the pointer to the contract.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-10-26
 '==============================================================================
 '
 
@@ -2507,7 +2530,7 @@ Private Function CsvCheckMessage( _
 '------------------------------------------------------------------------------
     Dim Head        As String    'The path and the verdict
     Dim Body        As String    'The findings listed
-    Dim Tail        As String    'Where the codes are explained
+    Dim Tail        As String    'Note and where the codes are explained
     Dim MoreText    As String    'The longest "... and N more." line
     Dim LineText    As String    'One finding's line
     Dim Shown       As Long      'Findings listed
@@ -2518,14 +2541,19 @@ Private Function CsvCheckMessage( _
 '------------------------------------------------------------------------------
         Head = CutText(FilePath, CSV_MESSAGE_PATH, True) & vbLf & vbLf
         If Result.Accepted Then
+            If Len(Note) = 0 Then
+                Note = "It was only checked: nothing was written to the workbook."
+            End If
             CsvCheckMessage = Head & "The file follows the " & Result.Kind & _
-                              " CSV contract: " & Result.RecordCount & " records." & vbLf & _
-                              "It was only checked: nothing was written to the workbook."
+                              " CSV contract: " & Result.RecordCount & " records." & vbLf & Note
             Exit Function
         End If
         Head = Head & "The file does not follow the " & Result.Kind & " CSV contract: " & _
                Result.FindingCount & IIf(Result.FindingCount = 1, " finding.", " findings.") & vbLf
-        Tail = vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
+        If Len(Note) > 0 Then
+            Tail = vbLf & vbLf & Note
+        End If
+        Tail = Tail & vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
         MoreText = vbLf & "... and " & Result.FindingCount & " more."
         For f = 1 To Result.FindingCount
             If Shown = CSV_MESSAGE_FINDINGS Then
@@ -2576,6 +2604,1076 @@ Private Function CutText( _
         Else
             CutText = Left$(Text, MaxLength - 3) & "..."
         End If
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                                 CSV STAGING
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ImportNettingSetsCsv()
+'
+'==============================================================================
+'                             ImportNettingSetsCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a NettingSets CSV file chosen by the user into Import_NettingSets
+'   (#208), for checking and correction before it replaces NettingSets.
+'
+' USAGE
+'   The Import CSV button on Import_NettingSets, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportCsv; never raises.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+        ImportCsv "NettingSets"
+
+End Sub
+
+
+Public Sub ImportTradesCsv()
+'
+'==============================================================================
+'                               ImportTradesCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a Trades CSV file chosen by the user into Import_Trades (#208),
+'   for checking and correction before it replaces Trades.
+'
+' USAGE
+'   The Import CSV button on Import_Trades, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportCsv; never raises.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+        ImportCsv "Trades"
+
+End Sub
+
+
+Public Function ImportCsv_Silent( _
+    ByVal Kind As String, _
+    ByVal FilePath As String, _
+    Optional ByVal ReplaceEdits As Boolean = False) _
+    As String
+'
+'==============================================================================
+'                               ImportCsv_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The staging load for automation and tests: read FilePath as a file of
+'   Kind ("Trades" or "NettingSets") and load its records into the staging
+'   sheet without asking. A staging sheet with changes since its last load
+'   is replaced only when ReplaceEdits is True.
+'
+' RETURNS
+'   "RESULT=LOADED; records=N; findings=K; file=..." when the records were
+'   loaded, K being the findings about values to correct on the sheet;
+'   "RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=..."
+'   when a structural finding stopped the load; "RESULT=REFUSED;
+'   reason=...; file=..." when the sheet has changes and ReplaceEdits is
+'   False. The sheet is changed only when the result is LOADED.
+'
+' ERROR POLICY
+'   An unknown kind and a file that cannot be read raise ERR_CSV_READ. A
+'   staging sheet or name that is missing, and a value longer than a cell
+'   holds, raise ERR_STAGING_WRITE before the sheet changes; an error
+'   while the sheet is written is raised after the sheet has been put back
+'   as it was, as LoadStaging.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' READ AND LOAD
+'------------------------------------------------------------------------------
+        ReadCsvFile FilePath, Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Readable Then
+            ImportCsv_Silent = "RESULT=REJECTED; findings=" & Result.FindingCount & _
+                               "; first=" & FindingText(Findings(1)) & "; file=" & FilePath
+            Exit Function
+        End If
+        If Not ReplaceEdits Then
+            If StagingHasEdits(Kind) Then
+                ImportCsv_Silent = "RESULT=REFUSED; reason=" & StagingSheetOf(Kind) & _
+                                   " has changes since its last load; file=" & FilePath
+                Exit Function
+            End If
+        End If
+        LoadStaging Kind, FilePath, Result, Values, Lines
+        ImportCsv_Silent = "RESULT=LOADED; records=" & Result.RecordCount & _
+                           "; findings=" & Result.FindingCount & "; file=" & FilePath
+
+End Function
+
+
+Public Sub StagingEdited( _
+    ByVal Kind As String, _
+    ByVal Target As Range)
+'
+'==============================================================================
+'                                StagingEdited
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show EDITED in a staging sheet's status cell when a cell below its
+'   header row changes. Called by the Worksheet_Change handler of
+'   shImportNettingSets and shImportTrades. The status is for the user:
+'   StagingHasEdits compares the block with the fingerprint of the last
+'   load, so a change made with events off is found as well.
+'
+' INPUTS
+'   Kind: "NettingSets" or "Trades". Target: the changed cells.
+'
+' ERROR POLICY
+'   Contains every error: an event handler must not stop the user's edit.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim HeaderCell  As Range    'The CSV line header cell
+    Dim StatusCell  As Range    'The status cell
+
+'------------------------------------------------------------------------------
+' MARK
+'------------------------------------------------------------------------------
+    'Writing the status cell changes the sheet again; that change is above
+    'the header row and returns at once.
+        On Error GoTo Failed
+        Set HeaderCell = NamedCell(StagingHeaderName(Kind))
+        If HeaderCell Is Nothing Then
+            Exit Sub
+        End If
+        If Not HeaderCell.Worksheet Is Target.Worksheet Then
+            Exit Sub
+        End If
+        If Target.Row + Target.Rows.Count - 1 <= HeaderCell.Row Then
+            Exit Sub
+        End If
+        Set StatusCell = NamedCell(StagingPrefixOf(Kind) & "_Status")
+        If Not StatusCell Is Nothing Then
+            If CStr(StatusCell.Value2) <> STAGING_EDITED Then
+                StatusCell.Value2 = STAGING_EDITED
+            End If
+        End If
+
+Failed:
+
+End Sub
+
+
+Public Function StagingFormulaCell( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+'                              StagingFormulaCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The address of the first cell of a staging block that holds a formula,
+'   or "" when none does (#208). A value pasted as a formula would be
+'   calculated rather than kept as written, so staging validation and
+'   commit (#209, #211) refuse such a block, whatever the events did; the
+'   load checks its own writing with it.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE when the staging sheet or its names are
+'   missing.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'The staging sheet
+    Dim HeaderRow   As Long         'Its header row
+    Dim LastRow     As Long         'Last row of its used range
+    Dim Block       As Range        'The rows below the header
+    Dim Found       As Range        'Its formula cells; Nothing for none
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+    'HasFormula is False when no cell has one and Null when some do;
+    'SpecialCells raises when it finds none.
+        HeaderRow = StagingHeaderRow(Kind, Sheet)
+        LastRow = UsedLastRow(Sheet)
+        If LastRow <= HeaderRow Then
+            Exit Function
+        End If
+        Set Block = TableRange(Sheet, HeaderRow + 1, 1, LastRow, StagingWidth(Kind))
+        If Not IsNull(Block.HasFormula) Then
+            If Not Block.HasFormula Then
+                Exit Function
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Block.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Not Found Is Nothing Then
+            StagingFormulaCell = Found.Cells(1, 1).Address(False, False)
+        End If
+
+End Function
+
+
+Private Sub ImportCsv( _
+    ByVal Kind As String)
+'
+'==============================================================================
+'                                  ImportCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask for a CSV file, read it as a file of Kind and load its records into
+'   the staging sheet as text, with the CSV line of each, then show the
+'   outcome and the sheet. A structural finding loads nothing; findings
+'   about values are listed and stay to be corrected on the sheet. When
+'   the sheet has changes since its last load, the user is asked before
+'   they are replaced. A cancelled dialog or a No changes nothing.
+'
+' ERROR POLICY
+'   Reports a file that cannot be read or loaded in a message, or in the
+'   Immediate window in silent mode; never raises. The staging sheet is
+'   put back as it was when its writing fails (LoadStaging).
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SheetName   As String           'The staging sheet
+    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+    Dim Note        As String           'What was loaded
+
+'------------------------------------------------------------------------------
+' ASK, READ AND LOAD
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        SheetName = StagingSheetOf(Kind)
+        ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
+                                                 Title:="Import " & Kind & " CSV file into " & SheetName)
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Readable Then
+            Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                                   "Nothing was loaded: " & SheetName & " is unchanged."), vbExclamation
+            Exit Sub
+        End If
+        If StagingHasEdits(Kind) Then
+            If Not ReplaceConfirmed(Kind, CStr(ChosenFile)) Then
+                Exit Sub
+            End If
+        End If
+        LoadStaging Kind, CStr(ChosenFile), Result, Values, Lines
+        If Result.Accepted Then
+            Note = "Loaded into " & SheetName & " as text. Not validated yet; " & Kind & " is unchanged."
+        Else
+            Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there. " & _
+                   Kind & " is unchanged."
+        End If
+        ThisWorkbook.Worksheets(SheetName).Activate
+        Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, Note), _
+               IIf(Result.Accepted, vbInformation, vbExclamation)
+        Exit Sub
+
+Failed:
+        Notify Kind & " CSV import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function ReplaceConfirmed( _
+    ByVal Kind As String, _
+    ByVal NewFile As String) _
+    As Boolean
+'
+'==============================================================================
+'                               ReplaceConfirmed
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask whether the changes on a staging sheet may be replaced by the
+'   records of NewFile. No is the default answer; silent mode never
+'   replaces them.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LoadedFrom  As String    'The file of the last load; "" for none
+    Dim Question    As String    'The question
+
+'------------------------------------------------------------------------------
+' ASK
+'------------------------------------------------------------------------------
+        If gSilent Then
+            Exit Function
+        End If
+        LoadedFrom = CStr(StagingMetaCell(Kind, 1).Value2)
+        If Len(LoadedFrom) > 0 Then
+            Question = StagingSheetOf(Kind) & " has changes since it was loaded from " & _
+                       CutText(LoadedFrom, CSV_MESSAGE_PATH, True) & "."
+        Else
+            Question = StagingSheetOf(Kind) & " has rows that were not loaded from a file."
+        End If
+        Question = Question & vbLf & vbLf & "Replace them with the records of " & _
+                   CutText(NewFile, CSV_MESSAGE_PATH, True) & "?"
+        ReplaceConfirmed = (MsgBox(Question, vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) = vbYes)
+
+End Function
+
+
+Private Sub LoadStaging( _
+    ByVal Kind As String, _
+    ByVal FilePath As String, _
+    ByRef Result As CsvReadResult, _
+    ByRef Values() As String, _
+    ByRef Lines() As Long)
+'
+'==============================================================================
+'                                 LoadStaging
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Replace the block below a staging sheet's header row with the records
+'   of a readable file: the CSV line of each in the first column, its
+'   values as text after it. Then record the file, the time, the record
+'   count and LOADED in the metadata cells, and the fingerprint of the
+'   block in STAGED_*_NAME.
+'
+' METHOD
+'   The new block is built in memory before the sheet is touched; a value
+'   longer than a cell holds stops the load there. The old block, its
+'   formulas with their formats and the metadata are kept, then cleared
+'   and written over; on an error they are written back. The data cells
+'   are formatted as text before their values are written, so that nothing
+'   is converted, and the block is then checked for formulas. The
+'   fingerprint is stored last, so a load that fails leaves the earlier
+'   one.
+'
+' STATE OWNERSHIP
+'   Captures calculation mode, events and screen updating, switches events
+'   off so that the change handler does not mark the load as an edit, and
+'   restores them on every path. Sets mRunning while it writes, so that no
+'   SA-CCR operation starts on a half-written sheet, and refuses to start
+'   while one runs.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, and ERR_STAGING_WRITE
+'   when the sheet or its names are missing or a value is longer than a
+'   cell holds (EXCEL_CELL_CHARS), before anything is changed.
+'   Any later error is raised after the old block and metadata have been
+'   written back; a failure to write them back, or to restore a setting,
+'   is added to its description. A setting not restored after a
+'   successful load raises ERR_CLEANUP_FAILED.
+'
+' TEST SEAM
+'   gTestFault = "staging-write" raises ERR_INJECTED_FAULT once the new
+'   block has been written, before the metadata.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet               As Worksheet       'The staging sheet
+    Dim FirstRow            As Long            'First row below its header
+    Dim Width               As Long            'CSV line column and the contract's columns
+    Dim MetaCells(1 To 4)   As Range           'File, load time, record count, status
+    Dim NewBlock()          As Variant         'The records as they will be written
+    Dim OldBlock            As Variant         'The block before the load
+    Dim OldLast             As Long            'Its last row with a value; below FirstRow for none
+    Dim OldMeta(1 To 4)     As Variant         'The metadata before the load
+    Dim FormulaAddresses()  As String          'Cells of the old block that hold a formula
+    Dim FormulaTexts()      As String          'Their formulas
+    Dim FormulaFormats()    As String          'Their number formats
+    Dim FormulaCount        As Long            'How many there are
+    Dim Spec                As CsvSpec         'The file's contract
+    Dim Columns()           As CsvColumn       'Its columns, for a message
+    Dim Rules()             As CsvRule         'Its rules
+    Dim Cleared             As Boolean         'The old block has been cleared
+    Dim FormulaAt           As String          'A cell that became a formula
+    Dim SavedCalculation    As XlCalculation   'Calculation mode before the load
+    Dim SavedEvents         As Boolean         'EnableEvents before the load
+    Dim SavedScreen         As Boolean         'ScreenUpdating before the load
+    Dim StateCaptured       As Boolean         'True once all three were read
+    Dim ErrorNumber         As Long            'Primary error number; 0 for none
+    Dim ErrorSource         As String          'Primary error source
+    Dim ErrorDescription    As String          'Primary error description
+    Dim RestoreDetail       As String          'Why the old block was not written back
+    Dim CleanupDetails      As String          'Settings not restored
+    Dim r                   As Long            'Record
+    Dim c                   As Long            'Contract column
+    Dim m                   As Long            'Metadata cell
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.LoadStaging", "An SA-CCR operation is already running."
+        End If
+        FirstRow = StagingHeaderRow(Kind, Sheet) + 1
+        Width = StagingWidth(Kind)
+        For m = 1 To 4
+            Set MetaCells(m) = StagingMetaCell(Kind, m)
+        Next m
+        If Result.RecordCount > 0 Then
+            If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+                Err.Raise ERR_CSV_READ, "M_Main.LoadStaging", "unknown CSV kind '" & Kind & "'"
+            End If
+            ReDim NewBlock(1 To Result.RecordCount, 1 To Width)
+            For r = 1 To Result.RecordCount
+                NewBlock(r, 1) = Lines(r)
+                For c = 1 To Width - 1
+                    If Len(Values(r, c)) > EXCEL_CELL_CHARS Then
+                        Err.Raise ERR_STAGING_WRITE, "M_Main.LoadStaging", _
+                                  "The " & Columns(c).ColumnName & " value on line " & Lines(r) & " has " & _
+                                  Len(Values(r, c)) & " characters; a cell holds " & EXCEL_CELL_CHARS & _
+                                  ". Nothing was loaded."
+                    End If
+                    NewBlock(r, c + 1) = Values(r, c)
+                Next c
+            Next r
+        End If
+        mRunning = True
+        On Error GoTo Failed
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+
+'------------------------------------------------------------------------------
+' KEEP THE OLD BLOCK, THEN WRITE THE NEW ONE
+'------------------------------------------------------------------------------
+        OldLast = LastStagingRow(Sheet, FirstRow, Width)
+        If OldLast >= FirstRow Then
+            OldBlock = TableRange(Sheet, FirstRow, 1, OldLast, Width).Value2
+            KeepFormulas TableRange(Sheet, FirstRow, 1, OldLast, Width), FormulaAddresses, FormulaTexts, _
+                         FormulaFormats, FormulaCount
+        End If
+        For m = 1 To 4
+            OldMeta(m) = MetaCells(m).Value2
+        Next m
+        Cleared = True
+        ClearStagingBlock Sheet, FirstRow, Width
+        If Result.RecordCount > 0 Then
+            WriteStagingBlock Sheet, FirstRow, Width, NewBlock
+        End If
+        If gTestFault = "staging-write" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.LoadStaging", "Injected staging write failure."
+        End If
+        FormulaAt = StagingFormulaCell(Kind)
+        If Len(FormulaAt) > 0 Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.LoadStaging", _
+                      "A value was written as a formula in " & Sheet.Name & "!" & FormulaAt & "."
+        End If
+        MetaCells(1).Value2 = FilePath
+        MetaCells(2).Value2 = Format$(Now, "yyyy-mm-dd hh:mm:ss")
+        MetaCells(3).Value2 = CStr(Result.RecordCount)
+        MetaCells(4).Value2 = STAGING_LOADED
+        ThisWorkbook.Names.Add Name:=StagedNameOf(Kind), RefersTo:="=""" & StagingFingerprint(Kind) & """", _
+                               Visible:=False
+
+'------------------------------------------------------------------------------
+' PUT BACK ON FAILURE, RESTORE EXCEL
+'------------------------------------------------------------------------------
+CleanUp:
+        On Error GoTo 0
+        If ErrorNumber <> 0 And Cleared Then
+            RestoreDetail = RestoreStaging(Sheet, FirstRow, Width, OldLast, OldBlock, MetaCells, OldMeta, _
+                                           FormulaAddresses, FormulaTexts, FormulaFormats, FormulaCount)
+        End If
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If ErrorNumber <> 0 Then
+            If Len(RestoreDetail) > 0 Then
+                ErrorDescription = ErrorDescription & " " & Sheet.Name & " could not be put back: " & RestoreDetail
+            End If
+            If Len(CleanupDetails) > 0 Then
+                ErrorDescription = ErrorDescription & " Excel settings not restored: " & CleanupDetails
+            End If
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.LoadStaging", _
+                      "The records were loaded, but Excel settings were not restored: " & CleanupDetails
+        End If
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
+        Resume CleanUp
+
+End Sub
+
+
+Private Function RestoreStaging( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByVal OldLast As Long, _
+    ByRef OldBlock As Variant, _
+    ByRef MetaCells() As Range, _
+    ByRef OldMeta() As Variant, _
+    ByRef FormulaAddresses() As String, _
+    ByRef FormulaTexts() As String, _
+    ByRef FormulaFormats() As String, _
+    ByVal FormulaCount As Long) _
+    As String
+'
+'==============================================================================
+'                                RestoreStaging
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the block and the metadata a failed load kept, with the
+'   staging formats, then the formulas the block held, each with its own
+'   number format, so that a formula pasted there is still found by
+'   StagingFormulaCell.
+'
+' RETURNS
+'   Empty on success; otherwise what failed.
+'
+' ERROR POLICY
+'   Contains its own error and returns it as text.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim m   As Long    'Metadata cell
+    Dim i   As Long    'Formula cell
+
+'------------------------------------------------------------------------------
+' WRITE BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        ClearStagingBlock Sheet, FirstRow, Width
+        If OldLast >= FirstRow Then
+            WriteStagingBlock Sheet, FirstRow, Width, OldBlock
+        End If
+        For i = 1 To FormulaCount
+            With Sheet.Range(FormulaAddresses(i))
+                .NumberFormat = FormulaFormats(i)
+                .Formula = FormulaTexts(i)
+            End With
+        Next i
+        For m = 1 To 4
+            MetaCells(m).Value2 = OldMeta(m)
+        Next m
+        Exit Function
+
+'------------------------------------------------------------------------------
+' REPORT FAILURE
+'------------------------------------------------------------------------------
+Failed:
+        RestoreStaging = CStr(Err.Number) & " / " & Err.Description
+
+End Function
+
+
+Private Sub KeepFormulas( _
+    ByVal Block As Range, _
+    ByRef FormulaAddresses() As String, _
+    ByRef FormulaTexts() As String, _
+    ByRef FormulaFormats() As String, _
+    ByRef FormulaCount As Long)
+'
+'==============================================================================
+'                                 KeepFormulas
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Keep the address, formula and number format of every cell of Block
+'   that holds a formula, for RestoreStaging: a values-only copy would put
+'   a formula back as its result.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Found     As Range    'The formula cells; Nothing for none
+    Dim OneCell   As Range    'One of them
+
+'------------------------------------------------------------------------------
+' KEEP
+'------------------------------------------------------------------------------
+    'HasFormula is False when no cell has one; SpecialCells raises when it
+    'finds none.
+        FormulaCount = 0
+        If Not IsNull(Block.HasFormula) Then
+            If Not Block.HasFormula Then
+                Exit Sub
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Block.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Found Is Nothing Then
+            Exit Sub
+        End If
+        ReDim FormulaAddresses(1 To Found.Count)
+        ReDim FormulaTexts(1 To Found.Count)
+        ReDim FormulaFormats(1 To Found.Count)
+        For Each OneCell In Found.Cells
+            FormulaCount = FormulaCount + 1
+            FormulaAddresses(FormulaCount) = OneCell.Address
+            FormulaTexts(FormulaCount) = OneCell.Formula
+            FormulaFormats(FormulaCount) = OneCell.NumberFormat
+        Next OneCell
+
+End Sub
+
+
+Private Sub ClearStagingBlock( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long)
+'
+'==============================================================================
+'                              ClearStagingBlock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clear the rows of a staging block, values and formats, down to the
+'   last row of the used range, and leave its data columns formatted as
+'   text, as the template has them, so that a value typed there later is
+'   kept as written.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long    'Last row of the used range
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then
+            Exit Sub
+        End If
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            .Clear
+            .Font.Size = STAGING_FONT_SIZE
+        End With
+        TableRange(Sheet, FirstRow, 2, LastRow, Width).NumberFormat = "@"
+
+End Sub
+
+
+Private Sub WriteStagingBlock( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByRef Block As Variant)
+'
+'==============================================================================
+'                              WriteStagingBlock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Format the rows of Block on a staging sheet and write it: the CSV line
+'   column as a number on a grey fill, the data columns as text on the
+'   input fill, with the input borders. The text format is set before the
+'   values are written, so that Excel converts none of them.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long    'Last row of the block
+
+'------------------------------------------------------------------------------
+' FORMAT AND WRITE
+'------------------------------------------------------------------------------
+        LastRow = FirstRow + UBound(Block, 1) - LBound(Block, 1)
+        With TableRange(Sheet, FirstRow, 1, LastRow, 1)
+            .NumberFormat = "0"
+            .Interior.Color = STAGING_LINE_FILL
+        End With
+        With TableRange(Sheet, FirstRow, 2, LastRow, Width)
+            .NumberFormat = "@"
+            .Interior.Color = STAGING_VALUE_FILL
+        End With
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            .Font.Size = STAGING_FONT_SIZE
+            .Borders.LineStyle = xlContinuous
+            .Borders.Weight = xlThin
+            .Borders.Color = STAGING_BORDER
+            .Value2 = Block
+        End With
+
+End Sub
+
+
+Private Function LastStagingRow( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long) _
+    As Long
+'
+'==============================================================================
+'                                LastStagingRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The last row of a staging block with a value in any of its columns, or
+'   FirstRow - 1 when it has none.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long       'Last row of the used range
+    Dim Grid      As Variant    'The block's values
+    Dim r         As Long       'Row of Grid
+    Dim c         As Long       'Column of Grid
+
+'------------------------------------------------------------------------------
+' SCAN FROM THE BOTTOM
+'------------------------------------------------------------------------------
+        LastStagingRow = FirstRow - 1
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then
+            Exit Function
+        End If
+        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        For r = UBound(Grid, 1) To 1 Step -1
+            For c = 1 To Width
+                If Not IsEmpty(Grid(r, c)) Then
+                    If Len(CStr(Grid(r, c))) > 0 Then
+                        LastStagingRow = FirstRow + r - 1
+                        Exit Function
+                    End If
+                End If
+            Next c
+        Next r
+
+End Function
+
+
+Private Function StagingHasEdits( _
+    ByVal Kind As String) _
+    As Boolean
+'
+'==============================================================================
+'                               StagingHasEdits
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a staging block differs from the one the last load wrote,
+'   or, before any load, whether it holds anything: by its fingerprint,
+'   whatever its status cell shows.
+'
+' ERROR POLICY
+'   As StagingFingerprint.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+        StagingHasEdits = (StagingFingerprint(Kind) <> StoredText(StagedNameOf(Kind)))
+
+End Function
+
+
+Private Function StagingFingerprint( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+'                              StagingFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint a staging block, the CSV line column included, from the
+'   row below its header to its last row with a value; "" for an empty
+'   block.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE when the staging sheet or its names are
+'   missing.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'The staging sheet
+    Dim FirstRow    As Long         'First row below its header
+    Dim BlockString As String       'The block as text
+
+'------------------------------------------------------------------------------
+' FINGERPRINT
+'------------------------------------------------------------------------------
+        FirstRow = StagingHeaderRow(Kind, Sheet) + 1
+        BlockString = CORE_Engine.BlockText(Sheet, FirstRow, StagingWidth(Kind))
+        If Len(BlockString) > 0 Then
+            StagingFingerprint = TextHash(BlockString)
+        End If
+
+End Function
+
+
+Private Function StagingHeaderRow( _
+    ByVal Kind As String, _
+    ByRef Sheet As Worksheet) _
+    As Long
+'
+'==============================================================================
+'                               StagingHeaderRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The header row of a staging sheet, from its header name, and the
+'   sheet.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE when the name is missing or not on the
+'   staging sheet's CSV line column.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim HeaderCell   As Range    'The CSV line header cell
+
+'------------------------------------------------------------------------------
+' LOCATE
+'------------------------------------------------------------------------------
+        Set HeaderCell = NamedCell(StagingHeaderName(Kind))
+        If HeaderCell Is Nothing Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.StagingHeaderRow", _
+                      "The name " & StagingHeaderName(Kind) & " is missing: build the workbook from the current template."
+        End If
+        If HeaderCell.Worksheet.Name <> StagingSheetOf(Kind) Or HeaderCell.Column <> 1 + COL_OFFSET Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.StagingHeaderRow", _
+                      "The name " & StagingHeaderName(Kind) & " is not in column C of " & StagingSheetOf(Kind) & "."
+        End If
+        Set Sheet = HeaderCell.Worksheet
+        StagingHeaderRow = HeaderCell.Row
+
+End Function
+
+
+Private Function StagingMetaCell( _
+    ByVal Kind As String, _
+    ByVal Index As Long) _
+    As Range
+'
+'==============================================================================
+'                               StagingMetaCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A metadata cell of a staging sheet: 1 the file, 2 the load time, 3 the
+'   record count, 4 the status.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE when its name is missing.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim NameText   As String    'The cell's name
+
+'------------------------------------------------------------------------------
+' LOCATE
+'------------------------------------------------------------------------------
+        NameText = StagingPrefixOf(Kind) & "_" & Choose(Index, "File", "LoadedAt", "Records", "Status")
+        Set StagingMetaCell = NamedCell(NameText)
+        If StagingMetaCell Is Nothing Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.StagingMetaCell", _
+                      "The name " & NameText & " is missing: build the workbook from the current template."
+        End If
+
+End Function
+
+
+Private Function StagingWidth( _
+    ByVal Kind As String) _
+    As Long
+'
+'==============================================================================
+'                                 StagingWidth
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The columns of a staging block: the CSV line and the contract's.
+'
+' ERROR POLICY
+'   Raises ERR_CSV_READ for an unknown kind.
+'
+' UPDATED
+'   2026-10-26
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec        As CsvSpec      'The file's contract
+    Dim Columns()   As CsvColumn    'Its columns
+    Dim Rules()     As CsvRule      'Its rules
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "M_Main.StagingWidth", "unknown CSV kind '" & Kind & "'"
+        End If
+        StagingWidth = Spec.ColumnCount + 1
+
+End Function
+
+
+Private Function StagingSheetOf( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The staging sheet of a CSV kind.
+'==============================================================================
+'
+        StagingSheetOf = IIf(IsNettingSetsKind(Kind), SH_IMPORT_NS, SH_IMPORT_TR)
+
+End Function
+
+
+Private Function StagingHeaderName( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The header-row name of a staging sheet.
+'==============================================================================
+'
+        StagingHeaderName = IIf(IsNettingSetsKind(Kind), IMPORT_NS_HEADER_NAME, IMPORT_TR_HEADER_NAME)
+
+End Function
+
+
+Private Function StagingPrefixOf( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The prefix of a staging sheet's metadata names.
+'==============================================================================
+'
+        StagingPrefixOf = IIf(IsNettingSetsKind(Kind), IMPORT_NS_PREFIX, IMPORT_TR_PREFIX)
+
+End Function
+
+
+Private Function StagedNameOf( _
+    ByVal Kind As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The hidden name holding the fingerprint of a staging sheet's last load.
+'==============================================================================
+'
+        StagedNameOf = IIf(IsNettingSetsKind(Kind), STAGED_NS_NAME, STAGED_TR_NAME)
+
+End Function
+
+
+Private Function IsNettingSetsKind( _
+    ByVal Kind As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True for "NettingSets", False for "Trades"; raises ERR_CSV_READ for any
+'   other kind.
+'==============================================================================
+'
+        If Kind <> "NettingSets" And Kind <> "Trades" Then
+            Err.Raise ERR_CSV_READ, "M_Main.IsNettingSetsKind", "unknown CSV kind '" & Kind & "'"
+        End If
+        IsNettingSetsKind = (Kind = "NettingSets")
 
 End Function
 
