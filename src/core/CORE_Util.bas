@@ -1557,8 +1557,10 @@ Public Sub ClearChecksBlock( _
 '   Clear the Checks table before it is rewritten, as ClearOutputBlock
 '   clears an output table, and take off the link formats a staging
 '   validation left (#209): its links are HYPERLINK formulas, which the
-'   clearing removes, but Excel may have given their cells the blue,
-'   underlined font of a link, which a later line would keep.
+'   clearing removes, but Excel gives their cells the font of its link
+'   style, another name and size, blue and underlined, which a later line
+'   would keep. Each column gets back the font of its last cell on the
+'   sheet, which nothing writes and which has the column's format.
 '
 ' INPUTS
 '   Sheet: the Checks sheet. FirstRow: its first data row.
@@ -1574,7 +1576,9 @@ Public Sub ClearChecksBlock( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim LastUsedRow   As Long    'Last row of the used range
+    Dim LastUsedRow   As Long     'Last row of the used range
+    Dim Model         As Range    'Last cell of a column, with its format
+    Dim c             As Long     'Table column
 
 '------------------------------------------------------------------------------
 ' CLEAR
@@ -1584,10 +1588,15 @@ Public Sub ClearChecksBlock( _
         If LastUsedRow < FirstRow Then
             Exit Sub
         End If
-        With TableRange(Sheet, FirstRow, 1, LastUsedRow, CK_NCOLS).Font
-            .Underline = xlUnderlineStyleNone
-            .ColorIndex = xlColorIndexAutomatic
-        End With
+        For c = 1 To CK_NCOLS
+            Set Model = TableCell(Sheet, Sheet.Rows.Count, c)
+            With TableRange(Sheet, FirstRow, c, LastUsedRow, c).Font
+                .Name = Model.Font.Name
+                .Size = Model.Font.Size
+                .Color = Model.Font.Color
+                .Underline = Model.Font.Underline
+            End With
+        Next c
 
 End Sub
 

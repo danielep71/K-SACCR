@@ -197,7 +197,7 @@ Use only the categories needed by a release.
   that Checks shows a staging validation. `tests/csv/staged.json` pins the
   findings about staged rows, checked by `check_csv_contract` and
   `TEST_CsvReader` (111 cases, 304 checks); `TEST_Import` covers the
-  validation (15 cases, 78 checks). The evidence report's `CHECKS` section
+  validation (15 cases, 79 checks). The evidence report's `CHECKS` section
   gains the Origin column. Rebuild the workbook from the template: an older
   template has no Origin column or Validate staging button.
 

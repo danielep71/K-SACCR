@@ -96,7 +96,7 @@
       "header": "SACCR CSV IMPORT TESTS",
       "mode_line": false,
       "cases": 15,
-      "checks": {"32-bit": 78, "64-bit": 78},
+      "checks": {"32-bit": 79, "64-bit": 79},
       "restoration": null,
       "first_case": null
     }

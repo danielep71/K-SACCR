@@ -534,7 +534,7 @@ which `StagingFormulaCell` finds; and a header-only file. It then validates
 the staging sheets through `M_Main.ValidateStaging_Silent`: staged legs with
 an unknown netting set and a notional that is not a number, listed on Checks
 with links, marked and reported `INVALID`; the same cells corrected, `VALID`,
-with the marks gone; the evidence export refused while Checks shows the
+with the marks gone and no link font left on Checks; the evidence export refused while Checks shows the
 validation; netting sets staged alone, against the legs on Trades, whose cells
 are not marked; and a formula in a staging block or nothing staged, which
 refuse and leave Checks alone. The live inputs and the run fingerprints must

@@ -81,7 +81,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 15                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 78                           'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 79                           'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -694,8 +694,9 @@ Private Sub CaseValidateCorrected()
 ' PURPOSE
 '   The two cells corrected on the sheet, with events on: Import_Trades
 '   shows EDITED, then the validation is VALID; the marks are gone,
-'   Checks has its INFO line only, without a link, and both sheets are
-'   VALID. A netting set is found whatever its case.
+'   Checks has its INFO line only, without a link, and the cell that held
+'   one has its column's font again, not the link style Excel gave it;
+'   both sheets are VALID. A netting set is found whatever its case.
 '==============================================================================
 '
 
@@ -704,6 +705,7 @@ Private Sub CaseValidateCorrected()
 '------------------------------------------------------------------------------
     Dim ResultLine    As String     'What the validation returned
     Dim Events        As Boolean    'EnableEvents before the case
+    Dim Model         As Range      'Last cell of the Reference column, with its font
 
 '------------------------------------------------------------------------------
 ' CORRECT AND VALIDATE
@@ -724,6 +726,11 @@ Private Sub CaseValidateCorrected()
         Check InStr(ChecksValue(1, 5), "No issues found.") > 0 And Len(ChecksValue(2, 1)) = 0, _
               "Checks: " & ChecksValue(1, 5) & " / " & ChecksValue(2, 5)
         Check Not ChecksCell(2, 4).HasFormula, "a link was left on Checks"
+        Set Model = TableCell(GetSheet(SH_CHECKS), GetSheet(SH_CHECKS).Rows.Count, 4)
+        With ChecksCell(2, 4).Font
+            Check .Name = Model.Font.Name And .Size = Model.Font.Size And .Color = Model.Font.Color And _
+                  .Underline = Model.Font.Underline, "the link's font was left: " & .Name & " " & .Size
+        End With
         Exit Sub
 
 Unexpected:
