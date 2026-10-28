@@ -701,12 +701,37 @@ produces it.
   </a>
 </p>
 
+The plan below follows the
+[milestones](https://github.com/danielep71/K-SACCR/milestones)' due dates as
+of 2026-10-28; each bar starts the day after the previous milestone's due
+date. The dates are planning targets, not release commitments.
+
+```mermaid
+gantt
+    title K-SACCR release plan (milestone due dates as of 2026-10-28)
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+    todayMarker on
+    section Released
+    v1.0.0 First supported release           :done, 2026-10-18, 1d
+    v1.0.1 Post-release hardening            :done, 2026-10-19, 1d
+    v1.0.2 Clearing coverage and CCPs        :done, 2026-10-25, 1d
+    section Planned
+    v1.1.0 CSV import, staging, protection   :active, v11, 2026-10-26, 2026-11-29
+    v1.2.0 Excel Ribbon interface            :v12, after v11, 2027-01-10
+    v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
+    v1.4.0 Advanced products, FX provenance  :v14, after v13, 2027-04-18
+    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
+    v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
+    v1.7.0 Standalone Python engine          :v17, after v16, 2027-09-12
+```
+
 | Milestone | Scope |
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
 | v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
-| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
+| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), worksheet navigation sidebar (#329) and a Restore Parameter Defaults command (#357) |
 | v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
@@ -727,12 +752,41 @@ Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
 None of this work is in a released workbook yet. On the release branch so
 far: the CSV contract and its blank templates (#206), the CSV reader and the
-check macros (#207), and the staging sheets with their CSV import (#208).
+check macros (#207), the staging sheets with their CSV import (#208), and the
+rules between Trades records (#209, part 1).
+
+The schedule comes from each issue's planned start and target completion
+dates, as of 2026-10-28; the dates of an issue already under way are those of
+its remaining work.
+
+```mermaid
+gantt
+    title v1.1.0 - CSV import, staging and workbook protection (due 2026-11-29)
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
+    todayMarker on
+    section CSV input
+    #206 CSV contract and templates          :a206, 2026-10-28, 2026-11-06
+    #207 CSV parsing                         :a207, 2026-10-28, 2026-11-20
+    #473 HTML import specifications          :a473, 2026-11-16, 2026-11-20
+    section Staging and commit
+    #208 Staging sheets                      :a208, 2026-10-28, 2026-11-20
+    #468 Formula edits in staging            :a468, 2026-10-28, 2026-10-30
+    #209 Validate staged inputs              :a209, 2026-10-28, 2026-11-06
+    #210 Correct and revalidate              :a210, 2026-11-09, 2026-11-13
+    #211 Atomic commit with rollback         :a211, 2026-11-16, 2026-11-20
+    section Workbook protection
+    #420 Protect cells and structure         :a420, 2026-10-28, 2026-11-06
+    #421 Protection lifecycle                :a421, 2026-11-09, 2026-11-13
+    #422 Protected workflow tests            :a422, 2026-11-23, 2026-11-27
+    section Integration
+    #212 Regressions and release evidence    :a212, 2026-11-23, 2026-11-29
+```
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |
-| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution | #206, #207 |
-| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211 |
+| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution; import specifications exported from the workbook | #206, #207, #473 |
+| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211, #468 |
 | Workbook protection | Editable input cells, protected generated content and workbook structure, macro-compatible protection, recovery tests and documented maintenance unlock | #420–#422 |
 | Integration and closeout | Combined regressions, candidate-bound Excel evidence, operating guidance and release checks for both workstreams | #212 |
 
