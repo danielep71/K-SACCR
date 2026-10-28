@@ -12,6 +12,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   returned as their raw text, in contract column order. For staging
 '   (#208), a file whose findings are all about values can be read with
 '   its records kept, so that they can be corrected on a staging sheet.
+'   CheckStagedRecords checks the rows of a staging sheet as records, and
 '   CheckPortfolio judges the rules between Trades records (#209): each
 '   leg's netting set and the legs of each economic trade.
 '
@@ -19,8 +20,9 @@ Attribute VB_Name = "CORE_CsvReader"
 '   None outside this VBA project. ReadCsvFile reads a file;
 '   ReadCsvBytes reads bytes already in memory. Both fill a
 '   CsvReadResult and the arrays of values, lines and findings it counts.
-'   CheckPortfolio checks Trades records against each other and the
-'   netting sets they refer to. FindingText formats one finding for a
+'   CheckStagedRecords checks rows already split into values, as a staging
+'   sheet holds them. CheckPortfolio checks Trades records against each
+'   other and the netting sets they refer to. FindingText formats one finding for a
 '   message or a test.
 '
 ' DEPENDENCIES
@@ -403,6 +405,121 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+'                                   STAGING
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub CheckStagedRecords( _
+    ByVal Kind As String, _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal RowCount As Long, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding, _
+    Optional ByVal MaxRecords As Long = 0)
+'
+'==============================================================================
+'                              CheckStagedRecords
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check the rows of a staging sheet (#209) as the records of a file are
+'   checked, and as tools/csv_contract.check_staged checks them: each
+'   field, the rules between fields and the keys. A row whose fields are
+'   all blank is one finding. More rows than the contract allows is one
+'   finding, and nothing else is checked.
+'
+' INPUTS
+'   Kind: "Trades" or "NettingSets". Values(1 To RowCount, 1 To column
+'   count): the rows in contract column order, as text. Lines(1 To
+'   RowCount): the CSV line of each row, 0 for a row added by hand.
+'   RowCount >= 0. MaxRecords replaces the contract's limit when above 0,
+'   for tests.
+'
+' RETURNS
+'   Result (RowCount records, Readable, Accepted when there is no finding)
+'   and Findings sorted by record, line, column and code. A finding's
+'   record is the row's position in Values, its line the row's CSV line.
+'
+' ERROR POLICY
+'   Raises ERR_CSV_READ for an unknown kind.
+'
+' UPDATED
+'   2026-10-28
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec            As CsvSpec      'The file's contract
+    Dim Columns()       As CsvColumn    'Its columns
+    Dim Rules()         As CsvRule      'Its rules
+    Dim Limit           As Long         'Rows allowed
+    Dim Row()           As String       'One row
+    Dim Kept()          As String       'Rows that are not blank, for the keys
+    Dim KeptLines()     As Long         'Their lines
+    Dim KeptRecord()    As Long         'Their positions
+    Dim KeptCount       As Long         'How many there are
+    Dim r               As Long         'Row counter
+    Dim c               As Long         'Contract column counter
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "CORE_CsvReader.CheckStagedRecords", "unknown CSV kind '" & Kind & "'"
+        End If
+        Result.Kind = Spec.Kind
+        Result.Accepted = False
+        Result.Readable = True
+        Result.RecordCount = RowCount
+        Result.ColumnCount = Spec.ColumnCount
+        Result.FindingCount = 0
+        ReDim Findings(1 To 16)
+        Limit = IIf(MaxRecords > 0, MaxRecords, Spec.MaxRecords)
+        If RowCount > Limit Then
+            AddFinding Result, Findings, CSV_TOO_MANY_RECORDS, Lines(Limit + 1), Limit + 1, "", _
+                       RowCount & " rows, at most " & Limit
+            Exit Sub
+        End If
+        If RowCount = 0 Then
+            Result.Accepted = True
+            Exit Sub
+        End If
+
+'------------------------------------------------------------------------------
+' CHECK EACH ROW, THEN THE KEYS
+'------------------------------------------------------------------------------
+        ReDim Row(1 To Spec.ColumnCount)
+        ReDim Kept(1 To RowCount, 1 To Spec.ColumnCount)
+        ReDim KeptLines(1 To RowCount)
+        ReDim KeptRecord(1 To RowCount)
+        For r = 1 To RowCount
+            For c = 1 To Spec.ColumnCount
+                Row(c) = Values(r, c)
+            Next c
+            If CheckRecord(Row, Lines(r), r, Spec, Columns, Rules, Result, Findings) Then
+                KeptCount = KeptCount + 1
+                For c = 1 To Spec.ColumnCount
+                    Kept(KeptCount, c) = Row(c)
+                Next c
+                KeptLines(KeptCount) = Lines(r)
+                KeptRecord(KeptCount) = r
+            End If
+        Next r
+        If KeptCount > 0 Then
+            CheckKeys Spec, Columns, KeptCount, KeptRecord, Result, Kept, KeptLines, Findings
+        End If
+        SortFindings Result, Findings
+        Result.Accepted = (Result.FindingCount = 0)
+
+End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
 '                                  PORTFOLIO
 '
 '------------------------------------------------------------------------------
@@ -415,7 +532,8 @@ Public Sub CheckPortfolio( _
     ByRef NettingSetIDs() As String, _
     ByVal NettingSetCount As Long, _
     ByRef Result As CsvReadResult, _
-    ByRef Findings() As CsvFinding)
+    ByRef Findings() As CsvFinding, _
+    Optional ByVal NettingSetsName As String = "NettingSets")
 '
 '==============================================================================
 '                               CheckPortfolio
@@ -442,6 +560,8 @@ Public Sub CheckPortfolio( _
 '   them. Lines(1 To RowCount): the CSV line of each record, 0 for a row
 '   added by hand. NettingSetIDs(1 To NettingSetCount): the netting sets
 '   the legs may refer to. RowCount and NettingSetCount >= 0.
+'   NettingSetsName: the sheet they come from, for the message of an
+'   unknown netting set.
 '
 ' RETURNS
 '   Result (kind Trades, RowCount records, Accepted when there is no
@@ -556,7 +676,7 @@ Public Sub CheckPortfolio( _
                 If Len(Values(r, ColNS)) > 0 Then
                     If Not KnownUsed(SlotOf(KnownKeys, KnownUsed, UCase$(Values(r, ColNS)))) Then
                         AddFinding Result, Findings, CSV_NS_UNKNOWN, Lines(r), r, "netting_set_id", _
-                                   "netting set '" & Values(r, ColNS) & "' is not on NettingSets"
+                                   "netting set '" & Values(r, ColNS) & "' is not on " & NettingSetsName
                     End If
                 End If
                 If Len(Values(r, ColEconomic)) > 0 Then

@@ -97,7 +97,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-10-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -931,6 +931,8 @@ Private Sub LogMsg( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Add one message for the Checks sheet and count errors and warnings.
+'   Its Origin is ORIGIN_RUN, which tells it from the lines of a staging
+'   validation (#209).
 '
 ' INPUTS
 '   Severity: SEV_ERROR, SEV_WARN or SEV_INFO.
@@ -940,7 +942,7 @@ Private Sub LogMsg( _
 '   RowNumber: sheet row concerned; 0 leaves the Row column blank.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-28
 '==============================================================================
 '
 
@@ -962,6 +964,7 @@ Private Sub LogMsg( _
         End If
         mLog(4, mLogCount) = Reference
         mLog(5, mLogCount) = Message
+        mLog(CK_ORIGIN_COL, mLogCount) = ORIGIN_RUN
 
 '------------------------------------------------------------------------------
 ' COUNT
@@ -5663,20 +5666,21 @@ Private Function WriteChecks( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write the logged messages to the Checks sheet, errors in bold, or a
-'   single "No issues found." line.
+'   single "No issues found." line, each with the origin RUN.
 '
 ' RETURNS
 '   True when the sheet was written. False when writing failed, with the
 '   reason in Failure; Calculate then withdraws the results (#36).
 '
 ' STATE OWNERSHIP
-'   Clears and rewrites the Checks sheet.
+'   Clears and rewrites the Checks sheet, the lines and links of a staging
+'   validation included (ClearChecksBlock).
 '
 ' ERROR POLICY
 '   Contains any error and reports it through the result, never silently.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-28
 '==============================================================================
 '
 
@@ -5697,11 +5701,12 @@ Private Function WriteChecks( _
         Failure = ""
         Set ChecksSheet = GetSheet(SH_CHECKS)
         TopRow = OutputFirstRow(SH_CHECKS)
-        ClearOutputBlock ChecksSheet, TopRow, CK_NCOLS
+        ClearChecksBlock ChecksSheet, TopRow
         If mLogCount = 0 Then
             ReDim OutputBlock(1 To 1, 1 To CK_NCOLS)
             OutputBlock(1, 1) = SEV_INFO
             OutputBlock(1, 5) = "No issues found."
+            OutputBlock(1, CK_ORIGIN_COL) = ORIGIN_RUN
             WriteBlock ChecksSheet, TopRow, OutputBlock, 1, CK_NCOLS
             WriteChecks = True
             Exit Function

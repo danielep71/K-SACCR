@@ -106,6 +106,16 @@ class FileTests(unittest.TestCase):
                           ("CSV-NETTING-SET-UNKNOWN", 0, 3, "netting_set_id")])
         self.assertEqual(csv.check_portfolio(legs[:1], ["NS-1"], CONTRACT), [])
 
+    def test_staged_rows_are_checked_by_position(self) -> None:
+        row = dict(zip([c["name"] for c in CONTRACT["files"]["NettingSets"]["columns"]], NS_ROW.split(";")))
+        rows = [(0, {}), (4, dict(row, margined="X")), (0, dict(row, netting_set_id="ns-1"))]
+        found = csv.check_staged("NettingSets", rows, CONTRACT)
+        self.assertEqual([(f.code, f.line, f.record, f.column) for f in found],
+                         [("CSV-BLANK-RECORD", 0, 1, ""), ("CSV-ALLOWED", 4, 2, "margined"),
+                          ("CSV-DUPLICATE-KEY", 0, 3, "netting_set_id")])
+        self.assertEqual([(f.code, f.record) for f in csv.check_staged("NettingSets", rows, CONTRACT, 2)],
+                         [("CSV-TOO-MANY-RECORDS", 3)])
+
     def test_value_findings_keep_the_records_for_staging(self) -> None:
         blank = ";" * NS_HEADER.count(";")
         text = (NS_HEADER + "\n" + NS_ROW.replace(";Y;", ";X;", 1) + "\n\n" + blank + "\n"
@@ -221,7 +231,7 @@ class GateTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES,
-                     gate.PORTFOLIO):
+                     gate.PORTFOLIO, gate.STAGED):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
         shutil.copytree(ROOT / csv.TEMPLATES, self.root / csv.TEMPLATES)
@@ -244,6 +254,16 @@ class GateTests(unittest.TestCase):
         path.write_text(json.dumps(cases), encoding="utf-8")
         self.assertIn(f"{gate.PORTFOLIO}: case 'netting-set-unknown': findings differ",
                       gate.run_check(self.root)["findings"])
+
+    def test_staged_cases_must_match_the_reference(self) -> None:
+        path = self.root / gate.STAGED
+        cases = json.loads(path.read_text(encoding="utf-8"))
+        cases["cases"][1]["findings"] = []
+        cases["cases"][2]["rows"][0]["values"]["no_such_column"] = "x"
+        path.write_text(json.dumps(cases), encoding="utf-8")
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn(f"{gate.STAGED}: case 'row-added-by-hand': findings differ", findings)
+        self.assertIn(f"{gate.STAGED}: case 'blank-row-between' names unknown column(s) ['no_such_column']", findings)
 
     def test_portfolio_rules_must_name_known_codes_and_columns(self) -> None:
         def change(contract: dict[str, Any]) -> None:

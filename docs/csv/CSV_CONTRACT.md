@@ -301,7 +301,9 @@ control characters, number forms and magnitudes, dates, keys, quoting and the
 limits. The portfolio cases of
 [`portfolio.json`](../../tests/csv/portfolio.json) pin the rules between
 records: a Trades file, the netting sets its legs may refer to, and every
-finding. The tests in `tools/test_csv_contract.py` also read every fixture
+finding. The staged cases of [`staged.json`](../../tests/csv/staged.json)
+pin the checks of a staging sheet's rows: each row's CSV line, 0 for a row
+added by hand, its values, and every finding. The tests in `tools/test_csv_contract.py` also read every fixture
 with a byte-order mark and with CRLF line ends, and expect the same outcome.
 
 ## 📥 The workbook's reader
@@ -356,5 +358,39 @@ it replaces the changes, even if they were made with events off and the
 status still reads `LOADED`. A load that fails while writing puts the sheet
 back as it was, formulas included. A value longer than an Excel cell holds,
 32,767 characters, cannot be staged whole: the load stops before the sheet
-changes. Staged records are not validated: validation and the commit
-into the input sheets come with #209 to #211.
+changes.
+
+### Validating the staged rows
+
+**Validate staging** (`ValidateStaging`, #209), on either staging sheet,
+checks the rows of both. Each sheet that holds rows is checked as a file's
+records are (`CheckStagedRecords`; `check_staged` in the reference): each
+field, the rules between fields and the keys. A row whose fields are all
+blank is one finding, and more rows than the limit is one finding. Then the
+rules between records: the staged legs against each other and against the
+netting sets of `Import_NettingSets` when it holds rows, or else of
+`NettingSets`; with only netting sets staged, each leg on `Trades` against
+them, which finds the legs a commit of those netting sets would orphan. A
+finding's record is the row's position on the sheet, and its line the row's
+CSV line, 0 for a row added there.
+
+The findings replace the lines of `Checks`, with the origin `IMPORT` in its
+Origin column: an `INFO` line with the counts, then one `ERROR` line per
+finding, every finding of the contract being an error, with the sheet, the
+row, a link to the cell in Reference, and the code, column, message and CSV
+line. A finding that names no column is on the row's CSV line cell. At most
+10,000 findings are listed; the `INFO` line gives the full count. The staged
+cells with a finding get a red fill, after the red fills of the last
+validation are taken off, and other fills are left alone; a cell of a live
+sheet is never marked or changed. Each staging sheet that holds rows then
+reads `VALID` or `INVALID` in its status cell, until a cell changes. A
+formula in a staging block refuses the validation, as nothing staged does,
+and changes nothing.
+
+The input sheets, Results and the run's fingerprints are not changed, but
+`Checks` no longer shows the run's own checks: `ResultsStatus()` reads
+`EDITED` instead of `CURRENT`, and the evidence export refuses until the next
+**Run SA-CCR**, whose
+lines carry the origin `RUN`. The checks that depend on Params, the FX table
+and the reporting date, and the commit into the input sheets, come with #209
+to #211.

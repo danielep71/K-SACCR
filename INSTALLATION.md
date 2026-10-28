@@ -261,7 +261,7 @@ The layout and file conventions are defined in
    | 6 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 7 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 8 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv` and `ImportNettingSetsCsv`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv` and `ValidateStaging`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 10 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 11 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 12 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -269,7 +269,7 @@ The layout and file conventions are defined in
    | 14 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
    | 15 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
    | 16 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 17 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets; development workbook only |
+   | 17 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
    | 18 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
    | 19 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
    | 20 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
@@ -277,8 +277,9 @@ The layout and file conventions are defined in
    | 22 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
-   `ExportEvidence`, `ExportTradesCsvTemplate` and
-   `ExportNettingSetsCsvTemplate`, so they work once `M_Main` is imported.
+   `ExportEvidence`, `ExportTradesCsvTemplate`,
+   `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`
+   and `ValidateStaging`, so they work once `M_Main` is imported.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
@@ -507,7 +508,10 @@ number forms, digits and magnitudes, dates, keys, quoting, a comma or tab
 delimiter and the record and size limits. Six more cases read a fixture from a file in `%TEMP%`, refuse a
 file too large from its size, expect `ERR_CSV_READ` for a missing file, a
 malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
-returns for an accepted and a rejected file. It touches no sheet.
+returns for an accepted and a rejected file. The portfolio cases of
+`tests/csv/portfolio.json` go through `CheckPortfolio`, and the staged cases
+of `tests/csv/staged.json`, rows as a staging sheet holds them, through
+`CheckStagedRecords`. It touches no sheet.
 
 ### CSV import tests
 
@@ -526,10 +530,16 @@ and one made with events on, which shows `EDITED`; a shorter file, which
 clears the rows below it; a failure while writing (`gTestFault =
 "staging-write"`), which puts the sheet back, a formula in it included; a
 value longer than a cell holds, which loads nothing; a formula in the block,
-which `StagingFormulaCell` finds; and a header-only file. The live inputs and the
-run fingerprints must be unchanged at the end. Both staging sheets are put
-back as they were, as values. It needs a workbook built from the current
-template.
+which `StagingFormulaCell` finds; and a header-only file. It then validates
+the staging sheets through `M_Main.ValidateStaging_Silent`: staged legs with
+an unknown netting set and a notional that is not a number, listed on Checks
+with links, marked and reported `INVALID`; the same cells corrected, `VALID`,
+with the marks gone; the evidence export refused while Checks shows the
+validation; netting sets staged alone, against the legs on Trades, whose cells
+are not marked; and a formula in a staging block or nothing staged, which
+refuse and leave Checks alone. The live inputs and the run fingerprints must
+be unchanged at the end. Both staging sheets and Checks are put back as they
+were, as values. It needs a workbook built from the current template.
 
 ### Benchmark
 
@@ -616,7 +626,8 @@ run summary on Results C4.
 `M_Main.ResultsStatus()` returns `CURRENT` when the results on the sheets
 match the inputs as they are now and the outputs are still those the run
 wrote, `EDITED` when the inputs match but an output cell on Results, Checks or
-a reconciliation sheet was changed after the run, `STALE` when an input
+a reconciliation sheet was changed after the run, or **Validate staging**
+rewrote Checks, `STALE` when an input
 changed since, and `NONE` when there is no valid completed run; `NONE` does not prove that every
 output cell is empty, as a protected sheet may keep old values after a failed
 clear. Params is read through its workbook names, so an edit is found also
@@ -649,7 +660,8 @@ or no current results. TradeReconciliation C5 does the same through
 
 `ExportEvidence_Silent(filePath)` writes the evidence report without a dialog
 and returns `RESULT=OK; lines=...; file=...`, or `RESULT=REFUSED; reason=...`
-while Excel has a recalculation pending (manual calculation: press F9), when
+while Excel has a recalculation pending (manual calculation: press F9), while
+Checks shows a staging validation instead of the run's checks, when
 `ResultsStatus()` is not `CURRENT`, when a reconciliation does not match its
 bank figures, settings and inputs as they are now (also after every bank
 figure was removed), or when an output cell on Results, Checks or a
@@ -707,6 +719,30 @@ than a cell holds (32,767 characters), raise `ERR_STAGING_WRITE` before the
 sheet changes. The buttons
 **Import CSV** on the two staging sheets do the same for a file chosen in a
 dialog, list the findings, and ask before they replace changes.
+
+### ValidateStaging_Silent
+
+`ValidateStaging_Silent()` validates the staging sheets without a message, as
+the **Validate staging** button does. Each staging sheet that holds rows is
+checked as a CSV file's records are, by
+[`CheckStagedRecords`](docs/csv/CSV_CONTRACT.md#-staging); the staged legs
+are checked against each other and against the netting sets they refer to:
+those of Import_NettingSets when it holds rows, or else those of NettingSets.
+With only netting sets staged, each leg on Trades is checked against them.
+Checks is rewritten: an `INFO` line with the counts, then one `ERROR` line per
+finding with its sheet, row, a link to its cell in Reference, its code,
+column, message and CSV line, and the origin `IMPORT`; at most 10,000 are
+listed. The cells of the staged findings are marked with a red fill, and the
+marks of the last validation are taken off first; a live sheet is never
+marked or changed. Each staging sheet that holds rows reads `VALID` or
+`INVALID` in its status cell. It returns
+`RESULT=VALID; errors=0; nettingsets=N; trades=M`,
+`RESULT=INVALID; errors=K; nettingsets=N; trades=M; first=CODE|Sheet!A1`, or
+`RESULT=REFUSED; reason=...` when nothing is staged or a staging block holds
+a formula; a refusal changes nothing. While an operation is running it raises
+`ERR_RUN_ACTIVE`. The run's fingerprints are left as they were: until the next
+**Run SA-CCR**, `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the
+evidence export refuses.
 
 ### ExportCsvTemplate_Silent
 
