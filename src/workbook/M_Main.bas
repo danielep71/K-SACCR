@@ -4605,9 +4605,10 @@ Private Sub Recolour( _
 '==============================================================================
 ' PURPOSE
 '   Give NewFill to the cells of a one-column range that have the error
-'   fill. A range of one fill is read at once; a range of mixed fills,
-'   whose Interior.Color is Null, is split in halves, so that a few marks
-'   among many rows cost few reads.
+'   fill. A range of one fill is read at once; a range of mixed fills is
+'   split in halves, so that a few marks among many rows cost few reads.
+'   Mixed fills are found by Interior.ColorIndex, which is Null for them:
+'   Interior.Color may give a number instead of Null.
 '==============================================================================
 '
 
@@ -4620,7 +4621,10 @@ Private Sub Recolour( _
 '------------------------------------------------------------------------------
 ' RECOLOUR
 '------------------------------------------------------------------------------
-        Fill = Target.Interior.Color
+        Fill = Null
+        If Not IsNull(Target.Interior.ColorIndex) Then
+            Fill = Target.Interior.Color
+        End If
         If IsNull(Fill) Then
             Half = Target.Rows.Count \ 2
             Recolour Target.Resize(Half), NewFill
