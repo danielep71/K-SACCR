@@ -180,6 +180,27 @@
     "CSV-FORMULA": "Text may not start with =, +, -, @, a tab or a carriage return.",
     "CSV-DUPLICATE-KEY": "The key repeats an earlier record of the file, compared case-insensitively.",
     "CSV-RESERVED-KEY": "The key is reserved.",
-    "CSV-ROW-RULE": "The record breaks a rule between its fields."
-  }
+    "CSV-ROW-RULE": "The record breaks a rule between its fields.",
+    "CSV-NETTING-SET-UNKNOWN": "The leg's netting set is not on NettingSets.",
+    "CSV-ECON-MTM-LEG": "An economic trade does not have exactly one MtM leg, or a whole trade is flagged N.",
+    "CSV-ECON-MTM-VALUE": "A leg that is not the MtM leg of its economic trade has a MtM other than 0.",
+    "CSV-ECON-NETTING-SET": "The legs of an economic trade are in different netting sets.",
+    "CSV-ECON-SETTLEMENT": "The legs of an economic trade differ in settlement type or next reset date.",
+    "CSV-ECON-ASSET-CLASS": "Two legs of an economic trade are in the same asset class and not both options."
+  },
+  "portfolio_rules": [
+    {"id": "netting-set-known", "code": "CSV-NETTING-SET-UNKNOWN", "columns": ["netting_set_id"],
+     "description": "Each leg's netting set is on NettingSets, compared case-insensitively."},
+    {"id": "mtm-leg", "code": "CSV-ECON-MTM-LEG", "columns": ["economic_trade_id", "mtm_leg"],
+     "description": "An economic trade has exactly one leg with MtM leg Y; a whole trade has Y or blank."},
+    {"id": "mtm-value", "code": "CSV-ECON-MTM-VALUE", "columns": ["mtm_leg", "market_value_amount"],
+     "description": "In an economic trade, every leg but the MtM leg has a MtM of 0."},
+    {"id": "same-netting-set", "code": "CSV-ECON-NETTING-SET", "columns": ["economic_trade_id", "netting_set_id"],
+     "description": "The legs of an economic trade are in one netting set."},
+    {"id": "same-settlement", "code": "CSV-ECON-SETTLEMENT",
+     "columns": ["economic_trade_id", "settlement_type", "next_reset_date"],
+     "description": "The legs of an economic trade have one settlement type (blank read as N) and one next reset date."},
+    {"id": "asset-class", "code": "CSV-ECON-ASSET-CLASS", "columns": ["economic_trade_id", "asset_class", "instrument"],
+     "description": "Two legs of an economic trade in the same asset class are both options."}
+  ]
 }

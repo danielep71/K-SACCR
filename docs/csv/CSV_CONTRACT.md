@@ -206,20 +206,44 @@ total rows on `Results` and are rejected as netting-set IDs.
 
 A rule is not judged when one of its fields, the field its condition reads included, already has a finding of its own.
 
+## 🧩 Rules between records
+
+`portfolio_rules` in the contract are the rules that need more than one
+record: they judge the `Trades` records of a portfolio against each other and
+against the netting sets they may refer to (#209). They are the engine's own
+rules, as `CORE_Engine` applies them to the Trades sheet, so that staged and
+manual inputs are judged alike. The workbook's reader applies them with
+`CheckPortfolio`, the reference with `check_portfolio`.
+
+| Rule | Code | Requirement |
+| --- | --- | --- |
+| `netting-set-known` | `CSV-NETTING-SET-UNKNOWN` | Each leg's `netting_set_id` is one of the netting sets, compared case-insensitively |
+| `mtm-leg` | `CSV-ECON-MTM-LEG` | An economic trade (legs sharing an `economic_trade_id`) has exactly one leg with `mtm_leg` `Y`, reported on every leg; a whole trade, with no `economic_trade_id`, has `Y` or blank |
+| `mtm-value` | `CSV-ECON-MTM-VALUE` | In an economic trade, every leg but the MtM leg has a `market_value_amount` of 0 |
+| `same-netting-set` | `CSV-ECON-NETTING-SET` | The legs of an economic trade are in its first leg's netting set |
+| `same-settlement` | `CSV-ECON-SETTLEMENT` | The legs of an economic trade have its first leg's `settlement_type` (blank read as `N`) and, when that agrees, its `next_reset_date` |
+| `asset-class` | `CSV-ECON-ASSET-CLASS` | Two legs of an economic trade in one `asset_class` are both options, reported on each of them |
+
+A row with a blank `trade_id` is left out, as the engine leaves it out. A
+finding's record is the row's position among the records judged, and its
+line the row's CSV line, 0 for a row added on a staging sheet. A
+`market_value_amount` counts as other than 0 when it is a number with a
+non-zero digit before its exponent.
+
 ## 🚫 What the contract does not check
 
-The contract checks each file on its own. The engine's validation, run on the
-staged inputs (#209), still applies, unchanged, to everything that depends on
-other records, on the other file or on Params:
+The contract checks each file on its own, and its rules between records
+check the legs of `Trades` against each other and the netting sets. The
+engine's validation, run on the staged inputs (#209), still applies,
+unchanged, to everything that depends on Params or on a field the contract
+does not judge:
 
-- that every `netting_set_id` of `Trades` exists in `NettingSets`;
 - the sub-class required by an asset class and regime, the supervisory-factor
   key, `OT` being CRR-only;
 - an option's type, expiry and price and strike, the FX pair and its quote
   order, the hedging-set label of a basis or volatility trade;
 - the maturity relative to the reporting date, the reset date relative to the
   maturity, an `STM` trade in a margined netting set;
-- the rules of an economic trade across its legs;
 - the currencies having a rate in the FX table.
 
 A file that passes the contract can therefore still have netting sets that
@@ -251,6 +275,12 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-DUPLICATE-KEY` | A key that repeats an earlier record, ignoring case |
 | `CSV-RESERVED-KEY` | A reserved key |
 | `CSV-ROW-RULE` | A rule between fields of the record broken |
+| `CSV-NETTING-SET-UNKNOWN` | A leg whose netting set is not on NettingSets |
+| `CSV-ECON-MTM-LEG` | An economic trade without exactly one MtM leg, or a whole trade flagged `N` |
+| `CSV-ECON-MTM-VALUE` | A leg other than the MtM leg with a MtM other than 0 |
+| `CSV-ECON-NETTING-SET` | Legs of one economic trade in different netting sets |
+| `CSV-ECON-SETTLEMENT` | Legs of one economic trade with different settlement types or reset dates |
+| `CSV-ECON-ASSET-CLASS` | Two legs of one economic trade in one asset class, not both options |
 
 ## 🧪 Reference implementation and fixtures
 
@@ -268,7 +298,10 @@ exactly the findings recorded in
 [`cases.json`](../../tests/csv/cases.json) pin the edge cases the fixtures
 leave out: invalid UTF-8, characters outside the basic plane, spaces and
 control characters, number forms and magnitudes, dates, keys, quoting and the
-limits. The tests in `tools/test_csv_contract.py` also read every fixture
+limits. The portfolio cases of
+[`portfolio.json`](../../tests/csv/portfolio.json) pin the rules between
+records: a Trades file, the netting sets its legs may refer to, and every
+finding. The tests in `tools/test_csv_contract.py` also read every fixture
 with a byte-order mark and with CRLF line ends, and expect the same outcome.
 
 ## 📥 The workbook's reader
