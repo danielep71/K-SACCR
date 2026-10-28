@@ -213,6 +213,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Show the release plan in the README roadmap as a timeline of the
+  milestones' due dates, and the v1.1.0 schedule as a timeline of its issues'
+  planned dates, both drawn by GitHub from Mermaid text and dated; the
+  milestones stay the source of the dates, which are planning targets. The
+  v1.1.0 scope also lists #468 and #473.
 - Follow the repository's rename to `danielep71/K-SACCR`: the links in the
   README, INSTALLATION, governance, methodology, issue templates and
   website, the website address <https://danielep71.github.io/K-SACCR/>
