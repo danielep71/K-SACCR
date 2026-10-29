@@ -95,8 +95,8 @@
       "entry_point": "TEST_Import.RunImportTests",
       "header": "SACCR CSV IMPORT TESTS",
       "mode_line": false,
-      "cases": 15,
-      "checks": {"32-bit": 79, "64-bit": 79},
+      "cases": 17,
+      "checks": {"32-bit": 88, "64-bit": 88},
       "restoration": null,
       "first_case": null
     }

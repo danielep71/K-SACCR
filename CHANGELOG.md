@@ -159,6 +159,8 @@ Use only the categories needed by a release.
   stay on the sheet to be corrected. The sheet shows the file, the load time,
   the record count and LOADED, then EDITED after a change; a new load asks
   before it replaces changes, found by fingerprint even with events off,
+  and a formula counts as a change even when its value is the text it
+  replaced (#468),
   and a load that fails while writing puts the sheet back, formulas
   included. A value longer than a cell holds (32,767 characters) loads
   nothing. Trades, NettingSets, Results and the run fingerprints are not
@@ -179,27 +181,26 @@ Use only the categories needed by a release.
   `check_csv_contract` and `TEST_CsvReader`.
 - Validate the staging sheets (#209, part 2): the **Validate staging** button
   on Import_Trades and Import_NettingSets (`ValidateStaging`;
-  `ValidateStaging_Silent` for automation) checks the staged rows against
-  the contract, as a file's records are checked (`CheckStagedRecords`), and
-  the staged legs against each other and against the netting sets they refer
-  to: the staged ones, or those on NettingSets when none are staged. With
-  only netting sets staged, the legs on Trades are checked against them.
-  Checks gains an **Origin** column: `RUN` for the lines of Run SA-CCR and
-  Validate inputs, `IMPORT` for those of a staging validation, which replace
-  them: a summary, then one `ERROR` line per finding with its sheet, row, code,
-  CSV line and a link to its cell. The staged cells with a finding are marked
-  in red and the marks of the last validation are removed; the staging
-  sheet's status reads `VALID` or `INVALID`. A formula in a staging block, or
-  nothing staged, refuses the validation. Trades, NettingSets, Results and
-  the run fingerprints are not changed, but until the next run
-  `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the evidence
-  export refuses, saying
-  that Checks shows a staging validation. `tests/csv/staged.json` pins the
-  findings about staged rows, checked by `check_csv_contract` and
-  `TEST_CsvReader` (111 cases, 304 checks); `TEST_Import` covers the
-  validation (15 cases, 79 checks). The evidence report's `CHECKS` section
-  gains the Origin column. Rebuild the workbook from the template: an older
-  template has no Origin column or Validate staging button.
+  `ValidateStaging_Silent` for automation) checks the staged rows against the
+  contract, as a file's records are checked (`CheckStagedRecords`), and the
+  staged legs against each other and against the netting sets they refer to:
+  the staged ones, or those on NettingSets when none are staged. With only
+  netting sets staged, the legs on Trades are checked against them. Checks
+  gains an **Origin** column: `RUN` for the lines of Run SA-CCR and Validate
+  inputs, `IMPORT` for those of a staging validation, which replace them: a
+  summary, then one `ERROR` line per finding with its sheet, row, code, CSV
+  line and a link to its cell. The staged cells with a finding are marked in
+  red and the marks of the last validation are removed; the staging sheet's
+  status reads `VALID` or `INVALID`. A formula in a staging block, or nothing
+  staged, refuses the validation. Trades, NettingSets, Results and the run
+  fingerprints are not changed, but until the next run `ResultsStatus()` reads
+  `EDITED` instead of `CURRENT` and the evidence export refuses, saying that
+  Checks shows a staging validation. `tests/csv/staged.json` pins the findings
+  about staged rows, checked by `check_csv_contract` and `TEST_CsvReader` (111
+  cases, 304 checks); `TEST_Import` covers the validation and Excel error
+  values in staged cells (#476): 17 cases, 88 checks. The evidence report's
+  `CHECKS` section gains the Origin column. Rebuild the workbook from the
+  template: an older template has no Origin column or Validate staging button.
 
 ### Changed
 
