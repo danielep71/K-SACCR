@@ -222,9 +222,16 @@ The layout and file conventions are defined in
    holds the 18 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
 
-   Instead of the manual import in steps 4 and 5, drag the saved workbook onto
-   `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; it has no
-   default workbook. It first asks which workbook you are building:
+   Instead of this step and the manual import in steps 4 and 5,
+   double-click `tools/Sync-SACCR-VBA.cmd`: started without a workbook, it
+   saves the template as `test-results\K-SACCR_Development.xlsm`, replacing
+   an earlier one, and fills it as a development workbook, sheet code
+   included, so the sheets and the code come from the same commit. Then
+   continue with step 6.
+
+   To synchronize a workbook you saved yourself, drag it onto
+   `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; its sheets
+   are kept as they are. It first asks which workbook you are building:
    **P**roduction, with the engine, the worksheet functions and the
    sheet-button macros, or **D**evelopment, which adds every test module of
    `tests/modules/`. The two component sets are listed in

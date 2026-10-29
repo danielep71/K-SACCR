@@ -209,7 +209,7 @@ or later and no packages.
    Macro-Enabled Workbook (`.xlsm`)** outside the checkout.
 2. In Excel, enable **Trust access to the VBA project object model**.
 3. Close the workbook and drag it onto `tools/Sync-SACCR-VBA.cmd`, or pass
-   its path to the launcher; there is no default workbook. It asks which
+   its path to the launcher. It asks which
    workbook to build: **P**roduction, the engine and the sheet macros from
    `src/`, or **D**evelopment, which adds the test modules of `tests/modules/`
    that [section 4](#4-test-development-workbook) needs. It then asks whether
@@ -219,6 +219,12 @@ or later and no packages.
    after a manual change. The tests write to the input and output sheets:
    never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
+
+For a development workbook, steps 1 and 3 can be one: with the Trust
+setting on, double-click `tools/Sync-SACCR-VBA.cmd`. Started without a
+workbook, it builds `test-results\K-SACCR_Development.xlsm` from the template,
+replacing an earlier one, and fills it with the development modules and the
+sheet code.
 
 The manual import order, references and troubleshooting are in
 [`INSTALLATION.md`](INSTALLATION.md).

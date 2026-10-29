@@ -157,7 +157,10 @@ project object model* enabled, and Python on the same machine.
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\path\K-SACCR.xlsm" -Mode Production -IncludeSheets
    ```
 
-   For a development workbook, use `-Mode Development`.
+   For a development workbook, use `-Mode Development`. Adding
+   `-FromTemplate` does both in one step: the script saves the template as
+   the `.xlsm` at `-WorkbookPath`, replacing a file of that name, and then
+   synchronizes it.
 3. **Compile and run.** Open the workbook, run **Debug → Compile
    VBAProject**, then **Run SA-CCR** on the demonstration portfolio (and, in a
    development workbook, `TEST_Suite.Test_RunAll`). Save and close.
