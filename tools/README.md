@@ -372,29 +372,37 @@ and must never be extended to.
 
 ## Dependency updates
 
-`.github/dependabot.yml` asks Dependabot for weekly version updates of the
-GitHub Actions pinned in the workflows. They are opened against the active
-release branch (`target-branch`) and labelled `ci` and `P3`. Dependabot reads
-this file from the default branch; PR #24 integrated it into `main`. Update
-`target-branch` whenever a new release branch is opened.
+`.github/dependabot.yml` asks Dependabot for weekly version updates every
+Monday at 06:00 Europe/Rome:
+
+- GitHub Actions pinned in the workflows.
+- Python quality-tool dependencies in `/tools`, including the hash-locked
+  `requirements-quality-ci.txt`. Eligible Python updates are grouped into one
+  `python-tools` pull request, after a 14-day cooldown from each package release.
+
+Both ecosystems target the active release branch (`target-branch`) and use
+labels `ci` and `P3`. Dependabot reads this configuration from the default
+branch, so changes take effect only after integration into `main`. Update
+both `target-branch` values whenever a new release branch is opened.
 
 Review each update pull request like any other:
 
-1. Check the new version's release notes and the commit it pins. The pin must
-   stay a full 40-character SHA with the version as a trailing comment.
-2. Let **Repository integrity** run, including actionlint, and confirm it is
-   green.
+1. Check release notes and package provenance. GitHub Actions must retain full
+   40-character SHA pins and trailing version comments. Python updates must
+   retain exact versions and reviewed hashes compatible with the CI platform;
+   the hash-checked, binary-only installation must pass.
+2. Let **Repository integrity** run, including Ruff, mypy and actionlint, and
+   confirm it is green.
 3. Squash-merge it yourself. Nothing is merged or approved automatically, and
    Dependabot alerts are never dismissed automatically.
 
-Dependabot security updates are enabled as well. GitHub opens them against
-the default branch, `main`, whatever `target-branch` says. Do not merge one
-there: make the same pin change on the active release branch in a reviewed
-pull request, then close the Dependabot pull request with a link to it.
+The cooldown applies to version updates, not security updates. Dependabot
+security updates are enabled as well. GitHub opens them against the default
+branch, `main`, whatever `target-branch` says. Do not merge one there: make the
+same dependency change on the active release branch in a reviewed pull request,
+then close the Dependabot pull request with a link to it.
 
-The quality tools are not covered by Dependabot. To change Ruff, mypy or
-actionlint, update the version and its hash or checksum in
-`tools/requirements-quality-ci.txt` or the workflow `env` in one reviewed pull
-request.
+The actionlint binary remains outside Dependabot's Python coverage. Update
+its version and checksum in the workflow `env` through a reviewed pull request.
 Whether GitHub blocks merging on this check depends on the repository's
 branch rulesets.
