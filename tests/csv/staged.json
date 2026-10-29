@@ -1,0 +1,319 @@
+{
+ "description": "Staged cases of the CSV contract (#209): rows as a staging sheet holds them, each with its CSV line (0 for a row added by hand) and its non-blank values, and every finding as [code, line, record, column], the record being the row's position. Read by tools/csv_contract.py and, through tools/generate_csv_vba.py, by the VBA reader.",
+ "cases": [
+  {
+   "name": "staged-valid",
+   "kind": "NettingSets",
+   "rows": [
+    {
+     "line": 2,
+     "values": {
+      "netting_set_id": "NS-001",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000"
+     }
+    },
+    {
+     "line": 3,
+     "values": {
+      "netting_set_id": "NS-002",
+      "counterparty": "CPTY-B",
+      "margined": "N",
+      "variation_margin_net_amount": "0",
+      "independent_collateral_net_amount": "0",
+      "regime_override": "CRR"
+     }
+    }
+   ],
+   "findings": []
+  },
+  {
+   "name": "row-added-by-hand",
+   "kind": "Trades",
+   "rows": [
+    {
+     "line": 2,
+     "values": {
+      "trade_id": "TRD-001",
+      "netting_set_id": "NS-001",
+      "asset_class": "IR",
+      "risk_factor": "EUR",
+      "instrument": "Linear",
+      "direction": "Long",
+      "nature": "Standard",
+      "notional_amount": "10000000",
+      "notional_currency": "EUR",
+      "market_value_amount": "250000",
+      "start_date": "2026-10-01",
+      "end_date": "2031-10-01",
+      "maturity_date": "2031-10-01"
+     }
+    },
+    {
+     "line": 0,
+     "values": {
+      "trade_id": "T-HAND",
+      "netting_set_id": "NS-001",
+      "asset_class": "IR",
+      "risk_factor": "USD",
+      "instrument": "Linear",
+      "direction": "Short",
+      "notional_amount": "1,000",
+      "notional_currency": "USD",
+      "market_value_amount": "-1200000",
+      "market_value_currency": "EUR",
+      "start_date": "2026-10-01",
+      "end_date": "2029-10-01",
+      "maturity_date": "2029-10-01",
+      "economic_trade_id": "TRD-101",
+      "mtm_leg": "Y",
+      "comment": "Multi-leg trade, MtM on this leg"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-TYPE",
+     0,
+     2,
+     "notional_amount"
+    ]
+   ]
+  },
+  {
+   "name": "blank-row-between",
+   "kind": "Trades",
+   "rows": [
+    {
+     "line": 2,
+     "values": {
+      "trade_id": "TRD-001",
+      "netting_set_id": "NS-001",
+      "asset_class": "IR",
+      "risk_factor": "EUR",
+      "instrument": "Linear",
+      "direction": "Long",
+      "nature": "Standard",
+      "notional_amount": "10000000",
+      "notional_currency": "EUR",
+      "market_value_amount": "250000",
+      "start_date": "2026-10-01",
+      "end_date": "2031-10-01",
+      "maturity_date": "2031-10-01"
+     }
+    },
+    {
+     "line": 3,
+     "values": {}
+    },
+    {
+     "line": 4,
+     "values": {
+      "trade_id": "TRD-101-IR",
+      "netting_set_id": "NS-001",
+      "asset_class": "IR",
+      "risk_factor": "USD",
+      "instrument": "Linear",
+      "direction": "Short",
+      "notional_amount": "5000000",
+      "notional_currency": "USD",
+      "market_value_amount": "-1200000",
+      "market_value_currency": "EUR",
+      "start_date": "2026-10-01",
+      "end_date": "2029-10-01",
+      "maturity_date": "2029-10-01",
+      "economic_trade_id": "TRD-101",
+      "mtm_leg": "Y",
+      "comment": "Multi-leg trade, MtM on this leg"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-BLANK-RECORD",
+     3,
+     2,
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "key-repeated-by-hand",
+   "kind": "NettingSets",
+   "rows": [
+    {
+     "line": 2,
+     "values": {
+      "netting_set_id": "NS-001",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000"
+     }
+    },
+    {
+     "line": 0,
+     "values": {
+      "netting_set_id": "ns-001",
+      "counterparty": "CPTY-B",
+      "margined": "N",
+      "variation_margin_net_amount": "0",
+      "independent_collateral_net_amount": "0",
+      "regime_override": "CRR"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-DUPLICATE-KEY",
+     0,
+     2,
+     "netting_set_id"
+    ]
+   ]
+  },
+  {
+   "name": "reserved-key-after-blank-row",
+   "kind": "NettingSets",
+   "rows": [
+    {
+     "line": 0,
+     "values": {}
+    },
+    {
+     "line": 5,
+     "values": {
+      "netting_set_id": "Total",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-BLANK-RECORD",
+     0,
+     1,
+     ""
+    ],
+    [
+     "CSV-RESERVED-KEY",
+     5,
+     2,
+     "netting_set_id"
+    ]
+   ]
+  },
+  {
+   "name": "rule-between-fields",
+   "kind": "NettingSets",
+   "rows": [
+    {
+     "line": 7,
+     "values": {
+      "netting_set_id": "NS-001",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000",
+      "qccp": "Y"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-ROW-RULE",
+     7,
+     1,
+     "qccp"
+    ]
+   ]
+  },
+  {
+   "name": "too-many-rows",
+   "kind": "NettingSets",
+   "max_records": 2,
+   "rows": [
+    {
+     "line": 2,
+     "values": {
+      "netting_set_id": "NS-001",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000"
+     }
+    },
+    {
+     "line": 3,
+     "values": {
+      "netting_set_id": "NS-002",
+      "counterparty": "CPTY-B",
+      "margined": "N",
+      "variation_margin_net_amount": "0",
+      "independent_collateral_net_amount": "0",
+      "regime_override": "CRR"
+     }
+    },
+    {
+     "line": 0,
+     "values": {
+      "netting_set_id": "NS-NEW",
+      "counterparty": "Synthetic Bank, London",
+      "margined": "Y",
+      "clearing_role": "N",
+      "remargin_period_business_days": "1",
+      "large_or_illiquid": "N",
+      "margin_disputes": "N",
+      "variation_margin_net_amount": "-150000",
+      "independent_collateral_net_amount": "250000",
+      "threshold_amount": "0",
+      "minimum_transfer_amount": "100000"
+     }
+    }
+   ],
+   "findings": [
+    [
+     "CSV-TOO-MANY-RECORDS",
+     0,
+     3,
+     ""
+    ]
+   ]
+  }
+ ]
+}

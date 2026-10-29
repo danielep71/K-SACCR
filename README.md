@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-403_cases_%C2%B7_1650_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-415_cases_%C2%B7_1684_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -169,7 +169,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (403 cases, 1650 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (415 cases, 1684 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -236,6 +236,7 @@ further illustrative netting sets.
 | **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
+| **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | From the Macros dialog (Alt+F8) | `CheckTradesCsv`, `CheckNettingSetsCsv` | Checks a CSV file against the input contract and lists its findings; writes nothing |
 
 To compare the results with your bank's own figures, enter them on
@@ -283,18 +284,18 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-28 08:11:18
+SACCR TEST SUMMARY 2026-10-29 10:09:32
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (22,9 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (9,0 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (24,6 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,7 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,1 s)
-  PASS  TEST_CsvReader        cases=104; checks=297; failures=0  (0,2 s)
-  PASS  TEST_Import           cases=10; checks=52; failures=0  (0,6 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=70,6
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (21,9 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (7,4 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (27,0 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (4,1 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,1 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (13,0 s)
+  PASS  TEST_CsvReader        cases=111; checks=304; failures=0  (0,5 s)
+  PASS  TEST_Import           cases=15; checks=79; failures=0  (1,6 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=77,8
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -569,9 +570,9 @@ required; the project has no separate reviewer.
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture, case and portfolio case the reference implementation pins | 104 | 297 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone | 10 | 52 |
-| **Total** | | **403** | **1650** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case and staged case the reference implementation pins | 111 | 304 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections, the evidence export refused | 15 | 79 |
+| **Total** | | **415** | **1684** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).

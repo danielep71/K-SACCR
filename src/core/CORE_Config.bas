@@ -6,13 +6,13 @@ Attribute VB_Name = "CORE_Config"
 '   Hold every layout constant the SA-CCR engine depends on: sheet names,
 '   header and first data rows, the column of each input field, the width of
 '   each output table, parameter codes, regime and asset-class codes, the
-'   severity labels written to the Checks sheet, the expected column
-'   headers, the file names and header lines of the blank CSV templates,
+'   severity labels and origins written to the Checks sheet, the expected
+'   column headers, the file names and header lines of the blank CSV templates,
 '   the names and statuses of the CSV staging sheets, the bank-figure and
-'   reconciliation layout, the names of the hidden fingerprints, the
-'   regulatory reference parameter set, the FX quote order and the error
-'   numbers raised by the workbook macros. When a sheet layout changes, it
-'   changes here and nowhere else.
+'   reconciliation layout, the names of the hidden fingerprints, the regulatory
+'   reference parameter set, the FX quote order and the error numbers raised by
+'   the workbook macros. When a sheet layout changes, it changes here and
+'   nowhere else.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
@@ -32,7 +32,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-10-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -344,6 +344,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
         Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
+        Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)
+        Public Const STAGING_INVALID        As String = "INVALID"     'Validated with an error, listed on Checks
 
 '------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS
@@ -353,7 +355,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const BK_NCOLS   As Long = 11    'Buckets
         Public Const HS_NCOLS   As Long = 14    'HedgingSets
         Public Const RS_NCOLS   As Long = 28    'Results
-        Public Const CK_NCOLS   As Long = 5     'Checks
+        Public Const CK_NCOLS   As Long = 6     'Checks
+        Public Const CK_ORIGIN_COL  As Long = 6     'Checks: ORIGIN_RUN or ORIGIN_IMPORT (#209)
         Public Const RS_STATUS_COL  As Long = 28    'Results: VALID, INVALID, INCOMPLETE or NO TRADES
 
 '------------------------------------------------------------------------------
@@ -534,3 +537,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const SEV_ERROR   As String = "ERROR"      'Input rejected or run stopped
         Public Const SEV_WARN    As String = "WARNING"    'Input accepted with an assumption
         Public Const SEV_INFO    As String = "INFO"       'Information only
+
+'------------------------------------------------------------------------------
+' CHECKS ORIGINS
+'------------------------------------------------------------------------------
+    'What wrote a line of the Checks sheet, in its Origin column (#209).
+        Public Const ORIGIN_RUN      As String = "RUN"       'A run or a validation of the inputs
+        Public Const ORIGIN_IMPORT   As String = "IMPORT"    'A validation of the staging sheets

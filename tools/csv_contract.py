@@ -395,6 +395,33 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
     return [row for _, row in rows], findings
 
 
+def check_staged(kind: str, rows: list[tuple[int, dict[str, str]]], contract: dict[str, Any],
+                 max_records: int | None = None) -> list[Finding]:
+    """The findings about staged records (#209): each field, the rules between fields and the keys, as a
+    file's records are checked, for rows read back from a staging sheet.
+
+    rows holds (CSV line, record) in staging order, the line 0 for a row added by hand, a column missing
+    from a record being blank; a finding's record is the 1-based position in rows. More rows than the
+    contract allows is one finding, and nothing else is checked.
+    """
+    spec = contract["files"][kind]
+    names = [column["name"] for column in spec["columns"]]
+    columns = {column["name"]: column for column in spec["columns"]}
+    limit = spec["max_records"] if max_records is None else max_records
+    if len(rows) > limit:
+        return [Finding("CSV-TOO-MANY-RECORDS", rows[limit][0], limit + 1, "", f"{len(rows)} rows, at most {limit}")]
+    findings: list[Finding] = []
+    kept: list[tuple[int, Record, dict[str, str]]] = []
+    for position, (line, row) in enumerate(rows, start=1):
+        record = Record([row.get(name, "") for name in names], line)
+        findings += check_record(record, position, names, columns, spec, contract["types"])
+        if any(record.fields):
+            kept.append((position, record, dict(zip(names, record.fields))))
+    findings += check_keys(kept, spec)
+    findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
+    return findings
+
+
 Adder = Callable[[str, int, str, str], None]
 
 

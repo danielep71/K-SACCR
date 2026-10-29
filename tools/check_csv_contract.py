@@ -17,6 +17,7 @@ from _gatelib import parse_report_args, run_gate
 from csv_contract import (
     DELIMITER,
     check_portfolio,
+    check_staged,
     load_contract,
     readable,
     rule_columns,
@@ -32,6 +33,7 @@ FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
 PORTFOLIO = "tests/csv/portfolio.json"
+STAGED = "tests/csv/staged.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
@@ -293,6 +295,25 @@ def check_portfolio_cases(root: Path, contract: dict[str, Any]) -> tuple[list[st
     return findings, len(cases)
 
 
+def check_staged_cases(root: Path, contract: dict[str, Any]) -> tuple[list[str], int]:
+    """Each staged case (#209) gives exactly its findings about the rows of a staging sheet."""
+    cases = json.loads((root / STAGED).read_text(encoding="utf-8"))["cases"]
+    names = [case["name"] for case in cases]
+    findings = [f"{STAGED}: case {name!r} repeats" for name in sorted(set(names)) if names.count(name) > 1]
+    for case in cases:
+        columns = {column["name"] for column in contract["files"][case["kind"]]["columns"]}
+        unknown = sorted({name for row in case["rows"] for name in row["values"]} - columns)
+        if unknown:
+            findings.append(f"{STAGED}: case {case['name']!r} names unknown column(s) {unknown}")
+            continue
+        rows = [(row["line"], row["values"]) for row in case["rows"]]
+        actual = [[f.code, f.line, f.record, f.column]
+                  for f in check_staged(case["kind"], rows, contract, max_records=case.get("max_records"))]
+        if actual != case["findings"]:
+            findings.append(f"{STAGED}: case {case['name']!r}: findings differ")
+    return findings, len(cases)
+
+
 def run_check(root: Path) -> dict[str, Any]:
     contract = load_contract(root)
     findings = check_shape(contract)
@@ -305,14 +326,16 @@ def run_check(root: Path) -> dict[str, Any]:
     findings += case_findings
     portfolio_findings, portfolio_cases = check_portfolio_cases(root, contract)
     findings += portfolio_findings
+    staged_findings, staged_cases = check_staged_cases(root, contract)
+    findings += staged_findings
     columns = {kind: len(spec["columns"]) for kind, spec in contract["files"].items()}
     return {"schema_version": 1, "status": "fail" if findings else "pass", "columns": columns,
-            "fixtures": fixtures, "cases": cases, "portfolio_cases": portfolio_cases, "findings": findings}
+            "fixtures": fixtures, "cases": cases, "portfolio_cases": portfolio_cases, "staged_cases": staged_cases, "findings": findings}
 
 
 def markdown_report(report: dict[str, Any]) -> str:
     columns = ", ".join(f"{kind} {count}" for kind, count in report["columns"].items())
-    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s), {report['cases']} case(s), {report['portfolio_cases']} portfolio case(s))"]
+    lines = [f"CSV contract: {report['status'].upper()} (columns: {columns}; {report['fixtures']} fixture(s), {report['cases']} case(s), {report['portfolio_cases']} portfolio case(s), {report['staged_cases']} staged case(s))"]
     lines.extend(report["findings"])
     return "\n".join(lines) + "\n"
 
