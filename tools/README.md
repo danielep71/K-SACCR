@@ -387,6 +387,11 @@ Review each update pull request like any other:
 3. Squash-merge it yourself. Nothing is merged or approved automatically, and
    Dependabot alerts are never dismissed automatically.
 
+Dependabot security updates are enabled as well. GitHub opens them against
+the default branch, `main`, whatever `target-branch` says. Do not merge one
+there: make the same pin change on the active release branch in a reviewed
+pull request, then close the Dependabot pull request with a link to it.
+
 The quality tools are not covered by Dependabot. To change Ruff, mypy or
 actionlint, update the version and its hash or checksum in
 `tools/requirements-quality-ci.txt` or the workflow `env` in one reviewed pull

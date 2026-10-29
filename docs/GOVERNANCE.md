@@ -150,8 +150,9 @@ configuration.
 | Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain and fast-forward the active release branch after integration. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |
 | Private vulnerability reporting | Enabled; the primary reporting channel in [`SECURITY.md`](../SECURITY.md). |
-| Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
-| Dependency graph and Dependabot alerts | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. |
+| Code scanning | CodeQL default setup is enabled for `actions` and `python` with the default query suite: it analyses pushes and pull requests and runs weekly. It covers the workflows and the Python tools; VBA is not a CodeQL language. It is not a required check in the rulesets; review its alerts under Security → Code scanning. |
+| Secret scanning and push protection | Enabled. Push protection blocks a push that contains a detected secret; never bypass it for a real credential, remove the secret and rotate it instead. Non-provider patterns and validity checks are off. |
+| Dependency graph, Dependabot alerts and security updates | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. Security update pull requests target `main`; see [Dependency updates](../tools/README.md#dependency-updates). |
 | Low-impact development-dependency alert auto-dismissal | Disabled by explicit owner decision. Keep those alerts visible. |
 | Automatic Dependabot updates | See [Dependency updates](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
