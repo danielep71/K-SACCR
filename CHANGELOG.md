@@ -125,8 +125,7 @@ Use only the categories needed by a release.
   at a time, as the engine compares IDs. `tools/generate_csv_vba.py` writes
   the contract into `CORE_CsvSchema` and the fixtures and the new inline
   cases of `tests/csv/cases.json` into the generated suite `TEST_CsvReader`,
-  which expects exactly the findings of the reference implementation;
-  `Test_RunAll` runs nine suites.
+  which expects exactly the findings of the reference implementation.
 - Check a CSV file from the workbook (#207): the macros `CheckTradesCsv` and
   `CheckNettingSetsCsv`, run from the Macros dialog, read a chosen file with
   the CSV reader and show whether it follows the contract, with its record
@@ -138,18 +137,69 @@ Use only the categories needed by a release.
   `RunCsvBenchmark`, which times the reader on synthetic files of up to the
   record limit. The reader now trims the zeros of a number and of its
   exponent in one pass, and raises `ERR_CSV_READ` also when the path itself
-  is malformed (#446). `TEST_CsvReader`: 93 cases, 199 checks.
+  is malformed (#446).
 - Add the staging sheets `Import_NettingSets` and `Import_Trades` after
   Trades (#208), where a CSV file will be loaded for checking and correction
   before it replaces NettingSets or Trades. Each has the source file, load
   time, record count and status at the top, then a header row with a
-  `CSV line` column and the contract's columns in contract order, their CSV
+  `CSV line` column and the contract's columns in contract order (75 pt high
+  on Import_NettingSets, so that its longest headers show whole), their CSV
   names above, and data columns formatted as text so that every value stays
-  as written. Nothing reads them yet: loading comes with the import macros.
-  `check_csv_contract` checks their headers and anchors against the
-  contract. Rebuild the workbook from the template: a workbook built from an
-  older template has no staging sheets, and a sheet-module synchronization
+  as written. `check_csv_contract` checks their headers and anchors against
+  the contract. Rebuild the workbook from the template: a workbook built from
+  an older template has no staging sheets, and a sheet-module synchronization
   stops on the missing modules.
+- Load a CSV file onto a staging sheet (#208): the **Import CSV** button on
+  Import_Trades and Import_NettingSets (`ImportTradesCsv`,
+  `ImportNettingSetsCsv`; `ImportCsv_Silent` for automation) reads a chosen
+  file and writes its records as text, each with its CSV line, so that
+  leading zeros, dates and formula-like text stay as written. A structural
+  finding (encoding, syntax, delimiter, header, field count, size or record
+  limit) loads nothing; findings about values are listed and the records
+  stay on the sheet to be corrected. The sheet shows the file, the load time,
+  the record count and LOADED, then EDITED after a change; a new load asks
+  before it replaces changes, found by fingerprint even with events off,
+  and a load that fails while writing puts the sheet back, formulas
+  included. A value longer than a cell holds (32,767 characters) loads
+  nothing. Trades, NettingSets, Results and the run fingerprints are not
+  changed. The reader gains a staging mode that keeps the records of a file
+  with value findings only, checked against the reference implementation for
+  every fixture and case. A blank record is never kept, whether written as
+  an empty line or as delimiters only (#467). `Test_RunAll` runs ten suites,
+  the new `TEST_Import` among them.
+- Check the legs of a Trades portfolio against each other and against the
+  netting sets they refer to (#209, part 1). The contract gains
+  `portfolio_rules`, the engine's own rules between records: a leg's netting
+  set must exist, and an economic trade must have exactly one MtM leg, a MtM
+  of 0 on its other legs, one netting set, one settlement type and reset
+  date, and only options when two legs share an asset class. Each has its
+  finding code (`CSV-NETTING-SET-UNKNOWN`, `CSV-ECON-*`). `CheckPortfolio` in
+  the VBA reader and `check_portfolio` in the reference judge them alike, and
+  `tests/csv/portfolio.json` pins their findings, checked by
+  `check_csv_contract` and `TEST_CsvReader`.
+- Validate the staging sheets (#209, part 2): the **Validate staging** button
+  on Import_Trades and Import_NettingSets (`ValidateStaging`;
+  `ValidateStaging_Silent` for automation) checks the staged rows against
+  the contract, as a file's records are checked (`CheckStagedRecords`), and
+  the staged legs against each other and against the netting sets they refer
+  to: the staged ones, or those on NettingSets when none are staged. With
+  only netting sets staged, the legs on Trades are checked against them.
+  Checks gains an **Origin** column: `RUN` for the lines of Run SA-CCR and
+  Validate inputs, `IMPORT` for those of a staging validation, which replace
+  them: a summary, then one `ERROR` line per finding with its sheet, row, code,
+  CSV line and a link to its cell. The staged cells with a finding are marked
+  in red and the marks of the last validation are removed; the staging
+  sheet's status reads `VALID` or `INVALID`. A formula in a staging block, or
+  nothing staged, refuses the validation. Trades, NettingSets, Results and
+  the run fingerprints are not changed, but until the next run
+  `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the evidence
+  export refuses, saying
+  that Checks shows a staging validation. `tests/csv/staged.json` pins the
+  findings about staged rows, checked by `check_csv_contract` and
+  `TEST_CsvReader` (111 cases, 304 checks); `TEST_Import` covers the
+  validation (15 cases, 79 checks). The evidence report's `CHECKS` section
+  gains the Origin column. Rebuild the workbook from the template: an older
+  template has no Origin column or Validate staging button.
 
 ### Changed
 
@@ -163,6 +213,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Show the release plan in the README roadmap as a timeline of the
+  milestones' due dates, and the v1.1.0 schedule as a timeline of its issues'
+  planned dates, both drawn by GitHub from Mermaid text and dated; the
+  milestones stay the source of the dates, which are planning targets. The
+  v1.1.0 scope also lists #468 and #473.
 - Follow the repository's rename to `danielep71/K-SACCR`: the links in the
   README, INSTALLATION, governance, methodology, issue templates and
   website, the website address <https://danielep71.github.io/K-SACCR/>
@@ -182,6 +237,14 @@ Use only the categories needed by a release.
   own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
+- Describe CRR Article 305(4) as unsupported in the source register (#445):
+  K-SACCR does not model its conditions for multi-level client structures,
+  and rejects a declared `MULTI` structure for that reason, as decision 6 of
+  the clearing coverage says. The rejection is an implementation boundary,
+  not a treatment the article prescribes.
+- Link default-fund contributions to their issue's new home: #400 moved to
+  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
+  support matrix now link it there.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the nine production and

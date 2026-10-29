@@ -17,7 +17,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 CONTRACT = "docs/csv/contract.json"
 TEMPLATES = "docs/csv/templates"
@@ -25,6 +25,11 @@ DOCUMENT = "docs/csv/CSV_CONTRACT.md"
 BOM = b"\xef\xbb\xbf"
 DELIMITER = ";"
 OTHER_DELIMITERS = {",": "','", "\t": "a tab"}  # Delimiters of other CSV dialects
+# Findings that leave the file unreadable as records: the rest are about values and can be
+# corrected on a staging sheet (#208).
+STRUCTURAL = frozenset({"CSV-ENCODING", "CSV-SYNTAX", "CSV-EMPTY", "CSV-DELIMITER", "CSV-HEADER-DUPLICATE",
+                        "CSV-HEADER-MISSING", "CSV-HEADER-UNKNOWN", "CSV-FIELD-COUNT",
+                        "CSV-TOO-MANY-RECORDS", "CSV-TOO-LARGE"})
 NUMBER = re.compile(r"^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$")
 INTEGER = re.compile(r"^-?(?:0|[1-9][0-9]*)$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -324,14 +329,16 @@ def check_keys(records: list[tuple[int, Record, dict[str, str]]], spec: dict[str
     return findings
 
 
-def validate(data: bytes, kind: str, contract: dict[str, Any],
-             max_records: int | None = None,
-             max_bytes: int | None = None) -> tuple[list[dict[str, str]], list[Finding]]:
-    """The records of a CSV file of kind (Trades or NettingSets) as dictionaries, and all findings.
+def readable(findings: list[Finding]) -> bool:
+    """No finding is structural: every record was read and has the header's fields."""
+    return not any(f.code in STRUCTURAL for f in findings)
 
-    The records are returned only when there is no finding: a file is accepted or
-    rejected as a whole, never in part.
-    """
+
+def validate_records(data: bytes, kind: str, contract: dict[str, Any],
+                     max_records: int | None = None,
+                     max_bytes: int | None = None,
+                     keep_records: bool = False) -> tuple[list[tuple[int, dict[str, str]]], list[Finding]]:
+    """As validate, each record with the physical line it starts on."""
     spec = contract["files"][kind]
     names = [column["name"] for column in spec["columns"]]
     columns = {column["name"]: column for column in spec["columns"]}
@@ -366,10 +373,131 @@ def validate(data: bytes, kind: str, contract: dict[str, Any],
             continue
         ordered = Record([dict(zip(header.fields, record.fields))[name] for name in names], record.line)
         findings += check_record(ordered, index, names, columns, spec, contract["types"])
-        rows.append((index, record, dict(zip(names, ordered.fields))))
+        if any(ordered.fields):  # A blank record is reported, never kept (#467).
+            rows.append((index, record, dict(zip(names, ordered.fields))))
     findings += check_keys(rows, spec)
     findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
-    return ([row for _, _, row in rows] if not findings else []), findings
+    keep = not findings or (keep_records and readable(findings))
+    return ([(record.line, row) for _, record, row in rows] if keep else []), findings
+
+
+def validate(data: bytes, kind: str, contract: dict[str, Any],
+             max_records: int | None = None,
+             max_bytes: int | None = None,
+             keep_records: bool = False) -> tuple[list[dict[str, str]], list[Finding]]:
+    """The records of a CSV file of kind (Trades or NettingSets) as dictionaries, and all findings.
+
+    The records are returned only when there is no finding: a file is accepted or
+    rejected as a whole, never in part. With keep_records, a readable file's records
+    are returned with its value findings, for staging (#208).
+    """
+    rows, findings = validate_records(data, kind, contract, max_records, max_bytes, keep_records)
+    return [row for _, row in rows], findings
+
+
+def check_staged(kind: str, rows: list[tuple[int, dict[str, str]]], contract: dict[str, Any],
+                 max_records: int | None = None) -> list[Finding]:
+    """The findings about staged records (#209): each field, the rules between fields and the keys, as a
+    file's records are checked, for rows read back from a staging sheet.
+
+    rows holds (CSV line, record) in staging order, the line 0 for a row added by hand, a column missing
+    from a record being blank; a finding's record is the 1-based position in rows. More rows than the
+    contract allows is one finding, and nothing else is checked.
+    """
+    spec = contract["files"][kind]
+    names = [column["name"] for column in spec["columns"]]
+    columns = {column["name"]: column for column in spec["columns"]}
+    limit = spec["max_records"] if max_records is None else max_records
+    if len(rows) > limit:
+        return [Finding("CSV-TOO-MANY-RECORDS", rows[limit][0], limit + 1, "", f"{len(rows)} rows, at most {limit}")]
+    findings: list[Finding] = []
+    kept: list[tuple[int, Record, dict[str, str]]] = []
+    for position, (line, row) in enumerate(rows, start=1):
+        record = Record([row.get(name, "") for name in names], line)
+        findings += check_record(record, position, names, columns, spec, contract["types"])
+        if any(record.fields):
+            kept.append((position, record, dict(zip(names, record.fields))))
+    findings += check_keys(kept, spec)
+    findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
+    return findings
+
+
+Adder = Callable[[str, int, str, str], None]
+
+
+def is_nonzero_number(text: str) -> bool:
+    """Whether text is a number with a non-zero digit before its exponent: the test the VBA reader can make
+    without converting, so that both agree on a value too small for a double."""
+    return bool(NUMBER.match(text)) and any(char in "123456789" for char in re.split("[eE]", text)[0])
+
+
+def check_portfolio(trades: list[tuple[int, dict[str, str]]], netting_sets: list[str],
+                    contract: dict[str, Any]) -> list[Finding]:
+    """The findings between records (#209): each leg's netting set, and the legs of each economic trade,
+    judged as CORE_Engine judges them (the unknown-netting-set check and CheckEconomicTrades).
+
+    trades holds (CSV line, record) in staging order, the line 0 when the row has none; a finding's
+    record is the 1-based position in trades. netting_sets holds the IDs the legs may refer to.
+    """
+    codes = {rule["id"]: rule["code"] for rule in contract["portfolio_rules"]}
+    known = {fold(key) for key in netting_sets}
+    findings: list[Finding] = []
+
+    def add(rule: str, position: int, column: str, message: str) -> None:
+        findings.append(Finding(codes[rule], trades[position - 1][0], position, column, message))
+
+    groups: dict[str, list[int]] = {}
+    for position, (_, row) in enumerate(trades, start=1):
+        if not row["trade_id"]:
+            continue
+        if row["netting_set_id"] and fold(row["netting_set_id"]) not in known:
+            add("netting-set-known", position, "netting_set_id",
+                f"netting set {row['netting_set_id']!r} is not on NettingSets")
+        economic = row["economic_trade_id"]
+        groups.setdefault("E|" + fold(economic) if economic else "L|" + fold(row["trade_id"]), []).append(position)
+    for key, legs in groups.items():
+        rows = [trades[position - 1][1] for position in legs]
+        if key.startswith("E|"):
+            check_economic_trade(legs, rows, add)
+            continue
+        for position, row in zip(legs, rows):
+            if fold(row["mtm_leg"]) == "N":
+                add("mtm-leg", position, "mtm_leg",
+                    "a trade without an Economic trade ID carries its own MtM, so MtM leg must be Y or blank")
+    findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
+    return findings
+
+
+def check_economic_trade(legs: list[int], rows: list[dict[str, str]], add: Adder) -> None:
+    """The rules between the legs of one economic trade, each leg compared with the first as the engine does."""
+    name, first = rows[0]["economic_trade_id"], rows[0]
+    settlement = fold(first["settlement_type"]) or "N"
+    for position, row in zip(legs[1:], rows[1:]):
+        if fold(row["netting_set_id"]) != fold(first["netting_set_id"]):
+            add("same-netting-set", position, "netting_set_id",
+                f"economic trade {name}: its legs are in different netting sets")
+        if (fold(row["settlement_type"]) or "N") != settlement:
+            add("same-settlement", position, "settlement_type",
+                f"economic trade {name}: its legs have different settlement types")
+        elif row["next_reset_date"] != first["next_reset_date"]:
+            add("same-settlement", position, "next_reset_date",
+                f"economic trade {name}: its legs have different next reset dates")
+    mtm_legs = sum(fold(row["mtm_leg"]) == "Y" for row in rows)
+    for position, row in zip(legs, rows):
+        if mtm_legs != 1:
+            add("mtm-leg", position, "mtm_leg",
+                f"economic trade {name}: exactly one leg must be the MtM leg (MtM leg = Y), found {mtm_legs}")
+        if fold(row["mtm_leg"]) != "Y" and is_nonzero_number(row["market_value_amount"]):
+            add("mtm-value", position, "market_value_amount",
+                f"economic trade {name}: leg {row['trade_id']} is not the MtM leg, so its MtM must be 0")
+    classes: dict[str, list[int]] = {}
+    for index, row in enumerate(rows):
+        classes.setdefault(fold(row["asset_class"]), []).append(index)
+    for asset_class, members in classes.items():
+        if len(members) > 1 and any(fold(rows[i]["instrument"]) != "OPTION" for i in members):
+            for i in members:
+                add("asset-class", legs[i], "asset_class",
+                    f"economic trade {name}: {len(members)} legs in asset class {asset_class} that are not all options")
 
 
 def template_text(kind: str, contract: dict[str, Any]) -> str:

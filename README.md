@@ -12,8 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-9%2F9_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-382_cases_%C2%B7_1500_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-415_cases_%C2%B7_1684_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -169,7 +169,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Nine Excel suites (382 cases, 1500 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (415 cases, 1684 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -214,8 +214,10 @@ or later and no packages.
    `src/`, or **D**evelopment, which adds the test modules of `tests/modules/`
    that [section 4](#4-test-development-workbook) needs. It then asks whether
    to replace the code of the worksheet and `ThisWorkbook` modules as well;
-   they hold only `Option Explicit`, so either answer works. The tests write
-   to the input and output sheets: never run them on real data.
+   answer **Y** when building from the template. They hold only
+   `Option Explicit`, except the two staging sheets', which show `EDITED`
+   after a manual change. The tests write to the input and output sheets:
+   never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
 The manual import order, references and troubleshooting are in
@@ -233,6 +235,8 @@ further illustrative netting sets.
 | **Clear outputs** | `ClearOutputs` | Empties the output sheets |
 | **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
+| **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
+| **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | From the Macros dialog (Alt+F8) | `CheckTradesCsv`, `CheckNettingSetsCsv` | Checks a CSV file against the input contract and lists its findings; writes nothing |
 
 To compare the results with your bank's own figures, enter them on
@@ -280,17 +284,18 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-23 20:47:43
+SACCR TEST SUMMARY 2026-10-29 10:09:32
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (36,0 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (10,0 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (26,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (2,5 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,3 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (8,5 s)
-  PASS  TEST_CsvReader        cases=93; checks=199; failures=0  (0,2 s)
-RESULT=PASS; suites=9; passed=9; failed=0; seconds=84,9
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (21,9 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (7,4 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (27,0 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (4,1 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,1 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (13,0 s)
+  PASS  TEST_CsvReader        cases=111; checks=304; failures=0  (0,5 s)
+  PASS  TEST_Import           cases=15; checks=79; failures=0  (1,6 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=77,8
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -565,8 +570,9 @@ required; the project has no separate reviewer.
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture and case the reference implementation pins | 93 | 199 |
-| **Total** | | **382** | **1500** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case and staged case the reference implementation pins | 111 | 304 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections, the evidence export refused | 15 | 79 |
+| **Total** | | **415** | **1684** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -696,12 +702,37 @@ produces it.
   </a>
 </p>
 
+The plan below follows the
+[milestones](https://github.com/danielep71/K-SACCR/milestones)' due dates as
+of 2026-10-28; each bar starts the day after the previous milestone's due
+date. The dates are planning targets, not release commitments.
+
+```mermaid
+gantt
+    title K-SACCR release plan (milestone due dates as of 2026-10-28)
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+    todayMarker on
+    section Released
+    v1.0.0 First supported release           :done, 2026-10-18, 1d
+    v1.0.1 Post-release hardening            :done, 2026-10-19, 1d
+    v1.0.2 Clearing coverage and CCPs        :done, 2026-10-25, 1d
+    section Planned
+    v1.1.0 CSV import, staging, protection   :active, v11, 2026-10-26, 2026-11-29
+    v1.2.0 Excel Ribbon interface            :v12, after v11, 2027-01-10
+    v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
+    v1.4.0 Advanced products, FX provenance  :v14, after v13, 2027-04-18
+    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
+    v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
+    v1.7.0 Standalone Python engine          :v17, after v16, 2027-09-12
+```
+
 | Milestone | Scope |
 | --- | --- |
 | v1.0.0 | First supported Excel release: the current engine with its evidence |
 | v1.0.1 | Post-release hardening: evidence export that keeps the previous file until the new one is written (#312), export bound to its workbook (#313), Results status `EDITED` (#315), troubleshooting (#317), reconciliation error kept (#318), Other Risks in the benchmark (#309), package checks as standing release steps (#308) |
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
-| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
+| v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), worksheet navigation sidebar (#329) and a Restore Parameter Defaults command (#357) |
 | v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
@@ -722,12 +753,41 @@ Development starts from the released **v1.0.2** baseline on
 `release/1.1.0`, retaining its clearing and settlement input contracts.
 None of this work is in a released workbook yet. On the release branch so
 far: the CSV contract and its blank templates (#206), the CSV reader and the
-check macros (#207), and the empty staging sheets (#208).
+check macros (#207), the staging sheets with their CSV import (#208), and the
+rules between Trades records (#209, part 1).
+
+The schedule comes from each issue's planned start and target completion
+dates, as of 2026-10-28; the dates of an issue already under way are those of
+its remaining work.
+
+```mermaid
+gantt
+    title v1.1.0 - CSV import, staging and workbook protection (due 2026-11-29)
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
+    todayMarker on
+    section CSV input
+    #206 CSV contract and templates          :a206, 2026-10-28, 2026-11-06
+    #207 CSV parsing                         :a207, 2026-10-28, 2026-11-20
+    #473 HTML import specifications          :a473, 2026-11-16, 2026-11-20
+    section Staging and commit
+    #208 Staging sheets                      :a208, 2026-10-28, 2026-11-20
+    #468 Formula edits in staging            :a468, 2026-10-28, 2026-10-30
+    #209 Validate staged inputs              :a209, 2026-10-28, 2026-11-06
+    #210 Correct and revalidate              :a210, 2026-11-09, 2026-11-13
+    #211 Atomic commit with rollback         :a211, 2026-11-16, 2026-11-20
+    section Workbook protection
+    #420 Protect cells and structure         :a420, 2026-10-28, 2026-11-06
+    #421 Protection lifecycle                :a421, 2026-11-09, 2026-11-13
+    #422 Protected workflow tests            :a422, 2026-11-23, 2026-11-27
+    section Integration
+    #212 Regressions and release evidence    :a212, 2026-11-23, 2026-11-29
+```
 
 | Workstream | Deliverables | Issues |
 | --- | --- | --- |
-| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution | #206, #207 |
-| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211 |
+| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution; import specifications exported from the workbook | #206, #207, #473 |
+| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211, #468 |
 | Workbook protection | Editable input cells, protected generated content and workbook structure, macro-compatible protection, recovery tests and documented maintenance unlock | #420–#422 |
 | Integration and closeout | Combined regressions, candidate-bound Excel evidence, operating guidance and release checks for both workstreams | #212 |
 

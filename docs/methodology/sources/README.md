@@ -54,9 +54,12 @@ The second extract holds the definitions of Article 4(1)(88)–(91) and Section 
 on exposures to central counterparties, which the
 [clearing coverage](../CLEARING_COVERAGE.md) relies on. K-SACCR applies
 Article 304(3)(b) and (d), the 10-day MPOR floor and the retained variation
-margin of a clearing member's trade exposure to a CCP, and Article 305(4), which
-rejects a multi-level client structure; it states the risk weight of Article
-306(1) without applying it. The consolidated text itself has no legal effect, as its
+margin of a clearing member's trade exposure to a CCP. Article 305(4)'s
+conditions for multi-level client structures are not implemented; the engine
+rejects a declared `MULTI` structure because it does not model those conditions
+at every level ([decision 6](../CLEARING_COVERAGE.md#decisions)). This is an
+implementation boundary, not a rejection prescribed by that article. K-SACCR states the risk weight of Article 306(1) without
+applying it. The consolidated text itself has no legal effect, as its
 first page states.
 
 BCBS 279 (2014) is the original SA-CCR standard, now part of the consolidated

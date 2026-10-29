@@ -21,7 +21,7 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
 | Version file | `VERSION`, holding `1.0.2` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
-| Excel certification | The harness and the eight suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
+| Excel certification | The harness and the nine suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
 
 <a id="versioning"></a>
@@ -52,7 +52,7 @@ A release is valid only when:
 2. the changelog entry for the version is dated and matches the scope;
 3. `python tools/check.py --ci` passes on that candidate, and the hosted
    **Repository integrity** check is green;
-4. VBA compiles and the harness and the eight suites listed in
+4. VBA compiles and the harness and the nine suites listed in
    `.github/excel-evidence-policy.json` pass in Excel on that candidate,
    recorded and validated as described in
    [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md);

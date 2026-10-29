@@ -206,20 +206,44 @@ total rows on `Results` and are rejected as netting-set IDs.
 
 A rule is not judged when one of its fields, the field its condition reads included, already has a finding of its own.
 
+## 🧩 Rules between records
+
+`portfolio_rules` in the contract are the rules that need more than one
+record: they judge the `Trades` records of a portfolio against each other and
+against the netting sets they may refer to (#209). They are the engine's own
+rules, as `CORE_Engine` applies them to the Trades sheet, so that staged and
+manual inputs are judged alike. The workbook's reader applies them with
+`CheckPortfolio`, the reference with `check_portfolio`.
+
+| Rule | Code | Requirement |
+| --- | --- | --- |
+| `netting-set-known` | `CSV-NETTING-SET-UNKNOWN` | Each leg's `netting_set_id` is one of the netting sets, compared case-insensitively |
+| `mtm-leg` | `CSV-ECON-MTM-LEG` | An economic trade (legs sharing an `economic_trade_id`) has exactly one leg with `mtm_leg` `Y`, reported on every leg; a whole trade, with no `economic_trade_id`, has `Y` or blank |
+| `mtm-value` | `CSV-ECON-MTM-VALUE` | In an economic trade, every leg but the MtM leg has a `market_value_amount` of 0 |
+| `same-netting-set` | `CSV-ECON-NETTING-SET` | The legs of an economic trade are in its first leg's netting set |
+| `same-settlement` | `CSV-ECON-SETTLEMENT` | The legs of an economic trade have its first leg's `settlement_type` (blank read as `N`) and, when that agrees, its `next_reset_date` |
+| `asset-class` | `CSV-ECON-ASSET-CLASS` | Two legs of an economic trade in one `asset_class` are both options, reported on each of them |
+
+A row with a blank `trade_id` is left out, as the engine leaves it out. A
+finding's record is the row's position among the records judged, and its
+line the row's CSV line, 0 for a row added on a staging sheet. A
+`market_value_amount` counts as other than 0 when it is a number with a
+non-zero digit before its exponent.
+
 ## 🚫 What the contract does not check
 
-The contract checks each file on its own. The engine's validation, run on the
-staged inputs (#209), still applies, unchanged, to everything that depends on
-other records, on the other file or on Params:
+The contract checks each file on its own, and its rules between records
+check the legs of `Trades` against each other and the netting sets. The
+engine's validation, run on the staged inputs (#209), still applies,
+unchanged, to everything that depends on Params or on a field the contract
+does not judge:
 
-- that every `netting_set_id` of `Trades` exists in `NettingSets`;
 - the sub-class required by an asset class and regime, the supervisory-factor
   key, `OT` being CRR-only;
 - an option's type, expiry and price and strike, the FX pair and its quote
   order, the hedging-set label of a basis or volatility trade;
 - the maturity relative to the reporting date, the reset date relative to the
   maturity, an `STM` trade in a margined netting set;
-- the rules of an economic trade across its legs;
 - the currencies having a rate in the FX table.
 
 A file that passes the contract can therefore still have netting sets that
@@ -251,6 +275,12 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-DUPLICATE-KEY` | A key that repeats an earlier record, ignoring case |
 | `CSV-RESERVED-KEY` | A reserved key |
 | `CSV-ROW-RULE` | A rule between fields of the record broken |
+| `CSV-NETTING-SET-UNKNOWN` | A leg whose netting set is not on NettingSets |
+| `CSV-ECON-MTM-LEG` | An economic trade without exactly one MtM leg, or a whole trade flagged `N` |
+| `CSV-ECON-MTM-VALUE` | A leg other than the MtM leg with a MtM other than 0 |
+| `CSV-ECON-NETTING-SET` | Legs of one economic trade in different netting sets |
+| `CSV-ECON-SETTLEMENT` | Legs of one economic trade with different settlement types or reset dates |
+| `CSV-ECON-ASSET-CLASS` | Two legs of one economic trade in one asset class, not both options |
 
 ## 🧪 Reference implementation and fixtures
 
@@ -268,7 +298,12 @@ exactly the findings recorded in
 [`cases.json`](../../tests/csv/cases.json) pin the edge cases the fixtures
 leave out: invalid UTF-8, characters outside the basic plane, spaces and
 control characters, number forms and magnitudes, dates, keys, quoting and the
-limits. The tests in `tools/test_csv_contract.py` also read every fixture
+limits. The portfolio cases of
+[`portfolio.json`](../../tests/csv/portfolio.json) pin the rules between
+records: a Trades file, the netting sets its legs may refer to, and every
+finding. The staged cases of [`staged.json`](../../tests/csv/staged.json)
+pin the checks of a staging sheet's rows: each row's CSV line, 0 for a row
+added by hand, its values, and every finding. The tests in `tools/test_csv_contract.py` also read every fixture
 with a byte-order mark and with CRLF line ends, and expect the same outcome.
 
 ## 📥 The workbook's reader
@@ -279,13 +314,83 @@ checks numbers as text and converts them with `Val`, which always reads a
 `.` decimal point, and checks dates digit by digit, so the outcome does not
 depend on the Windows locale. It writes nothing: a file is accepted or
 rejected whole, and an accepted file's records are returned as their raw
-text, in contract column order, for the staging sheets (#208). Until they
-exist, the macros `CheckTradesCsv` and `CheckNettingSetsCsv` (Macros dialog,
-Alt+F8) check a file and list its first findings with their line, record and
-column, and `TEST_Benchmark.RunCsvBenchmark` measures the reader on files of
-up to the record limit.
+text, in contract column order. The macros `CheckTradesCsv` and
+`CheckNettingSetsCsv` (Macros dialog, Alt+F8) check a file and list its first
+findings with their line, record and column, and
+`TEST_Benchmark.RunCsvBenchmark` measures the reader on files of up to the
+record limit.
 
 `tools/generate_csv_vba.py` writes the contract into `CORE_CsvSchema` and
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 📦 Staging
+
+The **Import CSV** button on `Import_Trades` or `Import_NettingSets` (#208)
+loads a file onto that staging sheet, where its records can be checked and
+corrected before they replace `Trades` or `NettingSets` (#209 to #211). The
+input sheets, Results and the run fingerprints are not changed.
+
+A file is staged unless a finding is **structural**: `CSV-ENCODING`,
+`CSV-SYNTAX`, `CSV-EMPTY`, `CSV-DELIMITER`, `CSV-HEADER-DUPLICATE`,
+`CSV-HEADER-MISSING`, `CSV-HEADER-UNKNOWN`, `CSV-FIELD-COUNT`,
+`CSV-TOO-MANY-RECORDS` or `CSV-TOO-LARGE`. With one of those, nothing is
+loaded and the sheet is left as it was. The other findings are about values;
+they are listed when the file is loaded, and the records stay on the sheet to
+be corrected there. A blank record is not loaded. `STRUCTURAL` in
+`tools/csv_contract.py` and `STRUCTURAL_CODES` in `CORE_CsvReader` are this
+list, and `TEST_CsvReader` checks, for every fixture and case, that the
+reader keeps exactly the records the reference implementation keeps.
+
+On the sheet, each record is one row: its **CSV line**, the physical line it
+starts on, then its values in contract order, under the sheet headers with
+the CSV column names above them. Every value is written as text, exactly as
+in the file, into cells formatted as text, so leading zeros, long IDs, ISO
+dates and text that starts like a formula stay as written and nothing is
+calculated. A row added on the sheet has no CSV line; none is ever invented.
+
+At the top, the sheet shows the file, the time of the load, the record count
+and a status: `EMPTY` before any load, `LOADED` after one, `EDITED` once a
+cell below the header changes. The fingerprint of the block as loaded is kept
+in a hidden name. When the block no longer matches it, a new load asks before
+it replaces the changes, even if they were made with events off and the
+status still reads `LOADED`. A load that fails while writing puts the sheet
+back as it was, formulas included. A value longer than an Excel cell holds,
+32,767 characters, cannot be staged whole: the load stops before the sheet
+changes.
+
+### Validating the staged rows
+
+**Validate staging** (`ValidateStaging`, #209), on either staging sheet,
+checks the rows of both. Each sheet that holds rows is checked as a file's
+records are (`CheckStagedRecords`; `check_staged` in the reference): each
+field, the rules between fields and the keys. A row whose fields are all
+blank is one finding, and more rows than the limit is one finding. Then the
+rules between records: the staged legs against each other and against the
+netting sets of `Import_NettingSets` when it holds rows, or else of
+`NettingSets`; with only netting sets staged, each leg on `Trades` against
+them, which finds the legs a commit of those netting sets would orphan. A
+finding's record is the row's position on the sheet, and its line the row's
+CSV line, 0 for a row added there.
+
+The findings replace the lines of `Checks`, with the origin `IMPORT` in its
+Origin column: an `INFO` line with the counts, then one `ERROR` line per
+finding, every finding of the contract being an error, with the sheet, the
+row, a link to the cell in Reference, and the code, column, message and CSV
+line. A finding that names no column is on the row's CSV line cell. At most
+10,000 findings are listed; the `INFO` line gives the full count. The staged
+cells with a finding get a red fill, after the red fills of the last
+validation are taken off, and other fills are left alone; a cell of a live
+sheet is never marked or changed. Each staging sheet that holds rows then
+reads `VALID` or `INVALID` in its status cell, until a cell changes. A
+formula in a staging block refuses the validation, as nothing staged does,
+and changes nothing.
+
+The input sheets, Results and the run's fingerprints are not changed, but
+`Checks` no longer shows the run's own checks: `ResultsStatus()` reads
+`EDITED` instead of `CURRENT`, and the evidence export refuses until the next
+**Run SA-CCR**, whose
+lines carry the origin `RUN`. The checks that depend on Params, the FX table
+and the reporting date, and the commit into the input sheets, come with #209
+to #211.

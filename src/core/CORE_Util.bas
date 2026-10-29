@@ -38,7 +38,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1542,6 +1542,61 @@ Public Sub ClearOutputBlock( _
             .Font.Bold = False
             .Interior.ColorIndex = xlNone
         End With
+
+End Sub
+
+
+Public Sub ClearChecksBlock( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long)
+'
+'==============================================================================
+'                               ClearChecksBlock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clear the Checks table before it is rewritten, as ClearOutputBlock
+'   clears an output table, and take off the link formats a staging
+'   validation left (#209): its links are HYPERLINK formulas, which the
+'   clearing removes, but Excel gives their cells the font of its link
+'   style, another name and size, blue and underlined, which a later line
+'   would keep. Each column gets back the font of its last cell on the
+'   sheet, which nothing writes and which has the column's format.
+'
+' INPUTS
+'   Sheet: the Checks sheet. FirstRow: its first data row.
+'
+' STATE OWNERSHIP
+'   Changes the cleared cells only.
+'
+' UPDATED
+'   2026-10-28
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastUsedRow   As Long     'Last row of the used range
+    Dim Model         As Range    'Last cell of a column, with its format
+    Dim c             As Long     'Table column
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+        ClearOutputBlock Sheet, FirstRow, CK_NCOLS
+        LastUsedRow = UsedLastRow(Sheet)
+        If LastUsedRow < FirstRow Then
+            Exit Sub
+        End If
+        For c = 1 To CK_NCOLS
+            Set Model = TableCell(Sheet, Sheet.Rows.Count, c)
+            With TableRange(Sheet, FirstRow, c, LastUsedRow, c).Font
+                .Name = Model.Font.Name
+                .Size = Model.Font.Size
+                .Color = Model.Font.Color
+                .Underline = Model.Font.Underline
+            End With
+        Next c
 
 End Sub
 
