@@ -214,6 +214,10 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Record the repository's code security settings in the governance table:
+  CodeQL default setup for the workflows and the Python tools, secret scanning
+  with push protection, and Dependabot security updates, whose pull requests
+  target `main` and are applied on the release branch instead.
 - Show the release plan in the README roadmap as a timeline of the
   milestones' due dates, and the v1.1.0 schedule as a timeline of its issues'
   planned dates, both drawn by GitHub from Mermaid text and dated; the
