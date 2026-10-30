@@ -13,22 +13,20 @@ if not exist "%SCRIPT%" (
     exit /b 1
 )
 
+rem Without a dropped workbook, a fresh development workbook is built from
+rem the template in the ignored test-results folder, replaced on every run.
+rem A dropped workbook is synchronized as it is and never rebuilt.
 set "WORKBOOK=%~1"
-
+set "BUILD="
 if not defined WORKBOOK (
-    echo SACCR VBA synchronization
-    echo.
-    echo No workbook given. Drag the .xlsm workbook onto this file, or run:
-    echo   %~nx0 ^<path to workbook^>
-    echo.
-    pause
-    exit /b 1
+    set "WORKBOOK=%CD%\test-results\K-SACCR_Development.xlsm"
+    set "BUILD=-Mode Development -FromTemplate"
 )
 
 echo SACCR VBA synchronization
 echo.
 
-if not exist "%WORKBOOK%" (
+if not defined BUILD if not exist "%WORKBOOK%" (
     echo.
     echo ERROR: Workbook not found:
     echo   %WORKBOOK%
@@ -43,15 +41,27 @@ echo   %CD%
 echo Workbook:
 echo   %WORKBOOK%
 echo.
-echo Synchronizing VBA source...
+if defined BUILD (
+    echo Building a development workbook from src\workbook\SACCR_Template.xlsx
+    echo and synchronizing it, sheet code included...
+) else (
+    echo Using the dropped workbook as it is: its sheets are not rebuilt.
+    echo Synchronizing VBA source...
+)
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" -WorkbookPath "%WORKBOOK%" -RepoRoot "%REPO_ROOT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" -WorkbookPath "%WORKBOOK%" -RepoRoot "%REPO_ROOT%" %BUILD%
 set "RC=%ERRORLEVEL%"
 
 echo.
 if "%RC%"=="0" (
     echo SUCCESS: SACCR VBA synchronization completed.
+    if defined BUILD (
+        echo Open the workbook, run Debug - Compile VBAProject, then the tests:
+        echo   %WORKBOOK%
+    )
+) else if "%RC%"=="2" (
+    echo NOT CHANGED: nothing was imported; the workbook was not changed.
 ) else (
     echo FAILED: SACCR VBA synchronization returned exit code %RC%.
 )

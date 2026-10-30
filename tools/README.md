@@ -102,9 +102,19 @@ tools\Sync-SACCR-VBA.cmd "C:\path\to\SACCR.xlsm"
 ```
 
 The launcher runs the PowerShell synchronizer on that workbook, shows the
-result and pauses before closing. It has no default workbook: started
-without one, for example by double-clicking it, it prints how to use it,
-pauses and exits with code 1 without starting PowerShell.
+result and pauses before closing. A dropped workbook is synchronized as it
+is; its sheets are never rebuilt. Started without one, for example by
+double-clicking it, the launcher builds a fresh development workbook,
+`test-results\K-SACCR_Development.xlsm`, from the template of the checkout
+and synchronizes it with the sheet code (`-Mode Development -FromTemplate`).
+The file is replaced on every such run, so its sheets and its code always
+come from the same commit; `test-results/` is ignored by Git.
+
+`-FromTemplate` saves `src/workbook/SACCR_Template.xlsx` as an `.xlsm` at
+`-WorkbookPath`, in an Excel instance of its own and replacing a file of
+that name, before the synchronization. It always replaces the sheet code,
+without asking, since the template's document modules hold none, and makes
+no backup. It is refused with `-SourceDir` and with `-SkipSheets`.
 
 PowerShell remains available for direct use from the repository root. Run
 the script through `powershell.exe -ExecutionPolicy Bypass -File`, as the
