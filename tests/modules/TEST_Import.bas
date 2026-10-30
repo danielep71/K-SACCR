@@ -85,7 +85,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 17                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 88                           'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 89                           'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -932,10 +932,11 @@ Private Sub CaseValidateErrorValues()
 '==============================================================================
 ' PURPOSE
 '   Excel error values in staged cells, as a paste of values can leave
-'   them (#476): #N/A in the notional, a number column, and #DIV/0! in the
-'   comment, a text column. The validation runs without a VBA error and
-'   is INVALID with one finding, the notional's CSV-TYPE, naming #N/A; the
-'   comment is judged as the text Excel shows.
+'   them (#476): on T1, #N/A in the notional, a number column, and
+'   #DIV/0! in the comment, a text column; on T2, #VALUE! in the notional
+'   and #N/A in the comment. The validation runs without a VBA error and
+'   is INVALID with two findings, each notional's CSV-TYPE naming its
+'   error; the comments are judged as the text Excel shows.
 '==============================================================================
 '
 
@@ -943,7 +944,8 @@ Private Sub CaseValidateErrorValues()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ResultLine    As String     'What the validation returned
-    Dim Notional      As Range      'The notional holding #N/A
+    Dim Notional      As Range      'The notional of T1, holding #N/A
+    Dim Notional2     As Range      'The notional of T2, holding #VALUE!
     Dim Events        As Boolean    'EnableEvents before the case
     Dim ErrorNumber   As Long       'Error raised by the validation
 
@@ -955,23 +957,28 @@ Private Sub CaseValidateErrorValues()
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
-        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "1000", "") & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         Application.EnableEvents = False
         Set Notional = StagingCell(KIND_TR, 1, COL_TR_NOTIONAL)
+        Set Notional2 = StagingCell(KIND_TR, 2, COL_TR_NOTIONAL)
         Notional.Value = CVErr(xlErrNA)
         StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value = CVErr(xlErrDiv0)
+        Notional2.Value = CVErr(xlErrValue)
+        StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value = CVErr(xlErrNA)
         Application.EnableEvents = Events
-        Check IsError(Notional.Value2) And IsError(StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2), _
+        Check IsError(Notional.Value2) And IsError(StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2) And _
+              IsError(Notional2.Value2) And IsError(StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value2), _
               "the cells do not hold error values"
         On Error Resume Next
         ResultLine = M_Main.ValidateStaging_Silent()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         Check ErrorNumber = 0, "the validation raised error " & ErrorNumber
-        CheckText "result", ResultLine, "RESULT=INVALID; errors=1; nettingsets=2; trades=1; first=CSV-TYPE|" & _
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=2; nettingsets=2; trades=2; first=CSV-TYPE|" & _
                   SH_IMPORT_TR & "!" & Notional.Address(False, False)
         Check InStr(1, ChecksValue(2, 5), "#N/A", vbBinaryCompare) > 0, "the finding does not name #N/A: " & ChecksValue(2, 5)
+        Check InStr(1, ChecksValue(3, 5), "#VALUE!", vbBinaryCompare) > 0, "the finding does not name #VALUE!: " & ChecksValue(3, 5)
         CheckText "status", Meta(KIND_TR, 4), STAGING_INVALID
         Exit Sub
 
