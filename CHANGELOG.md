@@ -96,6 +96,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Build a development workbook in one step: `tools/Sync-SACCR-VBA.cmd`
+  started without a workbook saves the template as
+  `test-results\K-SACCR_Development.xlsm` and synchronizes it with the sheet
+  code, through the synchronizer's new `-FromTemplate`, so a workbook can no
+  longer keep the sheets of an older template or empty sheet modules. A
+  dropped workbook is synchronized as before.
 - Define version 1 of the Trades and NettingSets CSV input contract (#206):
   `docs/csv/contract.json` and `docs/csv/CSV_CONTRACT.md` specify the columns,
   types, allowed values, blank rules, encoding, `;` as the field separator,
