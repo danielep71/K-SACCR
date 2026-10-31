@@ -209,6 +209,9 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Give both jobs of the label synchronization workflow a five-minute
+  timeout, as the drift workflow has, and assign Dependabot's update pull
+  requests to `danielep71` (#485).
 - Move the issue-label manifest to schema version 2: `.github/labels.json`
   holds only `schema_version`, `prune` and `labels`, `.github/label-policy.json`
   is gone, and the two label scripts and workflows no longer take `--policy`.
