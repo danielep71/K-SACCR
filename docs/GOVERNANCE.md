@@ -175,13 +175,16 @@ reconciliation.
 
 ### When to use each label
 
-Every issue carries exactly one priority label:
+Every issue carries exactly one priority label. `P1` is reserved for a
+confirmed calculation bug and is used only together with `bug`; any other
+defect, however urgent, is `P2`. Issues closed before this rule keep the
+priority they were closed with.
 
 | Label | Use when |
 | --- | --- |
-| `P1` | Critical release blocker or serious correctness, data, or application-state risk |
+| `P1` | Confirmed calculation bug: wrong results for valid inputs (reserved for this case) |
 | `P2` | Material correctness, robustness, or maintainability defect |
-| `P3` | Non-blocking quality, testing, documentation, or technical-debt improvement |
+| `P3` | Non-blocking quality, testing, documentation, setup or technical-debt work |
 
 The forms default to `P2` (bug, feature) and `P3` (documentation); Dependabot
 update PRs and traffic alerts get `P3`. Triage confirms or changes it.
@@ -193,7 +196,7 @@ Type labels say what kind of work an issue or PR is. The forms set `bug`,
 | --- | --- |
 | `bug` | Confirmed defect in behavior, correctness, error handling, or a documented contract |
 | `enhancement` | New capability or meaningful improvement to supported behavior |
-| `documentation` | User-facing or maintainer-facing documentation |
+| `documentation` | Documentation for users or for my repository maintenance |
 | `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
 | `refactor` | Internal restructuring intended to preserve supported behavior |
 | `behavior-change` | Intentional externally observable behavior change |
@@ -207,12 +210,12 @@ Status and triage labels:
 | Label | Use when |
 | --- | --- |
 | `blocked` | Cannot proceed until a named dependency is complete |
-| `question` | Further information or a maintainer decision is required |
-| `help wanted` | Maintainer welcomes external investigation, implementation, validation, or review |
+| `question` | I need further information or need to make a decision |
+| `help wanted` | I welcome external investigation, implementation, validation, or review |
 | `good first issue` | Well-scoped task suitable for a first contribution |
 | `duplicate` | An existing issue or pull request already covers this work |
 | `invalid` | Report is incomplete, unsupported, or not actionable as submitted |
-| `wontfix` | Maintainers have decided not to implement or continue this work |
+| `wontfix` | I have decided not to implement or continue this work |
 
 Labels do not assign priorities or milestones automatically.
 
