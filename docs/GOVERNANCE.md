@@ -92,8 +92,12 @@ candidate.
 
 Every issue has assignee **danielep71**, exactly one priority label
 (**P1**, **P2** or **P3**; see [Labels](#labels)) and the milestone of the
-release branch it targets. Include objective, acceptance checklist,
-dependencies and required evidence.
+release branch it targets. Include objective, acceptance checklist, a
+**Dependencies and blocking status** section and required evidence. The
+section names each prerequisite as an issue link (`#12`) or on a line
+starting `External condition:`, or says `None`; it may also name related
+issues. `blocked` is set only while a named prerequisite is open or an
+external condition holds.
 
 Exception: traffic alert issues opened by the daily traffic export get the
 assignee and **P3** automatically and no milestone; they are operational
@@ -111,13 +115,36 @@ hides ordinary blank issues, but users with Write, Maintain or Admin access
 can still use the **Maintainers only** blank-issue option. Those issues, and
 issues created through the API, CLI or another tool, bypass the forms and get
 no metadata automatically. Nothing blocks an issue that lacks metadata: this is
-a **manual rule backed by the triage check**, not enforcement. The issue forms
+a **manual rule backed by the triage check** below, not enforcement. The issue forms
 and the pull-request template are read by GitHub from the default branch, so a
 change to them takes effect after the next integration into `main`.
 
 ### Triage check
 
-Run these searches at issue triage and before milestone closeout. Each must
+The read-only **Issue triage** workflow
+([`.github/workflows/issue-triage.yml`](../.github/workflows/issue-triage.yml))
+runs `tools/check_issues.py` on every issue event and on manual dispatch. It
+audits every open issue:
+
+- assigned to the person `bug.yml` assigns;
+- exactly one of `P1`, `P2` and `P3`, and `P1` only together with `bug`;
+- a milestone;
+- only labels of `.github/labels.json`;
+- a dependency section whose issue references exist;
+- `blocked` only with an open prerequisite or an external condition, and
+  always with an external condition.
+
+Traffic alerts need no milestone or dependency section. The workflow never
+changes an issue: a failed run lists the findings, and I resolve each by hand.
+Issue events run it from `main`, so a change to it takes effect after the next
+integration. To audit locally, with an export of the issues as GitHub REST
+JSON:
+
+```sh
+python tools/check_issues.py --input issues.json --repo-name danielep71/K-SACCR
+```
+
+The searches below also cover closed issues. Run these searches at issue triage and before milestone closeout. Each must
 return no results. Closed issues are included because the metadata rule applies
 to every issue. Keep the missing-milestone search repository-wide: filtering by
 milestone would hide orphans.

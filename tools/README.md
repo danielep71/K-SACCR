@@ -16,7 +16,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`) and the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`) the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) and the issue triage rules (`test_check_issues.py`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -25,6 +25,7 @@ pull request's whole range.
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
 | `excel-evidence-policy` | `.github/excel-evidence-policy.json` matches the test modules: the harness's case and assertion counts, each suite's case and check counts (`EXPECTED_CASES`, `EXPECTED_CHECKS`, `CASES`, `CHECKS` or `BeginSuite`; a check count under `#If Win64` is the 64-bit one and under its `#Else` the 32-bit one; a module without a check count is held by its evidence log only), header and `MODE` line, a case-runner suite's first case (the first `BeginCase` or `StartCase` in its module), and the suites `TEST_Suite.Test_RunAll` runs, with `SUITE_COUNT`; and the root `README.md` shows the same suites and 64-bit counts in its Excel suites and Regression badges, the Testing capability, the suite table with its total, and the `Test_RunAll` output |
 | `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS` in `CORE_Config` and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates and the field tables of `docs/csv/CSV_CONTRACT.md` are what the contract generates; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
+| `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
 | `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
 | `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
 
@@ -357,6 +358,24 @@ describes them. Their token defaults to `contents: read`:
 | Detect issue-label drift | Live label drift | Daily at 05:17 UTC, manual dispatch | `contents: read`, `issues: read` |
 
 Every checkout sets `persist-credentials: false`.
+
+### Issue triage workflow
+
+`.github/workflows/issue-triage.yml` runs `check_issues.py` on every issue
+event (opened, edited, reopened, closed, labelled, assigned, milestoned and
+their reverses) and on manual dispatch, with `contents`, `issues` and
+`pull-requests` read permissions. It applies the rules of
+[`docs/GOVERNANCE.md`](../docs/GOVERNANCE.md#triage-check) to every open issue,
+writes the findings to the job summary and keeps the JSON report for 30 days.
+It never changes an issue. Issue events run it from `main`.
+
+```sh
+GITHUB_TOKEN=<token with issues:read and pull-requests:read> python tools/check_issues.py --repository danielep71/K-SACCR
+python tools/check_issues.py --input issues.json --repo-name danielep71/K-SACCR   # issues exported as GitHub REST JSON
+python tools/check_issues.py --check-config        # forms and label catalogue only
+```
+
+Exit code 0 means PASS, 1 a finding and 2 an error.
 
 ## Traffic history
 

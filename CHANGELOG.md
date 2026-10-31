@@ -96,6 +96,14 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Audit the open issues on every issue event (#485): the read-only
+  `Issue triage` workflow runs `tools/check_issues.py`, which requires the
+  assignee, exactly one priority (`P1` only with `bug`), a milestone,
+  catalogue labels and a dependency section, and `blocked` only while a
+  named prerequisite is open or an external condition holds; traffic alerts
+  need no milestone or dependency section. The `issue-config` gate checks
+  the forms, and the bug and documentation forms gain the dependencies field
+  the feature form already had.
 - Build a development workbook in one step: `tools/Sync-SACCR-VBA.cmd`
   started without a workbook saves the template as
   `test-results\K-SACCR_Development.xlsm` and synchronizes it with the sheet
