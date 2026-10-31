@@ -20,6 +20,8 @@ updates:
     labels:
       - "ci"
       - "P3"
+    assignees:
+      - "danielep71"
   - package-ecosystem: "pip"
     directory: "/tools"
     # Keep both ecosystem targets aligned with the active release branch.
@@ -42,3 +44,5 @@ updates:
     labels:
       - "ci"
       - "P3"
+    assignees:
+      - "danielep71"

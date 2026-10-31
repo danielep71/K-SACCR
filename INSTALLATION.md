@@ -222,9 +222,16 @@ The layout and file conventions are defined in
    holds the 18 sheets, named ranges, formulas and buttons, and no VBA. Built
    workbooks are never committed.
 
-   Instead of the manual import in steps 4 and 5, drag the saved workbook onto
-   `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; it has no
-   default workbook. It first asks which workbook you are building:
+   Instead of this step and the manual import in steps 4 and 5,
+   double-click `tools/Sync-SACCR-VBA.cmd`: started without a workbook, it
+   saves the template as `test-results\K-SACCR_Development.xlsm`, replacing
+   an earlier one, and fills it as a development workbook, sheet code
+   included, so the sheets and the code come from the same commit. Then
+   continue with step 6.
+
+   To synchronize a workbook you saved yourself, drag it onto
+   `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; its sheets
+   are kept as they are. It first asks which workbook you are building:
    **P**roduction, with the engine, the worksheet functions and the
    sheet-button macros, or **D**evelopment, which adds every test module of
    `tests/modules/`. The two component sets are listed in
@@ -530,14 +537,16 @@ and one made with events on, which shows `EDITED`; a shorter file, which
 clears the rows below it; a failure while writing (`gTestFault =
 "staging-write"`), which puts the sheet back, a formula in it included; a
 value longer than a cell holds, which loads nothing; a formula in the block,
-which `StagingFormulaCell` finds; and a header-only file. It then validates
+which `StagingFormulaCell` finds; a formula whose value is the text it
+replaced, which still refuses a new load; and a header-only file. It then validates
 the staging sheets through `M_Main.ValidateStaging_Silent`: staged legs with
 an unknown netting set and a notional that is not a number, listed on Checks
 with links, marked and reported `INVALID`; the same cells corrected, `VALID`,
 with the marks gone and no link font left on Checks; the evidence export refused while Checks shows the
 validation; netting sets staged alone, against the legs on Trades, whose cells
-are not marked; and a formula in a staging block or nothing staged, which
-refuse and leave Checks alone. The live inputs and the run fingerprints must
+are not marked; a formula in a staging block or nothing staged, which
+refuse and leave Checks alone; and Excel error values in staged cells, which
+are judged by the text Excel shows, without a VBA error. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 
