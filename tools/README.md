@@ -342,6 +342,10 @@ them against the repository and against a deliberate violation of each:
 | Milestones | `pr-milestones.yml` changes its events, its permissions or its condition, or is not one inline step whose script contains no `${{` |
 | Dependabot | An ecosystem the repository pins (`github-actions`, `pip`) has no block or more than one, or a block sets a milestone, lacks the `bug.yml` assignee, or has a priority other than exactly `P3` |
 
+The traffic tests also enforce step-scoped App credentials, the exact token
+action inputs and preflight ordering. Deliberate credential leaks are rejected;
+the preflight script is exercised with each missing-credential combination.
+
 The same test runs the milestone workflow's inline script against a fake API:
 a pull request's milestone is cleared, a scan crosses pages (read from the
 `page=` parameter, not `per_page=`), and an issue is refused.
@@ -428,13 +432,61 @@ The workflow's token defaults to `contents: read`; only the traffic job
 receives `contents: write`, to push the CSV history to `traffic-history`,
 and `issues: write`, to open the alert issue. Its checkout keeps no
 credentials: the token reaches git only in the push to `traffic-history`, as a
-masked authorization header on that one command. The traffic API itself is read with a
-fine-grained personal access token with `Administration: read` on this
-repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
-without it the run fails with a clear error. The badge files it writes under
-`data/badges/` are shields.io endpoint files that a README can use, since the
-repository is public. This is analytics, not CI: it runs no repository code
-and must never be extended to.
+masked authorization header on that one command. The traffic API uses a
+short-lived GitHub App installation token scoped to this repository and
+`Administration: read`. Only **Create the traffic App token** receives the
+private key; only **Fetch GitHub traffic API data** receives the installation
+token. The preflight sees only whether the key is set. The token action revokes
+the token at job completion; there is no personal-token fallback.
+
+The badge files under `data/badges/` remain shields.io endpoint files. This is
+analytics, not CI: it runs inline collection scripts, not repository code.
+The single job still holds both `contents: write` and `issues: write`;
+separating collection, publication and alerts remains an open hardening point.
+The migration does not change the CSV layout or collection semantics.
+
+### App setup and migration
+
+I configure the App and credentials before integrating the workflow into `main`:
+
+1. In the owning account's **Settings → Developer settings → GitHub Apps**,
+   create or use the dedicated traffic App, with its webhook disabled and
+   only **Administration: Read-only** (plus GitHub's mandatory Metadata read).
+   Install it on **K-SACCR**, selecting only the intended repositories.
+2. Generate a dedicated private key. In **Repository Settings → Environments
+   → analytics**, retain the deployment restriction to the default branch
+   (`main`). Create the environment **variable** `TRAFFIC_APP_CLIENT_ID` with
+   the App's Client ID and the environment **secret** `TRAFFIC_APP_PRIVATE_KEY`
+   with the complete PEM. Do not use repository secrets; an environment secret
+   overrides a repository secret of the same name. Remove the downloaded key
+   after securely saving it in the environment; never attach it to a PR or chat.
+3. Confirm setup before authorizing the integration into `main`. A merge into
+   the release branch alone does not activate the scheduled workflow.
+4. After integration, run **Actions → Daily traffic export → Run workflow**
+   on `main`. Check the configuration, token, fetch and push steps, then verify
+   a new commit on `traffic-history` with the expected updated `data/` CSVs.
+   Record the run URL and data commit in the tracking issue.
+5. Only after that successful verification, delete the old `TRAFFIC_TOKEN`
+   secret from `analytics` and revoke the personal token. These setup and
+   retirement steps are performed by the owner.
+
+Missing credentials fail with an error naming the `analytics` environment.
+Token creation failures require checking the Client ID, private key and App
+installation. Fetch 403/404 responses require checking the installation and
+accepted Administration read permission. Fix configuration and repeat the
+manual run; do not restore a PAT fallback. Missed data older than GitHub's
+14-day retention window cannot be recovered by a later collection.
+
+### Private-key rotation
+
+Rotate every 90 days, immediately on suspected exposure, or when someone other
+than the owner changes the workflow. Generate a new App key, replace
+`TRAFFIC_APP_PRIVATE_KEY` in **analytics**, and run the workflow on `main`.
+Verify successful fetching and the data commit, then delete the old key from
+App settings after checking its fingerprint. If a key is compromised, revoke
+it immediately rather than waiting for this verification. Installation tokens
+expire after one hour and are revoked by the action at job completion; do not
+set `skip-token-revoke`.
 
 ## Dependency updates
 
