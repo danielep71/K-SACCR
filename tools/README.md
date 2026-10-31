@@ -259,8 +259,8 @@ python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.j
   --summary test-results/check_vba_calls.md
 ```
 
-`check_vba_calls.py` is vendored from VBA-DATETIMEPICKER at commit `a66790a`
-and adopted **advisory only** (#60). `check.py` does not run it. The static
+`check_vba_calls.py` is vendored from VBA-DATETIMEPICKER at commit `a66790a`,
+resynchronised at `35d6857` (#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
 workflow runs it in a non-blocking step that adds its summary to the job page.
 Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
 compiler: compiling in Excel stays the authoritative call check.
@@ -272,8 +272,9 @@ conditional-compilation environment of `check_vba_conditionals.py`:
 - members of project classes;
 - Private members used from another module;
 - ambiguous public names;
-- argument counts and named arguments;
-- literal `Application.Run`, `OnTime`, `OnKey`, `OnAction`, `CallByName` and `AddressOf` targets.
+- argument counts and named arguments, also of a recursive call;
+- a class without a default instance (`VB_PredeclaredId = False`) used as an object (`VBA-CALL-005`);
+- literal `Application.Run`, `OnTime`, `OnKey`, `OnAction`, `CallByName` and `AddressOf` targets, a target qualified by a standard module of the project whatever its name.
 
 Anything else is reported as *unknown*, never as a defect.
 
@@ -288,9 +289,10 @@ The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
 
 **Limits.**
-- **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`). The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
+- **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`), in any case, as VBA names are. The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
 - **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker, which is why they are excluded.
-- **Not checked:** dynamic call targets, `Object` and `Variant` receivers, and argument types.
+- **Own name of a Function.** Assigning to or reading a Function's bare name is its return value, not a call. A parenthesised use of the name inside a parameterless Function is not checked, because it may index an array result.
+- **Not checked:** dynamic and workbook-qualified call targets, `Object` and `Variant` receivers, and argument types.
 
 **K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
 (no logic change), the Ribbon parser copied from that repository's
