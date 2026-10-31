@@ -58,7 +58,8 @@ class ResolutionTests(unittest.TestCase):
     def test_missing_unqualified_target_only_for_project_names(self) -> None:
         missing = analyze({"a.bas": mod("M_A", "Public Sub DP_Run()\n    DP_Gone 1\nEnd Sub\n")})
         self.assertEqual(codes(missing), ["VBA-CALL-001"])
-        host = analyze({"a.bas": mod("M_A", "Public Sub DP_Run()\n    Beep\n    HostThing 1\n    x = Len(\"a\")\nEnd Sub\n")})
+        host = analyze({"a.bas": mod("M_A", "Public Sub DP_Run()\n    Beep\n    HostThing 1\n"
+                                            "    x = Len(\"a\")\nEnd Sub\n")})
         self.assertEqual(codes(host), [])
         self.assertEqual(host["status"], "pass")
 
@@ -113,7 +114,8 @@ class ResolutionTests(unittest.TestCase):
 
     def test_comparison_inside_argument_is_not_an_assignment(self) -> None:
         report = analyze({"a.bas": mod("M_A", "Public Sub DP_Assert(ByVal t As String, ByVal c As Boolean)\nEnd Sub\n"
-                                              "Public Sub DP_Run()\n    DP_Assert \"x\", 1 = 1\n    DP_Assert \"y\", _\n        2 = 2\nEnd Sub\n")})
+                                              "Public Sub DP_Run()\n    DP_Assert \"x\", 1 = 1\n"
+                                              "    DP_Assert \"y\", _\n        2 = 2\nEnd Sub\n")})
         self.assertEqual(codes(report), [])
 
 
@@ -127,7 +129,8 @@ class ArgumentTests(unittest.TestCase):
 
     def test_valid_shapes(self) -> None:
         self.assertEqual(self.check("    DP_T 1\n    DP_T 1, , 3\n    DP_T C:=3, A:=1\n    DP_T 1, C:=3\n"
-                                    "    Call DP_T(1, 2)\n    DP_P 1, 2, 3, 4\n    x = DP_F(1) + DP_F(A:=2)\n    DP_T (1)\n    DP_T (1), 2\n"), [])
+                                    "    Call DP_T(1, 2)\n    DP_P 1, 2, 3, 4\n    x = DP_F(1) + DP_F(A:=2)\n"
+                                    "    DP_T (1)\n    DP_T (1), 2\n"), [])
 
     def test_too_few(self) -> None:
         self.assertEqual(self.check("    DP_T\n    x = DP_F()\n    x = DP_F\n"), ["VBA-CALL-010"] * 3)
@@ -177,7 +180,8 @@ class DynamicTests(unittest.TestCase):
     def report(self, body: str, extra: str = "", ribbon: bytes | None = None) -> dict[str, Any]:
         return analyze({"a.bas": mod("M_A", "Public Sub DP_Tick()\nEnd Sub\nPrivate Sub DP_Hidden()\nEnd Sub\n"
                                             "Public Function M_Qualify(ByVal n As String) As String\nEnd Function\n"
-                                            "Public Sub DP_Run()\n    Dim v As String\n    Dim o As Object\n    Dim c As cHook\n"
+                                            "Public Sub DP_Run()\n    Dim v As String\n    Dim o As Object\n"
+                                            "    Dim c As cHook\n"
                                             + body + "End Sub\n"),
                         "c.cls": cls("cHook", "Public Sub Fire()\nEnd Sub\n" + extra)}, ribbon=ribbon)
 
@@ -186,12 +190,14 @@ class DynamicTests(unittest.TestCase):
 
     def test_literal_targets(self) -> None:
         good = self.report('    Application.Run "DP_Tick"\n    Application.OnTime Now, "M_A.DP_Tick"\n'
-                           '    Application.OnKey "^d", M_Qualify("DP_Tick")\n    x = Application.Run("\'Book.xlsm\'!DP_Tick")\n'
+                           '    Application.OnKey "^d", M_Qualify("DP_Tick")\n'
+                           '    x = Application.Run("\'Book.xlsm\'!DP_Tick")\n'
                            '    CallByName c, "Fire", VbMethod\n')
         self.assertEqual(codes(good), [])
         self.assertIn(("Application.Run", "resolved"), self.entries(good))
         self.assertIn(("CallByName", "resolved"), self.entries(good))
-        bad = self.report('    Application.Run "DP_Gone"\n    Excel.Application.OnTime EarliestTime:=Now, Procedure:="DP_Gone2"\n'
+        bad = self.report('    Application.Run "DP_Gone"\n'
+                          '    Excel.Application.OnTime EarliestTime:=Now, Procedure:="DP_Gone2"\n'
                           '    CallByName c, "Missing", VbMethod\n    v = M_Qualify("DP_Gone3")\n')
         self.assertEqual(codes(bad), ["VBA-CALL-030"] * 4)
         private = self.report('    Application.Run "DP_Hidden"\n')
@@ -207,7 +213,8 @@ class DynamicTests(unittest.TestCase):
         report = self.report("", "Private WithEvents mApp As Excel.Application\n"
                                  "Private Sub mApp_SheetChange(ByVal S As Object, ByVal T As Object)\nEnd Sub\n"
                                  "Private Sub Class_Initialize()\nEnd Sub\n",
-                             ribbon=b'<customUI><button onAction="DP_Tick"/><button onAction="DP_NoSuchCallback"/></customUI>')
+                             ribbon=b'<customUI><button onAction="DP_Tick"/>'
+                                    b'<button onAction="DP_NoSuchCallback"/></customUI>')
         entries = self.entries(report)
         self.assertIn(("event-handler (WithEvents)", "external-entry"), entries)
         self.assertIn(("event-handler (class)", "external-entry"), entries)
@@ -304,3 +311,67 @@ class ConfigurationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Issue134Tests(unittest.TestCase):
+    """False negatives reported by a downstream adopter (#134), each next to the valid case it must keep."""
+
+    def test_project_names_match_case_insensitively(self) -> None:
+        for name in ("DP_GONE", "dp_gone", "Dp_Gone"):
+            with self.subTest(name=name):
+                report = analyze({"a.bas": mod("M_A", f"Public Sub DP_Run()\n    {name} 1\nEnd Sub\n")})
+                self.assertEqual(codes(report), ["VBA-CALL-001"])
+        host = analyze({"a.bas": mod("M_A", "Public Sub DP_Run()\n    beep\n    hostthing 1\nEnd Sub\n")})
+        self.assertEqual(codes(host), [])
+
+    def test_literal_target_in_a_known_module_is_checked_whatever_its_name(self) -> None:
+        body = ("Public Sub DP_Run()\n    Application.Run \"M_A.Missing\"\nEnd Sub\n"
+                "Public Sub Helper()\nEnd Sub\n")
+        self.assertEqual(codes(analyze({"a.bas": mod("M_A", body)})), ["VBA-CALL-030"])
+        valid = ("Public Sub DP_Run()\n    Application.Run \"M_A.Helper\"\n"
+                 "    Application.Run \"'Other.xlsm'!M_A.Missing\"\n    Application.Run \"Elsewhere.Missing\"\n"
+                 "    Application.Run \"cThing.Missing\"\nEnd Sub\nPublic Sub Helper()\nEnd Sub\n")
+        report = analyze({"a.bas": mod("M_A", valid), "c.cls": cls("cThing", "Public Sub Present()\nEnd Sub\n")})
+        self.assertEqual(codes(report), [])
+        statuses = [e["status"] for e in report["configurations"]["fixture"]["entry_points"]
+                    if e["channel"] == "Application.Run"]
+        self.assertEqual(statuses, ["resolved", "unknown-external", "unknown-external", "unknown-external"])
+
+    def test_recursive_calls_are_argument_checked(self) -> None:
+        def check(body: str) -> list[str]:
+            return codes(analyze({"a.bas": mod("M_A", body)}))
+
+        self.assertEqual(check("Public Sub DP_Recur(ByVal n As Long)\n    DP_Recur\nEnd Sub\n"), ["VBA-CALL-010"])
+        self.assertEqual(check("Public Sub DP_Recur(ByVal n As Long)\n    Call DP_Recur\nEnd Sub\n"),
+                         ["VBA-CALL-010"])
+        self.assertEqual(check("Public Sub DP_Recur(ByVal n As Long)\n    DP_Recur n - 1\n"
+                               "    Call DP_Recur(n - 1)\nEnd Sub\n"), [])
+        self.assertEqual(check("Public Function DP_F(ByVal n As Long) As Long\n    DP_F = DP_F()\nEnd Function\n"),
+                         ["VBA-CALL-010"])
+        self.assertEqual(check("Public Function DP_F(ByVal n As Long) As Long\n    DP_F = n\n"
+                               "    If n > 0 Then DP_F = DP_F + DP_F(n - 1)\nEnd Function\n"), [])
+
+    def test_return_value_of_array_function_is_not_a_call(self) -> None:
+        body = "Public Function DP_Arr() As Long()\n    Dim x As Long\n    x = DP_Arr(0)\nEnd Function\n"
+        self.assertEqual(codes(analyze({"a.bas": mod("M_A", body)})), [])
+
+    def test_class_without_default_instance_is_not_a_receiver(self) -> None:
+        predeclared = cls("cPre", "Public Sub Present(ByVal x As Long)\nEnd Sub\n").replace(
+            "VB_PredeclaredId = False", "VB_PredeclaredId = True")
+        files = {
+            "a.bas": mod("M_A", "Public Sub DP_Run()\n    cThing.Present 1\nEnd Sub\n"),
+            "c.cls": cls("cThing", "Public Sub Present(ByVal x As Long)\nEnd Sub\n"
+                                   "Public Sub Again()\n    Me.Present 1\nEnd Sub\n"),
+            "p.cls": predeclared,
+        }
+        self.assertEqual(codes(analyze(files)), ["VBA-CALL-005"])
+        files["a.bas"] = mod("M_A", "Public Sub DP_Run()\n    Dim c As cThing\n    Set c = New cThing\n"
+                                    "    c.Present 1\n    cPre.Present 1\n    M_B.DP_Yes\n"
+                                    "    CallByName c, \"Present\", VbMethod, 1\nEnd Sub\n")
+        files["b.bas"] = mod("M_B", "Public Sub DP_Yes()\nEnd Sub\n")
+        self.assertEqual(codes(analyze(files)), [])
+        files["a.bas"] = mod("M_A", "Public Sub DP_Run()\n    CallByName cThing, \"Present\", VbMethod, 1\nEnd Sub\n")
+        # The class name passed as a value is itself invalid; CallByName's target stays unresolved.
+        report = analyze(files)
+        self.assertEqual(codes(report), ["VBA-CALL-005"])
+        self.assertIn("dynamic CallByName target", report["configurations"]["fixture"]["unknown"])
