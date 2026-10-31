@@ -55,20 +55,9 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run all portable checks
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        run: |
-          args=(--ci)
-          if [[ -n "$PR_BASE_SHA" ]]; then
-            args+=(--base "$PR_BASE_SHA")
-          fi
-          python tools/check.py "${args[@]}"
-
-      # The quality steps below run even when an earlier check failed, so one run
-      # reports every problem. Any failing step fails the job.
+      # Installed before the portable checks: tool-tests reads the workflows
+      # with PyYAML, which is hash-locked with the quality tools.
       - name: Install pinned Python quality tools
-        if: ${{ !cancelled() }}
         run: |
           mkdir -p test-results
           python -m pip install \
@@ -82,6 +71,18 @@ jobs:
             mypy --version
           } | tee test-results/python-quality-versions.txt
 
+      - name: Run all portable checks
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          args=(--ci)
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            args+=(--base "$PR_BASE_SHA")
+          fi
+          python tools/check.py "${args[@]}"
+
+      # The quality steps below run even when an earlier check failed, so one run
+      # reports every problem. Any failing step fails the job.
       - name: Lint Python tooling (ruff)
         if: ${{ !cancelled() }}
         run: |

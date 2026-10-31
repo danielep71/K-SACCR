@@ -16,7 +16,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`) the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`) and the issue triage rules (`test_check_issues.py`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -323,6 +323,29 @@ credentials, and actions are pinned to full commit SHAs. It uses
 GitHub-hosted Ubuntu and Python 3.10.
 A successful job is static-check evidence only, not Excel validation.
 
+Before `check.py`, the job installs the hash-locked packages of
+`tools/requirements-quality-ci.txt`, PyYAML among them, which the workflow
+invariants test reads the workflows with.
+
+<a id="workflow-invariants"></a>
+
+`check_workflows.py` holds those invariants; `test_check_workflows.py` runs
+them against the repository and against a deliberate violation of each:
+
+| Invariant | Fails when |
+| --- | --- |
+| Pins | A `uses:` is not pinned to a 40-character commit SHA, or an `actions/checkout` lacks `persist-credentials: false` |
+| Limits | A workflow declares no top-level `permissions`, or a job has no `timeout-minutes` |
+| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `contents` and `issues` in `daily-traffic.yml`/`traffic`, or `pull-requests` in `pr-milestones.yml`/`reconcile`; or a workflow grants one at its top level |
+| Repository integrity | The `static-checks.yml` job has an `if` or a `strategy`, another name, `pull_request` or `push` filters other than branches `main` and `release/**`, or `docs/GOVERNANCE.md` no longer names it as the required check |
+| Label sync | The `reconcile` job of `labels-sync.yml` is not limited to the default branch |
+| Milestones | `pr-milestones.yml` changes its events, its permissions or its condition, or is not one inline step whose script contains no `${{` |
+| Dependabot | An ecosystem the repository pins (`github-actions`, `pip`) has no block or more than one, or a block sets a milestone, lacks the `bug.yml` assignee, or has a priority other than exactly `P3` |
+
+The same test runs the milestone workflow's inline script against a fake API:
+a pull request's milestone is cleared, a scan crosses pages (read from the
+`page=` parameter, not `per_page=`), and an issue is refused.
+
 After `check.py`, the same job runs three quality steps. Each runs even if an
 earlier step failed, so one run reports every problem, and each failure fails the
 job:
@@ -333,7 +356,7 @@ job:
 | mypy | `mypy --strict` over every module in `tools/`, tests included; a probe proves an unannotated function is rejected |
 | actionlint | Every workflow in `.github/workflows/`, including shellcheck on `run:` scripts |
 
-Ruff and mypy install from `tools/requirements-quality-ci.txt` with
+Ruff, mypy and PyYAML install from `tools/requirements-quality-ci.txt` with
 `--require-hashes --only-binary=:all:`. The actionlint archive is downloaded at a
 pinned version and verified against its SHA-256 before use. Their outputs are in
 the uploaded report. To run Ruff and mypy locally, with Python 3.10:

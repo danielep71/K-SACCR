@@ -101,6 +101,17 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Test the workflow invariants (#493): `tools/check_workflows.py`, run by
+  `test_check_workflows.py` in `tool-tests`, reads every workflow and
+  `dependabot.yml` with PyYAML and fails on an unpinned action, a checkout that
+  persists credentials, a missing `permissions` or `timeout-minutes`, a write
+  permission outside the declared list, a change to the Repository integrity
+  job or its triggers, a label reconciliation outside the default branch, a
+  change to the milestone workflow, or Dependabot blocks that miss an
+  ecosystem, set a milestone, lack the assignee or lack exactly `P3`. It also
+  runs the milestone script against a fake API. PyYAML 6.0.3 is hash-locked in
+  `tools/requirements-quality-ci.txt`, which the Repository integrity job now
+  installs before `check.py`.
 - Keep milestones on issues only (#493): the `Keep milestones issue-only`
   workflow removes a pull request's milestone when it is opened, reopened,
   edited or given one, and clears any left on open or closed pull requests
