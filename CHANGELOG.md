@@ -223,6 +223,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reconcile the live issue labels from the default branch only (#493): a
+  manual run of the label synchronization on another branch no longer applies
+  that branch's manifest, and the governance drops the sync from a reviewed
+  release ref; label changes take effect on integration into `main`.
 - Keep the workflow token out of `.git/config` in the daily traffic export
   (#493): the checkout no longer persists credentials, and the token reaches
   git only in the push to `traffic-history`, as a masked authorization header

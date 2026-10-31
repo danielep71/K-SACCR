@@ -353,7 +353,7 @@ describes them. Their token defaults to `contents: read`:
 | Workflow | Job | Runs on | Permissions |
 | --- | --- | --- | --- |
 | Sync issue labels | Validate label manifest | Pull requests to `main` or `release/**` that change the label inputs | `contents: read` |
-| Sync issue labels | Reconcile live labels | Pushes to `main` that change the label inputs, manual dispatch | `contents: read`, `issues: write` |
+| Sync issue labels | Reconcile live labels | Pushes to `main` that change the label inputs, manual dispatch on `main` | `contents: read`, `issues: write` |
 | Detect issue-label drift | Label drift fixtures | Pull requests to `main` or `release/**` that change the label inputs | `contents: read` |
 | Detect issue-label drift | Live label drift | Daily at 05:17 UTC, manual dispatch | `contents: read`, `issues: read` |
 
