@@ -223,6 +223,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Keep the workflow token out of `.git/config` in the daily traffic export
+  (#493): the checkout no longer persists credentials, and the token reaches
+  git only in the push to `traffic-history`, as a masked authorization header
+  on that one command.
 - Reserve `P1` for a confirmed calculation bug, wrong results for valid
   inputs, used only with `bug` (#485); other defects are `P2`. The
   descriptions of `documentation`, `help wanted`, `question` and `wontfix`

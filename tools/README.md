@@ -390,8 +390,9 @@ views.
 
 The workflow's token defaults to `contents: read`; only the traffic job
 receives `contents: write`, to push the CSV history to `traffic-history`,
-and `issues: write`, to open the alert issue. Its checkout keeps the
-credentials for that push. The traffic API itself is read with a
+and `issues: write`, to open the alert issue. Its checkout keeps no
+credentials: the token reaches git only in the push to `traffic-history`, as a
+masked authorization header on that one command. The traffic API itself is read with a
 fine-grained personal access token with `Administration: read` on this
 repository, stored as `TRAFFIC_TOKEN` in the `analytics` environment;
 without it the run fails with a clear error. The badge files it writes under
