@@ -28,7 +28,13 @@ Attribute VB_Name = "TEST_Import"
 '   A formula in a staging block, or nothing staged, refuses the
 '   validation and leaves Checks as it was. An Excel error value in a
 '   staged cell is judged by the text Excel shows for it, without a VBA
-'   error (#476).
+'   error (#476). Against Params: a matured leg, a currency without a
+'   rate and an OT leg under a BCBS override are findings on their cells;
+'   a reporting date cleared on Params is one finding, on its cell there,
+'   and no sheet is VALID; with only netting sets staged, a staged
+'   override applies to the legs on Trades. The counters of the last run
+'   are unchanged. M_Main.StagingValidationCurrent is True after a VALID
+'   validation only while nothing it judged has changed.
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -36,8 +42,8 @@ Attribute VB_Name = "TEST_Import"
 '
 ' DEPENDENCIES
 '   M_Main, with its test seam gTestFault, for the load, the validation
-'   and the evidence export; CORE_Engine for
-'   BlockText and InputFingerprint; CORE_Util for the cells and TextHash;
+'   and the evidence export, and StagingValidationCurrent; CORE_Engine
+'   for BlockText, InputFingerprint and the run counters; CORE_Util for the cells and TextHash;
 '   CORE_Export for the UTF-8 bytes; CORE_Config for the sheet and name
 '   constants, the CSV header lines and the error numbers; TEST_Suite.Say
 '   for the log lines. Needs a workbook built from the current template,
@@ -51,7 +57,10 @@ Attribute VB_Name = "TEST_Import"
 '   written to the TEMP folder (K-SACCR_import_test.csv) and deleted.
 '   The validation cases rewrite Checks; its lines are put back as
 '   values, an ERROR line in bold, so that the run's outputs read as they
-'   did. No input sheet is touched.
+'   did, and the hidden name of the last VALID validation is put back.
+'   Two cases change one Params value each, AsOfDate and Alpha, and put
+'   it back as it was, also after an unexpected error; no other input
+'   cell is touched, and the last case checks the live inputs.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -68,7 +77,7 @@ Attribute VB_Name = "TEST_Import"
 '   RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-10-29
+'   2026-10-31
 '
 ' AUTHOR
 '   Daniele Penza
@@ -84,22 +93,27 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 17                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 89                           'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 21                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 110                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
         Private Const KIND_TR           As Long = 2                            'Import_Trades
-    'Synthetic records: two netting sets, and a trade leg of NS-T1 whose
-    'ID, notional and comment each case chooses.
+    'Synthetic records: two netting sets, a third with the regime override
+    'BCBS, and a trade leg of NS-T1 whose ID, notional and comment each
+    'case chooses.
         Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;"
         Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;"
+        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;"
     'Table columns of the staging block: the CSV line, then the contract's.
         Private Const COL_LINE          As Long = 1     'CSV line
         Private Const COL_ID            As Long = 2     'trade_id or netting_set_id
         Private Const COL_TR_NS         As Long = 3     'netting_set_id of a leg
+        Private Const COL_TR_CLASS      As Long = 4     'asset_class
         Private Const COL_NS_REMARGIN   As Long = 6     'remargin_period_business_days
         Private Const COL_TR_NOTIONAL   As Long = 12    'notional_amount
+        Private Const COL_TR_NCCY       As Long = 13    'notional_currency
+        Private Const COL_TR_MATURITY   As Long = 18    'maturity_date
         Private Const COL_TR_COMMENT    As Long = 29    'comment
     'Fills of a staged value and of a cell with an error, as M_Main sets
     'them (STAGING_VALUE_FILL and STAGING_ERROR_FILL).
@@ -129,6 +143,10 @@ Attribute VB_Name = "TEST_Import"
         Private mSavedChecks         As Variant    'Its lines; Empty for none
         Private mSavedChecksRows     As Long       'Their number
         Private mChecksBefore        As String     'Its lines as text, compared at the end
+    'The fingerprint of the last VALID staging validation, put back at the
+    'end.
+        Private mSavedValidated      As String     'RefersTo of STAGING_VALIDATED_NAME
+        Private mHadValidated        As Boolean    'The name existed
 
 
 '
@@ -149,7 +167,7 @@ Public Sub RunImportTests()
 '   and a final RESULT line.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-10-31
 '==============================================================================
 '
 
@@ -190,6 +208,8 @@ Public Sub RunImportTests()
         SaveStaging KIND_NS
         SaveStaging KIND_TR
         SaveChecks
+        mSavedValidated = NameText(STAGING_VALIDATED_NAME)
+        mHadValidated = Len(mSavedValidated) > 0
 
         CaseNettingSetsAccepted
         CaseTradesValueFindings
@@ -207,11 +227,16 @@ Public Sub RunImportTests()
         CaseValidateLiveTrades
         CaseValidateRefused
         CaseValidateErrorValues
+        CaseValidateContext
+        CaseValidateParams
+        CaseValidateCurrent
+        CaseValidateLiveContext
         PutChecksBack
         CaseLiveSheets LiveBefore
 
         PutStagingBack KIND_NS
         PutStagingBack KIND_TR
+        PutValidatedBack
         RemoveFile mTestFile
         M_Main.gTestFault = ""
         Application.Calculation = CallerCalculation
@@ -989,6 +1014,249 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseValidateContext()
+'
+'==============================================================================
+' PURPOSE
+'   Staged legs judged against Params (#209): T1 is valid; T2 has
+'   matured, its maturity not after the reporting date; T3 is in SEK,
+'   which has no FX rate; T4 is an OT leg of NS-T3, whose override is
+'   BCBS. The validation is INVALID with three findings, in that order,
+'   each on its staged cell, which is marked; Import_NettingSets is VALID
+'   and Import_Trades INVALID; the counters of the last run are as they
+'   were; and an INVALID validation does not read as current.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String    'What the validation returned
+    Dim Maturity        As Range     'Maturity of T2
+    Dim NotionalCcy     As Range     'Notional currency of T3
+    Dim AssetClass      As Range     'Asset class of T4
+    Dim CountersBefore  As String    'Errors, warnings and trades read of the last run
+
+'------------------------------------------------------------------------------
+' LOAD AND VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.context"
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf & NS_ROW_BCBS & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & _
+                 Replace(TradeRow("T2", "1000", ""), ";2031-01-02;2031-01-02;", ";2026-01-02;2026-01-02;") & vbLf & _
+                 Replace(TradeRow("T3", "1000", ""), ";1000;EUR;", ";1000;SEK;") & vbLf & _
+                 Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Set Maturity = StagingCell(KIND_TR, 2, COL_TR_MATURITY)
+        Set NotionalCcy = StagingCell(KIND_TR, 3, COL_TR_NCCY)
+        Set AssetClass = StagingCell(KIND_TR, 4, COL_TR_CLASS)
+        CountersBefore = RunCounters()
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=3; nettingsets=3; trades=4; first=CSV-CONTEXT-MATURED|" & _
+                  SH_IMPORT_TR & "!" & Maturity.Address(False, False)
+        CheckText "findings", FindingCode(2) & "|" & ChecksValue(2, 4) & "|" & FindingCode(3) & "|" & ChecksValue(3, 4) & _
+                  "|" & FindingCode(4) & "|" & ChecksValue(4, 4), "CSV-CONTEXT-MATURED|" & Maturity.Address(False, False) & _
+                  "|CSV-CONTEXT-CURRENCY|" & NotionalCcy.Address(False, False) & "|CSV-CONTEXT-REGIME|" & _
+                  AssetClass.Address(False, False)
+        Check Len(ChecksValue(5, 1)) = 0, "a fifth Checks line: " & ChecksValue(5, 5)
+        Check Maturity.Interior.Color = ERROR_FILL And NotionalCcy.Interior.Color = ERROR_FILL And _
+              AssetClass.Interior.Color = ERROR_FILL, "the cells are not marked"
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
+        CheckText "counters of the last run", RunCounters(), CountersBefore
+        Check Not M_Main.StagingValidationCurrent(), "an INVALID validation reads as current"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseValidateParams()
+'
+'==============================================================================
+' PURPOSE
+'   With the reporting date on Params cleared, a run would stop at Params
+'   (#209): the validation is INVALID with one finding, CSV-CONTEXT-
+'   PARAMS, which names AsOfDate and links to its cell on Params, which is
+'   not marked; neither staging sheet is VALID. The date is put back, also
+'   after an unexpected error.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String     'What the validation returned
+    Dim AsOfCell        As Range      'The reporting date on Params
+    Dim SavedFormula    As String     'What it held
+    Dim FillBefore      As Long       'Its fill
+    Dim Cleared         As Boolean    'It was cleared and must be put back
+
+'------------------------------------------------------------------------------
+' CLEAR THE DATE AND VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.params-invalid"
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Set AsOfCell = NamedCell(PRM_ASOF)
+        SavedFormula = AsOfCell.Formula
+        FillBefore = AsOfCell.Interior.Color
+        Cleared = True
+        AsOfCell.ClearContents
+        ResultLine = M_Main.ValidateStaging_Silent()
+        AsOfCell.Formula = SavedFormula
+        Cleared = False
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=1; nettingsets=2; trades=1; first=CSV-CONTEXT-PARAMS|" & _
+                  SH_PARAMS & "!" & AsOfCell.Address(False, False)
+        CheckText "finding", FindingCode(2) & "|" & ChecksValue(2, 2) & "|" & ChecksValue(2, 4) & "|" & _
+                  AsOfCell.Interior.Color, "CSV-CONTEXT-PARAMS|" & SH_PARAMS & "|" & AsOfCell.Address(False, False) & _
+                  "|" & FillBefore
+        Check InStr(1, ChecksValue(2, 5), PRM_ASOF, vbBinaryCompare) > 0, "the finding does not name " & PRM_ASOF & _
+              ": " & ChecksValue(2, 5)
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_INVALID & "|" & STAGING_INVALID
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Cleared Then
+            AsOfCell.Formula = SavedFormula
+        End If
+
+End Sub
+
+
+Private Sub CaseValidateCurrent()
+'
+'==============================================================================
+' PURPOSE
+'   M_Main.StagingValidationCurrent (#209): True after a VALID validation;
+'   False once a staged cell changes, even with events off, and True
+'   again once it is put back; False while a Params value is changed; and
+'   False after an INVALID validation, even once its cause is put back.
+'   The Params value is put back, also after an unexpected error.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String     'What a validation returned
+    Dim Events          As Boolean    'EnableEvents before the case
+    Dim AlphaCell       As Range      'Alpha on Params
+    Dim SavedFormula    As String     'What it held
+    Dim Changed         As Boolean    'It was changed and must be put back
+
+'------------------------------------------------------------------------------
+' VALIDATE, CHANGE AND PUT BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.current"
+        Events = Application.EnableEvents
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
+        Check M_Main.StagingValidationCurrent(), "a VALID validation does not read as current"
+        Application.EnableEvents = False
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2 = "edited"
+        Check Not M_Main.StagingValidationCurrent(), "an edit with events off reads as current"
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).ClearContents
+        Check M_Main.StagingValidationCurrent(), "the edit put back does not read as current"
+        Set AlphaCell = NamedCell(PRM_ALPHA)
+        SavedFormula = AlphaCell.Formula
+        Changed = True
+        AlphaCell.Value2 = 1.5
+        Check Not M_Main.StagingValidationCurrent(), "a changed Params value reads as current"
+        AlphaCell.Formula = SavedFormula
+        Changed = False
+        StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "abc"
+        ResultLine = M_Main.ValidateStaging_Silent()
+        StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "1000"
+        Application.EnableEvents = Events
+        Check Not M_Main.StagingValidationCurrent(), "after an INVALID validation, its cause put back, it reads as current"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Changed Then
+            AlphaCell.Formula = SavedFormula
+        End If
+        Application.EnableEvents = Events
+
+End Sub
+
+
+Private Sub CaseValidateLiveContext()
+'
+'==============================================================================
+' PURPOSE
+'   With only netting sets staged, a staged regime override applies to the
+'   legs on Trades (#209): CRR-OTHER staged with the override BCBS makes
+'   each of its OT legs a CSV-CONTEXT-REGIME finding on its Asset class
+'   cell on Trades, which is not marked; the other legs are outside the
+'   staged netting sets, as in CaseValidateLiveTrades.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String    'What the validation returned
+    Dim Outside       As Long      'Legs on Trades outside the staged netting set
+    Dim FirstCell     As String    'Netting set cell of the first of them, unused
+    Dim OtLegs        As Long      'OT legs of CRR-OTHER on Trades
+    Dim OtCell        As String    'Asset class cell of the first of them
+    Dim FillBefore    As Long      'Its fill before the validation
+    Dim FoundLine     As Long      'The Checks line of its finding; 0 for none
+    Dim i             As Long      'Checks line
+
+'------------------------------------------------------------------------------
+' VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.live-context"
+        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;" & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Outside = LegsOutside("CRR-OTHER", FirstCell)
+        OtLegs = LegsOfClass("CRR-OTHER", "OT", OtCell)
+        Check OtLegs > 0, "Trades has no OT leg of CRR-OTHER: build the workbook from the current template"
+        If OtLegs > 0 Then
+            FillBefore = GetSheet(SH_TRADES).Range(OtCell).Interior.Color
+        End If
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "result", Left$(ResultLine, InStr(ResultLine & "; first=", "; first=") - 1), _
+                  "RESULT=INVALID; errors=" & (Outside + OtLegs) & "; nettingsets=1; trades=0"
+        For i = 2 To Outside + OtLegs + 1
+            If FindingCode(i) = "CSV-CONTEXT-REGIME" And ChecksValue(i, 4) = OtCell Then
+                FoundLine = i
+                Exit For
+            End If
+        Next i
+        Check FoundLine > 0 And ChecksValue(FoundLine, 2) = SH_TRADES, "no CSV-CONTEXT-REGIME finding on " & _
+              SH_TRADES & "!" & OtCell
+        If OtLegs > 0 Then
+            Check GetSheet(SH_TRADES).Range(OtCell).Interior.Color = FillBefore, "the Trades cell is marked"
+        Else
+            Check False, "no OT leg whose cell could be checked"
+        End If
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
 Private Sub CaseLiveSheets( _
     ByVal LiveBefore As String)
 '
@@ -1337,6 +1605,31 @@ Failed:
 End Sub
 
 
+Private Sub PutValidatedBack()
+'
+'==============================================================================
+' PURPOSE
+'   Put back the fingerprint of the last VALID staging validation as the
+'   suite found it, or remove the name when there was none.
+'
+' ERROR POLICY
+'   A failure is recorded as a suite failure.
+'==============================================================================
+'
+        On Error GoTo Failed
+        If mHadValidated Then
+            ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:=mSavedValidated, Visible:=False
+        ElseIf Len(NameText(STAGING_VALIDATED_NAME)) > 0 Then
+            ThisWorkbook.Names(STAGING_VALIDATED_NAME).Delete
+        End If
+        Exit Sub
+
+Failed:
+        Fail "suite", "the staging validation fingerprint not put back: " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
 Private Function LegsOutside( _
     ByVal NettingSets As String, _
     ByRef FirstCell As String) _
@@ -1379,6 +1672,86 @@ Private Function LegsOutside( _
                 End If
             End If
         Next r
+
+End Function
+
+
+Private Function LegsOfClass( _
+    ByVal NettingSet As String, _
+    ByVal AssetClass As String, _
+    ByRef FirstCell As String) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   The legs on Trades of one netting set and asset class, and the Asset
+'   class cell of the first of them.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'Trades
+    Dim TopRow      As Long         'Its first data row
+    Dim LastRow     As Long         'Its last row with a value
+    Dim r           As Long         'Row
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        Set Sheet = GetSheet(SH_TRADES)
+        TopRow = TableFirstRow(SH_TRADES)
+        LastRow = LastDataRowAny(Sheet, TopRow, TR_NCOLS, TR_COMMENT)
+        For r = TopRow To LastRow
+            If Len(SafeStr(TableCell(Sheet, r, TR_ID).Value2)) > 0 And _
+               UTxt(TableCell(Sheet, r, TR_NS).Value2) = UCase$(NettingSet) And _
+               UTxt(TableCell(Sheet, r, TR_AC).Value2) = UCase$(AssetClass) Then
+                LegsOfClass = LegsOfClass + 1
+                If LegsOfClass = 1 Then
+                    FirstCell = TableCell(Sheet, r, TR_AC).Address(False, False)
+                End If
+            End If
+        Next r
+
+End Function
+
+
+Private Function FindingCode( _
+    ByVal LineNumber As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The code a Checks line's message starts with, before its first ":".
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Text    As String    'The message
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Text = ChecksValue(LineNumber, 5)
+        If InStr(Text, ":") > 0 Then
+            FindingCode = Left$(Text, InStr(Text, ":") - 1)
+        End If
+
+End Function
+
+
+Private Function RunCounters() As String
+'
+'==============================================================================
+' PURPOSE
+'   The counters the last run leaves readable: its ERROR and WARNING
+'   messages and the trades it read.
+'==============================================================================
+'
+        RunCounters = CORE_Engine.ErrorCount & "|" & CORE_Engine.WarningCount & "|" & CORE_Engine.TradesRead
 
 End Function
 
