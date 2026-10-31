@@ -94,6 +94,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Maintenance
+
+- Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
+  14-day cooldown and pull requests targeting the active release branch.
+
 ### Added
 
 - Audit the open issues on every issue event (#485): the read-only
