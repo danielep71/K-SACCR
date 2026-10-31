@@ -209,6 +209,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reserve `P1` for a confirmed calculation bug, wrong results for valid
+  inputs, used only with `bug` (#485); other defects are `P2`. The
+  descriptions of `documentation`, `help wanted`, `question` and `wontfix`
+  are now in the first person, and `P3` also names setup work. The bug form
+  and the governance labels table follow.
 - Give both jobs of the label synchronization workflow a five-minute
   timeout, as the drift workflow has, and assign Dependabot's update pull
   requests to `danielep71` (#485).
