@@ -167,8 +167,10 @@ configuration.
 K-SACCR uses the 20-label core catalogue from
 danielep71/EXCEL-VBA-PROJECT-TEMPLATE at commit
 b903fe44ef6a032c4689870b83745afa1c22490d. Names, colours and descriptions are
-defined in `.github/labels.json`; its `prune: true` policy removes labels
-outside the catalogue during reconciliation.
+defined in `.github/labels.json`, schema version 2: its root holds only
+`schema_version`, `prune` and the `labels` list, with no profiles or
+overlays. Its `prune: true` policy removes labels outside the catalogue during
+reconciliation.
 
 ### When to use each label
 
@@ -215,14 +217,15 @@ Labels do not assign priorities or milestones automatically.
 
 ### Label workflows
 
-The label manifest and both reconciliation scripts are copied unchanged from
-the template. The two workflows are copied from the same revision with two
-integration adjustments: they pass `--policy .github/label-policy.json` and
-watch that file instead of the template-wide repository profile, and every
-checkout sets `persist-credentials: false`, so code under review never receives
-Git credentials. The policy selects the generated application profile with no
-domain overlays; all profile overlays are empty, so the result is exactly the
-template's 20 core labels.
+Both reconciliation scripts are the schema-2 versions of
+danielep71/MyTemplate at commit f4e11c3e5ced16fb3d699a31a21e5e9d7ade7173,
+unchanged. They read `.github/labels.json` and take no repository policy, so
+the live catalogue is exactly the manifest's 20 labels. Every checkout in the
+two workflows sets `persist-credentials: false`, so code under review never
+receives Git credentials. The workflows are K-SACCR's own in two respects:
+pull-request checks run only for pull requests into `main` or `release/**`,
+and the reconciliation job runs on any trusted event, a push to `main` or a
+manual run on any ref, not only on the default branch.
 
 - **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
   or `release/**` without write permission. Pushes to main affecting its inputs,
@@ -235,7 +238,7 @@ template's 20 core labels.
 - Both workflows use full-SHA-pinned actions.
 
 Changes merged into the release branch alone do not trigger live sync. If an
-authorized label-policy change is developed on the release branch, validate it
+authorized label-catalogue change is developed on the release branch, validate it
 locally and via PR checks, review removals and their issue associations, then
 use an explicitly requested manual sync on that reviewed release ref when live
 reconciliation is needed. Do not modify main solely to trigger sync.
@@ -245,7 +248,7 @@ removals carefully: deleting a label also removes its issue/PR associations.
 Optional local checks, with Node.js:
 
 ```sh
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --self-test
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --mode validate
-node .github/scripts/labels-drift.mjs --policy .github/label-policy.json --self-test
+node .github/scripts/labels-sync.mjs --self-test
+node .github/scripts/labels-sync.mjs --mode validate
+node .github/scripts/labels-drift.mjs --self-test
 ```
