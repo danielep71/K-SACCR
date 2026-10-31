@@ -17,14 +17,15 @@
 #     contains no identifying information about individual visitors.
 #
 #   Credentials
-#     TRAFFIC_TOKEN is a fine-grained personal access token with
-#     `Administration: read` on this repository, which is what the traffic API
-#     requires. It is stored in the repository-level `analytics` environment.
-#     That environment is not a workflow-identity boundary: any job declaring
-#     it may request access, subject to the configured environment protections.
-#
-#     Rotate it every 90 days, and immediately if this workflow is ever
-#     modified by someone other than the maintainer. See SECURITY.md.
+#     A dedicated GitHub App grants Administration: read on this repository.
+#     Its client ID (vars.TRAFFIC_APP_CLIENT_ID) and private key
+#     (secrets.TRAFFIC_APP_PRIVATE_KEY) belong to the analytics environment.
+#     Only the token step receives the key; only the fetch step receives the
+#     short-lived installation token. The preflight sees key presence only.
+#     The token is revoked at job completion. Rotate the private key as in
+#     tools/README.md; never fall back to a personal access token.
+#     The environment is not a workflow-identity boundary: any job declaring
+#     it may request access, subject to configured environment protections.
 #
 #   Scope
 #     This is repository analytics. It is not CI. It compiles nothing, runs no
@@ -100,16 +101,34 @@ jobs:
 
           mkdir -p data
 
+      - name: Check the traffic App configuration
+        shell: bash
+        env:
+          CLIENT_ID: ${{ vars.TRAFFIC_APP_CLIENT_ID }}
+          HAS_KEY: ${{ secrets.TRAFFIC_APP_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$CLIENT_ID" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::TRAFFIC_APP_CLIENT_ID or TRAFFIC_APP_PRIVATE_KEY is not set in the analytics environment (tools/README.md#traffic-history)"
+            exit 1
+          fi
+
+      - name: Create the traffic App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.TRAFFIC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}
+          permission-administration: read
+
       - name: Fetch GitHub traffic API data
         shell: bash
         env:
-          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          TRAFFIC_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
           if [ -z "${TRAFFIC_TOKEN:-}" ]; then
-            echo "::error::Missing TRAFFIC_TOKEN repository secret"
-            echo "Create a fine-grained token with Administration: read permission for this repository."
+            echo "::error::Missing traffic App installation token; check App installation and credentials in the analytics environment."
             exit 1
           fi
 

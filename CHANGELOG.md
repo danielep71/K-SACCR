@@ -94,6 +94,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Security
+
+- Migrate traffic API collection to a dedicated GitHub App with step-scoped
+  credentials, configuration checks and documented key rotation (#502).
+
 ### Maintenance
 
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
