@@ -92,7 +92,13 @@ candidate.
 
 Every issue has assignee **danielep71**, exactly one priority label
 (**P1**, **P2** or **P3**; see [Labels](#labels)) and the milestone of the
-release branch it targets. Include objective, acceptance checklist, a
+release branch it targets. Milestones are for issues only: a pull request
+links its issue and never carries a milestone. The **Keep milestones
+issue-only** workflow
+([`.github/workflows/pr-milestones.yml`](../.github/workflows/pr-milestones.yml))
+removes one when a pull request is opened, reopened, edited or given a
+milestone, and clears any left on open or closed pull requests every day at
+03:17 UTC. Include objective, acceptance checklist, a
 **Dependencies and blocking status** section and required evidence. The
 section names each prerequisite as an issue link (`#12`) or on a line
 starting `External condition:`, or says `None`; it may also name related
@@ -186,6 +192,7 @@ configuration.
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
 | Repository integrity CI | See [GitHub Actions](../tools/README.md#github-actions). Static checks only; no Excel execution. |
 | Labels | See [Labels](#labels). |
+| Pull-request milestones | Removed by the **Keep milestones issue-only** workflow; see [Issue metadata and completion](#issue-metadata-and-completion). |
 | Traffic history | See [Traffic history](../tools/README.md#traffic-history). Analytics only, never CI. |
 
 <a id="labels"></a>
