@@ -88,8 +88,9 @@ body:
   - type: textarea
     id: dependencies
     attributes:
-      label: "🔗 Dependencies"
-      description: Issues or decisions this depends on. Write "None" if there are none.
+      label: "🔗 Dependencies and blocking status"
+      description: Name each prerequisite as an issue link (#12) or on a line starting "External condition:". Write "None" if nothing blocks this work. Triage adds `blocked` only while a named prerequisite is unresolved.
+      placeholder: None
     validations:
       required: true
 

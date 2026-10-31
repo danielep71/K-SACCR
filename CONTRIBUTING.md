@@ -18,7 +18,7 @@ test suites are listed under [running the harness](INSTALLATION.md#running-the-h
 | ⚙️ Tooling or governance | Explain failure behavior, portability, trust boundary and maintenance cost. |
 
 Open issues with the forms. Issue metadata (assignee, exactly one priority
-label, milestone) is described in
+label, milestone, dependency section) and the issue triage check are described in
 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#issue-metadata-and-completion).
 
 <a id="development-workflow"></a>
