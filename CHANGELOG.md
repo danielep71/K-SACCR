@@ -217,6 +217,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reserve `P1` for a confirmed calculation bug, wrong results for valid
+  inputs, used only with `bug` (#485); other defects are `P2`. The
+  descriptions of `documentation`, `help wanted`, `question` and `wontfix`
+  are now in the first person, and `P3` also names setup work. The bug form
+  and the governance labels table follow.
 - Give both jobs of the label synchronization workflow a five-minute
   timeout, as the drift workflow has, and assign Dependabot's update pull
   requests to `danielep71` (#485).
@@ -234,6 +239,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe the current branch rulesets in the governance (#485): no ruleset
+  has a bypass, release branches accept squash and merge commits, and
+  `traffic-history` has its own ruleset. After an integration into `main`,
+  the release branch is brought up to date through a pull request merged
+  with a merge commit, since a direct push is refused.
 - Record the repository's code security settings in the governance table:
   CodeQL default setup for the workflows and the Python tools, secret scanning
   with push protection, and Dependabot security updates, whose pull requests

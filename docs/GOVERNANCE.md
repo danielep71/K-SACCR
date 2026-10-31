@@ -13,7 +13,7 @@ The active release branch is `release/1.1.0`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.1.0` | Active integration branch for all development. Retained and fast-forwarded to `main` after each integration. |
+| `release/1.1.0` | Active integration branch for all development. Retained after each integration and brought up to date with `main` through a pull request. |
 | `release/1.0.2` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.2` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.1` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.1` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
@@ -48,18 +48,18 @@ not opened just to record progress.
 2. Open a PR from the release branch into `main`.
 3. Merge it with a **merge commit**, not a squash, once the hosted checks are
    green, so provenance remains visible.
-4. Keep the release branch and fast-forward it to the integration merge
-   commit on `main`. Check its current head first: it must be an ancestor of
-   that commit. Use an expected-head check when updating the ref; if new work
-   arrived after the integration, stop and reconcile it rather than resetting
-   or force-pushing. The existing administrator bypass of **Protect release
-   branches** permits this ref-only alignment; it does not authorize direct
-   development commits. Do not delete/recreate the branch or weaken the
-   separate **Prevent release branch deletion** ruleset for this operation.
-   At an owner-approved milestone transition, retain the completed branch
-   and create the next `release/X.Y.Z` from the integration commit, then update
+4. Keep the release branch and bring it up to date with `main` through a
+   second PR, from `main` into the release branch, merged with a **merge
+   commit** once **Repository integrity** is green. **Protect release
+   branches** has no bypass, so the branch cannot be moved by a direct push;
+   the PR carries only the integration merge commit, never new development.
+   Do not delete/recreate the branch or weaken the separate
+   **Prevent release branch deletion** ruleset for this operation. At an
+   owner-approved milestone transition, retain the completed branch and
+   create the next `release/X.Y.Z` from the integration commit, then update
    [Branches](#branches) and Dependabot's `target-branch`.
-5. Verify both branches point to the merge commit and that CI passed on it.
+5. Verify that the release branch contains the integration merge commit and
+   that CI passed on both branches.
 
 <a id="ownership-authorization-and-review"></a>
 
@@ -171,10 +171,11 @@ configuration.
 | Control | State and working response |
 | --- | --- |
 | Repository visibility | Public. |
-| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. **Protect release branches**: pull request required, squash only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion, with an administrator bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass; the administrator exception in the other ruleset does not override it. Keep following the review checklist for what rulesets cannot check. |
+| Pull request settings | Updating a pull request branch from its base is offered. Projects and the legacy downloads feature are off. |
+| Branch rulesets | **Protect main** (the default branch): pull request required with no approvals, conversations resolved, merge commits only, **Repository integrity** required, up to date and enforced on branch creation, no force pushes or deletion, no bypass. **Protect release branches** (`release/**`): the same, except that squash and merge commits are allowed and the check is not enforced when a branch is created; task PRs are squash-merged and the PR that brings the branch up to date with `main` is merged with a merge commit. **Protect traffic history** (`traffic-history`): no force pushes or deletion, no bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass. Keep following the review checklist for what rulesets cannot check. |
 | Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the active `release/1.1.0` and future matching branches. Historical `release/1.0.0`, `release/1.0.1` and `release/1.0.2` have been deleted; their published tags and artifacts remain. Any future historical-branch deletion requires separate owner authorization, commit-reachability and link checks, and immediate removal of temporary ruleset exceptions. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
-| Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain and fast-forward the active release branch after integration. |
+| Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain the active release branch after integration and bring it up to date with `main` through a pull request. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |
 | Private vulnerability reporting | Enabled; the primary reporting channel in [`SECURITY.md`](../SECURITY.md). |
 | Code scanning | CodeQL default setup is enabled for `actions` and `python` with the default query suite: it analyses pushes and pull requests and runs weekly. It covers the workflows and the Python tools; VBA is not a CodeQL language. It is not a required check in the rulesets; review its alerts under Security → Code scanning. |
@@ -201,13 +202,16 @@ reconciliation.
 
 ### When to use each label
 
-Every issue carries exactly one priority label:
+Every issue carries exactly one priority label. `P1` is reserved for a
+confirmed calculation bug and is used only together with `bug`; any other
+defect, however urgent, is `P2`. Issues closed before this rule keep the
+priority they were closed with.
 
 | Label | Use when |
 | --- | --- |
-| `P1` | Critical release blocker or serious correctness, data, or application-state risk |
+| `P1` | Confirmed calculation bug: wrong results for valid inputs (reserved for this case) |
 | `P2` | Material correctness, robustness, or maintainability defect |
-| `P3` | Non-blocking quality, testing, documentation, or technical-debt improvement |
+| `P3` | Non-blocking quality, testing, documentation, setup or technical-debt work |
 
 The forms default to `P2` (bug, feature) and `P3` (documentation); Dependabot
 update PRs and traffic alerts get `P3`. Triage confirms or changes it.
@@ -219,7 +223,7 @@ Type labels say what kind of work an issue or PR is. The forms set `bug`,
 | --- | --- |
 | `bug` | Confirmed defect in behavior, correctness, error handling, or a documented contract |
 | `enhancement` | New capability or meaningful improvement to supported behavior |
-| `documentation` | User-facing or maintainer-facing documentation |
+| `documentation` | Documentation for users or for my repository maintenance |
 | `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
 | `refactor` | Internal restructuring intended to preserve supported behavior |
 | `behavior-change` | Intentional externally observable behavior change |
@@ -233,12 +237,12 @@ Status and triage labels:
 | Label | Use when |
 | --- | --- |
 | `blocked` | Cannot proceed until a named dependency is complete |
-| `question` | Further information or a maintainer decision is required |
-| `help wanted` | Maintainer welcomes external investigation, implementation, validation, or review |
+| `question` | I need further information or need to make a decision |
+| `help wanted` | I welcome external investigation, implementation, validation, or review |
 | `good first issue` | Well-scoped task suitable for a first contribution |
 | `duplicate` | An existing issue or pull request already covers this work |
 | `invalid` | Report is incomplete, unsupported, or not actionable as submitted |
-| `wontfix` | Maintainers have decided not to implement or continue this work |
+| `wontfix` | I have decided not to implement or continue this work |
 
 Labels do not assign priorities or milestones automatically.
 
