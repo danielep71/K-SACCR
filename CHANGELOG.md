@@ -101,6 +101,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Keep milestones on issues only (#493): the `Keep milestones issue-only`
+  workflow removes a pull request's milestone when it is opened, reopened,
+  edited or given one, and clears any left on open or closed pull requests
+  daily. It runs trusted inline code with no checkout and `pull-requests:
+  write` in its job only. It is adapted under the MIT License, whose notice is
+  in `docs/licenses/THIRD_PARTY_NOTICES.md`.
 - Audit the open issues on every issue event (#485): the read-only
   `Issue triage` workflow runs `tools/check_issues.py`, which requires the
   assignee, exactly one priority (`P1` only with `bug`), a milestone,
