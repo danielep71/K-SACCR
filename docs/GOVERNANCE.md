@@ -234,7 +234,7 @@ Type labels say what kind of work an issue or PR is. The forms set `bug`,
 | `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
 | `refactor` | Internal restructuring intended to preserve supported behavior |
 | `behavior-change` | Intentional externally observable behavior change |
-| `ci` | Automated quality checks, workflow maintenance, or release certification |
+| `ci` | Automated quality checks, workflow maintenance, or dependency updates |
 | `repository` | Repository structure, governance, metadata, tooling, or maintenance |
 | `release` | Release preparation, certification, evidence, packaging, or publication |
 | `security` | Security boundary, vulnerability handling, supply chain, or hardening; never for undisclosed vulnerabilities, which follow `SECURITY.md` |
