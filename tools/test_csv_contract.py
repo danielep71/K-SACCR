@@ -225,6 +225,29 @@ class RowRuleTests(unittest.TestCase):
         self.assertEqual([c[3] for c in codes(netting_set("CM", "Y"))], ["qccp"])
 
 
+
+class ContextTests(unittest.TestCase):
+    """The rules that depend on Params (#209), beyond the cases of tests/csv/context.json."""
+
+    def test_every_context_rule_is_exercised_by_a_case(self) -> None:
+        cases = json.loads((ROOT / "tests/csv/context.json").read_text(encoding="utf-8"))["cases"]
+        found = {finding[0] for case in cases for finding in case["findings"]}
+        self.assertEqual(found, {rule["code"] for rule in CONTRACT["context_rules"]})
+
+    def test_pairs_are_read_as_the_engine_reads_them(self) -> None:
+        self.assertEqual(csv.normalize_pair("usd/eur"), ("EUR", "USD"))
+        self.assertEqual(csv.normalize_pair("EUR.USD"), ("EUR", "USD"))
+        self.assertIsNone(csv.normalize_pair("EUR/EUR"))
+        self.assertIsNone(csv.normalize_pair("EUR/US"))
+
+    def test_an_invalid_override_reads_as_the_params_regime(self) -> None:
+        names = [column["name"] for column in CONTRACT["files"]["Trades"]["columns"]]
+        row = dict(zip(names, TR_ROW.replace(";IR;;EUR;", ";OT;;LONGEVITY;").split(";")))
+        context = {"as_of": "2026-06-30", "reporting_currency": "EUR", "regime": "BCBS", "currencies": ["EUR"],
+                   "factors": {"OT": "CRR"}}
+        found = csv.check_context([(2, row)], {"NS-1": "EU"}, context, CONTRACT)
+        self.assertEqual([(f.code, f.column) for f in found], [("CSV-CONTEXT-REGIME", "asset_class")])
+
 class GateTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -273,6 +296,17 @@ class GateTests(unittest.TestCase):
         findings = gate.run_check(self.root)["findings"]
         self.assertIn("portfolio rule netting-set-known: code CSV-NOWHERE is not in errors", findings)
         self.assertIn("portfolio rule mtm-leg names unknown column 'no_such_column'", findings)
+
+    def test_context_rules_must_name_known_codes_and_columns(self) -> None:
+        def change(contract: dict[str, Any]) -> None:
+            contract["context_rules"][0]["code"] = "CSV-NOWHERE"
+            contract["context_rules"][1]["columns"].append("no_such_column")
+            contract["context_rules"][2]["id"] = contract["context_rules"][3]["id"]
+        self.edit_contract(change)
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("context rule matured: code CSV-NOWHERE is not in errors", findings)
+        self.assertIn("context rule expired names unknown column 'no_such_column'", findings)
+        self.assertIn("context rule 'currency' repeats", findings)
 
     def test_allowed_values_must_match_the_template(self) -> None:
         self.edit_contract(lambda c: c["files"]["Trades"]["columns"][5]["allowed"].append("Swap"))

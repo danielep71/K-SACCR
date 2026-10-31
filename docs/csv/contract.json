@@ -186,7 +186,15 @@
     "CSV-ECON-MTM-VALUE": "A leg that is not the MtM leg of its economic trade has a MtM other than 0.",
     "CSV-ECON-NETTING-SET": "The legs of an economic trade are in different netting sets.",
     "CSV-ECON-SETTLEMENT": "The legs of an economic trade differ in settlement type or next reset date.",
-    "CSV-ECON-ASSET-CLASS": "Two legs of an economic trade are in the same asset class and not both options."
+    "CSV-ECON-ASSET-CLASS": "Two legs of an economic trade are in the same asset class and not both options.",
+    "CSV-CONTEXT-PARAMS": "Params, the supervisory-factor table or the FX table cannot be read as a run reads them, so the rules that depend on them are not judged.",
+    "CSV-CONTEXT-MATURED": "The trade's maturity, or else its end date or option expiry, is not after the reporting date.",
+    "CSV-CONTEXT-EXPIRED": "The option's expiry is not after the reporting date.",
+    "CSV-CONTEXT-RESET": "The next reset date of an STM trade is not after the reporting date.",
+    "CSV-CONTEXT-CURRENCY": "The notional or MtM currency has no rate in the FX table.",
+    "CSV-CONTEXT-PAIR": "A currency of the FX pair has no rate in the FX table.",
+    "CSV-CONTEXT-FACTOR": "The supervisory-factor table has no row for the asset class and sub-class.",
+    "CSV-CONTEXT-REGIME": "The asset class or its supervisory factor is not available under the netting set's regime."
   },
   "portfolio_rules": [
     {"id": "netting-set-known", "code": "CSV-NETTING-SET-UNKNOWN", "columns": ["netting_set_id"],
@@ -202,5 +210,21 @@
      "description": "The legs of an economic trade have one settlement type (blank read as N) and one next reset date."},
     {"id": "asset-class", "code": "CSV-ECON-ASSET-CLASS", "columns": ["economic_trade_id", "asset_class", "instrument"],
      "description": "Two legs of an economic trade in the same asset class are both options."}
+  ],
+  "context_rules": [
+    {"id": "matured", "code": "CSV-CONTEXT-MATURED", "columns": ["maturity_date", "end_date", "option_expiry_date"],
+     "description": "The maturity, or else the end date, or else the option expiry, is after the reporting date."},
+    {"id": "expired", "code": "CSV-CONTEXT-EXPIRED", "columns": ["instrument", "option_expiry_date"],
+     "description": "An option that has not matured expires after the reporting date."},
+    {"id": "reset", "code": "CSV-CONTEXT-RESET", "columns": ["settlement_type", "next_reset_date"],
+     "description": "The next reset date of an STM trade is after the reporting date."},
+    {"id": "currency", "code": "CSV-CONTEXT-CURRENCY", "columns": ["notional_currency", "market_value_currency"],
+     "description": "The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency."},
+    {"id": "pair", "code": "CSV-CONTEXT-PAIR", "columns": ["asset_class", "risk_factor"],
+     "description": "Both currencies of an FX pair have a rate in the FX table."},
+    {"id": "factor", "code": "CSV-CONTEXT-FACTOR", "columns": ["asset_class", "sub_class"],
+     "description": "The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA."},
+    {"id": "regime", "code": "CSV-CONTEXT-REGIME", "columns": ["netting_set_id", "asset_class", "sub_class"],
+     "description": "Under the netting set's regime, its override or else the Params regime, OT is CRR-only and a factor row limited to a regime is that regime."}
   ]
 }

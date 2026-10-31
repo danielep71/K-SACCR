@@ -101,6 +101,24 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Validate staged trades against Params (#209). **Validate staging** now reads
+  Params, the FX table and the supervisory-factor table as a run reads them,
+  and judges the staged legs with the engine's own rules: a maturity, option
+  expiry or STM reset not after the reporting date, a notional, MtM or FX-pair
+  currency without a rate, a missing factor row, and `OT` or a factor row
+  limited to a regime under another regime (`CSV-CONTEXT-*`, each on its
+  cell). With only netting sets staged, a staged regime override is applied
+  to the legs on Trades. When a run would stop at Params, one
+  `CSV-CONTEXT-PARAMS` finding gives its error on its Params cell and no
+  staging sheet is `VALID`. The rules and their messages are shared between
+  the engine and the staging validation (`CORE_Engine`), and the engine's
+  results are unchanged; reading Params leaves the last run's messages,
+  counters and fingerprints as they were. `StagingValidationCurrent()` tells
+  whether the last `VALID` validation still matches the staged blocks, the
+  input sheets and Params, for the commit (#210, #211). The rules are in
+  `context_rules` of the contract, with `check_context` in the reference and
+  `tests/csv/context.json`; `TEST_CsvReader` runs 12 more cases and
+  `TEST_Import` 4 more.
 - Test the workflow invariants (#493): `tools/check_workflows.py`, run by
   `test_check_workflows.py` in `tool-tests`, reads every workflow and
   `dependabot.yml` with PyYAML and fails on an unpinned action, a checkout that
