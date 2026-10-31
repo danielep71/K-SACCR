@@ -359,6 +359,19 @@ describes them. Their token defaults to `contents: read`:
 
 Every checkout sets `persist-credentials: false`.
 
+### Milestone workflow
+
+`.github/workflows/pr-milestones.yml` keeps milestones on issues only. Its
+single job runs trusted inline Python, with no checkout, and is the only place
+the workflow has a permission: `pull-requests: write`, so that it can clear a
+pull request's milestone through the issues API. It refuses to change an item
+that is not a pull request. It runs on `pull_request_target` (opened, reopened,
+edited, milestoned) for that pull request, and daily at 03:17 UTC, on manual
+dispatch and on a push to `main` that changes the workflow, for every pull
+request; the job runs only on `pull_request_target`, the schedule and the
+default branch. Its license notice is in
+[`docs/licenses/THIRD_PARTY_NOTICES.md`](../docs/licenses/THIRD_PARTY_NOTICES.md).
+
 ### Issue triage workflow
 
 `.github/workflows/issue-triage.yml` runs `check_issues.py` on every issue

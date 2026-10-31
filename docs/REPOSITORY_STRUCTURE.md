@@ -44,6 +44,7 @@ The engine imported from the prototype does not meet this yet: see
                     and its scripts, Excel evidence policy
 docs/               contracts, architecture, governance, evidence record
   index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
+  licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
   csv/              CSV input contract, its specification and blank templates
   methodology/      regulatory basis, support matrix, traceability, test-case format
