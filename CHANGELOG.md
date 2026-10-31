@@ -226,6 +226,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe the current branch rulesets in the governance (#485): no ruleset
+  has a bypass, release branches accept squash and merge commits, and
+  `traffic-history` has its own ruleset. After an integration into `main`,
+  the release branch is brought up to date through a pull request merged
+  with a merge commit, since a direct push is refused.
 - Record the repository's code security settings in the governance table:
   CodeQL default setup for the workflows and the Python tools, secret scanning
   with push protection, and Dependabot security updates, whose pull requests
