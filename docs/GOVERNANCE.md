@@ -254,13 +254,13 @@ unchanged. They read `.github/labels.json` and take no repository policy, so
 the live catalogue is exactly the manifest's 20 labels. Every checkout in the
 two workflows sets `persist-credentials: false`, so code under review never
 receives Git credentials. The workflows are K-SACCR's own in two respects:
-pull-request checks run only for pull requests into `main` or `release/**`,
-and the reconciliation job runs on any trusted event, a push to `main` or a
-manual run on any ref, not only on the default branch.
+pull-request checks run only for pull requests into `main` or `release/**`.
+The reconciliation job runs only on the default branch, for a push to `main`
+or a manual run on `main`; a manual run on any other branch skips it.
 
 - **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
   or `release/**` without write permission. Pushes to main affecting its inputs,
-  and manual runs, reconcile live labels and verify an exact match. Only the
+  and manual runs on main, reconcile live labels and verify an exact match. Only the
   reconciliation job receives `issues: write`.
 - **Detect issue-label drift** (`labels-drift.yml`) checks deterministic
   fixtures on pull requests and compares live labels daily at 05:17 UTC or on
@@ -268,11 +268,11 @@ manual run on any ref, not only on the default branch.
   days. Drift causes failure; detection does not silently repair it.
 - Both workflows use full-SHA-pinned actions.
 
-Changes merged into the release branch alone do not trigger live sync. If an
-authorized label-catalogue change is developed on the release branch, validate it
-locally and via PR checks, review removals and their issue associations, then
-use an explicitly requested manual sync on that reviewed release ref when live
-reconciliation is needed. Do not modify main solely to trigger sync.
+Changes merged into the release branch alone do not change the live labels:
+they take effect when the release branch is integrated into `main`. Develop a
+label-catalogue change on the release branch, validate it locally and through
+the pull-request checks, and review removals and their issue associations
+before integration. Do not modify main solely to trigger sync.
 
 To update the catalogue, edit the manifest through a pull request. Review
 removals carefully: deleting a label also removes its issue/PR associations.
