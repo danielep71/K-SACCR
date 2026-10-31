@@ -384,7 +384,8 @@ and must never be extended to.
 
 `.github/dependabot.yml` asks Dependabot for weekly version updates of the
 GitHub Actions pinned in the workflows. They are opened against the active
-release branch (`target-branch`) and labelled `ci` and `P3`. Dependabot reads
+release branch (`target-branch`), labelled `ci` and `P3` and assigned to
+`danielep71`. Dependabot reads
 this file from the default branch; PR #24 integrated it into `main`. Update
 `target-branch` whenever a new release branch is opened.
 
