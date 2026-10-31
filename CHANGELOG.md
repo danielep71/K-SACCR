@@ -96,6 +96,14 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Audit the open issues on every issue event (#485): the read-only
+  `Issue triage` workflow runs `tools/check_issues.py`, which requires the
+  assignee, exactly one priority (`P1` only with `bug`), a milestone,
+  catalogue labels and a dependency section, and `blocked` only while a
+  named prerequisite is open or an external condition holds; traffic alerts
+  need no milestone or dependency section. The `issue-config` gate checks
+  the forms, and the bug and documentation forms gain the dependencies field
+  the feature form already had.
 - Build a development workbook in one step: `tools/Sync-SACCR-VBA.cmd`
   started without a workbook saves the template as
   `test-results\K-SACCR_Development.xlsm` and synchronizes it with the sheet
@@ -210,6 +218,18 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reserve `P1` for a confirmed calculation bug, wrong results for valid
+  inputs, used only with `bug` (#485); other defects are `P2`. The
+  descriptions of `documentation`, `help wanted`, `question` and `wontfix`
+  are now in the first person, and `P3` also names setup work. The bug form
+  and the governance labels table follow.
+- Give both jobs of the label synchronization workflow a five-minute
+  timeout, as the drift workflow has, and assign Dependabot's update pull
+  requests to `danielep71` (#485).
+- Move the issue-label manifest to schema version 2: `.github/labels.json`
+  holds only `schema_version`, `prune` and `labels`, `.github/label-policy.json`
+  is gone, and the two label scripts and workflows no longer take `--policy`.
+  The 20 labels, their colours and descriptions are unchanged.
 - Require pull requests into `release/**` to be up to date with their target
   branch before merging, with **Repository integrity** passing on the updated
   candidate. An Excel verification of a VBA or template change survives such
@@ -220,6 +240,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe the current branch rulesets in the governance (#485): no ruleset
+  has a bypass, release branches accept squash and merge commits, and
+  `traffic-history` has its own ruleset. After an integration into `main`,
+  the release branch is brought up to date through a pull request merged
+  with a merge commit, since a direct push is refused.
 - Record the repository's code security settings in the governance table:
   CodeQL default setup for the workflows and the Python tools, secret scanning
   with push protection, and Dependabot security updates, whose pull requests

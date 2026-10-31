@@ -59,6 +59,15 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: "🔗 Dependencies and blocking status"
+      description: Name each prerequisite as an issue link (#12) or on a line starting "External condition:". Write "None" if nothing blocks this work. Triage adds `blocked` only while a named prerequisite is unresolved.
+      placeholder: None
+    validations:
+      required: true
+
   - type: checkboxes
     id: checks
     attributes:
