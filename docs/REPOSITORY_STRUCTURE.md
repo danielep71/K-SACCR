@@ -35,9 +35,6 @@ tested without a workbook and reused if a library deliverable is ever wanted.
 The engine imported from the prototype does not meet this yet: see
 [Known deviations](#known-deviations) and #220.
 
-`.github/label-policy.json` already selects the `application` profile for the
-label catalogue; this document makes it the architecture decision as well.
-
 <a id="repository-layout"></a>
 
 ## 📁 Repository layout

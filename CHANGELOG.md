@@ -94,8 +94,27 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Maintenance
+
+- Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
+  14-day cooldown and pull requests targeting the active release branch.
+
 ### Added
 
+- Audit the open issues on every issue event (#485): the read-only
+  `Issue triage` workflow runs `tools/check_issues.py`, which requires the
+  assignee, exactly one priority (`P1` only with `bug`), a milestone,
+  catalogue labels and a dependency section, and `blocked` only while a
+  named prerequisite is open or an external condition holds; traffic alerts
+  need no milestone or dependency section. The `issue-config` gate checks
+  the forms, and the bug and documentation forms gain the dependencies field
+  the feature form already had.
+- Build a development workbook in one step: `tools/Sync-SACCR-VBA.cmd`
+  started without a workbook saves the template as
+  `test-results\K-SACCR_Development.xlsm` and synchronizes it with the sheet
+  code, through the synchronizer's new `-FromTemplate`, so a workbook can no
+  longer keep the sheets of an older template or empty sheet modules. A
+  dropped workbook is synchronized as before.
 - Define version 1 of the Trades and NettingSets CSV input contract (#206):
   `docs/csv/contract.json` and `docs/csv/CSV_CONTRACT.md` specify the columns,
   types, allowed values, blank rules, encoding, `;` as the field separator,
@@ -159,6 +178,8 @@ Use only the categories needed by a release.
   stay on the sheet to be corrected. The sheet shows the file, the load time,
   the record count and LOADED, then EDITED after a change; a new load asks
   before it replaces changes, found by fingerprint even with events off,
+  and a formula counts as a change even when its value is the text it
+  replaced (#468),
   and a load that fails while writing puts the sheet back, formulas
   included. A value longer than a cell holds (32,767 characters) loads
   nothing. Trades, NettingSets, Results and the run fingerprints are not
@@ -179,30 +200,41 @@ Use only the categories needed by a release.
   `check_csv_contract` and `TEST_CsvReader`.
 - Validate the staging sheets (#209, part 2): the **Validate staging** button
   on Import_Trades and Import_NettingSets (`ValidateStaging`;
-  `ValidateStaging_Silent` for automation) checks the staged rows against
-  the contract, as a file's records are checked (`CheckStagedRecords`), and
-  the staged legs against each other and against the netting sets they refer
-  to: the staged ones, or those on NettingSets when none are staged. With
-  only netting sets staged, the legs on Trades are checked against them.
-  Checks gains an **Origin** column: `RUN` for the lines of Run SA-CCR and
-  Validate inputs, `IMPORT` for those of a staging validation, which replace
-  them: a summary, then one `ERROR` line per finding with its sheet, row, code,
-  CSV line and a link to its cell. The staged cells with a finding are marked
-  in red and the marks of the last validation are removed; the staging
-  sheet's status reads `VALID` or `INVALID`. A formula in a staging block, or
-  nothing staged, refuses the validation. Trades, NettingSets, Results and
-  the run fingerprints are not changed, but until the next run
-  `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the evidence
-  export refuses, saying
-  that Checks shows a staging validation. `tests/csv/staged.json` pins the
-  findings about staged rows, checked by `check_csv_contract` and
-  `TEST_CsvReader` (111 cases, 304 checks); `TEST_Import` covers the
-  validation (15 cases, 79 checks). The evidence report's `CHECKS` section
-  gains the Origin column. Rebuild the workbook from the template: an older
-  template has no Origin column or Validate staging button.
+  `ValidateStaging_Silent` for automation) checks the staged rows against the
+  contract, as a file's records are checked (`CheckStagedRecords`), and the
+  staged legs against each other and against the netting sets they refer to:
+  the staged ones, or those on NettingSets when none are staged. With only
+  netting sets staged, the legs on Trades are checked against them. Checks
+  gains an **Origin** column: `RUN` for the lines of Run SA-CCR and Validate
+  inputs, `IMPORT` for those of a staging validation, which replace them: a
+  summary, then one `ERROR` line per finding with its sheet, row, code, CSV
+  line and a link to its cell. The staged cells with a finding are marked in
+  red and the marks of the last validation are removed; the staging sheet's
+  status reads `VALID` or `INVALID`. A formula in a staging block, or nothing
+  staged, refuses the validation. Trades, NettingSets, Results and the run
+  fingerprints are not changed, but until the next run `ResultsStatus()` reads
+  `EDITED` instead of `CURRENT` and the evidence export refuses, saying that
+  Checks shows a staging validation. `tests/csv/staged.json` pins the findings
+  about staged rows, checked by `check_csv_contract` and `TEST_CsvReader` (111
+  cases, 304 checks); `TEST_Import` covers the validation and Excel error
+  values in staged cells (#476): 17 cases, 89 checks. The evidence report's
+  `CHECKS` section gains the Origin column. Rebuild the workbook from the
+  template: an older template has no Origin column or Validate staging button.
 
 ### Changed
 
+- Reserve `P1` for a confirmed calculation bug, wrong results for valid
+  inputs, used only with `bug` (#485); other defects are `P2`. The
+  descriptions of `documentation`, `help wanted`, `question` and `wontfix`
+  are now in the first person, and `P3` also names setup work. The bug form
+  and the governance labels table follow.
+- Give both jobs of the label synchronization workflow a five-minute
+  timeout, as the drift workflow has, and assign Dependabot's update pull
+  requests to `danielep71` (#485).
+- Move the issue-label manifest to schema version 2: `.github/labels.json`
+  holds only `schema_version`, `prune` and `labels`, `.github/label-policy.json`
+  is gone, and the two label scripts and workflows no longer take `--policy`.
+  The 20 labels, their colours and descriptions are unchanged.
 - Require pull requests into `release/**` to be up to date with their target
   branch before merging, with **Repository integrity** passing on the updated
   candidate. An Excel verification of a VBA or template change survives such
@@ -213,6 +245,15 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe the current branch rulesets in the governance (#485): no ruleset
+  has a bypass, release branches accept squash and merge commits, and
+  `traffic-history` has its own ruleset. After an integration into `main`,
+  the release branch is brought up to date through a pull request merged
+  with a merge commit, since a direct push is refused.
+- Record the repository's code security settings in the governance table:
+  CodeQL default setup for the workflows and the Python tools, secret scanning
+  with push protection, and Dependabot security updates, whose pull requests
+  target `main` and are applied on the release branch instead.
 - Show the release plan in the README roadmap as a timeline of the
   milestones' due dates, and the v1.1.0 schedule as a timeline of its issues'
   planned dates, both drawn by GitHub from Mermaid text and dated; the

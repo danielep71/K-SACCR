@@ -13,7 +13,7 @@ The active release branch is `release/1.1.0`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.1.0` | Active integration branch for all development. Retained and fast-forwarded to `main` after each integration. |
+| `release/1.1.0` | Active integration branch for all development. Retained after each integration and brought up to date with `main` through a pull request. |
 | `release/1.0.2` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.2` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.1` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.1` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
@@ -48,18 +48,18 @@ not opened just to record progress.
 2. Open a PR from the release branch into `main`.
 3. Merge it with a **merge commit**, not a squash, once the hosted checks are
    green, so provenance remains visible.
-4. Keep the release branch and fast-forward it to the integration merge
-   commit on `main`. Check its current head first: it must be an ancestor of
-   that commit. Use an expected-head check when updating the ref; if new work
-   arrived after the integration, stop and reconcile it rather than resetting
-   or force-pushing. The existing administrator bypass of **Protect release
-   branches** permits this ref-only alignment; it does not authorize direct
-   development commits. Do not delete/recreate the branch or weaken the
-   separate **Prevent release branch deletion** ruleset for this operation.
-   At an owner-approved milestone transition, retain the completed branch
-   and create the next `release/X.Y.Z` from the integration commit, then update
+4. Keep the release branch and bring it up to date with `main` through a
+   second PR, from `main` into the release branch, merged with a **merge
+   commit** once **Repository integrity** is green. **Protect release
+   branches** has no bypass, so the branch cannot be moved by a direct push;
+   the PR carries only the integration merge commit, never new development.
+   Do not delete/recreate the branch or weaken the separate
+   **Prevent release branch deletion** ruleset for this operation. At an
+   owner-approved milestone transition, retain the completed branch and
+   create the next `release/X.Y.Z` from the integration commit, then update
    [Branches](#branches) and Dependabot's `target-branch`.
-5. Verify both branches point to the merge commit and that CI passed on it.
+5. Verify that the release branch contains the integration merge commit and
+   that CI passed on both branches.
 
 <a id="ownership-authorization-and-review"></a>
 
@@ -92,8 +92,12 @@ candidate.
 
 Every issue has assignee **danielep71**, exactly one priority label
 (**P1**, **P2** or **P3**; see [Labels](#labels)) and the milestone of the
-release branch it targets. Include objective, acceptance checklist,
-dependencies and required evidence.
+release branch it targets. Include objective, acceptance checklist, a
+**Dependencies and blocking status** section and required evidence. The
+section names each prerequisite as an issue link (`#12`) or on a line
+starting `External condition:`, or says `None`; it may also name related
+issues. `blocked` is set only while a named prerequisite is open or an
+external condition holds.
 
 Exception: traffic alert issues opened by the daily traffic export get the
 assignee and **P3** automatically and no milestone; they are operational
@@ -111,13 +115,36 @@ hides ordinary blank issues, but users with Write, Maintain or Admin access
 can still use the **Maintainers only** blank-issue option. Those issues, and
 issues created through the API, CLI or another tool, bypass the forms and get
 no metadata automatically. Nothing blocks an issue that lacks metadata: this is
-a **manual rule backed by the triage check**, not enforcement. The issue forms
+a **manual rule backed by the triage check** below, not enforcement. The issue forms
 and the pull-request template are read by GitHub from the default branch, so a
 change to them takes effect after the next integration into `main`.
 
 ### Triage check
 
-Run these searches at issue triage and before milestone closeout. Each must
+The read-only **Issue triage** workflow
+([`.github/workflows/issue-triage.yml`](../.github/workflows/issue-triage.yml))
+runs `tools/check_issues.py` on every issue event and on manual dispatch. It
+audits every open issue:
+
+- assigned to the person `bug.yml` assigns;
+- exactly one of `P1`, `P2` and `P3`, and `P1` only together with `bug`;
+- a milestone;
+- only labels of `.github/labels.json`;
+- a dependency section whose issue references exist;
+- `blocked` only with an open prerequisite or an external condition, and
+  always with an external condition.
+
+Traffic alerts need no milestone or dependency section. The workflow never
+changes an issue: a failed run lists the findings, and I resolve each by hand.
+Issue events run it from `main`, so a change to it takes effect after the next
+integration. To audit locally, with an export of the issues as GitHub REST
+JSON:
+
+```sh
+python tools/check_issues.py --input issues.json --repo-name danielep71/K-SACCR
+```
+
+The searches below also cover closed issues. Run these searches at issue triage and before milestone closeout. Each must
 return no results. Closed issues are included because the metadata rule applies
 to every issue. Keep the missing-milestone search repository-wide: filtering by
 milestone would hide orphans.
@@ -144,14 +171,16 @@ configuration.
 | Control | State and working response |
 | --- | --- |
 | Repository visibility | Public. |
-| Branch rulesets | `main`: pull request required, merge commits only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion; repository admins may bypass only through a pull request. **Protect release branches**: pull request required, squash only, conversations resolved, **Repository integrity** required and up to date, no force pushes or deletion, with an administrator bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass; the administrator exception in the other ruleset does not override it. Keep following the review checklist for what rulesets cannot check. |
+| Pull request settings | Updating a pull request branch from its base is offered. Projects and the legacy downloads feature are off. |
+| Branch rulesets | **Protect main** (the default branch): pull request required with no approvals, conversations resolved, merge commits only, **Repository integrity** required, up to date and enforced on branch creation, no force pushes or deletion, no bypass. **Protect release branches** (`release/**`): the same, except that squash and merge commits are allowed and the check is not enforced when a branch is created; task PRs are squash-merged and the PR that brings the branch up to date with `main` is merged with a merge commit. **Protect traffic history** (`traffic-history`): no force pushes or deletion, no bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass. Keep following the review checklist for what rulesets cannot check. |
 | Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the active `release/1.1.0` and future matching branches. Historical `release/1.0.0`, `release/1.0.1` and `release/1.0.2` have been deleted; their published tags and artifacts remain. Any future historical-branch deletion requires separate owner authorization, commit-reachability and link checks, and immediate removal of temporary ruleset exceptions. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
-| Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain and fast-forward the active release branch after integration. |
+| Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain the active release branch after integration and bring it up to date with `main` through a pull request. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |
 | Private vulnerability reporting | Enabled; the primary reporting channel in [`SECURITY.md`](../SECURITY.md). |
-| Advanced code/secret scanning | Available for public repositories. Do not claim CodeQL, secret scanning or push protection are active unless Settings → Code security shows them enabled. |
-| Dependency graph and Dependabot alerts | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. |
+| Code scanning | CodeQL default setup is enabled for `actions` and `python` with the default query suite: it analyses pushes and pull requests and runs weekly. It covers the workflows and the Python tools; VBA is not a CodeQL language. It is not a required check in the rulesets; review its alerts under Security → Code scanning. |
+| Secret scanning and push protection | Enabled. Push protection blocks a push that contains a detected secret; never bypass it for a real credential, remove the secret and rotate it instead. Non-provider patterns and validity checks are off. |
+| Dependency graph, Dependabot alerts and security updates | Enabled. Review alerts rather than assuming a clean dependency graph proves application security. Security update pull requests target `main`; see [Dependency updates](../tools/README.md#dependency-updates). |
 | Low-impact development-dependency alert auto-dismissal | Disabled by explicit owner decision. Keep those alerts visible. |
 | Automatic Dependabot updates | See [Dependency updates](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
@@ -166,18 +195,23 @@ configuration.
 K-SACCR uses the 20-label core catalogue from
 danielep71/EXCEL-VBA-PROJECT-TEMPLATE at commit
 b903fe44ef6a032c4689870b83745afa1c22490d. Names, colours and descriptions are
-defined in `.github/labels.json`; its `prune: true` policy removes labels
-outside the catalogue during reconciliation.
+defined in `.github/labels.json`, schema version 2: its root holds only
+`schema_version`, `prune` and the `labels` list, with no profiles or
+overlays. Its `prune: true` policy removes labels outside the catalogue during
+reconciliation.
 
 ### When to use each label
 
-Every issue carries exactly one priority label:
+Every issue carries exactly one priority label. `P1` is reserved for a
+confirmed calculation bug and is used only together with `bug`; any other
+defect, however urgent, is `P2`. Issues closed before this rule keep the
+priority they were closed with.
 
 | Label | Use when |
 | --- | --- |
-| `P1` | Critical release blocker or serious correctness, data, or application-state risk |
+| `P1` | Confirmed calculation bug: wrong results for valid inputs (reserved for this case) |
 | `P2` | Material correctness, robustness, or maintainability defect |
-| `P3` | Non-blocking quality, testing, documentation, or technical-debt improvement |
+| `P3` | Non-blocking quality, testing, documentation, setup or technical-debt work |
 
 The forms default to `P2` (bug, feature) and `P3` (documentation); Dependabot
 update PRs and traffic alerts get `P3`. Triage confirms or changes it.
@@ -189,7 +223,7 @@ Type labels say what kind of work an issue or PR is. The forms set `bug`,
 | --- | --- |
 | `bug` | Confirmed defect in behavior, correctness, error handling, or a documented contract |
 | `enhancement` | New capability or meaningful improvement to supported behavior |
-| `documentation` | User-facing or maintainer-facing documentation |
+| `documentation` | Documentation for users or for my repository maintenance |
 | `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
 | `refactor` | Internal restructuring intended to preserve supported behavior |
 | `behavior-change` | Intentional externally observable behavior change |
@@ -203,25 +237,26 @@ Status and triage labels:
 | Label | Use when |
 | --- | --- |
 | `blocked` | Cannot proceed until a named dependency is complete |
-| `question` | Further information or a maintainer decision is required |
-| `help wanted` | Maintainer welcomes external investigation, implementation, validation, or review |
+| `question` | I need further information or need to make a decision |
+| `help wanted` | I welcome external investigation, implementation, validation, or review |
 | `good first issue` | Well-scoped task suitable for a first contribution |
 | `duplicate` | An existing issue or pull request already covers this work |
 | `invalid` | Report is incomplete, unsupported, or not actionable as submitted |
-| `wontfix` | Maintainers have decided not to implement or continue this work |
+| `wontfix` | I have decided not to implement or continue this work |
 
 Labels do not assign priorities or milestones automatically.
 
 ### Label workflows
 
-The label manifest and both reconciliation scripts are copied unchanged from
-the template. The two workflows are copied from the same revision with two
-integration adjustments: they pass `--policy .github/label-policy.json` and
-watch that file instead of the template-wide repository profile, and every
-checkout sets `persist-credentials: false`, so code under review never receives
-Git credentials. The policy selects the generated application profile with no
-domain overlays; all profile overlays are empty, so the result is exactly the
-template's 20 core labels.
+Both reconciliation scripts are the schema-2 versions of
+danielep71/MyTemplate at commit f4e11c3e5ced16fb3d699a31a21e5e9d7ade7173,
+unchanged. They read `.github/labels.json` and take no repository policy, so
+the live catalogue is exactly the manifest's 20 labels. Every checkout in the
+two workflows sets `persist-credentials: false`, so code under review never
+receives Git credentials. The workflows are K-SACCR's own in two respects:
+pull-request checks run only for pull requests into `main` or `release/**`,
+and the reconciliation job runs on any trusted event, a push to `main` or a
+manual run on any ref, not only on the default branch.
 
 - **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
   or `release/**` without write permission. Pushes to main affecting its inputs,
@@ -234,7 +269,7 @@ template's 20 core labels.
 - Both workflows use full-SHA-pinned actions.
 
 Changes merged into the release branch alone do not trigger live sync. If an
-authorized label-policy change is developed on the release branch, validate it
+authorized label-catalogue change is developed on the release branch, validate it
 locally and via PR checks, review removals and their issue associations, then
 use an explicitly requested manual sync on that reviewed release ref when live
 reconciliation is needed. Do not modify main solely to trigger sync.
@@ -244,7 +279,7 @@ removals carefully: deleting a label also removes its issue/PR associations.
 Optional local checks, with Node.js:
 
 ```sh
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --self-test
-node .github/scripts/labels-sync.mjs --policy .github/label-policy.json --mode validate
-node .github/scripts/labels-drift.mjs --policy .github/label-policy.json --self-test
+node .github/scripts/labels-sync.mjs --self-test
+node .github/scripts/labels-sync.mjs --mode validate
+node .github/scripts/labels-drift.mjs --self-test
 ```

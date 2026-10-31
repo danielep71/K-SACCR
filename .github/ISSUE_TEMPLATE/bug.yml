@@ -11,7 +11,7 @@ body:
 
         **Reproducible · Exact commit · Sourced expected value · No real portfolio data**
 
-        A useful report names the exact commit, gives steps anyone can repeat, and states where the expected value comes from. Triage sets the milestone and confirms the priority (default `P2`).
+        A useful report names the exact commit, gives steps anyone can repeat, and states where the expected value comes from. Triage sets the milestone and confirms the priority: `P2` by default, `P1` only for a confirmed calculation bug.
 
         > [!CAUTION]
         > No real portfolio data: never paste real trades, netting sets, counterparty or collateral data, credentials or private workbooks. Report vulnerabilities privately as described in [`SECURITY.md`](https://github.com/danielep71/K-SACCR/blob/main/SECURITY.md).
@@ -117,6 +117,15 @@ body:
       placeholder: |
         - [ ] ...
         - [ ] Regression case with a published expected value, or an illustrative one from a separate derivation
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: "🔗 Dependencies and blocking status"
+      description: Name each prerequisite as an issue link (#12) or on a line starting "External condition:". Write "None" if nothing blocks this work. Triage adds `blocked` only while a named prerequisite is unresolved.
+      placeholder: None
     validations:
       required: true
 

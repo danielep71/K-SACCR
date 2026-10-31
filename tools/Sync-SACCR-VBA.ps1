@@ -24,6 +24,14 @@ modules in the source and asks whether to replace their code as well. Answer
 N for a workbook built from a newer template, whose sheet code must stay as
 it is. -IncludeSheets or -SkipSheets gives the answer in advance.
 
+-FromTemplate builds the workbook first: it saves
+src\workbook\SACCR_Template.xlsx as an .xlsm at -WorkbookPath, replacing a
+file of that name, so the sheets are the current template's. The sheet code
+is then always replaced from the source, without asking: the template's
+document modules hold no code. It is refused with -SourceDir and with
+-SkipSheets. tools\Sync-SACCR-VBA.cmd started without a workbook uses it to
+build test-results\K-SACCR_Development.xlsm.
+
 .REQUIREMENTS
 - Windows desktop Excel.
 - Excel > Options > Trust Center > Macro Settings >
@@ -38,6 +46,12 @@ whether to replace the sheet code as well.
 
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -Mode Development -SkipSheets
+
+.EXAMPLE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath ".\test-results\K-SACCR_Development.xlsm" -Mode Development -FromTemplate
+
+Builds a fresh development workbook from the template, with the sheet code
+filled.
 
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Sync-SACCR-VBA.ps1 -WorkbookPath "C:\SACCR\SACCR.xlsm" -SourceDir "$env:USERPROFILE\Downloads"
@@ -92,7 +106,10 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("Production", "Development")]
-    [string]$Mode
+    [string]$Mode,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$FromTemplate
 )
 
 Set-StrictMode -Version Latest
@@ -117,6 +134,7 @@ $vbext_ct_Document = 100
 $xlCalculationManual = -4135
 $xlCalculationAutomatic = -4105
 $msoAutomationSecurityForceDisable = 3
+$xlOpenXMLWorkbookMacroEnabled = 52
 
 # With -SourceDir, a standard module the repository checkout does not have
 # is offered for import when its name has a project prefix; any other
@@ -533,6 +551,45 @@ function Sync-VbaSource {
     }
 }
 
+function New-WorkbookFromTemplate {
+    # Save the macro-free template as an .xlsm at TargetPath, in an Excel
+    # instance of its own. A file already at TargetPath is replaced.
+    param(
+        [Parameter(Mandatory = $true)][string]$TemplatePath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    if (-not (Test-Path -LiteralPath $TemplatePath -PathType Leaf)) {
+        throw "Template not found: $TemplatePath"
+    }
+    $null = New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($TargetPath))
+    if (Test-Path -LiteralPath $TargetPath -PathType Leaf) {
+        Remove-Item -LiteralPath $TargetPath -Force
+    }
+
+    $builder = $null
+    $book = $null
+    try {
+        $builder = New-Object -ComObject Excel.Application
+        $builder.Visible = $false
+        $builder.DisplayAlerts = $false
+        $builder.AutomationSecurity = $msoAutomationSecurityForceDisable
+        $book = $builder.Workbooks.Open($TemplatePath, 0, $true)
+        $book.SaveAs($TargetPath, $xlOpenXMLWorkbookMacroEnabled)
+        $book.Close($false)
+        $book = $null
+    }
+    finally {
+        if ($null -ne $book) {
+            try { $book.Close($false) } catch {}
+        }
+        if ($null -ne $builder) {
+            try { $builder.Quit() } catch {}
+            try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($builder) } catch {}
+        }
+    }
+}
+
 $excel = $null
 $workbook = $null
 $saved = $false
@@ -541,11 +598,29 @@ $stagePath = $null
 $syncMode = $null
 
 try {
-    $workbookFullPath = Resolve-FullPath -PathValue $WorkbookPath
+    # A workbook built from the template need not exist yet.
+    if ($FromTemplate) {
+        $workbookFullPath = [System.IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($WorkbookPath))
+    }
+    else {
+        $workbookFullPath = Resolve-FullPath -PathValue $WorkbookPath
+    }
     $repoFullPath = Resolve-FullPath -PathValue $RepoRoot
 
     if ([System.IO.Path]::GetExtension($workbookFullPath).ToLowerInvariant() -ne ".xlsm") {
         throw "WorkbookPath must point to an .xlsm file."
+    }
+
+    # -FromTemplate builds a whole workbook: every component of the mode,
+    # and the sheet code, which the template does not hold.
+    if ($FromTemplate) {
+        if (-not [string]::IsNullOrWhiteSpace($SourceDir)) {
+            throw "Use -FromTemplate only with a full synchronization, not with -SourceDir."
+        }
+        if ($SkipSheets) {
+            throw "Use -FromTemplate without -SkipSheets: the template's sheet modules hold no code."
+        }
+        $IncludeSheets = [switch]$true
     }
 
     $sourceRoots = @(
@@ -680,7 +755,13 @@ try {
         Write-Host ""
     }
 
-    if (-not $NoBackup) {
+    # -FromTemplate: the workbook is built anew, so there is nothing to back up.
+    if ($FromTemplate) {
+        $templatePath = Join-Path $repoFullPath "src\workbook\SACCR_Template.xlsx"
+        New-WorkbookFromTemplate -TemplatePath $templatePath -TargetPath $workbookFullPath
+        Write-Host "Template:   $templatePath saved as $workbookFullPath"
+    }
+    elseif (-not $NoBackup) {
         $directory = [System.IO.Path]::GetDirectoryName($workbookFullPath)
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($workbookFullPath)
         $extension = [System.IO.Path]::GetExtension($workbookFullPath)
@@ -783,7 +864,12 @@ try {
     }
 
     Write-Host ""
-    Write-Host "SUCCESS: VBA synchronized. Workbook sheets were not removed or recreated."
+    if ($FromTemplate) {
+        Write-Host "SUCCESS: workbook built from the template and VBA synchronized."
+    }
+    else {
+        Write-Host "SUCCESS: VBA synchronized. Workbook sheets were not removed or recreated."
+    }
 }
 catch {
     Write-Error $_

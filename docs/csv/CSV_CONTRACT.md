@@ -353,9 +353,10 @@ calculated. A row added on the sheet has no CSV line; none is ever invented.
 At the top, the sheet shows the file, the time of the load, the record count
 and a status: `EMPTY` before any load, `LOADED` after one, `EDITED` once a
 cell below the header changes. The fingerprint of the block as loaded is kept
-in a hidden name. When the block no longer matches it, a new load asks before
-it replaces the changes, even if they were made with events off and the
-status still reads `LOADED`. A load that fails while writing puts the sheet
+in a hidden name. When the block no longer matches it, or holds a formula,
+even one whose value is the text it replaced, a new load asks before it
+replaces the changes, even if they were made with events off and the status
+still reads `LOADED`. A load that fails while writing puts the sheet
 back as it was, formulas included. A value longer than an Excel cell holds,
 32,767 characters, cannot be staged whole: the load stops before the sheet
 changes.

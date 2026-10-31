@@ -212,6 +212,24 @@ class SyncScriptTests(unittest.TestCase):
                            "@{ failed = $failed } | ConvertTo-Json | Set-Content -LiteralPath $env:RESULT -Encoding utf8")
         self.assertIn("not found: src/core/Missing.bas", result["failed"])
 
+    def run_script(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        """Run the whole script; the refusals tested here stop it before Excel."""
+        return subprocess.run(
+            [str(PWSH), "-NoProfile", "-NonInteractive", "-File", str(SCRIPT), *arguments],
+            capture_output=True, text=True, timeout=120, check=False)
+
+    def test_from_template_refusals(self) -> None:
+        # -FromTemplate builds a whole workbook with its sheet code, so it refuses
+        # a folder import and -SkipSheets, before anything is written.
+        workbook = self.root / "built" / "K-SACCR_Development.xlsm"
+        for extra, message in ((["-SourceDir", str(self.root)], "not with -SourceDir"),
+                               (["-Mode", "Development", "-SkipSheets"], "without -SkipSheets")):
+            with self.subTest(extra=extra):
+                completed = self.run_script("-WorkbookPath", str(workbook), "-FromTemplate", *extra)
+                self.assertEqual(completed.returncode, 1, completed.stdout)
+                self.assertIn(message, completed.stderr + completed.stdout)
+                self.assertFalse(workbook.parent.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
