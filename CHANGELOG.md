@@ -209,6 +209,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Move the issue-label manifest to schema version 2: `.github/labels.json`
+  holds only `schema_version`, `prune` and `labels`, `.github/label-policy.json`
+  is gone, and the two label scripts and workflows no longer take `--policy`.
+  The 20 labels, their colours and descriptions are unchanged.
 - Require pull requests into `release/**` to be up to date with their target
   branch before merging, with **Repository integrity** passing on the updated
   candidate. An Excel verification of a VBA or template change survives such
