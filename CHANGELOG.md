@@ -229,6 +229,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reconcile the live issue labels from the default branch only (#493): a
+  manual run of the label synchronization on another branch no longer applies
+  that branch's manifest, and the governance drops the sync from a reviewed
+  release ref; label changes take effect on integration into `main`.
 - Reserve `P1` for a confirmed calculation bug, wrong results for valid
   inputs, used only with `bug` (#485); other defects are `P2`. The
   descriptions of `documentation`, `help wanted`, `question` and `wontfix`
