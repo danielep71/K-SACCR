@@ -537,14 +537,16 @@ and one made with events on, which shows `EDITED`; a shorter file, which
 clears the rows below it; a failure while writing (`gTestFault =
 "staging-write"`), which puts the sheet back, a formula in it included; a
 value longer than a cell holds, which loads nothing; a formula in the block,
-which `StagingFormulaCell` finds; and a header-only file. It then validates
+which `StagingFormulaCell` finds; a formula whose value is the text it
+replaced, which still refuses a new load; and a header-only file. It then validates
 the staging sheets through `M_Main.ValidateStaging_Silent`: staged legs with
 an unknown netting set and a notional that is not a number, listed on Checks
 with links, marked and reported `INVALID`; the same cells corrected, `VALID`,
 with the marks gone and no link font left on Checks; the evidence export refused while Checks shows the
 validation; netting sets staged alone, against the legs on Trades, whose cells
-are not marked; and a formula in a staging block or nothing staged, which
-refuse and leave Checks alone. The live inputs and the run fingerprints must
+are not marked; a formula in a staging block or nothing staged, which
+refuse and leave Checks alone; and Excel error values in staged cells, which
+are judged by the text Excel shows, without a VBA error. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 

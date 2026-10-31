@@ -106,7 +106,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-29
 '
 ' AUTHOR
 '   Daniele Penza
@@ -2834,14 +2834,15 @@ Public Function StagingFormulaCell( _
 '   or "" when none does (#208). A value pasted as a formula would be
 '   calculated rather than kept as written, so staging validation and
 '   commit (#209, #211) refuse such a block, whatever the events did; the
-'   load checks its own writing with it.
+'   load checks its own writing with it, and StagingHasEdits counts one as
+'   a change (#468).
 '
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when the staging sheet or its names are
 '   missing.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-10-29
 '==============================================================================
 '
 
@@ -3465,16 +3466,21 @@ Private Function StagingHasEdits( _
 ' PURPOSE
 '   Tell whether a staging block differs from the one the last load wrote,
 '   or, before any load, whether it holds anything: by its fingerprint,
-'   whatever its status cell shows.
+'   whatever its status cell shows. A load never writes a formula, so a
+'   formula in the block is a change, also when its value is the text it
+'   replaced, which the fingerprint of the values cannot tell (#468).
 '
 ' ERROR POLICY
-'   As StagingFingerprint.
+'   As StagingFingerprint and StagingFormulaCell.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-10-29
 '==============================================================================
 '
         StagingHasEdits = (StagingFingerprint(Kind) <> StoredText(StagedNameOf(Kind)))
+        If Not StagingHasEdits Then
+            StagingHasEdits = (Len(StagingFormulaCell(Kind)) > 0)
+        End If
 
 End Function
 

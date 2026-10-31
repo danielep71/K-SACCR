@@ -15,7 +15,9 @@ Attribute VB_Name = "TEST_Import"
 '   handler shows EDITED. A shorter file clears the rows below it. A load
 '   that fails while writing puts the sheet back as it was, a formula in
 '   it included. A value longer than a cell holds loads nothing. A formula
-'   in the block is found (M_Main.StagingFormulaCell). The live inputs,
+'   in the block is found (M_Main.StagingFormulaCell), and a formula
+'   whose value is the text it replaced is a change that refuses a new
+'   load (#468). The live inputs,
 '   the run fingerprints and the other staging sheet are never changed.
 '   The staging validation (#209), M_Main.ValidateStaging_Silent, lists
 '   each finding on Checks with the origin IMPORT and a link to its cell,
@@ -24,7 +26,9 @@ Attribute VB_Name = "TEST_Import"
 '   Trades are checked against them and no live cell is marked. The
 '   evidence export then refuses, and the run fingerprints are unchanged.
 '   A formula in a staging block, or nothing staged, refuses the
-'   validation and leaves Checks as it was.
+'   validation and leaves Checks as it was. An Excel error value in a
+'   staged cell is judged by the text Excel shows for it, without a VBA
+'   error (#476).
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -64,7 +68,7 @@ Attribute VB_Name = "TEST_Import"
 '   RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-29
 '
 ' AUTHOR
 '   Daniele Penza
@@ -80,8 +84,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 15                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 79                           'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 17                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 89                           'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -195,12 +199,14 @@ Public Sub RunImportTests()
         CaseWriteFailure
         CaseCellLimit
         CaseFormulaCell
+        CaseFormulaEqualValue
         CaseHeaderOnly
         CaseValidateStaged
         CaseValidateCorrected
         CaseValidateEvidence
         CaseValidateLiveTrades
         CaseValidateRefused
+        CaseValidateErrorValues
         PutChecksBack
         CaseLiveSheets LiveBefore
 
@@ -596,6 +602,57 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseFormulaEqualValue()
+'
+'==============================================================================
+' PURPOSE
+'   A staged ID replaced, with events off, by a formula that returns the
+'   same text leaves the values as loaded, yet is a change (#468): a new
+'   load is refused and the formula kept. Once the value is typed back as
+'   text, a new load goes ahead.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine   As String     'What the load returned
+    Dim Target       As Range      'The cell given a formula
+    Dim Events       As Boolean    'EnableEvents before the case
+
+'------------------------------------------------------------------------------
+' LOAD, REPLACE A VALUE WITH AN EQUAL FORMULA, LOAD AGAIN
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "import.formula-equal-value"
+        Events = Application.EnableEvents
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Application.EnableEvents = False
+        Set Target = StagingCell(KIND_TR, 1, COL_ID)
+        Target.NumberFormat = "General"
+        Target.Formula = "=""T1"""
+        Application.EnableEvents = Events
+        CheckText "the formula's value", CStr(Target.Value2), "T1"
+        ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile)
+        CheckText "refused", ResultLine, "RESULT=REFUSED; reason=" & SH_IMPORT_TR & _
+                  " has changes since its last load; file=" & mTestFile
+        Check Target.HasFormula, "the formula was not kept"
+        Application.EnableEvents = False
+        Target.NumberFormat = "@"
+        Target.Value2 = "T1"
+        Application.EnableEvents = Events
+        ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile)
+        CheckText "loaded once typed back", ResultLine, "RESULT=LOADED; records=1; findings=0; file=" & mTestFile
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Application.EnableEvents = Events
+
+End Sub
+
+
 Private Sub CaseHeaderOnly()
 '
 '==============================================================================
@@ -861,6 +918,68 @@ Private Sub CaseValidateRefused()
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "nothing staged", ResultLine, "RESULT=REFUSED; reason=nothing is staged"
         CheckText "Checks unchanged", ChecksText(), Before
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Application.EnableEvents = Events
+
+End Sub
+
+
+Private Sub CaseValidateErrorValues()
+'
+'==============================================================================
+' PURPOSE
+'   Excel error values in staged cells, as a paste of values can leave
+'   them (#476): on T1, #N/A in the notional, a number column, and
+'   #DIV/0! in the comment, a text column; on T2, #VALUE! in the notional
+'   and #N/A in the comment. The validation runs without a VBA error and
+'   is INVALID with two findings, each notional's CSV-TYPE naming its
+'   error; the comments are judged as the text Excel shows.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String     'What the validation returned
+    Dim Notional      As Range      'The notional of T1, holding #N/A
+    Dim Notional2     As Range      'The notional of T2, holding #VALUE!
+    Dim Events        As Boolean    'EnableEvents before the case
+    Dim ErrorNumber   As Long       'Error raised by the validation
+
+'------------------------------------------------------------------------------
+' STAGE, PUT ERROR VALUES IN, VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.error-values"
+        Events = Application.EnableEvents
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Application.EnableEvents = False
+        Set Notional = StagingCell(KIND_TR, 1, COL_TR_NOTIONAL)
+        Set Notional2 = StagingCell(KIND_TR, 2, COL_TR_NOTIONAL)
+        Notional.Value = CVErr(xlErrNA)
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value = CVErr(xlErrDiv0)
+        Notional2.Value = CVErr(xlErrValue)
+        StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value = CVErr(xlErrNA)
+        Application.EnableEvents = Events
+        Check IsError(Notional.Value2) And IsError(StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2) And _
+              IsError(Notional2.Value2) And IsError(StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value2), _
+              "the cells do not hold error values"
+        On Error Resume Next
+        ResultLine = M_Main.ValidateStaging_Silent()
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        Check ErrorNumber = 0, "the validation raised error " & ErrorNumber
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=2; nettingsets=2; trades=2; first=CSV-TYPE|" & _
+                  SH_IMPORT_TR & "!" & Notional.Address(False, False)
+        Check InStr(1, ChecksValue(2, 5), "#N/A", vbBinaryCompare) > 0, "the finding does not name #N/A: " & ChecksValue(2, 5)
+        Check InStr(1, ChecksValue(3, 5), "#VALUE!", vbBinaryCompare) > 0, "the finding does not name #VALUE!: " & ChecksValue(3, 5)
+        CheckText "status", Meta(KIND_TR, 4), STAGING_INVALID
         Exit Sub
 
 Unexpected:
