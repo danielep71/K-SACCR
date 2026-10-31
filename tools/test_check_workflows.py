@@ -11,6 +11,7 @@ import copy
 import io
 import os
 import re
+import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -106,9 +107,22 @@ class ViolationTests(unittest.TestCase):
             "**Repository integrity** required", "**Integrity** required")), "GOVERNANCE")
 
     def test_label_sync_outside_the_default_branch(self) -> None:
-        def change(w: dict[str, Any]) -> None:
-            job(w, "labels-sync.yml", "reconcile")["if"] = "github.event_name != 'pull_request'"
-        self.assertFinds(cw.check_label_sync(mutated(change)), "default branch")
+        guard = job(WORKFLOWS, "labels-sync.yml", "reconcile")["if"]
+        for condition in ("github.event_name != 'pull_request'", guard.replace("&&", "||")):
+            with self.subTest(condition=condition):
+                def change(w: dict[str, Any]) -> None:
+                    job(w, "labels-sync.yml", "reconcile")["if"] = condition
+                self.assertFinds(cw.check_label_sync(mutated(change)), "default branch")
+
+    def test_yaml_extension_is_checked(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "extra.yaml").write_text(
+                "on: push\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@v7\n",
+                encoding="utf-8")
+            workflows = cw.load_workflows(Path(folder))
+        self.assertEqual(list(workflows), ["extra.yaml"])
+        self.assertFinds(cw.check_pins(workflows), "not pinned")
+        self.assertFinds(cw.check_limits(workflows), "extra.yaml: no top-level permissions")
 
     def test_milestone_workflow(self) -> None:
         name = "pr-milestones.yml"

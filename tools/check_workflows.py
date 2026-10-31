@@ -39,6 +39,7 @@ MILESTONE_EVENTS: dict[str, Any] = {
     "schedule": [{"cron": "17 3 * * *"}],
     "workflow_dispatch": None,
 }
+LABEL_SYNC_GUARD = "github.event_name != 'pull_request' && " + DEFAULT_BRANCH_GUARD
 MILESTONE_GUARD = ("github.event_name == 'pull_request_target' || "
                    "github.event_name == 'schedule' || " + DEFAULT_BRANCH_GUARD)
 # Every ecosystem whose versions the repository pins.
@@ -53,7 +54,9 @@ def load_yaml(path: Path) -> Any:
 
 
 def load_workflows(folder: Path = WORKFLOWS) -> Docs:
-    return {path.name: load_yaml(path) for path in sorted(folder.glob("*.yml"))}
+    # GitHub Actions runs both extensions.
+    paths = sorted([*folder.glob("*.yml"), *folder.glob("*.yaml")])
+    return {path.name: load_yaml(path) for path in paths}
 
 
 def events(workflow: Mapping[Any, Any]) -> Any:
@@ -152,7 +155,7 @@ def check_label_sync(workflows: Docs) -> list[str]:
     if not isinstance(job, dict):
         return ["labels-sync.yml: job 'reconcile' is missing"]
     condition = " ".join(str(job.get("if", "")).split())
-    if DEFAULT_BRANCH_GUARD not in condition or "github.event_name != 'pull_request'" not in condition:
+    if condition != LABEL_SYNC_GUARD:
         return ["labels-sync.yml/reconcile: condition does not limit it to the default branch"]
     return []
 
