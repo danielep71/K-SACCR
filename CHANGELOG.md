@@ -96,6 +96,12 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
+  It now matches project names case-insensitively, checks a literal macro
+  target qualified by a standard module whatever its name, checks the
+  arguments of recursive calls, and reports a class without a default
+  instance used as an object (`VBA-CALL-005`). K-SACCR's own modules give no
+  new finding. The checker stays advisory.
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
   14-day cooldown and pull requests targeting the active release branch.
 
