@@ -170,13 +170,14 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
             findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
                          for n in sorted(rule_columns(rule)) if n not in names]
     trade_names = {c["name"] for c in contract["files"]["Trades"]["columns"]}
-    ids = [rule["id"] for rule in contract["portfolio_rules"]]
-    findings += [f"portfolio rule {i!r} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
-    for rule in contract["portfolio_rules"]:
-        if rule["code"] not in contract["errors"]:
-            findings.append(f"portfolio rule {rule['id']}: code {rule['code']} is not in errors")
-        findings += [f"portfolio rule {rule['id']} names unknown column {n!r}"
-                     for n in rule["columns"] if n not in trade_names]
+    for section, label in (("portfolio_rules", "portfolio rule"), ("context_rules", "context rule")):
+        ids = [rule["id"] for rule in contract[section]]
+        findings += [f"{label} {i!r} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
+        for rule in contract[section]:
+            if rule["code"] not in contract["errors"]:
+                findings.append(f"{label} {rule['id']}: code {rule['code']} is not in errors")
+            findings += [f"{label} {rule['id']} names unknown column {n!r}"
+                         for n in rule["columns"] if n not in trade_names]
     return findings
 
 

@@ -500,6 +500,131 @@ def check_economic_trade(legs: list[int], rows: list[dict[str, str]], add: Adder
                     f"economic trade {name}: {len(members)} legs in asset class {asset_class} that are not all options")
 
 
+
+def normalize_pair(text: str) -> tuple[str, str] | None:
+    """The two currencies of an FX pair in alphabetical order, as CORE_Engine.NormalizePair reads it: the
+    separators "/", "-", " " and "." removed, six letters left, two different currencies; None otherwise."""
+    letters = text.upper()
+    for separator in ("/", "-", " ", "."):
+        letters = letters.replace(separator, "")
+    if len(letters) != 6 or letters[:3] == letters[3:]:
+        return None
+    first, second = sorted((letters[:3], letters[3:]))
+    return first, second
+
+
+def factor_key(asset_class: str, sub_class: str) -> str:
+    """The supervisory-factor key of a trade, as CORE_Engine.FactorKey builds it: IR, FX and OT have one
+    factor each, the other classes one per sub-class, such as CR_AAA."""
+    return asset_class if asset_class in ("IR", "FX", "OT") else f"{asset_class}_{sub_class}"
+
+
+def check_context(trades: list[tuple[int, dict[str, str]]], netting_sets: dict[str, str],
+                  context: dict[str, Any], contract: dict[str, Any], factor_only: bool = False) -> list[Finding]:
+    """The findings that depend on Params (#209): the reporting date, the FX table, the supervisory-factor
+    table and the regime, judged as CORE_Engine judges them in a run.
+
+    trades holds (CSV line, record) in staging order, as for check_portfolio. netting_sets maps each netting
+    set the legs may refer to onto its regime override, "" for none. context holds the reporting date
+    (as_of, yyyy-mm-dd), the reporting_currency, the Params regime, the currencies of the FX table and the
+    factors, each key mapped onto its regime, "" for both. A field that is blank or not of its type is not
+    judged here: its own finding comes from check_staged. With factor_only, only the factor and regime
+    rules are judged, for the live legs when only netting sets are staged.
+    """
+    codes = {rule["id"]: rule["code"] for rule in contract["context_rules"]}
+    columns = {column["name"]: column for column in contract["files"]["Trades"]["columns"]}
+    types = contract["types"]
+    as_of = date.fromisoformat(context["as_of"])
+    currencies = {fold(code) for code in context["currencies"]} | {fold(context["reporting_currency"])}
+    factors = {fold(key): fold(regimes) for key, regimes in context["factors"].items()}
+    regimes = {fold(key): fold(override) for key, override in netting_sets.items()}
+    findings: list[Finding] = []
+
+    def add(rule: str, position: int, column: str, message: str) -> None:
+        findings.append(Finding(codes[rule], trades[position - 1][0], position, column, message))
+
+    for position, (_, row) in enumerate(trades, start=1):
+        if not row.get("trade_id", ""):
+            continue
+
+        def usable(name: str) -> str:
+            """The field when it is filled and of its type, else ""."""
+            value = row.get(name, "")
+            return value if value and check_value(value, columns[name], types) is None else ""
+
+        def has_flawed(name: str) -> bool:
+            """Whether the field is filled but not of its type, so that check_staged reports it."""
+            return bool(row.get(name, "")) and not usable(name)
+
+        if not factor_only:
+            check_dates(position, usable, as_of, context["as_of"], add)
+            check_currencies(position, usable, currencies, context["reporting_currency"], add)
+        check_factor(position, usable, has_flawed, factors, regimes, fold(context["regime"]), add)
+    findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
+    return findings
+
+
+def check_dates(position: int, usable: Callable[[str], str], as_of: date, as_of_text: str, add: Adder) -> None:
+    """The maturity, option expiry and next reset date against the reporting date."""
+    matured = False
+    for name in ("maturity_date", "end_date", "option_expiry_date"):
+        if usable(name):
+            if date.fromisoformat(usable(name)) <= as_of:
+                matured = True
+                add("matured", position, name, f"trade has matured (maturity <= reporting date): {name} "
+                                               f"{usable(name)}, reporting date {as_of_text}")
+            break
+    expiry = usable("option_expiry_date")
+    if not matured and fold(usable("instrument")) == "OPTION" and expiry and date.fromisoformat(expiry) <= as_of:
+        add("expired", position, "option_expiry_date",
+            f"option has expired: option_expiry_date {expiry}, reporting date {as_of_text}")
+    reset = usable("next_reset_date")
+    if fold(usable("settlement_type")) == "STM" and reset and date.fromisoformat(reset) <= as_of:
+        add("reset", position, "next_reset_date", "next reset date must be after the reporting date (the MtM is the "
+                                                  f"value after that day's settlement): next_reset_date {reset}, "
+                                                  f"reporting date {as_of_text}")
+
+
+def check_currencies(position: int, usable: Callable[[str], str], currencies: set[str], reporting: str,
+                     add: Adder) -> None:
+    """The notional and MtM currencies, and an FX pair's currencies, against the FX table."""
+    notional = fold(usable("notional_currency"))
+    if notional and notional not in currencies:
+        add("currency", position, "notional_currency", f"no FX rate for notional currency '{notional}'")
+    mtm = fold(usable("market_value_currency"))
+    if mtm and mtm not in currencies:
+        add("currency", position, "market_value_currency", f"no FX rate for MtM currency '{mtm}'")
+    pair = normalize_pair(usable("risk_factor")) if fold(usable("asset_class")) == "FX" else None
+    if pair:
+        missing = [code for code in pair if code not in currencies]
+        if missing:
+            add("pair", position, "risk_factor", f"no FX rate for currency '{missing[0]}' of the pair {'/'.join(pair)}")
+
+
+def check_factor(position: int, usable: Callable[[str], str], has_flawed: Callable[[str], bool],
+                 factors: dict[str, str], regimes: dict[str, str], params_regime: str, add: Adder) -> None:
+    """The supervisory-factor row of the trade, and its regime and OT's against the netting set's. A blank
+    sub-class gives a key such as CR_, which no row has, as in a run."""
+    asset_class = fold(usable("asset_class"))
+    sub_class = fold(usable("sub_class"))
+    if not asset_class or (asset_class not in ("IR", "FX", "OT") and has_flawed("sub_class")):
+        return
+    key = factor_key(asset_class, sub_class)
+    column = "asset_class" if asset_class in ("IR", "FX", "OT") else "sub_class"
+    if key not in factors:
+        add("factor", position, column, f"no supervisory factor for '{key}' (check sub-class)")
+    netting_set = fold(usable("netting_set_id"))
+    if netting_set not in regimes:
+        return
+    regime = regimes[netting_set] if regimes[netting_set] in ("CRR", "BCBS") else params_regime
+    if asset_class == "OT" and regime != "CRR":
+        add("regime", position, "asset_class",
+            "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); under BCBS map the trade to "
+            "the class of its primary risk driver (CRE52)")
+    elif factors.get(key, "") not in ("", regime):
+        add("regime", position, column,
+            f"'{key}' is defined only for regime {factors[key]} (netting set uses {regime})")
+
 def template_text(kind: str, contract: dict[str, Any]) -> str:
     """The blank template of kind: the header record only, ending in LF."""
     return DELIMITER.join(column["name"] for column in contract["files"][kind]["columns"]) + "\n"

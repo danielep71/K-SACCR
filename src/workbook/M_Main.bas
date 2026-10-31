@@ -42,9 +42,11 @@ Attribute VB_Name = "M_Main"
 '   change handler of the staging sheets. StagingFormulaCell: the first
 '   formula in a staging block, for staging validation and commit.
 '   ValidateStaging: check the rows of both staging sheets against the
-'   contract and each other, and list the findings on Checks with the
-'   origin IMPORT and a link to each cell, which is marked (#209);
+'   contract, each other and Params, and list the findings on Checks with
+'   the origin IMPORT and a link to each cell, which is marked (#209);
 '   ValidateStaging_Silent: the same, for automation and tests.
+'   StagingValidationCurrent: whether the last staging validation was
+'   VALID and nothing it judged has changed, for the commit (#210, #211).
 '   The sheet buttons call the first three, ExportEvidence, the two
 '   template exports, the two imports and ValidateStaging by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
@@ -106,7 +108,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-29
+'   2026-10-31
 '
 ' AUTHOR
 '   Daniele Penza
@@ -152,6 +154,10 @@ Attribute VB_Name = "M_Main"
     'most; the summary line gives the full count.
         Private Const STAGING_ERROR_FILL    As Long = 13551615    'RGB(255, 199, 206)
         Private Const STAGING_LISTED_MAX    As Long = 10000       'Findings listed and marked
+    'The code of the finding of a run that would stop at Params, and the
+    'table columns of its row searched for its reference.
+        Private Const STAGING_PARAMS_CODE   As String = "CSV-CONTEXT-PARAMS"
+        Private Const STAGING_ROW_SEARCH    As Long = 16
 
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
@@ -3831,15 +3837,25 @@ Private Function CheckStaging( _
 '      staged trades against them; when only netting sets are staged, it
 '      checks the netting set of each leg on Trades against them, and a
 '      finding is on the Trades cell.
-'   3. Checks is rewritten: a first INFO line with the counts, then one
+'   3. What a run reads first, the layout, Params and its two tables, is
+'      read as a run reads it (CORE_Engine.LoadRunContext). CheckContext
+'      judges the staged trades against it: the reporting date, the FX
+'      table, the factor table and the regime of their netting set; with
+'      only netting sets staged, the factor and regime rules on each leg
+'      of Trades. When a run would stop there, nothing that depends on it
+'      is judged and that finding, on the cell the run names, keeps every
+'      staging sheet that holds rows from VALID.
+'   4. Checks is rewritten: a first INFO line with the counts, then one
 '      ERROR line per finding with the sheet, the row, a link to the cell
 '      in Reference, the code, column, message and CSV line in Message,
 '      and the origin IMPORT; at most STAGING_LISTED_MAX of them.
-'   4. The marks of the last validation are taken off both staging
+'   5. The marks of the last validation are taken off both staging
 '      sheets, then each staged cell with a finding is marked. Live cells
 '      are never marked or changed.
-'   5. The status of each staging sheet that holds rows is set last.
-'   The fingerprints of the last run are left as they are. Checks no
+'   6. The status of each staging sheet that holds rows is set last, and
+'      a validation without a finding stores the fingerprint of what it
+'      judged for StagingValidationCurrent; any other empties it.
+'   The fingerprints and counters of the last run are left as they are. Checks no
 '   longer shows what the run wrote, so current outputs read as EDITED
 '   and the evidence export refuses until the next run (#244).
 '
@@ -3861,7 +3877,7 @@ Private Function CheckStaging( _
 '   restored raises ERR_CLEANUP_FAILED.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3883,8 +3899,14 @@ Private Function CheckStaging( _
     Dim NsErrors            As Long             'Findings that keep Import_NettingSets from VALID
     Dim TrErrors            As Long             'Findings that keep Import_Trades from VALID
     Dim IDs()               As String           'The netting sets the legs may refer to
+    Dim Regimes()           As String           'The regime override of each; blank for none
     Dim IDCount             As Long             'How many there are
     Dim NsSource            As String           'The sheet they come from
+    Dim Context             As RunContext       'What a run reads from Params
+    Dim ProblemSheet        As String           'Where a run would stop instead: the sheet
+    Dim ProblemReference    As String           'Its parameter code, key or ID
+    Dim ProblemRow          As Long             'Its row; 0 for none
+    Dim ProblemMessage      As String           'Why
     Dim Result              As CsvReadResult    'What a check found
     Dim Findings()          As CsvFinding       'Its findings
     Dim Found()             As StagedFinding    'Every finding, for Checks
@@ -3954,10 +3976,10 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
         If NsRows > 0 Then
             NsSource = SH_IMPORT_NS
-            StagedKeys NsValues, NsRows, IDs, IDCount
+            StagedKeys NsValues, NsRows, IDs, Regimes, IDCount
         Else
             NsSource = SH_NS
-            LiveKeys IDs, IDCount
+            LiveKeys IDs, Regimes, IDCount
         End If
         If TrRows > 0 Then
             CheckPortfolio TrValues, TrLines, TrRows, IDs, IDCount, Result, Findings, NsSource
@@ -3965,6 +3987,30 @@ Private Function CheckStaging( _
             TrErrors = TrErrors + Result.FindingCount
         Else
             NsErrors = NsErrors + CheckLiveTrades(IDs, IDCount, Found, FoundCount)
+        End If
+
+'------------------------------------------------------------------------------
+' AGAINST PARAMS
+'------------------------------------------------------------------------------
+    'What a run reads before the input sheets, read as a run reads it. When
+    'a run would stop there, nothing that depends on it is judged, and no
+    'staging sheet can be VALID.
+        If CORE_Engine.LoadRunContext(Context, ProblemSheet, ProblemReference, ProblemRow, ProblemMessage) Then
+            If TrRows > 0 Then
+                CheckContext TrValues, TrLines, TrRows, Context, IDs, Regimes, IDCount, False, Result, Findings
+                AddCsvFindings "Trades", TrSheet, TrFirst, Result, Findings, Found, FoundCount
+                TrErrors = TrErrors + Result.FindingCount
+            Else
+                NsErrors = NsErrors + CheckLiveContext(Context, IDs, Regimes, IDCount, Found, FoundCount)
+            End If
+        Else
+            AddParamsFinding ProblemSheet, ProblemReference, ProblemRow, ProblemMessage, Found, FoundCount
+            If NsRows > 0 Then
+                NsErrors = NsErrors + 1
+            End If
+            If TrRows > 0 Then
+                TrErrors = TrErrors + 1
+            End If
         End If
 
 '------------------------------------------------------------------------------
@@ -3981,6 +4027,7 @@ Private Function CheckStaging( _
         If TrRows > 0 Then
             StagingMetaCell("Trades", 4).Value2 = IIf(TrErrors = 0, STAGING_VALID, STAGING_INVALID)
         End If
+        RememberStagingValidation (FoundCount = 0)
 
 '------------------------------------------------------------------------------
 ' RESTORE EXCEL AND REPORT
@@ -4135,30 +4182,36 @@ Private Sub StagedKeys( _
     ByRef Values() As String, _
     ByVal RowCount As Long, _
     ByRef IDs() As String, _
+    ByRef Regimes() As String, _
     ByRef IDCount As Long)
 '
 '==============================================================================
 ' PURPOSE
-'   The netting set IDs of the staged netting sets that have one.
+'   The netting set IDs of the staged netting sets that have one, and
+'   their regime overrides.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim KeyColumn   As Long    'Contract column of the netting set ID
-    Dim r           As Long    'Row
+    Dim KeyColumn       As Long    'Contract column of the netting set ID
+    Dim RegimeColumn    As Long    'Contract column of the regime override
+    Dim r               As Long    'Row
 
 '------------------------------------------------------------------------------
 ' COLLECT
 '------------------------------------------------------------------------------
         KeyColumn = ContractColumn("NettingSets", "netting_set_id")
+        RegimeColumn = ContractColumn("NettingSets", "regime_override")
         IDCount = 0
         ReDim IDs(1 To RowCount)
+        ReDim Regimes(1 To RowCount)
         For r = 1 To RowCount
             If Len(Values(r, KeyColumn)) > 0 Then
                 IDCount = IDCount + 1
                 IDs(IDCount) = Values(r, KeyColumn)
+                Regimes(IDCount) = Values(r, RegimeColumn)
             End If
         Next r
 
@@ -4167,6 +4220,7 @@ End Sub
 
 Private Sub LiveKeys( _
     ByRef IDs() As String, _
+    ByRef Regimes() As String, _
     ByRef IDCount As Long)
 '
 '==============================================================================
@@ -4174,14 +4228,15 @@ Private Sub LiveKeys( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The netting set IDs on NettingSets, trimmed as the engine reads them
-'   (SafeStr), for staged legs when no netting sets are staged.
+'   (SafeStr), and their regime overrides as it reads them (UTxt), for
+'   staged legs when no netting sets are staged.
 '
 ' ERROR POLICY
 '   Raises ERR_OUTPUT_LAYOUT when the NettingSets table cannot be located
 '   through its header name.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '==============================================================================
 '
 
@@ -4191,7 +4246,7 @@ Private Sub LiveKeys( _
     Dim Sheet       As Worksheet    'NettingSets
     Dim TopRow      As Long         'Its first data row
     Dim LastRow     As Long         'Its last row with a value
-    Dim Grid        As Variant      'The ID column
+    Dim Grid        As Variant      'The columns from ID to regime override
     Dim r           As Long         'Row of Grid
 
 '------------------------------------------------------------------------------
@@ -4199,20 +4254,302 @@ Private Sub LiveKeys( _
 '------------------------------------------------------------------------------
         IDCount = 0
         ReDim IDs(1 To 1)
+        ReDim Regimes(1 To 1)
         TopRow = LiveFirstRow(SH_NS, NM_NS_HEADER)
         Set Sheet = GetSheet(SH_NS)
         LastRow = LastDataRowAny(Sheet, TopRow, NS_NCOLS, 0)
         If LastRow < TopRow Then
             Exit Sub
         End If
-        Grid = TableRange(Sheet, TopRow, NS_ID, LastRow + 1, NS_ID).Value2
+        Grid = TableRange(Sheet, TopRow, NS_ID, LastRow + 1, NS_REGIME).Value2
         ReDim IDs(1 To LastRow - TopRow + 1)
+        ReDim Regimes(1 To LastRow - TopRow + 1)
         For r = 1 To LastRow - TopRow + 1
             If Len(SafeStr(Grid(r, 1))) > 0 Then
                 IDCount = IDCount + 1
                 IDs(IDCount) = SafeStr(Grid(r, 1))
+                Regimes(IDCount) = UTxt(Grid(r, 1 + NS_REGIME - NS_ID))
             End If
         Next r
+
+End Sub
+
+
+Public Function StagingValidationCurrent() As Boolean
+'
+'==============================================================================
+'                           StagingValidationCurrent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether the last staging validation found no error and nothing it
+'   judged has changed since (#209): both staging blocks, NettingSets,
+'   Trades and Params, the FX and supervisory-factor tables included. A
+'   commit (#210, #211) refuses otherwise, so that it never relies on a
+'   validation of other inputs.
+'
+' RETURNS
+'   True when the fingerprint stored by the last VALID validation matches
+'   the inputs now and no staging block holds a formula. False when the
+'   last validation was not VALID, there was none, the inputs changed,
+'   even with events off, or the fingerprint cannot be taken because a
+'   staging sheet or a Params name is missing.
+'
+' ERROR POLICY
+'   Contains every error, which reads as not current.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Stored      As String    'The fingerprint of the last VALID validation
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        On Error GoTo NotCurrent
+        Stored = StoredText(STAGING_VALIDATED_NAME)
+        If Len(Stored) = 0 Then
+            Exit Function
+        End If
+        If Len(StagingFormulaCell("NettingSets")) > 0 Or Len(StagingFormulaCell("Trades")) > 0 Then
+            Exit Function
+        End If
+        StagingValidationCurrent = (StagingValidationFingerprint() = Stored)
+        Exit Function
+
+NotCurrent:
+        StagingValidationCurrent = False
+
+End Function
+
+
+Private Function StagingValidationFingerprint() As String
+'
+'==============================================================================
+'                         StagingValidationFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint what a staging validation judges (#209): everything a run
+'   reads (CORE_Engine.InputFingerprint), which covers NettingSets, Trades
+'   and Params with its two tables, and both staging blocks. The live
+'   sheets are all included, also the one a staged block replaces: an
+'   edit there makes a validation out of date rather than risk missing
+'   one.
+'
+' ERROR POLICY
+'   Raises the errors of InputFingerprint and StagingFingerprint.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        StagingValidationFingerprint = TextHash(Join(Array("SV1", CORE_Engine.InputFingerprint(), _
+                                                StagingFingerprint("NettingSets"), StagingFingerprint("Trades")), Chr$(29)))
+
+End Function
+
+
+Private Sub RememberStagingValidation( _
+    ByVal Valid As Boolean)
+'
+'==============================================================================
+'                          RememberStagingValidation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Store the fingerprint of a VALID staging validation in the hidden name
+'   STAGING_VALIDATED_NAME, for StagingValidationCurrent; any other result
+'   empties it, so that an earlier VALID validation cannot be relied on.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Fingerprint     As String    'What is stored; "" for none
+
+'------------------------------------------------------------------------------
+' STORE
+'------------------------------------------------------------------------------
+        If Valid Then
+            Fingerprint = StagingValidationFingerprint()
+        End If
+        ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""" & Fingerprint & """", Visible:=False
+
+End Sub
+
+
+Private Function CheckLiveContext( _
+    ByRef Context As RunContext, _
+    ByRef IDs() As String, _
+    ByRef Regimes() As String, _
+    ByVal IDCount As Long, _
+    ByRef Found() As StagedFinding, _
+    ByRef FoundCount As Long) _
+    As Long
+'
+'==============================================================================
+'                               CheckLiveContext
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When only netting sets are staged, judge each leg on Trades with the
+'   factor and regime rules against them (#209), because a staged regime
+'   override can change a leg's outcome. The legs are read as the engine
+'   reads them (UTxt). A finding is on the leg's Asset class or Sub-class
+'   cell on Trades, which is not marked or changed. The other rules do not
+'   depend on the netting sets and are left to the run.
+'
+' RETURNS
+'   The number of findings added to Found.
+'
+' ERROR POLICY
+'   Raises ERR_OUTPUT_LAYOUT when the Trades table cannot be located
+'   through its header name.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet        'Trades
+    Dim TopRow      As Long             'Its first data row
+    Dim LastRow     As Long             'Its last row with a value
+    Dim Grid        As Variant          'Its columns from Trade ID to Sub-class
+    Dim RowCount    As Long             'Rows read
+    Dim Spec        As CsvSpec          'The Trades contract
+    Dim Columns()   As CsvColumn        'Its columns
+    Dim Rules()     As CsvRule          'Its rules, unused here
+    Dim Values()    As String           'The legs, with only those columns
+    Dim Lines()     As Long             'No CSV line: 0 for every leg
+    Dim ColID       As Long             'Contract column of the Trade ID
+    Dim Result      As CsvReadResult    'What CheckContext found
+    Dim Findings()  As CsvFinding       'Its findings
+    Dim RowNumber   As Long             'Sheet row of a finding
+    Dim SheetColumn As Long             'Its column on Trades
+    Dim r           As Long             'Row or finding
+
+'------------------------------------------------------------------------------
+' READ THE LEGS
+'------------------------------------------------------------------------------
+        TopRow = LiveFirstRow(SH_TRADES, NM_TR_HEADER)
+        Set Sheet = GetSheet(SH_TRADES)
+        LastRow = LastDataRowAny(Sheet, TopRow, TR_NCOLS, TR_COMMENT)
+        If LastRow < TopRow Then
+            Exit Function
+        End If
+        RowCount = LastRow - TopRow + 1
+        Grid = TableRange(Sheet, TopRow, TR_ID, LastRow, TR_SUB).Value2
+        If Not CsvSpecOf("Trades", Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "M_Main.CheckLiveContext", "the contract has no Trades file"
+        End If
+        ColID = ContractColumn("Trades", "trade_id")
+        ReDim Values(1 To RowCount, 1 To Spec.ColumnCount)
+        ReDim Lines(1 To RowCount)
+        For r = 1 To RowCount
+            Values(r, ColID) = SafeStr(Grid(r, 1 + TR_ID - TR_ID))
+            Values(r, ContractColumn("Trades", "netting_set_id")) = UTxt(Grid(r, 1 + TR_NS - TR_ID))
+            Values(r, ContractColumn("Trades", "asset_class")) = UTxt(Grid(r, 1 + TR_AC - TR_ID))
+            Values(r, ContractColumn("Trades", "sub_class")) = UTxt(Grid(r, 1 + TR_SUB - TR_ID))
+        Next r
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        CheckContext Values, Lines, RowCount, Context, IDs, Regimes, IDCount, True, Result, Findings
+        For r = 1 To Result.FindingCount
+            RowNumber = TopRow + Findings(r).RecordNumber - 1
+            SheetColumn = IIf(Findings(r).ColumnName = "sub_class", TR_SUB, TR_AC)
+            AddStagedFinding Found, FoundCount, SH_TRADES, RowNumber, _
+                             TableCell(Sheet, RowNumber, SheetColumn).Address(False, False), Findings(r).Code, _
+                             Findings(r).Code & ": " & Findings(r).ColumnName & ": " & Findings(r).Message & _
+                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False
+        Next r
+        CheckLiveContext = Result.FindingCount
+
+End Function
+
+
+Private Sub AddParamsFinding( _
+    ByVal SheetName As String, _
+    ByVal Reference As String, _
+    ByVal RowNumber As Long, _
+    ByVal Message As String, _
+    ByRef Found() As StagedFinding, _
+    ByRef FoundCount As Long)
+'
+'==============================================================================
+'                               AddParamsFinding
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add the finding of a run that would stop before the input sheets,
+'   as CORE_Engine.LoadRunContext reports it (#209). Its cell is the one
+'   named by the parameter code it names, or else the cell of its row
+'   that holds its reference, or else the first cell of its row; with
+'   neither a name nor a row it has no cell. It is never marked.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Target      As Range        'Its cell; Nothing for none
+    Dim Sheet       As Worksheet    'The sheet of its row
+    Dim Text        As String       'Its message
+    Dim c           As Long         'Column of its row
+
+'------------------------------------------------------------------------------
+' LOCATE
+'------------------------------------------------------------------------------
+        If Len(Reference) > 0 Then
+            Set Target = NamedCell(Reference)
+        End If
+        If Not Target Is Nothing Then
+            If Target.Worksheet.Name <> SheetName Or Target.Cells.Count <> 1 Then
+                Set Target = Nothing
+            End If
+        End If
+        If Target Is Nothing And RowNumber > 0 And Len(SheetName) > 0 Then
+            On Error Resume Next
+            Set Sheet = GetSheet(SheetName)
+            On Error GoTo 0
+            If Not Sheet Is Nothing Then
+                Set Target = TableCell(Sheet, RowNumber, 1)
+                For c = 1 To STAGING_ROW_SEARCH
+                    If Len(Reference) > 0 And StrComp(SafeStr(TableCell(Sheet, RowNumber, c).Value2), Reference, _
+                                                      vbTextCompare) = 0 Then
+                        Set Target = TableCell(Sheet, RowNumber, c)
+                        Exit For
+                    End If
+                Next c
+            End If
+        End If
+
+'------------------------------------------------------------------------------
+' ADD
+'------------------------------------------------------------------------------
+        Text = STAGING_PARAMS_CODE & ": "
+        If Len(Reference) > 0 Then
+            Text = Text & Reference & ": "
+        End If
+        Text = Text & Message & " - a run would stop here, so nothing that depends on Params was checked"
+        If Target Is Nothing Then
+            AddStagedFinding Found, FoundCount, SheetName, RowNumber, "", STAGING_PARAMS_CODE, Text, False
+        Else
+            AddStagedFinding Found, FoundCount, Target.Worksheet.Name, Target.Row, Target.Address(False, False), _
+                             STAGING_PARAMS_CODE, Text, False
+        End If
 
 End Sub
 
