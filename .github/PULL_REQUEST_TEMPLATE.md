@@ -40,7 +40,7 @@ checks skipped and why. -->
 
 ## Review checklist
 
-- [ ] The PR targets the active release branch and links its issue, which has an assignee, exactly one priority label and a milestone.
+- [ ] The PR targets the active release branch and links its issue, which has an assignee, exactly one priority label (`P1` only for a confirmed calculation bug) and a milestone.
 - [ ] Scope is focused; the diff contains no unrelated formatting, local artifacts or generated output.
 - [ ] Calculation, public API and compatibility impact are stated; a calculation change cites its source.
 - [ ] VBA changes were compiled and tested in Excel on the head SHA, or on an earlier head when later updates changed nothing in `src/`, `tests/modules/` or the template (CONTRIBUTING step 7); otherwise they are stated as not yet verified, and the PR is not merged until they are.

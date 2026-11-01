@@ -211,8 +211,7 @@ reconciliation.
 
 Every issue carries exactly one priority label. `P1` is reserved for a
 confirmed calculation bug and is used only together with `bug`; any other
-defect, however urgent, is `P2`. Issues closed before this rule keep the
-priority they were closed with.
+defect, however urgent, is `P2`. The rule applies to closed issues too.
 
 | Label | Use when |
 | --- | --- |
