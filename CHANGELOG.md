@@ -96,11 +96,38 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- State the `P1` rule in every issue form and in the pull request template:
+  `P1` only for a confirmed calculation bug, wrong results for valid inputs
+  (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
+  #194 and #204 change from `P1` to `P2`; #38, #39 and #195 keep `P1`.
+- Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
+  It now matches project names case-insensitively, checks a literal macro
+  target qualified by a standard module whatever its name, checks the
+  arguments of recursive calls, and reports a class without a default
+  instance used as an object (`VBA-CALL-005`). K-SACCR's own modules give no
+  new finding. The checker stays advisory.
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
   14-day cooldown and pull requests targeting the active release branch.
 
 ### Added
 
+- Test the workflow invariants (#493): `tools/check_workflows.py`, run by
+  `test_check_workflows.py` in `tool-tests`, reads every workflow and
+  `dependabot.yml` with PyYAML and fails on an unpinned action, a checkout that
+  persists credentials, a missing `permissions` or `timeout-minutes`, a write
+  permission outside the declared list, a change to the Repository integrity
+  job or its triggers, a label reconciliation outside the default branch, a
+  change to the milestone workflow, or Dependabot blocks that miss an
+  ecosystem, set a milestone, lack the assignee or lack exactly `P3`. It also
+  runs the milestone script against a fake API. PyYAML 6.0.3 is hash-locked in
+  `tools/requirements-quality-ci.txt`, which the Repository integrity job now
+  installs before `check.py`.
+- Keep milestones on issues only (#493): the `Keep milestones issue-only`
+  workflow removes a pull request's milestone when it is opened, reopened,
+  edited or given one, and clears any left on open or closed pull requests
+  daily. It runs trusted inline code with no checkout and `pull-requests:
+  write` in its job only. It is adapted under the MIT License, whose notice is
+  in `docs/licenses/THIRD_PARTY_NOTICES.md`.
 - Audit the open issues on every issue event (#485): the read-only
   `Issue triage` workflow runs `tools/check_issues.py`, which requires the
   assignee, exactly one priority (`P1` only with `bug`), a milestone,
@@ -223,6 +250,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Reconcile the live issue labels from the default branch only (#493): a
+  manual run of the label synchronization on another branch no longer applies
+  that branch's manifest, and the governance drops the sync from a reviewed
+  release ref; label changes take effect on integration into `main`.
+- Keep the workflow token out of `.git/config` in the daily traffic export
+  (#493): the checkout no longer persists credentials, and the token reaches
+  git only in the push to `traffic-history`, as a masked authorization header
+  on that one command.
 - Reserve `P1` for a confirmed calculation bug, wrong results for valid
   inputs, used only with `bug` (#485); other defects are `P2`. The
   descriptions of `documentation`, `help wanted`, `question` and `wontfix`

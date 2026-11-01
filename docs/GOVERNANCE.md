@@ -92,7 +92,13 @@ candidate.
 
 Every issue has assignee **danielep71**, exactly one priority label
 (**P1**, **P2** or **P3**; see [Labels](#labels)) and the milestone of the
-release branch it targets. Include objective, acceptance checklist, a
+release branch it targets. Milestones are for issues only: a pull request
+links its issue and never carries a milestone. The **Keep milestones
+issue-only** workflow
+([`.github/workflows/pr-milestones.yml`](../.github/workflows/pr-milestones.yml))
+removes one when a pull request is opened, reopened, edited or given a
+milestone, and clears any left on open or closed pull requests every day at
+03:17 UTC. Include objective, acceptance checklist, a
 **Dependencies and blocking status** section and required evidence. The
 section names each prerequisite as an issue link (`#12`) or on a line
 starting `External condition:`, or says `None`; it may also name related
@@ -186,6 +192,7 @@ configuration.
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
 | Repository integrity CI | See [GitHub Actions](../tools/README.md#github-actions). Static checks only; no Excel execution. |
 | Labels | See [Labels](#labels). |
+| Pull-request milestones | Removed by the **Keep milestones issue-only** workflow; see [Issue metadata and completion](#issue-metadata-and-completion). |
 | Traffic history | See [Traffic history](../tools/README.md#traffic-history). Analytics only, never CI. |
 
 <a id="labels"></a>
@@ -204,8 +211,7 @@ reconciliation.
 
 Every issue carries exactly one priority label. `P1` is reserved for a
 confirmed calculation bug and is used only together with `bug`; any other
-defect, however urgent, is `P2`. Issues closed before this rule keep the
-priority they were closed with.
+defect, however urgent, is `P2`. The rule applies to closed issues too.
 
 | Label | Use when |
 | --- | --- |
@@ -227,7 +233,7 @@ Type labels say what kind of work an issue or PR is. The forms set `bug`,
 | `tests` | Regression coverage, test harnesses, fixtures, or manual validation |
 | `refactor` | Internal restructuring intended to preserve supported behavior |
 | `behavior-change` | Intentional externally observable behavior change |
-| `ci` | Automated quality checks, workflow maintenance, or release certification |
+| `ci` | Automated quality checks, workflow maintenance, or dependency updates |
 | `repository` | Repository structure, governance, metadata, tooling, or maintenance |
 | `release` | Release preparation, certification, evidence, packaging, or publication |
 | `security` | Security boundary, vulnerability handling, supply chain, or hardening; never for undisclosed vulnerabilities, which follow `SECURITY.md` |
@@ -254,13 +260,13 @@ unchanged. They read `.github/labels.json` and take no repository policy, so
 the live catalogue is exactly the manifest's 20 labels. Every checkout in the
 two workflows sets `persist-credentials: false`, so code under review never
 receives Git credentials. The workflows are K-SACCR's own in two respects:
-pull-request checks run only for pull requests into `main` or `release/**`,
-and the reconciliation job runs on any trusted event, a push to `main` or a
-manual run on any ref, not only on the default branch.
+pull-request checks run only for pull requests into `main` or `release/**`.
+The reconciliation job runs only on the default branch, for a push to `main`
+or a manual run on `main`; a manual run on any other branch skips it.
 
 - **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
   or `release/**` without write permission. Pushes to main affecting its inputs,
-  and manual runs, reconcile live labels and verify an exact match. Only the
+  and manual runs on main, reconcile live labels and verify an exact match. Only the
   reconciliation job receives `issues: write`.
 - **Detect issue-label drift** (`labels-drift.yml`) checks deterministic
   fixtures on pull requests and compares live labels daily at 05:17 UTC or on
@@ -268,11 +274,11 @@ manual run on any ref, not only on the default branch.
   days. Drift causes failure; detection does not silently repair it.
 - Both workflows use full-SHA-pinned actions.
 
-Changes merged into the release branch alone do not trigger live sync. If an
-authorized label-catalogue change is developed on the release branch, validate it
-locally and via PR checks, review removals and their issue associations, then
-use an explicitly requested manual sync on that reviewed release ref when live
-reconciliation is needed. Do not modify main solely to trigger sync.
+Changes merged into the release branch alone do not change the live labels:
+they take effect when the release branch is integrated into `main`. Develop a
+label-catalogue change on the release branch, validate it locally and through
+the pull-request checks, and review removals and their issue associations
+before integration. Do not modify main solely to trigger sync.
 
 To update the catalogue, edit the manifest through a pull request. Review
 removals carefully: deleting a label also removes its issue/PR associations.

@@ -31,8 +31,9 @@
 #     tests, and must never be extended to do so. Software quality is
 #     static-checks.yml, deliberately separate so that a high-privilege
 #     analytics token is never available to a job that executes repository
-#     code. It is the one workflow that persists checkout credentials, because
-#     it pushes to traffic-history; it runs only from the default branch.
+#     code. Its checkout does not persist credentials: the workflow token
+#     reaches git only in the push to traffic-history, as a masked header on
+#     that one command. It runs only from the default branch.
 # ---------------------------------------------------------------------------
 
 name: Daily traffic export
@@ -78,7 +79,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Prepare traffic-history branch
         shell: bash
@@ -491,6 +492,8 @@ jobs:
 
       - name: Commit traffic history
         shell: bash
+        env:
+          PUSH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -502,7 +505,12 @@ jobs:
             git commit -m "Update traffic history"
           fi
 
-          git push origin HEAD:traffic-history
+          # The token is given to this one git command only; the checkout
+          # keeps no credentials in .git/config.
+          auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push origin HEAD:traffic-history
 
       - name: Create alert issue on spike or new referrer
         shell: bash
