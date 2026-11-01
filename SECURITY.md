@@ -77,9 +77,14 @@ exposure figure, which are reported as issues.
   `Sync-SACCR-VBA-Downloads.cmd` imports modules from a folder such as
   Downloads: use it only with files obtained from this repository.
 - **Automation.** Workflow permissions and credentials are described in
-  [`tools/README.md`](tools/README.md#github-actions). The `TRAFFIC_TOKEN` of the
-  [traffic export](tools/README.md#traffic-history) is rotated every 90 days,
-  and immediately if that workflow is changed by anyone but the owner.
+  [`tools/README.md`](tools/README.md#github-actions). The
+  [traffic export](tools/README.md#traffic-history) uses a dedicated GitHub App
+  with only Administration: Read-only. Its client ID and private key are held
+  in the `analytics` environment; only the token step receives the key and
+  only the fetch step receives the short-lived installation token. Follow the
+  linked setup and rotation procedure. Rotate the private key every 90 days,
+  immediately on suspected exposure, and if anyone but the owner changes the
+  workflow. Never disclose the key in an issue, PR, log or chat.
 
 ## Data and secrets
 
