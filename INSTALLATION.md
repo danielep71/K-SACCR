@@ -240,7 +240,8 @@ The layout and file conventions are defined in
    output sheets. It then asks whether to fill the worksheet and
    `ThisWorkbook` document modules as well: answer Y when building from the
    template (they hold only `Option Explicit`, except the two staging
-   sheets', which show `EDITED` after a manual change). It needs Excel's
+   sheets', which show `EDITED` after a manual change and refresh their
+   status when activated). It needs Excel's
    **Trust access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
@@ -294,7 +295,8 @@ The layout and file conventions are defined in
    sheet module. Sheet code names must match the file names (the FormulaTest
    sheet keeps the code name `shTests`). The document modules hold only
    `Option Explicit`, except `shImportNettingSets` and `shImportTrades`,
-   whose change handler shows `EDITED` on a staging sheet changed by hand.
+   whose change handler shows `EDITED` on a staging sheet changed by hand and
+   whose activation handler refreshes its status (#210).
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.
@@ -744,7 +746,10 @@ column, message and CSV line, and the origin `IMPORT`; at most 10,000 are
 listed. The cells of the staged findings are marked with a red fill, and the
 marks of the last validation are taken off first; a live sheet is never
 marked or changed. Each staging sheet that holds rows reads `VALID` or
-`INVALID` in its status cell. It returns
+`INVALID` in its status cell. `RefreshStagingStatus`, which runs when a
+staging sheet is activated, turns `VALID` into `OUT OF DATE` once anything
+the last validation judged has changed, and back when it matches again
+(#210). It returns
 `RESULT=VALID; errors=0; nettingsets=N; trades=M`,
 `RESULT=INVALID; errors=K; nettingsets=N; trades=M; first=CODE|Sheet!A1`, or
 `RESULT=REFUSED; reason=...` when nothing is staged or a staging block holds

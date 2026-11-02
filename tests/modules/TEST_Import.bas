@@ -34,7 +34,11 @@ Attribute VB_Name = "TEST_Import"
 '   and no sheet is VALID; with only netting sets staged, a staged
 '   override applies to the legs on Trades. The counters of the last run
 '   are unchanged. M_Main.StagingValidationCurrent is True after a VALID
-'   validation only while nothing it judged has changed.
+'   validation only while nothing it judged has changed. Validating the
+'   same rows again gives the same lines and marks, without duplicates;
+'   M_Main.RefreshStagingStatus shows OUT OF DATE on a VALID sheet once
+'   what the last validation judged has changed, and VALID again once it
+'   matches (#210).
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -93,8 +97,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 21                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 110                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 23                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 122                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -143,10 +147,10 @@ Attribute VB_Name = "TEST_Import"
         Private mSavedChecks         As Variant    'Its lines; Empty for none
         Private mSavedChecksRows     As Long       'Their number
         Private mChecksBefore        As String     'Its lines as text, compared at the end
-    'The fingerprint of the last VALID staging validation, put back at the
-    'end.
-        Private mSavedValidated      As String     'RefersTo of STAGING_VALIDATED_NAME
-        Private mHadValidated        As Boolean    'The name existed
+    'The fingerprints of the last VALID staging validation and of the last
+    'staging validation, put back at the end.
+        Private mSavedValidated(1 To 2)  As String     'RefersTo of STAGING_VALIDATED_NAME, STAGING_CHECKED_NAME
+        Private mHadValidated(1 To 2)    As Boolean    'The name existed
 
 
 '
@@ -180,6 +184,7 @@ Public Sub RunImportTests()
     Dim CallerQuiet         As Boolean          'Caller's M_Main.gQuietLog
     Dim LiveBefore          As String           'Live inputs and run names before the cases
     Dim TempFolder          As String           'Folder of the test file
+    Dim i                   As Long             'Validation name
 
 '------------------------------------------------------------------------------
 ' RUN
@@ -208,8 +213,10 @@ Public Sub RunImportTests()
         SaveStaging KIND_NS
         SaveStaging KIND_TR
         SaveChecks
-        mSavedValidated = NameText(STAGING_VALIDATED_NAME)
-        mHadValidated = Len(mSavedValidated) > 0
+        For i = 1 To 2
+            mSavedValidated(i) = NameText(ValidationName(i))
+            mHadValidated(i) = Len(mSavedValidated(i)) > 0
+        Next i
 
         CaseNettingSetsAccepted
         CaseTradesValueFindings
@@ -222,6 +229,7 @@ Public Sub RunImportTests()
         CaseFormulaEqualValue
         CaseHeaderOnly
         CaseValidateStaged
+        CaseValidateRepeated
         CaseValidateCorrected
         CaseValidateEvidence
         CaseValidateLiveTrades
@@ -231,6 +239,7 @@ Public Sub RunImportTests()
         CaseValidateParams
         CaseValidateCurrent
         CaseValidateLiveContext
+        CaseValidateOutOfDate
         PutChecksBack
         CaseLiveSheets LiveBefore
 
@@ -770,6 +779,42 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseValidateRepeated()
+'
+'==============================================================================
+' PURPOSE
+'   The same staged rows validated again (#210): the same result, the
+'   same two ERROR lines on Checks and no third, the same two cells
+'   marked, and the same statuses.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String    'What the validation returned
+
+'------------------------------------------------------------------------------
+' VALIDATE AGAIN
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.repeated"
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=2; nettingsets=2; trades=3; first=CSV-TYPE|" & _
+                  SH_IMPORT_TR & "!" & StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Address(False, False)
+        Check ChecksValue(3, 1) = SEV_ERROR And Len(ChecksValue(4, 1)) = 0, "Checks lines: " & ChecksValue(4, 5)
+        Check StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Interior.Color = ERROR_FILL And _
+              StagingCell(KIND_TR, 2, COL_TR_NS).Interior.Color = ERROR_FILL And _
+              StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "the marks changed"
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
 Private Sub CaseValidateCorrected()
 '
 '==============================================================================
@@ -1257,6 +1302,82 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseValidateOutOfDate()
+'
+'==============================================================================
+' PURPOSE
+'   M_Main.RefreshStagingStatus, which runs when a staging sheet is
+'   activated (#210): after a VALID validation both sheets read VALID; a
+'   changed Params value or an edit made with events off makes them read
+'   OUT OF DATE, and putting it back makes them read VALID again. After
+'   an INVALID validation the statuses stay as it set them until
+'   something changes: then the sheet that read VALID reads OUT OF DATE,
+'   and the one that reads EDITED keeps it. The Params value is put back,
+'   also after an unexpected error.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String     'What a validation returned
+    Dim Events          As Boolean    'EnableEvents before the case
+    Dim AlphaCell       As Range      'Alpha on Params
+    Dim SavedFormula    As String     'What it held
+    Dim Changed         As Boolean    'It was changed and must be put back
+
+'------------------------------------------------------------------------------
+' VALIDATE, CHANGE, REFRESH
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.out-of-date"
+        Events = Application.EnableEvents
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
+        M_Main.RefreshStagingStatus
+        CheckText "after the validation", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
+        Set AlphaCell = NamedCell(PRM_ALPHA)
+        SavedFormula = AlphaCell.Formula
+        Changed = True
+        AlphaCell.Value2 = 1.5
+        M_Main.RefreshStagingStatus
+        CheckText "Params changed", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_OUT_OF_DATE & "|" & STAGING_OUT_OF_DATE
+        AlphaCell.Formula = SavedFormula
+        Changed = False
+        M_Main.RefreshStagingStatus
+        CheckText "Params put back", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
+        Application.EnableEvents = False
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2 = "edited"
+        M_Main.RefreshStagingStatus
+        CheckText "edit with events off", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_OUT_OF_DATE & "|" & STAGING_OUT_OF_DATE
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).ClearContents
+        M_Main.RefreshStagingStatus
+        CheckText "edit put back", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
+        StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "abc"
+        ResultLine = M_Main.ValidateStaging_Silent()
+        M_Main.RefreshStagingStatus
+        CheckText "after an INVALID validation", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
+        Application.EnableEvents = True
+        StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "1000"
+        Application.EnableEvents = Events
+        M_Main.RefreshStagingStatus
+        CheckText "its cause corrected", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_OUT_OF_DATE & "|" & STAGING_EDITED
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Changed Then
+            AlphaCell.Formula = SavedFormula
+        End If
+        Application.EnableEvents = Events
+
+End Sub
+
+
 Private Sub CaseLiveSheets( _
     ByVal LiveBefore As String)
 '
@@ -1685,19 +1806,24 @@ Private Sub PutValidatedBack()
 '
 '==============================================================================
 ' PURPOSE
-'   Put back the fingerprint of the last VALID staging validation as the
-'   suite found it, or remove the name when there was none.
+'   Put back the fingerprints of the last VALID staging validation and of
+'   the last staging validation as the suite found them, or remove a name
+'   when there was none.
 '
 ' ERROR POLICY
 '   A failure is recorded as a suite failure.
 '==============================================================================
 '
+    Dim i   As Long    'Name
+
         On Error GoTo Failed
-        If mHadValidated Then
-            ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:=mSavedValidated, Visible:=False
-        ElseIf Len(NameText(STAGING_VALIDATED_NAME)) > 0 Then
-            ThisWorkbook.Names(STAGING_VALIDATED_NAME).Delete
-        End If
+        For i = 1 To 2
+            If mHadValidated(i) Then
+                ThisWorkbook.Names.Add Name:=ValidationName(i), RefersTo:=mSavedValidated(i), Visible:=False
+            ElseIf Len(NameText(ValidationName(i))) > 0 Then
+                ThisWorkbook.Names(ValidationName(i)).Delete
+            End If
+        Next i
         Exit Sub
 
 Failed:
@@ -2008,3 +2134,18 @@ Private Sub Fail( _
         TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
 
 End Sub
+
+
+Private Function ValidationName( _
+    ByVal Index As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The hidden names of the staging validation: 1 STAGING_VALIDATED_NAME,
+'   2 STAGING_CHECKED_NAME.
+'==============================================================================
+'
+        ValidationName = IIf(Index = 1, STAGING_VALIDATED_NAME, STAGING_CHECKED_NAME)
+
+End Function

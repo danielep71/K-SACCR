@@ -111,6 +111,15 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
+  applies (#210). Activating a staging sheet compares what the last
+  validation judged with the current staging blocks, `NettingSets`, `Trades`
+  and Params: a sheet that reads `VALID` reads `OUT OF DATE` once any of them
+  changed, also with events off, and `VALID` again once it matches. The
+  fingerprint of every validation, whatever its result, is kept in the hidden
+  name `SACCR_StagingChecked`. The status is for the user; the commit (#211)
+  checks `StagingValidationCurrent()`. `TEST_Import` runs 2 more cases:
+  repeated validation and the status refresh.
 - Validate staged trades against Params (#209). **Validate staging** now reads
   Params, the FX table and the supervisory-factor table as a run reads them,
   and judges the staged legs with the engine's own rules: a maturity, option
