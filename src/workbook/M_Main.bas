@@ -51,6 +51,9 @@ Attribute VB_Name = "M_Main"
 '   VALID once what the last validation judged has changed, and VALID
 '   again when it matches (#210); called when a staging sheet is
 '   activated.
+'   CommitStaging_Silent: replace NettingSets and Trades with the staged
+'   rows once a VALID staging validation still holds, putting them back
+'   on any failure (#211).
 '   The sheet buttons call the first three, ExportEvidence, the two
 '   template exports, the two imports and ValidateStaging by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
@@ -97,9 +100,14 @@ Attribute VB_Name = "M_Main"
 '   is written and while the older file is replaced (#312).
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
+'   gTestFault = "commit-write" raises ERR_INJECTED_FAULT in
+'   CommitStaging once the first input sheet has been written;
+'   "commit-verify" makes its read-back fail, and "commit-rollback" makes
+'   the write-back of the input sheets fail as well (#211).
 '   tests/modules/TEST_MainState.bas uses the first four;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
-'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write".
+'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write"
+'   and the commit faults.
 '   gLastMessage keeps the last message passed to Notify (a failure
 '   message is not kept), so that a test can read it in silent mode.
 '   Production code never sets gTestFault.
@@ -190,7 +198,7 @@ Attribute VB_Name = "M_Main"
     'TEST_Reconcile), whose output would overflow the Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*" or "staging-write"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write" or "commit-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Private mRunning    As Boolean    'True while an operation is in progress
@@ -4483,6 +4491,632 @@ Private Function ContainedValidationFingerprint() As String
 
 Failed:
         ContainedValidationFingerprint = ""
+
+End Function
+
+
+Public Function CommitStaging_Silent() As String
+'
+'==============================================================================
+'                             CommitStaging_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The commit of the staging sheets into the input sheets (#211), for
+'   automation and tests, without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=COMMITTED; nettingsets=N; trades=M", N and M being the rows
+'   written to NettingSets and Trades, 0 for a sheet left as it was;
+'   "RESULT=REFUSED; reason=..." when nothing was written; or
+'   "RESULT=FAILED; error=...; rollback=..." when a write failed, with
+'   rollback=NONE when nothing had been written, VERIFIED when the input
+'   sheets were put back and read back as they were, and FAILED: ... when
+'   they could not be.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, and ERR_CLEANUP_FAILED
+'   when the commit was done but Excel settings were not restored.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Message     As String    'The message, not shown
+
+'------------------------------------------------------------------------------
+' COMMIT
+'------------------------------------------------------------------------------
+        CommitStaging_Silent = CommitStaging(Message)
+
+End Function
+
+
+Private Function CommitStaging( _
+    ByRef Message As String) _
+    As String
+'
+'==============================================================================
+'                                CommitStaging
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Replace the input sheets with the staged rows (#211): NettingSets with
+'   the rows of Import_NettingSets when it holds any, Trades with those of
+'   Import_Trades when it holds any. A staging sheet without rows leaves
+'   its input sheet as it is: nothing is ever erased for lack of staged
+'   rows. Each replacement is whole: the staged rows are written from the
+'   first data row, and the input cells of the rows below them that held
+'   a value are cleared.
+'
+' METHOD
+'   1. Refuse unless StagingValidationCurrent is True: the last staging
+'      validation was VALID and nothing it judged, staging blocks, input
+'      sheets and Params, has changed since, also with events off. The
+'      status text is never read.
+'   2. Convert each staged value as a value typed by hand would be:
+'      numbers and integers to numbers, as the reader reads them (Val),
+'      dates to Excel dates, every other type to text written with a
+'      leading apostrophe, so that leading zeros and text that looks like
+'      a number, a date or a formula stay as staged. Blank stays blank.
+'   3. Keep the values and formulas of every input cell the commit may
+'      touch, then write and read back each sheet; a value read back that
+'      differs from the one written is a failure.
+'   4. On any failure, write back the kept cells of every input sheet the
+'      commit touched and read them back; the result tells whether that
+'      was verified, apart from the error itself.
+'   5. On success each committed staging sheet reads COMMITTED and the
+'      stored VALID validation is emptied, so that the same rows are not
+'      committed twice without a new validation. Results, Checks and the
+'      run and reconciliation fingerprints are left as they are: Results
+'      reads OUT OF DATE until the next run, as after any edit.
+'
+' ERROR POLICY
+'   See CommitStaging_Silent. gTestFault = "commit-write" raises
+'   ERR_INJECTED_FAULT once the first input sheet is written;
+'   "commit-verify" makes the read-back fail; "commit-rollback" raises it
+'   there too and makes the write-back fail as well.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kinds(1 To 2)       As String           'NettingSets, Trades
+    Dim LiveSheet(1 To 2)   As Worksheet        'The input sheets
+    Dim LiveFirst(1 To 2)   As Long             'Their first data rows
+    Dim Width(1 To 2)       As Long             'Their input columns
+    Dim NewRows(1 To 2)     As Long             'Staged rows to write; 0 leaves the sheet
+    Dim OldLast(1 To 2)     As Long             'Last row with a value before the commit
+    Dim KeptLast(1 To 2)    As Long             'Last row of the kept cells
+    Dim NewBlock(1 To 2)    As Variant          'The typed values to write
+    Dim KeptValues(1 To 2)  As Variant          'Value2 of the kept cells
+    Dim KeptFormulas(1 To 2) As Variant         'Formula of the kept cells
+    Dim Touched(1 To 2)     As Boolean          'The commit may have changed the sheet
+    Dim StatusSet(1 To 2)   As Boolean          'The staging sheet was set to COMMITTED
+    Dim OldStatus(1 To 2)   As String           'What it read before
+    Dim StagedSheet         As Worksheet        'A staging sheet, from ReadStaging
+    Dim StagedFirst         As Long             'Its first row, from ReadStaging
+    Dim Values()            As String           'Its rows as text
+    Dim Lines()             As Long             'Their CSV lines, unused
+    Dim k                   As Long             'Kind
+    Dim SavedCalculation    As XlCalculation    'Calculation mode before the commit
+    Dim SavedEvents         As Boolean          'EnableEvents before the commit
+    Dim SavedScreen         As Boolean          'ScreenUpdating before the commit
+    Dim StateCaptured       As Boolean          'True once all three were read
+    Dim Committed           As Boolean          'Every sheet was written and read back
+    Dim ErrorNumber         As Long             'Primary error number; 0 for none
+    Dim ErrorDescription    As String           'Primary error description
+    Dim Rollback            As String           'NONE, VERIFIED or FAILED: details
+    Dim CleanupDetails      As String           'Settings not restored
+
+'------------------------------------------------------------------------------
+' REFUSE A COMMIT THAT NO CURRENT VALIDATION ALLOWS
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.CommitStaging", "An SA-CCR operation is already running."
+        End If
+        If Not StagingValidationCurrent() Then
+            CommitStaging = "RESULT=REFUSED; reason=no current VALID staging validation"
+            Message = "Nothing was committed: the staged rows have no VALID validation that still matches them, " & _
+                      "the input sheets and Params. Run Validate staging, correct any finding, then commit."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' PLAN: TYPED VALUES AND THE CELLS TO KEEP
+'------------------------------------------------------------------------------
+        Kinds(1) = "NettingSets"
+        Kinds(2) = "Trades"
+        mRunning = True
+        On Error GoTo Failed
+        For k = 1 To 2
+            NewRows(k) = ReadStaging(Kinds(k), StagedSheet, StagedFirst, Values, Lines)
+            If NewRows(k) > 0 Then
+                NewBlock(k) = TypedBlock(Kinds(k), Values, NewRows(k))
+                Set LiveSheet(k) = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
+                LiveFirst(k) = TableFirstRow(LiveSheet(k).Name)
+                Width(k) = IIf(k = 1, NS_NCOLS, TR_NCOLS)
+                OldLast(k) = LastStagingRow(LiveSheet(k), LiveFirst(k), Width(k))
+                KeptLast(k) = LiveFirst(k) + NewRows(k) - 1
+                If OldLast(k) > KeptLast(k) Then
+                    KeptLast(k) = OldLast(k)
+                End If
+                With TableRange(LiveSheet(k), LiveFirst(k), 1, KeptLast(k), Width(k))
+                    KeptValues(k) = .Value2
+                    KeptFormulas(k) = .Formula
+                End With
+            End If
+        Next k
+        If NewRows(1) = 0 And NewRows(2) = 0 Then
+            mRunning = False
+            CommitStaging = "RESULT=REFUSED; reason=nothing is staged"
+            Message = "Nothing was committed: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE AND READ BACK
+'------------------------------------------------------------------------------
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                Touched(k) = True
+                TableRange(LiveSheet(k), LiveFirst(k), 1, LiveFirst(k) + NewRows(k) - 1, Width(k)).Value = NewBlock(k)
+                If OldLast(k) >= LiveFirst(k) + NewRows(k) Then
+                    TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), Width(k)).ClearContents
+                End If
+                If gTestFault = "commit-write" Or gTestFault = "commit-rollback" Then
+                    Err.Raise ERR_INJECTED_FAULT, "M_Main.CommitStaging", "Injected commit write failure."
+                End If
+            End If
+        Next k
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                CheckWritten LiveSheet(k), LiveFirst(k), Width(k), NewBlock(k), NewRows(k), OldLast(k)
+            End If
+        Next k
+        ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""""", Visible:=False
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                OldStatus(k) = CStr(StagingMetaCell(Kinds(k), 4).Value2)
+                StatusSet(k) = True
+                StagingMetaCell(Kinds(k), 4).Value2 = STAGING_COMMITTED
+            End If
+        Next k
+        Committed = True
+
+'------------------------------------------------------------------------------
+' RESTORE EXCEL AND REPORT
+'------------------------------------------------------------------------------
+CleanUp:
+        On Error GoTo 0
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If Not Committed Then
+            CommitStaging = "RESULT=FAILED; error=" & ErrorDescription & "; rollback=" & Rollback
+            Message = "Nothing was committed: " & ErrorDescription & " (error " & ErrorNumber & ")."
+            If Left$(Rollback, 6) = "FAILED" Then
+                Message = Message & vbLf & vbLf & "The input sheets could not be put back as they were: " & _
+                          Mid$(Rollback, 9) & ". Check NettingSets and Trades before any run."
+            ElseIf Rollback = "VERIFIED" Then
+                Message = Message & vbLf & vbLf & "The input sheets were put back as they were and checked."
+            End If
+            If Len(CleanupDetails) > 0 Then
+                Message = Message & vbLf & vbLf & "Excel settings were not restored: " & CleanupDetails
+            End If
+            Exit Function
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.CommitStaging", _
+                      "The staged rows were committed, but Excel settings were not restored: " & CleanupDetails
+        End If
+        CommitStaging = "RESULT=COMMITTED; nettingsets=" & NewRows(1) & "; trades=" & NewRows(2)
+        Message = "Committed: " & IIf(NewRows(1) > 0, SH_NS & " " & NewRows(1) & " rows", SH_NS & " unchanged") & _
+                  "; " & IIf(NewRows(2) > 0, SH_TRADES & " " & NewRows(2) & " rows", SH_TRADES & " unchanged") & _
+                  ". Run SA-CCR to calculate on them."
+        Exit Function
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorDescription = Err.Description
+        Rollback = "NONE"
+        For k = 1 To 2
+            If Touched(k) Then
+                Rollback = ""
+            End If
+        Next k
+        If Len(Rollback) = 0 Then
+            Rollback = PutLiveBack(LiveSheet, LiveFirst, Width, KeptLast, KeptValues, KeptFormulas, Touched)
+        End If
+        PutStatusesBack Kinds, StatusSet, OldStatus
+        Resume CleanUp
+
+End Function
+
+
+Private Function TypedBlock( _
+    ByVal Kind As String, _
+    ByRef Values() As String, _
+    ByVal RowCount As Long) _
+    As Variant
+'
+'==============================================================================
+'                                  TypedBlock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The staged rows of Kind as the values a commit writes (#211), by the
+'   type of each contract column: a number or an integer as the reader
+'   reads it (Val), a date as an Excel date, any other type as text with
+'   a leading apostrophe, and blank as Empty. The contract's columns are
+'   the input sheet's, in the same order (check_csv_contract.py).
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE for a date that cannot be read, which a VALID
+'   validation rules out.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec        As CsvSpec            'The contract's file
+    Dim Columns()   As CsvColumn          'Its columns
+    Dim Rules()     As CsvRule            'Its rules, unused
+    Dim Block()     As Variant            'The values
+    Dim Serial      As Double             'A date as a serial number
+    Dim r           As Long               'Row
+    Dim c           As Long               'Column
+
+'------------------------------------------------------------------------------
+' CONVERT
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.TypedBlock", "the contract has no " & Kind & " file"
+        End If
+        ReDim Block(1 To RowCount, 1 To Spec.ColumnCount)
+        For r = 1 To RowCount
+            For c = 1 To Spec.ColumnCount
+                If Len(Values(r, c)) > 0 Then
+                    Select Case Columns(c).Kind
+                        Case "number", "integer"
+                            Block(r, c) = Val(Values(r, c))
+                        Case "date"
+                            Serial = ToSerial(Values(r, c))
+                            If Serial < 0# Then
+                                Err.Raise ERR_STAGING_WRITE, "M_Main.TypedBlock", _
+                                          Kind & " row " & r & ": '" & Values(r, c) & "' is not a date"
+                            End If
+                            Block(r, c) = CDate(Serial)
+                        Case Else
+                            Block(r, c) = "'" & Values(r, c)
+                    End Select
+                End If
+            Next c
+        Next r
+        TypedBlock = Block
+
+End Function
+
+
+Private Sub CheckWritten( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByRef Block As Variant, _
+    ByVal RowCount As Long, _
+    ByVal OldLast As Long)
+'
+'==============================================================================
+'                                 CheckWritten
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read back what a commit wrote to an input sheet (#211): each cell must
+'   hold the value written, a text without its apostrophe and a date as
+'   its serial number, and no input cell below the written rows may hold
+'   a value.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE at the first difference; gTestFault =
+'   "commit-verify" raises it at once.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Grid        As Variant    'The cells read back, Value2
+    Dim Expected    As Variant    'What a cell should hold
+    Dim r           As Long       'Row
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' READ BACK
+'------------------------------------------------------------------------------
+        If gTestFault = "commit-verify" Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", "Injected read-back difference on " & Sheet.Name
+        End If
+        Grid = TableRange(Sheet, FirstRow, 1, FirstRow + RowCount - 1, Width).Value2
+        For r = 1 To RowCount
+            For c = 1 To Width
+                Expected = Block(r, c)
+                If VarType(Expected) = vbString Then
+                    Expected = Mid$(Expected, 2)
+                ElseIf VarType(Expected) = vbDate Then
+                    Expected = CDbl(Expected)
+                End If
+                If Not SameCellValue(Grid(r, c), Expected) Then
+                    Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", Sheet.Name & "!" & _
+                              TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & " does not read as written"
+                End If
+            Next c
+        Next r
+        If LastStagingRow(Sheet, FirstRow, Width) <> FirstRow + RowCount - 1 Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", Sheet.Name & ": a row below the committed rows " & _
+                      "still holds a value"
+        End If
+
+End Sub
+
+
+Private Function SameCellValue( _
+    ByVal Found As Variant, _
+    ByVal Expected As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                                SameCellValue
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether a cell's Value2 is the value expected: both blank, both the
+'   same text, both the same number, both the same logical value or both
+'   the same error. A blank cell and an empty text are alike.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        If IsEmpty(Found) Or (VarType(Found) = vbString And Len(CStr(Found)) = 0 And Not IsError(Found)) Then
+            SameCellValue = IsEmpty(Expected) Or (VarType(Expected) = vbString And Len(CStr(Expected)) = 0)
+        ElseIf IsError(Found) Or IsError(Expected) Then
+            If IsError(Found) And IsError(Expected) Then
+                SameCellValue = (CStr(Found) = CStr(Expected))
+            End If
+        ElseIf VarType(Found) <> VarType(Expected) Then
+            If IsPlainNumber(Found) And IsPlainNumber(Expected) Then
+                SameCellValue = (CDbl(Found) = CDbl(Expected))
+            End If
+        Else
+            SameCellValue = (Found = Expected)
+        End If
+
+End Function
+
+
+Private Function IsPlainNumber( _
+    ByVal Content As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                                IsPlainNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Content is a number held as a number: not a text, a logical
+'   value, a blank or an error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        Select Case VarType(Content)
+            Case vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal, vbByte, vbDate
+                IsPlainNumber = True
+        End Select
+
+End Function
+
+
+Private Sub PutStatusesBack( _
+    ByRef Kinds() As String, _
+    ByRef StatusSet() As Boolean, _
+    ByRef OldStatus() As String)
+'
+'==============================================================================
+'                               PutStatusesBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give back their previous text to the status cells a failed commit had
+'   already set to COMMITTED (#211), so that an interrupted commit never
+'   reads COMMITTED.
+'
+' ERROR POLICY
+'   Contains every error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim k   As Long    'Kind
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        For k = LBound(StatusSet) To UBound(StatusSet)
+            If StatusSet(k) Then
+                StagingMetaCell(Kinds(k), 4).Value2 = OldStatus(k)
+            End If
+        Next k
+
+End Sub
+
+
+Private Function PutLiveBack( _
+    ByRef LiveSheet() As Worksheet, _
+    ByRef LiveFirst() As Long, _
+    ByRef Width() As Long, _
+    ByRef KeptLast() As Long, _
+    ByRef KeptValues() As Variant, _
+    ByRef KeptFormulas() As Variant, _
+    ByRef Touched() As Boolean) _
+    As String
+'
+'==============================================================================
+'                                 PutLiveBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the kept input cells of each input sheet a failed commit
+'   touched (#211) and read them back: a formula as its formula, a text
+'   with a leading apostrophe so that it stays text, any other value as
+'   it was.
+'
+' RETURNS
+'   "VERIFIED" when every kept cell reads back as it was; otherwise
+'   "FAILED: " and what failed, for each sheet.
+'
+' ERROR POLICY
+'   Contains every error. gTestFault = "commit-rollback" makes the write
+'   fail.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Problems    As String     'What failed
+    Dim k           As Long       'Kind
+
+'------------------------------------------------------------------------------
+' WRITE BACK EACH TOUCHED SHEET
+'------------------------------------------------------------------------------
+        For k = LBound(Touched) To UBound(Touched)
+            If Touched(k) Then
+                Problems = Problems & PutSheetBack(LiveSheet(k), LiveFirst(k), Width(k), KeptLast(k), _
+                                                   KeptValues(k), KeptFormulas(k))
+            End If
+        Next k
+        If Len(Problems) = 0 Then
+            PutLiveBack = "VERIFIED"
+        Else
+            PutLiveBack = "FAILED: " & Mid$(Problems, 3)
+        End If
+
+End Function
+
+
+Private Function PutSheetBack( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByVal LastRow As Long, _
+    ByRef KeptValues As Variant, _
+    ByRef KeptFormulas As Variant) _
+    As String
+'
+'==============================================================================
+'                                 PutSheetBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the kept cells of one input sheet and read them back, for
+'   PutLiveBack.
+'
+' RETURNS
+'   "" when every cell reads back as it was; otherwise "; " and what
+'   failed.
+'
+' ERROR POLICY
+'   Contains every error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Restore()   As Variant    'What is written back
+    Dim Grid        As Variant    'What is read back, Value2
+    Dim Formulas    As Variant    'What is read back, Formula
+    Dim Text        As String     'A kept formula
+    Dim r           As Long       'Row
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' WRITE BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        ReDim Restore(1 To LastRow - FirstRow + 1, 1 To Width)
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                Text = CStr(KeptFormulas(r, c))
+                If Left$(Text, 1) = "=" Then
+                    Restore(r, c) = Text
+                ElseIf VarType(KeptValues(r, c)) = vbString Then
+                    Restore(r, c) = "'" & KeptValues(r, c)
+                Else
+                    Restore(r, c) = KeptValues(r, c)
+                End If
+            Next c
+        Next r
+        If gTestFault = "commit-rollback" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.PutSheetBack", "Injected write-back failure."
+        End If
+        TableRange(Sheet, FirstRow, 1, LastRow, Width).Value = Restore
+
+'------------------------------------------------------------------------------
+' READ BACK
+'------------------------------------------------------------------------------
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            Grid = .Value2
+            Formulas = .Formula
+        End With
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                Text = CStr(KeptFormulas(r, c))
+                If Left$(Text, 1) = "=" Then
+                    If CStr(Formulas(r, c)) <> Text Then
+                        PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                                       " does not hold its formula again"
+                        Exit Function
+                    End If
+                ElseIf Not SameCellValue(Grid(r, c), KeptValues(r, c)) Then
+                    PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                                   " does not hold its value again"
+                    Exit Function
+                End If
+            Next c
+        Next r
+        Exit Function
+
+Failed:
+        PutSheetBack = "; " & Sheet.Name & ": " & Err.Description
 
 End Function
 

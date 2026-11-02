@@ -38,7 +38,12 @@ Attribute VB_Name = "TEST_Import"
 '   same rows again gives the same lines and marks, without duplicates;
 '   M_Main.RefreshStagingStatus shows OUT OF DATE on a VALID sheet once
 '   what the last validation judged has changed, and VALID again once it
-'   matches (#210).
+'   matches (#210). M_Main.CommitStaging_Silent refuses without a current
+'   VALID validation; a failed write or read-back puts the input sheets
+'   back and reports it verified, and a failed put-back is reported apart
+'   from the error; a commit replaces each input sheet whose staging sheet
+'   holds rows, with typed values and leading zeros kept, and leaves the
+'   other as it was (#211). The suite puts the input sheets back.
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -97,8 +102,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 23                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 122                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 153                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -151,6 +156,10 @@ Attribute VB_Name = "TEST_Import"
     'staging validation, put back at the end.
         Private mSavedValidated(1 To 2)  As String     'RefersTo of STAGING_VALIDATED_NAME, STAGING_CHECKED_NAME
         Private mHadValidated(1 To 2)    As Boolean    'The name existed
+    'The input cells of NettingSets and Trades as the suite found them, put
+    'back after the commit cases (#211).
+        Private mSavedLive(1 To 2)       As Variant    'Their Value2 and formulas, as PutBackLive writes them
+        Private mSavedLiveLast(1 To 2)   As Long       'Last row with a value; first row - 1 for none
 
 
 '
@@ -213,6 +222,7 @@ Public Sub RunImportTests()
         SaveStaging KIND_NS
         SaveStaging KIND_TR
         SaveChecks
+        SaveLive
         For i = 1 To 2
             mSavedValidated(i) = NameText(ValidationName(i))
             mHadValidated(i) = Len(mSavedValidated(i)) > 0
@@ -240,6 +250,12 @@ Public Sub RunImportTests()
         CaseValidateCurrent
         CaseValidateLiveContext
         CaseValidateOutOfDate
+        CaseCommitRefused
+        CaseCommitFailures
+        CaseCommitRollbackFailed
+        CaseCommitBoth
+        CaseCommitTradesOnly
+        PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
 
@@ -1378,6 +1394,268 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseCommitRefused()
+'
+'==============================================================================
+' PURPOSE
+'   M_Main.CommitStaging_Silent refuses without a current VALID staging
+'   validation (#211): after a load without a validation, and after a
+'   VALID validation followed by an edit made with events off. The input
+'   sheets and the run's names are unchanged.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String     'What a call returned
+    Dim Events        As Boolean    'EnableEvents before the case
+    Dim Before        As String     'Input sheets and run names before
+
+'------------------------------------------------------------------------------
+' REFUSE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.refused"
+        Events = Application.EnableEvents
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Before = LiveInputsText()
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "without a validation", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
+        Application.EnableEvents = False
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2 = "edited"
+        ResultLine = M_Main.CommitStaging_Silent()
+        StagingCell(KIND_TR, 1, COL_TR_COMMENT).ClearContents
+        Application.EnableEvents = Events
+        CheckText "after an edit with events off", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
+        Check LiveInputsText() = Before, "the input sheets or the run's names changed"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Application.EnableEvents = Events
+
+End Sub
+
+
+Private Sub CaseCommitFailures()
+'
+'==============================================================================
+' PURPOSE
+'   A commit that fails once NettingSets is written, or whose read-back
+'   finds a difference, puts both input sheets back and reports
+'   rollback=VERIFIED (#211): the inputs and the run's names are as they
+'   were, both staging sheets still read VALID and the validation is
+'   still current. Continues from CaseCommitRefused.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String    'What a call returned
+    Dim Before        As String    'Input sheets and run names before
+
+'------------------------------------------------------------------------------
+' FAIL AND PUT BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.failures"
+        Before = LiveInputsText()
+        M_Main.gTestFault = "commit-write"
+        ResultLine = M_Main.CommitStaging_Silent()
+        M_Main.gTestFault = ""
+        CheckText "write failure", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=VERIFIED"
+        Check LiveInputsText() = Before, "write failure: the input sheets were not put back"
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
+        Check M_Main.StagingValidationCurrent(), "write failure: the validation no longer reads as current"
+        M_Main.gTestFault = "commit-verify"
+        ResultLine = M_Main.CommitStaging_Silent()
+        M_Main.gTestFault = ""
+        CheckText "read-back failure", ResultLine, _
+                  "RESULT=FAILED; error=Injected read-back difference on " & SH_NS & "; rollback=VERIFIED"
+        Check LiveInputsText() = Before, "read-back failure: the input sheets were not put back"
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseCommitRollbackFailed()
+'
+'==============================================================================
+' PURPOSE
+'   A commit whose write-back fails too reports rollback=FAILED with what
+'   failed, apart from the error itself, and leaves both staging sheets
+'   VALID, not COMMITTED (#211). The suite then puts the input sheets
+'   back itself.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String    'What the call returned
+    Dim Before        As String    'Input sheets and run names before
+
+'------------------------------------------------------------------------------
+' FAIL TWICE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.rollback-failed"
+        Before = LiveInputsText()
+        M_Main.gTestFault = "commit-rollback"
+        ResultLine = M_Main.CommitStaging_Silent()
+        M_Main.gTestFault = ""
+        CheckText "result", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=FAILED: " & _
+                  SH_NS & ": Injected write-back failure."
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
+        PutBackLive
+        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseCommitBoth()
+'
+'==============================================================================
+' PURPOSE
+'   Two staged netting sets and three staged legs, validated, then
+'   committed (#211): NettingSets and Trades hold exactly the staged rows,
+'   the rows below cleared; an ID with leading zeros and a comment that
+'   looks like a number stay text, a notional is a number and a maturity
+'   an Excel date. Both staging sheets read COMMITTED, the validation is
+'   no longer current and a second commit is refused. The suite then puts
+'   the input sheets back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim Before        As String       'Input sheets and run names before
+    Dim NsSheet       As Worksheet    'NettingSets
+    Dim TrSheet       As Worksheet    'Trades
+    Dim NsFirst       As Long         'Its first data row
+    Dim TrFirst       As Long         'Its first data row
+    Dim Value         As Variant      'A cell read back
+
+'------------------------------------------------------------------------------
+' VALIDATE AND COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.both"
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("00123", "1000", "007") & vbLf & TradeRow("T2", "2500.5", "") & vbLf & _
+                 TradeRow("T3", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=3"
+        Before = LiveInputsText()
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=3"
+
+'------------------------------------------------------------------------------
+' THE INPUT SHEETS
+'------------------------------------------------------------------------------
+        Set NsSheet = GetSheet(SH_NS)
+        Set TrSheet = GetSheet(SH_TRADES)
+        NsFirst = TableFirstRow(SH_NS)
+        TrFirst = TableFirstRow(SH_TRADES)
+        Check LastLiveRow(NsSheet, NsFirst, NS_NCOLS) = NsFirst + 1, "NettingSets: not exactly two rows"
+        CheckText "first netting set", CStr(TableCell(NsSheet, NsFirst, NS_ID).Value2), "NS-T1"
+        Value = TableCell(TrSheet, TrFirst, TR_ID).Value2
+        Check SameText(Value, "00123"), "the ID with leading zeros: " & CStr(Value)
+        Value = TableCell(TrSheet, TrFirst + 1, TR_NOTIONAL).Value2
+        Check SameNumber(Value, 2500.5), "the notional: " & CStr(Value)
+        Value = TableCell(TrSheet, TrFirst, TR_MAT).Value2
+        Check SameNumber(Value, CDbl(DateSerial(2031, 1, 2))), "the maturity: " & CStr(Value)
+        Value = TableCell(TrSheet, TrFirst, TR_COMMENT).Value2
+        Check SameText(Value, "007"), "the comment: " & CStr(Value)
+        Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 2, "Trades: not exactly three rows"
+
+'------------------------------------------------------------------------------
+' AFTER THE COMMIT
+'------------------------------------------------------------------------------
+        CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_COMMITTED & "|" & STAGING_COMMITTED
+        Check Not M_Main.StagingValidationCurrent(), "the validation still reads as current"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "second commit", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
+        PutBackLive
+        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
+
+End Sub
+
+
+Private Sub CaseCommitTradesOnly()
+'
+'==============================================================================
+' PURPOSE
+'   Only a leg staged, on the first netting set of NettingSets, and
+'   Import_NettingSets empty (#211): the commit writes Trades only and
+'   leaves NettingSets exactly as it was, never erasing it for lack of
+'   staged rows; Import_Trades reads COMMITTED. The suite then puts
+'   Trades back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String    'What a call returned
+    Dim Before          As String    'Input sheets and run names before
+    Dim NsBefore        As String    'NettingSets before, as text
+    Dim LiveSet         As String    'The first netting set of NettingSets
+
+'------------------------------------------------------------------------------
+' STAGE, VALIDATE AND COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.trades-only"
+        LiveSet = CStr(TableCell(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_ID).Value2)
+        WriteCsv CSV_NS_HEADER & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & Replace(TradeRow("T1", "1000", ""), ";NS-T1;", ";" & LiveSet & ";") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=0; trades=1"
+        Before = LiveInputsText()
+        NsBefore = CORE_Engine.BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=0; trades=1"
+        Check CORE_Engine.BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS) = NsBefore, "NettingSets changed"
+        CheckText "Import_Trades status", Meta(KIND_TR, 4), STAGING_COMMITTED
+        PutBackLive
+        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
+
+End Sub
+
+
 Private Sub CaseLiveSheets( _
     ByVal LiveBefore As String)
 '
@@ -2147,5 +2425,196 @@ Private Function ValidationName( _
 '==============================================================================
 '
         ValidationName = IIf(Index = 1, STAGING_VALIDATED_NAME, STAGING_CHECKED_NAME)
+
+End Function
+
+
+Private Sub SaveLive()
+'
+'==============================================================================
+' PURPOSE
+'   Keep the input cells of NettingSets and Trades, for PutBackLive: for
+'   each cell its formula, or its text with a leading apostrophe so that
+'   it is written back as text, or its value.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'An input sheet
+    Dim FirstRow    As Long         'Its first data row
+    Dim Width       As Long         'Its input columns
+    Dim Values      As Variant      'Value2 of its cells
+    Dim Formulas    As Variant      'Formula of its cells
+    Dim Kept()      As Variant      'What is kept
+    Dim k           As Long         'Sheet
+    Dim r           As Long         'Row
+    Dim c           As Long         'Column
+
+'------------------------------------------------------------------------------
+' KEEP
+'------------------------------------------------------------------------------
+        For k = 1 To 2
+            Set Sheet = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
+            FirstRow = TableFirstRow(Sheet.Name)
+            Width = IIf(k = 1, NS_NCOLS, TR_NCOLS)
+            mSavedLiveLast(k) = LastLiveRow(Sheet, FirstRow, Width)
+            mSavedLive(k) = Empty
+            If mSavedLiveLast(k) >= FirstRow Then
+                With TableRange(Sheet, FirstRow, 1, mSavedLiveLast(k), Width)
+                    Values = .Value2
+                    Formulas = .Formula
+                End With
+                ReDim Kept(1 To mSavedLiveLast(k) - FirstRow + 1, 1 To Width)
+                For r = 1 To UBound(Kept, 1)
+                    For c = 1 To Width
+                        If Left$(CStr(Formulas(r, c)), 1) = "=" Then
+                            Kept(r, c) = Formulas(r, c)
+                        ElseIf VarType(Values(r, c)) = vbString Then
+                            Kept(r, c) = "'" & Values(r, c)
+                        Else
+                            Kept(r, c) = Values(r, c)
+                        End If
+                    Next c
+                Next r
+                mSavedLive(k) = Kept
+            End If
+        Next k
+
+End Sub
+
+
+Private Sub PutBackLive()
+'
+'==============================================================================
+' PURPOSE
+'   Put the input cells of NettingSets and Trades back as SaveLive kept
+'   them: clear the input cells down to the last row with a value now or
+'   then, and write the kept cells.
+'
+' ERROR POLICY
+'   A failure is recorded as a suite failure.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'An input sheet
+    Dim FirstRow    As Long         'Its first data row
+    Dim Width       As Long         'Its input columns
+    Dim LastRow     As Long         'Last row to clear
+    Dim Events      As Boolean      'EnableEvents before
+    Dim k           As Long         'Sheet
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        Events = Application.EnableEvents
+        Application.EnableEvents = False
+        For k = 1 To 2
+            Set Sheet = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
+            FirstRow = TableFirstRow(Sheet.Name)
+            Width = IIf(k = 1, NS_NCOLS, TR_NCOLS)
+            LastRow = LastLiveRow(Sheet, FirstRow, Width)
+            If mSavedLiveLast(k) > LastRow Then
+                LastRow = mSavedLiveLast(k)
+            End If
+            If LastRow >= FirstRow Then
+                TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+            End If
+            If mSavedLiveLast(k) >= FirstRow Then
+                TableRange(Sheet, FirstRow, 1, mSavedLiveLast(k), Width).Value = mSavedLive(k)
+            End If
+        Next k
+        Application.EnableEvents = Events
+        Exit Sub
+
+Failed:
+        Application.EnableEvents = Events
+        Fail "suite", "the input sheets not put back: " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Function LastLiveRow( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   The last row of an input sheet with a value in one of its input
+'   columns, or FirstRow - 1 when none has one.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long       'Last row of the used range
+    Dim Grid      As Variant    'The input cells
+    Dim r         As Long       'Row of Grid
+    Dim c         As Long       'Column of Grid
+
+'------------------------------------------------------------------------------
+' SCAN FROM THE BOTTOM
+'------------------------------------------------------------------------------
+        LastLiveRow = FirstRow - 1
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then
+            Exit Function
+        End If
+        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        For r = UBound(Grid, 1) To 1 Step -1
+            For c = 1 To Width
+                If Not IsEmpty(Grid(r, c)) Then
+                    If IsError(Grid(r, c)) Then
+                        LastLiveRow = FirstRow + r - 1
+                        Exit Function
+                    ElseIf Len(CStr(Grid(r, c))) > 0 Then
+                        LastLiveRow = FirstRow + r - 1
+                        Exit Function
+                    End If
+                End If
+            Next c
+        Next r
+
+End Function
+
+
+Private Function SameNumber( _
+    ByVal Value As Variant, _
+    ByVal Expected As Double) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether a cell's Value2 is the number Expected, held as a number.
+'==============================================================================
+'
+        If VarType(Value) = vbDouble Then
+            SameNumber = (Value = Expected)
+        End If
+
+End Function
+
+
+Private Function SameText( _
+    ByVal Value As Variant, _
+    ByVal Expected As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether a cell's Value2 is the text Expected, held as text.
+'==============================================================================
+'
+        If VarType(Value) = vbString Then
+            SameText = (Value = Expected)
+        End If
 
 End Function

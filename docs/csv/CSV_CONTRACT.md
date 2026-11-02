@@ -107,8 +107,8 @@ written to a sheet. The rule covers `id` and `text` fields; a negative
 - A **blank record**, whose fields are all empty, and an **empty line** are
   errors; a file is not padded with them.
 - A **header-only file** is valid and holds no record. Committing it never
-  clears the live inputs on its own: replacing a sheet's inputs with none is
-  an explicit choice, made when the file is committed (#211).
+  clears the live inputs: a staging sheet without rows leaves its input sheet
+  as it is (#211).
 - A file is accepted or rejected **as a whole**: one finding rejects every
   record, and no record is ever dropped or truncated.
 
@@ -448,7 +448,7 @@ what it judged: both staging blocks, `NettingSets`, `Trades` and Params with
 its two tables. `StagingValidationCurrent()` is `True` only while that
 fingerprint still matches and no staging block holds a formula, so a change
 made with events off, or to Params, is found too; any other result empties
-the name. The commit (#211) will refuse unless it is `True`.
+the name. The commit refuses unless it is `True` (below).
 
 A status cell is updated by the change handler only for an edit made on its
 sheet with events on. So that a sheet does not keep reading `VALID` after
@@ -468,5 +468,40 @@ The input sheets, Results and the run's fingerprints are not changed, but
 `Checks` no longer shows the run's own checks: `ResultsStatus()` reads
 `EDITED` instead of `CURRENT`, and the evidence export refuses until the next
 **Run SA-CCR**, whose
-lines carry the origin `RUN`. The commit into the input sheets comes with
-#211.
+lines carry the origin `RUN`.
+
+### Committing the staged rows
+
+The commit (`CommitStaging_Silent`, #211) replaces `NettingSets` with the
+rows of `Import_NettingSets` when it holds any, and `Trades` with those of
+`Import_Trades` when it holds any; a staging sheet without rows leaves its
+input sheet as it is, so nothing is ever erased for lack of staged rows. Each
+replacement is whole: the staged rows are written from the first data row,
+and the input cells of the rows below that held a value are cleared. Formats,
+data validation, names and the other sheets are not changed.
+
+- **Only a current validation.** The commit refuses, and writes nothing,
+  unless `StagingValidationCurrent()` is `True`: the last validation was
+  `VALID` and nothing it judged has changed since, the staging blocks, the
+  input sheets or Params, also with events off. The status text is never
+  read.
+- **Values as typed by hand.** A number or an integer is written as a number,
+  read as the reader reads it; a date as an Excel date; every other type as
+  text with a leading apostrophe, so that leading zeros and text that looks
+  like a number or a date stay as staged. A blank field stays blank. A cell
+  that was formatted `General` and receives a date takes a date format, as
+  it would when a date is typed into it.
+- **Read back, and put back on failure.** Before writing, the commit keeps the
+  values and formulas of every input cell it may touch. It reads each sheet
+  back after writing; a cell that does not read as written is a failure. On
+  any failure it writes the kept cells back to every input sheet it touched
+  and reads them back, and reports that apart from the error: `VERIFIED`, or
+  `FAILED` with what could not be put back, which then needs checking by
+  hand before any run.
+- **After a commit** each committed staging sheet reads `COMMITTED`, its rows
+  kept as a record of what was loaded, and the stored `VALID` validation is
+  emptied, so the same rows are not committed twice without a new
+  validation. Results, `Checks` and the run and reconciliation fingerprints
+  are not changed: as after any edit of the inputs, `ResultsStatus()` reads
+  `OUT OF DATE` and the evidence export refuses until the next
+  **Run SA-CCR**, which the commit never starts.
