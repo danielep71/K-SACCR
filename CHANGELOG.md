@@ -96,6 +96,10 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- State the `P1` rule in every issue form and in the pull request template:
+  `P1` only for a confirmed calculation bug, wrong results for valid inputs
+  (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
+  #194 and #204 change from `P1` to `P2`; #38, #39 and #195 keep `P1`.
 - Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
   It now matches project names case-insensitively, checks a literal macro
   target qualified by a standard module whatever its name, checks the

@@ -11,7 +11,7 @@ body:
 
         **Outcome first · Cited rule · Verifiable acceptance · Explicit boundaries**
 
-        Describe the result you need and how it will be proved, before any implementation. A calculation change cites its regulatory source and states units and valid input domains. Triage sets the milestone and confirms the priority (default `P2`).
+        Describe the result you need and how it will be proved, before any implementation. A calculation change cites its regulatory source and states units and valid input domains. Triage sets the milestone and confirms the priority: `P2` by default, `P1` only for a confirmed calculation bug.
 
         > [!NOTE]
         > CRR is the baseline regime and Basel CRE52 is also supported; see [`docs/methodology/`](https://github.com/danielep71/K-SACCR/blob/main/docs/methodology/README.md). No real portfolio data.
