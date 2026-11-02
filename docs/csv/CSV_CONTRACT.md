@@ -392,7 +392,8 @@ calculated. A row added on the sheet has no CSV line; none is ever invented.
 
 At the top, the sheet shows the file, the time of the load, the record count
 and a status: `EMPTY` before any load, `LOADED` after one, `EDITED` once a
-cell below the header changes. The fingerprint of the block as loaded is kept
+cell below the header changes, then `VALID`, `INVALID` or `OUT OF DATE`
+after a validation (below). The fingerprint of the block as loaded is kept
 in a hidden name. When the block no longer matches it, or holds a formula,
 even one whose value is the text it replaced, a new load asks before it
 replaces the changes, even if they were made with events off and the status
@@ -437,7 +438,8 @@ line. A finding that names no column is on the row's CSV line cell. At most
 cells with a finding get a red fill, after the red fills of the last
 validation are taken off, and other fills are left alone; a cell of a live
 sheet is never marked or changed. Each staging sheet that holds rows then
-reads `VALID` or `INVALID` in its status cell, until a cell changes. A
+reads `VALID` or `INVALID` in its status cell, until a cell changes and it
+reads `EDITED`. A
 formula in a staging block refuses the validation, as nothing staged does,
 and changes nothing.
 
@@ -446,11 +448,25 @@ what it judged: both staging blocks, `NettingSets`, `Trades` and Params with
 its two tables. `StagingValidationCurrent()` is `True` only while that
 fingerprint still matches and no staging block holds a formula, so a change
 made with events off, or to Params, is found too; any other result empties
-the name. The commit (#210, #211) will refuse unless it is `True`.
+the name. The commit (#211) will refuse unless it is `True`.
+
+A status cell is updated by the change handler only for an edit made on its
+sheet with events on. So that a sheet does not keep reading `VALID` after
+Params, `NettingSets`, `Trades` or the other staging sheet changed, or after
+an edit made with events off, the fingerprint of every validation, whatever
+its result, is kept in a second hidden name, and activating a staging sheet
+runs `RefreshStagingStatus` (#210): while that fingerprint no longer matches,
+or a staging block holds a formula, a sheet that reads `VALID` reads
+`OUT OF DATE`; once it matches again, `OUT OF DATE` reads `VALID`. `EDITED`
+and `INVALID` are left as they are. The status is shown as text as well as
+by the marks, and it is for the user only: the commit checks
+`StagingValidationCurrent()`, never the text, so a saved `VALID` is never
+enough to commit. Every finding of the staging validation is an error;
+there is no warning to approve.
 
 The input sheets, Results and the run's fingerprints are not changed, but
 `Checks` no longer shows the run's own checks: `ResultsStatus()` reads
 `EDITED` instead of `CURRENT`, and the evidence export refuses until the next
 **Run SA-CCR**, whose
 lines carry the origin `RUN`. The commit into the input sheets comes with
-#210 and #211.
+#211.

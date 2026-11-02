@@ -47,6 +47,10 @@ Attribute VB_Name = "M_Main"
 '   ValidateStaging_Silent: the same, for automation and tests.
 '   StagingValidationCurrent: whether the last staging validation was
 '   VALID and nothing it judged has changed, for the commit (#210, #211).
+'   RefreshStagingStatus: show OUT OF DATE on a staging sheet that reads
+'   VALID once what the last validation judged has changed, and VALID
+'   again when it matches (#210); called when a staging sheet is
+'   activated.
 '   The sheet buttons call the first three, ExportEvidence, the two
 '   template exports, the two imports and ValidateStaging by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
@@ -4381,6 +4385,108 @@ NotCurrent:
 End Function
 
 
+Public Sub RefreshStagingStatus()
+'
+'==============================================================================
+'                             RefreshStagingStatus
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Make the status cells of the staging sheets tell whether the last
+'   staging validation still applies (#210). The change handlers mark only
+'   edits made on a staging sheet with events on; a change to Params,
+'   NettingSets or Trades, or an edit made with events off, would leave
+'   VALID on view. When what the last validation judged has changed since
+'   (its fingerprint, STAGING_CHECKED_NAME, no longer matches, or a
+'   staging block holds a formula), a sheet that reads VALID reads OUT OF
+'   DATE; when it matches again, a sheet that reads OUT OF DATE reads
+'   VALID. Every other status is left as it is. The status is for the
+'   user only: the commit (#211) checks StagingValidationCurrent itself,
+'   never the status text.
+'
+' USAGE
+'   Called by the Worksheet_Activate handlers of shImportNettingSets and
+'   shImportTrades.
+'
+' ERROR POLICY
+'   Contains every error: an event handler must not stop the user. A
+'   status that cannot be refreshed is left as it was.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Checked     As String     'Fingerprint of the last validation
+    Dim Matches     As Boolean    'What it judged is unchanged
+    Dim Events      As Boolean    'EnableEvents before the refresh
+    Dim Kind        As Variant    'NettingSets, then Trades
+    Dim StatusCell  As Range      'A status cell
+    Dim Status      As String     'What it reads
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Exit Sub
+        End If
+        Events = Application.EnableEvents
+        On Error GoTo Failed
+        Checked = StoredText(STAGING_CHECKED_NAME)
+        If Len(Checked) = 0 Then
+            Exit Sub
+        End If
+        If Len(StagingFormulaCell("NettingSets")) = 0 And Len(StagingFormulaCell("Trades")) = 0 Then
+            Matches = (ContainedValidationFingerprint() = Checked)
+        End If
+
+'------------------------------------------------------------------------------
+' REFRESH
+'------------------------------------------------------------------------------
+        Application.EnableEvents = False
+        For Each Kind In Array("NettingSets", "Trades")
+            Set StatusCell = NamedCell(StagingPrefixOf(CStr(Kind)) & "_Status")
+            If Not StatusCell Is Nothing Then
+                Status = CStr(StatusCell.Value2)
+                If Matches And Status = STAGING_OUT_OF_DATE Then
+                    StatusCell.Value2 = STAGING_VALID
+                ElseIf Not Matches And Status = STAGING_VALID Then
+                    StatusCell.Value2 = STAGING_OUT_OF_DATE
+                End If
+            End If
+        Next Kind
+
+Failed:
+        Application.EnableEvents = Events
+
+End Sub
+
+
+Private Function ContainedValidationFingerprint() As String
+'
+'==============================================================================
+'                        ContainedValidationFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   StagingValidationFingerprint, or "" when it cannot be taken because a
+'   staging sheet or a Params name is missing.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        On Error GoTo Failed
+        ContainedValidationFingerprint = StagingValidationFingerprint()
+        Exit Function
+
+Failed:
+        ContainedValidationFingerprint = ""
+
+End Function
+
+
 Private Function StagingValidationFingerprint() As String
 '
 '==============================================================================
@@ -4417,24 +4523,32 @@ Private Sub RememberStagingValidation( _
 '   Store the fingerprint of a VALID staging validation in the hidden name
 '   STAGING_VALIDATED_NAME, for StagingValidationCurrent; any other result
 '   empties it, so that an earlier VALID validation cannot be relied on.
+'   The fingerprint of every completed validation, whatever its result,
+'   goes to STAGING_CHECKED_NAME, for RefreshStagingStatus (#210); "" when
+'   it cannot be taken.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-02
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Fingerprint     As String    'What is stored; "" for none
+    Dim Fingerprint     As String    'What is stored for a VALID validation; "" for none
+    Dim Checked         As String    'What is stored for any validation
 
 '------------------------------------------------------------------------------
 ' STORE
 '------------------------------------------------------------------------------
         If Valid Then
             Fingerprint = StagingValidationFingerprint()
+            Checked = Fingerprint
+        Else
+            Checked = ContainedValidationFingerprint()
         End If
         ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""" & Fingerprint & """", Visible:=False
+        ThisWorkbook.Names.Add Name:=STAGING_CHECKED_NAME, RefersTo:="=""" & Checked & """", Visible:=False
 
 End Sub
 
