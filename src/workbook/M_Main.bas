@@ -3500,15 +3500,18 @@ Private Function StagingFingerprint( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fingerprint a staging block, the CSV line column included, from the
-'   row below its header to its last row with a value; "" for an empty
-'   block.
+'   row below its header to its last row with a value (LastStagingRow);
+'   "" for an empty block. A cell holding an empty text reads as a blank
+'   cell, as LastStagingRow and ReadStaging read it: an import writes an
+'   empty CSV field as an empty text, and clearing that cell must not
+'   read as an edit.
 '
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when the staging sheet or its names are
 '   missing.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-02
 '==============================================================================
 '
 
@@ -3517,16 +3520,67 @@ Private Function StagingFingerprint( _
 '------------------------------------------------------------------------------
     Dim Sheet       As Worksheet    'The staging sheet
     Dim FirstRow    As Long         'First row below its header
-    Dim BlockString As String       'The block as text
+    Dim LastRow     As Long         'Last row with a value
+    Dim Width       As Long         'Columns, the CSV line column included
+    Dim Grid        As Variant      'The block's values
+    Dim Pieces()    As String       'One text per cell
+    Dim r           As Long         'Row of Grid
+    Dim c           As Long         'Column of Grid
+    Dim k           As Long         'Position in Pieces
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
+    'Chr$(31) separates cells; the width fixes where rows end.
         FirstRow = StagingHeaderRow(Kind, Sheet) + 1
-        BlockString = CORE_Engine.BlockText(Sheet, FirstRow, StagingWidth(Kind))
-        If Len(BlockString) > 0 Then
-            StagingFingerprint = TextHash(BlockString)
+        Width = StagingWidth(Kind)
+        LastRow = LastStagingRow(Sheet, FirstRow, Width)
+        If LastRow < FirstRow Then
+            Exit Function
         End If
+        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        ReDim Pieces(1 To (LastRow - FirstRow + 1) * Width)
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                k = k + 1
+                Pieces(k) = StagingToken(Grid(r, c))
+            Next c
+        Next r
+        StagingFingerprint = TextHash(Join(Pieces, Chr$(31)))
+
+End Function
+
+
+Private Function StagingToken( _
+    ByVal Content As Variant) _
+    As String
+'
+'==============================================================================
+'                                 StagingToken
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One staging cell as text for StagingFingerprint, with its type: ""
+'   for a blank cell or an empty text, T for a text, B for a logical, E
+'   for an error, N for a number.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        Select Case VarType(Content)
+            Case vbEmpty
+                StagingToken = ""
+            Case vbString
+                If Len(Content) > 0 Then
+                    StagingToken = "T" & Content
+                End If
+            Case vbBoolean
+                StagingToken = IIf(Content, "B1", "B0")
+            Case vbError
+                StagingToken = "E" & CStr(Content)
+            Case Else
+                StagingToken = "N" & CStr(Content)
+        End Select
 
 End Function
 

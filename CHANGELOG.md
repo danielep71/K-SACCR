@@ -125,7 +125,9 @@ Use only the categories needed by a release.
   results are unchanged; reading Params leaves the last run's messages,
   counters and fingerprints as they were. `StagingValidationCurrent()` tells
   whether the last `VALID` validation still matches the staged blocks, the
-  input sheets and Params, for the commit (#210, #211). The rules are in
+  input sheets and Params, for the commit (#210, #211). In the staging
+  fingerprints an empty text reads as a blank cell, so that clearing a cell
+  an empty CSV field was loaded into is not taken for an edit. The rules are in
   `context_rules` of the contract, with `check_context` in the reference and
   `tests/csv/context.json`; `TEST_CsvReader` runs 12 more cases and
   `TEST_Import` 4 more.
