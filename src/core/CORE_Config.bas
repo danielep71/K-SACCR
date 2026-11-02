@@ -32,7 +32,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '
 ' AUTHOR
 '   Daniele Penza
@@ -333,13 +333,16 @@ Attribute VB_Name = "CORE_Config"
     '_Status; tools/check_csv_contract.py checks the header row against the
     'contract. The hidden name STAGED_*_NAME holds the fingerprint of the
     'block as the last load wrote it, or "" before any load, so that an
-    'edit since is found even when events were off.
+    'edit since is found even when events were off. STAGING_VALIDATED_NAME
+    'holds that of the inputs of the last VALID staging validation, or ""
+    '(#209).
         Public Const IMPORT_NS_HEADER_NAME  As String = "ImportNettingSets_Header"    'Import_NettingSets: CSV line header cell
         Public Const IMPORT_TR_HEADER_NAME  As String = "ImportTrades_Header"         'Import_Trades: CSV line header cell
         Public Const IMPORT_NS_PREFIX       As String = "ImportNS"                    'Prefix of the Import_NettingSets metadata names
         Public Const IMPORT_TR_PREFIX       As String = "ImportTR"                    'Prefix of the Import_Trades metadata names
         Public Const STAGED_NS_NAME         As String = "SACCR_ImportNSStaged"        'Fingerprint of the last NettingSets load
         Public Const STAGED_TR_NAME         As String = "SACCR_ImportTRStaged"        'Fingerprint of the last Trades load
+        Public Const STAGING_VALIDATED_NAME As String = "SACCR_StagingValidated"      'Fingerprint of the last VALID staging validation (#209)
     'Status of a staging sheet, in its _Status cell.
         Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it

@@ -1,0 +1,478 @@
+{
+ "description": "Trades records checked against a Params context (#209): the reporting date, the FX table, the supervisory-factor table and the regime of each netting set, as tools/csv_contract.check_context judges them. TEST_CsvReader runs every case through CORE_CsvReader.CheckContext.",
+ "cases": [
+  {
+   "name": "context-valid",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;FX;;EUR/USD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;CR;AAA;ACME;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Option;Long;Call;;;1000;EUR;0;;;2031-01-02;2031-01-02;2027-01-04;1;1;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;STM;2026-07-01;\nT6;NS-2;CO;POWER;DE-POWER;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT7;NS-1;OT;;LONGEVITY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT8;NS-1;IR;;EUR;Linear;Long;;;;1000;;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": []
+  },
+  {
+   "name": "context-matured",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2026-06-30;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2026-01-02;;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Option;Long;Put;;;1000;EUR;0;;;;;2026-06-29;1;1;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2026-07-01;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-MATURED",
+     2,
+     1,
+     "maturity_date"
+    ],
+    [
+     "CSV-CONTEXT-MATURED",
+     3,
+     2,
+     "end_date"
+    ],
+    [
+     "CSV-CONTEXT-MATURED",
+     4,
+     3,
+     "option_expiry_date"
+    ]
+   ]
+  },
+  {
+   "name": "context-maturity-flawed",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2026-06-01;2026-13-01;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-MATURED",
+     2,
+     1,
+     "end_date"
+    ]
+   ]
+  },
+  {
+   "name": "context-expired",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Option;Long;Call;;;1000;EUR;0;;;2031-01-02;2031-01-02;2026-06-30;1;1;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;2026-01-01;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-EXPIRED",
+     2,
+     1,
+     "option_expiry_date"
+    ]
+   ]
+  },
+  {
+   "name": "context-reset",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;STM;2026-06-30;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;STM;2026-07-01;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-RESET",
+     2,
+     1,
+     "next_reset_date"
+    ]
+   ]
+  },
+  {
+   "name": "context-currency",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;Linear;Long;;;;1000;JPY;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;CHF;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;JPY;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;usd;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-CURRENCY",
+     2,
+     1,
+     "notional_currency"
+    ],
+    [
+     "CSV-CONTEXT-CURRENCY",
+     3,
+     2,
+     "market_value_currency"
+    ],
+    [
+     "CSV-CONTEXT-CURRENCY",
+     4,
+     3,
+     "notional_currency"
+    ]
+   ]
+  },
+  {
+   "name": "context-pair",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;FX;;USD/JPY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;FX;;CHF-EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;FX;;EURUSD;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;FX;;EUR/EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;JPY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-PAIR",
+     2,
+     1,
+     "risk_factor"
+    ],
+    [
+     "CSV-CONTEXT-PAIR",
+     3,
+     2,
+     "risk_factor"
+    ]
+   ]
+  },
+  {
+   "name": "context-factor",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "FX": "",
+     "CR_AAA": ""
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;CR;ZZZ;ACME;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;EQ;;ACME;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;CR;aaa;ACME;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-FACTOR",
+     2,
+     1,
+     "sub_class"
+    ],
+    [
+     "CSV-CONTEXT-FACTOR",
+     3,
+     2,
+     "sub_class"
+    ]
+   ]
+  },
+  {
+   "name": "context-regime",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-2;OT;;LONGEVITY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;CO;POWER;DE-POWER;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-2;CO;CLIMATIC;RAIN;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;ns-3;CO;CLIMATIC;RAIN;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-9;OT;;LONGEVITY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-REGIME",
+     2,
+     1,
+     "asset_class"
+    ],
+    [
+     "CSV-CONTEXT-REGIME",
+     3,
+     2,
+     "sub_class"
+    ],
+    [
+     "CSV-CONTEXT-REGIME",
+     4,
+     3,
+     "sub_class"
+    ]
+   ]
+  },
+  {
+   "name": "context-params-bcbs",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "BCBS",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;OT;;LONGEVITY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-3;OT;;LONGEVITY;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-REGIME",
+     2,
+     1,
+     "asset_class"
+    ]
+   ]
+  },
+  {
+   "name": "context-factor-only",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": true,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-2;OT;;LONGEVITY;Linear;Long;;;;1000;JPY;0;;;2031-01-02;2020-01-01;;;;;;;;;;;\n",
+   "findings": [
+    [
+     "CSV-CONTEXT-REGIME",
+     2,
+     1,
+     "asset_class"
+    ]
+   ]
+  },
+  {
+   "name": "context-blank-id",
+   "context": {
+    "as_of": "2026-06-30",
+    "reporting_currency": "EUR",
+    "regime": "CRR",
+    "currencies": [
+     "EUR",
+     "USD",
+     "GBP"
+    ],
+    "factors": {
+     "IR": "",
+     "FX": "",
+     "CR_AAA": "",
+     "EQ_SINGLE": "",
+     "CO_POWER": "BCBS",
+     "CO_CLIMATIC": "CRR",
+     "OT": "CRR"
+    }
+   },
+   "netting_sets": {
+    "NS-1": "",
+    "NS-2": "BCBS",
+    "NS-3": "CRR"
+   },
+   "factor_only": false,
+   "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\n;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2020-01-01;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+   "findings": []
+  }
+ ]
+}
