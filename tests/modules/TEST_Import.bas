@@ -294,7 +294,7 @@ Private Sub CaseNettingSetsAccepted()
         CheckText "first ID", CStr(CellValue(KIND_NS, 1, COL_ID)), "NS-T1"
         Check VarType(CellValue(KIND_NS, 1, COL_NS_REMARGIN)) = vbString, "a number field was not kept as text"
         Check IsEmpty(CellValue(KIND_NS, 3, COL_LINE)) And IsEmpty(CellValue(KIND_NS, 3, COL_ID)), "a third row"
-        CheckText "stored fingerprint", NameText(STAGED_NS_NAME), "=""" & TextHash(BlockState(KIND_NS)) & """"
+        CheckText "stored fingerprint", NameText(STAGED_NS_NAME), "=""" & StagedFingerprint(KIND_NS) & """"
         mNsLoaded = BlockState(KIND_NS)
         Exit Sub
 
@@ -1441,6 +1441,82 @@ Private Function BlockState( _
 '==============================================================================
 '
         BlockState = CORE_Engine.BlockText(StagingSheet(KindIndex), FirstDataRow(KindIndex), BlockWidth(KindIndex))
+
+End Function
+
+
+Private Function StagedFingerprint( _
+    ByVal KindIndex As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The fingerprint M_Main stores for a staging block, computed here on
+'   its own: the rows up to the last with a value, each cell as a typed
+'   token, a blank cell and an empty text alike, joined by Chr$(31); ""
+'   when the block is empty.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'The staging sheet
+    Dim FirstRow    As Long         'First data row
+    Dim LastRow     As Long         'Last row with a value
+    Dim Width       As Long         'Columns, the CSV line column included
+    Dim Grid        As Variant      'The block's values
+    Dim Pieces()    As String       'One token per cell
+    Dim r           As Long         'Row of Grid
+    Dim c           As Long         'Column of Grid
+    Dim k           As Long         'Position in Pieces
+    Dim RowFilled   As Boolean      'The row holds a value
+    Dim Cell        As Variant      'A cell's value
+
+'------------------------------------------------------------------------------
+' COMPUTE
+'------------------------------------------------------------------------------
+        Set Sheet = StagingSheet(KindIndex)
+        FirstRow = FirstDataRow(KindIndex)
+        Width = BlockWidth(KindIndex)
+        For LastRow = UsedLastRow(Sheet) To FirstRow Step -1
+            RowFilled = False
+            For c = 1 To Width
+                Cell = TableCell(Sheet, LastRow, c).Value2
+                If IsError(Cell) Then
+                    RowFilled = True
+                ElseIf Len(CStr(Cell)) > 0 Then
+                    RowFilled = True
+                End If
+            Next c
+            If RowFilled Then
+                Exit For
+            End If
+        Next LastRow
+        If LastRow < FirstRow Then
+            Exit Function
+        End If
+        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        ReDim Pieces(1 To (LastRow - FirstRow + 1) * Width)
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                k = k + 1
+                Select Case VarType(Grid(r, c))
+                    Case vbEmpty
+                    Case vbString
+                        If Len(Grid(r, c)) > 0 Then
+                            Pieces(k) = "T" & Grid(r, c)
+                        End If
+                    Case vbBoolean
+                        Pieces(k) = IIf(Grid(r, c), "B1", "B0")
+                    Case vbError
+                        Pieces(k) = "E" & CStr(Grid(r, c))
+                    Case Else
+                        Pieces(k) = "N" & CStr(Grid(r, c))
+                End Select
+            Next c
+        Next r
+        StagedFingerprint = TextHash(Join(Pieces, Chr$(31)))
 
 End Function
 
