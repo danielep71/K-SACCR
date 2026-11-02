@@ -103,7 +103,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 153                          'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 156                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -1450,22 +1450,33 @@ Private Sub CaseCommitFailures()
 '   A commit that fails once NettingSets is written, or whose read-back
 '   finds a difference, puts both input sheets back and reports
 '   rollback=VERIFIED (#211): the inputs and the run's names are as they
-'   were, both staging sheets still read VALID and the validation is
-'   still current. Continues from CaseCommitRefused.
+'   were, a counterparty entered as the text =1+1 is text again, not a
+'   formula, both staging sheets still read VALID and the validation is
+'   still current. Continues from CaseCommitRefused; the suite then puts
+'   the input sheets back and validates again.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ResultLine    As String    'What a call returned
-    Dim Before        As String    'Input sheets and run names before
+    Dim ResultLine    As String     'What a call returned
+    Dim Before        As String     'Input sheets and run names before
+    Dim Events        As Boolean    'EnableEvents before the case
+    Dim Counterparty  As Range      'The first counterparty on NettingSets
 
 '------------------------------------------------------------------------------
 ' FAIL AND PUT BACK
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "commit.failures"
+        Events = Application.EnableEvents
+        Application.EnableEvents = False
+        Set Counterparty = TableCell(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_CPTY)
+        Counterparty.Value = "'=1+1"
+        Application.EnableEvents = Events
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
         Before = LiveInputsText()
         M_Main.gTestFault = "commit-write"
         ResultLine = M_Main.CommitStaging_Silent()
@@ -1480,11 +1491,18 @@ Private Sub CaseCommitFailures()
         CheckText "read-back failure", ResultLine, _
                   "RESULT=FAILED; error=Injected read-back difference on " & SH_NS & "; rollback=VERIFIED"
         Check LiveInputsText() = Before, "read-back failure: the input sheets were not put back"
+        Check Not Counterparty.HasFormula And SafeStr(Counterparty.Value2) = "=1+1", _
+              "the text =1+1 did not stay text: " & Counterparty.Formula
+        PutBackLive
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation again", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
         Exit Sub
 
 Unexpected:
         M_Main.gTestFault = ""
+        Application.EnableEvents = Events
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
 
 End Sub
 
@@ -2434,8 +2452,9 @@ Private Sub SaveLive()
 '==============================================================================
 ' PURPOSE
 '   Keep the input cells of NettingSets and Trades, for PutBackLive: for
-'   each cell its formula, or its text with a leading apostrophe so that
-'   it is written back as text, or its value.
+'   each formula cell its formula, for any other its text with a leading
+'   apostrophe so that it is written back as text, even one that starts
+'   with "=", or its value.
 '==============================================================================
 '
 
@@ -2464,12 +2483,12 @@ Private Sub SaveLive()
             If mSavedLiveLast(k) >= FirstRow Then
                 With TableRange(Sheet, FirstRow, 1, mSavedLiveLast(k), Width)
                     Values = .Value2
-                    Formulas = .Formula
+                    Formulas = FormulaCells(.Cells)
                 End With
                 ReDim Kept(1 To mSavedLiveLast(k) - FirstRow + 1, 1 To Width)
                 For r = 1 To UBound(Kept, 1)
                     For c = 1 To Width
-                        If Left$(CStr(Formulas(r, c)), 1) = "=" Then
+                        If Len(CStr(Formulas(r, c))) > 0 Then
                             Kept(r, c) = Formulas(r, c)
                         ElseIf VarType(Values(r, c)) = vbString Then
                             Kept(r, c) = "'" & Values(r, c)
@@ -2616,5 +2635,50 @@ Private Function SameText( _
         If VarType(Value) = vbString Then
             SameText = (Value = Expected)
         End If
+
+End Function
+
+
+Private Function FormulaCells( _
+    ByVal Target As Range) _
+    As Variant
+'
+'==============================================================================
+' PURPOSE
+'   The formula of each formula cell of Target, by row and column within
+'   it, and "" for any other cell: found with SpecialCells, because
+'   Formula returns the value of a constant cell.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Found   As Range      'The formula cells; Nothing for none
+    Dim Area    As Range      'One area of them
+    Dim Cell    As Range      'One of them
+    Dim Out()   As Variant    'The result
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        ReDim Out(1 To Target.Rows.Count, 1 To Target.Columns.Count)
+        If Not IsNull(Target.HasFormula) Then
+            If Not Target.HasFormula Then
+                FormulaCells = Out
+                Exit Function
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Target.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Not Found Is Nothing Then
+            For Each Area In Found.Areas
+                For Each Cell In Area.Cells
+                    Out(Cell.Row - Target.Row + 1, Cell.Column - Target.Column + 1) = Cell.Formula
+                Next Cell
+            Next Area
+        End If
+        FormulaCells = Out
 
 End Function

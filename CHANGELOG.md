@@ -117,7 +117,7 @@ Use only the categories needed by a release.
   input sheet whose staging sheet holds rows and leaves the other as it is,
   writes numbers and dates as numbers and dates and other values as text, so
   that leading zeros stay, and reads each sheet back. On any failure it puts
-  the input cells back and checks them, and reports that apart from the
+  the input cells back, a text that starts with `=` as text, and checks them, and reports that apart from the
   error. Each committed staging sheet then reads `COMMITTED`, and Results
   reads `OUT OF DATE` until the next run. `TEST_Import` runs 5 more cases:
   refusals, a failed write and read-back put back, a failed put-back

@@ -492,7 +492,8 @@ data validation, names and the other sheets are not changed.
   that was formatted `General` and receives a date takes a date format, as
   it would when a date is typed into it.
 - **Read back, and put back on failure.** Before writing, the commit keeps the
-  values and formulas of every input cell it may touch. It reads each sheet
+  values and formulas of every input cell it may touch; a text that starts
+  with `=` is kept as text, not taken for a formula. It reads each sheet
   back after writing; a cell that does not read as written is a failure. On
   any failure it writes the kept cells back to every input sheet it touched
   and reads them back, and reports that apart from the error: `VERIFIED`, or

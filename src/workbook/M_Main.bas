@@ -4562,7 +4562,7 @@ Private Function CommitStaging( _
 '      leading apostrophe, so that leading zeros and text that looks like
 '      a number, a date or a formula stay as staged. Blank stays blank.
 '   3. Keep the values and formulas of every input cell the commit may
-'      touch, then write and read back each sheet; a value read back that
+'      touch, a formula cell found as one (FormulasOnly), then write and read back each sheet; a value read back that
 '      differs from the one written is a failure.
 '   4. On any failure, write back the kept cells of every input sheet the
 '      commit touched and read them back; the result tells whether that
@@ -4649,7 +4649,7 @@ Private Function CommitStaging( _
                 End If
                 With TableRange(LiveSheet(k), LiveFirst(k), 1, KeptLast(k), Width(k))
                     KeptValues(k) = .Value2
-                    KeptFormulas(k) = .Formula
+                    KeptFormulas(k) = FormulasOnly(.Cells)
                 End With
             End If
         Next k
@@ -4974,6 +4974,57 @@ Private Sub PutStatusesBack( _
 End Sub
 
 
+Private Function FormulasOnly( _
+    ByVal Target As Range) _
+    As Variant
+'
+'==============================================================================
+'                                 FormulasOnly
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The formulas of Target's formula cells, by row and column within
+'   Target, and "" for every other cell (#211). Formula returns the value
+'   of a constant cell, so a text that starts with "=" would be taken for
+'   a formula; the formula cells are found with SpecialCells instead.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Found       As Range      'The formula cells; Nothing for none
+    Dim Area        As Range      'One area of them
+    Dim Cell        As Range      'One of them
+    Dim Out()       As Variant    'The result
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        ReDim Out(1 To Target.Rows.Count, 1 To Target.Columns.Count)
+        If Not IsNull(Target.HasFormula) Then
+            If Not Target.HasFormula Then
+                FormulasOnly = Out
+                Exit Function
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Target.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Not Found Is Nothing Then
+            For Each Area In Found.Areas
+                For Each Cell In Area.Cells
+                    Out(Cell.Row - Target.Row + 1, Cell.Column - Target.Column + 1) = Cell.Formula
+                Next Cell
+            Next Area
+        End If
+        FormulasOnly = Out
+
+End Function
+
+
 Private Function PutLiveBack( _
     ByRef LiveSheet() As Worksheet, _
     ByRef LiveFirst() As Long, _
@@ -5095,7 +5146,7 @@ Private Function PutSheetBack( _
 '------------------------------------------------------------------------------
         With TableRange(Sheet, FirstRow, 1, LastRow, Width)
             Grid = .Value2
-            Formulas = .Formula
+            Formulas = FormulasOnly(.Cells)
         End With
         For r = 1 To LastRow - FirstRow + 1
             For c = 1 To Width
@@ -5106,7 +5157,7 @@ Private Function PutSheetBack( _
                                        " does not hold its formula again"
                         Exit Function
                     End If
-                ElseIf Not SameCellValue(Grid(r, c), KeptValues(r, c)) Then
+                ElseIf Len(CStr(Formulas(r, c))) > 0 Or Not SameCellValue(Grid(r, c), KeptValues(r, c)) Then
                     PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
                                    " does not hold its value again"
                     Exit Function
