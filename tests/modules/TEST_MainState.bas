@@ -1858,7 +1858,11 @@ Private Sub CaseProtectionApplied()
 '   interface only, with its drawing objects and scenarios, and allows
 '   sorting, filtering, inserting rows and opening row groups exactly as
 '   the PROTECT_ lists of CORE_Config say; the structure is protected
-'   (#421).
+'   (#421). Sample cells of the editability matrix read as it says, found
+'   through their workbook names: an input cell just below a header and
+'   5,000 rows further down unlocked, the header locked, the reporting
+'   date and an FX rate unlocked, a regulatory parameter and a Results
+'   cell locked (#422).
 '
 ' UPDATED
 '   2026-11-03
@@ -1892,6 +1896,11 @@ Private Sub CaseProtectionApplied()
         Next Sheet
         Check Len(Wrong) = 0, "sheets not protected as the PROTECT_ lists say:" & Wrong
         Check ThisWorkbook.ProtectStructure, "the workbook structure is not protected"
+        Check Not NamedCell(NM_TR_HEADER).Offset(1, 0).Locked And Not NamedCell(NM_TR_HEADER).Offset(5000, 0).Locked And _
+              NamedCell(NM_TR_HEADER).Locked And Not NamedCell(NM_NS_HEADER).Offset(1, 0).Locked And _
+              Not NamedCell("AsOfDate").Locked And Not NamedCell(NM_FX_TABLE).Offset(1, 2).Locked And _
+              NamedCell("Alpha").Locked And NamedCell(NM_RS_HEADER).Offset(1, 0).Locked, _
+              "an input, parameter or output cell is not locked as the editability matrix says"
         Exit Sub
 
 '------------------------------------------------------------------------------

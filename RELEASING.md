@@ -117,6 +117,10 @@ Validate the bundle against the candidate SHA:
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bundle/host.json
 ```
 
+Run the [manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
+on a production workbook built from the candidate's template and note each
+outcome in the bundle's `session.log`.
+
 Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
 task PR into the release branch, integrate again and certify the new merge
 commit.
@@ -231,7 +235,7 @@ it does not replace it.
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
-| 7 | Excel certification passes for the harness and the seven policy suites on the candidate | ☐ |
+| 7 | Excel certification passes for the harness and the seven policy suites on the candidate, and the manual protection checks pass | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |
