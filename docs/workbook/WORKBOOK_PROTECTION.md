@@ -33,7 +33,7 @@ come with #421; the tests of protected workflows with #422.
 | `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down |
 | `TradeReconciliation` | Output | — |
 | `TestCatalogue` | Test | `L7:L34` |
-| `FormulaTest` | Test | `E4:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` |
+| `FormulaTest` | Test | `E4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` |
 | `Basel_vs_CRR` | Reference | — |
 
 ## 📏 Rules
