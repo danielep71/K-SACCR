@@ -3580,6 +3580,68 @@ Private Sub WriteStagingBlock( _
 End Sub
 
 
+Private Function LastInputRow( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long) _
+    As Long
+'
+'==============================================================================
+'                                 LastInputRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The last row of an input block with a value or a formula in one of
+'   its columns, or FirstRow - 1 when none has either (#512).
+'   LastStagingRow reads values only, so a formula that returns empty
+'   text below the data would escape a commit: it would be neither kept,
+'   cleared nor read back, and could show a value once Excel recalculates.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long     'Last row of the used range
+    Dim Found     As Range    'The formula cells; Nothing for none
+    Dim Area      As Range    'One area of them
+    Dim AreaLast  As Long     'Its last row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+    'HasFormula is False when no cell has one and Null when some do;
+    'SpecialCells raises when it finds none.
+        LastInputRow = LastStagingRow(Sheet, FirstRow, Width)
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then
+            Exit Function
+        End If
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            If Not IsNull(.HasFormula) Then
+                If Not .HasFormula Then
+                    Exit Function
+                End If
+            End If
+            On Error Resume Next
+            Set Found = .SpecialCells(xlCellTypeFormulas)
+            On Error GoTo 0
+        End With
+        If Found Is Nothing Then
+            Exit Function
+        End If
+        For Each Area In Found.Areas
+            AreaLast = Area.Row + Area.Rows.Count - 1
+            If AreaLast > LastInputRow Then
+                LastInputRow = AreaLast
+            End If
+        Next Area
+
+End Function
+
+
 Private Function LastStagingRow( _
     ByVal Sheet As Worksheet, _
     ByVal FirstRow As Long, _
@@ -4916,8 +4978,11 @@ Private Function CommitStaging( _
 '      leading apostrophe, so that leading zeros and text that looks like
 '      a number, a date or a formula stay as staged. Blank stays blank.
 '   3. Keep the values and formulas of every input cell the commit may
-'      touch, a formula cell found as one (FormulasOnly), then write and read back each sheet; a value read back that
-'      differs from the one written is a failure.
+'      touch, down to the last row with a value or a formula, whatever
+'      the formula returns (LastInputRow, #512), a formula cell found as
+'      one (FormulasOnly), then write and read back each sheet; a value
+'      read back that differs from the one written, or a value or formula
+'      left below the committed rows, is a failure.
 '   4. On any failure, write back the kept cells of every input sheet the
 '      commit touched and read them back; the result tells whether that
 '      was verified, apart from the error itself.
@@ -5003,7 +5068,7 @@ Private Function CommitStaging( _
                 Set LiveSheet(k) = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
                 LiveFirst(k) = TableFirstRow(LiveSheet(k).Name)
                 InputWidth(k) = IIf(k = 1, NS_NCOLS, TR_NCOLS)
-                OldLast(k) = LastStagingRow(LiveSheet(k), LiveFirst(k), InputWidth(k))
+                OldLast(k) = LastInputRow(LiveSheet(k), LiveFirst(k), InputWidth(k))
                 KeptLast(k) = LiveFirst(k) + NewRows(k) - 1
                 If OldLast(k) > KeptLast(k) Then
                     KeptLast(k) = OldLast(k)
@@ -5232,9 +5297,9 @@ Private Sub CheckWritten( _
                 End If
             Next c
         Next r
-        If LastStagingRow(Sheet, FirstRow, Width) <> FirstRow + RowCount - 1 Then
+        If LastInputRow(Sheet, FirstRow, Width) <> FirstRow + RowCount - 1 Then
             Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", Sheet.Name & ": a row below the committed rows " & _
-                      "still holds a value"
+                      "still holds a value or a formula"
         End If
 
 End Sub

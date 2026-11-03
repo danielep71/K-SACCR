@@ -481,8 +481,9 @@ rows of `Import_NettingSets` when it holds any, and `Trades` with those of
 `Import_Trades` when it holds any; a staging sheet without rows leaves its
 input sheet as it is, so nothing is ever erased for lack of staged rows. Each
 replacement is whole: the staged rows are written from the first data row,
-and the input cells of the rows below that held a value are cleared. Formats,
-data validation, names and the other sheets are not changed.
+and the input cells of the rows below that held a value or a formula,
+whatever the formula returns, are cleared (#512). Formats, data validation,
+names and the other sheets are not changed.
 
 - **A confirmation.** The button first asks, giving for each input sheet its
   rows now and the staged rows that replace them, or that it is left as it

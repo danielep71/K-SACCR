@@ -102,8 +102,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 29                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 163                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 30                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 167                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -255,6 +255,7 @@ Public Sub RunImportTests()
         CaseCommitRollbackFailed
         CaseCommitBoth
         CaseCommitTradesOnly
+        CaseCommitTrailingFormula
         CaseValidateRecalc
         PutBackLive
         PutChecksBack
@@ -1688,6 +1689,61 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseCommitTrailingFormula()
+'
+'==============================================================================
+' PURPOSE
+'   A formula in an input cell of Trades below the data, which returns
+'   empty text until the first leg's ID becomes T1, is inside the
+'   commit's extent (#512): the commit clears it with the old rows and
+'   reads it back, so no row outside the committed data can appear once
+'   Excel recalculates. The suite then puts Trades back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim Before        As String       'Input sheets and run names before
+    Dim TrSheet       As Worksheet    'Trades
+    Dim TrFirst       As Long         'Its first data row
+    Dim FormulaCell   As Range        'The formula below the data
+
+'------------------------------------------------------------------------------
+' STAGE, VALIDATE AND COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.trailing-formula"
+        Set TrSheet = GetSheet(SH_TRADES)
+        TrFirst = TableFirstRow(SH_TRADES)
+        Before = LiveInputsText()
+        Set FormulaCell = TableCell(TrSheet, LastLiveRow(TrSheet, TrFirst, TR_NCOLS) + 3, TR_COMMENT)
+        FormulaCell.Formula = "=IF(" & TableCell(TrSheet, TrFirst, TR_ID).Address(False, False) & _
+                              "=""T1"",""ID-9"","""")"
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
+        Check Not FormulaCell.HasFormula And IsEmpty(FormulaCell.Value2), _
+              "the formula below the data was left in place: " & FormulaCell.Formula
+        Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 1, "Trades: not exactly two rows"
+        PutBackLive
+        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not FormulaCell Is Nothing Then FormulaCell.ClearContents
+        PutBackLive
+
+End Sub
+
+
 Private Sub CaseValidateRecalc()
 '
 '==============================================================================
@@ -2684,8 +2740,10 @@ Private Function LastLiveRow( _
 '
 '==============================================================================
 ' PURPOSE
-'   The last row of an input sheet with a value in one of its input
-'   columns, or FirstRow - 1 when none has one.
+'   The last row of an input sheet with a value or a formula in one of
+'   its input columns, whatever the formula returns, or FirstRow - 1 when
+'   none has either: the extent the commit replaces (#512), so that the
+'   suite saves and puts back a formula below the data too.
 '==============================================================================
 '
 
@@ -2694,6 +2752,7 @@ Private Function LastLiveRow( _
 '------------------------------------------------------------------------------
     Dim LastRow   As Long       'Last row of the used range
     Dim Grid      As Variant    'The input cells
+    Dim Formulas  As Variant    'Their formulas; "" for a constant
     Dim r         As Long       'Row of Grid
     Dim c         As Long       'Column of Grid
 
@@ -2705,10 +2764,16 @@ Private Function LastLiveRow( _
         If LastRow < FirstRow Then
             Exit Function
         End If
-        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            Grid = .Value2
+            Formulas = FormulaCells(.Cells)
+        End With
         For r = UBound(Grid, 1) To 1 Step -1
             For c = 1 To Width
-                If Not IsEmpty(Grid(r, c)) Then
+                If Len(CStr(Formulas(r, c))) > 0 Then
+                    LastLiveRow = FirstRow + r - 1
+                    Exit Function
+                ElseIf Not IsEmpty(Grid(r, c)) Then
                     If IsError(Grid(r, c)) Then
                         LastLiveRow = FirstRow + r - 1
                         Exit Function

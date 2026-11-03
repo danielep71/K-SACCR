@@ -147,7 +147,9 @@ Use only the categories needed by a release.
   the default; `CommitStaging_Silent()` for automation. The staging note
   names the button. It
   refuses unless `StagingValidationCurrent()` is `True`, replaces whole each
-  input sheet whose staging sheet holds rows and leaves the other as it is,
+  input sheet whose staging sheet holds rows, down to the last row with a
+  value or a formula, even one that returns empty text (#512; `TEST_Import`
+  case `commit.trailing-formula`), and leaves the other as it is,
   writes numbers and dates as numbers and dates and other values as text, so
   that leading zeros stay, and reads each sheet back. On any failure it puts
   the input cells back, a text that starts with `=` as text, and checks them, and reports that apart from the
