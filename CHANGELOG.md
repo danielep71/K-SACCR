@@ -189,6 +189,17 @@ Use only the categories needed by a release.
   Trades only, a formula below the data, a commit run against the same rows
   typed by hand, and the Excel settings and results a commit leaves, also
   when its cleanup fails.
+- Close the import test gaps found in the #212 audit. `TEST_Import` runs 4
+  more cases and checks more in one: a load, a refused load and a
+  validation give the calculation mode, events and screen updating back; a
+  `VALID` validation no longer holds once a trade ID is typed on `Trades`
+  or an FX rate changes, and holds again once it is put back; a 15-digit notional
+  commits as that number exactly; netting sets staged with a `Trades` file
+  of its header only validate against the committed legs and commit
+  `NettingSets` alone; the import specification's examples, committed or
+  typed by hand, give the same run line and the same Results, HedgingSets,
+  Buckets, TradeCalc and Checks tables; and the link of a finding on Checks
+  leads to its staging cell. No production code changed.
 - Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
   applies (#210). Activating a staging sheet compares what the last
   validation judged with the current staging blocks, `NettingSets`, `Trades`
