@@ -107,8 +107,8 @@ written to a sheet. The rule covers `id` and `text` fields; a negative
 - A **blank record**, whose fields are all empty, and an **empty line** are
   errors; a file is not padded with them.
 - A **header-only file** is valid and holds no record. Committing it never
-  clears the live inputs on its own: replacing a sheet's inputs with none is
-  an explicit choice, made when the file is committed (#211).
+  clears the live inputs: a staging sheet without rows leaves its input sheet
+  as it is (#211).
 - A file is accepted or rejected **as a whole**: one finding rejects every
   record, and no record is ever dropped or truncated.
 
@@ -230,21 +230,49 @@ line the row's CSV line, 0 for a row added on a staging sheet. A
 `market_value_amount` counts as other than 0 when it is a number with a
 non-zero digit before its exponent.
 
+## 📅 Rules against Params
+
+`context_rules` in the contract judge the `Trades` records against what a run
+reads from Params (#209): the reporting date, the FX table, the
+supervisory-factor table and the regime of each netting set, its
+`regime_override` or else the Params regime. They are the engine's own rules,
+and the engine and the workbook's reader share their code: `CORE_Engine`
+holds each rule and its message (`MaturedText`, `ExpiredText`, `ResetText`,
+`NoRateText`, `NoPairRateText`, `FactorKey`, `MissingFactorText`,
+`OtherRisksRegimeText`, `FactorRegimeText`), and both a run and
+`CheckContext` call them. The reference applies them with `check_context`.
+
+| Rule | Code | Requirement |
+| --- | --- | --- |
+| `matured` | `CSV-CONTEXT-MATURED` | The `maturity_date`, or else the `end_date`, or else the `option_expiry_date`, the first that can be read, is after the reporting date; reported on that date |
+| `expired` | `CSV-CONTEXT-EXPIRED` | An `Option` that has not matured has its `option_expiry_date` after the reporting date |
+| `reset` | `CSV-CONTEXT-RESET` | An `STM` trade has its `next_reset_date` after the reporting date |
+| `currency` | `CSV-CONTEXT-CURRENCY` | The `notional_currency` and `market_value_currency` have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency, and is not reported |
+| `pair` | `CSV-CONTEXT-PAIR` | Both currencies of an `FX` pair in `risk_factor`, read as the engine reads it, have a rate; the first without one is reported |
+| `factor` | `CSV-CONTEXT-FACTOR` | The supervisory-factor table has the trade's key: `IR`, `FX` or `OT`, or else the asset class and sub-class, such as `CR_AAA`; a blank sub-class gives a key such as `CR_`, which no row has |
+| `regime` | `CSV-CONTEXT-REGIME` | Under the netting set's regime, `OT` is CRR-only, and else a factor row limited to one regime is that regime; an override other than `CRR` or `BCBS` reads as the Params regime, as in a run |
+
+A field that is blank or not of its type is not judged here: its own finding
+comes from the field checks. A row with a blank `trade_id` is left out, and
+so are the regime rules for a leg whose netting set is unknown, which has
+its own finding. The reporting currency always has a rate, as in a run.
+
 ## 🚫 What the contract does not check
 
-The contract checks each file on its own, and its rules between records
-check the legs of `Trades` against each other and the netting sets. The
-engine's validation, run on the staged inputs (#209), still applies,
-unchanged, to everything that depends on Params or on a field the contract
-does not judge:
+The contract checks each file on its own, its rules between records check
+the legs of `Trades` against each other and the netting sets, and its rules
+against Params check them against the reporting date, the two tables and
+the regime. The engine's validation still applies, unchanged, at the next
+run to what the contract does not judge:
 
-- the sub-class required by an asset class and regime, the supervisory-factor
-  key, `OT` being CRR-only;
-- an option's type, expiry and price and strike, the FX pair and its quote
-  order, the hedging-set label of a basis or volatility trade;
-- the maturity relative to the reporting date, the reset date relative to the
-  maturity, an `STM` trade in a margined netting set;
-- the currencies having a rate in the FX table.
+- the sub-class required by an asset class and regime;
+- an option's type and price and strike, and its expiry relative to the
+  maturity, the FX pair's form and quote order, and whether the notional
+  currency is a currency of the pair, the hedging-set label of a basis or
+  volatility trade;
+- the reset date relative to the maturity, an `STM` trade in a margined
+  netting set;
+- the netting sets' own rules that depend on Params.
 
 A file that passes the contract can therefore still have netting sets that
 are `INVALID` and trades that are excluded, exactly as on the sheets.
@@ -281,6 +309,14 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-ECON-NETTING-SET` | Legs of one economic trade in different netting sets |
 | `CSV-ECON-SETTLEMENT` | Legs of one economic trade with different settlement types or reset dates |
 | `CSV-ECON-ASSET-CLASS` | Two legs of one economic trade in one asset class, not both options |
+| `CSV-CONTEXT-PARAMS` | Params, its layout or one of its two tables cannot be read as a run reads them; on staging only |
+| `CSV-CONTEXT-MATURED` | A trade whose maturity is not after the reporting date |
+| `CSV-CONTEXT-EXPIRED` | An option whose expiry is not after the reporting date |
+| `CSV-CONTEXT-RESET` | An `STM` trade whose next reset is not after the reporting date |
+| `CSV-CONTEXT-CURRENCY` | A notional or MtM currency without a rate in the FX table |
+| `CSV-CONTEXT-PAIR` | A currency of an FX pair without a rate in the FX table |
+| `CSV-CONTEXT-FACTOR` | No row of the supervisory-factor table for the trade |
+| `CSV-CONTEXT-REGIME` | `OT`, or a factor row limited to a regime, under another regime |
 
 ## 🧪 Reference implementation and fixtures
 
@@ -303,7 +339,11 @@ limits. The portfolio cases of
 records: a Trades file, the netting sets its legs may refer to, and every
 finding. The staged cases of [`staged.json`](../../tests/csv/staged.json)
 pin the checks of a staging sheet's rows: each row's CSV line, 0 for a row
-added by hand, its values, and every finding. The tests in `tools/test_csv_contract.py` also read every fixture
+added by hand, its values, and every finding. The context cases of
+[`context.json`](../../tests/csv/context.json) pin the rules against Params:
+a Trades file, a reporting date, a reporting currency and regime, the FX
+currencies, the factor keys with their regimes, the netting sets with their
+overrides, and every finding. The tests in `tools/test_csv_contract.py` also read every fixture
 with a byte-order mark and with CRLF line ends, and expect the same outcome.
 
 ## 📥 The workbook's reader
@@ -352,7 +392,8 @@ calculated. A row added on the sheet has no CSV line; none is ever invented.
 
 At the top, the sheet shows the file, the time of the load, the record count
 and a status: `EMPTY` before any load, `LOADED` after one, `EDITED` once a
-cell below the header changes. The fingerprint of the block as loaded is kept
+cell below the header changes, then `VALID`, `INVALID` or `OUT OF DATE`
+after a validation (below). The fingerprint of the block as loaded is kept
 in a hidden name. When the block no longer matches it, or holds a formula,
 even one whose value is the text it replaced, a new load asks before it
 replaces the changes, even if they were made with events off and the status
@@ -375,6 +416,19 @@ them, which finds the legs a commit of those netting sets would orphan. A
 finding's record is the row's position on the sheet, and its line the row's
 CSV line, 0 for a row added there.
 
+Then the rules against Params. What a run reads before the input sheets, the
+layout, Params and its two tables, is read as a run reads it, with the same
+procedures (`CORE_Engine.LoadRunContext`), and the staged legs are judged
+against it with the regime of their netting set, staged or live
+(`CheckContext`). With only netting sets staged, the factor and regime rules
+judge each leg on `Trades`, because a staged regime override can change its
+outcome; a finding is on its `Trades` cell, which is not marked. When a run
+would stop at Params instead, nothing that depends on it is judged: one
+`CSV-CONTEXT-PARAMS` finding gives the error the run would give, on the cell
+it names, the parameter's cell or the cell of its row on Params, and no
+staging sheet is `VALID`. Reading Params this way leaves the last run's
+messages, counters and fingerprints as they were.
+
 The findings replace the lines of `Checks`, with the origin `IMPORT` in its
 Origin column: an `INFO` line with the counts, then one `ERROR` line per
 finding, every finding of the contract being an error, with the sheet, the
@@ -384,14 +438,77 @@ line. A finding that names no column is on the row's CSV line cell. At most
 cells with a finding get a red fill, after the red fills of the last
 validation are taken off, and other fills are left alone; a cell of a live
 sheet is never marked or changed. Each staging sheet that holds rows then
-reads `VALID` or `INVALID` in its status cell, until a cell changes. A
+reads `VALID` or `INVALID` in its status cell, until a cell changes and it
+reads `EDITED`. A
 formula in a staging block refuses the validation, as nothing staged does,
 and changes nothing.
+
+A validation without a finding stores, in a hidden name, a fingerprint of
+what it judged: both staging blocks, `NettingSets`, `Trades` and Params with
+its two tables. `StagingValidationCurrent()` is `True` only while that
+fingerprint still matches and no staging block holds a formula, so a change
+made with events off, or to Params, is found too; any other result empties
+the name. The commit refuses unless it is `True` (below).
+
+A status cell is updated by the change handler only for an edit made on its
+sheet with events on. So that a sheet does not keep reading `VALID` after
+Params, `NettingSets`, `Trades` or the other staging sheet changed, or after
+an edit made with events off, the fingerprint of every validation, whatever
+its result, is kept in a second hidden name, and activating a staging sheet
+runs `RefreshStagingStatus` (#210): while that fingerprint no longer matches,
+or a staging block holds a formula, a sheet that reads `VALID` reads
+`OUT OF DATE`; once it matches again, `OUT OF DATE` reads `VALID`. `EDITED`
+and `INVALID` are left as they are. The status is shown as text as well as
+by the marks, and it is for the user only: the commit checks
+`StagingValidationCurrent()`, never the text, so a saved `VALID` is never
+enough to commit. Every finding of the staging validation is an error;
+there is no warning to approve.
 
 The input sheets, Results and the run's fingerprints are not changed, but
 `Checks` no longer shows the run's own checks: `ResultsStatus()` reads
 `EDITED` instead of `CURRENT`, and the evidence export refuses until the next
 **Run SA-CCR**, whose
-lines carry the origin `RUN`. The checks that depend on Params, the FX table
-and the reporting date, and the commit into the input sheets, come with #209
-to #211.
+lines carry the origin `RUN`.
+
+### Committing the staged rows
+
+The commit (**Commit import** on either staging sheet, `CommitImport`; for
+automation `CommitStaging_Silent`, #211) replaces `NettingSets` with the
+rows of `Import_NettingSets` when it holds any, and `Trades` with those of
+`Import_Trades` when it holds any; a staging sheet without rows leaves its
+input sheet as it is, so nothing is ever erased for lack of staged rows. Each
+replacement is whole: the staged rows are written from the first data row,
+and the input cells of the rows below that held a value are cleared. Formats,
+data validation, names and the other sheets are not changed.
+
+- **A confirmation.** The button first asks, giving for each input sheet its
+  rows now and the staged rows that replace them, or that it is left as it
+  is; Cancel is the default. In silent mode, where no dialog is shown, the
+  button commits nothing; automation calls `CommitStaging_Silent`, which
+  asks nothing.
+- **Only a current validation.** The commit refuses, and writes nothing,
+  unless `StagingValidationCurrent()` is `True`: the last validation was
+  `VALID` and nothing it judged has changed since, the staging blocks, the
+  input sheets or Params, also with events off. The status text is never
+  read.
+- **Values as typed by hand.** A number or an integer is written as a number,
+  read as the reader reads it; a date as an Excel date; every other type as
+  text with a leading apostrophe, so that leading zeros and text that looks
+  like a number or a date stay as staged. A blank field stays blank. A cell
+  that was formatted `General` and receives a date takes a date format, as
+  it would when a date is typed into it.
+- **Read back, and put back on failure.** Before writing, the commit keeps the
+  values and formulas of every input cell it may touch; a text that starts
+  with `=` is kept as text, not taken for a formula. It reads each sheet
+  back after writing; a cell that does not read as written is a failure. On
+  any failure it writes the kept cells back to every input sheet it touched
+  and reads them back, and reports that apart from the error: `VERIFIED`, or
+  `FAILED` with what could not be put back, which then needs checking by
+  hand before any run.
+- **After a commit** each committed staging sheet reads `COMMITTED`, its rows
+  kept as a record of what was loaded, and the stored `VALID` validation is
+  emptied, so the same rows are not committed twice without a new
+  validation. Results, `Checks` and the run and reconciliation fingerprints
+  are not changed: as after any edit of the inputs, `ResultsStatus()` reads
+  `OUT OF DATE` and the evidence export refuses until the next
+  **Run SA-CCR**, which the commit never starts.

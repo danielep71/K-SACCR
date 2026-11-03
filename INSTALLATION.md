@@ -240,7 +240,8 @@ The layout and file conventions are defined in
    output sheets. It then asks whether to fill the worksheet and
    `ThisWorkbook` document modules as well: answer Y when building from the
    template (they hold only `Option Explicit`, except the two staging
-   sheets', which show `EDITED` after a manual change). It needs Excel's
+   sheets', which show `EDITED` after a manual change and refresh their
+   status when activated). It needs Excel's
    **Trust access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
@@ -294,7 +295,8 @@ The layout and file conventions are defined in
    sheet module. Sheet code names must match the file names (the FormulaTest
    sheet keeps the code name `shTests`). The document modules hold only
    `Option Explicit`, except `shImportNettingSets` and `shImportTrades`,
-   whose change handler shows `EDITED` on a staging sheet changed by hand.
+   whose change handler shows `EDITED` on a staging sheet changed by hand and
+   whose activation handler refreshes its status (#210).
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.
@@ -393,7 +395,13 @@ inputs first; that every output table is located through the workbook name of
 its first header cell (`layout.output-header-names`, #253); and that
 `RunSACCR_Silent` restores its silent flag (`silent.flag-preserved`).
 
-Some cases protect output sheets, insert a column before the Params tables or
+The workbook protection is tested too (#421): every sheet and the structure
+are protected as the matrix says, a run protects them again after a
+maintenance unlock or a reopening without `Auto_Open`, and a sheet a test
+makes unwritable stays so.
+
+Some cases make output sheets unwritable, unprotect Params and the workbook
+structure, insert a column before the Params tables or
 a row above the HedgingSets table, switch the workbook to the 1904 date system
 or break the `Checks_Header` name; each change is undone, also after an
 unexpected error, and the caller's Excel settings are restored. The last case
@@ -546,7 +554,15 @@ with the marks gone and no link font left on Checks; the evidence export refused
 validation; netting sets staged alone, against the legs on Trades, whose cells
 are not marked; a formula in a staging block or nothing staged, which
 refuse and leave Checks alone; and Excel error values in staged cells, which
-are judged by the text Excel shows, without a VBA error. The live inputs and the run fingerprints must
+are judged by the text Excel shows, without a VBA error. It then commits
+through `M_Main.CommitStaging_Silent`: refused without a current `VALID`
+validation; a failed write or read-back (`gTestFault = "commit-write"`,
+`"commit-verify"`), which puts NettingSets and Trades back and reports it
+verified; a failed put-back (`"commit-rollback"`), reported apart from the
+error; both sheets committed, with leading zeros, numbers and dates checked,
+after the **Commit import** button in silent mode has committed nothing;
+and Trades alone, which leaves NettingSets as it was. The suite puts the
+input sheets back after each commit. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 
@@ -744,7 +760,10 @@ column, message and CSV line, and the origin `IMPORT`; at most 10,000 are
 listed. The cells of the staged findings are marked with a red fill, and the
 marks of the last validation are taken off first; a live sheet is never
 marked or changed. Each staging sheet that holds rows reads `VALID` or
-`INVALID` in its status cell. It returns
+`INVALID` in its status cell. `RefreshStagingStatus`, which runs when a
+staging sheet is activated, turns `VALID` into `OUT OF DATE` once anything
+the last validation judged has changed, and back when it matches again
+(#210). It returns
 `RESULT=VALID; errors=0; nettingsets=N; trades=M`,
 `RESULT=INVALID; errors=K; nettingsets=N; trades=M; first=CODE|Sheet!A1`, or
 `RESULT=REFUSED; reason=...` when nothing is staged or a staging block holds
@@ -752,6 +771,25 @@ a formula; a refusal changes nothing. While an operation is running it raises
 `ERR_RUN_ACTIVE`. The run's fingerprints are left as they were: until the next
 **Run SA-CCR**, `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the
 evidence export refuses.
+
+### CommitStaging_Silent
+
+`CommitStaging_Silent()` replaces NettingSets and Trades with the staged rows
+without a confirmation or a message, as the **Commit import** button
+(`CommitImport`) does after its confirmation (#211): each input sheet whose staging
+sheet holds rows, whole; the other is left as it is. It refuses unless
+`StagingValidationCurrent()` is `True`. Numbers and integers are written as
+numbers, dates as Excel dates and other values as text, so that leading zeros
+stay. Each sheet is read back; on any failure the input cells kept before the
+write are written back to every sheet touched and read back. It returns
+`RESULT=COMMITTED; nettingsets=N; trades=M` (0 for a sheet left as it was),
+`RESULT=REFUSED; reason=...` when nothing was written, or
+`RESULT=FAILED; error=...; rollback=...` with `NONE` when nothing had been
+written, `VERIFIED` when the input sheets read back as they were, or
+`FAILED: ...` with what could not be put back. After a commit each committed
+staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
+Results is not recalculated: `ResultsStatus()` reads `OUT OF DATE` until the
+next **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 

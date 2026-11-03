@@ -111,6 +111,79 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Protect the workbook against accidental edits (#420, #421). Every sheet
+  and the workbook structure are protected, without a password, in the
+  template and so in every workbook built from it; the protection holds with
+  macros disabled too. Only the cells of the editability matrix
+  [`docs/workbook/protection.json`](docs/workbook/protection.json),
+  described in [`WORKBOOK_PROTECTION.md`](docs/workbook/WORKBOOK_PROTECTION.md),
+  can be changed: the input columns of `NettingSets`, `Trades`, the staging
+  sheets and the bank sheets, to the bottom of the sheet, their headers
+  locked; on Params only the reporting date, the reporting currency, the
+  default regime and the FX table with the rows below it, while the
+  reference regulatory parameters stay locked and are now filled grey
+  instead of yellow, as the Params and README notes say; the bank amount
+  scale and tolerances and the test inputs of `TestCatalogue` and
+  `FormulaTest`. The input and bank sheets allow sorting and inserting rows,
+  `Trades` and `Basel_vs_CRR` filtering with their AutoFilter, the staging
+  sheets inserting rows and README opening its row groups. `Auto_Open` and every
+  operation run `ProtectWorkbook`, which protects each sheet for the user
+  interface only, so that the macros keep writing every sheet, and protects
+  again a sheet or the structure unprotected for maintenance; loading and
+  clearing a staging block keep its values unlocked and its CSV line column
+  locked. Values and other formats are unchanged. The
+  `check_workbook_protection` gate checks every cell, the saved protection
+  and the `PROTECT_` lists of `CORE_Config` against the matrix, and that no
+  locked cell has the yellow input fill. `TEST_MainState` runs 3 more cases,
+  checks sample cells of the matrix in the workbook and makes sheets
+  unwritable through the test seam `gKeepProtection`; `TEST_Import` checks
+  the locks of a loaded block and of the committed input sheets.
+  `WORKBOOK_PROTECTION.md` describes the maintenance unlock, the limits, the
+  upgrade of an existing workbook and the manual checks a release candidate
+  passes (#422), which the release procedure now includes.
+- Commit the staged rows into the input sheets (#211): **Commit import** on
+  both staging sheets (`CommitImport`), after a confirmation that gives each
+  input sheet's rows now and the staged rows that replace them, Cancel being
+  the default; `CommitStaging_Silent()` for automation. The staging note
+  names the button. It
+  refuses unless `StagingValidationCurrent()` is `True`, replaces whole each
+  input sheet whose staging sheet holds rows and leaves the other as it is,
+  writes numbers and dates as numbers and dates and other values as text, so
+  that leading zeros stay, and reads each sheet back. On any failure it puts
+  the input cells back, a text that starts with `=` as text, and checks them, and reports that apart from the
+  error. Each committed staging sheet then reads `COMMITTED`, and Results
+  reads `OUT OF DATE` until the next run. `TEST_Import` runs 5 more cases:
+  refusals, a failed write and read-back put back, a failed put-back
+  reported, a commit of both sheets and a commit of Trades only.
+- Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
+  applies (#210). Activating a staging sheet compares what the last
+  validation judged with the current staging blocks, `NettingSets`, `Trades`
+  and Params: a sheet that reads `VALID` reads `OUT OF DATE` once any of them
+  changed, also with events off, and `VALID` again once it matches. The
+  fingerprint of every validation, whatever its result, is kept in the hidden
+  name `SACCR_StagingChecked`. The status is for the user; the commit (#211)
+  checks `StagingValidationCurrent()`. `TEST_Import` runs 2 more cases:
+  repeated validation and the status refresh.
+- Validate staged trades against Params (#209). **Validate staging** now reads
+  Params, the FX table and the supervisory-factor table as a run reads them,
+  and judges the staged legs with the engine's own rules: a maturity, option
+  expiry or STM reset not after the reporting date, a notional, MtM or FX-pair
+  currency without a rate, a missing factor row, and `OT` or a factor row
+  limited to a regime under another regime (`CSV-CONTEXT-*`, each on its
+  cell). With only netting sets staged, a staged regime override is applied
+  to the legs on Trades. When a run would stop at Params, one
+  `CSV-CONTEXT-PARAMS` finding gives its error on its Params cell and no
+  staging sheet is `VALID`. The rules and their messages are shared between
+  the engine and the staging validation (`CORE_Engine`), and the engine's
+  results are unchanged; reading Params leaves the last run's messages,
+  counters and fingerprints as they were. `StagingValidationCurrent()` tells
+  whether the last `VALID` validation still matches the staged blocks, the
+  input sheets and Params, for the commit (#210, #211). In the staging
+  fingerprints an empty text reads as a blank cell, so that clearing a cell
+  an empty CSV field was loaded into is not taken for an edit. The rules are in
+  `context_rules` of the contract, with `check_context` in the reference and
+  `tests/csv/context.json`; `TEST_CsvReader` runs 12 more cases and
+  `TEST_Import` 4 more.
 - Test the workflow invariants (#493): `tools/check_workflows.py`, run by
   `test_check_workflows.py` in `tool-tests`, reads every workflow and
   `dependabot.yml` with PyYAML and fails on an unpinned action, a checkout that
@@ -250,6 +323,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Lay out the messages of Validate staging, Commit import, Import CSV and the
+  exports in short lines and blocks instead of one long sentence that the
+  message box wraps (#211): counts per staging sheet, what was found, what
+  follows, and a file path on a line of its own. The first Checks line of a
+  staging validation keeps its single-line form.
 - Reconcile the live issue labels from the default branch only (#493): a
   manual run of the label synchronization on another branch no longer applies
   that branch's manifest, and the governance drops the sync from a reviewed
