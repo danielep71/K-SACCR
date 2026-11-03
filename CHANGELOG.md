@@ -164,7 +164,11 @@ Use only the categories needed by a release.
   name `SACCR_StagingChecked`. The status is for the user; the commit (#211)
   checks `StagingValidationCurrent()`. `TEST_Import` runs 2 more cases:
   repeated validation and the status refresh.
-- Validate staged trades against Params (#209). **Validate staging** now reads
+- Validate staged trades against Params (#209). **Validate staging** now
+  recalculates the workbook first, as a run does, so that a formula input is
+  judged by its current result also in manual calculation, and **Commit
+  import** recalculates before it checks that the validation still holds
+  (#519; `TEST_Import` runs 1 more case). It reads
   Params, the FX table and the supervisory-factor table as a run reads them,
   and judges the staged legs with the engine's own rules: a maturity, option
   expiry or STM reset not after the reporting date, a notional, MtM or FX-pair

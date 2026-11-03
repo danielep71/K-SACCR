@@ -102,8 +102,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 160                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 29                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 163                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -255,6 +255,7 @@ Public Sub RunImportTests()
         CaseCommitRollbackFailed
         CaseCommitBoth
         CaseCommitTradesOnly
+        CaseValidateRecalc
         PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
@@ -1683,6 +1684,110 @@ Private Sub CaseCommitTradesOnly()
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
+
+End Sub
+
+
+Private Sub CaseValidateRecalc()
+'
+'==============================================================================
+' PURPOSE
+'   In manual calculation, a Params formula whose precedent changed is
+'   judged by its new result (#519). With AsOfDate a formula on a free
+'   Params cell, moved after the maturity of the staged leg and not
+'   recalculated, the validation finds the leg matured; once the date is
+'   back and the validation VALID, the same change, still not
+'   recalculated, makes the commit refuse. AsOfDate, the free cell and
+'   the calculation mode are then put back; the input sheets are not
+'   written.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine      As String           'What a call returned
+    Dim DateCell        As Range            'AsOfDate
+    Dim Precedent       As Range            'A free Params cell its formula reads
+    Dim SavedValue      As Variant          'AsOfDate before the case
+    Dim SavedFormula    As String           'Its formula, when it has one
+    Dim HadFormula      As Boolean          'It had one
+    Dim SavedCalc       As XlCalculation    'Calculation mode before the case
+
+'------------------------------------------------------------------------------
+' STAGE, CHANGE THE DATE, VALIDATE AND COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "validate.recalc"
+        SavedCalc = Application.Calculation
+        Set DateCell = NamedCell("AsOfDate")
+        Set Precedent = DateCell.Offset(0, 8)
+        SavedValue = DateCell.Value2
+        HadFormula = DateCell.HasFormula
+        SavedFormula = DateCell.Formula
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        Application.Calculation = xlCalculationManual
+        Precedent.Value2 = CDbl(DateSerial(2026, 9, 30))
+        DateCell.Formula = "=" & Precedent.Address(False, False)
+        Application.Calculate
+        Precedent.Value2 = CDbl(DateSerial(2031, 6, 30))
+        ResultLine = M_Main.ValidateStaging_Silent()
+        Check Left$(ResultLine, 14) = "RESULT=INVALID" And InStr(1, ResultLine, "CSV-CONTEXT-MATURED", _
+              vbBinaryCompare) > 0, "the validation judged the reporting date Excel had kept: " & ResultLine
+        Precedent.Value2 = CDbl(DateSerial(2026, 9, 30))
+        Application.Calculate
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
+        Precedent.Value2 = CDbl(DateSerial(2031, 6, 30))
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
+        PutDateBack DateCell, Precedent, SavedValue, SavedFormula, HadFormula, SavedCalc
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutDateBack DateCell, Precedent, SavedValue, SavedFormula, HadFormula, SavedCalc
+
+End Sub
+
+
+Private Sub PutDateBack( _
+    ByVal DateCell As Range, _
+    ByVal Precedent As Range, _
+    ByVal SavedValue As Variant, _
+    ByVal SavedFormula As String, _
+    ByVal HadFormula As Boolean, _
+    ByVal SavedCalc As XlCalculation)
+'
+'==============================================================================
+' PURPOSE
+'   Give AsOfDate back its value or formula, empty the free cell of
+'   CaseValidateRecalc and restore the calculation mode.
+'
+' ERROR POLICY
+'   Contained: a failure is reported as a test failure of the case.
+'==============================================================================
+'
+        On Error GoTo Failed
+        If Not DateCell Is Nothing Then
+            If HadFormula Then
+                DateCell.Formula = SavedFormula
+            Else
+                DateCell.Value2 = SavedValue
+            End If
+        End If
+        If Not Precedent Is Nothing Then
+            Precedent.ClearContents
+        End If
+        Application.Calculation = SavedCalc
+        Exit Sub
+
+Failed:
+        Fail mCurrentCase, "could not put AsOfDate back: " & Err.Description
+        Application.Calculation = SavedCalc
 
 End Sub
 
