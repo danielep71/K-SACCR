@@ -245,6 +245,36 @@ further illustrative netting sets.
 | **Export import specifications** (on Import_Trades and Import_NettingSets) | `ExportImportSpecification` | Saves the [CSV import specification](docs/csv/K-SACCR_Import_Specification.html): one HTML page, readable offline and printable, that describes every column and rule of both files and gives an example of each to copy. A file that exists is replaced only after a confirmation; the page can then be opened. The workbook is not changed |
 | From the Macros dialog (Alt+F8) | `CheckTradesCsv`, `CheckNettingSetsCsv` | Checks a CSV file against the input contract and lists its findings; writes nothing |
 
+<a id="importing-a-portfolio-from-csv"></a>
+
+### Importing a portfolio from CSV
+
+1. **Prepare the files.** On `Import_NettingSets` or `Import_Trades`, press
+   **Export import specifications** for the description of both files with an
+   example of each, or **Export CSV template** on `NettingSets` and `Trades`
+   for the header line alone. Write the files with a program that follows the
+   [contract](docs/csv/CSV_CONTRACT.md): `;` between fields, `.` as decimal
+   point, dates as `yyyy-mm-dd`, UTF-8. A file saved by Excel in a locale with
+   a decimal comma is rejected.
+2. **Import.** Press **Import CSV** on `Import_NettingSets`, then on
+   `Import_Trades`, and choose the file. Each record lands on the staging
+   sheet as text, with its CSV line; the input sheets are not changed. A file
+   with a structural problem, such as a missing column or another delimiter,
+   is not loaded and the message says why.
+3. **Correct.** Edit the staged cells; the sheet reads `EDITED`. A file can
+   also be corrected outside Excel and imported again.
+4. **Validate.** Press **Validate staging**. Each finding is listed on Checks
+   with the origin `IMPORT` and a link to its cell, which is marked in red.
+   Correct and validate again until both staging sheets read `VALID`.
+5. **Commit.** Press **Commit import** and confirm. `NettingSets`, `Trades`
+   or both are replaced whole by the staged rows; a staging sheet without rows
+   leaves its input sheet as it is. Results now reads `OUT OF DATE`.
+6. **Run.** Press **Run SA-CCR** to calculate the committed portfolio.
+
+A change to the staged rows, the input sheets or Params after the validation
+makes it no longer current: the staging sheet reads `OUT OF DATE`, and the
+commit refuses until the next validation.
+
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
 set at the top of the sheet. **Run SA-CCR** then writes the comparison to
@@ -679,6 +709,12 @@ and the VBA references are listed in `INSTALLATION.md`.
   set, the 1904 date system, and the simplified SA-CCR and OEM (planned,
   v1.5.0 and v1.6.0). SFTs, CVA risk, risk-weighted assets and default-fund
   contributions to a CCP are outside K-SACCR (see the [roadmap](#roadmap)).
+- **CSV import replaces whole sheets.** A commit replaces `NettingSets`,
+  `Trades` or both with the staged rows of a `VALID` validation: there is no
+  incremental merge or update by key, rows with findings are never committed,
+  and nothing is calculated until **Run SA-CCR**. The files must follow the
+  [CSV contract](docs/csv/CSV_CONTRACT.md); other dialects, such as Excel's own
+  CSV save in a decimal-comma locale, are rejected.
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
   supported host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
