@@ -396,6 +396,15 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Walk a user through a CSV import in the README (#212): prepare the files
+  from the import specification or the templates, import, correct, validate,
+  commit and run, and what makes a validation no longer current. The known
+  limitations and the CSV contract state that a commit replaces whole sheets,
+  with no incremental merge, and calculates nothing. The published-workbook
+  check of `RELEASING.md` now unprotects Results deliberately on its copy
+  before changing an EAD cell, since a protected cell cannot be typed into,
+  and imports, validates, commits and runs the two example files of the
+  import specification.
 - Correct counts that had gone stale: `RELEASING.md` asks for the harness
   and the nine policy suites throughout (it also said seven and eight), and
   its tag message takes the suite count from the run; `tools/README.md`
