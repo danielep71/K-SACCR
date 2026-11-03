@@ -254,9 +254,8 @@ Labels do not assign priorities or milestones automatically.
 
 ### Label workflows
 
-Both reconciliation scripts are the schema-2 versions of
-danielep71/MyTemplate at commit f4e11c3e5ced16fb3d699a31a21e5e9d7ade7173,
-unchanged. They read `.github/labels.json` and take no repository policy, so
+Both reconciliation scripts are generic, schema-2 scripts: they read
+`.github/labels.json` and take no repository policy, so
 the live catalogue is exactly the manifest's 20 labels. Every checkout in the
 two workflows sets `persist-credentials: false`, so code under review never
 receives Git credentials. The workflows are K-SACCR's own in two respects:
