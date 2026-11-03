@@ -352,6 +352,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)
         Public Const STAGING_INVALID        As String = "INVALID"     'Validated with an error, listed on Checks
         Public Const STAGING_OUT_OF_DATE    As String = "OUT OF DATE" 'Was VALID; what it judged has changed since (#210)
+        Public Const STAGING_COMMITTED      As String = "COMMITTED"   'Written to its input sheet by a commit (#211)
 
 '------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS

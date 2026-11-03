@@ -548,7 +548,14 @@ with the marks gone and no link font left on Checks; the evidence export refused
 validation; netting sets staged alone, against the legs on Trades, whose cells
 are not marked; a formula in a staging block or nothing staged, which
 refuse and leave Checks alone; and Excel error values in staged cells, which
-are judged by the text Excel shows, without a VBA error. The live inputs and the run fingerprints must
+are judged by the text Excel shows, without a VBA error. It then commits
+through `M_Main.CommitStaging_Silent`: refused without a current `VALID`
+validation; a failed write or read-back (`gTestFault = "commit-write"`,
+`"commit-verify"`), which puts NettingSets and Trades back and reports it
+verified; a failed put-back (`"commit-rollback"`), reported apart from the
+error; both sheets committed, with leading zeros, numbers and dates checked;
+and Trades alone, which leaves NettingSets as it was. The suite puts the
+input sheets back after each commit. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 
@@ -757,6 +764,24 @@ a formula; a refusal changes nothing. While an operation is running it raises
 `ERR_RUN_ACTIVE`. The run's fingerprints are left as they were: until the next
 **Run SA-CCR**, `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the
 evidence export refuses.
+
+### CommitStaging_Silent
+
+`CommitStaging_Silent()` replaces NettingSets and Trades with the staged rows
+without a confirmation or a message (#211): each input sheet whose staging
+sheet holds rows, whole; the other is left as it is. It refuses unless
+`StagingValidationCurrent()` is `True`. Numbers and integers are written as
+numbers, dates as Excel dates and other values as text, so that leading zeros
+stay. Each sheet is read back; on any failure the input cells kept before the
+write are written back to every sheet touched and read back. It returns
+`RESULT=COMMITTED; nettingsets=N; trades=M` (0 for a sheet left as it was),
+`RESULT=REFUSED; reason=...` when nothing was written, or
+`RESULT=FAILED; error=...; rollback=...` with `NONE` when nothing had been
+written, `VERIFIED` when the input sheets read back as they were, or
+`FAILED: ...` with what could not be put back. After a commit each committed
+staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
+Results is not recalculated: `ResultsStatus()` reads `OUT OF DATE` until the
+next **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 
