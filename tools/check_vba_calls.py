@@ -99,6 +99,9 @@ TOKEN_RE = re.compile(
 class Tok:
     kind: str
     text: str
+    # A "." after whitespace that follows the first identifier of a statement: "Check .Name = a, m"
+    # passes a With member to Check, while "Check.Name = a" assigns a member of Check (#498).
+    spaced: bool = field(default=False, compare=False)
 
     @property
     def low(self) -> str:
@@ -113,13 +116,22 @@ class Tok:
     def is_kw(self, *words: str) -> bool:
         return self.kind == "id" and self.low in words
 
+    def continues_chain(self) -> bool:
+        """True for the ``.`` or ``!`` of a member access, false for a spaced ``.`` that starts a With member."""
+        return self.is_op("!") or (self.is_op(".") and not self.spaced)
+
 
 def tokenize(code: str) -> list[Tok]:
+    """Tokens without whitespace; a "." keeps whether whitespace came before it."""
     tokens = []
+    spaced = False
     for match in TOKEN_RE.finditer(code):
         kind = match.lastgroup or "other"
-        if kind != "ws":
-            tokens.append(Tok(kind, match.group()))
+        if kind == "ws":
+            spaced = True
+            continue
+        tokens.append(Tok(kind, match.group(), spaced and match.group() == "."))
+        spaced = False
     return tokens
 
 
@@ -167,7 +179,7 @@ def is_lvalue(tokens: list[Tok]) -> bool:
             index = close + 1
         if index == len(tokens):
             return True
-        if not tokens[index].is_op(".", "!"):
+        if not tokens[index].continues_chain():
             return False
         index += 1
     return False
@@ -352,7 +364,17 @@ def statements_of(code: str) -> list[list[Tok]]:
         tokens = tokens[2:]
     elif tokens and tokens[0].kind == "num":
         tokens = tokens[1:]
-    return [part for part in split_top(tokens, ":") if part]
+    return [with_argument(part) for part in split_top(tokens, ":") if part]
+
+
+def with_argument(tokens: list[Tok]) -> list[Tok]:
+    """Keep the spaced mark only on a "." right after the statement's first identifier (#498).
+
+    Elsewhere whitespace before "." carries no meaning here: a line continuation, joined as a space,
+    may split a member access, and "x = a .b" is not valid VBA.
+    """
+    return [Tok(t.kind, t.text, t.spaced and i == 1 and tokens[0].is_id()) if t.spaced else t
+            for i, t in enumerate(tokens)]
 
 
 def add_member(module: Module, member: Member, accessor: str | None = None, proc: Proc | None = None) -> None:
@@ -881,7 +903,7 @@ class Analyzer:
                 close = matching_paren(tokens, index)
                 if close < 0:
                     close = len(tokens) - 1
-                is_last = close + 1 >= len(tokens) or not tokens[close + 1].is_op(".", "!")
+                is_last = close + 1 >= len(tokens) or not tokens[close + 1].continues_chain()
                 # In a statement call such as "Foo (a), b" the parentheses belong to the
                 # first argument, not to the call: leave them for the trailing arguments.
                 parenthesized_first_argument = statement_args is not None and is_last and close != len(tokens) - 1
@@ -889,7 +911,7 @@ class Analyzer:
                     args = tokens[index + 1:close]
                     index = close + 1
             elements.append((name, args))
-            if (index < len(tokens) and tokens[index].is_op(".", "!") and index + 1 < len(tokens)
+            if (index < len(tokens) and tokens[index].continues_chain() and index + 1 < len(tokens)
                     and tokens[index + 1].is_id()):
                 index += 1
                 continue
