@@ -69,7 +69,10 @@ Attribute VB_Name = "TEST_Import"
 '   did, and the hidden name of the last VALID validation is put back.
 '   Two cases change one Params value each, AsOfDate and Alpha, and put
 '   it back as it was, also after an unexpected error; no other input
-'   cell is touched, and the last case checks the live inputs.
+'   cell is touched, and import.live-sheets checks the live inputs and
+'   the run names. Only then does the last case run SA-CCR (#211): it
+'   puts the input sheets back and leaves a new run of them, CURRENT, or
+'   no results when there were none before.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -103,7 +106,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 31                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 171                          'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 172                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -256,11 +259,11 @@ Public Sub RunImportTests()
         CaseCommitBoth
         CaseCommitTradesOnly
         CaseCommitTrailingFormula
-        CaseCommitEquivalentRun
         CaseValidateRecalc
         PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
+        CaseCommitEquivalentRun
 
         PutStagingBack KIND_NS
         PutStagingBack KIND_TR
@@ -1755,8 +1758,10 @@ Private Sub CaseCommitEquivalentRun()
 '   typed into the emptied input sheets, numbers as numbers, dates as
 '   dates, text as text, give the same run line: the same input
 '   fingerprint, counts, findings and total EADs. The input sheets are
-'   then put back, and so is the run before the case: run again on them,
-'   or cleared when there was none, with the run names it had.
+'   then put back and run again, so that the workbook ends with a run of
+'   its own inputs, CURRENT, or with no results when it had none. It runs
+'   after import.live-sheets, which checks that no other case touches the
+'   run.
 '==============================================================================
 '
 
@@ -1764,19 +1769,18 @@ Private Sub CaseCommitEquivalentRun()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim ResultLine    As String       'What a call returned
-    Dim Before        As String       'Input sheets and run names before
     Dim Committed     As String       'Run line after the commit
     Dim Typed         As String       'Run line after typing the same rows
-    Dim SavedNames    As Variant      'The run names before, RefersTo or ""
+    Dim SavedInputs   As String       'Input fingerprint before
+    Dim HadRun        As Boolean      'Results existed before the case
 
 '------------------------------------------------------------------------------
 ' COMMIT AND RUN, THEN TYPE AND RUN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         BeginCase "commit.equivalent-run"
-        Before = LiveInputsText()
-        SavedNames = Array(NameText(RUN_INPUTS_NAME), NameText(RUN_OUTPUTS_NAME), _
-                           NameText(RECON_INPUTS_NAME), NameText(TRADE_RECON_INPUTS_NAME))
+        SavedInputs = CORE_Engine.InputFingerprint()
+        HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
@@ -1793,13 +1797,16 @@ Private Sub CaseCommitEquivalentRun()
         Typed = M_Main.RunSACCR_Silent()
         Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
         PutBackLive
-        PutRunBack SavedNames
+        PutRunBack HadRun
+        Check CORE_Engine.InputFingerprint() = SavedInputs And _
+              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+              "inputs and results after the case: " & M_Main.ResultsStatus()
         Exit Sub
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
-        If Not IsEmpty(SavedNames) Then PutRunBack SavedNames
+        PutRunBack HadRun
 
 End Sub
 
@@ -1858,45 +1865,25 @@ End Sub
 
 
 Private Sub PutRunBack( _
-    ByVal SavedNames As Variant)
+    ByVal HadRun As Boolean)
 '
 '==============================================================================
 ' PURPOSE
-'   Give the workbook back the run of CaseCommitEquivalentRun's start, once
-'   the input sheets are put back: run again on them when there was a run,
-'   clear the outputs when there was none, then put back the four run
-'   names exactly as they were, an absent name removed.
+'   Once CaseCommitEquivalentRun has put the input sheets back, run SA-CCR
+'   on them when the workbook had results before the case, or clear the
+'   outputs when it had none, so that the outputs, Checks and run names
+'   agree again: CURRENT, or NONE.
 '
 ' ERROR POLICY
 '   Contained: a failure is reported as a test failure of the case.
 '==============================================================================
 '
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim RunNames    As Variant    'The four run names
-    Dim i           As Long       'Name
-
-'------------------------------------------------------------------------------
-' RUN OR CLEAR, THEN THE NAMES
-'------------------------------------------------------------------------------
         On Error GoTo Failed
-        If Len(CStr(SavedNames(0))) > 0 Then
+        If HadRun Then
             M_Main.RunSACCR_Silent
         Else
             M_Main.ClearOutputs
         End If
-        RunNames = Array(RUN_INPUTS_NAME, RUN_OUTPUTS_NAME, RECON_INPUTS_NAME, TRADE_RECON_INPUTS_NAME)
-        For i = 0 To 3
-            If Len(CStr(SavedNames(i))) > 0 Then
-                ThisWorkbook.Names.Add Name:=CStr(RunNames(i)), RefersTo:=CStr(SavedNames(i)), Visible:=False
-            Else
-                On Error Resume Next
-                ThisWorkbook.Names(CStr(RunNames(i))).Delete
-                On Error GoTo Failed
-            End If
-        Next i
         Exit Sub
 
 Failed:
