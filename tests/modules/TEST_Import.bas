@@ -69,7 +69,10 @@ Attribute VB_Name = "TEST_Import"
 '   did, and the hidden name of the last VALID validation is put back.
 '   Two cases change one Params value each, AsOfDate and Alpha, and put
 '   it back as it was, also after an unexpected error; no other input
-'   cell is touched, and the last case checks the live inputs.
+'   cell is touched, and import.live-sheets checks the live inputs and
+'   the run names. Only then does the last case run SA-CCR (#211): it
+'   puts the input sheets back and leaves a new run of them, CURRENT, or
+'   no results when there were none before.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -102,8 +105,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 30                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 167                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 31                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 172                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -260,6 +263,7 @@ Public Sub RunImportTests()
         PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
+        CaseCommitEquivalentRun
 
         PutStagingBack KIND_NS
         PutStagingBack KIND_TR
@@ -1740,6 +1744,150 @@ Unexpected:
         On Error Resume Next
         If Not FormulaCell Is Nothing Then FormulaCell.ClearContents
         PutBackLive
+
+End Sub
+
+
+Private Sub CaseCommitEquivalentRun()
+'
+'==============================================================================
+' PURPOSE
+'   Committed rows run as the same rows typed by hand (#211): two netting
+'   sets and two legs, validated VALID and committed, then run; the run
+'   finds no error, as the staging validation found none. The same rows
+'   typed into the emptied input sheets, numbers as numbers, dates as
+'   dates, text as text, give the same run line: the same input
+'   fingerprint, counts, findings and total EADs. The input sheets are
+'   then put back and run again, so that the workbook ends with a run of
+'   its own inputs, CURRENT, or with no results when it had none. It runs
+'   after import.live-sheets, which checks that no other case touches the
+'   run.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim Committed     As String       'Run line after the commit
+    Dim Typed         As String       'Run line after typing the same rows
+    Dim SavedInputs   As String       'Input fingerprint before
+    Dim HadRun        As Boolean      'Results existed before the case
+
+'------------------------------------------------------------------------------
+' COMMIT AND RUN, THEN TYPE AND RUN
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.equivalent-run"
+        SavedInputs = CORE_Engine.InputFingerprint()
+        HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
+        Committed = M_Main.RunSACCR_Silent()
+        Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0, _
+              "the run on the committed rows: " & Committed
+        TypeRows SH_NS, NS_NCOLS, Array(NS_ROW_1, NS_ROW_2)
+        TypeRows SH_TRADES, TR_NCOLS, Array(TradeRow("T1", "1000", ""), TradeRow("T2", "2500.5", ""))
+        Typed = M_Main.RunSACCR_Silent()
+        Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
+        PutBackLive
+        PutRunBack HadRun
+        Check CORE_Engine.InputFingerprint() = SavedInputs And _
+              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+              "inputs and results after the case: " & M_Main.ResultsStatus()
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
+        PutRunBack HadRun
+
+End Sub
+
+
+Private Sub TypeRows( _
+    ByVal SheetName As String, _
+    ByVal Width As Long, _
+    ByVal Rows As Variant)
+'
+'==============================================================================
+' PURPOSE
+'   Empty the input rows of an input sheet and type CSV records into it as
+'   a user would, field by field into the columns of the contract order:
+'   a date as yyyy-mm-dd becomes a date, a number a number, anything else
+'   text, and a blank field stays blank (#211).
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'The input sheet
+    Dim FirstRow    As Long         'Its first data row
+    Dim LastRow     As Long         'Its last row with a value or formula
+    Dim Fields      As Variant      'One record's fields
+    Dim Cell        As Range        'The cell of a field
+    Dim r           As Long         'Record
+    Dim c           As Long         'Field
+
+'------------------------------------------------------------------------------
+' TYPE
+'------------------------------------------------------------------------------
+        Set Sheet = GetSheet(SheetName)
+        FirstRow = TableFirstRow(SheetName)
+        LastRow = LastLiveRow(Sheet, FirstRow, Width)
+        If LastRow >= FirstRow Then
+            TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+        End If
+        For r = LBound(Rows) To UBound(Rows)
+            Fields = Split(CStr(Rows(r)), ";")
+            For c = 0 To UBound(Fields)
+                Set Cell = TableCell(Sheet, FirstRow + r - LBound(Rows), c + 1)
+                If Len(Fields(c)) = 0 Then
+                    'Left blank.
+                ElseIf Fields(c) Like "####-##-##" Then
+                    Cell.Value = DateSerial(CLng(Left$(Fields(c), 4)), CLng(Mid$(Fields(c), 6, 2)), CLng(Right$(Fields(c), 2)))
+                ElseIf Fields(c) Like "*[!0-9.-]*" Then
+                    Cell.Value2 = Fields(c)
+                Else
+                    Cell.Value2 = Val(Fields(c))
+                End If
+            Next c
+        Next r
+
+End Sub
+
+
+Private Sub PutRunBack( _
+    ByVal HadRun As Boolean)
+'
+'==============================================================================
+' PURPOSE
+'   Once CaseCommitEquivalentRun has put the input sheets back, run SA-CCR
+'   on them when the workbook had results before the case, or clear the
+'   outputs when it had none, so that the outputs, Checks and run names
+'   agree again: CURRENT, or NONE.
+'
+' ERROR POLICY
+'   Contained: a failure is reported as a test failure of the case.
+'==============================================================================
+'
+        On Error GoTo Failed
+        If HadRun Then
+            M_Main.RunSACCR_Silent
+        Else
+            M_Main.ClearOutputs
+        End If
+        Exit Sub
+
+Failed:
+        Fail mCurrentCase, "could not put the run back: " & Err.Description
 
 End Sub
 
