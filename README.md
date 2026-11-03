@@ -289,18 +289,18 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-11-03 14:28:25
+SACCR TEST SUMMARY 2026-11-03 15:51:56
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
-  PASS  TEST_MainState        cases=32; checks=512; failures=0; caller_state=RESTORED  (35,7 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (10,0 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (41,6 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (5,1 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,3 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (14,9 s)
-  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (0,4 s)
-  PASS  TEST_Import           cases=31; checks=172; failures=0  (18,7 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=128,8
+  PASS  TEST_MainState        cases=32; checks=512; failures=0; caller_state=RESTORED  (36,2 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (9,8 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (42,4 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (5,7 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (2,6 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (20,1 s)
+  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (0,9 s)
+  PASS  TEST_Import           cases=31; checks=172; failures=0  (38,5 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=156,4
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
