@@ -94,6 +94,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Security
+
+- Migrate traffic API collection to a dedicated GitHub App with step-scoped
+  credentials, configuration checks and documented key rotation (#502).
+
 ### Maintenance
 
 - State the `P1` rule in every issue form and in the pull request template:
@@ -189,6 +194,17 @@ Use only the categories needed by a release.
   Trades only, a formula below the data, a commit run against the same rows
   typed by hand, and the Excel settings and results a commit leaves, also
   when its cleanup fails.
+- Close the import test gaps found in the #212 audit. `TEST_Import` runs 4
+  more cases and checks more in one: a load, a refused load and a
+  validation give the calculation mode, events and screen updating back; a
+  `VALID` validation no longer holds once a trade ID is typed on `Trades`
+  or an FX rate changes, and holds again once it is put back; a 15-digit notional
+  commits as that number exactly; netting sets staged with a `Trades` file
+  of its header only validate against the committed legs and commit
+  `NettingSets` alone; the import specification's examples, committed or
+  typed by hand, give the same run line and the same Results, HedgingSets,
+  Buckets, TradeCalc and Checks tables; and the link of a finding on Checks
+  leads to its staging cell. No production code changed.
 - Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
   applies (#210). Activating a staging sheet compares what the last
   validation judged with the current staging blocks, `NettingSets`, `Trades`
@@ -396,6 +412,15 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Walk a user through a CSV import in the README (#212): prepare the files
+  from the import specification or the templates, import, correct, validate,
+  commit and run, and what makes a validation no longer current. The known
+  limitations and the CSV contract state that a commit replaces whole sheets,
+  with no incremental merge, and calculates nothing. The published-workbook
+  check of `RELEASING.md` now unprotects Results deliberately on its copy
+  before changing an EAD cell, since a protected cell cannot be typed into,
+  and imports, validates, commits and runs the two example files of the
+  import specification.
 - Correct counts that had gone stale: `RELEASING.md` asks for the harness
   and the nine policy suites throughout (it also said seven and eight), and
   its tag message takes the suite count from the run; `tools/README.md`

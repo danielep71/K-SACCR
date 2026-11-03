@@ -11,6 +11,7 @@ import copy
 import io
 import os
 import re
+import subprocess
 import tempfile
 import unittest
 from collections.abc import Callable
@@ -157,6 +158,76 @@ class ViolationTests(unittest.TestCase):
                 change(config)
                 self.assertTrue(any(fragment in f for f in cw.check_dependabot(config, BUG_FORM)),
                                 cw.check_dependabot(config, BUG_FORM))
+
+
+class TrafficAppTests(unittest.TestCase):
+    def assertCredentialScope(self, workflow: dict[str, Any]) -> None:
+        candidate = copy.deepcopy(workflow)
+        traffic = candidate["jobs"]["traffic"]
+        self.assertEqual(traffic["environment"], "analytics")
+        all_steps = traffic["steps"]
+        preflight = next(s for s in all_steps if s.get("name") == "Check the traffic App configuration")
+        token = next(s for s in all_steps if s.get("id") == "app-token")
+        fetch = next(s for s in all_steps if s.get("name") == "Fetch GitHub traffic API data")
+        self.assertLess(all_steps.index(preflight), all_steps.index(token))
+        self.assertLess(all_steps.index(token), all_steps.index(fetch))
+        self.assertEqual(preflight.pop("env"), {
+            "CLIENT_ID": "${{ vars.TRAFFIC_APP_CLIENT_ID }}",
+            "HAS_KEY": "${{ secrets.TRAFFIC_APP_PRIVATE_KEY != '' }}",
+        })
+        self.assertEqual(token["uses"],
+                         "actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510")
+        self.assertEqual(token.pop("with"), {
+            "client-id": "${{ vars.TRAFFIC_APP_CLIENT_ID }}",
+            "private-key": "${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}",
+            "permission-administration": "read",
+        })
+        self.assertEqual(fetch["env"].pop("TRAFFIC_TOKEN"), "${{ steps.app-token.outputs.token }}")
+        # Inspect every remaining field, including workflow/job env and outputs.
+        # Only the three exact bindings removed above may reference credentials.
+        remaining = repr(candidate)
+        for reference in ("secrets.", "secrets[", "steps.app-token.outputs", "steps['app-token']",
+                          'steps["app-token"]', "toJSON(secrets)", "toJSON(steps)"):
+            self.assertNotIn(reference, remaining)
+        for step in all_steps:
+            if step is not fetch:
+                self.assertNotIn("TRAFFIC_TOKEN", repr(step))
+        self.assertNotIn("GITHUB_ENV", fetch["run"])
+        self.assertNotIn("GITHUB_OUTPUT", fetch["run"])
+
+    def test_traffic_app_credentials_stay_in_their_steps(self) -> None:
+        self.assertCredentialScope(WORKFLOWS["daily-traffic.yml"])
+
+    def test_traffic_credential_leaks_are_rejected(self) -> None:
+        mutations: list[Callable[[dict[str, Any]], None]] = [
+            lambda w: w.__setitem__("env", {"KEY": "${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}"}),
+            lambda w: w["jobs"]["traffic"].__setitem__(
+                "env", {"TOKEN": "${{ steps.app-token.outputs.token }}"}),
+            lambda w: w["jobs"]["traffic"]["steps"].append(
+                {"run": "echo unsafe", "env": {"KEY": "${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}"}}),
+            lambda w: w["jobs"]["traffic"]["steps"].append(
+                {"run": "echo unsafe", "env": {"TOKEN": "${{ steps.app-token.outputs.token }}"}}),
+        ]
+        for index, change in enumerate(mutations):
+            with self.subTest(index=index):
+                workflow = copy.deepcopy(WORKFLOWS["daily-traffic.yml"])
+                change(workflow)
+                with self.assertRaises(AssertionError):
+                    self.assertCredentialScope(workflow)
+
+    def test_traffic_configuration_preflight(self) -> None:
+        traffic_steps = WORKFLOWS["daily-traffic.yml"]["jobs"]["traffic"]["steps"]
+        preflight = next(s for s in traffic_steps if s.get("name") == "Check the traffic App configuration")
+        for client, has_key, expected in (("", "false", 1), ("", "true", 1),
+                                          ("test-client", "false", 1), ("test-client", "true", 0)):
+            with self.subTest(client=client, has_key=has_key):
+                result = subprocess.run(["bash", "-c", preflight["run"]],
+                                        env={**os.environ, "CLIENT_ID": client, "HAS_KEY": has_key},
+                                        capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, expected)
+                if expected:
+                    self.assertIn("analytics environment", result.stdout)
+                    self.assertIn("::error::", result.stdout)
 
 
 class FakeApi:
