@@ -8,7 +8,8 @@ other cell is locked. The effective style of a cell is its own style, else
 the style of a formatted row, else the style of its column; the check
 covers the cells the sheet stores, the rows it formats and the columns to
 the last column of the sheet, so a cell that does not exist yet is judged
-by the style it would receive."""
+by the style it would receive. A locked cell may not carry the yellow input
+fill."""
 from __future__ import annotations
 
 import json
@@ -17,7 +18,7 @@ import sys
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from _gatelib import parse_report_args, run_gate
 
@@ -27,6 +28,7 @@ ROLES = {"Instructions", "Input", "Staging", "Output", "Bank figures", "Test", "
          "Run configuration and reference regulatory parameters"}
 KEYS = {"role", "unlocked_cells", "unlocked_columns", "notes"}
 MAX_COLUMN = 16384
+INPUT_FILL = "FFFFF2CC"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
@@ -107,77 +109,115 @@ def expected_unlocked(spec: dict[str, Any]) -> tuple[set[tuple[int, int]], set[i
     return cells, set(range(column_number(first), column_number(last) + 1)), rule["first_row"]
 
 
-def locked_styles(archive: zipfile.ZipFile) -> list[bool]:
-    """Lock flag of each cell format (cellXfs), in index order; Excel's default is locked."""
+class Style(NamedTuple):
+    locked: bool
+    input_fill: bool
+
+
+def child(element: ET.Element, path: str) -> ET.Element:
+    found = element.find(path, NS)
+    if found is None:
+        raise ValueError(f"missing element {path}")
+    return found
+
+
+def attribute(element: ET.Element, name: str) -> str:
+    value = element.get(name)
+    if value is None:
+        raise ValueError(f"missing attribute {name} on {element.tag}")
+    return value
+
+
+def cell_styles(archive: zipfile.ZipFile) -> list[Style]:
+    """Lock flag (Excel's default is locked) and input fill of each cell format, in index order."""
     root = ET.fromstring(archive.read("xl/styles.xml"))
-    flags = []
-    for xf in root.find("m:cellXfs", NS).findall("m:xf", NS):
+    fills = [any(color.get("rgb", "").upper() == INPUT_FILL for color in fill.iter(f"{{{NS['m']}}}fgColor"))
+             for fill in child(root, "m:fills").findall("m:fill", NS)]
+    styles = []
+    for xf in child(root, "m:cellXfs").findall("m:xf", NS):
         protection = xf.find("m:protection", NS)
-        flags.append(protection is None or protection.get("locked", "1") not in ("0", "false"))
-    return flags
+        locked = protection is None or protection.get("locked", "1") not in ("0", "false")
+        styles.append(Style(locked, fills[int(xf.get("fillId", "0"))]))
+    return styles
 
 
 def sheet_parts(archive: zipfile.ZipFile) -> dict[str, str]:
     workbook = ET.fromstring(archive.read("xl/workbook.xml"))
     rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
-    targets = {rel.get("Id"): rel.get("Target") for rel in rels.findall("rel:Relationship", NS)}
+    targets = {attribute(rel, "Id"): attribute(rel, "Target") for rel in rels.findall("rel:Relationship", NS)}
     parts = {}
-    for sheet in workbook.find("m:sheets", NS).findall("m:sheet", NS):
-        target = targets[sheet.get(f"{{{NS['r']}}}id")]
-        parts[sheet.get("name")] = target.lstrip("/") if target.startswith("/") else "xl/" + target
+    for sheet in child(workbook, "m:sheets").findall("m:sheet", NS):
+        target = targets[attribute(sheet, f"{{{NS['r']}}}id")]
+        parts[attribute(sheet, "name")] = target.lstrip("/") if target.startswith("/") else "xl/" + target
     return parts
 
 
-def check_sheet(name: str, xml: bytes, locked: list[bool], spec: dict[str, Any]) -> list[str]:
+class Sheet(NamedTuple):
+    column_style: list[int]
+    rows: dict[int, tuple[int | None, dict[int, int]]]
+
+    def style(self, column: int, row: int) -> int:
+        """Effective format: the cell's own, else a formatted row's, else the column's."""
+        row_style, stored = self.rows.get(row, (None, {}))
+        if column in stored:
+            return stored[column]
+        return self.column_style[column] if row_style is None else row_style
+
+
+def read_sheet(xml: bytes) -> Sheet:
     root = ET.fromstring(xml)
-
-    def is_locked(style: int) -> bool:
-        if style >= len(locked):
-            raise ValueError(f"{name}: style {style} is not defined")
-        return locked[style]
-
     column_style = [0] * (MAX_COLUMN + 1)
     cols = root.find("m:cols", NS)
     for col in cols.findall("m:col", NS) if cols is not None else []:
-        for number in range(int(col.get("min")), int(col.get("max")) + 1):
+        for number in range(int(attribute(col, "min")), int(attribute(col, "max")) + 1):
             column_style[number] = int(col.get("style", "0"))
     rows: dict[int, tuple[int | None, dict[int, int]]] = {}
-    for row in root.find("m:sheetData", NS).findall("m:row", NS):
+    for row in child(root, "m:sheetData").findall("m:row", NS):
         row_style = int(row.get("s", "0")) if row.get("customFormat") in ("1", "true") else None
-        cells = {cell_address(cell.get("r"))[0]: int(cell.get("s", "0")) for cell in row.findall("m:c", NS)}
-        rows[int(row.get("r"))] = (row_style, cells)
+        stored = {cell_address(attribute(cell, "r"))[0]: int(cell.get("s", "0"))
+                  for cell in row.findall("m:c", NS)}
+        rows[int(attribute(row, "r"))] = (row_style, stored)
+    return Sheet(column_style, rows)
+
+
+def listed(name: str, problem: str, addresses: list[str]) -> list[str]:
+    if not addresses:
+        return []
+    more = f" and {len(addresses) - 8} more" if len(addresses) > 8 else ""
+    return [f"{name}: {problem} at {', '.join(addresses[:8])}{more}"]
+
+
+def check_sheet(name: str, xml: bytes, styles: list[Style], spec: dict[str, Any]) -> list[str]:
+    sheet = read_sheet(xml)
     cells, columns, first_row = expected_unlocked(spec)
 
-    def should_unlock(column: int, row: int) -> bool:
-        return (column, row) in cells or (column in columns and row >= first_row)
+    def style(index: int) -> Style:
+        if index >= len(styles):
+            raise ValueError(f"{name}: style {index} is not defined")
+        return styles[index]
 
-    findings: list[str] = []
-    wrong: list[str] = []
-    last_column = max([c for c, _ in cells] + list(columns)
-                      + [c for _, (_, stored) in rows.items() for c in stored] + [1])
-    last_row = max([r for _, r in cells] + list(rows) + [first_row, 1])
-    for row in range(1, last_row + 1):
-        row_style, stored = rows.get(row, (None, {}))
-        for column in range(1, last_column + 1):
-            if column in stored:
-                style = stored[column]
-            elif row_style is not None:
-                style = row_style
-            else:
-                style = column_style[column]
-            if is_locked(style) == should_unlock(column, row):
-                wrong.append(f"{column_name(column)}{row}")
-        if row_style is not None and not is_locked(row_style):
-            findings.append(f"{name}: row {row} has an unlocked row format; unlock cells or columns instead")
+    findings = [f"{name}: row {row} has an unlocked row format; unlock cells or columns instead"
+                for row, (row_style, _) in sorted(sheet.rows.items())
+                if row_style is not None and not style(row_style).locked]
     for column in range(1, MAX_COLUMN + 1):
-        if is_locked(column_style[column]) == (column in columns):
+        if style(sheet.column_style[column]).locked == (column in columns):
             state = "locked" if column in columns else "unlocked"
             findings.append(f"{name}: column {column_name(column)} is {state} below the stored rows")
             break
-    if wrong:
-        state = ", ".join(wrong[:8]) + (f" and {len(wrong) - 8} more" if len(wrong) > 8 else "")
-        findings.append(f"{name}: lock flag differs from the matrix at {state}")
-    return findings
+    stored_columns = [column for _, stored in sheet.rows.values() for column in stored]
+    last_column = max([column for column, _ in cells] + list(columns) + stored_columns + [1])
+    last_row = max([row for _, row in cells] + list(sheet.rows) + [first_row, 1])
+    wrong, yellow = [], []
+    for row in range(1, last_row + 1):
+        for column in range(1, last_column + 1):
+            effective = style(sheet.style(column, row))
+            unlocked = (column, row) in cells or (column in columns and row >= first_row)
+            if effective.locked == unlocked:
+                wrong.append(f"{column_name(column)}{row}")
+            elif effective.locked and effective.input_fill:
+                yellow.append(f"{column_name(column)}{row}")
+    findings += listed(name, "lock flag differs from the matrix", wrong)
+    return findings + listed(name, "a locked cell has the input fill", yellow)
 
 
 def run_check(root: Path) -> dict[str, Any]:
@@ -185,8 +225,8 @@ def run_check(root: Path) -> dict[str, Any]:
     findings = check_matrix(matrix)
     with zipfile.ZipFile(root / TEMPLATE) as archive:
         parts = sheet_parts(archive)
-        locked = locked_styles(archive)
-        if not locked or not locked[0]:
+        styles = cell_styles(archive)
+        if not styles or not styles[0].locked:
             findings.append(f"{TEMPLATE}: the default cell format must be locked")
         sheets = matrix.get("sheets", {}) if isinstance(matrix.get("sheets"), dict) else {}
         for name in sorted(set(parts) - set(sheets)):
@@ -195,7 +235,7 @@ def run_check(root: Path) -> dict[str, Any]:
             findings.append(f"{MATRIX}: {name} is not a sheet of the template")
         if not findings:
             for name, part in parts.items():
-                findings += check_sheet(name, archive.read(part), locked, sheets[name])
+                findings += check_sheet(name, archive.read(part), styles, sheets[name])
     return {"schema_version": 1, "status": "fail" if findings else "pass",
             "sheets": len(matrix.get("sheets", {})), "findings": findings}
 

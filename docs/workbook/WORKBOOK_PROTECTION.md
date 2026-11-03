@@ -44,15 +44,17 @@ come with #421; the tests of protected workflows with #422.
   portfolio has. The header rows above stay locked.
 - **Params separates configuration from reference parameters.** The reporting
   date, the reporting currency, the default regime and the FX rates are
-  configuration. Every other value on Params is a reference regulatory
-  parameter: it is changed only after a deliberate maintenance unlock, and a
-  run on changed values stays `WHAT-IF`, as today.
+  configuration and keep the yellow input fill. Every other value on Params
+  is a reference regulatory parameter, filled grey: it is changed only on an
+  unprotected sheet, by a deliberate maintenance unlock, and a run on changed
+  values stays `WHAT-IF`, as today.
 - **Staging keeps its provenance.** On `Import_NettingSets` and
   `Import_Trades` the staged values are editable; the CSV line column, the
   status, the source file and the other metadata above the block stay locked.
 - **Bank figures are inputs.** The bank's netting-set and trade figures, the
   amount scale and the two tolerances are editable; the reconciliation sheets
   built from them are outputs.
+- **Yellow means editable.** No locked cell carries the yellow input fill.
 - **Formulas stay visible.** No cell is hidden; a locked formula can still be
   selected, read and copied.
 

@@ -117,12 +117,14 @@ Use only the categories needed by a release.
   columns of `NettingSets`, `Trades`, the staging sheets and the bank sheets
   are unlocked to the bottom of the sheet, their headers stay locked; on
   Params only the reporting date, the reporting currency, the default regime
-  and the FX table with the rows below it are unlocked, the reference
-  regulatory parameters stay locked; the bank amount scale and tolerances and
-  the test inputs of `TestCatalogue` and `FormulaTest` are unlocked. Formats
-  and values are unchanged. No sheet is protected yet: protection comes with
-  #421. The `check_workbook_protection` gate checks every cell of the template
-  against the matrix.
+  and the FX table with the rows below it are unlocked; the reference
+  regulatory parameters stay locked and are now filled grey instead of
+  yellow, and the Params and README notes name both colours. The bank amount
+  scale and tolerances and the test inputs of `TestCatalogue` and
+  `FormulaTest` are unlocked. Values and other formats are unchanged. No
+  sheet is protected yet: protection comes with #421. The
+  `check_workbook_protection` gate checks every cell of the template against
+  the matrix, and that no locked cell has the yellow input fill.
 - Commit the staged rows into the input sheets (#211): **Commit import** on
   both staging sheets (`CommitImport`), after a confirmation that gives each
   input sheet's rows now and the staged rows that replace them, Cancel being

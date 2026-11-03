@@ -11,9 +11,12 @@ import check_workbook_protection as gate
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 RELS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-# Style 0 is locked, style 1 is unlocked.
-STYLES = (f'<styleSheet xmlns="{MAIN}"><cellXfs count="2"><xf numFmtId="0"/>'
-          '<xf numFmtId="0" applyProtection="1"><protection locked="0"/></xf></cellXfs></styleSheet>')
+# Style 0 is locked, style 1 is unlocked, style 2 is locked with the yellow input fill.
+STYLES = (f'<styleSheet xmlns="{MAIN}"><fills count="2"><fill><patternFill patternType="none"/></fill>'
+          '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill></fills>'
+          '<cellXfs count="3"><xf numFmtId="0"/>'
+          '<xf numFmtId="0" applyProtection="1"><protection locked="0"/></xf>'
+          '<xf numFmtId="0" fillId="1"/></cellXfs></styleSheet>')
 # Input sheet: header in row 1, C:D unlocked from row 2 through the column styles.
 OPEN_COLUMNS = '<cols><col min="3" max="4" width="9" style="1"/></cols>'
 GOOD_ROWS = '<row r="1"><c r="C1" s="0"/><c r="D1" s="0"/></row><row r="2"><c r="B2"/><c r="C2" s="1"/></row>'
@@ -40,7 +43,8 @@ def run(sheet: str, spec: dict[str, Any] | None = None, name: str = "Sheet") -> 
         matrix = {"schema_version": 1, "sheets": {"Sheet": spec or SPEC}}
         (root / gate.MATRIX).write_text(json.dumps(matrix), encoding="utf-8")
         write_template(root / gate.TEMPLATE, sheet, name)
-        return gate.run_check(root)["findings"]
+        findings: list[str] = gate.run_check(root)["findings"]
+        return findings
 
 
 class ProtectionGateTests(unittest.TestCase):
@@ -88,6 +92,11 @@ class ProtectionGateTests(unittest.TestCase):
         spec = {"role": "Test", "unlocked_cells": ["B5"]}
         findings = run("<sheetData/>", spec)
         self.assertEqual(findings, ["Sheet: lock flag differs from the matrix at B5"])
+
+    def test_locked_input_fill(self) -> None:
+        rows = GOOD_ROWS.replace('<c r="B2"/>', '<c r="B2" s="2"/>')
+        findings = run(OPEN_COLUMNS + f"<sheetData>{rows}</sheetData>")
+        self.assertEqual(findings, ["Sheet: a locked cell has the input fill at B2"])
 
     def test_sheet_names_must_match(self) -> None:
         findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", name="Other")
