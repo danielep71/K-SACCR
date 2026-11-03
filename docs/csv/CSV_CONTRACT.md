@@ -357,6 +357,12 @@ with its meaning, type, limits, allowed values and blank meaning, the rules
 between fields, between records and against Params, the findings, and an
 example of each file to copy.
 
+In the workbook, **Export import specifications** on `Import_NettingSets` and
+`Import_Trades` saves the same page, byte for byte, to a file the user
+chooses, and offers to open it; a file that exists is replaced only after a
+confirmation. The page is held by `CORE_ImportSpec`, which
+`tools/generate_csv_vba.py` generates with it.
+
 ```sh
 python tools/import_spec.py --write
 ```

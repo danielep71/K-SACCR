@@ -1,11 +1,13 @@
 """Tests of tools/generate_csv_vba.py, the generator of the VBA side of the CSV contract (#207)."""
 import copy
+import re
 import unittest
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import generate_csv_vba as gen
+import import_spec
 from csv_contract import load_contract
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +43,30 @@ class GeneratorTests(unittest.TestCase):
             change(changed)
             with self.assertRaises(ValueError):
                 gen.schema_module(changed)
+
+    def test_specification_module_rebuilds_the_page(self) -> None:
+        # Evaluate the module's string statements as VBA would: literals, ChrW calls and vbLf, joined by &.
+        contract = load_contract(ROOT)
+        module = gen.specification_module(contract)
+        token = re.compile(r'"((?:[^"]|"")*)"|ChrW\((\d+)\)|(vbLf)')
+
+        def evaluate(expression: str) -> str:
+            return "".join(m.group(1).replace('""', '"') if m.group(1) is not None else
+                           chr(int(m.group(2))) if m.group(2) else "\n" for m in token.finditer(expression))
+
+        lines = module.split("\r\n")
+        page = "".join(evaluate(line.split("Page = Page & ", 1)[1]) for line in lines if "Page = Page & " in line)
+        self.assertEqual(page, import_spec.render(contract))
+        self.assertIn(f"IMPORT_SPEC_BYTES  As Long = {len(page.encode('utf-8'))}", module)
+        for kind in contract["files"]:
+            block = module.split(f'Case "{kind}"', 1)[1].split("Case ", 1)[0].split("End Select", 1)[0]
+            text = "".join(evaluate(line.split("Text = Text & ", 1)[1])
+                           for line in block.split("\r\n") if "Text = Text & " in line)
+            self.assertEqual(text, import_spec.example_text(kind, contract))
+        procedures = module.count("Private Sub AppendPart")
+        self.assertEqual(procedures, len(re.findall(r"^        AppendPart\d+ Page\r?$", module, re.M)))
+        self.assertTrue(all(block.count("Page = Page & ") <= gen.PIECES_PER_PART
+                            for block in module.split("Private Sub AppendPart")[1:]))
 
 
 if __name__ == "__main__":

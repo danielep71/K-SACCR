@@ -132,7 +132,7 @@ the template, and note each outcome in `session.log`
 | 5 | Filter `Trades` from its header; insert a row on `Trades` and on `NettingSets`; open and close a README group; select and copy output cells and a formula | Accepted; formulas visible |
 | 6 | Right-click a sheet tab | Delete, Rename, Move, Hide are unavailable |
 | 7 | Run SA-CCR, Validate inputs, Clear outputs, then Run SA-CCR again | Each succeeds |
-| 8 | Import CSV on both staging sheets, correct a staged value, Validate staging, Commit import (once Cancel, once OK), Run SA-CCR | Each succeeds; the staged value is editable, the CSV line column is not |
+| 8 | Import CSV on both staging sheets, correct a staged value, Validate staging, Commit import (once Cancel, once OK), Export import specifications, Run SA-CCR | Each succeeds; the staged value is editable, the CSV line column is not |
 | 9 | Enter bank figures, Run SA-CCR, Export evidence | Reconciliation and export succeed |
 | 10 | Unprotect Params, change a grey parameter, Run SA-CCR | The run is `WHAT-IF`; Params is protected again; restore the value |
 | 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |

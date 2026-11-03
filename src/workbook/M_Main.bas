@@ -31,6 +31,10 @@ Attribute VB_Name = "M_Main"
 '   blank CSV template of the input contract to a file (#206);
 '   ExportCsvTemplate_Silent: the same to a given file, for automation and
 '   tests.
+'   ExportImportSpecification: save the CSV import specification, an HTML
+'   page with an example of each file, to a file and offer to open it
+'   (#473); ExportImportSpecification_Silent: the same to a given file,
+'   for automation and tests.
 '   CheckTradesCsv and CheckNettingSetsCsv: check a CSV file against the
 '   input contract and report the outcome, writing nothing (#207), from
 '   the Macros dialog; ReadCsv_Silent: the same for a given file, for
@@ -61,8 +65,8 @@ Attribute VB_Name = "M_Main"
 '   macros write while the user changes only the unlocked cells (#421);
 '   also run when each operation starts.
 '   The sheet buttons call the first three, ExportEvidence, the two
-'   template exports, the two imports, ValidateStaging and CommitImport
-'   by name.
+'   template exports, the two imports, ValidateStaging, CommitImport and
+'   ExportImportSpecification by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
@@ -71,7 +75,8 @@ Attribute VB_Name = "M_Main"
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
 '   evidence report and its UTF-8 encoding; CORE_CsvReader and
 '   CORE_CsvSchema for the CSV check, the staging load and the staging
-'   validation; CORE_Util and CORE_Config for the output and staging
+'   validation; CORE_ImportSpec for the import specification page;
+'   CORE_Util and CORE_Config for the output and staging
 '   sheets, the CSV template header lines and the error numbers.
 '
 ' STATE OWNERSHIP
@@ -103,7 +108,7 @@ Attribute VB_Name = "M_Main"
 '   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
 '   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
-'   report and the CSV templates, before the new file is opened, while it
+'   report, the CSV templates and the import specification, before the new file is opened, while it
 '   is written and while the older file is replaced (#312).
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
@@ -1693,8 +1698,8 @@ Private Sub WriteTextFile( _
 ' PURPOSE
 '   Write FileText to FilePath as UTF-8 without a byte-order mark,
 '   replacing any file of that name, hidden ones included; a read-only
-'   file is left as it is and the write fails. Used by the evidence export
-'   and the CSV template export.
+'   file is left as it is and the write fails. Used by the evidence export,
+'   the CSV template export and the import specification export.
 '
 ' METHOD
 '   The text is written whole to a new file beside FilePath first. Only
@@ -2529,6 +2534,151 @@ Private Function CsvTemplateFile( _
         End Select
 
 End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                         IMPORT SPECIFICATION EXPORT
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ExportImportSpecification()
+'
+'==============================================================================
+'                          ExportImportSpecification
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Save the CSV import specification (#473) to a file chosen by the user:
+'   one HTML page, with no script and no external file, that describes
+'   the NettingSets and Trades files and gives an example of each
+'   (CORE_ImportSpec). A file that exists is replaced only once the user
+'   confirms it; the user may then open the page.
+'
+' USAGE
+'   Assigned to the Export import specifications button on
+'   Import_NettingSets and Import_Trades.
+'
+' ERROR POLICY
+'   Reports a failure in a message, or in the Immediate window in silent
+'   mode; never raises. A cancelled dialog or a refused replacement writes
+'   nothing, and a failed write leaves an older file as it was
+'   (WriteTextFile). The workbook is never changed, so the export works
+'   with the protection on and whatever the inputs hold.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ChosenFile   As Variant    'Chosen file, or False when cancelled
+    Dim FilePath     As String     'Its path
+
+'------------------------------------------------------------------------------
+' ASK, CONFIRM AND WRITE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        ChosenFile = Application.GetSaveAsFilename(InitialFileName:=InWorkbookFolder(IMPORT_SPEC_FILE), _
+                                               FileFilter:="Web pages (*.html), *.html", _
+                                               Title:="Export import specifications")
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        FilePath = CStr(ChosenFile)
+        If FileExists(FilePath) Then
+            If MsgBox(FilePath & vbLf & vbLf & "already exists. Replace it?", _
+                      vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+                Exit Sub
+            End If
+        End If
+        WriteTextFile FilePath, CORE_ImportSpec.ImportSpecificationText()
+
+'------------------------------------------------------------------------------
+' REPORT AND OFFER TO OPEN
+'------------------------------------------------------------------------------
+        If gSilent Then
+            Notify "Import specifications exported:" & vbLf & vbLf & FilePath, vbInformation
+        ElseIf MsgBox("Import specifications exported:" & vbLf & vbLf & FilePath & vbLf & vbLf & _
+                      "Open the page now?", vbYesNo + vbInformation, MSG_TITLE) = vbYes Then
+            OpenExportedPage FilePath
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Import specifications not exported: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function ExportImportSpecification_Silent( _
+    ByVal FilePath As String, _
+    Optional ByVal ReplaceExisting As Boolean = False) _
+    As String
+'
+'==============================================================================
+'                       ExportImportSpecification_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The import specification export for automation and tests: write the
+'   page to FilePath without asking. A file that exists is replaced only
+'   with ReplaceExisting.
+'
+' RETURNS
+'   "RESULT=OK; bytes=N; file=..." or
+'   "RESULT=REFUSED; reason=the file exists; file=...".
+'
+' ERROR POLICY
+'   A file that cannot be written raises to the caller, as WriteTextFile
+'   raises it, and an older file is left as it was.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        If FileExists(FilePath) And Not ReplaceExisting Then
+            ExportImportSpecification_Silent = "RESULT=REFUSED; reason=the file exists; file=" & FilePath
+            Exit Function
+        End If
+        WriteTextFile FilePath, CORE_ImportSpec.ImportSpecificationText()
+        ExportImportSpecification_Silent = "RESULT=OK; bytes=" & IMPORT_SPEC_BYTES & "; file=" & FilePath
+
+End Function
+
+
+Private Sub OpenExportedPage( _
+    ByVal FilePath As String)
+'
+'==============================================================================
+'                               OpenExportedPage
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Open an exported page with the program Windows uses for HTML files.
+'
+' ERROR POLICY
+'   Reports a page that cannot be opened in a message; never raises. The
+'   page stays exported.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.FollowHyperlink Address:=FilePath
+        Exit Sub
+
+Failed:
+        Notify "The page was exported but could not be opened: " & Err.Description & vbLf & vbLf & FilePath, _
+               vbExclamation
+
+End Sub
 
 
 '

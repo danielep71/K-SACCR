@@ -128,7 +128,17 @@ Use only the categories needed by a release.
   option, a trade settled to market and a CCP netting set. The
   `check_csv_contract` gate fails when the page differs from the contract or
   the examples would not import together into the template, judged against
-  its Params. The workbook button that saves the page follows.
+  its Params. **Export import specifications** on `Import_NettingSets` and
+  `Import_Trades` (`ExportImportSpecification`) saves the page, byte for
+  byte, to a file the user chooses: a file that exists is replaced only after
+  a confirmation, a failed write or a read-only file leaves it as it was, and
+  the page can then be opened. The workbook is not changed, so the export
+  works with the protection on and whatever the inputs hold.
+  `ExportImportSpecification_Silent` does the same for automation.
+  `CORE_ImportSpec`, generated with `CORE_CsvSchema`, holds the page and the
+  example files. `TEST_Import` runs 2 more cases: the export with its
+  refusals and failures, and the example files loaded and validated
+  together.
 - Protect the workbook against accidental edits (#420, #421). Every sheet
   and the workbook structure are protected, without a password, in the
   template and so in every workbook built from it; the protection holds with
