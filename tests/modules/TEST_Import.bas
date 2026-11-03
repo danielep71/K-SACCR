@@ -103,7 +103,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 158                          'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 159                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -468,7 +468,8 @@ Private Sub CaseEdits()
 '   A change made with events off leaves the status alone, but is found
 '   by the fingerprint: a load is refused and the change kept. With events
 '   on, a change shows EDITED. A load that may replace changes loads a
-'   one-record file and clears the rows below it.
+'   one-record file and clears the rows below it; the CSV line column
+'   stays locked and the staged and cleared values unlocked (#420).
 '==============================================================================
 '
 
@@ -501,6 +502,8 @@ Private Sub CaseEdits()
         CheckText "first ID", CStr(CellValue(KIND_TR, 1, COL_ID)), "T9"
         Check IsEmpty(CellValue(KIND_TR, 2, COL_LINE)) And IsEmpty(CellValue(KIND_TR, 2, COL_ID)) And _
               IsEmpty(CellValue(KIND_TR, 3, COL_ID)), "the old rows were not cleared"
+        Check StagingCell(KIND_TR, 1, COL_LINE).Locked And Not StagingCell(KIND_TR, 1, COL_ID).Locked And _
+              Not StagingCell(KIND_TR, 2, COL_ID).Locked, "the CSV line must stay locked, the staged and cleared values unlocked"
         CheckText "records", Meta(KIND_TR, 3), "1"
         Application.EnableEvents = Saved
         Exit Sub

@@ -1,40 +1,69 @@
-# Workbook editability
+# Workbook protection
 
-This document lists, sheet by sheet, the cells a user may change in normal use
-of the workbook (#420). Every other cell is locked: formulas, results,
-headings, instructions, layout and the reference regulatory parameters.
-Protection guards against accidental edits. It is not a security boundary and
-does not replace input validation, the freshness status or the output checks.
+Every sheet of the workbook is protected, without a password, and so is the
+workbook structure (#420, #421). This document lists, sheet by sheet, the
+cells a user may change in normal use and what else each sheet allows. Every
+other cell is locked: formulas, results, headings, instructions, layout and
+the reference regulatory parameters. Protection guards against accidental
+edits. It is not a security boundary and does not replace input validation,
+the freshness status or the output checks.
 
 The machine-readable matrix is [`protection.json`](protection.json). The
-`check_workbook_protection` gate checks the lock flag of every cell of
-`src/workbook/SACCR_Template.xlsx` against it.
+`check_workbook_protection` gate checks the template
+`src/workbook/SACCR_Template.xlsx` against it: the lock flag of every cell,
+the saved protection of every sheet and of the structure, and the `PROTECT_`
+lists of `CORE_Config` that the macros apply.
 
-## 🚦 Status
+## 🔒 How it works
 
-The template carries the lock flags of the matrix; no sheet is protected yet,
-so every cell can still be edited. Turning protection on, without a
-password, keeping it on through builds and macros, and the maintenance unlock
-come with #421; the tests of protected workflows with #422.
+- **Saved protected.** The template, and so every workbook built from it, is
+  saved with every sheet and the structure protected. The protection holds
+  with macros disabled too; the macros themselves need macros enabled.
+- **Macros write, users edit inputs.** When the workbook opens with macros
+  enabled, `Auto_Open` runs `M_Main.ProtectWorkbook`, which protects every
+  sheet again for the user interface only: the macros write every sheet,
+  the user changes only the unlocked cells. Excel does not save that
+  setting, so every operation (Run SA-CCR, Validate inputs, Clear outputs,
+  Import CSV, Validate staging, Commit import) runs `ProtectWorkbook` first,
+  also when the workbook was opened without `Auto_Open`. A sheet already
+  protected this way is left as it is.
+- **Structure.** Sheets cannot be added, deleted, renamed, moved, hidden or
+  shown. No macro of the workbook needs to.
+- **No password.** Review > Unprotect Sheet, or Review > Protect Workbook
+  for the structure, removes the protection at once.
+
+## 🔧 Maintenance unlock
+
+To change a locked cell, for example a reference regulatory parameter on
+Params, unprotect that sheet (Review > Unprotect Sheet), make the change and
+either protect it again (macro `ProtectWorkbook`) or simply start the next
+operation: every operation protects every sheet and the structure again
+first. The change itself is kept, and a run on changed regulatory
+parameters is still classified `WHAT-IF`; the freshness status and the
+evidence checks work as before.
 
 ## 🗂️ Matrix
 
-| Sheet | Role | Unlocked |
-| --- | --- | --- |
-| `README` | Instructions | — |
-| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) |
-| `NettingSets` | Input | Columns `C:S` from row 7 down |
-| `Trades` | Input | Columns `C:AD` from row 5 down |
-| `Import_NettingSets` | Staging | Columns `D:T` from row 10 down |
-| `Import_Trades` | Staging | Columns `D:AE` from row 10 down |
-| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — |
-| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down |
-| `Reconciliation` | Output | — |
-| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down |
-| `TradeReconciliation` | Output | — |
-| `TestCatalogue` | Test | `L7:L34` |
-| `FormulaTest` | Test | `E4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` |
-| `Basel_vs_CRR` | Reference | — |
+| Sheet | Role | Unlocked | Also allowed |
+| --- | --- | --- | --- |
+| `README` | Instructions | — | Opening and closing row groups |
+| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) | — |
+| `NettingSets` | Input | Columns `C:S` from row 7 down | Sorting, filtering, inserting rows |
+| `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
+| `Import_NettingSets` | Staging | Columns `D:T` from row 10 down | Inserting rows |
+| `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
+| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
+| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, filtering, inserting rows |
+| `Reconciliation` | Output | — | — |
+| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, filtering, inserting rows |
+| `TradeReconciliation` | Output | — | — |
+| `TestCatalogue` | Test | `L7:L34` | — |
+| `FormulaTest` | Test | `E4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` | — |
+| `Basel_vs_CRR` | Reference | — | Filtering |
+
+Selecting and copying any cell is always allowed. Deleting rows or columns,
+formatting cells and inserting columns are not: to remove an input row, clear
+its cells.
 
 ## 📏 Rules
 
@@ -51,6 +80,7 @@ come with #421; the tests of protected workflows with #422.
 - **Staging keeps its provenance.** On `Import_NettingSets` and
   `Import_Trades` the staged values are editable; the CSV line column, the
   status, the source file and the other metadata above the block stay locked.
+  Loading and clearing a staging block keep it that way.
 - **Bank figures are inputs.** The bank's netting-set and trade figures, the
   amount scale and the two tolerances are editable; the reconciliation sheets
   built from them are outputs.
@@ -58,9 +88,10 @@ come with #421; the tests of protected workflows with #422.
 - **Formulas stay visible.** No cell is hidden; a locked formula can still be
   selected, read and copied.
 
-## 🔧 Changing the matrix
+## 🧭 Changing the matrix
 
-A change to the editable cells changes `protection.json`, the template and
-this document in the same pull request; the gate fails when the template and
-the matrix disagree. A new sheet needs a row in the matrix, even when nothing
+A change to the editable cells or to what a sheet allows changes
+`protection.json`, the template, the `PROTECT_` lists of `CORE_Config` where
+it concerns them, and this document in the same pull request; the gate fails
+when they disagree. A new sheet needs a row in the matrix, even when nothing
 on it is editable.
