@@ -161,10 +161,11 @@ Use only the categories needed by a release.
   cells back, a text that starts with `=` as text, checks them, and reports
   that apart from the error. Each committed staging sheet then reads
   `COMMITTED`, and Results reads `OUT OF DATE` until the next run.
-  `TEST_Import` runs 7 more cases: refusals, a failed write and read-back
+  `TEST_Import` runs 8 more cases: refusals, a failed write and read-back
   put back, a failed put-back reported, a commit of both sheets, a commit of
-  Trades only, a formula below the data, and a commit run against the same
-  rows typed by hand.
+  Trades only, a formula below the data, a commit run against the same rows
+  typed by hand, and the Excel settings and results a commit leaves, also
+  when its cleanup fails.
 - Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
   applies (#210). Activating a staging sheet compares what the last
   validation judged with the current staging blocks, `NettingSets`, `Trades`
