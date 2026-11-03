@@ -55,6 +55,11 @@ Attribute VB_Name = "M_Main"
 '   rows once a VALID staging validation still holds, putting them back
 '   on any failure (#211); CommitImport: the same after a confirmation
 '   that names each input sheet with its row counts.
+'   Auto_Open: run by Excel when the workbook opens; protects every sheet
+'   again for the user interface only. ProtectWorkbook: protect every
+'   sheet and the workbook structure, without a password, so that the
+'   macros write while the user changes only the unlocked cells (#421);
+'   also run when each operation starts.
 '   The sheet buttons call the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging and CommitImport
 '   by name.
@@ -112,7 +117,10 @@ Attribute VB_Name = "M_Main"
 '   and the commit faults.
 '   gLastMessage keeps the last message passed to Notify (a failure
 '   message is not kept), so that a test can read it in silent mode.
-'   Production code never sets gTestFault.
+'   gKeepProtection lists, between bars, sheets whose protection
+'   ProtectWorkbook leaves as it is, so that a test can make a sheet
+'   unwritable for the macros too (#421); TEST_MainState uses it.
+'   Production code never sets gTestFault or gKeepProtection.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -122,7 +130,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-03
 '
 ' AUTHOR
 '   Daniele Penza
@@ -203,12 +211,143 @@ Attribute VB_Name = "M_Main"
         Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write" or "commit-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
+        Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
         Private mReconState      As String    'Netting-set reconciliation outcome
         Private mTradeReconState As String    'Trade reconciliation outcome
         Private mReconLine       As String    'Lines for the run message; "" for none
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              WORKBOOK PROTECTION
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub Auto_Open()
+'
+'==============================================================================
+'                                  Auto_Open
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run by Excel when a user opens the workbook with macros enabled:
+'   protect every sheet again for the user interface only (#421).
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        ProtectWorkbook
+
+End Sub
+
+
+Public Sub ProtectWorkbook()
+'
+'==============================================================================
+'                               ProtectWorkbook
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Protect every worksheet and the workbook structure, without a
+'   password (#421). A sheet is protected for the user interface only, so
+'   that the macros write it while the user changes only its unlocked
+'   cells (docs/workbook/protection.json), with the options that
+'   PROTECT_SORTING, PROTECT_FILTERING, PROTECT_INSERTING_ROWS and
+'   PROTECT_OUTLINING give it. Excel saves neither UserInterfaceOnly nor
+'   EnableOutlining with the file, so this runs when the workbook opens
+'   (Auto_Open) and when each operation starts (ExecuteOperation,
+'   LoadStaging, CheckStaging and CommitStaging): a sheet unprotected for
+'   maintenance is protected again then. A sheet already protected for
+'   the user interface only is left as it is.
+'
+' USAGE
+'   Also listed in the Macros dialog, to protect the workbook again at
+'   once after maintenance.
+'
+' ERROR POLICY
+'   Never raises. A sheet, or the structure, protected with a password is
+'   left as it is, and so is a sheet the test seam gKeepProtection lists.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet   As Worksheet    'Each worksheet
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        For Each Sheet In ThisWorkbook.Worksheets
+            ProtectSheet Sheet
+        Next Sheet
+        On Error GoTo Failed
+        If Not ThisWorkbook.ProtectStructure Then
+            ThisWorkbook.Protect Structure:=True, Windows:=False
+        End If
+
+Failed:
+
+End Sub
+
+
+Private Sub ProtectSheet( _
+    ByVal Sheet As Worksheet)
+'
+'==============================================================================
+'                                 ProtectSheet
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Protect one worksheet for the user interface only, with its options,
+'   unless it already is; let the user open and close its row groups when
+'   PROTECT_OUTLINING lists it.
+'
+' ERROR POLICY
+'   Never raises: a sheet protected with a password stays as it is, and
+'   so does one that gKeepProtection lists.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Listed  As String    'The sheet's name between bars, as the lists hold it
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        Listed = "|" & Sheet.Name & "|"
+        If InStr(1, gKeepProtection, Listed, vbBinaryCompare) > 0 Then
+            Exit Sub
+        End If
+        If Not (Sheet.ProtectContents And Sheet.ProtectionMode) Then
+            Sheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=True, _
+                          AllowSorting:=(InStr(1, PROTECT_SORTING, Listed, vbBinaryCompare) > 0), _
+                          AllowFiltering:=(InStr(1, PROTECT_FILTERING, Listed, vbBinaryCompare) > 0), _
+                          AllowInsertingRows:=(InStr(1, PROTECT_INSERTING_ROWS, Listed, vbBinaryCompare) > 0)
+        End If
+        If InStr(1, PROTECT_OUTLINING, Listed, vbBinaryCompare) > 0 Then
+            Sheet.EnableOutlining = True
+        End If
+
+Failed:
+
+End Sub
 
 
 '
@@ -2830,8 +2969,14 @@ Public Sub StagingEdited( _
         If Target.Row + Target.Rows.Count - 1 <= HeaderCell.Row Then
             Exit Sub
         End If
+    'A sheet protected as saved, not for the user interface only, is
+    'protected again so that the status can be written (#421); one
+    'unprotected for maintenance stays so.
         Set StatusCell = NamedCell(StagingPrefixOf(Kind) & "_Status")
         If Not StatusCell Is Nothing Then
+            If StatusCell.Worksheet.ProtectContents Then
+                ProtectSheet StatusCell.Worksheet
+            End If
             If CStr(StatusCell.Value2) <> STAGING_EDITED Then
                 StatusCell.Value2 = STAGING_EDITED
             End If
@@ -3134,6 +3279,7 @@ Private Sub LoadStaging( _
             Next r
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
@@ -3350,11 +3496,12 @@ Private Sub ClearStagingBlock( _
 ' PURPOSE
 '   Clear the rows of a staging block, values and formats, down to the
 '   last row of the used range, and leave its data columns formatted as
-'   text, as the template has them, so that a value typed there later is
-'   kept as written.
+'   text and unlocked, as the template has them, so that a value typed
+'   there later is kept as written and can be typed on the protected
+'   sheet (#420); the CSV line column stays locked.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-03
 '==============================================================================
 '
 
@@ -3374,7 +3521,10 @@ Private Sub ClearStagingBlock( _
             .Clear
             .Font.Size = STAGING_FONT_SIZE
         End With
-        TableRange(Sheet, FirstRow, 2, LastRow, Width).NumberFormat = "@"
+        With TableRange(Sheet, FirstRow, 2, LastRow, Width)
+            .NumberFormat = "@"
+            .Locked = False
+        End With
 
 End Sub
 
@@ -3390,12 +3540,13 @@ Private Sub WriteStagingBlock( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Format the rows of Block on a staging sheet and write it: the CSV line
-'   column as a number on a grey fill, the data columns as text on the
-'   input fill, with the input borders. The text format is set before the
-'   values are written, so that Excel converts none of them.
+'   column as a number on a grey fill, locked, the data columns as text on
+'   the input fill, unlocked (#420), with the input borders. The text
+'   format is set before the values are written, so that Excel converts
+'   none of them.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-03
 '==============================================================================
 '
 
@@ -3411,10 +3562,12 @@ Private Sub WriteStagingBlock( _
         With TableRange(Sheet, FirstRow, 1, LastRow, 1)
             .NumberFormat = "0"
             .Interior.Color = STAGING_LINE_FILL
+            .Locked = True
         End With
         With TableRange(Sheet, FirstRow, 2, LastRow, Width)
             .NumberFormat = "@"
             .Interior.Color = STAGING_VALUE_FILL
+            .Locked = False
         End With
         With TableRange(Sheet, FirstRow, 1, LastRow, Width)
             .Font.Size = STAGING_FONT_SIZE
@@ -4016,6 +4169,7 @@ Private Function CheckStaging( _
             Exit Function
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
@@ -4452,10 +4606,15 @@ Public Sub RefreshStagingStatus()
 '------------------------------------------------------------------------------
 ' REFRESH
 '------------------------------------------------------------------------------
+    'A sheet protected as saved is protected again for the user interface
+    'only, as in StagingEdited.
         Application.EnableEvents = False
         For Each Kind In Array("NettingSets", "Trades")
             Set StatusCell = NamedCell(StagingPrefixOf(CStr(Kind)) & "_Status")
             If Not StatusCell Is Nothing Then
+                If StatusCell.Worksheet.ProtectContents Then
+                    ProtectSheet StatusCell.Worksheet
+                End If
                 Status = CStr(StatusCell.Value2)
                 If Matches And Status = STAGING_OUT_OF_DATE Then
                     StatusCell.Value2 = STAGING_VALID
@@ -4772,6 +4931,7 @@ Private Function CommitStaging( _
         Kinds(1) = "NettingSets"
         Kinds(2) = "Trades"
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
         For k = 1 To 2
             NewRows(k) = ReadStaging(Kinds(k), StagedSheet, StagedFirst, Values, Lines)
@@ -6149,6 +6309,7 @@ Private Function ExecuteOperation( _
             Exit Function
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
 
 '------------------------------------------------------------------------------

@@ -404,6 +404,7 @@ Private Sub CaseWorksheetCells()
     Dim CallerAlerts   As Boolean      'Caller's DisplayAlerts
     Dim CallerEvents   As Boolean      'Caller's EnableEvents
     Dim CallerActive   As Object       'Sheet active before the case
+    Dim Structure      As Boolean      'The workbook structure was protected (#421)
 
         On Error GoTo Unexpected
         BeginCase "worksheet.cells"
@@ -411,6 +412,8 @@ Private Sub CaseWorksheetCells()
         CallerEvents = Application.EnableEvents
         Set CallerActive = ThisWorkbook.ActiveSheet
         Application.EnableEvents = False
+        Structure = ThisWorkbook.ProtectStructure
+        If Structure Then ThisWorkbook.Unprotect
         Set TempSheet = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
 
     'A1:A2 add-ons and B1:B2 correlations, with row 3 blank; C1:C2 a range
@@ -445,12 +448,12 @@ Private Sub CaseWorksheetCells()
         CheckError "cells: negative threshold", xlErrNum, TempSheet.Range("E8").Value
         CheckNear "cells: blank threshold takes the default", 0.003, TempSheet.Range("E9").Value, TOL
         CheckError "cells: not a correlation matrix", xlErrNum, TempSheet.Range("E10").Value
-        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive
+        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive, Structure
         Exit Sub
 
 Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
-        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive
+        RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive, Structure
 
 End Sub
 
@@ -459,12 +462,14 @@ Private Sub RemoveTemporarySheet( _
     ByVal TempSheet As Worksheet, _
     ByVal CallerAlerts As Boolean, _
     ByVal CallerEvents As Boolean, _
-    ByVal CallerActive As Object)
+    ByVal CallerActive As Object, _
+    ByVal Structure As Boolean)
 '
 '==============================================================================
 ' PURPOSE
 '   Delete the temporary sheet of CaseWorksheetCells without a prompt and
-'   give back the caller's settings and active sheet.
+'   give back the caller's settings and active sheet, and the protection
+'   of the workbook structure when Structure says it had one (#421).
 '
 ' ERROR POLICY
 '   Contained: a failure is reported as a test failure of the current case.
@@ -477,6 +482,7 @@ Private Sub RemoveTemporarySheet( _
         End If
         Application.DisplayAlerts = CallerAlerts
         Application.EnableEvents = CallerEvents
+        If Structure Then ThisWorkbook.Protect Structure:=True, Windows:=False
         If Not CallerActive Is Nothing Then
             CallerActive.Activate
         End If
@@ -486,6 +492,7 @@ Failed:
         Fail mCurrentCase, "could not remove the temporary sheet: " & Err.Description
         Application.DisplayAlerts = CallerAlerts
         Application.EnableEvents = CallerEvents
+        If Structure Then M_Main.ProtectWorkbook
 
 End Sub
 

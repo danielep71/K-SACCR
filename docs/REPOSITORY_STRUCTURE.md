@@ -47,7 +47,7 @@ docs/               contracts, architecture, governance, evidence record
   licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
   csv/              CSV input contract, its specification and blank templates
-  workbook/         editability matrix of the workbook template
+  workbook/         protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
   user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/)

@@ -395,7 +395,13 @@ inputs first; that every output table is located through the workbook name of
 its first header cell (`layout.output-header-names`, #253); and that
 `RunSACCR_Silent` restores its silent flag (`silent.flag-preserved`).
 
-Some cases protect output sheets, insert a column before the Params tables or
+The workbook protection is tested too (#421): every sheet and the structure
+are protected as the matrix says, a run protects them again after a
+maintenance unlock or a reopening without `Auto_Open`, and a sheet a test
+makes unwritable stays so.
+
+Some cases make output sheets unwritable, unprotect Params and the workbook
+structure, insert a column before the Params tables or
 a row above the HedgingSets table, switch the workbook to the 1904 date system
 or break the `Checks_Header` name; each change is undone, also after an
 unexpected error, and the caller's Excel settings are restored. The last case

@@ -111,20 +111,32 @@ Use only the categories needed by a release.
 
 ### Added
 
-- Define which template cells a user may edit (#420): the editability matrix
-  [`docs/workbook/protection.json`](docs/workbook/protection.json), described in
-  [`WORKBOOK_PROTECTION.md`](docs/workbook/WORKBOOK_PROTECTION.md). The input
-  columns of `NettingSets`, `Trades`, the staging sheets and the bank sheets
-  are unlocked to the bottom of the sheet, their headers stay locked; on
-  Params only the reporting date, the reporting currency, the default regime
-  and the FX table with the rows below it are unlocked; the reference
-  regulatory parameters stay locked and are now filled grey instead of
-  yellow, and the Params and README notes name both colours. The bank amount
+- Protect the workbook against accidental edits (#420, #421). Every sheet
+  and the workbook structure are protected, without a password, in the
+  template and so in every workbook built from it; the protection holds with
+  macros disabled too. Only the cells of the editability matrix
+  [`docs/workbook/protection.json`](docs/workbook/protection.json),
+  described in [`WORKBOOK_PROTECTION.md`](docs/workbook/WORKBOOK_PROTECTION.md),
+  can be changed: the input columns of `NettingSets`, `Trades`, the staging
+  sheets and the bank sheets, to the bottom of the sheet, their headers
+  locked; on Params only the reporting date, the reporting currency, the
+  default regime and the FX table with the rows below it, while the
+  reference regulatory parameters stay locked and are now filled grey
+  instead of yellow, as the Params and README notes say; the bank amount
   scale and tolerances and the test inputs of `TestCatalogue` and
-  `FormulaTest` are unlocked. Values and other formats are unchanged. No
-  sheet is protected yet: protection comes with #421. The
-  `check_workbook_protection` gate checks every cell of the template against
-  the matrix, and that no locked cell has the yellow input fill.
+  `FormulaTest`. The input and bank sheets allow sorting and inserting rows,
+  `Trades` and `Basel_vs_CRR` filtering with their AutoFilter, the staging
+  sheets inserting rows and README opening its row groups. `Auto_Open` and every
+  operation run `ProtectWorkbook`, which protects each sheet for the user
+  interface only, so that the macros keep writing every sheet, and protects
+  again a sheet or the structure unprotected for maintenance; loading and
+  clearing a staging block keep its values unlocked and its CSV line column
+  locked. Values and other formats are unchanged. The
+  `check_workbook_protection` gate checks every cell, the saved protection
+  and the `PROTECT_` lists of `CORE_Config` against the matrix, and that no
+  locked cell has the yellow input fill. `TEST_MainState` runs 3 more cases
+  and makes sheets unwritable through the test seam `gKeepProtection`;
+  `TEST_Import` checks the locks of a loaded block.
 - Commit the staged rows into the input sheets (#211): **Commit import** on
   both staging sheets (`CommitImport`), after a confirmation that gives each
   input sheet's rows now and the staged rows that replace them, Cancel being

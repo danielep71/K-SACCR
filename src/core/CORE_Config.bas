@@ -32,7 +32,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-03
 '
 ' AUTHOR
 '   Daniele Penza
@@ -64,6 +64,23 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_TRADE_RECON As String = "TradeReconciliation"    'Bank figures against TradeCalc (#45)
         Public Const SH_IMPORT_NS   As String = "Import_NettingSets"     'Staged NettingSets CSV records (#208)
         Public Const SH_IMPORT_TR   As String = "Import_Trades"          'Staged Trades CSV records (#208)
+
+'------------------------------------------------------------------------------
+' PROTECTION
+'------------------------------------------------------------------------------
+    'Every worksheet is protected without a password, for the user
+    'interface only, so that the macros write while the user changes only
+    'the unlocked cells that docs/workbook/protection.json lists (#420,
+    'M_Main.ProtectWorkbook, #421). The sheets named below, between bars,
+    'also let the user sort, filter, insert rows or open and close row
+    'groups; filtering uses the AutoFilter the template gives the sheet, as
+    'a protected sheet cannot get a new one. check_workbook_protection
+    'compares these lists with the matrix and the template.
+        Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
+        Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
+        Public Const PROTECT_INSERTING_ROWS As String = _
+            "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
+        Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT

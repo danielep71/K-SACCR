@@ -9,7 +9,11 @@ the style of a formatted row, else the style of its column; the check
 covers the cells the sheet stores, the rows it formats and the columns to
 the last column of the sheet, so a cell that does not exist yet is judged
 by the style it would receive. A locked cell may not carry the yellow input
-fill."""
+fill. Every sheet and the workbook structure are saved protected, without a
+password; each sheet allows sorting, filtering, inserting rows and opening
+row groups exactly as the matrix says, filtering only on a sheet with an
+AutoFilter, and the PROTECT_ lists of CORE_Config, which
+M_Main.ProtectWorkbook applies, say the same."""
 from __future__ import annotations
 
 import json
@@ -26,7 +30,17 @@ MATRIX = "docs/workbook/protection.json"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 ROLES = {"Instructions", "Input", "Staging", "Output", "Bank figures", "Test", "Reference",
          "Run configuration and reference regulatory parameters"}
-KEYS = {"role", "unlocked_cells", "unlocked_columns", "notes"}
+KEYS = {"role", "unlocked_cells", "unlocked_columns", "allow", "notes"}
+CONFIG = "src/core/CORE_Config.bas"
+# What a protected sheet may allow: the sheetProtection flag the template saves ("0" = allowed) and the
+# CORE_Config list M_Main.ProtectWorkbook applies. Outlining is not saved with the file.
+ALLOW = {"sorting": ("sort", "PROTECT_SORTING"), "filtering": ("autoFilter", "PROTECT_FILTERING"),
+         "inserting_rows": ("insertRows", "PROTECT_INSERTING_ROWS"), "outlining": (None, "PROTECT_OUTLINING")}
+# Saved protection: protected sheet, objects and scenarios; every other operation stays forbidden.
+LOCKED_FLAGS = ("formatCells", "formatColumns", "formatRows", "insertColumns", "insertHyperlinks",
+                "deleteColumns", "deleteRows", "pivotTables")
+PASSWORD_ATTRIBUTES = ("password", "algorithmName", "hashValue", "saltValue", "spinCount",
+                       "workbookPassword", "workbookAlgorithmName", "workbookHashValue")
 MAX_COLUMN = 16384
 INPUT_FILL = "FFFFF2CC"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
@@ -87,6 +101,9 @@ def check_matrix(matrix: dict[str, Any]) -> list[str]:
                 range_cells(text)
             except ValueError as error:
                 findings.append(f"{MATRIX}: {name}: {error}")
+        for item in spec.get("allow", []):
+            if item not in ALLOW:
+                findings.append(f"{MATRIX}: {name}: unknown allowed operation {item!r}")
         rule = spec.get("unlocked_columns")
         if rule is not None:
             match = COLUMNS.match(str(rule.get("columns", "")))
@@ -220,6 +237,60 @@ def check_sheet(name: str, xml: bytes, styles: list[Style], spec: dict[str, Any]
     return findings + listed(name, "a locked cell has the input fill", yellow)
 
 
+def vba_list(root: Path, constant: str) -> set[str]:
+    """Sheet names of a CORE_Config list constant ("|A|B|"), over continuation lines."""
+    text = (root / CONFIG).read_text(encoding="cp1252")
+    match = re.search(rf"Public Const {constant}\s+As String\s*=\s*(.*?)\r?\n(?!\s*\")", text, re.S)
+    if not match:
+        raise ValueError(f"{CONFIG}: {constant} not found")
+    value = "".join(re.findall(r'"([^"]*)"', match.group(1)))
+    return {name for name in value.split("|") if name}
+
+
+def check_config(root: Path, sheets: dict[str, Any]) -> list[str]:
+    findings = []
+    for item, (_, constant) in ALLOW.items():
+        expected = {name for name, spec in sheets.items() if item in spec.get("allow", [])}
+        actual = vba_list(root, constant)
+        if actual != expected:
+            findings.append(f"{CONFIG}: {constant} lists {sorted(actual)}, the matrix {sorted(expected)}")
+    return findings
+
+
+def check_saved_protection(name: str, xml: bytes, spec: dict[str, Any]) -> list[str]:
+    """The sheet is saved protected, without a password, allowing exactly what the matrix allows."""
+    protection = ET.fromstring(xml).find("m:sheetProtection", NS)
+    if protection is None:
+        return [f"{name}: the sheet is not saved protected"]
+    findings = [f"{name}: the protection has a password" for key in PASSWORD_ATTRIBUTES if protection.get(key)][:1]
+    for key in ("sheet", "objects", "scenarios"):
+        if protection.get(key) not in ("1", "true"):
+            findings.append(f"{name}: the protection must cover {key}")
+    allowed = spec.get("allow", [])
+    for item, (flag, _) in ALLOW.items():
+        if flag is None:
+            continue
+        saved = protection.get(flag) in ("0", "false")
+        if saved != (item in allowed):
+            findings.append(f"{name}: the saved protection {'allows' if saved else 'forbids'} {item}, "
+                            "against the matrix")
+    findings += [f"{name}: the protection allows {flag}" for flag in LOCKED_FLAGS
+                 if protection.get(flag) in ("0", "false")]
+    if "filtering" in allowed and ET.fromstring(xml).find("m:autoFilter", NS) is None:
+        findings.append(f"{name}: filtering is allowed but the sheet has no AutoFilter, "
+                        "and a protected sheet cannot get one")
+    return findings
+
+
+def check_structure(archive: zipfile.ZipFile) -> list[str]:
+    protection = ET.fromstring(archive.read("xl/workbook.xml")).find("m:workbookProtection", NS)
+    if protection is None or protection.get("lockStructure") not in ("1", "true"):
+        return [f"{TEMPLATE}: the workbook structure is not saved protected"]
+    if any(protection.get(key) for key in PASSWORD_ATTRIBUTES):
+        return [f"{TEMPLATE}: the workbook structure protection has a password"]
+    return []
+
+
 def run_check(root: Path) -> dict[str, Any]:
     matrix = json.loads((root / MATRIX).read_text(encoding="utf-8"))
     findings = check_matrix(matrix)
@@ -234,8 +305,11 @@ def run_check(root: Path) -> dict[str, Any]:
         for name in sorted(set(sheets) - set(parts)):
             findings.append(f"{MATRIX}: {name} is not a sheet of the template")
         if not findings:
+            findings += check_structure(archive) + check_config(root, sheets)
             for name, part in parts.items():
-                findings += check_sheet(name, archive.read(part), styles, sheets[name])
+                xml = archive.read(part)
+                findings += check_saved_protection(name, xml, sheets[name])
+                findings += check_sheet(name, xml, styles, sheets[name])
     return {"schema_version": 1, "status": "fail" if findings else "pass",
             "sheets": len(matrix.get("sheets", {})), "findings": findings}
 
