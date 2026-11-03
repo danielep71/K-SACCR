@@ -293,6 +293,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Lay out the messages of Validate staging, Commit import, Import CSV and the
+  exports in short lines and blocks instead of one long sentence that the
+  message box wraps (#211): counts per staging sheet, what was found, what
+  follows, and a file path on a line of its own. The first Checks line of a
+  staging validation keeps its single-line form.
 - Reconcile the live issue labels from the default branch only (#493): a
   manual run of the label synchronization on another branch no longer applies
   that branch's manifest, and the governance drops the sync from a reviewed

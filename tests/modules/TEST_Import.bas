@@ -1588,8 +1588,8 @@ Private Sub CaseCommitBoth()
         CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=3"
         Before = LiveInputsText()
         M_Main.CommitImport
-        Check Left$(M_Main.gLastMessage, 63) = "Nothing was committed: a commit is confirmed in a dialog, which", _
-              "the button in silent mode: " & M_Main.gLastMessage
+        Check InStr(1, M_Main.gLastMessage, "A commit is confirmed in a dialog, which silent mode does not show", _
+                    vbBinaryCompare) > 0, "the button in silent mode: " & M_Main.gLastMessage
         Check LiveInputsText() = Before And M_Main.StagingValidationCurrent(), "the button in silent mode changed something"
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=3"

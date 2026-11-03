@@ -1367,7 +1367,7 @@ Public Sub ExportEvidence()
             Exit Sub
         End If
         LineCount = WriteEvidence(CStr(ChosenFile))
-        Notify "Evidence exported: " & CStr(ChosenFile) & " (" & LineCount & " lines).", vbInformation
+        Notify "Evidence exported, " & LineCount & " lines:" & vbLf & vbLf & CStr(ChosenFile), vbInformation
         Exit Sub
 
 Failed:
@@ -2333,7 +2333,7 @@ Private Sub ExportCsvTemplate( _
             Exit Sub
         End If
         WriteTextFile CStr(ChosenFile), CsvTemplateText(Kind)
-        Notify Kind & " CSV template exported: " & CStr(ChosenFile) & ".", vbInformation
+        Notify Kind & " CSV template exported:" & vbLf & vbLf & CStr(ChosenFile), vbInformation
         Exit Sub
 
 Failed:
@@ -2959,10 +2959,10 @@ Private Sub ImportCsv( _
         End If
         LoadStaging Kind, CStr(ChosenFile), Result, Values, Lines
         If Result.Accepted Then
-            Note = "Loaded into " & SheetName & " as text. Not validated yet; " & Kind & " is unchanged."
+            Note = "Loaded into " & SheetName & " as text." & vbLf & "Not validated yet; " & Kind & " is unchanged."
         Else
-            Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there. " & _
-                   Kind & " is unchanged."
+            Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there." & _
+                   vbLf & Kind & " is unchanged."
         End If
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, Note), _
@@ -3980,6 +3980,7 @@ Private Function CheckStaging( _
     Dim Found()             As StagedFinding    'Every finding, for Checks
     Dim FoundCount          As Long             'How many there are
     Dim Summary             As String           'The first Checks line
+    Dim Dialog              As String           'The same, in blocks, for the message
     Dim SavedCalculation    As XlCalculation    'Calculation mode before the validation
     Dim SavedEvents         As Boolean          'EnableEvents before the validation
     Dim SavedScreen         As Boolean          'ScreenUpdating before the validation
@@ -4001,8 +4002,8 @@ Private Function CheckStaging( _
             If Len(FormulaAt) > 0 Then
                 FormulaAt = StagingSheetOf(CStr(Kind)) & "!" & FormulaAt
                 CheckStaging = "RESULT=REFUSED; reason=" & FormulaAt & " holds a formula"
-                Message = "Nothing was validated: " & FormulaAt & " holds a formula. Enter the value itself, " & _
-                          "as text."
+                Message = "Nothing was validated: " & FormulaAt & " holds a formula." & vbLf & vbLf & _
+                          "Enter the value itself, as text."
                 Exit Function
             End If
         Next Kind
@@ -4010,8 +4011,8 @@ Private Function CheckStaging( _
         TrRows = ReadStaging("Trades", TrSheet, TrFirst, TrValues, TrLines)
         If NsRows = 0 And TrRows = 0 Then
             CheckStaging = "RESULT=REFUSED; reason=nothing is staged"
-            Message = "Nothing was validated: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows. " & _
-                      "Import a CSV file first."
+            Message = "Nothing was validated: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows." & _
+                      vbLf & vbLf & "Import a CSV file first."
             Exit Function
         End If
         mRunning = True
@@ -4084,7 +4085,7 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
 ' WRITE CHECKS, MARK THE CELLS, SET THE STATUS
 '------------------------------------------------------------------------------
-        Summary = StagingSummary(NsRows, NsErrors, TrRows, TrErrors, NsSource, FoundCount)
+        Summary = StagingSummary(NsRows, NsErrors, TrRows, TrErrors, NsSource, FoundCount, Dialog)
         WriteStagingChecks Found, FoundCount, Summary
         UnmarkStaging "NettingSets"
         UnmarkStaging "Trades"
@@ -4122,11 +4123,7 @@ CleanUp:
             CheckStaging = CheckStaging & "; first=" & Found(1).Code & "|" & _
                            IIf(Len(Found(1).CellAddress) > 0, Found(1).SheetName & "!" & Found(1).CellAddress, "-")
         End If
-        Message = Summary
-        If FoundCount > 0 Then
-            Message = Message & vbLf & vbLf & "The cells are marked on the staging sheets; each line of Checks " & _
-                      "links to its cell."
-        End If
+        Message = Dialog
         Exit Function
 
 '------------------------------------------------------------------------------
@@ -4537,13 +4534,12 @@ Public Sub CommitImport()
             Exit Sub
         End If
         If Not StagingValidationCurrent() Then
-            Notify "Nothing was committed: the staged rows have no VALID validation that still matches them, " & _
-                   "the input sheets and Params. Run Validate staging, correct any finding, then commit.", vbExclamation
+            Notify CommitRefusedText(), vbExclamation
             Exit Sub
         End If
         If gSilent Then
-            Notify "Nothing was committed: a commit is confirmed in a dialog, which silent mode does not show. " & _
-                   "Automation calls CommitStaging_Silent.", vbExclamation
+            Notify "Nothing was committed." & vbLf & vbLf & "A commit is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls CommitStaging_Silent.", vbExclamation
             Exit Sub
         End If
         If MsgBox(CommitQuestion(), vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
@@ -4563,6 +4559,26 @@ Failed:
         Notify "Commit import: " & Err.Description, vbCritical
 
 End Sub
+
+
+Private Function CommitRefusedText() As String
+'
+'==============================================================================
+'                              CommitRefusedText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message of a commit refused for want of a current VALID staging
+'   validation (#211), for CommitImport and CommitStaging.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        CommitRefusedText = "Nothing was committed." & vbLf & vbLf & "The staged rows have no VALID validation " & _
+                            "that still matches them, the input sheets and Params." & vbLf & vbLf & _
+                            "Run Validate staging, correct any finding, then commit."
+
+End Function
 
 
 Private Function CommitQuestion() As String
@@ -4746,8 +4762,7 @@ Private Function CommitStaging( _
         End If
         If Not StagingValidationCurrent() Then
             CommitStaging = "RESULT=REFUSED; reason=no current VALID staging validation"
-            Message = "Nothing was committed: the staged rows have no VALID validation that still matches them, " & _
-                      "the input sheets and Params. Run Validate staging, correct any finding, then commit."
+            Message = CommitRefusedText()
             Exit Function
         End If
 
@@ -4831,7 +4846,7 @@ CleanUp:
         mRunning = False
         If Not Committed Then
             CommitStaging = "RESULT=FAILED; error=" & ErrorDescription & "; rollback=" & Rollback
-            Message = "Nothing was committed: " & ErrorDescription & " (error " & ErrorNumber & ")."
+            Message = "Nothing was committed." & vbLf & vbLf & ErrorDescription & " (error " & ErrorNumber & ")."
             If Left$(Rollback, 6) = "FAILED" Then
                 Message = Message & vbLf & vbLf & "The input sheets could not be put back as they were: " & _
                           Mid$(Rollback, 9) & ". Check NettingSets and Trades before any run."
@@ -4848,9 +4863,10 @@ CleanUp:
                       "The staged rows were committed, but Excel settings were not restored: " & CleanupDetails
         End If
         CommitStaging = "RESULT=COMMITTED; nettingsets=" & NewRows(1) & "; trades=" & NewRows(2)
-        Message = "Committed: " & IIf(NewRows(1) > 0, SH_NS & " " & NewRows(1) & " rows", SH_NS & " unchanged") & _
-                  "; " & IIf(NewRows(2) > 0, SH_TRADES & " " & NewRows(2) & " rows", SH_TRADES & " unchanged") & _
-                  ". Run SA-CCR to calculate on them."
+        Message = "Committed." & vbLf & vbLf & SH_NS & ": " & _
+                  IIf(NewRows(1) > 0, CountText(NewRows(1), "row") & " written", "unchanged") & vbLf & SH_TRADES & ": " & _
+                  IIf(NewRows(2) > 0, CountText(NewRows(2), "row") & " written", "unchanged") & vbLf & vbLf & _
+                  "Results reads OUT OF DATE until the next Run SA-CCR."
         Exit Function
 
 Failed:
@@ -5767,29 +5783,39 @@ Private Function StagingSummary( _
     ByVal TrRows As Long, _
     ByVal TrErrors As Long, _
     ByVal NsSource As String, _
-    ByVal FoundCount As Long) _
+    ByVal FoundCount As Long, _
+    ByRef DialogText As String) _
     As String
 '
 '==============================================================================
 ' PURPOSE
 '   The first Checks line of a staging validation: when, what was checked
-'   and what was found.
+'   and what was found; and in DialogText the same facts for its message,
+'   one block per line, so that the message box does not wrap one long
+'   sentence.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Text    As String    'The line
+    Dim Stamp   As String    'Date and time of the validation
+    Dim Text    As String    'The Checks line
+    Dim Dialog  As String    'The message, in blocks
 
 '------------------------------------------------------------------------------
-' WRITE
+' WRITE BOTH
 '------------------------------------------------------------------------------
-        Text = "Staging validation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": "
+    'Checks gets one line; the message the same facts, one block each.
+        Stamp = Format$(Now, "yyyy-mm-dd hh:mm:ss")
+        Text = "Staging validation " & Stamp & ": "
+        Dialog = "Staging validation " & Stamp & vbLf
         If NsRows > 0 Then
             Text = Text & SH_IMPORT_NS & " " & NsRows & " rows, " & NsErrors & " errors"
+            Dialog = Dialog & vbLf & SH_IMPORT_NS & ": " & CountText(NsRows, "row") & ", " & CountText(NsErrors, "error")
             If TrRows = 0 Then
                 Text = Text & ", with the legs on " & SH_TRADES
+                Dialog = Dialog & vbLf & "    checked with the legs on " & SH_TRADES
             End If
         End If
         If TrRows > 0 Then
@@ -5798,16 +5824,49 @@ Private Function StagingSummary( _
             End If
             Text = Text & SH_IMPORT_TR & " " & TrRows & " rows, " & TrErrors & " errors, against the netting sets on " & _
                    NsSource
+            Dialog = Dialog & vbLf & SH_IMPORT_TR & ": " & CountText(TrRows, "row") & ", " & CountText(TrErrors, "error") & _
+                     vbLf & "    checked against the netting sets on " & NsSource
         End If
         Text = Text & ". "
         If FoundCount = 0 Then
             Text = Text & "No issues found."
-        ElseIf FoundCount > STAGING_LISTED_MAX Then
-            Text = Text & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & Format$(FoundCount, "#,##0") & _
-                   " findings are listed below."
+            Dialog = Dialog & vbLf & vbLf & "No issues found. Commit import replaces the input sheets with these rows."
+        Else
+            If FoundCount > STAGING_LISTED_MAX Then
+                Text = Text & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & Format$(FoundCount, "#,##0") & _
+                       " findings are listed below."
+                Dialog = Dialog & vbLf & vbLf & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & _
+                         Format$(FoundCount, "#,##0") & " findings are listed on Checks."
+            Else
+                Dialog = Dialog & vbLf & vbLf & CountText(FoundCount, "finding") & " listed on Checks."
+            End If
+            Dialog = Dialog & vbLf & "Each line links to its cell, which is marked on its staging sheet."
         End If
         StagingSummary = Text & " Nothing was copied to " & SH_NS & " or " & SH_TRADES & _
                          "; Run SA-CCR writes the checks of a run here again."
+        DialogText = Dialog & vbLf & vbLf & "Nothing was copied to " & SH_NS & " or " & SH_TRADES & "." & vbLf & _
+                     "Run SA-CCR writes the checks of a run on Checks again."
+
+End Function
+
+
+Private Function CountText( _
+    ByVal Count As Long, _
+    ByVal Noun As String) _
+    As String
+'
+'==============================================================================
+'                                  CountText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A count with its noun, singular for 1 and plural otherwise, for the
+'   messages: "1 row", "0 errors", "1,250 rows".
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        CountText = Format$(Count, "#,##0") & " " & Noun & IIf(Count = 1, "", "s")
 
 End Function
 
