@@ -192,8 +192,8 @@ Use only the categories needed by a release.
 - Close the import test gaps found in the #212 audit. `TEST_Import` runs 4
   more cases and checks more in one: a load, a refused load and a
   validation give the calculation mode, events and screen updating back; a
-  `VALID` validation no longer holds once a live `Trades` cell or an FX
-  rate changes, and holds again once it is put back; a 15-digit notional
+  `VALID` validation no longer holds once a trade ID is typed on `Trades`
+  or an FX rate changes, and holds again once it is put back; a 15-digit notional
   commits as that number exactly; netting sets staged with a `Trades` file
   of its header only validate against the committed legs and commit
   `NettingSets` alone; the import specification's examples, committed or

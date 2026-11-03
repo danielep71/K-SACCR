@@ -81,7 +81,7 @@ Attribute VB_Name = "TEST_Import"
 '   did, and the hidden name of the last VALID validation is put back.
 '   Three cases change one Params value each, AsOfDate, Alpha and the
 '   first FX rate, and put it back as it was, also after an unexpected
-'   error; one types a comment below the legs on Trades and clears it;
+'   error; one types a trade ID below the legs on Trades and clears it;
 '   the commit cases put the input sheets back. No other input cell is
 '   touched, and import.live-sheets checks the live inputs and the run
 '   names. Only then do the last three cases run SA-CCR (#211, #212):
@@ -1356,10 +1356,11 @@ Private Sub CaseValidateLiveChanges()
 '==============================================================================
 ' PURPOSE
 '   With both staging sheets holding rows, a VALID validation still judged
-'   the live Trades sheet and the FX table (#212): a comment typed below
+'   the live Trades sheet and the FX table (#212): a trade ID typed below
 '   the legs on Trades, and a changed FX rate, each with events off, make
 '   M_Main.StagingValidationCurrent False; once put back, it is True
-'   again. Both are put back, also after an unexpected error.
+'   again. The comment column is not judged, as in a run, so the case
+'   types an ID. Both are put back, also after an unexpected error.
 '==============================================================================
 '
 
@@ -1369,7 +1370,7 @@ Private Sub CaseValidateLiveChanges()
     Dim ResultLine    As String     'What the validation returned
     Dim Events        As Boolean    'EnableEvents before the case
     Dim TrSheet       As Worksheet  'Trades
-    Dim TrCell        As Range      'A Trades cell below the legs
+    Dim TrCell        As Range      'The trade ID cell below the legs
     Dim RateCell      As Range      'The first FX rate on Params
     Dim SavedRate     As Variant    'Its Value2
     Dim RateFormula   As String     'Its formula, when it holds one
@@ -1389,9 +1390,9 @@ Private Sub CaseValidateLiveChanges()
         CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
         Application.EnableEvents = False
         Set TrSheet = GetSheet(SH_TRADES)
-        Set TrCell = TableCell(TrSheet, LastLiveRow(TrSheet, TableFirstRow(SH_TRADES), TR_NCOLS) + 1, TR_COMMENT)
-        TrCell.Value2 = "edited"
-        Check Not M_Main.StagingValidationCurrent(), "a comment typed on Trades reads as current"
+        Set TrCell = TableCell(TrSheet, LastLiveRow(TrSheet, TableFirstRow(SH_TRADES), TR_NCOLS) + 1, TR_ID)
+        TrCell.Value2 = "T-EDIT"
+        Check Not M_Main.StagingValidationCurrent(), "a trade ID typed on Trades reads as current"
         TrCell.ClearContents
         Check M_Main.StagingValidationCurrent(), "the Trades cell cleared again does not read as current"
         Set RateCell = NamedCell(NM_FX_TABLE).Offset(1, 2)
