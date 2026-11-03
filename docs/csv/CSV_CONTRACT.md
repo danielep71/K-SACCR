@@ -129,9 +129,17 @@ limits are the import's, and differ from two other numbers. The sheets'
 validation lists cover `NettingSets` rows 7 to 206 and `Trades` rows 5 to
 5,000, which bounds only typing on the sheet. The engine reads every row
 down to the last one used, and was measured with 500,000 legs
-([portfolio size](../../INSTALLATION.md#portfolio-size)). How the staging
-sheets and the protected input sheets hold files up to these limits is
-agreed in #207, #208 and #420.
+([portfolio size](../../INSTALLATION.md#portfolio-size)).
+
+The staging sheets and the input sheets hold a file up to these limits
+without a change to the template. A load formats and writes as many staging
+rows as the file has records, from the first row below the staging header,
+and a commit writes as many input rows. The value columns of both are
+unlocked down to the last row of the sheet
+([workbook protection](../workbook/WORKBOOK_PROTECTION.md)). Committed rows
+below the validation lists are read and calculated like the others, without
+dropdowns. Loading, validating and committing a file at these limits has not
+been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 
 ## 📋 NettingSets columns
 
