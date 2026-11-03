@@ -109,9 +109,13 @@ Confirm the hosted **Repository integrity** check is green on the same SHA.
 ### 5. Certify in Excel
 
 Import the exact candidate into a clean workbook, compile, and run the harness
-and the seven suites listed in `.github/excel-evidence-policy.json`, each on
+and the nine suites listed in `.github/excel-evidence-policy.json`, each on
 its own, following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
-Validate the bundle against the candidate SHA:
+In the same session, before the logs are hashed, run the
+[manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
+on a production workbook built from the candidate's template and note each
+outcome in the bundle's `session.log`. Then validate the bundle against the
+candidate SHA:
 
 ```sh
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bundle/host.json
@@ -164,7 +168,7 @@ The tag message is the release's permanent record:
 vX.Y.Z - <short release title>
 
 Certified at <full 40-character SHA>.
-Excel: compile <result>; suites <passed>/8, failed=0; evidence validator PASS.
+Excel: compile <result>; suites <passed>/<suites>, failed=0; evidence validator PASS.
 Fixes #<n>, #<n>.
 Deviations: none.
 ```
@@ -189,9 +193,16 @@ from the release page:
 3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** with the sheet
    buttons, then **Run SA-CCR** again. Save, close and reopen it: Results C5
    reads current.
-4. **Export evidence**: the file is written. Change an EAD cell on Results
-   and export again: the export is refused.
-5. Close without saving, and record what was done and seen with the release
+4. **Export evidence**: the file is written. Unprotect Results (**Review →
+   Unprotect Sheet**, a deliberate maintenance unlock on this copy), change an
+   EAD cell and export again: the export is refused as `EDITED`. **Run
+   SA-CCR**: Results is rebuilt and protected again.
+5. **Export import specifications** on `Import_Trades`, save the page and open
+   it. Copy its two examples into UTF-8 `.csv` files, **Import CSV** each on
+   its staging sheet, **Validate staging** (both sheets read `VALID`),
+   **Commit import** and **Run SA-CCR**: the run uses all 5 legs of the 3
+   netting sets, with no error.
+6. Close without saving, and record what was done and seen with the release
    evidence.
 
 Once the release assets exist, update the website as
@@ -231,7 +242,7 @@ it does not replace it.
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
-| 7 | Excel certification passes for the harness and the seven policy suites on the candidate | ☐ |
+| 7 | Excel certification passes for the harness and the nine policy suites on the candidate, and the manual protection checks pass | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |

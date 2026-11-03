@@ -17,3 +17,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         M_Main.StagingEdited "Trades", Target
 
 End Sub
+
+Private Sub Worksheet_Activate()
+    'OUT OF DATE once the last VALID validation no longer holds (#210).
+        M_Main.RefreshStagingStatus
+
+End Sub

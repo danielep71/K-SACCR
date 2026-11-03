@@ -56,7 +56,10 @@ Attribute VB_Name = "CORE_Engine"
 '   run-fingerprint procedures (InputFingerprint, LastRunInputs,
 '   ForgetRunInputs, and BlockText, which M_Main also uses for the
 '   reconciliation fingerprint) and ParameterCodes, which M_Main uses for
-'   the evidence report, are Public for M_Main and the tests; the test seam
+'   the evidence report, are Public for M_Main and the tests; so are
+'   LoadRunContext, the RunContext it fills, NormalizePair and the rules
+'   shared with the staging validation (FactorKey and the *Text
+'   functions, #209), which M_Main and CORE_CsvReader use. The test seam
 '   gEngineFault is Public for the tests. Option Private Module keeps them
 '   off the supported external surface.
 '
@@ -97,7 +100,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '
 ' AUTHOR
 '   Daniele Penza
@@ -113,6 +116,23 @@ Attribute VB_Name = "CORE_Engine"
 '------------------------------------------------------------------------------
 ' DATA STRUCTURES
 '------------------------------------------------------------------------------
+    'What a run reads from Params before the input sheets, as LoadRunContext
+    'returns it for the staging validation (#209): the reporting date, the
+    'reporting currency and regime, the currencies of the FX table with a
+    'usable rate, the reporting currency among them, and the keys of the
+    'supervisory-factor table with their regimes. Arrays run from 1 to
+    'their count.
+    Public Type RunContext
+        AsOf             As Double     'Reporting date, serial
+        ReportingCcy     As String     'Reporting currency, upper case
+        Regime           As String     'Params regime: CRR or BCBS
+        CurrencyCount    As Long       'Currencies with a rate
+        Currencies()     As String     'Their codes, upper case
+        FactorCount      As Long       'Rows of the factor table
+        FactorKeys()     As String     'Their keys, such as IR or CR_AAA
+        FactorRegimes()  As String     'Their regimes: blank for both, BCBS or CRR
+    End Type
+
     'One netting set, as read from the NettingSets sheet. Amounts are in the
     'reporting currency.
     Private Type tNettingSet
@@ -274,6 +294,7 @@ Attribute VB_Name = "CORE_Engine"
         Private mSFIndex      As Collection      'Key to position
 
         Private mFXRate()     As Double          'Units of reporting currency per unit of currency
+        Private mFXCode()     As String          'Currency of each rate, for LoadRunContext
         Private mFXCount      As Long            'Rates used
         Private mFXIndex      As Collection      'Currency code to position
 
@@ -870,7 +891,7 @@ Private Sub ResetState()
 '   arrays at a starting size.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-10-31
 '==============================================================================
 '
 
@@ -910,6 +931,7 @@ Private Sub ResetState()
         ReDim mNS(1 To 16)
         ReDim mSF(1 To 32)
         ReDim mFXRate(1 To 32)
+        ReDim mFXCode(1 To 32)
         ReDim mBk(1 To 64)
         ReDim mHS(1 To 32)
         ReDim mRefClass(1 To 32)
@@ -1831,14 +1853,14 @@ Private Function LoadFXTable() As Boolean
 '   read (#35), or the reporting currency's rate is not 1 (#41).
 '
 ' STATE OWNERSHIP
-'   Fills mFXRate, mFXCount and mFXIndex. A rate that is missing or not
+'   Fills mFXRate, mFXCode, mFXCount and mFXIndex. A rate that is missing or not
 '   positive is warned about and the currency left out; a currency listed
 '   twice with the same rate is warned about and the first row kept. The
 '   reporting currency is added at rate 1 if absent; a rate other than 1
 '   is an error (#41).
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -1883,8 +1905,10 @@ Private Function LoadFXTable() As Boolean
                 mFXCount = mFXCount + 1
                 If mFXCount > UBound(mFXRate) Then
                     ReDim Preserve mFXRate(1 To mFXCount * 2)
+                    ReDim Preserve mFXCode(1 To mFXCount * 2)
                 End If
                 mFXRate(mFXCount) = RowRate
+                mFXCode(mFXCount) = CurrencyCode
                 KeyAdd mFXIndex, CurrencyCode, mFXCount
             ElseIf mFXRate(EarlierPosition) = RowRate Then
                 LogMsg SEV_WARN, SH_PARAMS, CurrencyCode, "Currency listed twice with the same rate - first row used.", r
@@ -1920,8 +1944,10 @@ Private Function LoadFXTable() As Boolean
             mFXCount = mFXCount + 1
             If mFXCount > UBound(mFXRate) Then
                 ReDim Preserve mFXRate(1 To mFXCount * 2)
+                ReDim Preserve mFXCode(1 To mFXCount * 2)
             End If
             mFXRate(mFXCount) = 1#
+            mFXCode(mFXCount) = pRepCcy
             KeyAdd mFXIndex, pRepCcy, mFXCount
         ElseIf Abs(mFXRate(KeyIndex(mFXIndex, pRepCcy)) - 1#) > 0.0000001 Then
             LogMsg SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
@@ -2068,6 +2094,359 @@ Private Function FXRate( _
         Else
             FXRate = mFXRate(Position)
         End If
+
+End Function
+
+'
+'------------------------------------------------------------------------------
+'
+'                       RUN CONTEXT AND SHARED INPUT RULES
+'
+'------------------------------------------------------------------------------
+'
+
+Public Function LoadRunContext( _
+    ByRef Context As RunContext, _
+    ByRef ProblemSheet As String, _
+    ByRef ProblemReference As String, _
+    ByRef ProblemRow As Long, _
+    ByRef ProblemMessage As String) _
+    As Boolean
+'
+'==============================================================================
+'                                LoadRunContext
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read what a run reads before the input sheets, with the procedures a
+'   run uses: the layout (ValidateSchema), the parameters (LoadParams),
+'   the supervisory-factor table (LoadSFTable) and the FX table
+'   (LoadFXTable), for the staging validation (#209). Nothing is written
+'   to a sheet.
+'
+' RETURNS
+'   True, with Context filled, when a run would get past them. False when
+'   a run would stop there, with the first ERROR it would log: its sheet,
+'   its reference (a parameter code, a table key or an ID; may be blank),
+'   its row (0 for none) and its message.
+'
+' STATE OWNERSHIP
+'   Keeps what the last run leaves readable: its messages, its counters and
+'   its fingerprint. The log and its counts are saved first and restored
+'   on every path. The parameters and the two tables are read into the
+'   state a run fills before it uses them, which nothing reads between
+'   runs.
+'
+' ERROR POLICY
+'   An unexpected error is raised, unchanged, after the log is restored.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SavedLog            As Variant    'mLog of the last run
+    Dim LogAllocated        As Boolean    'mLog had been allocated by a run
+    Dim SavedLogCount       As Long       'Its message count
+    Dim SavedErrors         As Long       'Its ERROR count
+    Dim SavedWarnings       As Long       'Its WARNING count
+    Dim SavedParamError     As Boolean    'Its mParamError
+    Dim Loaded              As Boolean    'Every loader got through
+    Dim ErrorNumber         As Long       'Unexpected error: number; 0 for none
+    Dim ErrorSource         As String     'Unexpected error: source
+    Dim ErrorDescription    As String     'Unexpected error: description
+    Dim i                   As Long       'Message, currency or factor counter
+
+'------------------------------------------------------------------------------
+' SAVE THE LAST RUN'S LOG
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        LogAllocated = (UBound(mLog, 2) >= 1)
+        On Error GoTo 0
+        If LogAllocated Then
+            SavedLog = mLog
+        End If
+        SavedLogCount = mLogCount
+        SavedErrors = mErrCount
+        SavedWarnings = mWarnCount
+        SavedParamError = mParamError
+        ProblemSheet = vbNullString
+        ProblemReference = vbNullString
+        ProblemRow = 0
+        ProblemMessage = vbNullString
+        On Error GoTo Failed
+        ReDim mLog(1 To CK_NCOLS, 1 To 16)
+        mLogCount = 0
+        mErrCount = 0
+        mWarnCount = 0
+        mParamError = False
+
+'------------------------------------------------------------------------------
+' LOAD
+'------------------------------------------------------------------------------
+    'The tables are emptied first, as ResetState empties them for a run.
+        mSFCount = 0
+        Set mSFIndex = New Collection
+        ReDim mSF(1 To 32)
+        mFXCount = 0
+        Set mFXIndex = New Collection
+        ReDim mFXRate(1 To 32)
+        ReDim mFXCode(1 To 32)
+        Loaded = ValidateSchema()
+        If Loaded Then Loaded = LoadParams()
+        If Loaded Then Loaded = LoadSFTable()
+        If Loaded Then Loaded = LoadFXTable()
+
+'------------------------------------------------------------------------------
+' RETURN THE CONTEXT OR THE PROBLEM
+'------------------------------------------------------------------------------
+        If Loaded Then
+            Context.AsOf = pAsOf
+            Context.ReportingCcy = pRepCcy
+            Context.Regime = pRegime
+            Context.CurrencyCount = mFXCount
+            ReDim Context.Currencies(1 To mFXCount)
+            For i = 1 To mFXCount
+                Context.Currencies(i) = mFXCode(i)
+            Next i
+            Context.FactorCount = mSFCount
+            ReDim Context.FactorKeys(1 To mSFCount)
+            ReDim Context.FactorRegimes(1 To mSFCount)
+            For i = 1 To mSFCount
+                Context.FactorKeys(i) = mSF(i).Key
+                Context.FactorRegimes(i) = mSF(i).Regimes
+            Next i
+        Else
+            ProblemMessage = "the inputs a run reads first cannot be read"
+            For i = 1 To mLogCount
+                If mLog(1, i) = SEV_ERROR Then
+                    ProblemSheet = CStr(mLog(2, i))
+                    If Not IsEmpty(mLog(3, i)) Then
+                        ProblemRow = CLng(mLog(3, i))
+                    End If
+                    ProblemReference = CStr(mLog(4, i))
+                    ProblemMessage = CStr(mLog(5, i))
+                    Exit For
+                End If
+            Next i
+        End If
+        LoadRunContext = Loaded
+
+'------------------------------------------------------------------------------
+' RESTORE THE LAST RUN'S LOG
+'------------------------------------------------------------------------------
+CleanUp:
+        On Error GoTo 0
+        If LogAllocated Then
+            mLog = SavedLog
+        Else
+            Erase mLog
+        End If
+        mLogCount = SavedLogCount
+        mErrCount = SavedErrors
+        mWarnCount = SavedWarnings
+        mParamError = SavedParamError
+        If ErrorNumber <> 0 Then
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
+        End If
+        Exit Function
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
+        LoadRunContext = False
+        Resume CleanUp
+
+End Function
+
+
+Public Function FactorKey( _
+    ByVal AssetClass As String, _
+    ByVal SubClass As String) _
+    As String
+'
+'==============================================================================
+'                                  FactorKey
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The supervisory-factor key of a trade (#209): IR, FX and OT have one
+'   factor each; the other classes are looked up by class and sub-class,
+'   for example CR_AAA. Both inputs are upper case, as UTxt reads them.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        Select Case AssetClass
+            Case "IR", "FX", "OT"
+                FactorKey = AssetClass
+            Case Else
+                FactorKey = AssetClass & "_" & SubClass
+        End Select
+
+End Function
+
+
+Public Function MissingFactorText( _
+    ByVal Key As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Why a trade whose key has no row in the factor table is rejected.
+'==============================================================================
+'
+        MissingFactorText = "no supervisory factor for '" & Key & "' (check sub-class)"
+
+End Function
+
+
+Public Function OtherRisksRegimeText( _
+    ByVal SetRegime As String) _
+    As String
+'
+'==============================================================================
+'                             OtherRisksRegimeText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Why an OT trade is rejected in a netting set of SetRegime; "" under
+'   CRR, where the class exists.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        If SetRegime <> RG_CRR Then
+            OtherRisksRegimeText = "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
+                                   "under BCBS map the trade to the class of its primary risk driver (CRE52)"
+        End If
+
+End Function
+
+
+Public Function FactorRegimeText( _
+    ByVal Key As String, _
+    ByVal FactorRegimes As String, _
+    ByVal SetRegime As String) _
+    As String
+'
+'==============================================================================
+'                               FactorRegimeText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Why a trade is rejected whose factor row is limited to another regime
+'   than its netting set's; "" when the row has no limit or the same.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        If Len(FactorRegimes) > 0 And FactorRegimes <> SetRegime Then
+            FactorRegimeText = "'" & Key & "' is defined only for regime " & FactorRegimes & _
+                               " (netting set uses " & SetRegime & ")"
+        End If
+
+End Function
+
+
+Public Function MaturedText( _
+    ByVal Maturity As Double, _
+    ByVal AsOf As Double) _
+    As String
+'
+'==============================================================================
+'                                 MaturedText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Why a trade whose maturity (or the end date or expiry that fills it) is
+'   not after the reporting date is rejected; "" otherwise. Both are
+'   serials.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        If Maturity <= AsOf Then
+            MaturedText = "trade has matured (maturity <= reporting date)"
+        End If
+
+End Function
+
+
+Public Function ExpiredText( _
+    ByVal Expiry As Double, _
+    ByVal AsOf As Double) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Why an option whose expiry is not after the reporting date is
+'   rejected; "" otherwise. Both are serials.
+'==============================================================================
+'
+        If Expiry <= AsOf Then
+            ExpiredText = "option has expired"
+        End If
+
+End Function
+
+
+Public Function ResetText( _
+    ByVal NextReset As Double, _
+    ByVal AsOf As Double) _
+    As String
+'
+'==============================================================================
+'                                  ResetText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Why an STM trade whose next reset is not after the reporting date is
+'   rejected; "" otherwise. Both are serials. The MtM is the value after
+'   any settlement due on the reporting date, so the next reset is the
+'   first one after it.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        If NextReset <= AsOf Then
+            ResetText = "next reset date must be after the reporting date (the MtM is the value after that " & _
+                        "day's settlement)"
+        End If
+
+End Function
+
+
+Public Function NoRateText( _
+    ByVal Role As String, _
+    ByVal CurrencyCode As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Why a trade is rejected whose notional or MtM currency has no rate:
+'   Role is "notional" or "MtM".
+'==============================================================================
+'
+        NoRateText = "no FX rate for " & Role & " currency '" & CurrencyCode & "'"
+
+End Function
+
+
+Public Function NoPairRateText( _
+    ByVal CurrencyCode As String, _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Why an FX trade is rejected when a currency of its pair has no rate.
+'==============================================================================
+'
+        NoPairRateText = "no FX rate for currency '" & CurrencyCode & "' of the pair " & Pair
 
 End Function
 
@@ -3446,7 +3825,7 @@ Private Sub ReadTradeClass( _
 '   RowNumber: the trade's sheet row; SeenIDs: Trade IDs seen so far.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3455,6 +3834,7 @@ Private Sub ReadTradeClass( _
 '------------------------------------------------------------------------------
     Dim FirstRow        As Long      'Sheet row where a duplicate ID first appeared
     Dim DirectionText   As String    'Direction text, upper case
+    Dim Problem         As String    'Why a shared rule rejects the trade; "" when it passes
 
 '------------------------------------------------------------------------------
 ' CLASSIFICATION
@@ -3531,35 +3911,23 @@ Private Sub ReadTradeClass( _
         End Select
 
     'IR, FX and OT have one factor each; the other classes are looked up by
-    'class and sub-class, for example CR_AAA.
+    'class and sub-class, for example CR_AAA (FactorKey). The rules of this
+    'paragraph and the next are shared with the staging validation (#209).
         If Trade.ac > 0 Then
-            Select Case Trade.ac
-                Case AC_IR
-                    Trade.sfKey = "IR"
-                Case AC_FX
-                    Trade.sfKey = "FX"
-                Case AC_OT
-                    Trade.sfKey = "OT"
-                Case Else
-                    Trade.sfKey = Trade.acTxt & "_" & Trade.subCls
-            End Select
+            Trade.sfKey = FactorKey(Trade.acTxt, Trade.subCls)
             Trade.sfIdx = KeyIndex(mSFIndex, Trade.sfKey)
-            If Trade.sfIdx = 0 Then AddErr Trade.ok, Trade.msg, "no supervisory factor for '" & Trade.sfKey & "' (check sub-class)"
+            If Trade.sfIdx = 0 Then AddErr Trade.ok, Trade.msg, MissingFactorText(Trade.sfKey)
         End If
 
     'OT exists only under CRR, and a factor-table row limited to one regime
     'cannot be used by a netting set under the other.
         If Trade.nsIdx > 0 And Trade.ac = AC_OT Then
-            If Not mNS(Trade.nsIdx).IsCRR Then
-                AddErr Trade.ok, Trade.msg, "asset class OT (other risks) exists only under CRR (Art. 277(1)(f), 280f); " & _
-                       "under BCBS map the trade to the class of its primary risk driver (CRE52)"
-            End If
+            Problem = OtherRisksRegimeText(mNS(Trade.nsIdx).Regime)
+            If Len(Problem) > 0 Then AddErr Trade.ok, Trade.msg, Problem
         End If
         If Trade.nsIdx > 0 And Trade.sfIdx > 0 Then
-            If Len(mSF(Trade.sfIdx).Regimes) > 0 And mSF(Trade.sfIdx).Regimes <> mNS(Trade.nsIdx).Regime Then
-                AddErr Trade.ok, Trade.msg, "'" & Trade.sfKey & "' is defined only for regime " & mSF(Trade.sfIdx).Regimes & _
-                       " (netting set uses " & mNS(Trade.nsIdx).Regime & ")"
-            End If
+            Problem = FactorRegimeText(Trade.sfKey, mSF(Trade.sfIdx).Regimes, mNS(Trade.nsIdx).Regime)
+            If Len(Problem) > 0 Then AddErr Trade.ok, Trade.msg, Problem
         End If
 
 End Sub
@@ -3582,7 +3950,7 @@ Private Sub ReadTradeAmounts( _
 '   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3604,7 +3972,7 @@ Private Sub ReadTradeAmounts( _
         Trade.nccy = TradeText(InputBlock(DataRow, TR_NCCY), "Notional currency", Trade.ok, Trade.msg)
         If Len(Trade.nccy) = 0 Then Trade.nccy = pRepCcy
         Trade.fxN = FXRate(Trade.nccy)
-        If Trade.fxN < 0# Then AddErr Trade.ok, Trade.msg, "no FX rate for notional currency '" & Trade.nccy & "'"
+        If Trade.fxN < 0# Then AddErr Trade.ok, Trade.msg, NoRateText("notional", Trade.nccy)
         If IsNum(InputBlock(DataRow, TR_MTM)) Then
             Trade.mtm = CDbl(InputBlock(DataRow, TR_MTM))
         ElseIf IsBlankCell(InputBlock(DataRow, TR_MTM)) And Not IsError(InputBlock(DataRow, TR_MTM)) Then
@@ -3617,7 +3985,7 @@ Private Sub ReadTradeAmounts( _
         Trade.mccy = TradeText(InputBlock(DataRow, TR_MCCY), "MtM currency", Trade.ok, Trade.msg)
         If Len(Trade.mccy) = 0 Then Trade.mccy = Trade.nccy
         Trade.fxM = FXRate(Trade.mccy)
-        If Trade.fxM < 0# Then AddErr Trade.ok, Trade.msg, "no FX rate for MtM currency '" & Trade.mccy & "'"
+        If Trade.fxM < 0# Then AddErr Trade.ok, Trade.msg, NoRateText("MtM", Trade.mccy)
         If Trade.ok Then
             Trade.notionalRep = Trade.notional * Trade.fxN
             Trade.mtmRep = Trade.mtm * Trade.fxM
@@ -3643,7 +4011,7 @@ Private Sub ReadTradeDates( _
 '   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3672,8 +4040,8 @@ Private Sub ReadTradeDates( _
             Else
                 Trade.S = 0#
             End If
-            If Trade.M <= 0# Then
-                AddErr Trade.ok, Trade.msg, "trade has matured (maturity <= reporting date)"
+            If Len(MaturedText(Trade.dMat, pAsOf)) > 0 Then
+                AddErr Trade.ok, Trade.msg, MaturedText(Trade.dMat, pAsOf)
             ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.E <= Trade.S Then
                 AddErr Trade.ok, Trade.msg, "end date must be after start date"
             End If
@@ -3721,7 +4089,7 @@ Private Sub ReadTradeSettlement( _
 '   on its first STM trade: the set becomes INVALID.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3762,9 +4130,8 @@ Private Sub ReadTradeSettlement( _
             If IsBlankCell(InputBlock(DataRow, TR_RESET)) And Not IsError(InputBlock(DataRow, TR_RESET)) Then
                 AddErr Trade.ok, Trade.msg, "a settled-to-market trade (STM) needs its next reset date"
             End If
-        ElseIf Trade.dReset <= pAsOf Then
-            AddErr Trade.ok, Trade.msg, "next reset date must be after the reporting date (the MtM is the " & _
-                   "value after that day's settlement)"
+        ElseIf Len(ResetText(Trade.dReset, pAsOf)) > 0 Then
+            AddErr Trade.ok, Trade.msg, ResetText(Trade.dReset, pAsOf)
         ElseIf Trade.dMat >= 0# And Trade.dReset > Trade.dMat Then
             AddErr Trade.ok, Trade.msg, "next reset date is after the maturity date"
         Else
@@ -3812,7 +4179,7 @@ Private Sub TradeDelta( _
 '   InputBlock, DataRow: the Trades input block and the trade's row in it.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3848,8 +4215,8 @@ Private Sub TradeDelta( _
                         AddErr Trade.ok, Trade.msg, "option expiry missing"
                     Else
                         Trade.T = (Trade.dExp - pAsOf) / pDaysYear
-                        If Trade.T <= 0# Then
-                            AddErr Trade.ok, Trade.msg, "option has expired"
+                        If Len(ExpiredText(Trade.dExp, pAsOf)) > 0 Then
+                            AddErr Trade.ok, Trade.msg, ExpiredText(Trade.dExp, pAsOf)
                         ElseIf Trade.dExp > Trade.dMat Then
                             AddErr Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
                                    "date the contract may still be active)"
@@ -3922,7 +4289,7 @@ Private Sub TradeHedgingSet( _
 '   Trade: the trade being processed, from ProcessTrades.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 
@@ -3968,9 +4335,9 @@ Private Sub TradeHedgingSet( _
                     If Trade.pairSign = 0# Then
                         AddErr Trade.ok, Trade.msg, "FX risk factor must be a currency pair such as EUR/USD"
                     ElseIf FXRate(Left$(Trade.rf, 3)) < 0# Then
-                        AddErr Trade.ok, Trade.msg, "no FX rate for currency '" & Left$(Trade.rf, 3) & "' of the pair " & Trade.rf
+                        AddErr Trade.ok, Trade.msg, NoPairRateText(Left$(Trade.rf, 3), Trade.rf)
                     ElseIf FXRate(Right$(Trade.rf, 3)) < 0# Then
-                        AddErr Trade.ok, Trade.msg, "no FX rate for currency '" & Right$(Trade.rf, 3) & "' of the pair " & Trade.rf
+                        AddErr Trade.ok, Trade.msg, NoPairRateText(Right$(Trade.rf, 3), Trade.rf)
                     ElseIf Trade.nccy <> Left$(Trade.rf, 3) And Trade.nccy <> Right$(Trade.rf, 3) Then
                         AddErr Trade.ok, Trade.msg, "notional currency '" & Trade.nccy & "' is not a currency of the pair " & Trade.rf
                     ElseIf Trade.instType = "OPTION" And Trade.pairSign * MarketSign(Trade.rf) < 0# Then
@@ -4148,7 +4515,7 @@ Private Sub TradeCalcRow( _
 End Sub
 
 
-Private Function NormalizePair( _
+Public Function NormalizePair( _
     ByVal PairText As String, _
     ByRef OrderSign As Double) _
     As String
@@ -4158,7 +4525,9 @@ Private Function NormalizePair( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write a currency pair in one canonical form, so that EUR/USD and
-'   USD/EUR fall in the same hedging set.
+'   USD/EUR fall in the same hedging set. Public for the staging
+'   validation, which checks the pair's currencies against the FX table
+'   as a run does (#209).
 '
 ' INPUTS
 '   PairText: the pair as entered, for example "EUR/USD", "EURUSD" or
@@ -4171,7 +4540,7 @@ Private Function NormalizePair( _
 '   PairText is not two different three-letter codes.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-10-31
 '==============================================================================
 '
 

@@ -32,8 +32,8 @@
       "entry_point": "TEST_MainState.RunMainStateTests",
       "header": "SACCR MAIN STATE TESTS",
       "mode_line": false,
-      "cases": 29,
-      "checks": {"32-bit": 501, "64-bit": 501},
+      "cases": 32,
+      "checks": {"32-bit": 512, "64-bit": 512},
       "restoration": "caller_state=RESTORED",
       "first_case": null
     },
@@ -86,8 +86,8 @@
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
       "header": "SACCR CSV READER TESTS",
       "mode_line": false,
-      "cases": 111,
-      "checks": {"32-bit": 304, "64-bit": 304},
+      "cases": 123,
+      "checks": {"32-bit": 316, "64-bit": 316},
       "restoration": null,
       "first_case": null
     },
@@ -95,8 +95,8 @@
       "entry_point": "TEST_Import.RunImportTests",
       "header": "SACCR CSV IMPORT TESTS",
       "mode_line": false,
-      "cases": 17,
-      "checks": {"32-bit": 89, "64-bit": 89},
+      "cases": 38,
+      "checks": {"32-bit": 227, "64-bit": 227},
       "restoration": null,
       "first_case": null
     }

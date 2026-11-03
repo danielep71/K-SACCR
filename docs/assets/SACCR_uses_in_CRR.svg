@@ -30,7 +30,7 @@
     <text x="96" y="246" font-size="18" fill="#2b3a4d">Exposure value × risk weight of the counterparty</text>
     <text x="96" y="272" font-size="18" fill="#2b3a4d">under the standardised approach (Art. 107)</text>
     <text x="96" y="306" font-size="16" fill="#2f6db5" font-weight="700">CRR2 · since 28 June 2021</text>
-    <text x="96" y="334" font-size="16" fill="#4a5a70">K-SACCR: exposure value; RWA in K-Risk Engines</text>
+    <text x="96" y="334" font-size="16" fill="#4a5a70">K-SACCR: exposure value; RWA outside</text>
   </g>
   <!-- 2 CCPs -->
   <g>

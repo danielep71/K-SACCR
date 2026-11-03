@@ -20,7 +20,10 @@ Attribute VB_Name = "TEST_MainState"
 '   reporting old results as current when that recalculation does not
 '   finish (issue #195) or raises an error (issue #204); and that every
 '   output table is located through the workbook name of its first header
-'   cell, so that it can move.
+'   cell, so that it can move; and that M_Main.ProtectWorkbook protects
+'   every sheet and the structure for the user interface only, again
+'   after a maintenance unlock or a reopening, but leaves a sheet a test
+'   made unwritable as it is (issue #421).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -39,7 +42,11 @@ Attribute VB_Name = "TEST_MainState"
 '   rewrite TradeCalc, Buckets, HedgingSets, Results, Checks and the
 '   reconciliation sheets, and activate the Checks sheet. Several cases
 '   edit an input or output cell and put it back. Some cases protect the
-'   Checks sheet or output sheets for one run and unprotect them again. One
+'   Checks sheet or output sheets against the macros too for one run
+'   (M_Main.gKeepProtection) and give them back the workbook's
+'   protection. One case
+'   unprotects Params and the workbook structure, as a maintenance unlock
+'   does, and lets the next run protect them again. One
 '   case inserts a column before the Params tables for its run and deletes
 '   it again. One case switches the workbook to the 1904 date system and
 '   back. One case inserts a row above the HedgingSets table for its run
@@ -51,8 +58,9 @@ Attribute VB_Name = "TEST_MainState"
 ' STATE OWNERSHIP
 '   Sets calculation mode, events and screen updating to known values for
 '   each case. At the end it restores the caller's values, gSilent and
-'   gQuietLog, and leaves gTestFault and gEngineFault empty; a case that
-'   fails unexpectedly does not stop the others from running.
+'   gQuietLog, and leaves gTestFault, gEngineFault and gKeepProtection
+'   empty; a case that fails unexpectedly does not stop the others from
+'   running.
 '   gQuietLog is set for the run: the macros' run messages would push the
 '   report out of the Immediate window, which keeps about 200 lines.
 '
@@ -65,7 +73,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-03
 '
 ' AUTHOR
 '   Daniele Penza
@@ -81,7 +89,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 29   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 32   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -112,8 +120,8 @@ Public Sub RunMainStateTests()
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, screen updating,
-'   gSilent and gQuietLog, and empties gTestFault and gEngineFault, before
-'   printing the result.
+'   gSilent and gQuietLog, and empties gTestFault, gEngineFault and
+'   gKeepProtection, before printing the result.
 '
 ' UPDATED
 '   2026-10-17
@@ -152,6 +160,8 @@ Public Sub RunMainStateTests()
         M_Main.gSilent = True
         M_Main.gQuietLog = True
         M_Main.gTestFault = ""
+        M_Main.gKeepProtection = ""
+        M_Main.ProtectWorkbook
         CaseRestoresState "clear.automatic-on", "clear", xlCalculationAutomatic, True, True
         CaseRestoresState "clear.manual-off", "clear", xlCalculationManual, False, False
         CaseRestoresState "validate.manual-off", "validate", xlCalculationManual, False, False
@@ -181,12 +191,16 @@ Public Sub RunMainStateTests()
         CaseRecalculationError
         CaseOutputHeaderNames
         CaseSilentFlagPreserved
+        CaseProtectionApplied
+        CaseProtectionRelock
+        CaseFaultProtectionKept
 
 '------------------------------------------------------------------------------
 ' RESTORE THE CALLER AND REPORT
 '------------------------------------------------------------------------------
         M_Main.gTestFault = ""
         CORE_Engine.gEngineFault = ""
+        M_Main.gKeepProtection = ""
         M_Main.gSilent = CallerSilent
         M_Main.gQuietLog = CallerQuiet
         Application.Calculation = CallerCalculation
@@ -410,13 +424,13 @@ Private Sub CaseChecksUnwritable()
         BeginCase "run.checks-unwritable"
         SetState xlCalculationAutomatic, False, False
         Set ResultsSheet = GetSheet(SH_RESULTS)
-        GetSheet(SH_CHECKS).Protect
+        LockForFault SH_CHECKS
         On Error Resume Next
         Result = M_Main.RunSACCR_Silent()
         ErrorNumber = Err.Number
         ErrorText = Err.Description
         On Error GoTo Unexpected
-        GetSheet(SH_CHECKS).Unprotect
+        UnlockFromFault SH_CHECKS
         Check ErrorNumber = ERR_CHECKS_WRITE, "expected the Checks write error, got " & ErrorNumber & ": " & ErrorText
         Check IsBlankCell(TableCell(ResultsSheet, OutputFirstRow(SH_RESULTS), 1).Value), "Results rows were not withdrawn"
         Check InStr(1, SafeStr(ResultsSheet.Range(RUNINFO_CELL).Value), "Checks sheet could not be written", _
@@ -456,7 +470,7 @@ Private Sub UnprotectChecks()
 '==============================================================================
 '
         On Error GoTo Failed
-        GetSheet(SH_CHECKS).Unprotect
+        UnlockFromFault SH_CHECKS
         Exit Sub
 
 Failed:
@@ -694,13 +708,13 @@ Private Sub CaseProtectedOutput( _
         SheetNames = Array(SH_TRADECALC, SH_BUCKETS, SH_HEDGING, SH_RESULTS)
         Widths = Array(TC_NCOLS, BK_NCOLS, HS_NCOLS, RS_NCOLS)
         For i = 0 To 3
-            If GetSheet(CStr(SheetNames(i))).ProtectContents Then
-                Fail CaseName, "test requires initially unprotected " & CStr(SheetNames(i))
+            If LockedForMacros(CStr(SheetNames(i))) Then
+                Fail CaseName, "test requires " & CStr(SheetNames(i)) & " writable by the macros"
                 Exit Sub
             End If
         Next i
-        If GetSheet(SH_CHECKS).ProtectContents Then
-            Fail CaseName, "test requires initially unprotected Checks"
+        If LockedForMacros(SH_CHECKS) Then
+            Fail CaseName, "test requires Checks writable by the macros"
             Exit Sub
         End If
         Result = M_Main.RunSACCR_Silent()
@@ -711,7 +725,7 @@ Private Sub CaseProtectedOutput( _
             TableCell(GetSheet(CStr(SheetNames(i))), OutputFirstRow(CStr(SheetNames(i))), 1).Value = "OLD-OUTPUT"
             LastRows(i) = UsedLastRow(GetSheet(CStr(SheetNames(i))))
             If CStr(SheetNames(i)) = ProtectedSheet Or CStr(SheetNames(i)) = SecondSheet Then
-                GetSheet(CStr(SheetNames(i))).Protect
+                LockForFault CStr(SheetNames(i))
                 OwnsProtection(i) = True
                 'Capture Excel's localized error independently, before the run.
                 On Error Resume Next
@@ -731,7 +745,7 @@ Private Sub CaseProtectedOutput( _
             End If
         Next i
         If ProtectChecks Then
-            GetSheet(SH_CHECKS).Protect
+            LockForFault SH_CHECKS
             OwnsChecks = True
         End If
         On Error Resume Next
@@ -777,12 +791,12 @@ Private Sub CaseProtectedOutput( _
         CheckState xlCalculationAutomatic, False, False
         For i = 0 To 3
             If OwnsProtection(i) Then
-                GetSheet(CStr(SheetNames(i))).Unprotect
+                UnlockFromFault CStr(SheetNames(i))
                 OwnsProtection(i) = False
             End If
         Next i
         If OwnsChecks Then
-            GetSheet(SH_CHECKS).Unprotect
+            UnlockFromFault SH_CHECKS
             OwnsChecks = False
         End If
         Result = M_Main.RunSACCR_Silent()
@@ -811,7 +825,7 @@ Private Sub UnprotectOutput(ByVal SheetName As String)
 '   Release protection owned by CaseProtectedOutput after an unexpected error.
 '==============================================================================
         On Error GoTo Failed
-        GetSheet(SheetName).Unprotect
+        UnlockFromFault SheetName
         Exit Sub
 Failed:
         Fail "protected-output", "could not unprotect " & SheetName & ": " & Err.Description
@@ -1834,6 +1848,161 @@ Unexpected:
 End Sub
 
 
+Private Sub CaseProtectionApplied()
+'
+'==============================================================================
+'                            CaseProtectionApplied
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After ProtectWorkbook every worksheet is protected for the user
+'   interface only, with its drawing objects and scenarios, and allows
+'   sorting, filtering, inserting rows and opening row groups exactly as
+'   the PROTECT_ lists of CORE_Config say; the structure is protected
+'   (#421). Sample cells of the editability matrix read as it says, found
+'   through their workbook names: an input cell just below a header and
+'   5,000 rows further down unlocked, the header locked, the reporting
+'   date and an FX rate unlocked, a regulatory parameter and a Results
+'   cell locked (#422).
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet   As Worksheet    'Each worksheet
+    Dim Listed  As String       'Its name between bars
+    Dim Wrong   As String       'Sheets protected otherwise
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "protection.applied"
+        M_Main.ProtectWorkbook
+        For Each Sheet In ThisWorkbook.Worksheets
+            Listed = "|" & Sheet.Name & "|"
+            If Not SheetProtected(Sheet.Name) Then
+                Wrong = Wrong & " " & Sheet.Name
+            ElseIf Sheet.Protection.AllowSorting <> (InStr(1, PROTECT_SORTING, Listed) > 0) Or _
+                   Sheet.Protection.AllowFiltering <> (InStr(1, PROTECT_FILTERING, Listed) > 0) Or _
+                   Sheet.Protection.AllowInsertingRows <> (InStr(1, PROTECT_INSERTING_ROWS, Listed) > 0) Then
+                Wrong = Wrong & " " & Sheet.Name
+            ElseIf InStr(1, PROTECT_OUTLINING, Listed) > 0 And Not Sheet.EnableOutlining Then
+                Wrong = Wrong & " " & Sheet.Name
+            End If
+        Next Sheet
+        Check Len(Wrong) = 0, "sheets not protected as the PROTECT_ lists say:" & Wrong
+        Check ThisWorkbook.ProtectStructure, "the workbook structure is not protected"
+        Check Not NamedCell(NM_TR_HEADER).Offset(1, 0).Locked And Not NamedCell(NM_TR_HEADER).Offset(5000, 0).Locked And _
+              NamedCell(NM_TR_HEADER).Locked And Not NamedCell(NM_NS_HEADER).Offset(1, 0).Locked And _
+              Not NamedCell("AsOfDate").Locked And Not NamedCell(NM_FX_TABLE).Offset(1, 2).Locked And _
+              NamedCell("Alpha").Locked And NamedCell(NM_RS_HEADER).Offset(1, 0).Locked, _
+              "an input, parameter or output cell is not locked as the editability matrix says"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "protection.applied", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseProtectionRelock()
+'
+'==============================================================================
+'                             CaseProtectionRelock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A maintenance unlock of Params and of the structure, and Results
+'   protected as the saved file has it (not for the user interface only,
+'   as after a reopening without Auto_Open), do not stop a run: the run
+'   protects them again for the user interface only, writes Results and
+'   succeeds (#421).
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result   As String    'Result line of the run
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "protection.relock"
+        GetSheet(SH_PARAMS).Unprotect
+        ThisWorkbook.Unprotect
+        With GetSheet(SH_RESULTS)
+            .Unprotect
+            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=False
+        End With
+        Check Not GetSheet(SH_PARAMS).ProtectContents And Not ThisWorkbook.ProtectStructure, _
+              "the maintenance unlock did not take"
+        Check LockedForMacros(SH_RESULTS), "Results is not protected as saved before the run"
+        Result = M_Main.RunSACCR_Silent()
+        Check Left$(Result, 9) = "RESULT=OK", "run: " & Result
+        Check SheetProtected(SH_PARAMS), "the run did not protect Params again"
+        Check SheetProtected(SH_RESULTS), "the run did not protect Results for the user interface only"
+        Check ThisWorkbook.ProtectStructure, "the run did not protect the structure again"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "protection.relock", "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.ProtectWorkbook
+
+End Sub
+
+
+Private Sub CaseFaultProtectionKept()
+'
+'==============================================================================
+'                           CaseFaultProtectionKept
+'------------------------------------------------------------------------------
+' PURPOSE
+'   ProtectWorkbook leaves a sheet that gKeepProtection lists as it is,
+'   so that a test that makes a sheet unwritable for the macros is not
+'   undone by the operation it runs; once the sheet is released, it is
+'   protected for the user interface only again (#421).
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "protection.fault-kept"
+        LockForFault SH_CHECKS
+        M_Main.ProtectWorkbook
+        Check LockedForMacros(SH_CHECKS), "ProtectWorkbook undid the test protection of Checks"
+        UnlockFromFault SH_CHECKS
+        Check SheetProtected(SH_CHECKS), "Checks was not protected again for the user interface only"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "protection.fault-kept", "unexpected error " & Err.Number & ": " & Err.Description
+        UnprotectOutput SH_CHECKS
+
+End Sub
+
+
 '
 '------------------------------------------------------------------------------
 '
@@ -1841,6 +2010,80 @@ End Sub
 '
 '------------------------------------------------------------------------------
 '
+
+Private Sub LockForFault( _
+    ByVal SheetName As String)
+'
+'==============================================================================
+'                                 LockForFault
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Make a sheet unwritable for the macros too: protect it with
+'   UserInterfaceOnly False, as the saved file has it, and list it in
+'   M_Main.gKeepProtection, so that ProtectWorkbook, which every operation
+'   runs first, leaves it as it is (#421).
+'==============================================================================
+'
+        M_Main.gKeepProtection = M_Main.gKeepProtection & "|" & SheetName & "|"
+        With GetSheet(SheetName)
+            .Unprotect
+            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=False
+        End With
+
+End Sub
+
+
+Private Sub UnlockFromFault( _
+    ByVal SheetName As String)
+'
+'==============================================================================
+'                                UnlockFromFault
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Undo LockForFault: take the sheet off M_Main.gKeepProtection and give
+'   it back the workbook's protection.
+'==============================================================================
+'
+        M_Main.gKeepProtection = Replace(M_Main.gKeepProtection, "|" & SheetName & "|", "")
+        GetSheet(SheetName).Unprotect
+        M_Main.ProtectWorkbook
+
+End Sub
+
+
+Private Function LockedForMacros( _
+    ByVal SheetName As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True when a sheet is protected and not for the user interface only, so
+'   that the macros cannot write it either.
+'==============================================================================
+'
+        With GetSheet(SheetName)
+            LockedForMacros = .ProtectContents And Not .ProtectionMode
+        End With
+
+End Function
+
+
+Private Function SheetProtected( _
+    ByVal SheetName As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True when a sheet has the workbook's protection: contents, drawing
+'   objects and scenarios, for the user interface only.
+'==============================================================================
+'
+        With GetSheet(SheetName)
+            SheetProtected = .ProtectContents And .ProtectionMode And .ProtectDrawingObjects And .ProtectScenarios
+        End With
+
+End Function
+
 
 Private Sub BeginCase( _
     ByVal CaseName As String)

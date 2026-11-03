@@ -31,6 +31,10 @@ Attribute VB_Name = "M_Main"
 '   blank CSV template of the input contract to a file (#206);
 '   ExportCsvTemplate_Silent: the same to a given file, for automation and
 '   tests.
+'   ExportImportSpecification: save the CSV import specification, an HTML
+'   page with an example of each file, to a file and offer to open it
+'   (#473); ExportImportSpecification_Silent: the same to a given file,
+'   for automation and tests.
 '   CheckTradesCsv and CheckNettingSetsCsv: check a CSV file against the
 '   input contract and report the outcome, writing nothing (#207), from
 '   the Macros dialog; ReadCsv_Silent: the same for a given file, for
@@ -42,11 +46,27 @@ Attribute VB_Name = "M_Main"
 '   change handler of the staging sheets. StagingFormulaCell: the first
 '   formula in a staging block, for staging validation and commit.
 '   ValidateStaging: check the rows of both staging sheets against the
-'   contract and each other, and list the findings on Checks with the
-'   origin IMPORT and a link to each cell, which is marked (#209);
+'   contract, each other and Params, and list the findings on Checks with
+'   the origin IMPORT and a link to each cell, which is marked (#209);
 '   ValidateStaging_Silent: the same, for automation and tests.
+'   StagingValidationCurrent: whether the last staging validation was
+'   VALID and nothing it judged has changed, for the commit (#210, #211).
+'   RefreshStagingStatus: show OUT OF DATE on a staging sheet that reads
+'   VALID once what the last validation judged has changed, and VALID
+'   again when it matches (#210); called when a staging sheet is
+'   activated.
+'   CommitStaging_Silent: replace NettingSets and Trades with the staged
+'   rows once a VALID staging validation still holds, putting them back
+'   on any failure (#211); CommitImport: the same after a confirmation
+'   that names each input sheet with its row counts.
+'   Auto_Open: run by Excel when the workbook opens; protects every sheet
+'   again for the user interface only. ProtectWorkbook: protect every
+'   sheet and the workbook structure, without a password, so that the
+'   macros write while the user changes only the unlocked cells (#421);
+'   also run when each operation starts.
 '   The sheet buttons call the first three, ExportEvidence, the two
-'   template exports, the two imports and ValidateStaging by name.
+'   template exports, the two imports, ValidateStaging, CommitImport and
+'   ExportImportSpecification by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
@@ -55,7 +75,8 @@ Attribute VB_Name = "M_Main"
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
 '   evidence report and its UTF-8 encoding; CORE_CsvReader and
 '   CORE_CsvSchema for the CSV check, the staging load and the staging
-'   validation; CORE_Util and CORE_Config for the output and staging
+'   validation; CORE_ImportSpec for the import specification page;
+'   CORE_Util and CORE_Config for the output and staging
 '   sheets, the CSV template header lines and the error numbers.
 '
 ' STATE OWNERSHIP
@@ -87,16 +108,24 @@ Attribute VB_Name = "M_Main"
 '   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
 '   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
-'   report and the CSV templates, before the new file is opened, while it
+'   report, the CSV templates and the import specification, before the new file is opened, while it
 '   is written and while the older file is replaced (#312).
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
+'   gTestFault = "commit-write" raises ERR_INJECTED_FAULT in
+'   CommitStaging once the first input sheet has been written;
+'   "commit-verify" makes its read-back fail, and "commit-rollback" makes
+'   the write-back of the input sheets fail as well (#211).
 '   tests/modules/TEST_MainState.bas uses the first four;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
-'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write".
+'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write"
+'   and the commit faults.
 '   gLastMessage keeps the last message passed to Notify (a failure
 '   message is not kept), so that a test can read it in silent mode.
-'   Production code never sets gTestFault.
+'   gKeepProtection lists, between bars, sheets whose protection
+'   ProtectWorkbook leaves as it is, so that a test can make a sheet
+'   unwritable for the macros too (#421); TEST_MainState uses it.
+'   Production code never sets gTestFault or gKeepProtection.
 '
 ' KNOWN DEVIATION
 '   This standard module lives in src/workbook. See the known deviations in
@@ -106,7 +135,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-29
+'   2026-11-03
 '
 ' AUTHOR
 '   Daniele Penza
@@ -152,6 +181,10 @@ Attribute VB_Name = "M_Main"
     'most; the summary line gives the full count.
         Private Const STAGING_ERROR_FILL    As Long = 13551615    'RGB(255, 199, 206)
         Private Const STAGING_LISTED_MAX    As Long = 10000       'Findings listed and marked
+    'The code of the finding of a run that would stop at Params, and the
+    'table columns of its row searched for its reference.
+        Private Const STAGING_PARAMS_CODE   As String = "CSV-CONTEXT-PARAMS"
+        Private Const STAGING_ROW_SEARCH    As Long = 16
 
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
@@ -180,15 +213,146 @@ Attribute VB_Name = "M_Main"
     'TEST_Reconcile), whose output would overflow the Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*" or "staging-write"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write" or "commit-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
+        Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
         Private mReconState      As String    'Netting-set reconciliation outcome
         Private mTradeReconState As String    'Trade reconciliation outcome
         Private mReconLine       As String    'Lines for the run message; "" for none
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              WORKBOOK PROTECTION
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub Auto_Open()
+'
+'==============================================================================
+'                                  Auto_Open
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run by Excel when a user opens the workbook with macros enabled:
+'   protect every sheet again for the user interface only (#421).
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        ProtectWorkbook
+
+End Sub
+
+
+Public Sub ProtectWorkbook()
+'
+'==============================================================================
+'                               ProtectWorkbook
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Protect every worksheet and the workbook structure, without a
+'   password (#421). A sheet is protected for the user interface only, so
+'   that the macros write it while the user changes only its unlocked
+'   cells (docs/workbook/protection.json), with the options that
+'   PROTECT_SORTING, PROTECT_FILTERING, PROTECT_INSERTING_ROWS and
+'   PROTECT_OUTLINING give it. Excel saves neither UserInterfaceOnly nor
+'   EnableOutlining with the file, so this runs when the workbook opens
+'   (Auto_Open) and when each operation starts (ExecuteOperation,
+'   LoadStaging, CheckStaging and CommitStaging): a sheet unprotected for
+'   maintenance is protected again then. A sheet already protected for
+'   the user interface only is left as it is.
+'
+' USAGE
+'   Also listed in the Macros dialog, to protect the workbook again at
+'   once after maintenance.
+'
+' ERROR POLICY
+'   Never raises. A sheet, or the structure, protected with a password is
+'   left as it is, and so is a sheet the test seam gKeepProtection lists.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet   As Worksheet    'Each worksheet
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        For Each Sheet In ThisWorkbook.Worksheets
+            ProtectSheet Sheet
+        Next Sheet
+        On Error GoTo Failed
+        If Not ThisWorkbook.ProtectStructure Then
+            ThisWorkbook.Protect Structure:=True, Windows:=False
+        End If
+
+Failed:
+
+End Sub
+
+
+Private Sub ProtectSheet( _
+    ByVal Sheet As Worksheet)
+'
+'==============================================================================
+'                                 ProtectSheet
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Protect one worksheet for the user interface only, with its options,
+'   unless it already is; let the user open and close its row groups when
+'   PROTECT_OUTLINING lists it.
+'
+' ERROR POLICY
+'   Never raises: a sheet protected with a password stays as it is, and
+'   so does one that gKeepProtection lists.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Listed  As String    'The sheet's name between bars, as the lists hold it
+
+'------------------------------------------------------------------------------
+' PROTECT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        Listed = "|" & Sheet.Name & "|"
+        If InStr(1, gKeepProtection, Listed, vbBinaryCompare) > 0 Then
+            Exit Sub
+        End If
+        If Not (Sheet.ProtectContents And Sheet.ProtectionMode) Then
+            Sheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=True, _
+                          AllowSorting:=(InStr(1, PROTECT_SORTING, Listed, vbBinaryCompare) > 0), _
+                          AllowFiltering:=(InStr(1, PROTECT_FILTERING, Listed, vbBinaryCompare) > 0), _
+                          AllowInsertingRows:=(InStr(1, PROTECT_INSERTING_ROWS, Listed, vbBinaryCompare) > 0)
+        End If
+        If InStr(1, PROTECT_OUTLINING, Listed, vbBinaryCompare) > 0 Then
+            Sheet.EnableOutlining = True
+        End If
+
+Failed:
+
+End Sub
 
 
 '
@@ -1347,7 +1511,7 @@ Public Sub ExportEvidence()
             Exit Sub
         End If
         LineCount = WriteEvidence(CStr(ChosenFile))
-        Notify "Evidence exported: " & CStr(ChosenFile) & " (" & LineCount & " lines).", vbInformation
+        Notify "Evidence exported, " & LineCount & " lines:" & vbLf & vbLf & CStr(ChosenFile), vbInformation
         Exit Sub
 
 Failed:
@@ -1534,8 +1698,8 @@ Private Sub WriteTextFile( _
 ' PURPOSE
 '   Write FileText to FilePath as UTF-8 without a byte-order mark,
 '   replacing any file of that name, hidden ones included; a read-only
-'   file is left as it is and the write fails. Used by the evidence export
-'   and the CSV template export.
+'   file is left as it is and the write fails. Used by the evidence export,
+'   the CSV template export and the import specification export.
 '
 ' METHOD
 '   The text is written whole to a new file beside FilePath first. Only
@@ -2313,7 +2477,7 @@ Private Sub ExportCsvTemplate( _
             Exit Sub
         End If
         WriteTextFile CStr(ChosenFile), CsvTemplateText(Kind)
-        Notify Kind & " CSV template exported: " & CStr(ChosenFile) & ".", vbInformation
+        Notify Kind & " CSV template exported:" & vbLf & vbLf & CStr(ChosenFile), vbInformation
         Exit Sub
 
 Failed:
@@ -2370,6 +2534,151 @@ Private Function CsvTemplateFile( _
         End Select
 
 End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                         IMPORT SPECIFICATION EXPORT
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ExportImportSpecification()
+'
+'==============================================================================
+'                          ExportImportSpecification
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Save the CSV import specification (#473) to a file chosen by the user:
+'   one HTML page, with no script and no external file, that describes
+'   the NettingSets and Trades files and gives an example of each
+'   (CORE_ImportSpec). A file that exists is replaced only once the user
+'   confirms it; the user may then open the page.
+'
+' USAGE
+'   Assigned to the Export import specifications button on
+'   Import_NettingSets and Import_Trades.
+'
+' ERROR POLICY
+'   Reports a failure in a message, or in the Immediate window in silent
+'   mode; never raises. A cancelled dialog or a refused replacement writes
+'   nothing, and a failed write leaves an older file as it was
+'   (WriteTextFile). The workbook is never changed, so the export works
+'   with the protection on and whatever the inputs hold.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ChosenFile   As Variant    'Chosen file, or False when cancelled
+    Dim FilePath     As String     'Its path
+
+'------------------------------------------------------------------------------
+' ASK, CONFIRM AND WRITE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        ChosenFile = Application.GetSaveAsFilename(InitialFileName:=InWorkbookFolder(IMPORT_SPEC_FILE), _
+                                               FileFilter:="Web pages (*.html), *.html", _
+                                               Title:="Export import specifications")
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        FilePath = CStr(ChosenFile)
+        If FileExists(FilePath) Then
+            If MsgBox(FilePath & vbLf & vbLf & "already exists. Replace it?", _
+                      vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+                Exit Sub
+            End If
+        End If
+        WriteTextFile FilePath, CORE_ImportSpec.ImportSpecificationText()
+
+'------------------------------------------------------------------------------
+' REPORT AND OFFER TO OPEN
+'------------------------------------------------------------------------------
+        If gSilent Then
+            Notify "Import specifications exported:" & vbLf & vbLf & FilePath, vbInformation
+        ElseIf MsgBox("Import specifications exported:" & vbLf & vbLf & FilePath & vbLf & vbLf & _
+                      "Open the page now?", vbYesNo + vbInformation, MSG_TITLE) = vbYes Then
+            OpenExportedPage FilePath
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Import specifications not exported: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function ExportImportSpecification_Silent( _
+    ByVal FilePath As String, _
+    Optional ByVal ReplaceExisting As Boolean = False) _
+    As String
+'
+'==============================================================================
+'                       ExportImportSpecification_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The import specification export for automation and tests: write the
+'   page to FilePath without asking. A file that exists is replaced only
+'   with ReplaceExisting.
+'
+' RETURNS
+'   "RESULT=OK; bytes=N; file=..." or
+'   "RESULT=REFUSED; reason=the file exists; file=...".
+'
+' ERROR POLICY
+'   A file that cannot be written raises to the caller, as WriteTextFile
+'   raises it, and an older file is left as it was.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        If FileExists(FilePath) And Not ReplaceExisting Then
+            ExportImportSpecification_Silent = "RESULT=REFUSED; reason=the file exists; file=" & FilePath
+            Exit Function
+        End If
+        WriteTextFile FilePath, CORE_ImportSpec.ImportSpecificationText()
+        ExportImportSpecification_Silent = "RESULT=OK; bytes=" & IMPORT_SPEC_BYTES & "; file=" & FilePath
+
+End Function
+
+
+Private Sub OpenExportedPage( _
+    ByVal FilePath As String)
+'
+'==============================================================================
+'                               OpenExportedPage
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Open an exported page with the program Windows uses for HTML files.
+'
+' ERROR POLICY
+'   Reports a page that cannot be opened in a message; never raises. The
+'   page stays exported.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        On Error GoTo Failed
+        ThisWorkbook.FollowHyperlink Address:=FilePath
+        Exit Sub
+
+Failed:
+        Notify "The page was exported but could not be opened: " & Err.Description & vbLf & vbLf & FilePath, _
+               vbExclamation
+
+End Sub
 
 
 '
@@ -2810,8 +3119,14 @@ Public Sub StagingEdited( _
         If Target.Row + Target.Rows.Count - 1 <= HeaderCell.Row Then
             Exit Sub
         End If
+    'A sheet protected as saved, not for the user interface only, is
+    'protected again so that the status can be written (#421); one
+    'unprotected for maintenance stays so.
         Set StatusCell = NamedCell(StagingPrefixOf(Kind) & "_Status")
         If Not StatusCell Is Nothing Then
+            If StatusCell.Worksheet.ProtectContents Then
+                ProtectSheet StatusCell.Worksheet
+            End If
             If CStr(StatusCell.Value2) <> STAGING_EDITED Then
                 StatusCell.Value2 = STAGING_EDITED
             End If
@@ -2939,10 +3254,10 @@ Private Sub ImportCsv( _
         End If
         LoadStaging Kind, CStr(ChosenFile), Result, Values, Lines
         If Result.Accepted Then
-            Note = "Loaded into " & SheetName & " as text. Not validated yet; " & Kind & " is unchanged."
+            Note = "Loaded into " & SheetName & " as text." & vbLf & "Not validated yet; " & Kind & " is unchanged."
         Else
-            Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there. " & _
-                   Kind & " is unchanged."
+            Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there." & _
+                   vbLf & Kind & " is unchanged."
         End If
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, Note), _
@@ -3114,6 +3429,7 @@ Private Sub LoadStaging( _
             Next r
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
@@ -3330,11 +3646,12 @@ Private Sub ClearStagingBlock( _
 ' PURPOSE
 '   Clear the rows of a staging block, values and formats, down to the
 '   last row of the used range, and leave its data columns formatted as
-'   text, as the template has them, so that a value typed there later is
-'   kept as written.
+'   text and unlocked, as the template has them, so that a value typed
+'   there later is kept as written and can be typed on the protected
+'   sheet (#420); the CSV line column stays locked.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-03
 '==============================================================================
 '
 
@@ -3354,7 +3671,10 @@ Private Sub ClearStagingBlock( _
             .Clear
             .Font.Size = STAGING_FONT_SIZE
         End With
-        TableRange(Sheet, FirstRow, 2, LastRow, Width).NumberFormat = "@"
+        With TableRange(Sheet, FirstRow, 2, LastRow, Width)
+            .NumberFormat = "@"
+            .Locked = False
+        End With
 
 End Sub
 
@@ -3370,12 +3690,13 @@ Private Sub WriteStagingBlock( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Format the rows of Block on a staging sheet and write it: the CSV line
-'   column as a number on a grey fill, the data columns as text on the
-'   input fill, with the input borders. The text format is set before the
-'   values are written, so that Excel converts none of them.
+'   column as a number on a grey fill, locked, the data columns as text on
+'   the input fill, unlocked (#420), with the input borders. The text
+'   format is set before the values are written, so that Excel converts
+'   none of them.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-03
 '==============================================================================
 '
 
@@ -3391,10 +3712,12 @@ Private Sub WriteStagingBlock( _
         With TableRange(Sheet, FirstRow, 1, LastRow, 1)
             .NumberFormat = "0"
             .Interior.Color = STAGING_LINE_FILL
+            .Locked = True
         End With
         With TableRange(Sheet, FirstRow, 2, LastRow, Width)
             .NumberFormat = "@"
             .Interior.Color = STAGING_VALUE_FILL
+            .Locked = False
         End With
         With TableRange(Sheet, FirstRow, 1, LastRow, Width)
             .Font.Size = STAGING_FONT_SIZE
@@ -3405,6 +3728,68 @@ Private Sub WriteStagingBlock( _
         End With
 
 End Sub
+
+
+Private Function LastInputRow( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long) _
+    As Long
+'
+'==============================================================================
+'                                 LastInputRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The last row of an input block with a value or a formula in one of
+'   its columns, or FirstRow - 1 when none has either (#512).
+'   LastStagingRow reads values only, so a formula that returns empty
+'   text below the data would escape a commit: it would be neither kept,
+'   cleared nor read back, and could show a value once Excel recalculates.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim LastRow   As Long     'Last row of the used range
+    Dim Found     As Range    'The formula cells; Nothing for none
+    Dim Area      As Range    'One area of them
+    Dim AreaLast  As Long     'Its last row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+    'HasFormula is False when no cell has one and Null when some do;
+    'SpecialCells raises when it finds none.
+        LastInputRow = LastStagingRow(Sheet, FirstRow, Width)
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then
+            Exit Function
+        End If
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            If Not IsNull(.HasFormula) Then
+                If Not .HasFormula Then
+                    Exit Function
+                End If
+            End If
+            On Error Resume Next
+            Set Found = .SpecialCells(xlCellTypeFormulas)
+            On Error GoTo 0
+        End With
+        If Found Is Nothing Then
+            Exit Function
+        End If
+        For Each Area In Found.Areas
+            AreaLast = Area.Row + Area.Rows.Count - 1
+            If AreaLast > LastInputRow Then
+                LastInputRow = AreaLast
+            End If
+        Next Area
+
+End Function
 
 
 Private Function LastStagingRow( _
@@ -3494,15 +3879,18 @@ Private Function StagingFingerprint( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fingerprint a staging block, the CSV line column included, from the
-'   row below its header to its last row with a value; "" for an empty
-'   block.
+'   row below its header to its last row with a value (LastStagingRow);
+'   "" for an empty block. A cell holding an empty text reads as a blank
+'   cell, as LastStagingRow and ReadStaging read it: an import writes an
+'   empty CSV field as an empty text, and clearing that cell must not
+'   read as an edit.
 '
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when the staging sheet or its names are
 '   missing.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-02
 '==============================================================================
 '
 
@@ -3511,16 +3899,67 @@ Private Function StagingFingerprint( _
 '------------------------------------------------------------------------------
     Dim Sheet       As Worksheet    'The staging sheet
     Dim FirstRow    As Long         'First row below its header
-    Dim BlockString As String       'The block as text
+    Dim LastRow     As Long         'Last row with a value
+    Dim Width       As Long         'Columns, the CSV line column included
+    Dim Grid        As Variant      'The block's values
+    Dim Pieces()    As String       'One text per cell
+    Dim r           As Long         'Row of Grid
+    Dim c           As Long         'Column of Grid
+    Dim k           As Long         'Position in Pieces
 
 '------------------------------------------------------------------------------
 ' FINGERPRINT
 '------------------------------------------------------------------------------
+    'Chr$(31) separates cells; the width fixes where rows end.
         FirstRow = StagingHeaderRow(Kind, Sheet) + 1
-        BlockString = CORE_Engine.BlockText(Sheet, FirstRow, StagingWidth(Kind))
-        If Len(BlockString) > 0 Then
-            StagingFingerprint = TextHash(BlockString)
+        Width = StagingWidth(Kind)
+        LastRow = LastStagingRow(Sheet, FirstRow, Width)
+        If LastRow < FirstRow Then
+            Exit Function
         End If
+        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        ReDim Pieces(1 To (LastRow - FirstRow + 1) * Width)
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                k = k + 1
+                Pieces(k) = StagingToken(Grid(r, c))
+            Next c
+        Next r
+        StagingFingerprint = TextHash(Join(Pieces, Chr$(31)))
+
+End Function
+
+
+Private Function StagingToken( _
+    ByVal Content As Variant) _
+    As String
+'
+'==============================================================================
+'                                 StagingToken
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One staging cell as text for StagingFingerprint, with its type: ""
+'   for a blank cell or an empty text, T for a text, B for a logical, E
+'   for an error, N for a number.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        Select Case VarType(Content)
+            Case vbEmpty
+                StagingToken = ""
+            Case vbString
+                If Len(Content) > 0 Then
+                    StagingToken = "T" & Content
+                End If
+            Case vbBoolean
+                StagingToken = IIf(Content, "B1", "B0")
+            Case vbError
+                StagingToken = "E" & CStr(Content)
+            Case Else
+                StagingToken = "N" & CStr(Content)
+        End Select
 
 End Function
 
@@ -3824,6 +4263,8 @@ Private Function CheckStaging( _
 '   set each staging sheet's status to VALID or INVALID.
 '
 ' METHOD
+'   0. The workbook is recalculated first, as a run recalculates it, so
+'      that a formula input is judged by its current result (#519).
 '   1. Each staging block is read as text, as CheckStagedRecords reads
 '      it: each field, the rules between fields and the keys.
 '   2. The netting sets are those of Import_NettingSets when it holds
@@ -3831,15 +4272,25 @@ Private Function CheckStaging( _
 '      staged trades against them; when only netting sets are staged, it
 '      checks the netting set of each leg on Trades against them, and a
 '      finding is on the Trades cell.
-'   3. Checks is rewritten: a first INFO line with the counts, then one
+'   3. What a run reads first, the layout, Params and its two tables, is
+'      read as a run reads it (CORE_Engine.LoadRunContext). CheckContext
+'      judges the staged trades against it: the reporting date, the FX
+'      table, the factor table and the regime of their netting set; with
+'      only netting sets staged, the factor and regime rules on each leg
+'      of Trades. When a run would stop there, nothing that depends on it
+'      is judged and that finding, on the cell the run names, keeps every
+'      staging sheet that holds rows from VALID.
+'   4. Checks is rewritten: a first INFO line with the counts, then one
 '      ERROR line per finding with the sheet, the row, a link to the cell
 '      in Reference, the code, column, message and CSV line in Message,
 '      and the origin IMPORT; at most STAGING_LISTED_MAX of them.
-'   4. The marks of the last validation are taken off both staging
+'   5. The marks of the last validation are taken off both staging
 '      sheets, then each staged cell with a finding is marked. Live cells
 '      are never marked or changed.
-'   5. The status of each staging sheet that holds rows is set last.
-'   The fingerprints of the last run are left as they are. Checks no
+'   6. The status of each staging sheet that holds rows is set last, and
+'      a validation without a finding stores the fingerprint of what it
+'      judged for StagingValidationCurrent; any other empties it.
+'   The fingerprints and counters of the last run are left as they are. Checks no
 '   longer shows what the run wrote, so current outputs read as EDITED
 '   and the evidence export refuses until the next run (#244).
 '
@@ -3854,14 +4305,16 @@ Private Function CheckStaging( _
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when a staging sheet or its names are
 '   missing, and ERR_RUN_ACTIVE while an operation runs, before anything
-'   is written; ERR_OUTPUT_LAYOUT when the NettingSets or Trades table
+'   is written; ERR_RECALC_PENDING when Excel does not finish
+'   recalculating, before anything is judged or written;
+'   ERR_OUTPUT_LAYOUT when the NettingSets or Trades table
 '   it needs cannot be located, before Checks is written. A later error
 '   is raised after Excel's settings have been restored; Checks may then
 '   hold part of the findings, and no status is changed. A setting not
 '   restored raises ERR_CLEANUP_FAILED.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-11-03
 '==============================================================================
 '
 
@@ -3883,13 +4336,20 @@ Private Function CheckStaging( _
     Dim NsErrors            As Long             'Findings that keep Import_NettingSets from VALID
     Dim TrErrors            As Long             'Findings that keep Import_Trades from VALID
     Dim IDs()               As String           'The netting sets the legs may refer to
+    Dim Regimes()           As String           'The regime override of each; blank for none
     Dim IDCount             As Long             'How many there are
     Dim NsSource            As String           'The sheet they come from
+    Dim Context             As RunContext       'What a run reads from Params
+    Dim ProblemSheet        As String           'Where a run would stop instead: the sheet
+    Dim ProblemReference    As String           'Its parameter code, key or ID
+    Dim ProblemRow          As Long             'Its row; 0 for none
+    Dim ProblemMessage      As String           'Why
     Dim Result              As CsvReadResult    'What a check found
     Dim Findings()          As CsvFinding       'Its findings
     Dim Found()             As StagedFinding    'Every finding, for Checks
     Dim FoundCount          As Long             'How many there are
     Dim Summary             As String           'The first Checks line
+    Dim Dialog              As String           'The same, in blocks, for the message
     Dim SavedCalculation    As XlCalculation    'Calculation mode before the validation
     Dim SavedEvents         As Boolean          'EnableEvents before the validation
     Dim SavedScreen         As Boolean          'ScreenUpdating before the validation
@@ -3911,8 +4371,8 @@ Private Function CheckStaging( _
             If Len(FormulaAt) > 0 Then
                 FormulaAt = StagingSheetOf(CStr(Kind)) & "!" & FormulaAt
                 CheckStaging = "RESULT=REFUSED; reason=" & FormulaAt & " holds a formula"
-                Message = "Nothing was validated: " & FormulaAt & " holds a formula. Enter the value itself, " & _
-                          "as text."
+                Message = "Nothing was validated: " & FormulaAt & " holds a formula." & vbLf & vbLf & _
+                          "Enter the value itself, as text."
                 Exit Function
             End If
         Next Kind
@@ -3920,11 +4380,12 @@ Private Function CheckStaging( _
         TrRows = ReadStaging("Trades", TrSheet, TrFirst, TrValues, TrLines)
         If NsRows = 0 And TrRows = 0 Then
             CheckStaging = "RESULT=REFUSED; reason=nothing is staged"
-            Message = "Nothing was validated: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows. " & _
-                      "Import a CSV file first."
+            Message = "Nothing was validated: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows." & _
+                      vbLf & vbLf & "Import a CSV file first."
             Exit Function
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
@@ -3933,6 +4394,12 @@ Private Function CheckStaging( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
+    'A formula on Params, NettingSets or Trades is judged by its current
+    'result, as a run judges it (#519).
+        If Not InputsRecalculated() Then
+            Err.Raise ERR_RECALC_PENDING, "M_Main.CheckStaging", _
+                      "Excel did not finish recalculating the inputs, so nothing was validated."
+        End If
 
 '------------------------------------------------------------------------------
 ' EACH RECORD
@@ -3954,10 +4421,10 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
         If NsRows > 0 Then
             NsSource = SH_IMPORT_NS
-            StagedKeys NsValues, NsRows, IDs, IDCount
+            StagedKeys NsValues, NsRows, IDs, Regimes, IDCount
         Else
             NsSource = SH_NS
-            LiveKeys IDs, IDCount
+            LiveKeys IDs, Regimes, IDCount
         End If
         If TrRows > 0 Then
             CheckPortfolio TrValues, TrLines, TrRows, IDs, IDCount, Result, Findings, NsSource
@@ -3968,9 +4435,33 @@ Private Function CheckStaging( _
         End If
 
 '------------------------------------------------------------------------------
+' AGAINST PARAMS
+'------------------------------------------------------------------------------
+    'What a run reads before the input sheets, read as a run reads it. When
+    'a run would stop there, nothing that depends on it is judged, and no
+    'staging sheet can be VALID.
+        If CORE_Engine.LoadRunContext(Context, ProblemSheet, ProblemReference, ProblemRow, ProblemMessage) Then
+            If TrRows > 0 Then
+                CheckContext TrValues, TrLines, TrRows, Context, IDs, Regimes, IDCount, False, Result, Findings
+                AddCsvFindings "Trades", TrSheet, TrFirst, Result, Findings, Found, FoundCount
+                TrErrors = TrErrors + Result.FindingCount
+            Else
+                NsErrors = NsErrors + CheckLiveContext(Context, IDs, Regimes, IDCount, Found, FoundCount)
+            End If
+        Else
+            AddParamsFinding ProblemSheet, ProblemReference, ProblemRow, ProblemMessage, Found, FoundCount
+            If NsRows > 0 Then
+                NsErrors = NsErrors + 1
+            End If
+            If TrRows > 0 Then
+                TrErrors = TrErrors + 1
+            End If
+        End If
+
+'------------------------------------------------------------------------------
 ' WRITE CHECKS, MARK THE CELLS, SET THE STATUS
 '------------------------------------------------------------------------------
-        Summary = StagingSummary(NsRows, NsErrors, TrRows, TrErrors, NsSource, FoundCount)
+        Summary = StagingSummary(NsRows, NsErrors, TrRows, TrErrors, NsSource, FoundCount, Dialog)
         WriteStagingChecks Found, FoundCount, Summary
         UnmarkStaging "NettingSets"
         UnmarkStaging "Trades"
@@ -3981,6 +4472,7 @@ Private Function CheckStaging( _
         If TrRows > 0 Then
             StagingMetaCell("Trades", 4).Value2 = IIf(TrErrors = 0, STAGING_VALID, STAGING_INVALID)
         End If
+        RememberStagingValidation (FoundCount = 0)
 
 '------------------------------------------------------------------------------
 ' RESTORE EXCEL AND REPORT
@@ -4007,11 +4499,7 @@ CleanUp:
             CheckStaging = CheckStaging & "; first=" & Found(1).Code & "|" & _
                            IIf(Len(Found(1).CellAddress) > 0, Found(1).SheetName & "!" & Found(1).CellAddress, "-")
         End If
-        Message = Summary
-        If FoundCount > 0 Then
-            Message = Message & vbLf & vbLf & "The cells are marked on the staging sheets; each line of Checks " & _
-                      "links to its cell."
-        End If
+        Message = Dialog
         Exit Function
 
 '------------------------------------------------------------------------------
@@ -4135,30 +4623,36 @@ Private Sub StagedKeys( _
     ByRef Values() As String, _
     ByVal RowCount As Long, _
     ByRef IDs() As String, _
+    ByRef Regimes() As String, _
     ByRef IDCount As Long)
 '
 '==============================================================================
 ' PURPOSE
-'   The netting set IDs of the staged netting sets that have one.
+'   The netting set IDs of the staged netting sets that have one, and
+'   their regime overrides.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim KeyColumn   As Long    'Contract column of the netting set ID
-    Dim r           As Long    'Row
+    Dim KeyColumn       As Long    'Contract column of the netting set ID
+    Dim RegimeColumn    As Long    'Contract column of the regime override
+    Dim r               As Long    'Row
 
 '------------------------------------------------------------------------------
 ' COLLECT
 '------------------------------------------------------------------------------
         KeyColumn = ContractColumn("NettingSets", "netting_set_id")
+        RegimeColumn = ContractColumn("NettingSets", "regime_override")
         IDCount = 0
         ReDim IDs(1 To RowCount)
+        ReDim Regimes(1 To RowCount)
         For r = 1 To RowCount
             If Len(Values(r, KeyColumn)) > 0 Then
                 IDCount = IDCount + 1
                 IDs(IDCount) = Values(r, KeyColumn)
+                Regimes(IDCount) = Values(r, RegimeColumn)
             End If
         Next r
 
@@ -4167,6 +4661,7 @@ End Sub
 
 Private Sub LiveKeys( _
     ByRef IDs() As String, _
+    ByRef Regimes() As String, _
     ByRef IDCount As Long)
 '
 '==============================================================================
@@ -4174,14 +4669,15 @@ Private Sub LiveKeys( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The netting set IDs on NettingSets, trimmed as the engine reads them
-'   (SafeStr), for staged legs when no netting sets are staged.
+'   (SafeStr), and their regime overrides as it reads them (UTxt), for
+'   staged legs when no netting sets are staged.
 '
 ' ERROR POLICY
 '   Raises ERR_OUTPUT_LAYOUT when the NettingSets table cannot be located
 '   through its header name.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '==============================================================================
 '
 
@@ -4191,7 +4687,7 @@ Private Sub LiveKeys( _
     Dim Sheet       As Worksheet    'NettingSets
     Dim TopRow      As Long         'Its first data row
     Dim LastRow     As Long         'Its last row with a value
-    Dim Grid        As Variant      'The ID column
+    Dim Grid        As Variant      'The columns from ID to regime override
     Dim r           As Long         'Row of Grid
 
 '------------------------------------------------------------------------------
@@ -4199,20 +4695,1291 @@ Private Sub LiveKeys( _
 '------------------------------------------------------------------------------
         IDCount = 0
         ReDim IDs(1 To 1)
+        ReDim Regimes(1 To 1)
         TopRow = LiveFirstRow(SH_NS, NM_NS_HEADER)
         Set Sheet = GetSheet(SH_NS)
         LastRow = LastDataRowAny(Sheet, TopRow, NS_NCOLS, 0)
         If LastRow < TopRow Then
             Exit Sub
         End If
-        Grid = TableRange(Sheet, TopRow, NS_ID, LastRow + 1, NS_ID).Value2
+        Grid = TableRange(Sheet, TopRow, NS_ID, LastRow + 1, NS_REGIME).Value2
         ReDim IDs(1 To LastRow - TopRow + 1)
+        ReDim Regimes(1 To LastRow - TopRow + 1)
         For r = 1 To LastRow - TopRow + 1
             If Len(SafeStr(Grid(r, 1))) > 0 Then
                 IDCount = IDCount + 1
                 IDs(IDCount) = SafeStr(Grid(r, 1))
+                Regimes(IDCount) = UTxt(Grid(r, 1 + NS_REGIME - NS_ID))
             End If
         Next r
+
+End Sub
+
+
+Public Function StagingValidationCurrent() As Boolean
+'
+'==============================================================================
+'                           StagingValidationCurrent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether the last staging validation found no error and nothing it
+'   judged has changed since (#209): both staging blocks, NettingSets,
+'   Trades and Params, the FX and supervisory-factor tables included. A
+'   commit (#210, #211) refuses otherwise, so that it never relies on a
+'   validation of other inputs.
+'
+' RETURNS
+'   True when the fingerprint stored by the last VALID validation matches
+'   the inputs now and no staging block holds a formula. False when the
+'   last validation was not VALID, there was none, the inputs changed,
+'   even with events off, or the fingerprint cannot be taken because a
+'   staging sheet or a Params name is missing.
+'
+' ERROR POLICY
+'   Contains every error, which reads as not current.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Stored      As String    'The fingerprint of the last VALID validation
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        On Error GoTo NotCurrent
+        Stored = StoredText(STAGING_VALIDATED_NAME)
+        If Len(Stored) = 0 Then
+            Exit Function
+        End If
+        If Len(StagingFormulaCell("NettingSets")) > 0 Or Len(StagingFormulaCell("Trades")) > 0 Then
+            Exit Function
+        End If
+        StagingValidationCurrent = (StagingValidationFingerprint() = Stored)
+        Exit Function
+
+NotCurrent:
+        StagingValidationCurrent = False
+
+End Function
+
+
+Public Sub RefreshStagingStatus()
+'
+'==============================================================================
+'                             RefreshStagingStatus
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Make the status cells of the staging sheets tell whether the last
+'   staging validation still applies (#210). The change handlers mark only
+'   edits made on a staging sheet with events on; a change to Params,
+'   NettingSets or Trades, or an edit made with events off, would leave
+'   VALID on view. When what the last validation judged has changed since
+'   (its fingerprint, STAGING_CHECKED_NAME, no longer matches, or a
+'   staging block holds a formula), a sheet that reads VALID reads OUT OF
+'   DATE; when it matches again, a sheet that reads OUT OF DATE reads
+'   VALID. Every other status is left as it is. The status is for the
+'   user only: the commit (#211) checks StagingValidationCurrent itself,
+'   never the status text.
+'
+' USAGE
+'   Called by the Worksheet_Activate handlers of shImportNettingSets and
+'   shImportTrades.
+'
+' ERROR POLICY
+'   Contains every error: an event handler must not stop the user. A
+'   status that cannot be refreshed is left as it was.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Checked     As String     'Fingerprint of the last validation
+    Dim Matches     As Boolean    'What it judged is unchanged
+    Dim Events      As Boolean    'EnableEvents before the refresh
+    Dim Kind        As Variant    'NettingSets, then Trades
+    Dim StatusCell  As Range      'A status cell
+    Dim Status      As String     'What it reads
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Exit Sub
+        End If
+        Events = Application.EnableEvents
+        On Error GoTo Failed
+        Checked = StoredText(STAGING_CHECKED_NAME)
+        If Len(Checked) = 0 Then
+            Exit Sub
+        End If
+        If Len(StagingFormulaCell("NettingSets")) = 0 And Len(StagingFormulaCell("Trades")) = 0 Then
+            Matches = (ContainedValidationFingerprint() = Checked)
+        End If
+
+'------------------------------------------------------------------------------
+' REFRESH
+'------------------------------------------------------------------------------
+    'A sheet protected as saved is protected again for the user interface
+    'only, as in StagingEdited.
+        Application.EnableEvents = False
+        For Each Kind In Array("NettingSets", "Trades")
+            Set StatusCell = NamedCell(StagingPrefixOf(CStr(Kind)) & "_Status")
+            If Not StatusCell Is Nothing Then
+                If StatusCell.Worksheet.ProtectContents Then
+                    ProtectSheet StatusCell.Worksheet
+                End If
+                Status = CStr(StatusCell.Value2)
+                If Matches And Status = STAGING_OUT_OF_DATE Then
+                    StatusCell.Value2 = STAGING_VALID
+                ElseIf Not Matches And Status = STAGING_VALID Then
+                    StatusCell.Value2 = STAGING_OUT_OF_DATE
+                End If
+            End If
+        Next Kind
+
+Failed:
+        Application.EnableEvents = Events
+
+End Sub
+
+
+Private Function ContainedValidationFingerprint() As String
+'
+'==============================================================================
+'                        ContainedValidationFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   StagingValidationFingerprint, or "" when it cannot be taken because a
+'   staging sheet or a Params name is missing.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        On Error GoTo Failed
+        ContainedValidationFingerprint = StagingValidationFingerprint()
+        Exit Function
+
+Failed:
+        ContainedValidationFingerprint = ""
+
+End Function
+
+
+Public Sub CommitImport()
+'
+'==============================================================================
+'                                 CommitImport
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Replace NettingSets and Trades with the staged rows of a VALID staging
+'   validation (#211), after a confirmation that names each input sheet
+'   with its rows now and the staged rows that replace them, or says it is
+'   left as it is.
+'
+' USAGE
+'   The Commit import button on Import_NettingSets and Import_Trades, or
+'   the Macros dialog. Automation calls CommitStaging_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. Without a current VALID validation, or in silent
+'   mode, where no confirmation can be given, nothing is committed.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine  As String    'What the commit returned
+    Dim Message     As String    'Its message
+
+'------------------------------------------------------------------------------
+' CONFIRM, COMMIT AND REPORT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If Not InputsRecalculated() Then
+            Notify RecalcRefusedText(), vbExclamation
+            Exit Sub
+        End If
+        If Not StagingValidationCurrent() Then
+            Notify CommitRefusedText(), vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was committed." & vbLf & vbLf & "A commit is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls CommitStaging_Silent.", vbExclamation
+            Exit Sub
+        End If
+        If MsgBox(CommitQuestion(), vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        ResultLine = CommitStaging(Message)
+        If Left$(ResultLine, Len("RESULT=COMMITTED")) = "RESULT=COMMITTED" Then
+            Notify Message, vbInformation
+        ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
+            Notify Message, vbCritical
+        Else
+            Notify Message, vbExclamation
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Commit import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function InputsRecalculated() As Boolean
+'
+'==============================================================================
+'                              InputsRecalculated
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Bring every formula whose precedents changed up to date, as a run does
+'   before it reads its inputs (#195), so that staging validation and
+'   commit judge a formula on Params, NettingSets or Trades by its current
+'   result, not by the one Excel kept in manual calculation (#519).
+'   Calculate refreshes no external data connection.
+'
+' RETURNS
+'   True when Excel finished recalculating; False when it did not, for
+'   example after Esc.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        Application.Calculate
+        InputsRecalculated = (Application.CalculationState = xlDone)
+
+End Function
+
+
+Private Function RecalcRefusedText() As String
+'
+'==============================================================================
+' PURPOSE
+'   The message of a commit refused because Excel did not finish
+'   recalculating the inputs (#519).
+'==============================================================================
+'
+        RecalcRefusedText = "Nothing was committed." & vbLf & vbLf & "Excel did not finish recalculating the " & _
+                            "inputs." & vbLf & vbLf & "Press F9, then Commit import again."
+
+End Function
+
+
+Private Function CommitRefusedText() As String
+'
+'==============================================================================
+'                              CommitRefusedText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message of a commit refused for want of a current VALID staging
+'   validation (#211), for CommitImport and CommitStaging.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        CommitRefusedText = "Nothing was committed." & vbLf & vbLf & "The staged rows have no VALID validation " & _
+                            "that still matches them, the input sheets and Params." & vbLf & vbLf & _
+                            "Run Validate staging, correct any finding, then commit."
+
+End Function
+
+
+Private Function CommitQuestion() As String
+'
+'==============================================================================
+'                                CommitQuestion
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The confirmation of CommitImport (#211): for each input sheet, its
+'   rows now and the staged rows that replace them, or that it is left as
+'   it is because its staging sheet holds no rows; what follows a commit;
+'   and the question.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kind        As Variant      'NettingSets, then Trades
+    Dim Staged      As Worksheet    'Its staging sheet
+    Dim StagedFirst As Long         'Its first row below the header
+    Dim StagedRows  As Long         'Its staged rows
+    Dim LiveName    As String       'Its input sheet
+    Dim LiveFirst   As Long         'Its first data row
+    Dim LiveRows    As Long         'Its rows now
+    Dim Text        As String       'The question
+
+'------------------------------------------------------------------------------
+' COUNT AND ASK
+'------------------------------------------------------------------------------
+        Text = "Commit replaces the input sheets with the staged rows of the VALID validation:" & vbLf
+        For Each Kind In Array("NettingSets", "Trades")
+            StagedFirst = StagingHeaderRow(CStr(Kind), Staged) + 1
+            StagedRows = LastStagingRow(Staged, StagedFirst, StagingWidth(CStr(Kind))) - StagedFirst + 1
+            LiveName = IIf(IsNettingSetsKind(CStr(Kind)), SH_NS, SH_TRADES)
+            LiveFirst = TableFirstRow(LiveName)
+            LiveRows = LastStagingRow(GetSheet(LiveName), LiveFirst, _
+                                      IIf(IsNettingSetsKind(CStr(Kind)), NS_NCOLS, TR_NCOLS)) - LiveFirst + 1
+            If StagedRows > 0 Then
+                Text = Text & vbLf & "- " & LiveName & ": its " & Format$(LiveRows, "#,##0") & _
+                       IIf(LiveRows = 1, " row", " rows") & " replaced by the " & Format$(StagedRows, "#,##0") & _
+                       IIf(StagedRows = 1, " staged row", " staged rows") & " of " & Staged.Name
+            Else
+                Text = Text & vbLf & "- " & LiveName & ": left as it is; " & Staged.Name & " holds no rows"
+            End If
+        Next Kind
+        CommitQuestion = Text & vbLf & vbLf & "Results will read OUT OF DATE until the next Run SA-CCR. Undo cannot " & _
+                         "take the commit back; the staged rows stay on the staging sheets." & vbLf & vbLf & "Commit?"
+
+End Function
+
+
+Public Function CommitStaging_Silent() As String
+'
+'==============================================================================
+'                             CommitStaging_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The commit of the staging sheets into the input sheets (#211), for
+'   automation and tests, without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=COMMITTED; nettingsets=N; trades=M", N and M being the rows
+'   written to NettingSets and Trades, 0 for a sheet left as it was;
+'   "RESULT=REFUSED; reason=..." when nothing was written; or
+'   "RESULT=FAILED; error=...; rollback=..." when a write failed, with
+'   rollback=NONE when nothing had been written, VERIFIED when the input
+'   sheets were put back and read back as they were, and FAILED: ... when
+'   they could not be.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, and ERR_CLEANUP_FAILED
+'   when the commit was done but Excel settings were not restored.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Message     As String    'The message, not shown
+
+'------------------------------------------------------------------------------
+' COMMIT
+'------------------------------------------------------------------------------
+        CommitStaging_Silent = CommitStaging(Message)
+
+End Function
+
+
+Private Function CommitStaging( _
+    ByRef Message As String) _
+    As String
+'
+'==============================================================================
+'                                CommitStaging
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Replace the input sheets with the staged rows (#211): NettingSets with
+'   the rows of Import_NettingSets when it holds any, Trades with those of
+'   Import_Trades when it holds any. A staging sheet without rows leaves
+'   its input sheet as it is: nothing is ever erased for lack of staged
+'   rows. Each replacement is whole: the staged rows are written from the
+'   first data row, and the input cells of the rows below them that held
+'   a value are cleared.
+'
+' METHOD
+'   1. Recalculate the workbook, as a run does, and refuse when Excel does
+'      not finish (#519); then refuse unless StagingValidationCurrent is
+'      True: the last staging validation was VALID and nothing it judged,
+'      staging blocks, input sheets and Params, has changed since, also
+'      with events off or in a formula's result. The status text is never
+'      read.
+'   2. Convert each staged value as a value typed by hand would be:
+'      numbers and integers to numbers, as the reader reads them (Val),
+'      dates to Excel dates, every other type to text written with a
+'      leading apostrophe, so that leading zeros and text that looks like
+'      a number, a date or a formula stay as staged. Blank stays blank.
+'   3. Keep the values and formulas of every input cell the commit may
+'      touch, down to the last row with a value or a formula, whatever
+'      the formula returns (LastInputRow, #512), a formula cell found as
+'      one (FormulasOnly), then write and read back each sheet; a value
+'      read back that differs from the one written, or a value or formula
+'      left below the committed rows, is a failure.
+'   4. On any failure, write back the kept cells of every input sheet the
+'      commit touched and read them back; the result tells whether that
+'      was verified, apart from the error itself.
+'   5. On success each committed staging sheet reads COMMITTED and the
+'      stored VALID validation is emptied, so that the same rows are not
+'      committed twice without a new validation. Results, Checks and the
+'      run and reconciliation fingerprints are left as they are: Results
+'      reads OUT OF DATE until the next run, as after any edit.
+'
+' ERROR POLICY
+'   See CommitStaging_Silent. gTestFault = "commit-write" raises
+'   ERR_INJECTED_FAULT once the first input sheet is written;
+'   "commit-verify" makes the read-back fail; "commit-rollback" raises it
+'   there too and makes the write-back fail as well.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kinds(1 To 2)       As String           'NettingSets, Trades
+    Dim LiveSheet(1 To 2)   As Worksheet        'The input sheets
+    Dim LiveFirst(1 To 2)   As Long             'Their first data rows
+    Dim InputWidth(1 To 2)       As Long             'Their input columns
+    Dim NewRows(1 To 2)     As Long             'Staged rows to write; 0 leaves the sheet
+    Dim OldLast(1 To 2)     As Long             'Last row with a value before the commit
+    Dim KeptLast(1 To 2)    As Long             'Last row of the kept cells
+    Dim NewBlock(1 To 2)    As Variant          'The typed values to write
+    Dim KeptValues(1 To 2)  As Variant          'Value2 of the kept cells
+    Dim KeptFormulas(1 To 2) As Variant         'Formula of the kept cells
+    Dim Touched(1 To 2)     As Boolean          'The commit may have changed the sheet
+    Dim StatusSet(1 To 2)   As Boolean          'The staging sheet was set to COMMITTED
+    Dim OldStatus(1 To 2)   As String           'What it read before
+    Dim StagedSheet         As Worksheet        'A staging sheet, from ReadStaging
+    Dim StagedFirst         As Long             'Its first row, from ReadStaging
+    Dim Values()            As String           'Its rows as text
+    Dim Lines()             As Long             'Their CSV lines, unused
+    Dim k                   As Long             'Kind
+    Dim SavedCalculation    As XlCalculation    'Calculation mode before the commit
+    Dim SavedEvents         As Boolean          'EnableEvents before the commit
+    Dim SavedScreen         As Boolean          'ScreenUpdating before the commit
+    Dim StateCaptured       As Boolean          'True once all three were read
+    Dim Committed           As Boolean          'Every sheet was written and read back
+    Dim ErrorNumber         As Long             'Primary error number; 0 for none
+    Dim ErrorDescription    As String           'Primary error description
+    Dim Rollback            As String           'NONE, VERIFIED or FAILED: details
+    Dim CleanupDetails      As String           'Settings not restored
+
+'------------------------------------------------------------------------------
+' REFUSE A COMMIT THAT NO CURRENT VALIDATION ALLOWS
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.CommitStaging", "An SA-CCR operation is already running."
+        End If
+    'A formula input whose precedents changed since the validation must
+    'show its new result before the fingerprints are compared (#519).
+        If Not InputsRecalculated() Then
+            CommitStaging = "RESULT=REFUSED; reason=Excel did not finish recalculating"
+            Message = RecalcRefusedText()
+            Exit Function
+        End If
+        If Not StagingValidationCurrent() Then
+            CommitStaging = "RESULT=REFUSED; reason=no current VALID staging validation"
+            Message = CommitRefusedText()
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' PLAN: TYPED VALUES AND THE CELLS TO KEEP
+'------------------------------------------------------------------------------
+        Kinds(1) = "NettingSets"
+        Kinds(2) = "Trades"
+        mRunning = True
+        ProtectWorkbook
+        On Error GoTo Failed
+        For k = 1 To 2
+            NewRows(k) = ReadStaging(Kinds(k), StagedSheet, StagedFirst, Values, Lines)
+            If NewRows(k) > 0 Then
+                NewBlock(k) = TypedBlock(Kinds(k), Values, NewRows(k))
+                Set LiveSheet(k) = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
+                LiveFirst(k) = TableFirstRow(LiveSheet(k).Name)
+                InputWidth(k) = IIf(k = 1, NS_NCOLS, TR_NCOLS)
+                OldLast(k) = LastInputRow(LiveSheet(k), LiveFirst(k), InputWidth(k))
+                KeptLast(k) = LiveFirst(k) + NewRows(k) - 1
+                If OldLast(k) > KeptLast(k) Then
+                    KeptLast(k) = OldLast(k)
+                End If
+                With TableRange(LiveSheet(k), LiveFirst(k), 1, KeptLast(k), InputWidth(k))
+                    KeptValues(k) = .Value2
+                    KeptFormulas(k) = FormulasOnly(.Cells)
+                End With
+            End If
+        Next k
+        If NewRows(1) = 0 And NewRows(2) = 0 Then
+            mRunning = False
+            CommitStaging = "RESULT=REFUSED; reason=nothing is staged"
+            Message = "Nothing was committed: " & SH_IMPORT_NS & " and " & SH_IMPORT_TR & " hold no rows."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE AND READ BACK
+'------------------------------------------------------------------------------
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                Touched(k) = True
+                TableRange(LiveSheet(k), LiveFirst(k), 1, LiveFirst(k) + NewRows(k) - 1, InputWidth(k)).Value = NewBlock(k)
+                If OldLast(k) >= LiveFirst(k) + NewRows(k) Then
+                    TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), InputWidth(k)).ClearContents
+                End If
+                If gTestFault = "commit-write" Or gTestFault = "commit-rollback" Then
+                    Err.Raise ERR_INJECTED_FAULT, "M_Main.CommitStaging", "Injected commit write failure."
+                End If
+            End If
+        Next k
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                CheckWritten LiveSheet(k), LiveFirst(k), InputWidth(k), NewBlock(k), NewRows(k), OldLast(k)
+            End If
+        Next k
+        ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""""", Visible:=False
+        For k = 1 To 2
+            If NewRows(k) > 0 Then
+                OldStatus(k) = CStr(StagingMetaCell(Kinds(k), 4).Value2)
+                StatusSet(k) = True
+                StagingMetaCell(Kinds(k), 4).Value2 = STAGING_COMMITTED
+            End If
+        Next k
+        Committed = True
+
+'------------------------------------------------------------------------------
+' RESTORE EXCEL AND REPORT
+'------------------------------------------------------------------------------
+CleanUp:
+        On Error GoTo 0
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If Not Committed Then
+            CommitStaging = "RESULT=FAILED; error=" & ErrorDescription & "; rollback=" & Rollback
+            Message = "Nothing was committed." & vbLf & vbLf & ErrorDescription & " (error " & ErrorNumber & ")."
+            If Left$(Rollback, 6) = "FAILED" Then
+                Message = Message & vbLf & vbLf & "The input sheets could not be put back as they were: " & _
+                          Mid$(Rollback, 9) & ". Check NettingSets and Trades before any run."
+            ElseIf Rollback = "VERIFIED" Then
+                Message = Message & vbLf & vbLf & "The input sheets were put back as they were and checked."
+            End If
+            If Len(CleanupDetails) > 0 Then
+                Message = Message & vbLf & vbLf & "Excel settings were not restored: " & CleanupDetails
+            End If
+            Exit Function
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.CommitStaging", _
+                      "The staged rows were committed, but Excel settings were not restored: " & CleanupDetails
+        End If
+        CommitStaging = "RESULT=COMMITTED; nettingsets=" & NewRows(1) & "; trades=" & NewRows(2)
+        Message = "Committed." & vbLf & vbLf & SH_NS & ": " & _
+                  IIf(NewRows(1) > 0, CountText(NewRows(1), "row") & " written", "unchanged") & vbLf & SH_TRADES & ": " & _
+                  IIf(NewRows(2) > 0, CountText(NewRows(2), "row") & " written", "unchanged") & vbLf & vbLf & _
+                  "Results reads OUT OF DATE until the next Run SA-CCR."
+        Exit Function
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorDescription = Err.Description
+        Rollback = "NONE"
+        For k = 1 To 2
+            If Touched(k) Then
+                Rollback = ""
+            End If
+        Next k
+        If Len(Rollback) = 0 Then
+            Rollback = PutLiveBack(LiveSheet, LiveFirst, InputWidth, KeptLast, KeptValues, KeptFormulas, Touched)
+        End If
+        PutStatusesBack Kinds, StatusSet, OldStatus
+        Resume CleanUp
+
+End Function
+
+
+Private Function TypedBlock( _
+    ByVal Kind As String, _
+    ByRef Values() As String, _
+    ByVal RowCount As Long) _
+    As Variant
+'
+'==============================================================================
+'                                  TypedBlock
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The staged rows of Kind as the values a commit writes (#211), by the
+'   type of each contract column: a number or an integer as the reader
+'   reads it (Val), a date as an Excel date, any other type as text with
+'   a leading apostrophe, and blank as Empty. The contract's columns are
+'   the input sheet's, in the same order (check_csv_contract.py).
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE for a date that cannot be read, which a VALID
+'   validation rules out.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec        As CsvSpec            'The contract's file
+    Dim Columns()   As CsvColumn          'Its columns
+    Dim Rules()     As CsvRule            'Its rules, unused
+    Dim Block()     As Variant            'The values
+    Dim Serial      As Double             'A date as a serial number
+    Dim r           As Long               'Row
+    Dim c           As Long               'Column
+
+'------------------------------------------------------------------------------
+' CONVERT
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.TypedBlock", "the contract has no " & Kind & " file"
+        End If
+        ReDim Block(1 To RowCount, 1 To Spec.ColumnCount)
+        For r = 1 To RowCount
+            For c = 1 To Spec.ColumnCount
+                If Len(Values(r, c)) > 0 Then
+                    Select Case Columns(c).Kind
+                        Case "number", "integer"
+                            Block(r, c) = Val(Values(r, c))
+                        Case "date"
+                            Serial = ToSerial(Values(r, c))
+                            If Serial < 0# Then
+                                Err.Raise ERR_STAGING_WRITE, "M_Main.TypedBlock", _
+                                          Kind & " row " & r & ": '" & Values(r, c) & "' is not a date"
+                            End If
+                            Block(r, c) = CDate(Serial)
+                        Case Else
+                            Block(r, c) = "'" & Values(r, c)
+                    End Select
+                End If
+            Next c
+        Next r
+        TypedBlock = Block
+
+End Function
+
+
+Private Sub CheckWritten( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByRef Block As Variant, _
+    ByVal RowCount As Long, _
+    ByVal OldLast As Long)
+'
+'==============================================================================
+'                                 CheckWritten
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read back what a commit wrote to an input sheet (#211): each cell must
+'   hold the value written, a text without its apostrophe and a date as
+'   its serial number, and no input cell below the written rows may hold
+'   a value.
+'
+' ERROR POLICY
+'   Raises ERR_STAGING_WRITE at the first difference; gTestFault =
+'   "commit-verify" raises it at once.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Grid        As Variant    'The cells read back, Value2
+    Dim Expected    As Variant    'What a cell should hold
+    Dim r           As Long       'Row
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' READ BACK
+'------------------------------------------------------------------------------
+        If gTestFault = "commit-verify" Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", "Injected read-back difference on " & Sheet.Name
+        End If
+        Grid = TableRange(Sheet, FirstRow, 1, FirstRow + RowCount - 1, Width).Value2
+        For r = 1 To RowCount
+            For c = 1 To Width
+                Expected = Block(r, c)
+                If VarType(Expected) = vbString Then
+                    Expected = Mid$(Expected, 2)
+                ElseIf VarType(Expected) = vbDate Then
+                    Expected = CDbl(Expected)
+                End If
+                If Not SameCellValue(Grid(r, c), Expected) Then
+                    Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", Sheet.Name & "!" & _
+                              TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & " does not read as written"
+                End If
+            Next c
+        Next r
+        If LastInputRow(Sheet, FirstRow, Width) <> FirstRow + RowCount - 1 Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.CheckWritten", Sheet.Name & ": a row below the committed rows " & _
+                      "still holds a value or a formula"
+        End If
+
+End Sub
+
+
+Private Function SameCellValue( _
+    ByVal Found As Variant, _
+    ByVal Expected As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                                SameCellValue
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether a cell's Value2 is the value expected: both blank, both the
+'   same text, both the same number, both the same logical value or both
+'   the same error. A blank cell and an empty text are alike.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        If IsEmpty(Found) Or (VarType(Found) = vbString And Len(CStr(Found)) = 0 And Not IsError(Found)) Then
+            SameCellValue = IsEmpty(Expected) Or (VarType(Expected) = vbString And Len(CStr(Expected)) = 0)
+        ElseIf IsError(Found) Or IsError(Expected) Then
+            If IsError(Found) And IsError(Expected) Then
+                SameCellValue = (CStr(Found) = CStr(Expected))
+            End If
+        ElseIf VarType(Found) <> VarType(Expected) Then
+            If IsPlainNumber(Found) And IsPlainNumber(Expected) Then
+                SameCellValue = (CDbl(Found) = CDbl(Expected))
+            End If
+        Else
+            SameCellValue = (Found = Expected)
+        End If
+
+End Function
+
+
+Private Function IsPlainNumber( _
+    ByVal Content As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                                IsPlainNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Content is a number held as a number: not a text, a logical
+'   value, a blank or an error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+        Select Case VarType(Content)
+            Case vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal, vbByte, vbDate
+                IsPlainNumber = True
+        End Select
+
+End Function
+
+
+Private Sub PutStatusesBack( _
+    ByRef Kinds() As String, _
+    ByRef StatusSet() As Boolean, _
+    ByRef OldStatus() As String)
+'
+'==============================================================================
+'                               PutStatusesBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give back their previous text to the status cells a failed commit had
+'   already set to COMMITTED (#211), so that an interrupted commit never
+'   reads COMMITTED.
+'
+' ERROR POLICY
+'   Contains every error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim k   As Long    'Kind
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        For k = LBound(StatusSet) To UBound(StatusSet)
+            If StatusSet(k) Then
+                StagingMetaCell(Kinds(k), 4).Value2 = OldStatus(k)
+            End If
+        Next k
+
+End Sub
+
+
+Private Function FormulasOnly( _
+    ByVal Target As Range) _
+    As Variant
+'
+'==============================================================================
+'                                 FormulasOnly
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The formulas of Target's formula cells, by row and column within
+'   Target, and "" for every other cell (#211). Formula returns the value
+'   of a constant cell, so a text that starts with "=" would be taken for
+'   a formula; the formula cells are found with SpecialCells instead.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Found       As Range      'The formula cells; Nothing for none
+    Dim Area        As Range      'One area of them
+    Dim Cell        As Range      'One of them
+    Dim Out()       As Variant    'The result
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        ReDim Out(1 To Target.Rows.Count, 1 To Target.Columns.Count)
+        If Not IsNull(Target.HasFormula) Then
+            If Not Target.HasFormula Then
+                FormulasOnly = Out
+                Exit Function
+            End If
+        End If
+        On Error Resume Next
+        Set Found = Target.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        If Not Found Is Nothing Then
+            For Each Area In Found.Areas
+                For Each Cell In Area.Cells
+                    Out(Cell.Row - Target.Row + 1, Cell.Column - Target.Column + 1) = Cell.Formula
+                Next Cell
+            Next Area
+        End If
+        FormulasOnly = Out
+
+End Function
+
+
+Private Function PutLiveBack( _
+    ByRef LiveSheet() As Worksheet, _
+    ByRef LiveFirst() As Long, _
+    ByRef InputWidth() As Long, _
+    ByRef KeptLast() As Long, _
+    ByRef KeptValues() As Variant, _
+    ByRef KeptFormulas() As Variant, _
+    ByRef Touched() As Boolean) _
+    As String
+'
+'==============================================================================
+'                                 PutLiveBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the kept input cells of each input sheet a failed commit
+'   touched (#211) and read them back: a formula as its formula, a text
+'   with a leading apostrophe so that it stays text, any other value as
+'   it was.
+'
+' RETURNS
+'   "VERIFIED" when every kept cell reads back as it was; otherwise
+'   "FAILED: " and what failed, for each sheet.
+'
+' ERROR POLICY
+'   Contains every error. gTestFault = "commit-rollback" makes the write
+'   fail.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Problems    As String     'What failed
+    Dim k           As Long       'Kind
+
+'------------------------------------------------------------------------------
+' WRITE BACK EACH TOUCHED SHEET
+'------------------------------------------------------------------------------
+        For k = LBound(Touched) To UBound(Touched)
+            If Touched(k) Then
+                Problems = Problems & PutSheetBack(LiveSheet(k), LiveFirst(k), InputWidth(k), KeptLast(k), _
+                                                   KeptValues(k), KeptFormulas(k))
+            End If
+        Next k
+        If Len(Problems) = 0 Then
+            PutLiveBack = "VERIFIED"
+        Else
+            PutLiveBack = "FAILED: " & Mid$(Problems, 3)
+        End If
+
+End Function
+
+
+Private Function PutSheetBack( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal Width As Long, _
+    ByVal LastRow As Long, _
+    ByRef KeptValues As Variant, _
+    ByRef KeptFormulas As Variant) _
+    As String
+'
+'==============================================================================
+'                                 PutSheetBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the kept cells of one input sheet and read them back, for
+'   PutLiveBack.
+'
+' RETURNS
+'   "" when every cell reads back as it was; otherwise "; " and what
+'   failed.
+'
+' ERROR POLICY
+'   Contains every error.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Restore()   As Variant    'What is written back
+    Dim Grid        As Variant    'What is read back, Value2
+    Dim Formulas    As Variant    'What is read back, Formula
+    Dim Text        As String     'A kept formula
+    Dim r           As Long       'Row
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' WRITE BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        ReDim Restore(1 To LastRow - FirstRow + 1, 1 To Width)
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                Text = CStr(KeptFormulas(r, c))
+                If Left$(Text, 1) = "=" Then
+                    Restore(r, c) = Text
+                ElseIf VarType(KeptValues(r, c)) = vbString Then
+                    Restore(r, c) = "'" & KeptValues(r, c)
+                Else
+                    Restore(r, c) = KeptValues(r, c)
+                End If
+            Next c
+        Next r
+        If gTestFault = "commit-rollback" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.PutSheetBack", "Injected write-back failure."
+        End If
+        TableRange(Sheet, FirstRow, 1, LastRow, Width).Value = Restore
+
+'------------------------------------------------------------------------------
+' READ BACK
+'------------------------------------------------------------------------------
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            Grid = .Value2
+            Formulas = FormulasOnly(.Cells)
+        End With
+        For r = 1 To LastRow - FirstRow + 1
+            For c = 1 To Width
+                Text = CStr(KeptFormulas(r, c))
+                If Left$(Text, 1) = "=" Then
+                    If CStr(Formulas(r, c)) <> Text Then
+                        PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                                       " does not hold its formula again"
+                        Exit Function
+                    End If
+                ElseIf Len(CStr(Formulas(r, c))) > 0 Or Not SameCellValue(Grid(r, c), KeptValues(r, c)) Then
+                    PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                                   " does not hold its value again"
+                    Exit Function
+                End If
+            Next c
+        Next r
+        Exit Function
+
+Failed:
+        PutSheetBack = "; " & Sheet.Name & ": " & Err.Description
+
+End Function
+
+
+Private Function StagingValidationFingerprint() As String
+'
+'==============================================================================
+'                         StagingValidationFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint what a staging validation judges (#209): everything a run
+'   reads (CORE_Engine.InputFingerprint), which covers NettingSets, Trades
+'   and Params with its two tables, and both staging blocks. The live
+'   sheets are all included, also the one a staged block replaces: an
+'   edit there makes a validation out of date rather than risk missing
+'   one.
+'
+' ERROR POLICY
+'   Raises the errors of InputFingerprint and StagingFingerprint.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+        StagingValidationFingerprint = TextHash(Join(Array("SV1", CORE_Engine.InputFingerprint(), _
+                                                StagingFingerprint("NettingSets"), StagingFingerprint("Trades")), Chr$(29)))
+
+End Function
+
+
+Private Sub RememberStagingValidation( _
+    ByVal Valid As Boolean)
+'
+'==============================================================================
+'                          RememberStagingValidation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Store the fingerprint of a VALID staging validation in the hidden name
+'   STAGING_VALIDATED_NAME, for StagingValidationCurrent; any other result
+'   empties it, so that an earlier VALID validation cannot be relied on.
+'   The fingerprint of every completed validation, whatever its result,
+'   goes to STAGING_CHECKED_NAME, for RefreshStagingStatus (#210); "" when
+'   it cannot be taken.
+'
+' UPDATED
+'   2026-11-02
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Fingerprint     As String    'What is stored for a VALID validation; "" for none
+    Dim Checked         As String    'What is stored for any validation
+
+'------------------------------------------------------------------------------
+' STORE
+'------------------------------------------------------------------------------
+        If Valid Then
+            Fingerprint = StagingValidationFingerprint()
+            Checked = Fingerprint
+        Else
+            Checked = ContainedValidationFingerprint()
+        End If
+        ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""" & Fingerprint & """", Visible:=False
+        ThisWorkbook.Names.Add Name:=STAGING_CHECKED_NAME, RefersTo:="=""" & Checked & """", Visible:=False
+
+End Sub
+
+
+Private Function CheckLiveContext( _
+    ByRef Context As RunContext, _
+    ByRef IDs() As String, _
+    ByRef Regimes() As String, _
+    ByVal IDCount As Long, _
+    ByRef Found() As StagedFinding, _
+    ByRef FoundCount As Long) _
+    As Long
+'
+'==============================================================================
+'                               CheckLiveContext
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When only netting sets are staged, judge each leg on Trades with the
+'   factor and regime rules against them (#209), because a staged regime
+'   override can change a leg's outcome. The legs are read as the engine
+'   reads them (UTxt). A finding is on the leg's Asset class or Sub-class
+'   cell on Trades, which is not marked or changed. The other rules do not
+'   depend on the netting sets and are left to the run.
+'
+' RETURNS
+'   The number of findings added to Found.
+'
+' ERROR POLICY
+'   Raises ERR_OUTPUT_LAYOUT when the Trades table cannot be located
+'   through its header name.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet        'Trades
+    Dim TopRow      As Long             'Its first data row
+    Dim LastRow     As Long             'Its last row with a value
+    Dim Grid        As Variant          'Its columns from Trade ID to Sub-class
+    Dim RowCount    As Long             'Rows read
+    Dim Spec        As CsvSpec          'The Trades contract
+    Dim Columns()   As CsvColumn        'Its columns
+    Dim Rules()     As CsvRule          'Its rules, unused here
+    Dim Values()    As String           'The legs, with only those columns
+    Dim Lines()     As Long             'No CSV line: 0 for every leg
+    Dim ColID       As Long             'Contract column of the Trade ID
+    Dim Result      As CsvReadResult    'What CheckContext found
+    Dim Findings()  As CsvFinding       'Its findings
+    Dim RowNumber   As Long             'Sheet row of a finding
+    Dim SheetColumn As Long             'Its column on Trades
+    Dim r           As Long             'Row or finding
+
+'------------------------------------------------------------------------------
+' READ THE LEGS
+'------------------------------------------------------------------------------
+        TopRow = LiveFirstRow(SH_TRADES, NM_TR_HEADER)
+        Set Sheet = GetSheet(SH_TRADES)
+        LastRow = LastDataRowAny(Sheet, TopRow, TR_NCOLS, TR_COMMENT)
+        If LastRow < TopRow Then
+            Exit Function
+        End If
+        RowCount = LastRow - TopRow + 1
+        Grid = TableRange(Sheet, TopRow, TR_ID, LastRow, TR_SUB).Value2
+        If Not CsvSpecOf("Trades", Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "M_Main.CheckLiveContext", "the contract has no Trades file"
+        End If
+        ColID = ContractColumn("Trades", "trade_id")
+        ReDim Values(1 To RowCount, 1 To Spec.ColumnCount)
+        ReDim Lines(1 To RowCount)
+        For r = 1 To RowCount
+            Values(r, ColID) = SafeStr(Grid(r, 1 + TR_ID - TR_ID))
+            Values(r, ContractColumn("Trades", "netting_set_id")) = UTxt(Grid(r, 1 + TR_NS - TR_ID))
+            Values(r, ContractColumn("Trades", "asset_class")) = UTxt(Grid(r, 1 + TR_AC - TR_ID))
+            Values(r, ContractColumn("Trades", "sub_class")) = UTxt(Grid(r, 1 + TR_SUB - TR_ID))
+        Next r
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        CheckContext Values, Lines, RowCount, Context, IDs, Regimes, IDCount, True, Result, Findings
+        For r = 1 To Result.FindingCount
+            RowNumber = TopRow + Findings(r).RecordNumber - 1
+            SheetColumn = IIf(Findings(r).ColumnName = "sub_class", TR_SUB, TR_AC)
+            AddStagedFinding Found, FoundCount, SH_TRADES, RowNumber, _
+                             TableCell(Sheet, RowNumber, SheetColumn).Address(False, False), Findings(r).Code, _
+                             Findings(r).Code & ": " & Findings(r).ColumnName & ": " & Findings(r).Message & _
+                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False
+        Next r
+        CheckLiveContext = Result.FindingCount
+
+End Function
+
+
+Private Sub AddParamsFinding( _
+    ByVal SheetName As String, _
+    ByVal Reference As String, _
+    ByVal RowNumber As Long, _
+    ByVal Message As String, _
+    ByRef Found() As StagedFinding, _
+    ByRef FoundCount As Long)
+'
+'==============================================================================
+'                               AddParamsFinding
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Add the finding of a run that would stop before the input sheets,
+'   as CORE_Engine.LoadRunContext reports it (#209). Its cell is the one
+'   named by the parameter code it names, or else the cell of its row
+'   that holds its reference, or else the first cell of its row; with
+'   neither a name nor a row it has no cell. It is never marked.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Target      As Range        'Its cell; Nothing for none
+    Dim Sheet       As Worksheet    'The sheet of its row
+    Dim Text        As String       'Its message
+    Dim c           As Long         'Column of its row
+
+'------------------------------------------------------------------------------
+' LOCATE
+'------------------------------------------------------------------------------
+        If Len(Reference) > 0 Then
+            Set Target = NamedCell(Reference)
+        End If
+        If Not Target Is Nothing Then
+            If Target.Worksheet.Name <> SheetName Or Target.Cells.Count <> 1 Then
+                Set Target = Nothing
+            End If
+        End If
+        If Target Is Nothing And RowNumber > 0 And Len(SheetName) > 0 Then
+            On Error Resume Next
+            Set Sheet = GetSheet(SheetName)
+            On Error GoTo 0
+            If Not Sheet Is Nothing Then
+                Set Target = TableCell(Sheet, RowNumber, 1)
+                For c = 1 To STAGING_ROW_SEARCH
+                    If Len(Reference) > 0 And StrComp(SafeStr(TableCell(Sheet, RowNumber, c).Value2), Reference, _
+                                                      vbTextCompare) = 0 Then
+                        Set Target = TableCell(Sheet, RowNumber, c)
+                        Exit For
+                    End If
+                Next c
+            End If
+        End If
+
+'------------------------------------------------------------------------------
+' ADD
+'------------------------------------------------------------------------------
+        Text = STAGING_PARAMS_CODE & ": "
+        If Len(Reference) > 0 Then
+            Text = Text & Reference & ": "
+        End If
+        Text = Text & Message & " - a run would stop here, so nothing that depends on Params was checked"
+        If Target Is Nothing Then
+            AddStagedFinding Found, FoundCount, SheetName, RowNumber, "", STAGING_PARAMS_CODE, Text, False
+        Else
+            AddStagedFinding Found, FoundCount, Target.Worksheet.Name, Target.Row, Target.Address(False, False), _
+                             STAGING_PARAMS_CODE, Text, False
+        End If
 
 End Sub
 
@@ -4454,29 +6221,39 @@ Private Function StagingSummary( _
     ByVal TrRows As Long, _
     ByVal TrErrors As Long, _
     ByVal NsSource As String, _
-    ByVal FoundCount As Long) _
+    ByVal FoundCount As Long, _
+    ByRef DialogText As String) _
     As String
 '
 '==============================================================================
 ' PURPOSE
 '   The first Checks line of a staging validation: when, what was checked
-'   and what was found.
+'   and what was found; and in DialogText the same facts for its message,
+'   one block per line, so that the message box does not wrap one long
+'   sentence.
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Text    As String    'The line
+    Dim Stamp   As String    'Date and time of the validation
+    Dim Text    As String    'The Checks line
+    Dim Dialog  As String    'The message, in blocks
 
 '------------------------------------------------------------------------------
-' WRITE
+' WRITE BOTH
 '------------------------------------------------------------------------------
-        Text = "Staging validation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": "
+    'Checks gets one line; the message the same facts, one block each.
+        Stamp = Format$(Now, "yyyy-mm-dd hh:mm:ss")
+        Text = "Staging validation " & Stamp & ": "
+        Dialog = "Staging validation " & Stamp & vbLf
         If NsRows > 0 Then
             Text = Text & SH_IMPORT_NS & " " & NsRows & " rows, " & NsErrors & " errors"
+            Dialog = Dialog & vbLf & SH_IMPORT_NS & ": " & CountText(NsRows, "row") & ", " & CountText(NsErrors, "error")
             If TrRows = 0 Then
                 Text = Text & ", with the legs on " & SH_TRADES
+                Dialog = Dialog & vbLf & "    checked with the legs on " & SH_TRADES
             End If
         End If
         If TrRows > 0 Then
@@ -4485,16 +6262,49 @@ Private Function StagingSummary( _
             End If
             Text = Text & SH_IMPORT_TR & " " & TrRows & " rows, " & TrErrors & " errors, against the netting sets on " & _
                    NsSource
+            Dialog = Dialog & vbLf & SH_IMPORT_TR & ": " & CountText(TrRows, "row") & ", " & CountText(TrErrors, "error") & _
+                     vbLf & "    checked against the netting sets on " & NsSource
         End If
         Text = Text & ". "
         If FoundCount = 0 Then
             Text = Text & "No issues found."
-        ElseIf FoundCount > STAGING_LISTED_MAX Then
-            Text = Text & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & Format$(FoundCount, "#,##0") & _
-                   " findings are listed below."
+            Dialog = Dialog & vbLf & vbLf & "No issues found. Commit import replaces the input sheets with these rows."
+        Else
+            If FoundCount > STAGING_LISTED_MAX Then
+                Text = Text & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & Format$(FoundCount, "#,##0") & _
+                       " findings are listed below."
+                Dialog = Dialog & vbLf & vbLf & "The first " & Format$(STAGING_LISTED_MAX, "#,##0") & " of " & _
+                         Format$(FoundCount, "#,##0") & " findings are listed on Checks."
+            Else
+                Dialog = Dialog & vbLf & vbLf & CountText(FoundCount, "finding") & " listed on Checks."
+            End If
+            Dialog = Dialog & vbLf & "Each line links to its cell, which is marked on its staging sheet."
         End If
         StagingSummary = Text & " Nothing was copied to " & SH_NS & " or " & SH_TRADES & _
                          "; Run SA-CCR writes the checks of a run here again."
+        DialogText = Dialog & vbLf & vbLf & "Nothing was copied to " & SH_NS & " or " & SH_TRADES & "." & vbLf & _
+                     "Run SA-CCR writes the checks of a run on Checks again."
+
+End Function
+
+
+Private Function CountText( _
+    ByVal Count As Long, _
+    ByVal Noun As String) _
+    As String
+'
+'==============================================================================
+'                                  CountText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A count with its noun, singular for 1 and plural otherwise, for the
+'   messages: "1 row", "0 errors", "1,250 rows".
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        CountText = Format$(Count, "#,##0") & " " & Noun & IIf(Count = 1, "", "s")
 
 End Function
 
@@ -4777,6 +6587,7 @@ Private Function ExecuteOperation( _
             Exit Function
         End If
         mRunning = True
+        ProtectWorkbook
         On Error GoTo Failed
 
 '------------------------------------------------------------------------------

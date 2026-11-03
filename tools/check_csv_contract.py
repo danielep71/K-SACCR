@@ -10,6 +10,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from csv_contract import (
     validate,
     validate_records,
 )
+from import_spec import example_findings, specification_findings
 
 CONFIG = "src/core/CORE_Config.bas"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
@@ -170,13 +172,14 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
             findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
                          for n in sorted(rule_columns(rule)) if n not in names]
     trade_names = {c["name"] for c in contract["files"]["Trades"]["columns"]}
-    ids = [rule["id"] for rule in contract["portfolio_rules"]]
-    findings += [f"portfolio rule {i!r} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
-    for rule in contract["portfolio_rules"]:
-        if rule["code"] not in contract["errors"]:
-            findings.append(f"portfolio rule {rule['id']}: code {rule['code']} is not in errors")
-        findings += [f"portfolio rule {rule['id']} names unknown column {n!r}"
-                     for n in rule["columns"] if n not in trade_names]
+    for section, label in (("portfolio_rules", "portfolio rule"), ("context_rules", "context rule")):
+        ids = [rule["id"] for rule in contract[section]]
+        findings += [f"{label} {i!r} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
+        for rule in contract[section]:
+            if rule["code"] not in contract["errors"]:
+                findings.append(f"{label} {rule['id']}: code {rule['code']} is not in errors")
+            findings += [f"{label} {rule['id']} names unknown column {n!r}"
+                         for n in rule["columns"] if n not in trade_names]
     return findings
 
 
@@ -202,6 +205,41 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
                     findings.append(f"{kind}.{column['name']}: allowed values {sorted(allowed)} differ from the "
                                     f"template's list {sorted(lists.get(first + offset, set()))}")
     return findings
+
+
+def template_context(workbook: Workbook) -> dict[str, Any]:
+    """The Params context of the template, as check_context takes it: the reporting date, the reporting
+    currency, the regime, the currencies of the FX table and each supervisory-factor key with its regime,
+    "" for both. The FX and factor tables are read from their header row down to the first blank key, as
+    a run reads them."""
+    params = workbook.sheet("Params")
+    cells: dict[int, dict[int, str]] = {int(str(row.get("r"))): workbook.row_cells(row)
+                                        for row in params.iter(f"{{{NS['m']}}}row")}
+
+    def named(name: str) -> tuple[int, int]:
+        reference = workbook.defined_name(name)
+        if reference is None:
+            raise ValueError(f"{TEMPLATE}: name {name} not found")
+        corner = reference.split("!")[1].split(":")[0].replace("$", "")
+        return int(re.sub("[A-Z]", "", corner)), column_index(corner)
+
+    def value(name: str) -> str:
+        row, column = named(name)
+        return cells.get(row, {}).get(column, "")
+
+    def table(name: str, offset: int) -> list[tuple[str, str]]:
+        row, column = named(name)
+        entries: list[tuple[str, str]] = []
+        while cells.get(row + 1 + len(entries), {}).get(column, ""):
+            line = cells[row + 1 + len(entries)]
+            entries.append((line[column], line.get(column + offset, "")))
+        return entries
+
+    regimes = {"BOTH": ""}
+    return {"as_of": (date(1899, 12, 30) + timedelta(days=int(float(value("AsOfDate"))))).isoformat(),
+            "reporting_currency": value("ReportingCcy"), "regime": value("Regime"),
+            "currencies": [key for key, _ in table("FX_Table", 0)],
+            "factors": {key: regimes.get(regime, regime) for key, regime in table("SF_Table", 7)}}
 
 
 def check_staging(workbook: Workbook, kind: str, spec: dict[str, Any]) -> list[str]:
@@ -319,6 +357,8 @@ def run_check(root: Path) -> dict[str, Any]:
     findings = check_shape(contract)
     findings += check_workbook(root, contract)
     findings += template_findings(root, contract)
+    findings += specification_findings(root, contract)
+    findings += example_findings(contract, template_context(Workbook(root / TEMPLATE)))
     findings += check_export(root, contract)
     fixture_findings, fixtures = check_fixtures(root, contract)
     findings += fixture_findings

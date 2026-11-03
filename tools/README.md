@@ -16,7 +16,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules (`test_generate_csv_vba.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -24,7 +24,8 @@ pull request's whole range.
 | `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; settlement, reset and CCP inputs that the engine rejects are declared in every expected file of the fixture (`trade_status` `EXCLUDED` for a trade, a `netting_set_status` starting with `INVALID` for the netting set); a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose (`EBA Q&A 2023_6962` or `EBA Single Rulebook Q&A 2023_6962`), in the expected files, the VBA source and the methodology; only the source register's row that defines the ID may use the full name. It does not run any case |
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
 | `excel-evidence-policy` | `.github/excel-evidence-policy.json` matches the test modules: the harness's case and assertion counts, each suite's case and check counts (`EXPECTED_CASES`, `EXPECTED_CHECKS`, `CASES`, `CHECKS` or `BeginSuite`; a check count under `#If Win64` is the 64-bit one and under its `#Else` the 32-bit one; a module without a check count is held by its evidence log only), header and `MODE` line, a case-runner suite's first case (the first `BeginCase` or `StartCase` in its module), and the suites `TEST_Suite.Test_RunAll` runs, with `SUITE_COUNT`; and the root `README.md` shows the same suites and 64-bit counts in its Excel suites and Regression badges, the Testing capability, the suite table with its total, and the `Test_RunAll` output |
-| `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS` in `CORE_Config` and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates and the field tables of `docs/csv/CSV_CONTRACT.md` are what the contract generates; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
+| `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS` in `CORE_Config` and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates, the field tables of `docs/csv/CSV_CONTRACT.md` and the import specification `docs/csv/K-SACCR_Import_Specification.html` are what the contract generates (`csv_contract.py --write-templates`, `import_spec.py --write`); the contract's example records, three to five per file, import together: each file is accepted and the Trades example has no finding between records or against the template's Params; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
+| `check_workbook_protection` | Every sheet of the template is in the editability matrix `docs/workbook/protection.json` and nothing else is; each cell is locked or unlocked as the matrix says, judged by its own format, else its row's, else its column's, so a cell the template does not store yet counts too; the input columns are unlocked to the last row and no other column is; no row format is unlocked; no locked cell has the yellow input fill; every sheet and the workbook structure are saved protected without a password, each sheet allowing sorting, filtering and inserting rows exactly as the matrix says, filtering only with an AutoFilter; the `PROTECT_` lists of `CORE_Config` name the same sheets |
 | `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
 | `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
 | `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
@@ -133,7 +134,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the nine standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the ten standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -259,8 +260,8 @@ python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.j
   --summary test-results/check_vba_calls.md
 ```
 
-`check_vba_calls.py` is vendored from VBA-DATETIMEPICKER at commit `a66790a`
-and adopted **advisory only** (#60). `check.py` does not run it. The static
+`check_vba_calls.py` is vendored (#60), resynchronised with its upstream
+(#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
 workflow runs it in a non-blocking step that adds its summary to the job page.
 Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
 compiler: compiling in Excel stays the authoritative call check.
@@ -272,8 +273,9 @@ conditional-compilation environment of `check_vba_conditionals.py`:
 - members of project classes;
 - Private members used from another module;
 - ambiguous public names;
-- argument counts and named arguments;
-- literal `Application.Run`, `OnTime`, `OnKey`, `OnAction`, `CallByName` and `AddressOf` targets.
+- argument counts and named arguments, also of a recursive call;
+- a class without a default instance (`VB_PredeclaredId = False`) used as an object (`VBA-CALL-005`);
+- literal `Application.Run`, `OnTime`, `OnKey`, `OnAction`, `CallByName` and `AddressOf` targets, a target qualified by a standard module of the project whatever its name.
 
 Anything else is reported as *unknown*, never as a defect.
 
@@ -281,20 +283,20 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The nine standard modules of a workbook built from the template |
+| `production` | The ten standard modules of a workbook built from the template |
 | `development` | Those plus the thirteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
 
 **Limits.**
-- **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`). The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
+- **Undeclared names.** An unqualified call to an undeclared name is reported only when the name matches a project prefix (`CORE_`, `SACCR_`, `M_`, `TEST_`), in any case, as VBA names are. The engine's internal procedures have no prefix, so a misspelled call to one is treated as a host or library call; the VBA compiler catches it.
 - **Document modules.** Listed as classes, they produce false positives: their Excel members (`ThisWorkbook.Names`, `.Worksheets`, `.Date1904`) are unknown to the checker, which is why they are excluded.
-- **Not checked:** dynamic call targets, `Object` and `Variant` receivers, and argument types.
+- **Own name of a Function.** Assigning to or reading a Function's bare name is its return value, not a call. A parenthesised use of the name inside a parameterless Function is not checked, because it may index an array result.
+- **Not checked:** dynamic and workbook-qualified call targets, `Object` and `Variant` receivers, and argument types.
 
 **K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
-(no logic change), the Ribbon parser copied from that repository's
-`check_source.py`, and `document_modules`. Three upstream parser functions
+(no logic change), a Ribbon callback parser, and `document_modules`. Three upstream parser functions
 exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one
 file from C901, so it can still be resynchronised with upstream.
 
@@ -419,7 +421,7 @@ Exit code 0 means PASS, 1 a finding and 2 an error.
 
 ## Traffic history
 
-`.github/workflows/daily-traffic.yml`, adapted from VBA-DATETIMEPICKER, runs
+`.github/workflows/daily-traffic.yml` runs
 daily at 06:00 UTC and on manual dispatch, from the default branch only. It
 reads GitHub's traffic API, which keeps just 14 days, and appends the snapshot
 to CSV files under `data/` on the orphan `traffic-history` branch: totals,

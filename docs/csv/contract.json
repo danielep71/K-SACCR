@@ -29,6 +29,11 @@
       "key": "netting_set_id",
       "reserved_keys": ["TOTAL", "TOTAL CRR", "TOTAL BCBS"],
       "max_records": 10000,
+      "examples": [
+        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
+        {"netting_set_id": "00731", "counterparty": "Müller & Søn \"Nord\"; <Example> AG", "margined": "N", "regime_override": "BCBS"},
+        {"netting_set_id": "NS-CCP", "counterparty": "Example CCP", "margined": "Y", "clearing_role": "CCP", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "0", "independent_collateral_net_amount": "0", "threshold_amount": "0", "minimum_transfer_amount": "0", "qccp": "Y", "ccp_retains_variation_margin": "N"}
+      ],
       "columns": [
         {"name": "netting_set_id", "sheet_header": "NettingSetID", "type": "id", "required": true,
          "description": "Unique netting-set ID, compared case-insensitively; referenced by every trade.", "example": "NS-001"},
@@ -86,6 +91,13 @@
       "key": "trade_id",
       "reserved_keys": [],
       "max_records": 100000,
+      "examples": [
+        {"trade_id": "TRD-101-IR", "netting_set_id": "NS-001", "asset_class": "IR", "risk_factor": "USD", "instrument": "Linear", "direction": "Short", "notional_amount": "5000000", "notional_currency": "USD", "market_value_amount": "-1200000", "market_value_currency": "EUR", "start_date": "2026-10-01", "end_date": "2029-10-01", "maturity_date": "2029-10-01", "economic_trade_id": "TRD-101", "mtm_leg": "Y", "comment": "Cross-currency swap; MtM on this leg"},
+        {"trade_id": "TRD-101-FX", "netting_set_id": "NS-001", "asset_class": "FX", "risk_factor": "EUR/USD", "instrument": "Linear", "direction": "Long", "notional_amount": "5000000", "notional_currency": "USD", "market_value_amount": "0", "maturity_date": "2029-10-01", "economic_trade_id": "TRD-101", "mtm_leg": "N"},
+        {"trade_id": "000245", "netting_set_id": "00731", "asset_class": "EQ", "sub_class": "SINGLE", "risk_factor": "ACME-EQ", "instrument": "Option", "direction": "Long", "option_type": "Call", "notional_amount": "1000000", "notional_currency": "EUR", "market_value_amount": "35000", "maturity_date": "2028-03-31", "option_expiry_date": "2027-03-31", "underlying_price": "100", "strike_price": "110"},
+        {"trade_id": "TRD-STM-1", "netting_set_id": "00731", "asset_class": "IR", "risk_factor": "EUR", "instrument": "Linear", "direction": "Short", "notional_amount": "3000000", "notional_currency": "EUR", "market_value_amount": "0", "maturity_date": "2029-12-31", "settlement_type": "STM", "next_reset_date": "2026-12-31", "comment": "Settled to market, \"STM\""},
+        {"trade_id": "TRD-CCP-1", "netting_set_id": "NS-CCP", "asset_class": "IR", "risk_factor": "GBP", "instrument": "Linear", "direction": "Long", "notional_amount": "2000000", "notional_currency": "GBP", "market_value_amount": "-15000", "maturity_date": "2028-06-30", "comment": "Cleared swap"}
+      ],
       "columns": [
         {"name": "trade_id", "sheet_header": "TradeID", "type": "id", "required": true,
          "description": "Unique leg ID, compared case-insensitively.", "example": "TRD-101-IR"},
@@ -186,7 +198,15 @@
     "CSV-ECON-MTM-VALUE": "A leg that is not the MtM leg of its economic trade has a MtM other than 0.",
     "CSV-ECON-NETTING-SET": "The legs of an economic trade are in different netting sets.",
     "CSV-ECON-SETTLEMENT": "The legs of an economic trade differ in settlement type or next reset date.",
-    "CSV-ECON-ASSET-CLASS": "Two legs of an economic trade are in the same asset class and not both options."
+    "CSV-ECON-ASSET-CLASS": "Two legs of an economic trade are in the same asset class and not both options.",
+    "CSV-CONTEXT-PARAMS": "Params, the supervisory-factor table or the FX table cannot be read as a run reads them, so the rules that depend on them are not judged.",
+    "CSV-CONTEXT-MATURED": "The trade's maturity, or else its end date or option expiry, is not after the reporting date.",
+    "CSV-CONTEXT-EXPIRED": "The option's expiry is not after the reporting date.",
+    "CSV-CONTEXT-RESET": "The next reset date of an STM trade is not after the reporting date.",
+    "CSV-CONTEXT-CURRENCY": "The notional or MtM currency has no rate in the FX table.",
+    "CSV-CONTEXT-PAIR": "A currency of the FX pair has no rate in the FX table.",
+    "CSV-CONTEXT-FACTOR": "The supervisory-factor table has no row for the asset class and sub-class.",
+    "CSV-CONTEXT-REGIME": "The asset class or its supervisory factor is not available under the netting set's regime."
   },
   "portfolio_rules": [
     {"id": "netting-set-known", "code": "CSV-NETTING-SET-UNKNOWN", "columns": ["netting_set_id"],
@@ -202,5 +222,21 @@
      "description": "The legs of an economic trade have one settlement type (blank read as N) and one next reset date."},
     {"id": "asset-class", "code": "CSV-ECON-ASSET-CLASS", "columns": ["economic_trade_id", "asset_class", "instrument"],
      "description": "Two legs of an economic trade in the same asset class are both options."}
+  ],
+  "context_rules": [
+    {"id": "matured", "code": "CSV-CONTEXT-MATURED", "columns": ["maturity_date", "end_date", "option_expiry_date"],
+     "description": "The maturity, or else the end date, or else the option expiry, is after the reporting date."},
+    {"id": "expired", "code": "CSV-CONTEXT-EXPIRED", "columns": ["instrument", "option_expiry_date"],
+     "description": "An option that has not matured expires after the reporting date."},
+    {"id": "reset", "code": "CSV-CONTEXT-RESET", "columns": ["settlement_type", "next_reset_date"],
+     "description": "The next reset date of an STM trade is after the reporting date."},
+    {"id": "currency", "code": "CSV-CONTEXT-CURRENCY", "columns": ["notional_currency", "market_value_currency"],
+     "description": "The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency."},
+    {"id": "pair", "code": "CSV-CONTEXT-PAIR", "columns": ["asset_class", "risk_factor"],
+     "description": "Both currencies of an FX pair have a rate in the FX table."},
+    {"id": "factor", "code": "CSV-CONTEXT-FACTOR", "columns": ["asset_class", "sub_class"],
+     "description": "The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA."},
+    {"id": "regime", "code": "CSV-CONTEXT-REGIME", "columns": ["netting_set_id", "asset_class", "sub_class"],
+     "description": "Under the netting set's regime, its override or else the Params regime, OT is CRR-only and a factor row limited to a regime is that regime."}
   ]
 }

@@ -32,7 +32,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-11-03
 '
 ' AUTHOR
 '   Daniele Penza
@@ -64,6 +64,23 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_TRADE_RECON As String = "TradeReconciliation"    'Bank figures against TradeCalc (#45)
         Public Const SH_IMPORT_NS   As String = "Import_NettingSets"     'Staged NettingSets CSV records (#208)
         Public Const SH_IMPORT_TR   As String = "Import_Trades"          'Staged Trades CSV records (#208)
+
+'------------------------------------------------------------------------------
+' PROTECTION
+'------------------------------------------------------------------------------
+    'Every worksheet is protected without a password, for the user
+    'interface only, so that the macros write while the user changes only
+    'the unlocked cells that docs/workbook/protection.json lists (#420,
+    'M_Main.ProtectWorkbook, #421). The sheets named below, between bars,
+    'also let the user sort, filter, insert rows or open and close row
+    'groups; filtering uses the AutoFilter the template gives the sheet, as
+    'a protected sheet cannot get a new one. check_workbook_protection
+    'compares these lists with the matrix and the template.
+        Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
+        Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
+        Public Const PROTECT_INSERTING_ROWS As String = _
+            "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
+        Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -333,19 +350,26 @@ Attribute VB_Name = "CORE_Config"
     '_Status; tools/check_csv_contract.py checks the header row against the
     'contract. The hidden name STAGED_*_NAME holds the fingerprint of the
     'block as the last load wrote it, or "" before any load, so that an
-    'edit since is found even when events were off.
+    'edit since is found even when events were off. STAGING_VALIDATED_NAME
+    'holds that of the inputs of the last VALID staging validation, or ""
+    '(#209); STAGING_CHECKED_NAME that of the last staging validation,
+    'whatever its result, for the OUT OF DATE status (#210).
         Public Const IMPORT_NS_HEADER_NAME  As String = "ImportNettingSets_Header"    'Import_NettingSets: CSV line header cell
         Public Const IMPORT_TR_HEADER_NAME  As String = "ImportTrades_Header"         'Import_Trades: CSV line header cell
         Public Const IMPORT_NS_PREFIX       As String = "ImportNS"                    'Prefix of the Import_NettingSets metadata names
         Public Const IMPORT_TR_PREFIX       As String = "ImportTR"                    'Prefix of the Import_Trades metadata names
         Public Const STAGED_NS_NAME         As String = "SACCR_ImportNSStaged"        'Fingerprint of the last NettingSets load
         Public Const STAGED_TR_NAME         As String = "SACCR_ImportTRStaged"        'Fingerprint of the last Trades load
+        Public Const STAGING_VALIDATED_NAME As String = "SACCR_StagingValidated"      'Fingerprint of the last VALID staging validation (#209)
+        Public Const STAGING_CHECKED_NAME   As String = "SACCR_StagingChecked"        'Fingerprint of the last staging validation, any result (#210)
     'Status of a staging sheet, in its _Status cell.
         Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
         Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
         Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)
         Public Const STAGING_INVALID        As String = "INVALID"     'Validated with an error, listed on Checks
+        Public Const STAGING_OUT_OF_DATE    As String = "OUT OF DATE" 'Was VALID; what it judged has changed since (#210)
+        Public Const STAGING_COMMITTED      As String = "COMMITTED"   'Written to its input sheet by a commit (#211)
 
 '------------------------------------------------------------------------------
 ' OUTPUT TABLE WIDTHS

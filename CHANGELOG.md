@@ -101,11 +101,143 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- State the `P1` rule in every issue form and in the pull request template:
+  `P1` only for a confirmed calculation bug, wrong results for valid inputs
+  (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
+  #194 and #204 change from `P1` to `P2`; #38, #39 and #195 keep `P1`.
+- Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
+  It now matches project names case-insensitively, checks a literal macro
+  target qualified by a standard module whatever its name, checks the
+  arguments of recursive calls, and reports a class without a default
+  instance used as an object (`VBA-CALL-005`). K-SACCR's own modules give no
+  new finding. The checker stays advisory.
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
   14-day cooldown and pull requests targeting the active release branch.
+- Read a statement such as `Check .Name = x, "message"` inside a `With`
+  block as a call whose first argument is a `With` member, as VBA does, not
+  as an assignment to `Check.Name` (#498). `Check.Name = x`, without the
+  space, stays an assignment. The VBA call checker now reports no finding
+  on `release/1.1.0`, and its advisory CI step passes.
 
 ### Added
 
+- Describe the CSV files for a user who has only the workbook (#473, part
+  1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with
+  no script and no external file, generated from the contract by
+  `tools/import_spec.py`. It gives the contract version, the file format, the
+  header, the value types, blank fields and empty files, the limits, every
+  column of both files, the rules between fields, between records and
+  against Params, the findings, and an example of each file as CSV text to
+  copy: synthetic records kept in the contract, with a leading-zero
+  identifier, quoted text, characters HTML escapes, an economic trade, an
+  option, a trade settled to market and a CCP netting set. The
+  `check_csv_contract` gate fails when the page differs from the contract or
+  the examples would not import together into the template, judged against
+  its Params. **Export import specifications** on `Import_NettingSets` and
+  `Import_Trades` (`ExportImportSpecification`) saves the page, byte for
+  byte, to a file the user chooses: a file that exists is replaced only after
+  a confirmation, a failed write or a read-only file leaves it as it was, and
+  the page can then be opened. The workbook is not changed, so the export
+  works with the protection on and whatever the inputs hold.
+  `ExportImportSpecification_Silent` does the same for automation.
+  `CORE_ImportSpec`, generated with `CORE_CsvSchema`, holds the page and the
+  example files. `TEST_Import` runs 2 more cases: the export with its
+  refusals and failures, and the example files loaded and validated
+  together.
+- Protect the workbook against accidental edits (#420, #421). Every sheet
+  and the workbook structure are protected, without a password, in the
+  template and so in every workbook built from it; the protection holds with
+  macros disabled too. Only the cells of the editability matrix
+  [`docs/workbook/protection.json`](docs/workbook/protection.json),
+  described in [`WORKBOOK_PROTECTION.md`](docs/workbook/WORKBOOK_PROTECTION.md),
+  can be changed: the input columns of `NettingSets`, `Trades`, the staging
+  sheets and the bank sheets, to the bottom of the sheet, their headers
+  locked; on Params only the reporting date, the reporting currency, the
+  default regime and the FX table with the rows below it, while the
+  reference regulatory parameters stay locked and are now filled grey
+  instead of yellow, as the Params and README notes say; the bank amount
+  scale and tolerances and the test inputs of `TestCatalogue` and
+  `FormulaTest`. The input and bank sheets allow sorting and inserting rows,
+  `Trades` and `Basel_vs_CRR` filtering with their AutoFilter, the staging
+  sheets inserting rows and README opening its row groups. `Auto_Open` and every
+  operation run `ProtectWorkbook`, which protects each sheet for the user
+  interface only, so that the macros keep writing every sheet, and protects
+  again a sheet or the structure unprotected for maintenance; loading and
+  clearing a staging block keep its values unlocked and its CSV line column
+  locked. Values and other formats are unchanged. The
+  `check_workbook_protection` gate checks every cell, the saved protection
+  and the `PROTECT_` lists of `CORE_Config` against the matrix, and that no
+  locked cell has the yellow input fill. `TEST_MainState` runs 3 more cases,
+  checks sample cells of the matrix in the workbook and makes sheets
+  unwritable through the test seam `gKeepProtection`; `TEST_Import` checks
+  the locks of a loaded block and of the committed input sheets.
+  `WORKBOOK_PROTECTION.md` describes the maintenance unlock, the limits, the
+  upgrade of an existing workbook and the manual checks a release candidate
+  passes (#422), which the release procedure now includes.
+- Commit the staged rows into the input sheets (#211): **Commit import** on
+  both staging sheets (`CommitImport`), after a confirmation that gives each
+  input sheet's rows now and the staged rows that replace them, Cancel being
+  the default; `CommitStaging_Silent()` for automation. The staging note
+  names the button. It refuses unless `StagingValidationCurrent()` is
+  `True`, and replaces whole each input sheet whose staging sheet holds
+  rows, down to the last row with a value or a formula, even one that
+  returns empty text (#512), leaving the other as it is. It writes numbers
+  and dates as numbers and dates and other values as text, so that leading
+  zeros stay, as a user typing them would: a run on committed rows gives the
+  same result line, input fingerprint and EADs as a run on the same rows
+  typed by hand. It reads each sheet back. On any failure it puts the input
+  cells back, a text that starts with `=` as text, checks them, and reports
+  that apart from the error. Each committed staging sheet then reads
+  `COMMITTED`, and Results reads `OUT OF DATE` until the next run.
+  `TEST_Import` runs 8 more cases: refusals, a failed write and read-back
+  put back, a failed put-back reported, a commit of both sheets, a commit of
+  Trades only, a formula below the data, a commit run against the same rows
+  typed by hand, and the Excel settings and results a commit leaves, also
+  when its cleanup fails.
+- Close the import test gaps found in the #212 audit. `TEST_Import` runs 4
+  more cases and checks more in one: a load, a refused load and a
+  validation give the calculation mode, events and screen updating back; a
+  `VALID` validation no longer holds once a trade ID is typed on `Trades`
+  or an FX rate changes, and holds again once it is put back; a 15-digit notional
+  commits as that number exactly; netting sets staged with a `Trades` file
+  of its header only validate against the committed legs and commit
+  `NettingSets` alone; the import specification's examples, committed or
+  typed by hand, give the same run line and the same Results, HedgingSets,
+  Buckets, TradeCalc and Checks tables; and the link of a finding on Checks
+  leads to its staging cell. No production code changed.
+- Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
+  applies (#210). Activating a staging sheet compares what the last
+  validation judged with the current staging blocks, `NettingSets`, `Trades`
+  and Params: a sheet that reads `VALID` reads `OUT OF DATE` once any of them
+  changed, also with events off, and `VALID` again once it matches. The
+  fingerprint of every validation, whatever its result, is kept in the hidden
+  name `SACCR_StagingChecked`. The status is for the user; the commit (#211)
+  checks `StagingValidationCurrent()`. `TEST_Import` runs 2 more cases:
+  repeated validation and the status refresh.
+- Validate staged trades against Params (#209). **Validate staging** now
+  recalculates the workbook first, as a run does, so that a formula input is
+  judged by its current result also in manual calculation, and **Commit
+  import** recalculates before it checks that the validation still holds
+  (#519; `TEST_Import` runs 1 more case). It reads
+  Params, the FX table and the supervisory-factor table as a run reads them,
+  and judges the staged legs with the engine's own rules: a maturity, option
+  expiry or STM reset not after the reporting date, a notional, MtM or FX-pair
+  currency without a rate, a missing factor row, and `OT` or a factor row
+  limited to a regime under another regime (`CSV-CONTEXT-*`, each on its
+  cell). With only netting sets staged, a staged regime override is applied
+  to the legs on Trades. When a run would stop at Params, one
+  `CSV-CONTEXT-PARAMS` finding gives its error on its Params cell and no
+  staging sheet is `VALID`. The rules and their messages are shared between
+  the engine and the staging validation (`CORE_Engine`), and the engine's
+  results are unchanged; reading Params leaves the last run's messages,
+  counters and fingerprints as they were. `StagingValidationCurrent()` tells
+  whether the last `VALID` validation still matches the staged blocks, the
+  input sheets and Params, for the commit (#210, #211). In the staging
+  fingerprints an empty text reads as a blank cell, so that clearing a cell
+  an empty CSV field was loaded into is not taken for an edit. The rules are in
+  `context_rules` of the contract, with `check_context` in the reference and
+  `tests/csv/context.json`; `TEST_CsvReader` runs 12 more cases and
+  `TEST_Import` 4 more.
 - Test the workflow invariants (#493): `tools/check_workflows.py`, run by
   `test_check_workflows.py` in `tool-tests`, reads every workflow and
   `dependabot.yml` with PyYAML and fails on an unpinned action, a checkout that
@@ -245,6 +377,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Lay out the messages of Validate staging, Commit import, Import CSV and the
+  exports in short lines and blocks instead of one long sentence that the
+  message box wraps (#211): counts per staging sheet, what was found, what
+  follows, and a file path on a line of its own. The first Checks line of a
+  staging validation keeps its single-line form.
 - Reconcile the live issue labels from the default branch only (#493): a
   manual run of the label synchronization on another branch no longer applies
   that branch's manifest, and the governance drops the sync from a reviewed
@@ -275,6 +412,21 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Walk a user through a CSV import in the README (#212): prepare the files
+  from the import specification or the templates, import, correct, validate,
+  commit and run, and what makes a validation no longer current. The known
+  limitations and the CSV contract state that a commit replaces whole sheets,
+  with no incremental merge, and calculates nothing. The published-workbook
+  check of `RELEASING.md` now unprotects Results deliberately on its copy
+  before changing an EAD cell, since a protected cell cannot be typed into,
+  and imports, validates, commits and runs the two example files of the
+  import specification.
+- Correct counts that had gone stale: `RELEASING.md` asks for the harness
+  and the nine policy suites throughout (it also said seven and eight), and
+  its tag message takes the suite count from the run; `tools/README.md`
+  counts ten production modules since `CORE_ImportSpec`. The traffic
+  workflow, the governance, `pyproject.toml` and the VBA call checker with
+  its tests no longer name the projects they were taken from.
 - Describe the current branch rulesets in the governance (#485): no ruleset
   has a bypass, release branches accept squash and merge commits, and
   `traffic-history` has its own ruleset. After an integration into `main`,
@@ -299,13 +451,11 @@ Use only the categories needed by a release.
   a diagram under "What this project is", from the two exposure engines
   to the ordinary and CCP capital branches and their aggregation, with CVA
   as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
-  shared with K-SFTs and K-Risk Engines and described in
-  `docs/assets/README.md`.
+  described in `docs/assets/README.md`.
 - Bring the README roadmap in line with the milestones: v1.7.0 is the
-  standalone Python engine (#450–#459); securities financing transactions
-  are developed in K-SFTs, risk-weighted assets, capital and default-fund
-  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
-  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  standalone Python engine (#450–#459); securities financing transactions,
+  risk-weighted assets, capital, default-fund contributions to CCPs and CVA
+  risk are outside K-SACCR, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
 - Describe CRR Article 305(4) as unsupported in the source register (#445):
@@ -313,9 +463,12 @@ Use only the categories needed by a release.
   and rejects a declared `MULTI` structure for that reason, as decision 6 of
   the clearing coverage says. The rejection is an implementation boundary,
   not a treatment the article prescribes.
-- Link default-fund contributions to their issue's new home: #400 moved to
-  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
-  support matrix now link it there.
+- State default-fund contributions, the own funds requirements for exposures
+  to CCPs, the cap of Art. 303(2) and CRE54.40, and risk-weighted assets as
+  outside K-SACCR, with no tracker in this repository (#483). Decision
+  15 of the clearing coverage records it; the clearing coverage, the support
+  matrix, the README and the two framework diagrams name no other project,
+  and the diagrams' PNG renderings are updated.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the nine production and

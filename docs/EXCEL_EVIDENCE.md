@@ -117,6 +117,10 @@ clone, to print the inventory and validate the bundle.
    `CANDIDATE=` line, as `summary.log`; it must then agree with every suite's
    own log. `TEST_Benchmark` is not a suite of the policy: its output is not
    part of the record.
+   For a release candidate, also run the
+   [manual protection checks](workbook/WORKBOOK_PROTECTION.md#manual-checks)
+   on a production workbook built from the template, and note each outcome
+   in `session.log`; they are user actions, not part of any suite log.
 6. **Clean up.** Note the harness `CLEANUP=` line, close the test workbook, and
    record in `session.log` that it was closed and the finish time.
 7. **Hash the logs**, after their last edit:

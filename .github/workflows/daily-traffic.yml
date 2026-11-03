@@ -7,8 +7,6 @@
 #   and visits.json there: shields.io endpoints that README badges can use,
 #   since the repository is public.
 #
-#   Adapted from VBA-DATETIMEPICKER daily-traffic.yml at f6352c2.
-#
 #   Data retention
 #     GitHub retains traffic data for 14 days only. This workflow exists to
 #     keep a longer history. The `traffic-history` branch is visible to anyone

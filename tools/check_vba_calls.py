@@ -15,9 +15,9 @@ exclusive ``#If`` branches are never combined. It is not a VBA compiler. What it
 cannot resolve is reported as unknown, never as a defect, and an empty defect
 list is a clean verdict only when every module parsed and coverage is complete.
 
-Vendored from VBA-DATETIMEPICKER at commit a66790a (#60). SACCR changes: type
-annotations for ``mypy --strict``; the Ribbon parser copied in from that
-repository's ``check_source.py``; and the manifest key ``document_modules``,
+Vendored (#60) and resynchronised with its upstream (#504), which closes four
+false negatives. SACCR changes: type annotations for ``mypy --strict``; a
+Ribbon callback parser; and the manifest key ``document_modules``,
 which lists tracked document modules (ThisWorkbook and the sheet modules) that
 are not analyzed, because their Excel members (``Names``, ``Worksheets``) are
 unknown to the checker and would be reported as missing.
@@ -48,6 +48,7 @@ CODES = {
     "VBA-CALL-002": ("error", "Qualified member that the target module or class does not declare"),
     "VBA-CALL-003": ("error", "Private member used from another module"),
     "VBA-CALL-004": ("error", "Ambiguous unqualified name: public in more than one standard module"),
+    "VBA-CALL-005": ("error", "Class name used as an object, but the class has no default instance"),
     "VBA-CALL-010": ("error", "Too few arguments: a required parameter is not supplied"),
     "VBA-CALL-011": ("error", "Too many positional arguments and no ParamArray"),
     "VBA-CALL-012": ("error", "Omitted positional argument for a required parameter"),
@@ -97,6 +98,9 @@ TOKEN_RE = re.compile(
 class Tok:
     kind: str
     text: str
+    # A "." after whitespace that follows the first identifier of a statement: "Check .Name = a, m"
+    # passes a With member to Check, while "Check.Name = a" assigns a member of Check (#498).
+    spaced: bool = field(default=False, compare=False)
 
     @property
     def low(self) -> str:
@@ -111,13 +115,22 @@ class Tok:
     def is_kw(self, *words: str) -> bool:
         return self.kind == "id" and self.low in words
 
+    def continues_chain(self) -> bool:
+        """True for the ``.`` or ``!`` of a member access, false for a spaced ``.`` that starts a With member."""
+        return self.is_op("!") or (self.is_op(".") and not self.spaced)
+
 
 def tokenize(code: str) -> list[Tok]:
+    """Tokens without whitespace; a "." keeps whether whitespace came before it."""
     tokens = []
+    spaced = False
     for match in TOKEN_RE.finditer(code):
         kind = match.lastgroup or "other"
-        if kind != "ws":
-            tokens.append(Tok(kind, match.group()))
+        if kind == "ws":
+            spaced = True
+            continue
+        tokens.append(Tok(kind, match.group(), spaced and match.group() == "."))
+        spaced = False
     return tokens
 
 
@@ -165,7 +178,7 @@ def is_lvalue(tokens: list[Tok]) -> bool:
             index = close + 1
         if index == len(tokens):
             return True
-        if not tokens[index].is_op(".", "!"):
+        if not tokens[index].continues_chain():
             return False
         index += 1
     return False
@@ -350,7 +363,17 @@ def statements_of(code: str) -> list[list[Tok]]:
         tokens = tokens[2:]
     elif tokens and tokens[0].kind == "num":
         tokens = tokens[1:]
-    return [part for part in split_top(tokens, ":") if part]
+    return [with_argument(part) for part in split_top(tokens, ":") if part]
+
+
+def with_argument(tokens: list[Tok]) -> list[Tok]:
+    """Keep the spaced mark only on a "." right after the statement's first identifier (#498).
+
+    Elsewhere whitespace before "." carries no meaning here: a line continuation, joined as a space,
+    may split a member access, and "x = a .b" is not valid VBA.
+    """
+    return [Tok(t.kind, t.text, t.spaced and i == 1 and tokens[0].is_id()) if t.spaced else t
+            for i, t in enumerate(tokens)]
 
 
 def add_member(module: Module, member: Member, accessor: str | None = None, proc: Proc | None = None) -> None:
@@ -569,7 +592,8 @@ class Project:
     def is_project_name(self, name: str) -> bool:
         return any(pattern.search(name) for pattern in self.patterns)
 
-    def global_candidates(self, name: str, exclude: Module | None) -> tuple[list[tuple[Module, Member]], list[tuple[Module, Member]]]:
+    def global_candidates(
+            self, name: str, exclude: Module | None) -> tuple[list[tuple[Module, Member]], list[tuple[Module, Member]]]:
         """Public and private declarations of ``name`` outside ``exclude`` that VBA treats as global."""
         public: list[tuple[Module, Member]] = []
         private: list[tuple[Module, Member]] = []
@@ -596,7 +620,8 @@ class Analyzer:
         self.entry_points: list[dict[str, Any]] = []
 
     # -- helpers ----------------------------------------------------------
-    def report(self, code: str, module: Module, proc: Proc | None, line: int, target: str, message: str, **extra: Any) -> None:
+    def report(self, code: str, module: Module, proc: Proc | None, line: int, target: str, message: str,
+               **extra: Any) -> None:
         item = finding(code, module, proc.name if proc else None, line, target, message, **extra)
         if code in {"VBA-CALL-001", "VBA-CALL-002", "VBA-CALL-030"} and not self.project.complete:
             item.update(severity="unknown", resolution="coverage-incomplete")
@@ -654,12 +679,14 @@ class Analyzer:
         for name, tokens in args:
             if name is None:
                 if seen_named:
-                    self.report("VBA-CALL-016", module, proc, line, label, f"{label}: positional argument after a named argument.",
+                    self.report("VBA-CALL-016", module, proc, line, label,
+                                f"{label}: positional argument after a named argument.",
                                 signature=target.signature())
                     return
                 if positional >= len(fixed) and paramarray is None:
                     self.report("VBA-CALL-011", module, proc, line, label,
-                                f"{label} accepts at most {len(fixed)} argument(s); {len([a for a in args if a[0] is None])} supplied.",
+                                f"{label} accepts at most {len(fixed)} argument(s); "
+                                f"{len([a for a in args if a[0] is None])} supplied.",
                                 signature=target.signature())
                     return
                 if positional < len(fixed):
@@ -678,7 +705,8 @@ class Analyzer:
                             signature=target.signature())
                 continue
             if params[index].paramarray:
-                self.report("VBA-CALL-015", module, proc, line, label, f"{label}: ParamArray {name!r} cannot be passed by name.",
+                self.report("VBA-CALL-015", module, proc, line, label,
+                            f"{label}: ParamArray {name!r} cannot be passed by name.",
                             signature=target.signature())
                 continue
             if index in covered:
@@ -702,6 +730,7 @@ class Analyzer:
         self.stats["resolved-calls"] += 1
         if args is None:
             args = []  # A procedure named without parentheses is still called, with no arguments
+        target: Proc | None
         if "sub" in accessors or "function" in accessors or "declare" in accessors:
             target = accessors.get("function") or accessors.get("sub") or accessors["declare"]
             if args is not None:
@@ -724,6 +753,31 @@ class Analyzer:
         if args is not None:
             self.check_args(accessor, params, args, module, proc, line, label)
         return self.type_module(accessor.return_type)
+
+    def check_recursive_call(self, target: Proc, args: list[tuple[str | None, list[Tok]]] | None, context: str,
+                             statement: bool, module: Module, proc: Proc | None, line: int, label: str) -> None:
+        """Validate a procedure's use of its own name when that use is a recursive call.
+
+        A Sub naming itself always calls itself. Inside a Function or Property Get, the bare name is the
+        return value (assigned or read), so only a statement call, a Call statement or a parenthesised use
+        is a recursive call. A parenthesised use of a parameterless function may index its array result,
+        so it is not checked. Property Let and Set procedures are left alone.
+        """
+        if target.accessor == "sub":
+            recursive = True
+        elif target.accessor in {"function", "get"} and not context.startswith("assign"):
+            recursive = statement or context == "call" or (args is not None and bool(target.params))
+        else:
+            recursive = False
+        if not recursive:
+            return
+        self.stats["resolved-calls"] += 1
+        self.check_args(target, target.params, args or [], module, proc, line, label)
+
+    @staticmethod
+    def lacks_default_instance(entity: Module, name: str) -> bool:
+        """True for a class named directly (not through Me) whose VB_PredeclaredId is False."""
+        return entity.kind == "class" and not entity.predeclared and name.casefold() != "me"
 
     # -- macro and member targets -------------------------------------------
     def literal_target(self, tokens: list[Tok], module: Module, proc: Proc | None) -> str | None:
@@ -763,8 +817,12 @@ class Analyzer:
             if member is not None and member.kind == "proc" and ({"sub", "function"} & set(member.accessors)):
                 candidates.append((candidate, member))
         status = "resolved"
+        # A target qualified by a standard module of this project, with no workbook prefix, can only
+        # mean that module, so its member is checked whatever its name.
+        qualifier = self.project.modules.get(parts[-2].casefold()) if len(parts) > 1 else None
+        local_module = qualifier is not None and qualifier.kind == "standard"
         if not candidates:
-            if self.project.is_project_name(name) and "!" not in value:
+            if (self.project.is_project_name(name) or local_module) and "!" not in value:
                 status = "missing"
                 self.report("VBA-CALL-030", module, proc, line, value,
                             f"{channel} target {value!r} is not a procedure of any standard module.", channel=channel)
@@ -776,9 +834,11 @@ class Analyzer:
             self.report("VBA-CALL-031", module, proc, line, value,
                         f"{channel} target {value!r} is Private in {candidates[0][0].name}.", channel=channel)
         self.stats["dynamic-literal"] += 1
-        self.entry_points.append({"channel": channel, "module": module.name, "line": line, "target": value, "status": status})
+        self.entry_points.append({"channel": channel, "module": module.name, "line": line, "target": value,
+                                  "status": status})
 
-    def check_callbyname(self, args: list[tuple[str | None, list[Tok]]], module: Module, proc: Proc | None, line: int) -> None:
+    def check_callbyname(self, args: list[tuple[str | None, list[Tok]]], module: Module, proc: Proc | None,
+                         line: int) -> None:
         if len(args) < 2:
             return
         receiver = self.chain_type(args[0][1], module, proc)
@@ -793,7 +853,8 @@ class Analyzer:
         if member is None:
             if receiver.kind == "class" and not receiver.implements:
                 self.report("VBA-CALL-030", module, proc, line, f"{receiver.name}.{member_name}",
-                            f"CallByName member {member_name!r} is not declared by {receiver.name}.", channel="CallByName")
+                            f"CallByName member {member_name!r} is not declared by {receiver.name}.",
+                            channel="CallByName")
                 status = "missing"
             else:
                 status = "unknown-form-member"
@@ -819,7 +880,7 @@ class Analyzer:
             if kind == "local":
                 return self.type_module(entity[0])
             if kind == "module":
-                return cast(Module, entity)
+                return None if self.lacks_default_instance(entity, tokens[0].text) else cast(Module, entity)
             if kind == "member" and entity[1].kind == "var":
                 return self.type_module(entity[1].type)
         return None
@@ -841,7 +902,7 @@ class Analyzer:
                 close = matching_paren(tokens, index)
                 if close < 0:
                     close = len(tokens) - 1
-                is_last = close + 1 >= len(tokens) or not tokens[close + 1].is_op(".", "!")
+                is_last = close + 1 >= len(tokens) or not tokens[close + 1].continues_chain()
                 # In a statement call such as "Foo (a), b" the parentheses belong to the
                 # first argument, not to the call: leave them for the trailing arguments.
                 parenthesized_first_argument = statement_args is not None and is_last and close != len(tokens) - 1
@@ -849,7 +910,8 @@ class Analyzer:
                     args = tokens[index + 1:close]
                     index = close + 1
             elements.append((name, args))
-            if index < len(tokens) and tokens[index].is_op(".", "!") and index + 1 < len(tokens) and tokens[index + 1].is_id():
+            if (index < len(tokens) and tokens[index].continues_chain() and index + 1 < len(tokens)
+                    and tokens[index + 1].is_id()):
                 index += 1
                 continue
             break
@@ -872,7 +934,8 @@ class Analyzer:
         return index
 
     def resolve_elements(self, elements: list[tuple[str, list[Tok] | None]], leading_dot: bool, module: Module,
-                         proc: Proc | None, line: int, context: str, with_receiver: Module | None, statement: bool) -> None:
+                         proc: Proc | None, line: int, context: str, with_receiver: Module | None,
+                         statement: bool) -> None:
         receiver: Module | None = None
         start = 0
         dynamic_receiver = ""
@@ -890,6 +953,8 @@ class Analyzer:
             if kind == "local":
                 receiver = self.type_module(entity[0])
             elif kind == "self":
+                if last:
+                    self.check_recursive_call(entity, parsed, element_context, statement, module, proc, line, name)
                 return
             elif kind == "member":
                 owner, member = entity
@@ -899,10 +964,16 @@ class Analyzer:
                     self.check_macro("macro name", parsed[0][1], module, proc, line)
                 receiver = self.check_member_call(owner, member, parsed, element_context, module, proc, line, name)
             elif kind == "module":
+                if self.lacks_default_instance(entity, name):
+                    self.report("VBA-CALL-005", module, proc, line, name,
+                                f"{name} is a class without a default instance (VB_PredeclaredId = False); "
+                                "call it through a variable that holds an instance.")
+                    return
                 receiver = entity
             elif kind == "ambiguous":
                 self.report("VBA-CALL-004", module, proc, line, name,
-                            f"{name} is public in {', '.join(m.name for m, _ in entity)}; qualify the call with the module name.",
+                            f"{name} is public in {', '.join(m.name for m, _ in entity)}; "
+                            "qualify the call with the module name.",
                             candidates=[{"module": m.name, "path": m.path, "line": mem.line} for m, mem in entity])
                 return
             elif kind == "private":
@@ -984,7 +1055,9 @@ class Analyzer:
                 index += 2
                 continue
             chain_start = (token.is_id() and not token.is_kw(*KEYWORDS)) or (
-                token.is_op(".") and (previous is None or previous.is_op("(", ",", "=", "<>", "<", ">", "<=", ">=", "+", "-", "*", "/", "\\", "&", "^", ";")
+                token.is_op(".") and (previous is None
+                                      or previous.is_op("(", ",", "=", "<>", "<", ">", "<=", ">=",
+                                                        "+", "-", "*", "/", "\\", "&", "^", ";")
                                       or previous.is_kw(*KEYWORDS)))
             if chain_start and (previous is None or not previous.is_op(".", "!")):
                 index = self.process_chain(tokens, index, module, proc, line, "read", with_receiver)
@@ -1018,14 +1091,17 @@ class Analyzer:
             status = "missing"
             self.report("VBA-CALL-030", module, proc, line, target, f"AddressOf target {target!r} is not declared.",
                         channel="AddressOf")
-        self.entry_points.append({"channel": "AddressOf", "module": module.name, "line": line, "target": target, "status": status})
+        self.entry_points.append({"channel": "AddressOf", "module": module.name, "line": line, "target": target,
+                                  "status": status})
 
-    def statement(self, tokens: list[Tok], module: Module, proc: Proc, line: int, with_stack: list[Module | None]) -> None:
+    def statement(self, tokens: list[Tok], module: Module, proc: Proc, line: int,
+                  with_stack: list[Module | None]) -> None:
         receiver = with_stack[-1] if with_stack else None
         head = tokens[0]
         low = head.low if head.is_id() else ""
         if low in {"dim", "static", "const", "redim", "erase", "attribute", "exit", "goto", "gosub", "return",
-                   "resume", "stop", "option", "next", "wend", "implements", "rem"} or (head.is_id() and low == "end" and len(tokens) == 1):
+                   "resume", "stop", "option", "next", "wend", "implements", "rem"} or (
+                       head.is_id() and low == "end" and len(tokens) == 1):
             if low == "redim":
                 for part in split_top(tokens[1:], ","):
                     if part and part[0].is_kw("preserve"):
@@ -1076,7 +1152,8 @@ class Analyzer:
             else:
                 equals = next((i for i, t in enumerate(body) if t.is_op("=")), None)
                 if equals is not None:
-                    self.scan_expression([t for t in body[equals + 1:] if not t.is_kw("to", "step")], module, proc, line, receiver)
+                    self.scan_expression([t for t in body[equals + 1:] if not t.is_kw("to", "step")],
+                                         module, proc, line, receiver)
             return
         if low == "with":
             self.scan_expression(tokens[1:], module, proc, line, receiver)
@@ -1097,7 +1174,7 @@ class Analyzer:
         if low == "call":
             if len(tokens) > 1:
                 self.stats["call-statements"] += 1
-                self.process_chain(tokens, 1, module, proc, line, "read", receiver)
+                self.process_chain(tokens, 1, module, proc, line, "call", receiver)
             return
         context = "assign"
         body = tokens
@@ -1162,13 +1239,14 @@ def duplicate_public_names(project: Project) -> list[dict[str, Any]]:
             if member.visibility != "private":
                 owners.setdefault(key, []).append((module, member))
     items = []
-    for key, entries in sorted(owners.items()):
+    for _key, entries in sorted(owners.items()):
         if len(entries) > 1:
             module, member = entries[0]
             items.append(finding("VBA-CALL-040", module, None, member.line, member.name,
                                  f"{member.name} is public in {', '.join(m.name for m, _ in entries)}; "
                                  "unqualified calls from other modules are ambiguous.",
-                                 candidates=[{"module": m.name, "path": m.path, "line": mem.line} for m, mem in entries]))
+                                 candidates=[{"module": m.name, "path": m.path, "line": mem.line}
+                                             for m, mem in entries]))
     return items
 
 
@@ -1190,7 +1268,9 @@ def analyze_configuration(name: str, sources: dict[str, str], patterns: list[str
             failures.append(finding("VBA-CALL-091", module, None, None, module.name,
                                     f"Module name {module.name} is used by {modules[key].path} and {path}."))
         modules[key] = module
-    project = Project(name, modules, [re.compile(p) for p in patterns], {m.casefold() for m in macro_functions},
+    # VBA identifiers are case-insensitive, so project-name patterns are too.
+    project = Project(name, modules, [re.compile(p, re.IGNORECASE) for p in patterns],
+                      {m.casefold() for m in macro_functions},
                       coverage_complete and not failures)
     analyzer = Analyzer(project)
     if not failures:
@@ -1242,7 +1322,7 @@ def merge_environments(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def ribbon_callback_attributes(data: bytes) -> list[tuple[str, str, str]]:
     """Parse bounded XML with DTDs forbidden; return (element, attribute, callback) triples.
 
-    Taken from VBA-DATETIMEPICKER's check_source.py, which SACCR does not share.
+    Taken from the upstream source gate, which SACCR does not share.
     """
     if len(data) > 1_000_000:
         raise ValueError("Ribbon XML exceeds 1 MB")
@@ -1318,13 +1398,14 @@ def analyze_project(files: dict[str, str], manifest: dict[str, Any], tracked: se
                 check_ribbon_callbacks(run, callbacks, ribbon)
         findings = merge_environments(runs)
         for path in missing:
-            findings.append(finding("VBA-CALL-091", None, None, None, path, f"{path} is missing from configuration {name}.",
-                                    path=path))
+            findings.append(finding("VBA-CALL-091", None, None, None, path,
+                                    f"{path} is missing from configuration {name}.", path=path))
         if not config.get("gating", True):
             for item in findings:
                 if item["severity"] == "error":
                     item["severity"] = "warning"
-                    item["resolution"] = "non-gating configuration" + (f" ({config['tracking']})" if config.get("tracking") else "")
+                    item["resolution"] = "non-gating configuration" + (
+                        f" ({config['tracking']})" if config.get("tracking") else "")
         failures = [f for f in findings if f["severity"] == "failure"]
         last = runs[-1]
         results[name] = {
@@ -1387,10 +1468,12 @@ def markdown_report(report: dict[str, Any]) -> str:
         counts = Counter(f["severity"] for f in result["findings"])
         stats = result["stats"]
         lines += ["", f"### {name}{'' if result['gating'] else ' (non-gating)'}", "",
-                  f"- Modules: {len(result['modules_analyzed'])} analyzed of {len(result['modules_expected'])} expected; "
-                  f"complete: {result['complete']}",
-                  f"- Resolved procedure uses: {stats.get('resolved-calls', 0)}; argument checks: {stats.get('argument-checks', 0)}; "
-                  f"literal dynamic targets: {stats.get('dynamic-literal', 0)}; dynamic unknown: {stats.get('dynamic-unknown', 0)}",
+                  f"- Modules: {len(result['modules_analyzed'])} analyzed of "
+                  f"{len(result['modules_expected'])} expected; complete: {result['complete']}",
+                  f"- Resolved procedure uses: {stats.get('resolved-calls', 0)}; "
+                  f"argument checks: {stats.get('argument-checks', 0)}; "
+                  f"literal dynamic targets: {stats.get('dynamic-literal', 0)}; "
+                  f"dynamic unknown: {stats.get('dynamic-unknown', 0)}",
                   f"- Findings: {counts.get('error', 0)} error, {counts.get('warning', 0)} warning, "
                   f"{counts.get('unknown', 0)} unknown, {counts.get('failure', 0)} analysis failure"]
         for reason, count in sorted(result["unknown"].items(), key=lambda kv: -kv[1]):

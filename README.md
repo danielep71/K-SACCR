@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-417_cases_%C2%B7_1694_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-453_cases_%C2%B7_1855_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -110,11 +110,9 @@ only produce one:
 K-SACCR is one calculator of a counterparty credit risk framework: it
 produces the exposure value of derivatives, the **K-SA-CCR** box of step 1,
 including the trade exposures to CCPs (v1.0.2). The other parts of the
-framework are developed outside K-SACCR: the SFT exposure in
-[K-SFTs](https://github.com/danielep71/K-SFTs); risk-weighted assets,
-capital and default-fund contributions to CCPs in
-[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines), which also
-presents the portfolio; and CVA risk in an engine of its own. The
+framework are outside K-SACCR and not supported: the exposure of securities
+financing transactions, risk-weighted assets and capital, default-fund
+contributions to CCPs with the cap of Art. 303(2), and CVA risk. The
 [roadmap](#roadmap) keeps K-SACCR to the derivatives exposure.
 
 <p align="center">
@@ -169,7 +167,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (417 cases, 1694 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (453 cases, 1855 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -216,7 +214,7 @@ or later and no packages.
    to replace the code of the worksheet and `ThisWorkbook` modules as well;
    answer **Y** when building from the template. They hold only
    `Option Explicit`, except the two staging sheets', which show `EDITED`
-   after a manual change. The tests write to the input and output sheets:
+   after a manual change and refresh their status when activated. The tests write to the input and output sheets:
    never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
@@ -243,7 +241,39 @@ further illustrative netting sets.
 | **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
 | **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
+| **Commit import** (on Import_Trades and Import_NettingSets) | `CommitImport` | After a confirmation that gives each input sheet's rows now and the staged rows that replace it, replaces NettingSets and Trades with the staged rows of a `VALID` validation that still holds; an input sheet whose staging sheet holds no rows is left as it is. On a failure the input sheets are put back and checked. Results reads `OUT OF DATE` until the next run |
+| **Export import specifications** (on Import_Trades and Import_NettingSets) | `ExportImportSpecification` | Saves the [CSV import specification](docs/csv/K-SACCR_Import_Specification.html): one HTML page, readable offline and printable, that describes every column and rule of both files and gives an example of each to copy. A file that exists is replaced only after a confirmation; the page can then be opened. The workbook is not changed |
 | From the Macros dialog (Alt+F8) | `CheckTradesCsv`, `CheckNettingSetsCsv` | Checks a CSV file against the input contract and lists its findings; writes nothing |
+
+<a id="importing-a-portfolio-from-csv"></a>
+
+### Importing a portfolio from CSV
+
+1. **Prepare the files.** On `Import_NettingSets` or `Import_Trades`, press
+   **Export import specifications** for the description of both files with an
+   example of each, or **Export CSV template** on `NettingSets` and `Trades`
+   for the header line alone. Write the files with a program that follows the
+   [contract](docs/csv/CSV_CONTRACT.md): `;` between fields, `.` as decimal
+   point, dates as `yyyy-mm-dd`, UTF-8. A file saved by Excel in a locale with
+   a decimal comma is rejected.
+2. **Import.** Press **Import CSV** on `Import_NettingSets`, then on
+   `Import_Trades`, and choose the file. Each record lands on the staging
+   sheet as text, with its CSV line; the input sheets are not changed. A file
+   with a structural problem, such as a missing column or another delimiter,
+   is not loaded and the message says why.
+3. **Correct.** Edit the staged cells; the sheet reads `EDITED`. A file can
+   also be corrected outside Excel and imported again.
+4. **Validate.** Press **Validate staging**. Each finding is listed on Checks
+   with the origin `IMPORT` and a link to its cell, which is marked in red.
+   Correct and validate again until both staging sheets read `VALID`.
+5. **Commit.** Press **Commit import** and confirm. `NettingSets`, `Trades`
+   or both are replaced whole by the staged rows; a staging sheet without rows
+   leaves its input sheet as it is. Results now reads `OUT OF DATE`.
+6. **Run.** Press **Run SA-CCR** to calculate the committed portfolio.
+
+A change to the staged rows, the input sheets or Params after the validation
+makes it no longer current: the staging sheet reads `OUT OF DATE`, and the
+commit refuses until the next validation.
 
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
@@ -290,18 +320,18 @@ Test_RunAll
 ```
 
 ```text
-SACCR TEST SUMMARY 2026-10-31 12:28:46
+SACCR TEST SUMMARY 2026-11-03 22:48:55
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=29; checks=501; failures=0; caller_state=RESTORED  (27,0 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (7,1 s)
-  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (32,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,6 s)
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,3 s)
+  PASS  TEST_MainState        cases=32; checks=512; failures=0; caller_state=RESTORED  (37,8 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (7,7 s)
+  PASS  TEST_InputValidation  cases=177; checks=308; failures=0; restore=PASS  (34,1 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,9 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,8 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (12,2 s)
-  PASS  TEST_CsvReader        cases=111; checks=304; failures=0  (0,4 s)
-  PASS  TEST_Import           cases=17; checks=89; failures=0  (1,3 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=85,9
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (12,7 s)
+  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (1,0 s)
+  PASS  TEST_Import           cases=38; checks=227; failures=0  (39,8 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=139,2
 ```
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
@@ -570,15 +600,15 @@ required; the project has no separate reviewer.
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros and the output-table names | 29 | 501 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names and the workbook protection | 32 | 512 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 33 | 186 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 177 | 308 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case and staged case the reference implementation pins | 111 | 304 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections, the evidence export refused, error values | 17 | 89 |
-| **Total** | | **417** | **1694** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 123 | 316 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, and the output tables of committed rows against the same rows typed by hand | 38 | 227 |
+| **Total** | | **453** | **1855** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -679,6 +709,12 @@ and the VBA references are listed in `INSTALLATION.md`.
   set, the 1904 date system, and the simplified SA-CCR and OEM (planned,
   v1.5.0 and v1.6.0). SFTs, CVA risk, risk-weighted assets and default-fund
   contributions to a CCP are outside K-SACCR (see the [roadmap](#roadmap)).
+- **CSV import replaces whole sheets.** A commit replaces `NettingSets`,
+  `Trades` or both with the staged rows of a `VALID` validation: there is no
+  incremental merge or update by key, rows with findings are never committed,
+  and nothing is calculated until **Run SA-CCR**. The files must follow the
+  [CSV contract](docs/csv/CSV_CONTRACT.md); other dialects, such as Excel's own
+  CSV save in a decimal-comma locale, are rejected.
 - **Large portfolios.** 500,000 legs calculated in under two minutes on the
   supported host, but the Trades dropdowns and validation cover rows 5 to 5,000
   only, and a used range inflated far below the data slows every run
@@ -747,11 +783,9 @@ gantt
 | v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)
-hold the current scope of each release. Securities financing transactions
-are developed in [K-SFTs](https://github.com/danielep71/K-SFTs);
-risk-weighted assets, capital and default-fund contributions to CCPs in
-[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines); CVA risk in
-an engine of its own.
+hold the current scope of each release. Securities financing transactions,
+risk-weighted assets and capital, default-fund contributions to CCPs and CVA
+risk are outside K-SACCR and on no milestone of its roadmap.
 
 ### v1.1.0 — CSV import, staging and workbook protection
 

@@ -240,7 +240,8 @@ The layout and file conventions are defined in
    output sheets. It then asks whether to fill the worksheet and
    `ThisWorkbook` document modules as well: answer Y when building from the
    template (they hold only `Option Explicit`, except the two staging
-   sheets', which show `EDITED` after a manual change). It needs Excel's
+   sheets', which show `EDITED` after a manual change and refresh their
+   status when activated). It needs Excel's
    **Trust access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
@@ -265,28 +266,30 @@ The layout and file conventions are defined in
    | 3 | `src/core/CORE_CsvSchema.bas` | `CORE_CsvSchema` | Internal; the CSV input contract for `CORE_CsvReader`, generated from `docs/csv/contract.json` |
    | 4 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
    | 5 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes |
-   | 6 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
-   | 7 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
-   | 8 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 9 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv` and `ValidateStaging`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
-   | 10 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 11 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
-   | 12 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
-   | 13 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 14 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
-   | 15 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 16 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 17 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
-   | 18 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 19 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 20 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 21 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 22 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 6 | `src/core/CORE_ImportSpec.bas` | `CORE_ImportSpec` | Internal; the CSV import specification page and its example files, generated from `docs/csv/contract.json` |
+   | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
+   | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
+   | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 11 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 12 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 13 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 14 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 15 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
+   | 16 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 17 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 18 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
+   | 19 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 20 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 21 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 22 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 23 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
    `ExportEvidence`, `ExportTradesCsvTemplate`,
-   `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`
-   and `ValidateStaging`, so they work once `M_Main` is imported.
+   `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`,
+   `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, so they
+   work once `M_Main` is imported.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
@@ -294,7 +297,8 @@ The layout and file conventions are defined in
    sheet module. Sheet code names must match the file names (the FormulaTest
    sheet keeps the code name `shTests`). The document modules hold only
    `Option Explicit`, except `shImportNettingSets` and `shImportTrades`,
-   whose change handler shows `EDITED` on a staging sheet changed by hand.
+   whose change handler shows `EDITED` on a staging sheet changed by hand and
+   whose activation handler refreshes its status (#210).
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.
@@ -393,7 +397,13 @@ inputs first; that every output table is located through the workbook name of
 its first header cell (`layout.output-header-names`, #253); and that
 `RunSACCR_Silent` restores its silent flag (`silent.flag-preserved`).
 
-Some cases protect output sheets, insert a column before the Params tables or
+The workbook protection is tested too (#421): every sheet and the structure
+are protected as the matrix says, a run protects them again after a
+maintenance unlock or a reopening without `Auto_Open`, and a sheet a test
+makes unwritable stays so.
+
+Some cases make output sheets unwritable, unprotect Params and the workbook
+structure, insert a column before the Params tables or
 a row above the HedgingSets table, switch the workbook to the 1904 date system
 or break the `Checks_Header` name; each change is undone, also after an
 unexpected error, and the caller's Excel settings are restored. The last case
@@ -546,7 +556,15 @@ with the marks gone and no link font left on Checks; the evidence export refused
 validation; netting sets staged alone, against the legs on Trades, whose cells
 are not marked; a formula in a staging block or nothing staged, which
 refuse and leave Checks alone; and Excel error values in staged cells, which
-are judged by the text Excel shows, without a VBA error. The live inputs and the run fingerprints must
+are judged by the text Excel shows, without a VBA error. It then commits
+through `M_Main.CommitStaging_Silent`: refused without a current `VALID`
+validation; a failed write or read-back (`gTestFault = "commit-write"`,
+`"commit-verify"`), which puts NettingSets and Trades back and reports it
+verified; a failed put-back (`"commit-rollback"`), reported apart from the
+error; both sheets committed, with leading zeros, numbers and dates checked,
+after the **Commit import** button in silent mode has committed nothing;
+and Trades alone, which leaves NettingSets as it was. The suite puts the
+input sheets back after each commit. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 
@@ -744,7 +762,10 @@ column, message and CSV line, and the origin `IMPORT`; at most 10,000 are
 listed. The cells of the staged findings are marked with a red fill, and the
 marks of the last validation are taken off first; a live sheet is never
 marked or changed. Each staging sheet that holds rows reads `VALID` or
-`INVALID` in its status cell. It returns
+`INVALID` in its status cell. `RefreshStagingStatus`, which runs when a
+staging sheet is activated, turns `VALID` into `OUT OF DATE` once anything
+the last validation judged has changed, and back when it matches again
+(#210). It returns
 `RESULT=VALID; errors=0; nettingsets=N; trades=M`,
 `RESULT=INVALID; errors=K; nettingsets=N; trades=M; first=CODE|Sheet!A1`, or
 `RESULT=REFUSED; reason=...` when nothing is staged or a staging block holds
@@ -752,6 +773,25 @@ a formula; a refusal changes nothing. While an operation is running it raises
 `ERR_RUN_ACTIVE`. The run's fingerprints are left as they were: until the next
 **Run SA-CCR**, `ResultsStatus()` reads `EDITED` instead of `CURRENT` and the
 evidence export refuses.
+
+### CommitStaging_Silent
+
+`CommitStaging_Silent()` replaces NettingSets and Trades with the staged rows
+without a confirmation or a message, as the **Commit import** button
+(`CommitImport`) does after its confirmation (#211): each input sheet whose staging
+sheet holds rows, whole; the other is left as it is. It refuses unless
+`StagingValidationCurrent()` is `True`. Numbers and integers are written as
+numbers, dates as Excel dates and other values as text, so that leading zeros
+stay. Each sheet is read back; on any failure the input cells kept before the
+write are written back to every sheet touched and read back. It returns
+`RESULT=COMMITTED; nettingsets=N; trades=M` (0 for a sheet left as it was),
+`RESULT=REFUSED; reason=...` when nothing was written, or
+`RESULT=FAILED; error=...; rollback=...` with `NONE` when nothing had been
+written, `VERIFIED` when the input sheets read back as they were, or
+`FAILED: ...` with what could not be put back. After a commit each committed
+staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
+Results is not recalculated: `ResultsStatus()` reads `OUT OF DATE` until the
+next **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 
@@ -764,6 +804,20 @@ without a byte-order mark. It is replaced as the evidence report is: written
 whole beside the target first, so that a failed write leaves an older file as
 it was, and a read-only file is not replaced. A file that cannot be written
 raises to the caller.
+
+### ExportImportSpecification_Silent
+
+`ExportImportSpecification_Silent(filePath, [replaceExisting])` writes the
+CSV import specification (#473), as the **Export import specifications**
+button does after its dialog, and returns `RESULT=OK; bytes=N; file=...`. The
+file is [`docs/csv/K-SACCR_Import_Specification.html`](docs/csv/K-SACCR_Import_Specification.html)
+byte for byte: UTF-8 without a byte-order mark, one page with no script and
+no external file. A file that exists is replaced only with `replaceExisting`
+`True`; otherwise it is left as it is and the result is
+`RESULT=REFUSED; reason=the file exists; file=...`. It is written as the
+evidence report is, so a failed write leaves an older file as it was and a
+read-only file is not replaced; a file that cannot be written raises to the
+caller. The workbook is not changed.
 
 <a id="validation-record"></a>
 

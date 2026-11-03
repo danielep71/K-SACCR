@@ -47,6 +47,7 @@ docs/               contracts, architecture, governance, evidence record
   licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
   csv/              CSV input contract, its specification and blank templates
+  workbook/         protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
   user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/)
@@ -159,7 +160,7 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv` and `ValidateStaging`, and reads and writes the reconciliation and staging sheets |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging` and `CommitImport`, and reads and writes the reconciliation and staging sheets |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |

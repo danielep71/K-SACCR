@@ -12,9 +12,11 @@ Attribute VB_Name = "CORE_CsvReader"
 '   returned as their raw text, in contract column order. For staging
 '   (#208), a file whose findings are all about values can be read with
 '   its records kept, so that they can be corrected on a staging sheet.
-'   CheckStagedRecords checks the rows of a staging sheet as records, and
+'   CheckStagedRecords checks the rows of a staging sheet as records,
 '   CheckPortfolio judges the rules between Trades records (#209): each
-'   leg's netting set and the legs of each economic trade.
+'   leg's netting set and the legs of each economic trade, and
+'   CheckContext the rules that depend on Params: the reporting date, the
+'   FX table, the supervisory-factor table and the regime.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. ReadCsvFile reads a file;
@@ -22,14 +24,17 @@ Attribute VB_Name = "CORE_CsvReader"
 '   CsvReadResult and the arrays of values, lines and findings it counts.
 '   CheckStagedRecords checks rows already split into values, as a staging
 '   sheet holds them. CheckPortfolio checks Trades records against each
-'   other and the netting sets they refer to. FindingText formats one finding for a
+'   other and the netting sets they refer to, and CheckContext against a
+'   CORE_Engine.RunContext. FindingText formats one finding for a
 '   message or a test.
 '
 ' DEPENDENCIES
 '   CORE_CsvSchema for the contract, generated from docs/csv/contract.json;
-'   CORE_Config for the error number. tools/csv_contract.py is the
-'   reference implementation: for every fixture and case in tests/csv this
-'   module must report exactly its findings (TEST_CsvReader).
+'   CORE_Config for the error number and the regime codes; CORE_Engine for
+'   RunContext and the rules CheckContext shares with a run (#209).
+'   tools/csv_contract.py is the reference implementation: for every
+'   fixture and case in tests/csv this module must report exactly its
+'   findings (TEST_CsvReader).
 '
 ' STATE OWNERSHIP
 '   None. Nothing is written to a sheet, a file or module state.
@@ -47,7 +52,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   IsDate and Excel's own CSV import are never used.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-10-31
 '
 ' AUTHOR
 '   Daniele Penza
@@ -90,6 +95,13 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const CSV_ECON_NS           As String = "CSV-ECON-NETTING-SET"
         Private Const CSV_ECON_SETTLEMENT   As String = "CSV-ECON-SETTLEMENT"
         Private Const CSV_ECON_ASSET_CLASS  As String = "CSV-ECON-ASSET-CLASS"
+        Private Const CSV_CONTEXT_MATURED   As String = "CSV-CONTEXT-MATURED"
+        Private Const CSV_CONTEXT_EXPIRED   As String = "CSV-CONTEXT-EXPIRED"
+        Private Const CSV_CONTEXT_RESET     As String = "CSV-CONTEXT-RESET"
+        Private Const CSV_CONTEXT_CURRENCY  As String = "CSV-CONTEXT-CURRENCY"
+        Private Const CSV_CONTEXT_PAIR      As String = "CSV-CONTEXT-PAIR"
+        Private Const CSV_CONTEXT_FACTOR    As String = "CSV-CONTEXT-FACTOR"
+        Private Const CSV_CONTEXT_REGIME    As String = "CSV-CONTEXT-REGIME"
 
     'Findings that leave a file unreadable as records, between bars, as
     'STRUCTURAL in tools/csv_contract.py. The others are about values, and
@@ -137,6 +149,37 @@ Attribute VB_Name = "CORE_CsvReader"
             RecordCount     As Long           'Records kept; 0 when none are
             ColumnCount     As Long           'Columns of the contract
             FindingCount    As Long           'Number of findings
+        End Type
+
+    'The Trades columns CheckContext reads, by contract position.
+        Private Type ContextColumns
+            ID              As Long    'trade_id
+            NS              As Long    'netting_set_id
+            AssetClass      As Long    'asset_class
+            SubClass        As Long    'sub_class
+            RiskFactor      As Long    'risk_factor
+            Instrument      As Long    'instrument
+            NotionalCcy     As Long    'notional_currency
+            MtmCcy          As Long    'market_value_currency
+            EndDate         As Long    'end_date
+            Maturity        As Long    'maturity_date
+            Expiry          As Long    'option_expiry_date
+            Settlement      As Long    'settlement_type
+            Reset           As Long    'next_reset_date
+        End Type
+
+    'The Params context CheckContext judges against, as SlotOf tables in
+    'upper case, with the regime of each factor and netting set in its
+    'slot.
+        Private Type ContextTables
+            CurrencyKeys()  As String     'Currencies with a rate
+            CurrencyUsed()  As Boolean    'The slot holds one
+            FactorKeys()    As String     'Factor keys
+            FactorUsed()    As Boolean    'The slot holds one
+            FactorRegimes() As String     'Blank for both, BCBS or CRR
+            SetKeys()       As String     'Netting sets
+            SetUsed()       As Boolean    'The slot holds one
+            SetRegimes()    As String     'Regime override; blank for none
         End Type
 
 
@@ -764,6 +807,470 @@ Public Sub CheckPortfolio( _
         Next r
         SortFindings Result, Findings
         Result.Accepted = (Result.FindingCount = 0)
+
+End Sub
+
+
+Public Sub CheckContext( _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal RowCount As Long, _
+    ByRef Context As RunContext, _
+    ByRef NettingSetIDs() As String, _
+    ByRef NettingSetRegimes() As String, _
+    ByVal NettingSetCount As Long, _
+    ByVal FactorOnly As Boolean, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding)
+'
+'==============================================================================
+'                                 CheckContext
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Judge the Trades records against what a run reads from Params (#209),
+'   with the rules CORE_Engine applies in a run, as
+'   tools/csv_contract.check_context does:
+'   - the maturity, or else the end date, or else the option expiry, is
+'     after the reporting date (CSV-CONTEXT-MATURED, on that date);
+'   - an option that has not matured expires after it
+'     (CSV-CONTEXT-EXPIRED); an STM trade's next reset is after it
+'     (CSV-CONTEXT-RESET);
+'   - the notional and MtM currencies have a rate (CSV-CONTEXT-CURRENCY),
+'     a blank one being the reporting currency, or the notional currency
+'     for the MtM, which has one; so do both currencies of an FX pair
+'     (CSV-CONTEXT-PAIR);
+'   - the factor table has the trade's key (CSV-CONTEXT-FACTOR), and
+'     under the netting set's regime, its override or else the Params
+'     regime, OT is CRR-only and a factor row limited to a regime is that
+'     regime (CSV-CONTEXT-REGIME).
+'   A field that is blank or not of its type is not judged: its own
+'   finding comes from CheckStagedRecords. A row with a blank Trade ID is
+'   left out, and so are the regime rules for a leg whose netting set is
+'   not among NettingSetIDs.
+'
+' INPUTS
+'   Values, Lines, RowCount: as for CheckPortfolio. Context: from
+'   CORE_Engine.LoadRunContext. NettingSetIDs and NettingSetRegimes(1 To
+'   NettingSetCount): the netting sets the legs may refer to and their
+'   regime overrides, blank for none; an override other than CRR or BCBS
+'   reads as the Params regime, as in a run. FactorOnly: only the factor
+'   and regime rules, for the live legs when only netting sets are
+'   staged.
+'
+' RETURNS
+'   Result and Findings, as CheckPortfolio returns them.
+'
+' ERROR POLICY
+'   None expected: the dates judged have passed DateProblem.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Spec            As CsvSpec            'The Trades contract
+    Dim Columns()       As CsvColumn          'Its columns
+    Dim Rules()         As CsvRule            'Its rules, unused here
+    Dim Cols            As ContextColumns     'The columns the rules read
+    Dim Known           As ContextTables      'Currencies, factors and netting sets, hashed
+    Dim AsOfText        As String             'The reporting date as yyyy-mm-dd
+    Dim r               As Long               'Row counter
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If Not CsvSpecOf("Trades", Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "CORE_CsvReader.CheckContext", "the contract has no Trades file"
+        End If
+        Result.Kind = Spec.Kind
+        Result.Accepted = False
+        Result.Readable = True
+        Result.RecordCount = RowCount
+        Result.ColumnCount = Spec.ColumnCount
+        Result.FindingCount = 0
+        ReDim Findings(1 To 16)
+        Cols.ID = ColumnIndex(Spec, Columns, "trade_id")
+        Cols.NS = ColumnIndex(Spec, Columns, "netting_set_id")
+        Cols.AssetClass = ColumnIndex(Spec, Columns, "asset_class")
+        Cols.SubClass = ColumnIndex(Spec, Columns, "sub_class")
+        Cols.RiskFactor = ColumnIndex(Spec, Columns, "risk_factor")
+        Cols.Instrument = ColumnIndex(Spec, Columns, "instrument")
+        Cols.NotionalCcy = ColumnIndex(Spec, Columns, "notional_currency")
+        Cols.MtmCcy = ColumnIndex(Spec, Columns, "market_value_currency")
+        Cols.EndDate = ColumnIndex(Spec, Columns, "end_date")
+        Cols.Maturity = ColumnIndex(Spec, Columns, "maturity_date")
+        Cols.Expiry = ColumnIndex(Spec, Columns, "option_expiry_date")
+        Cols.Settlement = ColumnIndex(Spec, Columns, "settlement_type")
+        Cols.Reset = ColumnIndex(Spec, Columns, "next_reset_date")
+        HashContext Context, NettingSetIDs, NettingSetRegimes, NettingSetCount, Known
+        AsOfText = Format$(Context.AsOf, "yyyy-mm-dd")
+
+'------------------------------------------------------------------------------
+' JUDGE EACH RECORD
+'------------------------------------------------------------------------------
+        For r = 1 To RowCount
+            If Len(Values(r, Cols.ID)) > 0 Then
+                If Not FactorOnly Then
+                    CheckContextDates Values, Lines, r, Columns, Cols, Context.AsOf, AsOfText, Result, Findings
+                    CheckContextCurrencies Values, Lines, r, Columns, Cols, Known, Result, Findings
+                End If
+                CheckContextFactor Values, Lines, r, Columns, Cols, Known, UCase$(Context.Regime), Result, Findings
+            End If
+        Next r
+        SortFindings Result, Findings
+        Result.Accepted = (Result.FindingCount = 0)
+
+End Sub
+
+
+Private Sub HashContext( _
+    ByRef Context As RunContext, _
+    ByRef NettingSetIDs() As String, _
+    ByRef NettingSetRegimes() As String, _
+    ByVal NettingSetCount As Long, _
+    ByRef Known As ContextTables)
+'
+'==============================================================================
+' PURPOSE
+'   The currencies of Context and its reporting currency, its factor keys
+'   and the netting sets, in upper case, in tables SlotOf looks up, with
+'   the regime of each factor and netting set in the slot's position.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Slot    As Long    'Slot of a key
+    Dim n       As Long    'Entry counter
+
+'------------------------------------------------------------------------------
+' HASH
+'------------------------------------------------------------------------------
+        ReDim Known.CurrencyKeys(0 To TableSizeFor(Context.CurrencyCount + 1) - 1)
+        ReDim Known.CurrencyUsed(0 To UBound(Known.CurrencyKeys))
+        For n = 1 To Context.CurrencyCount
+            AddKey Known.CurrencyKeys, Known.CurrencyUsed, UCase$(Context.Currencies(n))
+        Next n
+        AddKey Known.CurrencyKeys, Known.CurrencyUsed, UCase$(Context.ReportingCcy)
+        ReDim Known.FactorKeys(0 To TableSizeFor(Context.FactorCount) - 1)
+        ReDim Known.FactorUsed(0 To UBound(Known.FactorKeys))
+        ReDim Known.FactorRegimes(0 To UBound(Known.FactorKeys))
+        For n = 1 To Context.FactorCount
+            Slot = AddKey(Known.FactorKeys, Known.FactorUsed, UCase$(Context.FactorKeys(n)))
+            Known.FactorRegimes(Slot) = UCase$(Context.FactorRegimes(n))
+        Next n
+        ReDim Known.SetKeys(0 To TableSizeFor(NettingSetCount) - 1)
+        ReDim Known.SetUsed(0 To UBound(Known.SetKeys))
+        ReDim Known.SetRegimes(0 To UBound(Known.SetKeys))
+        For n = 1 To NettingSetCount
+            Slot = AddKey(Known.SetKeys, Known.SetUsed, UCase$(NettingSetIDs(n)))
+            Known.SetRegimes(Slot) = UCase$(NettingSetRegimes(n))
+        Next n
+
+End Sub
+
+
+Private Function AddKey( _
+    ByRef Keys() As String, _
+    ByRef Used() As Boolean, _
+    ByVal Key As String) _
+    As Long
+'
+'==============================================================================
+' PURPOSE
+'   Put Key in its slot unless it is there already; return the slot.
+'==============================================================================
+'
+        AddKey = SlotOf(Keys, Used, Key)
+        Keys(AddKey) = Key
+        Used(AddKey) = True
+
+End Function
+
+
+Private Function UsableField( _
+    ByRef Values() As String, _
+    ByVal r As Long, _
+    ByVal c As Long, _
+    ByRef Columns() As CsvColumn) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The field of row r and column c when it is filled and of its type,
+'   else "": a field with a problem has its own finding.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'Its problem's code, unused
+    Dim Message     As String    'Its problem, unused
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Len(Values(r, c)) > 0 Then
+            If Not FieldProblem(Values(r, c), Columns(c), Code, Message) Then
+                UsableField = Values(r, c)
+            End If
+        End If
+
+End Function
+
+
+Private Function IsoSerial( _
+    ByVal DateText As String) _
+    As Double
+'
+'==============================================================================
+' PURPOSE
+'   The serial of a yyyy-mm-dd date that DateProblem accepted.
+'==============================================================================
+'
+        IsoSerial = CDbl(DateSerial(CLng(Left$(DateText, 4)), CLng(Mid$(DateText, 6, 2)), CLng(Right$(DateText, 2))))
+
+End Function
+
+
+Private Sub CheckContextDates( _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal r As Long, _
+    ByRef Columns() As CsvColumn, _
+    ByRef Cols As ContextColumns, _
+    ByVal AsOf As Double, _
+    ByVal AsOfText As String, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding)
+'
+'==============================================================================
+'                              CheckContextDates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The maturity, an option's expiry and an STM trade's next reset against
+'   the reporting date, with CORE_Engine's MaturedText, ExpiredText and
+'   ResetText. The maturity is the first of the maturity date, the end
+'   date and the option expiry that can be read, as ReadTradeDates fills
+'   it; the expiry is judged only when the trade has not matured, as a
+'   run judges it only then.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Dates       As Variant    'The columns that may give the maturity, in order
+    Dim Field       As String     'A field that can be read
+    Dim Problem     As String     'Why a rule rejects the trade
+    Dim Matured     As Boolean    'The trade has matured
+    Dim i           As Long       'Index into Dates
+
+'------------------------------------------------------------------------------
+' MATURITY
+'------------------------------------------------------------------------------
+        Dates = Array(Cols.Maturity, Cols.EndDate, Cols.Expiry)
+        For i = 0 To 2
+            Field = UsableField(Values, r, CLng(Dates(i)), Columns)
+            If Len(Field) > 0 Then
+                Problem = CORE_Engine.MaturedText(IsoSerial(Field), AsOf)
+                If Len(Problem) > 0 Then
+                    Matured = True
+                    AddFinding Result, Findings, CSV_CONTEXT_MATURED, Lines(r), r, Columns(Dates(i)).ColumnName, _
+                               Problem & ": " & Columns(Dates(i)).ColumnName & " " & Field & ", reporting date " & AsOfText
+                End If
+                Exit For
+            End If
+        Next i
+
+'------------------------------------------------------------------------------
+' OPTION EXPIRY AND NEXT RESET
+'------------------------------------------------------------------------------
+        Field = UsableField(Values, r, Cols.Expiry, Columns)
+        If Not Matured And UCase$(UsableField(Values, r, Cols.Instrument, Columns)) = "OPTION" And Len(Field) > 0 Then
+            Problem = CORE_Engine.ExpiredText(IsoSerial(Field), AsOf)
+            If Len(Problem) > 0 Then
+                AddFinding Result, Findings, CSV_CONTEXT_EXPIRED, Lines(r), r, "option_expiry_date", _
+                           Problem & ": option_expiry_date " & Field & ", reporting date " & AsOfText
+            End If
+        End If
+        Field = UsableField(Values, r, Cols.Reset, Columns)
+        If UCase$(UsableField(Values, r, Cols.Settlement, Columns)) = "STM" And Len(Field) > 0 Then
+            Problem = CORE_Engine.ResetText(IsoSerial(Field), AsOf)
+            If Len(Problem) > 0 Then
+                AddFinding Result, Findings, CSV_CONTEXT_RESET, Lines(r), r, "next_reset_date", _
+                           Problem & ": next_reset_date " & Field & ", reporting date " & AsOfText
+            End If
+        End If
+
+End Sub
+
+
+Private Sub CheckContextCurrencies( _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal r As Long, _
+    ByRef Columns() As CsvColumn, _
+    ByRef Cols As ContextColumns, _
+    ByRef Known As ContextTables, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding)
+'
+'==============================================================================
+'                            CheckContextCurrencies
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The notional and MtM currencies, and the two currencies of an FX pair
+'   as CORE_Engine.NormalizePair orders them, against the FX table, with
+'   CORE_Engine's NoRateText and NoPairRateText. A blank currency is the
+'   reporting currency, or the notional currency for the MtM, and gives
+'   no finding of its own.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'A currency, upper case
+    Dim Pair        As String    'The FX pair as NormalizePair writes it
+    Dim OrderSign   As Double    'From NormalizePair: 0 when not a pair
+
+'------------------------------------------------------------------------------
+' NOTIONAL AND MTM
+'------------------------------------------------------------------------------
+        Code = UCase$(UsableField(Values, r, Cols.NotionalCcy, Columns))
+        If Len(Code) > 0 Then
+            If Not Known.CurrencyUsed(SlotOf(Known.CurrencyKeys, Known.CurrencyUsed, Code)) Then
+                AddFinding Result, Findings, CSV_CONTEXT_CURRENCY, Lines(r), r, "notional_currency", _
+                           CORE_Engine.NoRateText("notional", Code)
+            End If
+        End If
+        Code = UCase$(UsableField(Values, r, Cols.MtmCcy, Columns))
+        If Len(Code) > 0 Then
+            If Not Known.CurrencyUsed(SlotOf(Known.CurrencyKeys, Known.CurrencyUsed, Code)) Then
+                AddFinding Result, Findings, CSV_CONTEXT_CURRENCY, Lines(r), r, "market_value_currency", _
+                           CORE_Engine.NoRateText("MtM", Code)
+            End If
+        End If
+
+'------------------------------------------------------------------------------
+' FX PAIR
+'------------------------------------------------------------------------------
+        If UCase$(UsableField(Values, r, Cols.AssetClass, Columns)) <> "FX" Then
+            Exit Sub
+        End If
+        Pair = UsableField(Values, r, Cols.RiskFactor, Columns)
+        If Len(Pair) = 0 Then
+            Exit Sub
+        End If
+        Pair = CORE_Engine.NormalizePair(Pair, OrderSign)
+        If OrderSign = 0# Then
+            Exit Sub
+        End If
+        If Not Known.CurrencyUsed(SlotOf(Known.CurrencyKeys, Known.CurrencyUsed, Left$(Pair, 3))) Then
+            AddFinding Result, Findings, CSV_CONTEXT_PAIR, Lines(r), r, "risk_factor", _
+                       CORE_Engine.NoPairRateText(Left$(Pair, 3), Pair)
+        ElseIf Not Known.CurrencyUsed(SlotOf(Known.CurrencyKeys, Known.CurrencyUsed, Right$(Pair, 3))) Then
+            AddFinding Result, Findings, CSV_CONTEXT_PAIR, Lines(r), r, "risk_factor", _
+                       CORE_Engine.NoPairRateText(Right$(Pair, 3), Pair)
+        End If
+
+End Sub
+
+
+Private Sub CheckContextFactor( _
+    ByRef Values() As String, _
+    ByRef Lines() As Long, _
+    ByVal r As Long, _
+    ByRef Columns() As CsvColumn, _
+    ByRef Cols As ContextColumns, _
+    ByRef Known As ContextTables, _
+    ByVal ParamsRegime As String, _
+    ByRef Result As CsvReadResult, _
+    ByRef Findings() As CsvFinding)
+'
+'==============================================================================
+'                              CheckContextFactor
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The trade's key in the factor table (CORE_Engine.FactorKey and
+'   MissingFactorText), then, when its netting set is known, OT and the
+'   factor row's regime against the netting set's (OtherRisksRegimeText,
+'   or else FactorRegimeText). A finding is on the asset class for IR, FX
+'   and OT, and on the sub-class otherwise. A blank sub-class gives a key
+'   such as CR_, which no row has, as in a run.
+'
+' UPDATED
+'   2026-10-31
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim AssetClass      As String    'Asset class, upper case
+    Dim SubClass        As String    'Sub-class, upper case
+    Dim Key             As String    'Factor key
+    Dim ColumnName      As String    'Column of a finding
+    Dim FactorSlot      As Long      'Slot of the key in the factor table
+    Dim SetSlot         As Long      'Slot of the netting set
+    Dim Regime          As String    'The netting set's regime
+    Dim Problem         As String    'Why a rule rejects the trade
+
+'------------------------------------------------------------------------------
+' FACTOR
+'------------------------------------------------------------------------------
+        AssetClass = UCase$(UsableField(Values, r, Cols.AssetClass, Columns))
+        If Len(AssetClass) = 0 Then
+            Exit Sub
+        End If
+        SubClass = UCase$(UsableField(Values, r, Cols.SubClass, Columns))
+        If AssetClass = "IR" Or AssetClass = "FX" Or AssetClass = "OT" Then
+            ColumnName = "asset_class"
+        ElseIf Len(SubClass) = 0 And Len(Values(r, Cols.SubClass)) > 0 Then
+            Exit Sub
+        Else
+            ColumnName = "sub_class"
+        End If
+        Key = CORE_Engine.FactorKey(AssetClass, SubClass)
+        FactorSlot = SlotOf(Known.FactorKeys, Known.FactorUsed, Key)
+        If Not Known.FactorUsed(FactorSlot) Then
+            AddFinding Result, Findings, CSV_CONTEXT_FACTOR, Lines(r), r, ColumnName, CORE_Engine.MissingFactorText(Key)
+        End If
+
+'------------------------------------------------------------------------------
+' REGIME
+'------------------------------------------------------------------------------
+        SetSlot = SlotOf(Known.SetKeys, Known.SetUsed, UCase$(UsableField(Values, r, Cols.NS, Columns)))
+        If Not Known.SetUsed(SetSlot) Then
+            Exit Sub
+        End If
+        Regime = Known.SetRegimes(SetSlot)
+        If Regime <> RG_CRR And Regime <> RG_BCBS Then
+            Regime = ParamsRegime
+        End If
+        If AssetClass = "OT" Then
+            Problem = CORE_Engine.OtherRisksRegimeText(Regime)
+        End If
+        If Len(Problem) > 0 Then
+            AddFinding Result, Findings, CSV_CONTEXT_REGIME, Lines(r), r, "asset_class", Problem
+        ElseIf Known.FactorUsed(FactorSlot) Then
+            Problem = CORE_Engine.FactorRegimeText(Key, Known.FactorRegimes(FactorSlot), Regime)
+            If Len(Problem) > 0 Then
+                AddFinding Result, Findings, CSV_CONTEXT_REGIME, Lines(r), r, ColumnName, Problem
+            End If
+        End If
 
 End Sub
 
