@@ -108,6 +108,11 @@ Use only the categories needed by a release.
   new finding. The checker stays advisory.
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
   14-day cooldown and pull requests targeting the active release branch.
+- Read a statement such as `Check .Name = x, "message"` inside a `With`
+  block as a call whose first argument is a `With` member, as VBA does, not
+  as an assignment to `Check.Name` (#498). `Check.Name = x`, without the
+  space, stays an assignment. The VBA call checker now reports no finding
+  on `release/1.1.0`, and its advisory CI step passes.
 
 ### Added
 

@@ -142,6 +142,24 @@ class ArgumentTests(unittest.TestCase):
         self.assertEqual(self.check("    DP_T , 2\n"), ["VBA-CALL-010", "VBA-CALL-012"])
         self.assertEqual(self.check("    DP_T 1, , 3\n"), [])
 
+    def test_with_member_as_first_argument(self) -> None:
+        # "DP_T .A = 1, 2" passes a With member: a call with two arguments, not an assignment (#498).
+        with_block = "    Dim b As cBox\n    With b\n{}    End With\n"
+        box = cls("cBox", "Public A As Long\n")
+        def run(body: str) -> list[str]:
+            return codes(analyze({"c.cls": box, "a.bas": mod("M_A", self.TARGET + "Public Sub DP_Run()\n"
+                                                                    + with_block.format(body) + "End Sub\n")}))
+        self.assertEqual(run("        DP_T .A = 1, 2\n        DP_T .A, _\n            .A = 2\n"), [])
+        self.assertEqual(run("        DP_P .A = 1\n"), [])
+        self.assertEqual(run("        DP_F.A = 1\n"), ["VBA-CALL-010"])
+        self.assertEqual(run("        DP_T 1, 2, .A = 1, 4\n        DP_T .A = 1, 2, 3, 4\n"), ["VBA-CALL-011"] * 2)
+
+    def test_with_member_missing_required_argument(self) -> None:
+        box = cls("cBox", "Public A As Long\n")
+        target = "Public Sub DP_Two(ByVal c As Boolean, ByVal m As String)\nEnd Sub\n"
+        body = "Public Sub DP_Run()\n    Dim b As cBox\n    With b\n        DP_Two .A = 1\n    End With\nEnd Sub\n"
+        self.assertEqual(codes(analyze({"c.cls": box, "a.bas": mod("M_A", target + body)})), ["VBA-CALL-010"])
+
     def test_named_arguments(self) -> None:
         self.assertEqual(self.check("    DP_T 1, Z:=2\n"), ["VBA-CALL-013"])
         self.assertEqual(self.check("    DP_T 1, A:=2\n"), ["VBA-CALL-014"])
