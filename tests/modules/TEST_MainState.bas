@@ -1934,7 +1934,7 @@ Private Sub CaseProtectionRelock()
         ThisWorkbook.Unprotect
         With GetSheet(SH_RESULTS)
             .Unprotect
-            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=False
         End With
         Check Not GetSheet(SH_PARAMS).ProtectContents And Not ThisWorkbook.ProtectStructure, _
               "the maintenance unlock did not take"
@@ -2009,8 +2009,8 @@ Private Sub LockForFault( _
 '                                 LockForFault
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Make a sheet unwritable for the macros too: protect it without
-'   UserInterfaceOnly, as the saved file has it, and list it in
+'   Make a sheet unwritable for the macros too: protect it with
+'   UserInterfaceOnly False, as the saved file has it, and list it in
 '   M_Main.gKeepProtection, so that ProtectWorkbook, which every operation
 '   runs first, leaves it as it is (#421).
 '==============================================================================
@@ -2018,7 +2018,7 @@ Private Sub LockForFault( _
         M_Main.gKeepProtection = M_Main.gKeepProtection & "|" & SheetName & "|"
         With GetSheet(SheetName)
             .Unprotect
-            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=False
         End With
 
 End Sub
