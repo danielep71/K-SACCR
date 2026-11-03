@@ -134,9 +134,13 @@ Use only the categories needed by a release.
   locked. Values and other formats are unchanged. The
   `check_workbook_protection` gate checks every cell, the saved protection
   and the `PROTECT_` lists of `CORE_Config` against the matrix, and that no
-  locked cell has the yellow input fill. `TEST_MainState` runs 3 more cases
-  and makes sheets unwritable through the test seam `gKeepProtection`;
-  `TEST_Import` checks the locks of a loaded block.
+  locked cell has the yellow input fill. `TEST_MainState` runs 3 more cases,
+  checks sample cells of the matrix in the workbook and makes sheets
+  unwritable through the test seam `gKeepProtection`; `TEST_Import` checks
+  the locks of a loaded block and of the committed input sheets.
+  `WORKBOOK_PROTECTION.md` describes the maintenance unlock, the limits, the
+  upgrade of an existing workbook and the manual checks a release candidate
+  passes (#422), which the release procedure now includes.
 - Commit the staged rows into the input sheets (#211): **Commit import** on
   both staging sheets (`CommitImport`), after a confirmation that gives each
   input sheet's rows now and the staged rows that replace them, Cancel being

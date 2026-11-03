@@ -103,7 +103,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 159                          'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 160                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -1561,8 +1561,9 @@ Private Sub CaseCommitBoth()
 '   an Excel date. Both staging sheets read COMMITTED, the validation is
 '   no longer current and a second commit is refused. Before the commit,
 '   the Commit import button in silent mode, where no confirmation can be
-'   given, commits nothing and says so. The suite then puts the input
-'   sheets back.
+'   given, commits nothing and says so. The input sheets stay protected,
+'   the committed cells unlocked and the headers locked (#422). The suite
+'   then puts the input sheets back.
 '==============================================================================
 '
 
@@ -1615,6 +1616,9 @@ Private Sub CaseCommitBoth()
         Value = TableCell(TrSheet, TrFirst, TR_COMMENT).Value2
         Check SameText(Value, "007"), "the comment: " & CStr(Value)
         Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 2, "Trades: not exactly three rows"
+        Check NsSheet.ProtectContents And TrSheet.ProtectContents And Not TableCell(NsSheet, NsFirst, NS_ID).Locked And _
+              Not TableCell(TrSheet, TrFirst + 2, TR_COMMENT).Locked And TableCell(TrSheet, TrFirst - 1, TR_ID).Locked, _
+              "the committed input sheets are not protected as the editability matrix says"
 
 '------------------------------------------------------------------------------
 ' AFTER THE COMMIT

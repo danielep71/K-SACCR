@@ -111,7 +111,11 @@ Confirm the hosted **Repository integrity** check is green on the same SHA.
 Import the exact candidate into a clean workbook, compile, and run the harness
 and the seven suites listed in `.github/excel-evidence-policy.json`, each on
 its own, following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
-Validate the bundle against the candidate SHA:
+In the same session, before the logs are hashed, run the
+[manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
+on a production workbook built from the candidate's template and note each
+outcome in the bundle's `session.log`. Then validate the bundle against the
+candidate SHA:
 
 ```sh
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bundle/host.json
@@ -231,7 +235,7 @@ it does not replace it.
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
-| 7 | Excel certification passes for the harness and the seven policy suites on the candidate | ☐ |
+| 7 | Excel certification passes for the harness and the seven policy suites on the candidate, and the manual protection checks pass | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |

@@ -89,6 +89,56 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
 - **Formulas stay visible.** No cell is hidden; a locked formula can still be
   selected, read and copied.
 
+## 🧱 Limits
+
+- Rows and columns cannot be deleted, and columns cannot be inserted,
+  resized or formatted, on a protected sheet. To remove an input row, clear
+  its cells; to change the layout, unprotect the sheet for maintenance.
+- Filtering works only on `Trades` and `Basel_vs_CRR`, through the
+  AutoFilter the template gives them, over the rows it covers.
+- A sheet protected by hand from the Review tab, with other options, gets the
+  workbook's options back at the next operation.
+- Protection prevents accidental edits only. Anyone can remove it; the
+  freshness status, the output fingerprint and the evidence export guards
+  still tell whether results match their inputs.
+
+## ⬆️ Upgrading an existing workbook
+
+A workbook built from an earlier template has every cell locked and no
+protection. Build a new workbook from the current template, as in
+[INSTALLATION.md](../../INSTALLATION.md), and bring the inputs across: paste
+values into the unlocked columns of `NettingSets`, `Trades` and the bank
+sheets, or import them as CSV files through the staging sheets, and copy the
+reporting date, reporting currency, regime and FX rates on Params. Run
+SA-CCR once to rebuild the outputs.
+
+<a id="manual-checks"></a>
+
+## ✅ Manual checks
+
+The Excel suites run every operation with the protection active, and
+`TEST_MainState` checks the protection itself, but they act through the
+macros, which protection does not restrict. These checks act as a user does.
+For release evidence (#212), run them on the candidate workbook, built from
+the template, and note each outcome in `session.log`
+([EXCEL_EVIDENCE.md](../EXCEL_EVIDENCE.md#manual-procedure)).
+
+| # | Check | Expected |
+| ---: | --- | --- |
+| 1 | Open the workbook with macros enabled; look at Review on every sheet | Every sheet offers **Unprotect Sheet**; **Protect Workbook** is on |
+| 2 | Type into a header (`Trades` C4), a grey Params value (E8), an output cell and a staging metadata cell | Refused |
+| 3 | Type into `Trades` C5, a `Trades` cell a few thousand rows down, `NettingSets` C7, Params E6 and an FX rate, a bank figure and a bank tolerance | Accepted |
+| 4 | Paste several rows of values into the input columns of `Trades`, then clear them | Accepted |
+| 5 | Filter `Trades` from its header; insert a row on `Trades` and on `NettingSets`; open and close a README group; select and copy output cells and a formula | Accepted; formulas visible |
+| 6 | Right-click a sheet tab | Delete, Rename, Move, Hide are unavailable |
+| 7 | Run SA-CCR, Validate inputs, Clear outputs, then Run SA-CCR again | Each succeeds |
+| 8 | Import CSV on both staging sheets, correct a staged value, Validate staging, Commit import (once Cancel, once OK), Run SA-CCR | Each succeeds; the staged value is editable, the CSV line column is not |
+| 9 | Enter bank figures, Run SA-CCR, Export evidence | Reconciliation and export succeed |
+| 10 | Unprotect Params, change a grey parameter, Run SA-CCR | The run is `WHAT-IF`; Params is protected again; restore the value |
+| 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |
+| 12 | Save, close and reopen, then Run SA-CCR | Every sheet still protected; the run succeeds |
+| 13 | Open with macros disabled | Every sheet and the structure are protected; nothing else works until macros are enabled |
+
 ## 🧭 Changing the matrix
 
 A change to the editable cells or to what a sheet allows changes
