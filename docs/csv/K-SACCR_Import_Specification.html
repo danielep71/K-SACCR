@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K-SACCR CSV import specification, contract version 1</title>
+<style>
+:root { --ink: #1b2733; --muted: #4a5a68; --line: #c9d3dd; --head: #e8f0fa; --accent: #1f5aa6; --code: #f4f6f8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #ffffff; color: var(--ink);
+       font: 15px/1.5 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+header, nav, main, footer { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+header { padding-top: 24px; }
+h1 { font-size: 26px; margin: 0 0 6px; color: var(--accent); }
+h2 { font-size: 21px; margin: 32px 0 10px; padding-bottom: 4px; border-bottom: 2px solid var(--head); }
+h3 { font-size: 17px; margin: 22px 0 8px; }
+p, ul { margin: 8px 0; }
+.lead { color: var(--muted); }
+nav ol { columns: 2; margin: 12px 0; padding-left: 22px; }
+code { background: var(--code); padding: 0 3px; border-radius: 3px; font-family: Consolas, "Courier New", monospace; font-size: 0.9em; }
+.wide { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0 16px; font-size: 13.5px; }
+th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+th { background: var(--head); }
+td.num { text-align: right; white-space: nowrap; }
+pre.csv { background: var(--code); border: 1px solid var(--line); padding: 10px 12px; margin: 8px 0 16px;
+          font: 13px/1.45 Consolas, "Courier New", monospace; white-space: pre-wrap; overflow-wrap: anywhere;
+          user-select: all; }
+footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom: 32px; }
+@page { size: A4 landscape; margin: 12mm; }
+@media print {
+  body { font-size: 11px; }
+  nav { display: none; }
+  header, main, footer { max-width: none; padding: 0; }
+  h2 { break-after: avoid; }
+  table { font-size: 9.5px; }
+  pre.csv { font-size: 9.5px; }
+  tr, pre.csv { break-inside: avoid; }
+  .wide { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<header>
+<h1>K-SACCR CSV import specification</h1>
+<p class="lead">CSV contract version 1, for the NettingSets and Trades files whose blank templates end in <code>_v1</code>. The contract version changes only when a column is added, removed or renamed, not with each K-SACCR release.</p>
+</header>
+<nav><ol><li><a href="#files">Files</a></li><li><a href="#format">File format</a></li><li><a href="#header">Header</a></li><li><a href="#types">Value types</a></li><li><a href="#blanks">Blank fields, empty files and limits</a></li><li><a href="#nettingsets">NettingSets file</a></li><li><a href="#trades">Trades file</a></li><li><a href="#examples">Using the examples</a></li><li><a href="#findings">Findings</a></li></ol></nav>
+<main>
+<section id="files">
+<h2>Files</h2>
+<p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet <code>Import_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and <code>Trades</code> writes the blank template, the header alone.</p>
+<table>
+<thead><tr><th>File</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>
+<tbody>
+<tr><td>NettingSets</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class="num">10,000</td><td><code>K-SACCR_NettingSets_v1.csv</code></td></tr>
+<tr><td>Trades</td><td>Trades</td><td><code>trade_id</code></td><td class="num">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>
+</tbody>
+</table>
+</section>
+<section id="format">
+<h2>File format</h2>
+<ul>
+<li><strong>Encoding.</strong> UTF-8, with or without a byte-order mark. A file that is not valid UTF-8, or that contains a NUL character, is rejected. Save the file as UTF-8 text; any language may be used in a text field.</li>
+<li><strong>Delimiter.</strong> Fields are separated by a semicolon, <code>;</code>. A file whose header is one field holding commas or tabs was saved with another delimiter and is rejected.</li>
+<li><strong>Quoting.</strong> A field that contains <code>;</code>, a double quote or a line break is enclosed in double quotes, <code>&quot;</code>, and a quote inside it is written twice: <code>&quot;A &quot;&quot;B&quot;&quot;&quot;</code> reads <code>A &quot;B&quot;</code>. Quotes enclose a whole field only: a quote inside an unquoted field, text after a closing quote, or a quoted field left open at the end of the file is a syntax error.</li>
+<li><strong>Line endings.</strong> Records are separated by CRLF or LF; the last record may end without one. A carriage return anywhere else outside a quoted field is an error.</li>
+<li><strong>Multi-line fields.</strong> A quoted field may span several lines; only text fields accept a line break. A finding names the line on which its record starts and the record number, counted from 1 after the header.</li>
+<li><strong>Numbers.</strong> Decimal point <code>.</code>, no thousands separator, no <code>+</code> sign, an optional exponent (<code>1.25e6</code>); at most 15 significant digits, so that a value is never rounded when it is read. <code>1,5</code> and <code>1.000,00</code> are rejected.</li>
+<li><strong>Dates.</strong> <code>yyyy-mm-dd</code>, from <code>1950-01-01</code> to <code>2200-12-31</code>; <code>31/03/2027</code> and serial numbers are rejected.</li>
+<li><strong>Spaces.</strong> Spaces belong to the field. A value of a type other than text with a leading or trailing space is rejected, never trimmed.</li>
+<li><strong>No formulas.</strong> Text that starts with <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a carriage return is rejected, so that no field becomes a formula on a sheet. A negative number is a value, not a formula.</li>
+<li><strong>Excel.</strong> Excel's own CSV save writes numbers and dates in the format of the computer's locale, such as a decimal comma or a day-first date, and in some locales separates fields with commas, so such a file is rejected. Write the file with a program that follows these rules.</li>
+</ul>
+</section>
+<section id="header">
+<h2>Header</h2>
+<p>The first record is the header. It names every column of the file exactly once, in any order, with the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column rejects the file before any record is read. There are no optional columns: an optional field is a column whose value may be blank. The column set is the contract version: a file of another version is never mapped by guessing what a column means.</p>
+</section>
+<section id="types">
+<h2>Value types</h2>
+<table>
+<thead><tr><th>Type</th><th>Written as</th><th>Rules</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>Text, read as text, so leading zeros are kept (<code>00123</code>)</td><td>At most 64 characters; no <code>|</code>, <code>#</code>; no control character. Keys are compared case-insensitively.</td></tr>
+<tr><td><code>text</code></td><td>Text</td><td>At most 500 characters; line breaks allowed, other control characters not.</td></tr>
+<tr><td><code>code</code></td><td>One of the listed values</td><td>Exact spelling and case: <code>Linear</code>, not <code>linear</code>.</td></tr>
+<tr><td><code>flag</code></td><td><code>Y</code>, <code>N</code></td><td>Exact; <code>y</code>, <code>Yes</code>, <code>TRUE</code>, <code>1</code> are rejected.</td></tr>
+<tr><td><code>currency</code></td><td>Three capital letters</td><td><code>EUR</code>, not <code>eur</code>.</td></tr>
+<tr><td><code>integer</code></td><td><code>-?digits</code></td><td>No sign <code>+</code>, no leading zero, no decimal point.</td></tr>
+<tr><td><code>number</code></td><td><code>-?digits[.digits][e±digits]</code></td><td>As under Numbers above; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307.</td></tr>
+<tr><td><code>date</code></td><td><code>yyyy-mm-dd</code></td><td>A calendar date within the range above.</td></tr>
+</tbody>
+</table>
+</section>
+<section id="blanks">
+<h2>Blank fields, empty files and limits</h2>
+<ul>
+<li>A <strong>blank field</strong> is an empty one. A required field must not be blank; an optional blank field takes the meaning given under <em>Blank means</em>, which is the sheet's.</li>
+<li>A <strong>blank record</strong>, whose fields are all empty, and an <strong>empty line</strong> are errors.</li>
+<li>A <strong>header-only file</strong> is valid and holds no record. Committing it never clears the input sheet: a staging sheet without rows leaves its input sheet as it is.</li>
+<li>A file is accepted or rejected <strong>as a whole</strong>: one finding rejects every record, and no record is dropped or truncated.</li>
+</ul>
+<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class="num">10,000</td></tr><tr><td>Trades</td><td class="num">100,000</td></tr></tbody></table>
+<p>A file of more than 134,217,728 bytes (128 MiB), a byte-order mark included, is rejected from its size alone. These limits are the import's. The sheets' drop-down lists cover only the rows a user types into, and the calculation reads every row of the input sheets, so they limit neither the import nor the calculation.</p>
+</section>
+<section id="nettingsets">
+<h2>NettingSets file</h2>
+<p>One record per netting set. <code>netting_set_id</code> is the key: unique in the file, compared case-insensitively, and not one of <code>TOTAL</code>, <code>TOTAL CRR</code>, <code>TOTAL BCBS</code>, which name the totals of Results. Every trade names its netting set by this key.</p>
+<h3>Columns</h3>
+<div class="wide"><table>
+<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><code>netting_set_id</code></td><td>NettingSetID</td><td>Unique netting-set ID, compared case-insensitively; referenced by every trade.</td><td>id (at most 64 characters)</td><td>yes</td><td></td><td></td><td><code>NS-001</code></td></tr>
+<tr><td class="num">2</td><td><code>counterparty</code></td><td>Counterparty</td><td>Descriptive counterparty name or identifier.</td><td>text (at most 500 characters)</td><td>no</td><td></td><td></td><td><code>CPTY-A</code></td></tr>
+<tr><td class="num">3</td><td><code>margined</code></td><td>Margined (Y/N)</td><td>Y for a supported margin agreement.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td>N</td><td><code>Y</code></td></tr>
+<tr><td class="num">4</td><td><code>clearing_role</code></td><td>Client clearing role (N / CM / CLIENT)</td><td>Bank&#x27;s clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine.</td><td>code</td><td>no</td><td><code>N</code>, <code>CM</code>, <code>CLIENT</code>, <code>CCP</code>, <code>MULTI</code></td><td>N</td><td><code>CM</code></td></tr>
+<tr><td class="num">5</td><td><code>remargin_period_business_days</code></td><td>Remargin frequency N (BD)</td><td>Remargining every N business days; 0 is read as daily with a warning.</td><td>integer (&ge; 0, &le; 10000)</td><td>no</td><td></td><td>1</td><td><code>1</code></td></tr>
+<tr><td class="num">6</td><td><code>large_or_illiquid</code></td><td>&gt;5,000 trades or illiquid collateral (Y/N)</td><td>Y applies the 20-business-day MPOR floor.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td>N</td><td><code>N</code></td></tr>
+<tr><td class="num">7</td><td><code>margin_disputes</code></td><td>Margin disputes (Y/N)</td><td>Y doubles the MPOR.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td>N</td><td><code>N</code></td></tr>
+<tr><td class="num">8</td><td><code>mpor_override_business_days</code></td><td>MPOR override (BD)</td><td>MPOR in business days, applied only when not below the computed MPOR.</td><td>integer (&ge; 1)</td><td>no</td><td></td><td>no override</td><td><code>20</code></td></tr>
+<tr><td class="num">9</td><td><code>variation_margin_net_amount</code></td><td>Net VM held (+) / posted (-)</td><td>Net variation margin: held positive, posted negative.</td><td>number</td><td>no</td><td></td><td>0</td><td><code>-150000</code></td></tr>
+<tr><td class="num">10</td><td><code>independent_collateral_net_amount</code></td><td>NICA</td><td>Net independent collateral amount.</td><td>number</td><td>no</td><td></td><td>0</td><td><code>250000</code></td></tr>
+<tr><td class="num">11</td><td><code>threshold_amount</code></td><td>Threshold TH</td><td>Margin threshold, unscaled.</td><td>number (&ge; 0)</td><td>no</td><td></td><td>0</td><td><code>0</code></td></tr>
+<tr><td class="num">12</td><td><code>minimum_transfer_amount</code></td><td>MTA</td><td>Minimum transfer amount, unscaled.</td><td>number (&ge; 0)</td><td>no</td><td></td><td>0</td><td><code>100000</code></td></tr>
+<tr><td class="num">13</td><td><code>alpha_factor</code></td><td>Alpha override</td><td>Alpha for this netting set; a value other than 1.4 classifies the run WHAT-IF.</td><td>number (&gt; 0)</td><td>no</td><td></td><td>the Params alpha</td><td><code>1.4</code></td></tr>
+<tr><td class="num">14</td><td><code>regime_override</code></td><td>Regime override (blank = Params)</td><td>Regime of this netting set and all its trades.</td><td>code</td><td>no</td><td><code>CRR</code>, <code>BCBS</code></td><td>the Params regime</td><td><code>CRR</code></td></tr>
+<tr><td class="num">15</td><td><code>margin_agreements</code></td><td>Margin agreements (blank / MIXED / SHARED)</td><td>MIXED or SHARED declares an unsupported structure, which the engine rejects.</td><td>code</td><td>no</td><td><code>MIXED</code>, <code>SHARED</code></td><td>a single agreement or none</td><td></td></tr>
+<tr><td class="num">16</td><td><code>qccp</code></td><td>QCCP (Y/N)</td><td>Role CCP only, and then required: Y if the CCP is qualifying.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td></td><td></td></tr>
+<tr><td class="num">17</td><td><code>ccp_retains_variation_margin</code></td><td>CCP retains VM, collateral not protected (Y/N)</td><td>Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td></td><td></td></tr>
+</tbody>
+</table></div>
+<h3>Rules between the fields of a record</h3>
+<ul><li>When <code>clearing_role</code> is <code>CCP</code>, <code>qccp</code>, <code>ccp_retains_variation_margin</code> are required; otherwise <code>qccp</code>, <code>ccp_retains_variation_margin</code> are blank.</li></ul>
+<p>A clearing member's trade exposure to a central counterparty is a netting set with <code>clearing_role</code> <code>CCP</code>; a client of a clearing member enters <code>CLIENT</code>, and a clearing member facing its client <code>CM</code>. <code>MULTI</code> declares a multi-level client structure, which the file accepts and the calculation rejects.</p>
+<h3>Example</h3>
+<pre class="csv" id="example-nettingsets">netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin
+NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;
+00731;&quot;Müller &amp; Søn &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;
+NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N
+</pre>
+</section>
+<section id="trades">
+<h2>Trades file</h2>
+<p>One record per <strong>leg</strong>. <code>trade_id</code> is the key: unique in the file and compared case-insensitively. Each leg names its netting set in <code>netting_set_id</code>, which must be a netting set of the <code>NettingSets</code> file, or of the sheet when only trades are imported.</p>
+<p>A trade with one risk driver is one record and carries its own MtM: <code>economic_trade_id</code> is blank and <code>mtm_leg</code> is <code>Y</code> or blank. A trade with several risk drivers, such as a cross-currency swap, is one record per leg, all with the same <code>economic_trade_id</code> and <code>netting_set_id</code>: exactly one leg has <code>mtm_leg</code> <code>Y</code> and carries the whole MtM, and every other leg has <code>mtm_leg</code> <code>N</code> and an MtM of <code>0</code>, so that the MtM is counted once.</p>
+<p>A trade settled to market has <code>settlement_type</code> <code>STM</code> and its <code>next_reset_date</code>; it belongs to an unmargined netting set.</p>
+<h3>Columns</h3>
+<div class="wide"><table>
+<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><code>trade_id</code></td><td>TradeID</td><td>Unique leg ID, compared case-insensitively.</td><td>id (at most 64 characters)</td><td>yes</td><td></td><td></td><td><code>TRD-101-IR</code></td></tr>
+<tr><td class="num">2</td><td><code>netting_set_id</code></td><td>NettingSetID</td><td>ID of the leg&#x27;s netting set in NettingSets.</td><td>id (at most 64 characters)</td><td>yes</td><td></td><td></td><td><code>NS-001</code></td></tr>
+<tr><td class="num">3</td><td><code>asset_class</code></td><td>Asset class</td><td>Asset class; OT is CRR only.</td><td>code</td><td>yes</td><td><code>IR</code>, <code>FX</code>, <code>CR</code>, <code>EQ</code>, <code>CO</code>, <code>OT</code></td><td></td><td><code>IR</code></td></tr>
+<tr><td class="num">4</td><td><code>sub_class</code></td><td>Sub-class</td><td>Regulatory sub-class, such as AAA or CQS3 for credit, SINGLE or INDEX for equity; required by the engine where the asset class needs one.</td><td>id (at most 64 characters)</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">5</td><td><code>risk_factor</code></td><td>Risk factor / reference</td><td>Currency, currency pair, reference entity or other hedging key.</td><td>id (at most 64 characters)</td><td>yes</td><td></td><td></td><td><code>EUR</code></td></tr>
+<tr><td class="num">6</td><td><code>instrument</code></td><td>Instrument</td><td>Instrument type.</td><td>code</td><td>no</td><td><code>Linear</code>, <code>Option</code>, <code>CDO</code></td><td>Linear</td><td><code>Linear</code></td></tr>
+<tr><td class="num">7</td><td><code>direction</code></td><td>Direction</td><td>Long or Short.</td><td>code</td><td>yes</td><td><code>Long</code>, <code>Short</code></td><td></td><td><code>Long</code></td></tr>
+<tr><td class="num">8</td><td><code>option_type</code></td><td>Option type</td><td>Call or Put; required by the engine for an option.</td><td>code</td><td>no</td><td><code>Call</code>, <code>Put</code></td><td></td><td></td></tr>
+<tr><td class="num">9</td><td><code>nature</code></td><td>Nature</td><td>Hedging-set nature.</td><td>code</td><td>no</td><td><code>Standard</code>, <code>Basis</code>, <code>Volatility</code></td><td>Standard</td><td><code>Standard</code></td></tr>
+<tr><td class="num">10</td><td><code>hedging_set_label</code></td><td>Basis / vol hedging-set label</td><td>Label of a basis or volatility hedging set; required by the engine for those.</td><td>id (at most 64 characters)</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&gt; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code></td></tr>
+<tr><td class="num">12</td><td><code>notional_currency</code></td><td>Notional ccy</td><td>Currency of the notional.</td><td>currency</td><td>no</td><td>three capital letters, such as <code>EUR</code></td><td>the reporting currency</td><td><code>EUR</code></td></tr>
+<tr><td class="num">13</td><td><code>market_value_amount</code></td><td>MtM</td><td>Mark-to-market of the leg; in an economic trade, only its MtM leg carries a value.</td><td>number</td><td>yes</td><td></td><td></td><td><code>250000</code></td></tr>
+<tr><td class="num">14</td><td><code>market_value_currency</code></td><td>MtM ccy</td><td>Currency of the MtM.</td><td>currency</td><td>no</td><td>three capital letters, such as <code>EUR</code></td><td>the notional currency</td><td></td></tr>
+<tr><td class="num">15</td><td><code>start_date</code></td><td>Start date (S)</td><td>Start date S.</td><td>date</td><td>no</td><td></td><td></td><td><code>2026-10-01</code></td></tr>
+<tr><td class="num">16</td><td><code>end_date</code></td><td>End date (E)</td><td>End date E; after the start date when both are given.</td><td>date</td><td>no</td><td></td><td></td><td><code>2031-10-01</code></td></tr>
+<tr><td class="num">17</td><td><code>maturity_date</code></td><td>Maturity date (M)</td><td>Contractual maturity M.</td><td>date</td><td>no</td><td></td><td></td><td><code>2031-10-01</code></td></tr>
+<tr><td class="num">18</td><td><code>option_expiry_date</code></td><td>Option expiry (T)</td><td>Option expiry T; required by the engine for an option.</td><td>date</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">19</td><td><code>underlying_price</code></td><td>Underlying price P</td><td>Option underlying price or rate P.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">20</td><td><code>strike_price</code></td><td>Strike K</td><td>Option strike K.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">21</td><td><code>lambda_price</code></td><td>Lambda shift</td><td>Lambda shift added to P and K.</td><td>number (&ge; 0)</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">22</td><td><code>attachment_rate</code></td><td>Attachment A</td><td>CDO tranche attachment point, a fraction.</td><td>number (&ge; 0, &le; 0.9999)</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">23</td><td><code>detachment_rate</code></td><td>Detachment D</td><td>CDO tranche detachment point, a fraction above the attachment point.</td><td>number (&gt; 0, &le; 1)</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">24</td><td><code>economic_trade_id</code></td><td>Economic trade ID</td><td>Groups the legs of one economic trade.</td><td>id (at most 64 characters)</td><td>no</td><td></td><td>the row is a whole trade</td><td><code>TRD-101</code></td></tr>
+<tr><td class="num">25</td><td><code>mtm_leg</code></td><td>MtM leg (Y/N)</td><td>Y on the one leg of an economic trade that carries its whole MtM.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td></td><td><code>Y</code></td></tr>
+<tr><td class="num">26</td><td><code>settlement_type</code></td><td>Settlement type (N/STM)</td><td>STM for a settled-to-market trade.</td><td>code</td><td>no</td><td><code>N</code>, <code>STM</code></td><td>N</td><td></td></tr>
+<tr><td class="num">27</td><td><code>next_reset_date</code></td><td>Next reset date</td><td>STM only, and then required: the first settlement date after the reporting date.</td><td>date</td><td>no</td><td></td><td></td><td></td></tr>
+<tr><td class="num">28</td><td><code>comment</code></td><td>Comment</td><td>Free-text note; not read by the engine.</td><td>text (at most 500 characters)</td><td>no</td><td></td><td></td><td></td></tr>
+</tbody>
+</table></div>
+<h3>Rules between the fields of a record</h3>
+<ul><li>When <code>settlement_type</code> is <code>STM</code>, <code>next_reset_date</code> is required; otherwise <code>next_reset_date</code> is blank.</li><li>When both are given, <code>end_date</code> is after <code>start_date</code>.</li><li>When both are given, <code>detachment_rate</code> is above <code>attachment_rate</code>.</li></ul>
+<h3>Rules between records</h3>
+<p>Judged by <strong>Validate staging</strong> on the staged legs together with the netting sets they refer to, as the calculation judges them.</p>
+<table>
+<thead><tr><th>Rule</th><th>Finding</th><th>Requirement</th></tr></thead>
+<tbody>
+<tr><td><code>netting-set-known</code></td><td><code>CSV-NETTING-SET-UNKNOWN</code></td><td>Each leg&#x27;s netting set is on NettingSets, compared case-insensitively.</td></tr>
+<tr><td><code>mtm-leg</code></td><td><code>CSV-ECON-MTM-LEG</code></td><td>An economic trade has exactly one leg with MtM leg Y; a whole trade has Y or blank.</td></tr>
+<tr><td><code>mtm-value</code></td><td><code>CSV-ECON-MTM-VALUE</code></td><td>In an economic trade, every leg but the MtM leg has a MtM of 0.</td></tr>
+<tr><td><code>same-netting-set</code></td><td><code>CSV-ECON-NETTING-SET</code></td><td>The legs of an economic trade are in one netting set.</td></tr>
+<tr><td><code>same-settlement</code></td><td><code>CSV-ECON-SETTLEMENT</code></td><td>The legs of an economic trade have one settlement type (blank read as N) and one next reset date.</td></tr>
+<tr><td><code>asset-class</code></td><td><code>CSV-ECON-ASSET-CLASS</code></td><td>Two legs of an economic trade in the same asset class are both options.</td></tr>
+</tbody>
+</table>
+<h3>Rules against Params</h3>
+<p>Judged by <strong>Validate staging</strong> against the reporting date, the FX table, the supervisory-factor table and the regime of each netting set, its <code>regime_override</code> or else the Params regime.</p>
+<table>
+<thead><tr><th>Rule</th><th>Finding</th><th>Requirement</th></tr></thead>
+<tbody>
+<tr><td><code>matured</code></td><td><code>CSV-CONTEXT-MATURED</code></td><td>The maturity, or else the end date, or else the option expiry, is after the reporting date.</td></tr>
+<tr><td><code>expired</code></td><td><code>CSV-CONTEXT-EXPIRED</code></td><td>An option that has not matured expires after the reporting date.</td></tr>
+<tr><td><code>reset</code></td><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is after the reporting date.</td></tr>
+<tr><td><code>currency</code></td><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency.</td></tr>
+<tr><td><code>pair</code></td><td><code>CSV-CONTEXT-PAIR</code></td><td>Both currencies of an FX pair have a rate in the FX table.</td></tr>
+<tr><td><code>factor</code></td><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA.</td></tr>
+<tr><td><code>regime</code></td><td><code>CSV-CONTEXT-REGIME</code></td><td>Under the netting set&#x27;s regime, its override or else the Params regime, OT is CRR-only and a factor row limited to a regime is that regime.</td></tr>
+</tbody>
+</table>
+<h3>Example</h3>
+<p>The trades suppose a reporting date before <code>2026-12-31</code>, a rate in the FX table for <code>EUR</code>, <code>GBP</code>, <code>USD</code>, and a supervisory-factor row for <code>EQ_SINGLE</code>, <code>FX</code>, <code>IR</code>, as the workbook template has. With other Params, a validation may report a matured trade or a missing rate.</p>
+<pre class="csv" id="example-trades">trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment
+TRD-101-IR;NS-001;IR;;USD;Linear;Short;;;;5000000;USD;-1200000;EUR;2026-10-01;2029-10-01;2029-10-01;;;;;;;TRD-101;Y;;;&quot;Cross-currency swap; MtM on this leg&quot;
+TRD-101-FX;NS-001;FX;;EUR/USD;Linear;Long;;;;5000000;USD;0;;;;2029-10-01;;;;;;;TRD-101;N;;;
+000245;00731;EQ;SINGLE;ACME-EQ;Option;Long;Call;;;1000000;EUR;35000;;;;2028-03-31;2027-03-31;100;110;;;;;;;;
+TRD-STM-1;00731;IR;;EUR;Linear;Short;;;;3000000;EUR;0;;;;2029-12-31;;;;;;;;;STM;2026-12-31;&quot;Settled to market, &quot;&quot;STM&quot;&quot;&quot;
+TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;;;;Cleared swap
+</pre>
+</section>
+<section id="examples">
+<h2>Using the examples</h2>
+<p>The examples are synthetic and hold no real portfolio data. The two belong together: each leg's netting set is in the NettingSets example. To try them, select the text of an example, copy it into a text editor, and save it as UTF-8 with the extension <code>.csv</code>; then import both files and validate them.</p>
+</section>
+<section id="findings">
+<h2>Findings</h2>
+<p>Every finding of the import and of the validation has one of these codes.</p>
+<table>
+<thead><tr><th>Finding</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>CSV-ENCODING</code></td><td>The file is not valid UTF-8 or contains a NUL character.</td></tr>
+<tr><td><code>CSV-SYNTAX</code></td><td>The record is not valid CSV: a quote inside an unquoted field, text after a closing quote, a lone CR, or a quoted field left open at the end of the file.</td></tr>
+<tr><td><code>CSV-EMPTY</code></td><td>The file has no header record.</td></tr>
+<tr><td><code>CSV-DELIMITER</code></td><td>The header is a single field that contains a comma or a tab: the file uses another delimiter than &#x27;;&#x27;.</td></tr>
+<tr><td><code>CSV-HEADER-DUPLICATE</code></td><td>A column name appears more than once in the header.</td></tr>
+<tr><td><code>CSV-HEADER-MISSING</code></td><td>A column of the contract is missing from the header.</td></tr>
+<tr><td><code>CSV-HEADER-UNKNOWN</code></td><td>The header names a column that is not in the contract.</td></tr>
+<tr><td><code>CSV-FIELD-COUNT</code></td><td>The record has a different number of fields from the header.</td></tr>
+<tr><td><code>CSV-BLANK-RECORD</code></td><td>Every field of the record is blank.</td></tr>
+<tr><td><code>CSV-TOO-MANY-RECORDS</code></td><td>The file has more records than the contract allows.</td></tr>
+<tr><td><code>CSV-TOO-LARGE</code></td><td>The file has more bytes than the contract allows.</td></tr>
+<tr><td><code>CSV-REQUIRED</code></td><td>A required field is blank.</td></tr>
+<tr><td><code>CSV-TYPE</code></td><td>The field does not have the form its type requires.</td></tr>
+<tr><td><code>CSV-RANGE</code></td><td>The value is outside the range the contract allows.</td></tr>
+<tr><td><code>CSV-ALLOWED</code></td><td>The value is not one of the allowed values.</td></tr>
+<tr><td><code>CSV-LENGTH</code></td><td>The text is longer than its type allows.</td></tr>
+<tr><td><code>CSV-FORMULA</code></td><td>Text may not start with =, +, -, @, a tab or a carriage return.</td></tr>
+<tr><td><code>CSV-DUPLICATE-KEY</code></td><td>The key repeats an earlier record of the file, compared case-insensitively.</td></tr>
+<tr><td><code>CSV-RESERVED-KEY</code></td><td>The key is reserved.</td></tr>
+<tr><td><code>CSV-ROW-RULE</code></td><td>The record breaks a rule between its fields.</td></tr>
+<tr><td><code>CSV-NETTING-SET-UNKNOWN</code></td><td>The leg&#x27;s netting set is not on NettingSets.</td></tr>
+<tr><td><code>CSV-ECON-MTM-LEG</code></td><td>An economic trade does not have exactly one MtM leg, or a whole trade is flagged N.</td></tr>
+<tr><td><code>CSV-ECON-MTM-VALUE</code></td><td>A leg that is not the MtM leg of its economic trade has a MtM other than 0.</td></tr>
+<tr><td><code>CSV-ECON-NETTING-SET</code></td><td>The legs of an economic trade are in different netting sets.</td></tr>
+<tr><td><code>CSV-ECON-SETTLEMENT</code></td><td>The legs of an economic trade differ in settlement type or next reset date.</td></tr>
+<tr><td><code>CSV-ECON-ASSET-CLASS</code></td><td>Two legs of an economic trade are in the same asset class and not both options.</td></tr>
+<tr><td><code>CSV-CONTEXT-PARAMS</code></td><td>Params, the supervisory-factor table or the FX table cannot be read as a run reads them, so the rules that depend on them are not judged.</td></tr>
+<tr><td><code>CSV-CONTEXT-MATURED</code></td><td>The trade&#x27;s maturity, or else its end date or option expiry, is not after the reporting date.</td></tr>
+<tr><td><code>CSV-CONTEXT-EXPIRED</code></td><td>The option&#x27;s expiry is not after the reporting date.</td></tr>
+<tr><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is not after the reporting date.</td></tr>
+<tr><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional or MtM currency has no rate in the FX table.</td></tr>
+<tr><td><code>CSV-CONTEXT-PAIR</code></td><td>A currency of the FX pair has no rate in the FX table.</td></tr>
+<tr><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has no row for the asset class and sub-class.</td></tr>
+<tr><td><code>CSV-CONTEXT-REGIME</code></td><td>The asset class or its supervisory factor is not available under the netting set&#x27;s regime.</td></tr>
+</tbody>
+</table>
+</section>
+</main>
+<footer>Generated from the CSV contract of K-SACCR. It works offline and needs no other file.</footer>
+</body>
+</html>
