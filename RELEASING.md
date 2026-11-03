@@ -109,7 +109,7 @@ Confirm the hosted **Repository integrity** check is green on the same SHA.
 ### 5. Certify in Excel
 
 Import the exact candidate into a clean workbook, compile, and run the harness
-and the seven suites listed in `.github/excel-evidence-policy.json`, each on
+and the nine suites listed in `.github/excel-evidence-policy.json`, each on
 its own, following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
 In the same session, before the logs are hashed, run the
 [manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
@@ -168,7 +168,7 @@ The tag message is the release's permanent record:
 vX.Y.Z - <short release title>
 
 Certified at <full 40-character SHA>.
-Excel: compile <result>; suites <passed>/8, failed=0; evidence validator PASS.
+Excel: compile <result>; suites <passed>/<suites>, failed=0; evidence validator PASS.
 Fixes #<n>, #<n>.
 Deviations: none.
 ```
@@ -235,7 +235,7 @@ it does not replace it.
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
-| 7 | Excel certification passes for the harness and the seven policy suites on the candidate, and the manual protection checks pass | ☐ |
+| 7 | Excel certification passes for the harness and the nine policy suites on the candidate, and the manual protection checks pass | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |

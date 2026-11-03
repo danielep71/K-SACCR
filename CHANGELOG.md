@@ -396,6 +396,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Correct counts that had gone stale: `RELEASING.md` asks for the harness
+  and the nine policy suites throughout (it also said seven and eight), and
+  its tag message takes the suite count from the run; `tools/README.md`
+  counts ten production modules since `CORE_ImportSpec`. The traffic
+  workflow, the governance, `pyproject.toml` and the VBA call checker with
+  its tests no longer name the projects they were taken from.
 - Describe the current branch rulesets in the governance (#485): no ruleset
   has a bypass, release branches accept squash and merge commits, and
   `traffic-history` has its own ruleset. After an integration into `main`,

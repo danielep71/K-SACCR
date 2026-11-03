@@ -134,7 +134,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the nine standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the ten standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -260,8 +260,8 @@ python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.j
   --summary test-results/check_vba_calls.md
 ```
 
-`check_vba_calls.py` is vendored from VBA-DATETIMEPICKER at commit `a66790a`,
-resynchronised at `35d6857` (#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
+`check_vba_calls.py` is vendored (#60), resynchronised with its upstream
+(#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
 workflow runs it in a non-blocking step that adds its summary to the job page.
 Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
 compiler: compiling in Excel stays the authoritative call check.
@@ -283,7 +283,7 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The nine standard modules of a workbook built from the template |
+| `production` | The ten standard modules of a workbook built from the template |
 | `development` | Those plus the thirteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
@@ -296,8 +296,7 @@ The document modules (`ThisWorkbook` and the sheet modules) are listed under
 - **Not checked:** dynamic and workbook-qualified call targets, `Object` and `Variant` receivers, and argument types.
 
 **K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
-(no logic change), the Ribbon parser copied from that repository's
-`check_source.py`, and `document_modules`. Three upstream parser functions
+(no logic change), a Ribbon callback parser, and `document_modules`. Three upstream parser functions
 exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one
 file from C901, so it can still be resynchronised with upstream.
 
@@ -418,7 +417,7 @@ Exit code 0 means PASS, 1 a finding and 2 an error.
 
 ## Traffic history
 
-`.github/workflows/daily-traffic.yml`, adapted from VBA-DATETIMEPICKER, runs
+`.github/workflows/daily-traffic.yml` runs
 daily at 06:00 UTC and on manual dispatch, from the default branch only. It
 reads GitHub's traffic API, which keeps just 14 days, and appends the snapshot
 to CSV files under `data/` on the orphan `traffic-history` branch: totals,

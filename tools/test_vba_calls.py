@@ -1,6 +1,6 @@
 """Fixtures for check_vba_calls.py: every supported defect next to a valid twin.
 
-Vendored with the checker from VBA-DATETIMEPICKER at commit a66790a (#60); SACCR
+Vendored with the checker (#60); SACCR
 adds type annotations and a fixture for ``document_modules``.
 """
 import unittest
