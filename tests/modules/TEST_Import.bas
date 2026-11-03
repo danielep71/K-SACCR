@@ -2740,8 +2740,10 @@ Private Function LastLiveRow( _
 '
 '==============================================================================
 ' PURPOSE
-'   The last row of an input sheet with a value in one of its input
-'   columns, or FirstRow - 1 when none has one.
+'   The last row of an input sheet with a value or a formula in one of
+'   its input columns, whatever the formula returns, or FirstRow - 1 when
+'   none has either: the extent the commit replaces (#512), so that the
+'   suite saves and puts back a formula below the data too.
 '==============================================================================
 '
 
@@ -2750,6 +2752,7 @@ Private Function LastLiveRow( _
 '------------------------------------------------------------------------------
     Dim LastRow   As Long       'Last row of the used range
     Dim Grid      As Variant    'The input cells
+    Dim Formulas  As Variant    'Their formulas; "" for a constant
     Dim r         As Long       'Row of Grid
     Dim c         As Long       'Column of Grid
 
@@ -2761,10 +2764,16 @@ Private Function LastLiveRow( _
         If LastRow < FirstRow Then
             Exit Function
         End If
-        Grid = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
+            Grid = .Value2
+            Formulas = FormulaCells(.Cells)
+        End With
         For r = UBound(Grid, 1) To 1 Step -1
             For c = 1 To Width
-                If Not IsEmpty(Grid(r, c)) Then
+                If Len(CStr(Formulas(r, c))) > 0 Then
+                    LastLiveRow = FirstRow + r - 1
+                    Exit Function
+                ElseIf Not IsEmpty(Grid(r, c)) Then
                     If IsError(Grid(r, c)) Then
                         LastLiveRow = FirstRow + r - 1
                         Exit Function
