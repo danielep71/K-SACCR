@@ -48,14 +48,14 @@ evidence checks work as before.
 | --- | --- | --- | --- |
 | `README` | Instructions | — | Opening and closing row groups |
 | `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) | — |
-| `NettingSets` | Input | Columns `C:S` from row 7 down | Sorting, filtering, inserting rows |
+| `NettingSets` | Input | Columns `C:S` from row 7 down | Sorting, inserting rows |
 | `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:T` from row 10 down | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
-| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, filtering, inserting rows |
+| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |
 | `Reconciliation` | Output | — | — |
-| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, filtering, inserting rows |
+| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
 | `TradeReconciliation` | Output | — | — |
 | `TestCatalogue` | Test | `L7:L34` | — |
 | `FormulaTest` | Test | `E4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` | — |
@@ -63,7 +63,8 @@ evidence checks work as before.
 
 Selecting and copying any cell is always allowed. Deleting rows or columns,
 formatting cells and inserting columns are not: to remove an input row, clear
-its cells.
+its cells. Filtering works through the AutoFilter the template gives a sheet
+(`Trades`, `Basel_vs_CRR`); a protected sheet cannot get a new one.
 
 ## 📏 Rules
 

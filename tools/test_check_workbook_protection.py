@@ -130,6 +130,16 @@ class ProtectionGateTests(unittest.TestCase):
                                     "Sheet: the saved protection allows filtering, against the matrix",
                                     "Sheet: the protection allows formatCells"])
 
+    def test_filtering_needs_autofilter(self) -> None:
+        spec = dict(SPEC, allow=["filtering"])
+        protection = PROTECTED.replace("/>", ' autoFilter="0"/>')
+        sheet = OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>"
+        findings = run(sheet, spec, protection=protection, listed=("PROTECT_FILTERING",))
+        self.assertEqual(findings, ["Sheet: filtering is allowed but the sheet has no AutoFilter, "
+                                    "and a protected sheet cannot get one"])
+        self.assertEqual(run(sheet, spec, protection=protection + '<autoFilter ref="C1:D2"/>',
+                             listed=("PROTECT_FILTERING",)), [])
+
     def test_structure_saved_unprotected(self) -> None:
         findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", structure="")
         self.assertEqual(findings, [f"{gate.TEMPLATE}: the workbook structure is not saved protected"])

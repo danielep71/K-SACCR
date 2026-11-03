@@ -124,9 +124,9 @@ Use only the categories needed by a release.
   reference regulatory parameters stay locked and are now filled grey
   instead of yellow, as the Params and README notes say; the bank amount
   scale and tolerances and the test inputs of `TestCatalogue` and
-  `FormulaTest`. The input and bank sheets allow sorting, filtering and
-  inserting rows, the staging sheets inserting rows, `Basel_vs_CRR`
-  filtering and README opening its row groups. `Auto_Open` and every
+  `FormulaTest`. The input and bank sheets allow sorting and inserting rows,
+  `Trades` and `Basel_vs_CRR` filtering with their AutoFilter, the staging
+  sheets inserting rows and README opening its row groups. `Auto_Open` and every
   operation run `ProtectWorkbook`, which protects each sheet for the user
   interface only, so that the macros keep writing every sheet, and protects
   again a sheet or the structure unprotected for maintenance; loading and

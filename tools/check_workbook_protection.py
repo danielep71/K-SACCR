@@ -11,8 +11,9 @@ the last column of the sheet, so a cell that does not exist yet is judged
 by the style it would receive. A locked cell may not carry the yellow input
 fill. Every sheet and the workbook structure are saved protected, without a
 password; each sheet allows sorting, filtering, inserting rows and opening
-row groups exactly as the matrix says, and the PROTECT_ lists of CORE_Config,
-which M_Main.ProtectWorkbook applies, say the same."""
+row groups exactly as the matrix says, filtering only on a sheet with an
+AutoFilter, and the PROTECT_ lists of CORE_Config, which
+M_Main.ProtectWorkbook applies, say the same."""
 from __future__ import annotations
 
 import json
@@ -275,6 +276,9 @@ def check_saved_protection(name: str, xml: bytes, spec: dict[str, Any]) -> list[
                             "against the matrix")
     findings += [f"{name}: the protection allows {flag}" for flag in LOCKED_FLAGS
                  if protection.get(flag) in ("0", "false")]
+    if "filtering" in allowed and ET.fromstring(xml).find("m:autoFilter", NS) is None:
+        findings.append(f"{name}: filtering is allowed but the sheet has no AutoFilter, "
+                        "and a protected sheet cannot get one")
     return findings
 
 
