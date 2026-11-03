@@ -9,6 +9,7 @@ from typing import Any
 
 import check_csv_contract as gate
 import csv_contract as csv
+import import_spec
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT: dict[str, Any] = csv.load_contract(ROOT)
@@ -254,7 +255,7 @@ class GateTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES,
-                     gate.PORTFOLIO, gate.STAGED):
+                     gate.PORTFOLIO, gate.STAGED, import_spec.SPECIFICATION):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
         shutil.copytree(ROOT / csv.TEMPLATES, self.root / csv.TEMPLATES)

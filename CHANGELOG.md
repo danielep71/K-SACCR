@@ -116,6 +116,19 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Describe the CSV files for a user who has only the workbook (#473, part
+  1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with
+  no script and no external file, generated from the contract by
+  `tools/import_spec.py`. It gives the contract version, the file format, the
+  header, the value types, blank fields and empty files, the limits, every
+  column of both files, the rules between fields, between records and
+  against Params, the findings, and an example of each file as CSV text to
+  copy: synthetic records kept in the contract, with a leading-zero
+  identifier, quoted text, characters HTML escapes, an economic trade, an
+  option, a trade settled to market and a CCP netting set. The
+  `check_csv_contract` gate fails when the page differs from the contract or
+  the examples would not import together into the template, judged against
+  its Params. The workbook button that saves the page follows.
 - Protect the workbook against accidental edits (#420, #421). Every sheet
   and the workbook structure are protected, without a password, in the
   template and so in every workbook built from it; the protection holds with

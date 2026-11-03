@@ -29,6 +29,11 @@
       "key": "netting_set_id",
       "reserved_keys": ["TOTAL", "TOTAL CRR", "TOTAL BCBS"],
       "max_records": 10000,
+      "examples": [
+        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
+        {"netting_set_id": "00731", "counterparty": "Müller & Søn \"Nord\"; <Example> AG", "margined": "N", "regime_override": "BCBS"},
+        {"netting_set_id": "NS-CCP", "counterparty": "Example CCP", "margined": "Y", "clearing_role": "CCP", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "0", "independent_collateral_net_amount": "0", "threshold_amount": "0", "minimum_transfer_amount": "0", "qccp": "Y", "ccp_retains_variation_margin": "N"}
+      ],
       "columns": [
         {"name": "netting_set_id", "sheet_header": "NettingSetID", "type": "id", "required": true,
          "description": "Unique netting-set ID, compared case-insensitively; referenced by every trade.", "example": "NS-001"},
@@ -86,6 +91,13 @@
       "key": "trade_id",
       "reserved_keys": [],
       "max_records": 100000,
+      "examples": [
+        {"trade_id": "TRD-101-IR", "netting_set_id": "NS-001", "asset_class": "IR", "risk_factor": "USD", "instrument": "Linear", "direction": "Short", "notional_amount": "5000000", "notional_currency": "USD", "market_value_amount": "-1200000", "market_value_currency": "EUR", "start_date": "2026-10-01", "end_date": "2029-10-01", "maturity_date": "2029-10-01", "economic_trade_id": "TRD-101", "mtm_leg": "Y", "comment": "Cross-currency swap; MtM on this leg"},
+        {"trade_id": "TRD-101-FX", "netting_set_id": "NS-001", "asset_class": "FX", "risk_factor": "EUR/USD", "instrument": "Linear", "direction": "Long", "notional_amount": "5000000", "notional_currency": "USD", "market_value_amount": "0", "maturity_date": "2029-10-01", "economic_trade_id": "TRD-101", "mtm_leg": "N"},
+        {"trade_id": "000245", "netting_set_id": "00731", "asset_class": "EQ", "sub_class": "SINGLE", "risk_factor": "ACME-EQ", "instrument": "Option", "direction": "Long", "option_type": "Call", "notional_amount": "1000000", "notional_currency": "EUR", "market_value_amount": "35000", "maturity_date": "2028-03-31", "option_expiry_date": "2027-03-31", "underlying_price": "100", "strike_price": "110"},
+        {"trade_id": "TRD-STM-1", "netting_set_id": "00731", "asset_class": "IR", "risk_factor": "EUR", "instrument": "Linear", "direction": "Short", "notional_amount": "3000000", "notional_currency": "EUR", "market_value_amount": "0", "maturity_date": "2029-12-31", "settlement_type": "STM", "next_reset_date": "2026-12-31", "comment": "Settled to market, \"STM\""},
+        {"trade_id": "TRD-CCP-1", "netting_set_id": "NS-CCP", "asset_class": "IR", "risk_factor": "GBP", "instrument": "Linear", "direction": "Long", "notional_amount": "2000000", "notional_currency": "GBP", "market_value_amount": "-15000", "maturity_date": "2028-06-30", "comment": "Cleared swap"}
+      ],
       "columns": [
         {"name": "trade_id", "sheet_header": "TradeID", "type": "id", "required": true,
          "description": "Unique leg ID, compared case-insensitively.", "example": "TRD-101-IR"},
