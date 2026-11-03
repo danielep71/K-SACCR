@@ -4590,7 +4590,7 @@ Private Function CommitStaging( _
     Dim Kinds(1 To 2)       As String           'NettingSets, Trades
     Dim LiveSheet(1 To 2)   As Worksheet        'The input sheets
     Dim LiveFirst(1 To 2)   As Long             'Their first data rows
-    Dim Width(1 To 2)       As Long             'Their input columns
+    Dim InputWidth(1 To 2)       As Long             'Their input columns
     Dim NewRows(1 To 2)     As Long             'Staged rows to write; 0 leaves the sheet
     Dim OldLast(1 To 2)     As Long             'Last row with a value before the commit
     Dim KeptLast(1 To 2)    As Long             'Last row of the kept cells
@@ -4641,13 +4641,13 @@ Private Function CommitStaging( _
                 NewBlock(k) = TypedBlock(Kinds(k), Values, NewRows(k))
                 Set LiveSheet(k) = GetSheet(IIf(k = 1, SH_NS, SH_TRADES))
                 LiveFirst(k) = TableFirstRow(LiveSheet(k).Name)
-                Width(k) = IIf(k = 1, NS_NCOLS, TR_NCOLS)
-                OldLast(k) = LastStagingRow(LiveSheet(k), LiveFirst(k), Width(k))
+                InputWidth(k) = IIf(k = 1, NS_NCOLS, TR_NCOLS)
+                OldLast(k) = LastStagingRow(LiveSheet(k), LiveFirst(k), InputWidth(k))
                 KeptLast(k) = LiveFirst(k) + NewRows(k) - 1
                 If OldLast(k) > KeptLast(k) Then
                     KeptLast(k) = OldLast(k)
                 End If
-                With TableRange(LiveSheet(k), LiveFirst(k), 1, KeptLast(k), Width(k))
+                With TableRange(LiveSheet(k), LiveFirst(k), 1, KeptLast(k), InputWidth(k))
                     KeptValues(k) = .Value2
                     KeptFormulas(k) = FormulasOnly(.Cells)
                 End With
@@ -4673,9 +4673,9 @@ Private Function CommitStaging( _
         For k = 1 To 2
             If NewRows(k) > 0 Then
                 Touched(k) = True
-                TableRange(LiveSheet(k), LiveFirst(k), 1, LiveFirst(k) + NewRows(k) - 1, Width(k)).Value = NewBlock(k)
+                TableRange(LiveSheet(k), LiveFirst(k), 1, LiveFirst(k) + NewRows(k) - 1, InputWidth(k)).Value = NewBlock(k)
                 If OldLast(k) >= LiveFirst(k) + NewRows(k) Then
-                    TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), Width(k)).ClearContents
+                    TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), InputWidth(k)).ClearContents
                 End If
                 If gTestFault = "commit-write" Or gTestFault = "commit-rollback" Then
                     Err.Raise ERR_INJECTED_FAULT, "M_Main.CommitStaging", "Injected commit write failure."
@@ -4684,7 +4684,7 @@ Private Function CommitStaging( _
         Next k
         For k = 1 To 2
             If NewRows(k) > 0 Then
-                CheckWritten LiveSheet(k), LiveFirst(k), Width(k), NewBlock(k), NewRows(k), OldLast(k)
+                CheckWritten LiveSheet(k), LiveFirst(k), InputWidth(k), NewBlock(k), NewRows(k), OldLast(k)
             End If
         Next k
         ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""""", Visible:=False
@@ -4740,7 +4740,7 @@ Failed:
             End If
         Next k
         If Len(Rollback) = 0 Then
-            Rollback = PutLiveBack(LiveSheet, LiveFirst, Width, KeptLast, KeptValues, KeptFormulas, Touched)
+            Rollback = PutLiveBack(LiveSheet, LiveFirst, InputWidth, KeptLast, KeptValues, KeptFormulas, Touched)
         End If
         PutStatusesBack Kinds, StatusSet, OldStatus
         Resume CleanUp
@@ -5028,7 +5028,7 @@ End Function
 Private Function PutLiveBack( _
     ByRef LiveSheet() As Worksheet, _
     ByRef LiveFirst() As Long, _
-    ByRef Width() As Long, _
+    ByRef InputWidth() As Long, _
     ByRef KeptLast() As Long, _
     ByRef KeptValues() As Variant, _
     ByRef KeptFormulas() As Variant, _
@@ -5068,7 +5068,7 @@ Private Function PutLiveBack( _
 '------------------------------------------------------------------------------
         For k = LBound(Touched) To UBound(Touched)
             If Touched(k) Then
-                Problems = Problems & PutSheetBack(LiveSheet(k), LiveFirst(k), Width(k), KeptLast(k), _
+                Problems = Problems & PutSheetBack(LiveSheet(k), LiveFirst(k), InputWidth(k), KeptLast(k), _
                                                    KeptValues(k), KeptFormulas(k))
             End If
         Next k
