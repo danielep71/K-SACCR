@@ -5,7 +5,7 @@ listed derivatives, which rules govern each arrangement, and what is still to
 be defined (#358). It is the specification for the clearing work of v1.0.2:
 client-clearing verification (#359), settlement and reset inputs (#360), CCP
 trade exposures (#112; default funds are outside K-SACCR,
-[K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)), and the closing
+[decision 15](#decisions)), and the closing
 evidence (#361). It changes
 no calculation.
 
@@ -69,9 +69,9 @@ which risk-weight rule applies.
 | Clearing member's trade exposure | 2% risk weight (Art. 306(1)(a); CRE54.7) | Standardised risk weight of the counterparty (Art. 306(1)(b); CRE54.41) | Exposure value calculated with role `CCP`; the risk-weight rule is stated on Checks and not applied (#112) |
 | Client's trade exposure meeting the segregation and portability conditions | 2%; 4% when only the joint-default protection is missing (Art. 305(2)–(3); CRE54.14–.16) | Not available: Art. 305(2)(d) requires a QCCP | Not supported |
 | Clearing member's trade exposure to the CCP for a client trade | Exposure value zero when the member does not reimburse the client for losses on the CCP's default (Art. 306(1)(c)); otherwise as its own trade exposure (Art. 306(1)(d); CRE54.7) | Under CRR the same: zero without reimbursement (Art. 306(1)(c), not limited to QCCPs), otherwise the non-qualifying treatment of its own trade exposure (Art. 306(1)(b), (d)); CRE54.41 does not distinguish the two cases | Not supported |
-| Pre-funded default-fund contribution | K = max(K_CCP · DF_i / (DF_CCP + DF_CM); 8% · 2% · DF_i) (Art. 308; CRE54.25–.39) | K = DF + UC (Art. 309); 1250% (CRE54.42) | Not supported ([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)) |
+| Pre-funded default-fund contribution | K = max(K_CCP · DF_i / (DF_CCP + DF_CM); 8% · 2% · DF_i) (Art. 308; CRE54.25–.39) | K = DF + UC (Art. 309); 1250% (CRE54.42) | Not supported; outside K-SACCR ([decision 15](#decisions)) |
 | Unfunded default-fund contribution | 0% (Art. 310) | In K = DF + UC (Art. 309) | Not supported |
-| Cap | Trade exposure and default-fund requirements together capped at the non-qualifying requirement (Art. 303(2); CRE54.40) | — | Not supported ([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)) |
+| Cap | Trade exposure and default-fund requirements together capped at the non-qualifying requirement (Art. 303(2); CRE54.40) | — | Not supported; outside K-SACCR ([decision 15](#decisions)) |
 | CCP ceasing to qualify | Non-qualifying treatment within three months (Art. 311; CRE54.6) | — | Not supported |
 
 <a id="ccp-trade-exposure-input-contract"></a>
@@ -82,7 +82,7 @@ Specified from [decisions 2, 3 and 9 to 14](#decisions) and implemented in
 #112; it replaces the interim rejection of [decision 5](#decisions).
 Default-fund contributions, own funds requirements and the cap of Art. 303(2)
 and CRE54.40 are outside it ([decision 9](#decisions)) and outside K-SACCR
-([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)).
+([decision 15](#decisions)).
 
 **Scope.** Role `CCP` is the bank's trade exposure, as clearing member, to a
 CCP: for its own trades, and for client trades where it must reimburse the
@@ -177,7 +177,7 @@ does not make a trade cleared, and a cleared trade is not necessarily listed.
 | Ordinary listed option, on a security, an index or a future | Instrument `Option`, with price, strike and expiry T; for an option on an interest-rate future, S and E of the underlying | Implemented; exercised as a bilateral option, and in the same clearing cases (equity index call; its supervisory delta is checked) |
 | Daily settled (settled-to-market) contract | Settlement type `STM` and its next reset date, in an unmargined netting set (#360) | Implemented; the qualification is the user's: see [Settlement and reset](#settlement-and-reset). Exercised by `illustrative-settled-to-market-daily` and `illustrative-settled-to-market-periodic` |
 | Exotic options | No separate input | Relevant to the clearing member's relief from the 20-day floor (Art. 304(3)(c); CRE54.8(1)), which is not implemented |
-| SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are developed in K-SFTs; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
+| SFTs, long settlement transactions, cash transactions cleared through a CCP | Cannot be entered | Not supported. SFTs are outside K-SACCR; cash transactions are outside the CCP rules (Art. 301(1); CRE54.1) |
 
 ## 🛡️ Margin, collateral and segregation
 
@@ -347,7 +347,7 @@ need not reimburse on the CCP's default are not entered (Art. 306(1)(c)–(d);
 [decision 13](#decisions)); bankruptcy-remote posted collateral is left out of
 NICA by the user. Default funds need DF_i, unfunded commitments, K_CCP, DF_CCP
 and DF_CM as communicated by the CCP (Art. 308(2)); they are outside K-SACCR
-([K-Risk-Engines#121](https://github.com/danielep71/K-Risk-Engines/issues/121)).
+([decision 15](#decisions)).
 
 ## 🧮 Exposure, risk weights and capital
 
@@ -406,6 +406,7 @@ described above stays.
 | 12 | The single *large or illiquid* flag stays in v1.0.2, also for `CCP` netting sets | Splitting it would change column G for every workbook; keeping it can only overstate the exposure of a CCP set flagged for the trade count alone | The limitation is recorded; a `CCP` set with the flag gets 20 days | #112, #359 |
 | 13 | Client trades a clearing member need not reimburse on the CCP's default are not entered | Their exposure value is zero (Art. 306(1)(c); CRE54.7); an input to zero them would add a way to understate, while entering them can only overstate | The input contract says so; no column is added | #112 |
 | 14 | A `CCP` netting set's role, MPOR rule and risk-weight rule are an INFO line on Checks, and each regime gets an INFO line with its CCP EAD subtotal | As decision 7: the evidence names the method without changing Results; the subtotal makes the CCP share of the total identifiable (decision 2) | The QCCP weight of 2% is stated, not applied; for a non-qualifying CCP the line says the standardised weight is determined outside K-SACCR, which has no counterparty category or credit quality input; no risk-weighted amount is calculated | #112 |
+| 15 | Default-fund contributions, the own funds requirements for exposures to CCPs, the cap of Art. 303(2) and CRE54.40, and risk-weighted assets are outside K-SACCR's scope, with no tracker in this repository | K-SACCR calculates exposure values; these are own funds calculations on top of them, kept for a separate project not yet started. Decision 9 left them to an issue of their own; none is open | The documentation states them as not supported and outside K-SACCR, without claiming they are delivered and without a link to another project | #483 |
 
 ## 📜 Earlier releases
 
