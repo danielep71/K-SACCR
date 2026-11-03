@@ -111,8 +111,11 @@ Use only the categories needed by a release.
 
 ### Added
 
-- Commit the staged rows into the input sheets (#211), through
-  `CommitStaging_Silent()`; the button and its confirmation follow. It
+- Commit the staged rows into the input sheets (#211): **Commit import** on
+  both staging sheets (`CommitImport`), after a confirmation that gives each
+  input sheet's rows now and the staged rows that replace them, Cancel being
+  the default; `CommitStaging_Silent()` for automation. The staging note
+  names the button. It
   refuses unless `StagingValidationCurrent()` is `True`, replaces whole each
   input sheet whose staging sheet holds rows and leaves the other as it is,
   writes numbers and dates as numbers and dates and other values as text, so

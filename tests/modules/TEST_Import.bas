@@ -103,7 +103,7 @@ Attribute VB_Name = "TEST_Import"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 28                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 156                          'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 158                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -1556,8 +1556,10 @@ Private Sub CaseCommitBoth()
 '   the rows below cleared; an ID with leading zeros and a comment that
 '   looks like a number stay text, a notional is a number and a maturity
 '   an Excel date. Both staging sheets read COMMITTED, the validation is
-'   no longer current and a second commit is refused. The suite then puts
-'   the input sheets back.
+'   no longer current and a second commit is refused. Before the commit,
+'   the Commit import button in silent mode, where no confirmation can be
+'   given, commits nothing and says so. The suite then puts the input
+'   sheets back.
 '==============================================================================
 '
 
@@ -1585,6 +1587,10 @@ Private Sub CaseCommitBoth()
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=3"
         Before = LiveInputsText()
+        M_Main.CommitImport
+        Check Left$(M_Main.gLastMessage, 63) = "Nothing was committed: a commit is confirmed in a dialog, which", _
+              "the button in silent mode: " & M_Main.gLastMessage
+        Check LiveInputsText() = Before And M_Main.StagingValidationCurrent(), "the button in silent mode changed something"
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=3"
 

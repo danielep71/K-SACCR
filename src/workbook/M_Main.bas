@@ -53,9 +53,11 @@ Attribute VB_Name = "M_Main"
 '   activated.
 '   CommitStaging_Silent: replace NettingSets and Trades with the staged
 '   rows once a VALID staging validation still holds, putting them back
-'   on any failure (#211).
+'   on any failure (#211); CommitImport: the same after a confirmation
+'   that names each input sheet with its row counts.
 '   The sheet buttons call the first three, ExportEvidence, the two
-'   template exports, the two imports and ValidateStaging by name.
+'   template exports, the two imports, ValidateStaging and CommitImport
+'   by name.
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
@@ -4491,6 +4493,127 @@ Private Function ContainedValidationFingerprint() As String
 
 Failed:
         ContainedValidationFingerprint = ""
+
+End Function
+
+
+Public Sub CommitImport()
+'
+'==============================================================================
+'                                 CommitImport
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Replace NettingSets and Trades with the staged rows of a VALID staging
+'   validation (#211), after a confirmation that names each input sheet
+'   with its rows now and the staged rows that replace them, or says it is
+'   left as it is.
+'
+' USAGE
+'   The Commit import button on Import_NettingSets and Import_Trades, or
+'   the Macros dialog. Automation calls CommitStaging_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. Without a current VALID validation, or in silent
+'   mode, where no confirmation can be given, nothing is committed.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine  As String    'What the commit returned
+    Dim Message     As String    'Its message
+
+'------------------------------------------------------------------------------
+' CONFIRM, COMMIT AND REPORT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If Not StagingValidationCurrent() Then
+            Notify "Nothing was committed: the staged rows have no VALID validation that still matches them, " & _
+                   "the input sheets and Params. Run Validate staging, correct any finding, then commit.", vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was committed: a commit is confirmed in a dialog, which silent mode does not show. " & _
+                   "Automation calls CommitStaging_Silent.", vbExclamation
+            Exit Sub
+        End If
+        If MsgBox(CommitQuestion(), vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        ResultLine = CommitStaging(Message)
+        If Left$(ResultLine, Len("RESULT=COMMITTED")) = "RESULT=COMMITTED" Then
+            Notify Message, vbInformation
+        ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
+            Notify Message, vbCritical
+        Else
+            Notify Message, vbExclamation
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Commit import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function CommitQuestion() As String
+'
+'==============================================================================
+'                                CommitQuestion
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The confirmation of CommitImport (#211): for each input sheet, its
+'   rows now and the staged rows that replace them, or that it is left as
+'   it is because its staging sheet holds no rows; what follows a commit;
+'   and the question.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kind        As Variant      'NettingSets, then Trades
+    Dim Staged      As Worksheet    'Its staging sheet
+    Dim StagedFirst As Long         'Its first row below the header
+    Dim StagedRows  As Long         'Its staged rows
+    Dim LiveName    As String       'Its input sheet
+    Dim LiveFirst   As Long         'Its first data row
+    Dim LiveRows    As Long         'Its rows now
+    Dim Text        As String       'The question
+
+'------------------------------------------------------------------------------
+' COUNT AND ASK
+'------------------------------------------------------------------------------
+        Text = "Commit replaces the input sheets with the staged rows of the VALID validation:" & vbLf
+        For Each Kind In Array("NettingSets", "Trades")
+            StagedFirst = StagingHeaderRow(CStr(Kind), Staged) + 1
+            StagedRows = LastStagingRow(Staged, StagedFirst, StagingWidth(CStr(Kind))) - StagedFirst + 1
+            LiveName = IIf(IsNettingSetsKind(CStr(Kind)), SH_NS, SH_TRADES)
+            LiveFirst = TableFirstRow(LiveName)
+            LiveRows = LastStagingRow(GetSheet(LiveName), LiveFirst, _
+                                      IIf(IsNettingSetsKind(CStr(Kind)), NS_NCOLS, TR_NCOLS)) - LiveFirst + 1
+            If StagedRows > 0 Then
+                Text = Text & vbLf & "- " & LiveName & ": its " & Format$(LiveRows, "#,##0") & _
+                       IIf(LiveRows = 1, " row", " rows") & " replaced by the " & Format$(StagedRows, "#,##0") & _
+                       IIf(StagedRows = 1, " staged row", " staged rows") & " of " & Staged.Name
+            Else
+                Text = Text & vbLf & "- " & LiveName & ": left as it is; " & Staged.Name & " holds no rows"
+            End If
+        Next Kind
+        CommitQuestion = Text & vbLf & vbLf & "Results will read OUT OF DATE until the next Run SA-CCR. Undo cannot " & _
+                         "take the commit back; the staged rows stay on the staging sheets." & vbLf & vbLf & "Commit?"
 
 End Function
 

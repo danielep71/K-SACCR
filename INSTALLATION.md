@@ -553,7 +553,8 @@ through `M_Main.CommitStaging_Silent`: refused without a current `VALID`
 validation; a failed write or read-back (`gTestFault = "commit-write"`,
 `"commit-verify"`), which puts NettingSets and Trades back and reports it
 verified; a failed put-back (`"commit-rollback"`), reported apart from the
-error; both sheets committed, with leading zeros, numbers and dates checked;
+error; both sheets committed, with leading zeros, numbers and dates checked,
+after the **Commit import** button in silent mode has committed nothing;
 and Trades alone, which leaves NettingSets as it was. The suite puts the
 input sheets back after each commit. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
@@ -768,7 +769,8 @@ evidence export refuses.
 ### CommitStaging_Silent
 
 `CommitStaging_Silent()` replaces NettingSets and Trades with the staged rows
-without a confirmation or a message (#211): each input sheet whose staging
+without a confirmation or a message, as the **Commit import** button
+(`CommitImport`) does after its confirmation (#211): each input sheet whose staging
 sheet holds rows, whole; the other is left as it is. It refuses unless
 `StagingValidationCurrent()` is `True`. Numbers and integers are written as
 numbers, dates as Excel dates and other values as text, so that leading zeros

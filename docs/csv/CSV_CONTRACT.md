@@ -472,7 +472,8 @@ lines carry the origin `RUN`.
 
 ### Committing the staged rows
 
-The commit (`CommitStaging_Silent`, #211) replaces `NettingSets` with the
+The commit (**Commit import** on either staging sheet, `CommitImport`; for
+automation `CommitStaging_Silent`, #211) replaces `NettingSets` with the
 rows of `Import_NettingSets` when it holds any, and `Trades` with those of
 `Import_Trades` when it holds any; a staging sheet without rows leaves its
 input sheet as it is, so nothing is ever erased for lack of staged rows. Each
@@ -480,6 +481,11 @@ replacement is whole: the staged rows are written from the first data row,
 and the input cells of the rows below that held a value are cleared. Formats,
 data validation, names and the other sheets are not changed.
 
+- **A confirmation.** The button first asks, giving for each input sheet its
+  rows now and the staged rows that replace them, or that it is left as it
+  is; Cancel is the default. In silent mode, where no dialog is shown, the
+  button commits nothing; automation calls `CommitStaging_Silent`, which
+  asks nothing.
 - **Only a current validation.** The commit refuses, and writes nothing,
   unless `StagingValidationCurrent()` is `True`: the last validation was
   `VALID` and nothing it judged has changed since, the staging blocks, the
