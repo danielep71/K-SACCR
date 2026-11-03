@@ -412,6 +412,10 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- State how the staging and input sheets hold a CSV file up to the import
+  limits (#206, #207): rows are written as many as the file has, the value
+  columns are unlocked to the last row, and the validation lists bound only
+  typing. Loading, validating and committing at the limits is not yet timed.
 - Walk a user through a CSV import in the README (#212): prepare the files
   from the import specification or the templates, import, correct, validate,
   commit and run, and what makes a validation no longer current. The known
