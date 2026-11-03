@@ -193,9 +193,16 @@ from the release page:
 3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** with the sheet
    buttons, then **Run SA-CCR** again. Save, close and reopen it: Results C5
    reads current.
-4. **Export evidence**: the file is written. Change an EAD cell on Results
-   and export again: the export is refused.
-5. Close without saving, and record what was done and seen with the release
+4. **Export evidence**: the file is written. Unprotect Results (**Review →
+   Unprotect Sheet**, a deliberate maintenance unlock on this copy), change an
+   EAD cell and export again: the export is refused as `EDITED`. **Run
+   SA-CCR**: Results is rebuilt and protected again.
+5. **Export import specifications** on `Import_Trades`, save the page and open
+   it. Copy its two examples into UTF-8 `.csv` files, **Import CSV** each on
+   its staging sheet, **Validate staging** (both sheets read `VALID`),
+   **Commit import** and **Run SA-CCR**: the run uses all 5 legs of the 3
+   netting sets, with no error.
+6. Close without saving, and record what was done and seen with the release
    evidence.
 
 Once the release assets exist, update the website as

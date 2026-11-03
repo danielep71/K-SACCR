@@ -513,8 +513,8 @@ automation `CommitStaging_Silent`, #211) replaces `NettingSets` with the
 rows of `Import_NettingSets` when it holds any, and `Trades` with those of
 `Import_Trades` when it holds any; a staging sheet without rows leaves its
 input sheet as it is, so nothing is ever erased for lack of staged rows. Each
-replacement is whole: the staged rows are written from the first data row,
-and the input cells of the rows below that held a value or a formula,
+replacement is whole, with no incremental merge or update by key: the staged
+rows are written from the first data row, and the input cells of the rows below that held a value or a formula,
 whatever the formula returns, are cleared (#512). Formats, data validation,
 names and the other sheets are not changed.
 
