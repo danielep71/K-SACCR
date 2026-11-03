@@ -346,6 +346,39 @@ currencies, the factor keys with their regimes, the netting sets with their
 overrides, and every finding. The tests in `tools/test_csv_contract.py` also read every fixture
 with a byte-order mark and with CRLF line ends, and expect the same outcome.
 
+## 📘 Import specification for users
+
+[`K-SACCR_Import_Specification.html`](K-SACCR_Import_Specification.html) is
+this contract for a user who has only the workbook (#473): one standalone
+page, with no script and no external file, that works offline and prints on
+A4 landscape. It gives the contract version, the file format, the header,
+the value types, the blank and empty-file rules, the limits, every column
+with its meaning, type, limits, allowed values and blank meaning, the rules
+between fields, between records and against Params, the findings, and an
+example of each file to copy.
+
+In the workbook, **Export import specifications** on `Import_NettingSets` and
+`Import_Trades` saves the same page, byte for byte, to a file the user
+chooses, and offers to open it; a file that exists is replaced only after a
+confirmation. The page is held by `CORE_ImportSpec`, which
+`tools/generate_csv_vba.py` generates with it.
+
+```sh
+python tools/import_spec.py --write
+```
+
+writes the page from the contract. Its examples are the `examples` of each
+file in [`contract.json`](contract.json): three to five synthetic records,
+every column not named being blank. Together they show a leading-zero
+identifier, a quoted text with a semicolon, quotes and characters that HTML
+escapes, optional blank fields, an economic trade with two legs, an option,
+a trade settled to market and a CCP netting set. The `check_csv_contract`
+gate fails when the page is not what the contract generates, and when the
+two examples would not import together into the template: each file as the
+reference validates it, the rules between records, and the rules against
+the template's Params, read from its `AsOfDate`, `ReportingCcy`, `Regime`,
+`FX_Table` and `SF_Table`.
+
 ## 📥 The workbook's reader
 
 The workbook reads a file with `CORE_CsvReader` (#207), which applies this

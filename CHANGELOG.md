@@ -108,9 +108,37 @@ Use only the categories needed by a release.
   new finding. The checker stays advisory.
 - Add weekly grouped Dependabot updates for Python tools in `/tools`, with a
   14-day cooldown and pull requests targeting the active release branch.
+- Read a statement such as `Check .Name = x, "message"` inside a `With`
+  block as a call whose first argument is a `With` member, as VBA does, not
+  as an assignment to `Check.Name` (#498). `Check.Name = x`, without the
+  space, stays an assignment. The VBA call checker now reports no finding
+  on `release/1.1.0`, and its advisory CI step passes.
 
 ### Added
 
+- Describe the CSV files for a user who has only the workbook (#473, part
+  1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with
+  no script and no external file, generated from the contract by
+  `tools/import_spec.py`. It gives the contract version, the file format, the
+  header, the value types, blank fields and empty files, the limits, every
+  column of both files, the rules between fields, between records and
+  against Params, the findings, and an example of each file as CSV text to
+  copy: synthetic records kept in the contract, with a leading-zero
+  identifier, quoted text, characters HTML escapes, an economic trade, an
+  option, a trade settled to market and a CCP netting set. The
+  `check_csv_contract` gate fails when the page differs from the contract or
+  the examples would not import together into the template, judged against
+  its Params. **Export import specifications** on `Import_NettingSets` and
+  `Import_Trades` (`ExportImportSpecification`) saves the page, byte for
+  byte, to a file the user chooses: a file that exists is replaced only after
+  a confirmation, a failed write or a read-only file leaves it as it was, and
+  the page can then be opened. The workbook is not changed, so the export
+  works with the protection on and whatever the inputs hold.
+  `ExportImportSpecification_Silent` does the same for automation.
+  `CORE_ImportSpec`, generated with `CORE_CsvSchema`, holds the page and the
+  example files. `TEST_Import` runs 2 more cases: the export with its
+  refusals and failures, and the example files loaded and validated
+  together.
 - Protect the workbook against accidental edits (#420, #421). Every sheet
   and the workbook structure are protected, without a password, in the
   template and so in every workbook built from it; the protection holds with
@@ -145,18 +173,22 @@ Use only the categories needed by a release.
   both staging sheets (`CommitImport`), after a confirmation that gives each
   input sheet's rows now and the staged rows that replace them, Cancel being
   the default; `CommitStaging_Silent()` for automation. The staging note
-  names the button. It
-  refuses unless `StagingValidationCurrent()` is `True`, replaces whole each
-  input sheet whose staging sheet holds rows, down to the last row with a
-  value or a formula, even one that returns empty text (#512; `TEST_Import`
-  case `commit.trailing-formula`), and leaves the other as it is,
-  writes numbers and dates as numbers and dates and other values as text, so
-  that leading zeros stay, and reads each sheet back. On any failure it puts
-  the input cells back, a text that starts with `=` as text, and checks them, and reports that apart from the
-  error. Each committed staging sheet then reads `COMMITTED`, and Results
-  reads `OUT OF DATE` until the next run. `TEST_Import` runs 5 more cases:
-  refusals, a failed write and read-back put back, a failed put-back
-  reported, a commit of both sheets and a commit of Trades only.
+  names the button. It refuses unless `StagingValidationCurrent()` is
+  `True`, and replaces whole each input sheet whose staging sheet holds
+  rows, down to the last row with a value or a formula, even one that
+  returns empty text (#512), leaving the other as it is. It writes numbers
+  and dates as numbers and dates and other values as text, so that leading
+  zeros stay, as a user typing them would: a run on committed rows gives the
+  same result line, input fingerprint and EADs as a run on the same rows
+  typed by hand. It reads each sheet back. On any failure it puts the input
+  cells back, a text that starts with `=` as text, checks them, and reports
+  that apart from the error. Each committed staging sheet then reads
+  `COMMITTED`, and Results reads `OUT OF DATE` until the next run.
+  `TEST_Import` runs 8 more cases: refusals, a failed write and read-back
+  put back, a failed put-back reported, a commit of both sheets, a commit of
+  Trades only, a formula below the data, a commit run against the same rows
+  typed by hand, and the Excel settings and results a commit leaves, also
+  when its cleanup fails.
 - Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
   applies (#210). Activating a staging sheet compares what the last
   validation judged with the current staging blocks, `NettingSets`, `Trades`
@@ -388,13 +420,11 @@ Use only the categories needed by a release.
   a diagram under "What this project is", from the two exposure engines
   to the ordinary and CCP capital branches and their aggregation, with CVA
   as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
-  shared with K-SFTs and K-Risk Engines and described in
-  `docs/assets/README.md`.
+  described in `docs/assets/README.md`.
 - Bring the README roadmap in line with the milestones: v1.7.0 is the
-  standalone Python engine (#450–#459); securities financing transactions
-  are developed in K-SFTs, risk-weighted assets, capital and default-fund
-  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
-  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  standalone Python engine (#450–#459); securities financing transactions,
+  risk-weighted assets, capital, default-fund contributions to CCPs and CVA
+  risk are outside K-SACCR, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
 - Describe CRR Article 305(4) as unsupported in the source register (#445):
@@ -402,9 +432,12 @@ Use only the categories needed by a release.
   and rejects a declared `MULTI` structure for that reason, as decision 6 of
   the clearing coverage says. The rejection is an implementation boundary,
   not a treatment the article prescribes.
-- Link default-fund contributions to their issue's new home: #400 moved to
-  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
-  support matrix now link it there.
+- State default-fund contributions, the own funds requirements for exposures
+  to CCPs, the cap of Art. 303(2) and CRE54.40, and risk-weighted assets as
+  outside K-SACCR, with no tracker in this repository (#483). Decision
+  15 of the clearing coverage records it; the clearing coverage, the support
+  matrix, the README and the two framework diagrams name no other project,
+  and the diagrams' PNG renderings are updated.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the nine production and

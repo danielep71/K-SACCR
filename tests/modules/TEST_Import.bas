@@ -44,6 +44,12 @@ Attribute VB_Name = "TEST_Import"
 '   from the error; a commit replaces each input sheet whose staging sheet
 '   holds rows, with typed values and leading zeros kept, and leaves the
 '   other as it was (#211). The suite puts the input sheets back.
+'   M_Main.ExportImportSpecification_Silent writes the import
+'   specification page (#473) byte for byte, refuses a file that exists
+'   unless replacement is asked for, and leaves an older file as it was
+'   when the write fails, the file is read-only or its folder is missing;
+'   the workbook is not changed. The page's example files load into the
+'   staging sheets and validate VALID together.
 '
 ' PUBLIC SURFACE
 '   RunImportTests is the entry point. Option Private Module keeps it out
@@ -53,7 +59,8 @@ Attribute VB_Name = "TEST_Import"
 '   M_Main, with its test seam gTestFault, for the load, the validation
 '   and the evidence export, and StagingValidationCurrent; CORE_Engine
 '   for BlockText, InputFingerprint and the run counters; CORE_Util for the cells and TextHash;
-'   CORE_Export for the UTF-8 bytes; CORE_Config for the sheet and name
+'   CORE_Export for the UTF-8 bytes; CORE_ImportSpec for the import
+'   specification page and its example files; CORE_Config for the sheet and name
 '   constants, the CSV header lines and the error numbers; TEST_Suite.Say
 '   for the log lines. Needs a workbook built from the current template,
 '   with the two staging sheets. Every record is synthetic.
@@ -69,7 +76,10 @@ Attribute VB_Name = "TEST_Import"
 '   did, and the hidden name of the last VALID validation is put back.
 '   Two cases change one Params value each, AsOfDate and Alpha, and put
 '   it back as it was, also after an unexpected error; no other input
-'   cell is touched, and the last case checks the live inputs.
+'   cell is touched, and import.live-sheets checks the live inputs and
+'   the run names. Only then do the last two cases run SA-CCR (#211):
+'   each puts the input sheets back and leaves a new run of them,
+'   CURRENT, or no results when there were none before.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -102,10 +112,12 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 30                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 167                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 34                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 197                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
+        Private Const SPEC_FILE         As String = "K-SACCR_import_spec_test.html"   'Specification in TEMP
+        Private Const OLDER_PAGE        As String = "An older page"                   'Text of an older file
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
         Private Const KIND_TR           As Long = 2                            'Import_Trades
     'Synthetic records: two netting sets, a third with the regime override
@@ -256,10 +268,14 @@ Public Sub RunImportTests()
         CaseCommitBoth
         CaseCommitTradesOnly
         CaseCommitTrailingFormula
+        CaseSpecExport
+        CaseSpecExamples
         CaseValidateRecalc
         PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
+        CaseCommitState
+        CaseCommitEquivalentRun
 
         PutStagingBack KIND_NS
         PutStagingBack KIND_TR
@@ -1742,6 +1758,560 @@ Unexpected:
         PutBackLive
 
 End Sub
+
+
+Private Sub CaseCommitState()
+'
+'==============================================================================
+' PURPOSE
+'   What a commit leaves of Excel and of the results (#211). From
+'   automatic calculation with events and screen updating on, a commit
+'   that fails on writing and one that succeeds both give the three back
+'   as they were. Results that read CURRENT read OUT OF DATE after the
+'   commit, which runs nothing. A commit whose calculation mode cannot be
+'   put back (gTestFault = "cleanup") raises ERR_CLEANUP_FAILED and stays
+'   done: no rollback, both staging sheets read COMMITTED and the
+'   validation is spent. The input sheets are then put back and run
+'   again, or the outputs cleared, as in commit.equivalent-run; the case
+'   runs after import.live-sheets for that reason.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String           'What a call returned
+    Dim SavedInputs   As String           'Input fingerprint before
+    Dim HadRun        As Boolean          'Results existed before the case
+    Dim Calculation   As XlCalculation    'The suite's calculation mode
+    Dim Events        As Boolean          'The suite's EnableEvents
+    Dim Screen        As Boolean          'The suite's ScreenUpdating
+    Dim ErrorNumber   As Long             'Error of the commit whose cleanup failed
+    Dim ErrorText     As String           'Its description
+
+'------------------------------------------------------------------------------
+' A CURRENT RUN, THEN A FAILED AND A SUCCESSFUL COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.state"
+        SavedInputs = CORE_Engine.InputFingerprint()
+        HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
+        Calculation = Application.Calculation
+        Events = Application.EnableEvents
+        Screen = Application.ScreenUpdating
+        M_Main.RunSACCR_Silent
+        Check M_Main.ResultsStatus() = "CURRENT", "results before the commit: " & M_Main.ResultsStatus()
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        Application.Calculation = xlCalculationAutomatic
+        Application.EnableEvents = True
+        Application.ScreenUpdating = True
+        M_Main.gTestFault = "commit-write"
+        ResultLine = M_Main.CommitStaging_Silent()
+        M_Main.gTestFault = ""
+        CheckText "failed commit", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=VERIFIED"
+        Check SettingsOn(), "Excel settings after the failed commit: " & SettingsText()
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
+        Check SettingsOn(), "Excel settings after the commit: " & SettingsText()
+        Check M_Main.ResultsStatus() = "STALE", "results after the commit: " & M_Main.ResultsStatus()
+
+'------------------------------------------------------------------------------
+' A COMMIT WHOSE CLEANUP FAILS STAYS DONE
+'------------------------------------------------------------------------------
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation again", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        M_Main.gTestFault = "cleanup"
+        On Error Resume Next
+        ResultLine = M_Main.CommitStaging_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check ErrorNumber = ERR_CLEANUP_FAILED And InStr(1, ErrorText, "were committed", vbBinaryCompare) > 0 And _
+              InStr(1, ErrorText, "Calculation:", vbBinaryCompare) > 0, _
+              "expected the cleanup error, got " & ErrorNumber & ": " & ErrorText
+        Check Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4) = STAGING_COMMITTED & "|" & STAGING_COMMITTED And _
+              Not M_Main.StagingValidationCurrent(), _
+              "after the cleanup error: " & Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4)
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        Application.Calculation = Calculation
+        Application.EnableEvents = Events
+        Application.ScreenUpdating = Screen
+        PutBackLive
+        PutRunBack HadRun
+        Check CORE_Engine.InputFingerprint() = SavedInputs And _
+              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+              "inputs and results after the case: " & M_Main.ResultsStatus()
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        M_Main.gTestFault = ""
+        Application.Calculation = Calculation
+        Application.EnableEvents = Events
+        Application.ScreenUpdating = Screen
+        PutBackLive
+        PutRunBack HadRun
+
+End Sub
+
+
+Private Function SettingsOn() As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True while calculation is automatic and events and screen updating are
+'   on, as CaseCommitState sets them before each commit.
+'==============================================================================
+'
+        SettingsOn = Application.Calculation = xlCalculationAutomatic And Application.EnableEvents And _
+                     Application.ScreenUpdating
+
+End Function
+
+
+Private Function SettingsText() As String
+'
+'==============================================================================
+' PURPOSE
+'   The three Excel settings a commit changes, for a failure message.
+'==============================================================================
+'
+        SettingsText = "Calculation=" & Application.Calculation & "; EnableEvents=" & Application.EnableEvents & _
+                       "; ScreenUpdating=" & Application.ScreenUpdating
+
+End Function
+
+
+Private Sub CaseCommitEquivalentRun()
+'
+'==============================================================================
+' PURPOSE
+'   Committed rows run as the same rows typed by hand (#211): two netting
+'   sets and two legs, validated VALID and committed, then run; the run
+'   finds no error, as the staging validation found none. The same rows
+'   typed into the emptied input sheets, numbers as numbers, dates as
+'   dates, text as text, give the same run line: the same input
+'   fingerprint, counts, findings and total EADs. The input sheets are
+'   then put back and run again, so that the workbook ends with a run of
+'   its own inputs, CURRENT, or with no results when it had none. It runs
+'   after import.live-sheets, which checks that no other case touches the
+'   run.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim Committed     As String       'Run line after the commit
+    Dim Typed         As String       'Run line after typing the same rows
+    Dim SavedInputs   As String       'Input fingerprint before
+    Dim HadRun        As Boolean      'Results existed before the case
+
+'------------------------------------------------------------------------------
+' COMMIT AND RUN, THEN TYPE AND RUN
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.equivalent-run"
+        SavedInputs = CORE_Engine.InputFingerprint()
+        HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
+        Committed = M_Main.RunSACCR_Silent()
+        Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0, _
+              "the run on the committed rows: " & Committed
+        TypeRows SH_NS, NS_NCOLS, Array(NS_ROW_1, NS_ROW_2)
+        TypeRows SH_TRADES, TR_NCOLS, Array(TradeRow("T1", "1000", ""), TradeRow("T2", "2500.5", ""))
+        Typed = M_Main.RunSACCR_Silent()
+        Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
+        PutBackLive
+        PutRunBack HadRun
+        Check CORE_Engine.InputFingerprint() = SavedInputs And _
+              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+              "inputs and results after the case: " & M_Main.ResultsStatus()
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
+        PutRunBack HadRun
+
+End Sub
+
+
+Private Sub TypeRows( _
+    ByVal SheetName As String, _
+    ByVal Width As Long, _
+    ByVal Rows As Variant)
+'
+'==============================================================================
+' PURPOSE
+'   Empty the input rows of an input sheet and type CSV records into it as
+'   a user would, field by field into the columns of the contract order:
+'   a date as yyyy-mm-dd becomes a date, a number a number, anything else
+'   text, and a blank field stays blank (#211).
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'The input sheet
+    Dim FirstRow    As Long         'Its first data row
+    Dim LastRow     As Long         'Its last row with a value or formula
+    Dim Fields      As Variant      'One record's fields
+    Dim Cell        As Range        'The cell of a field
+    Dim r           As Long         'Record
+    Dim c           As Long         'Field
+
+'------------------------------------------------------------------------------
+' TYPE
+'------------------------------------------------------------------------------
+        Set Sheet = GetSheet(SheetName)
+        FirstRow = TableFirstRow(SheetName)
+        LastRow = LastLiveRow(Sheet, FirstRow, Width)
+        If LastRow >= FirstRow Then
+            TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+        End If
+        For r = LBound(Rows) To UBound(Rows)
+            Fields = Split(CStr(Rows(r)), ";")
+            For c = 0 To UBound(Fields)
+                Set Cell = TableCell(Sheet, FirstRow + r - LBound(Rows), c + 1)
+                If Len(Fields(c)) = 0 Then
+                    'Left blank.
+                ElseIf Fields(c) Like "####-##-##" Then
+                    Cell.Value = DateSerial(CLng(Left$(Fields(c), 4)), CLng(Mid$(Fields(c), 6, 2)), CLng(Right$(Fields(c), 2)))
+                ElseIf Fields(c) Like "*[!0-9.-]*" Then
+                    Cell.Value2 = Fields(c)
+                Else
+                    Cell.Value2 = Val(Fields(c))
+                End If
+            Next c
+        Next r
+
+End Sub
+
+
+Private Sub PutRunBack( _
+    ByVal HadRun As Boolean)
+'
+'==============================================================================
+' PURPOSE
+'   Once CaseCommitEquivalentRun has put the input sheets back, run SA-CCR
+'   on them when the workbook had results before the case, or clear the
+'   outputs when it had none, so that the outputs, Checks and run names
+'   agree again: CURRENT, or NONE.
+'
+' ERROR POLICY
+'   Contained: a failure is reported as a test failure of the case.
+'==============================================================================
+'
+        On Error GoTo Failed
+        If HadRun Then
+            M_Main.RunSACCR_Silent
+        Else
+            M_Main.ClearOutputs
+        End If
+        Exit Sub
+
+Failed:
+        Fail mCurrentCase, "could not put the run back: " & Err.Description
+
+End Sub
+
+
+Private Sub CaseSpecExport()
+'
+'==============================================================================
+' PURPOSE
+'   The import specification export (#473): the page written to a file is
+'   CORE_ImportSpec's, byte for byte, IMPORT_SPEC_BYTES long, with no
+'   script; a file that exists is refused and kept unless replacement is
+'   asked for, and then replaced; a failed write and a read-only file
+'   leave the older file as it was; a missing folder writes nothing. The
+'   input sheets and the staging sheets are unchanged and stay protected.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim SpecPath      As String       'The file in TEMP
+    Dim MissingPath   As String       'A file in a folder that does not exist
+    Dim Page          As String       'The page in the module
+    Dim Expected()    As Byte         'Its UTF-8 bytes
+    Dim LiveBefore    As String       'Input sheets and run names before
+    Dim StagingBefore As String       'Staging blocks before
+    Dim ErrorNumber   As Long         'Error of a failed export
+
+'------------------------------------------------------------------------------
+' WRITE, REFUSE, REPLACE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "spec.export"
+        SpecPath = Left$(mTestFile, InStrRev(mTestFile, Application.PathSeparator)) & SPEC_FILE
+        MissingPath = Left$(mTestFile, InStrRev(mTestFile, Application.PathSeparator)) & _
+                      "K-SACCR_no_such_folder" & Application.PathSeparator & SPEC_FILE
+        RemoveFile SpecPath
+        LiveBefore = LiveInputsText()
+        StagingBefore = BlockState(KIND_NS) & "|" & BlockState(KIND_TR)
+        Page = CORE_ImportSpec.ImportSpecificationText()
+        Expected = CORE_Export.Utf8Bytes(Page)
+        ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath)
+        CheckText "export", ResultLine, "RESULT=OK; bytes=" & IMPORT_SPEC_BYTES & "; file=" & SpecPath
+        Check SameBytes(FileBytes(SpecPath), Expected) And UBound(Expected) + 1 = IMPORT_SPEC_BYTES, _
+              "the file is not the page, byte for byte"
+        Check Left$(Page, 15) = "<!DOCTYPE html>" And InStr(1, Page, "<script", vbTextCompare) = 0 And _
+              InStr(1, Page, "id=""example-trades""", vbBinaryCompare) > 0, "the page is not the specification"
+        WritePage SpecPath, OLDER_PAGE
+        ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath)
+        Check ResultLine = "RESULT=REFUSED; reason=the file exists; file=" & SpecPath And _
+              PageText(SpecPath) = OLDER_PAGE, "an existing file: " & ResultLine
+        ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath, True)
+        Check Left$(ResultLine, 9) = "RESULT=OK" And SameBytes(FileBytes(SpecPath), Expected), _
+              "the replacement: " & ResultLine
+
+'------------------------------------------------------------------------------
+' FAIL AND KEEP THE OLDER FILE
+'------------------------------------------------------------------------------
+        WritePage SpecPath, OLDER_PAGE
+        M_Main.gTestFault = "evidence-write"
+        ErrorNumber = 0
+        On Error Resume Next
+        ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check ErrorNumber = ERR_INJECTED_FAULT And PageText(SpecPath) = OLDER_PAGE, _
+              "a failed write: error " & ErrorNumber
+        SetAttr SpecPath, vbReadOnly
+        ErrorNumber = 0
+        On Error Resume Next
+        ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        SetAttr SpecPath, vbNormal
+        Check ErrorNumber = ERR_EXPORT_WRITE And PageText(SpecPath) = OLDER_PAGE, _
+              "a read-only file: error " & ErrorNumber
+        ErrorNumber = 0
+        On Error Resume Next
+        ResultLine = M_Main.ExportImportSpecification_Silent(MissingPath)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        Check ErrorNumber <> 0 And Len(Dir$(MissingPath, vbHidden)) = 0, "a missing folder: error " & ErrorNumber
+
+'------------------------------------------------------------------------------
+' THE WORKBOOK IS UNCHANGED
+'------------------------------------------------------------------------------
+        Check LiveInputsText() = LiveBefore And BlockState(KIND_NS) & "|" & BlockState(KIND_TR) = StagingBefore And _
+              GetSheet(SH_NS).ProtectContents And GetSheet(SH_TRADES).ProtectContents, _
+              "the export changed the workbook"
+        RemoveFile SpecPath
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
+        On Error Resume Next
+        SetAttr SpecPath, vbNormal
+        RemoveFile SpecPath
+
+End Sub
+
+
+Private Sub CaseSpecExamples()
+'
+'==============================================================================
+' PURPOSE
+'   The example files of the import specification (#473) import together:
+'   each is the header of its contract and its records, both load into
+'   the staging sheets without a finding, keeping the leading zeros and
+'   the quoted text with its non-ASCII letters, and the staging validation
+'   finds them VALID against Params. The suite puts the staging sheets and
+'   Checks back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim NsExample     As String       'The NettingSets example
+    Dim TrExample     As String       'The Trades example
+
+'------------------------------------------------------------------------------
+' LOAD AND VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "spec.examples"
+        NsExample = CORE_ImportSpec.ImportSpecExample("NettingSets")
+        TrExample = CORE_ImportSpec.ImportSpecExample("Trades")
+        Check Left$(NsExample, Len(CSV_NS_HEADER) + 1) = CSV_NS_HEADER & vbLf And _
+              Left$(TrExample, Len(CSV_TR_HEADER) + 1) = CSV_TR_HEADER & vbLf And _
+              Len(CORE_ImportSpec.ImportSpecExample("Other")) = 0, "the example files"
+        WriteCsv NsExample
+        ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
+        CheckText "netting sets", ResultLine, "RESULT=LOADED; records=3; findings=0; file=" & mTestFile
+        WriteCsv TrExample
+        ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
+        CheckText "trades", ResultLine, "RESULT=LOADED; records=5; findings=0; file=" & mTestFile
+        Check CStr(CellValue(KIND_NS, 2, COL_ID)) = "00731" And _
+              CStr(CellValue(KIND_NS, 2, COL_ID + 1)) = "M" & ChrW(252) & "ller & S" & ChrW(248) & _
+              "n ""Nord""; <Example> AG", "the staged text: " & CStr(CellValue(KIND_NS, 2, COL_ID + 1))
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=3; trades=5"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub WritePage( _
+    ByVal FilePath As String, _
+    ByVal Text As String)
+'
+'==============================================================================
+' PURPOSE
+'   Write Text to FilePath as UTF-8, replacing it: an older file for the
+'   specification export.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Bytes()      As Byte       'The text's UTF-8 bytes
+    Dim FileNumber   As Integer    'File number
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        Bytes = CORE_Export.Utf8Bytes(Text)
+        RemoveFile FilePath
+        FileNumber = FreeFile
+        Open FilePath For Binary Access Write As #FileNumber
+        Put #FileNumber, 1, Bytes
+        Close #FileNumber
+
+End Sub
+
+
+Private Function FileBytes( _
+    ByVal FilePath As String) _
+    As Byte()
+'
+'==============================================================================
+' PURPOSE
+'   The bytes of a file; an empty array, with an upper bound of -1, when
+'   it is empty or cannot be read.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Bytes()      As Byte       'The file's bytes
+    Dim FileNumber   As Integer    'File number
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo Unreadable
+        FileNumber = FreeFile
+        Open FilePath For Binary Access Read As #FileNumber
+        If LOF(FileNumber) > 0 Then
+            ReDim Bytes(0 To LOF(FileNumber) - 1)
+            Get #FileNumber, 1, Bytes
+            Close #FileNumber
+            FileBytes = Bytes
+            Exit Function
+        End If
+        Close #FileNumber
+
+Unreadable:
+        On Error Resume Next
+        Close #FileNumber
+        FileBytes = StrConv(vbNullString, vbFromUnicode)
+
+End Function
+
+
+Private Function SameBytes( _
+    ByVal Actual As Variant, _
+    ByVal Expected As Variant) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True when two byte arrays, both starting at 0, hold the same bytes; an
+'   empty array has an upper bound of -1.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i    As Long    'Byte
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        If UBound(Actual) <> UBound(Expected) Then
+            Exit Function
+        End If
+        For i = 0 To UBound(Expected)
+            If Actual(i) <> Expected(i) Then
+                Exit Function
+            End If
+        Next i
+        SameBytes = True
+
+End Function
+
+
+Private Function PageText( _
+    ByVal FilePath As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The text of a short ASCII file, such as OLDER_PAGE.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Bytes()    As Byte    'The file's bytes
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Bytes = FileBytes(FilePath)
+        If UBound(Bytes) >= 0 Then
+            PageText = StrConv(Bytes, vbUnicode)
+        End If
+
+End Function
 
 
 Private Sub CaseValidateRecalc()

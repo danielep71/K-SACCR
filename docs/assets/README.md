@@ -166,7 +166,7 @@ CVA risk appears below them as a memo item only: it belongs to market risk
 and is excluded from that total.
 
 - **Origin:** drawn on 2026-10-26 at the maintainer's request (#462), as one
-  picture shared by K-SACCR, K-SFTs and K-Risk Engines. It is an orientation
+  picture of the whole framework. It is an orientation
   picture, not a source: it does not certify implemented functionality, and
   K-SACCR calculates only the K-SA-CCR box.
 - **Sources:** its reference line names Basel CRE20, CRE22, CRE30-36,
@@ -176,8 +176,7 @@ and is excluded from that total.
 - **Rendering:** the SVG is the source, shown by the README.
   `CCR_framework.png` is rendered from it with headless Chromium at a device
   scale factor of 2 (3200 x 3056 px), then quantized to 256 colours as the
-  screenshots above. The same pair is used in the other two repositories:
-  change it there too when it changes here.
+  screenshots above. Render it again whenever the SVG changes.
 
 <a id="sa-ccr-explainers"></a>
 
