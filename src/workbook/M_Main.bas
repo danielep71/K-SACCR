@@ -4051,6 +4051,8 @@ Private Function CheckStaging( _
 '   set each staging sheet's status to VALID or INVALID.
 '
 ' METHOD
+'   0. The workbook is recalculated first, as a run recalculates it, so
+'      that a formula input is judged by its current result (#519).
 '   1. Each staging block is read as text, as CheckStagedRecords reads
 '      it: each field, the rules between fields and the keys.
 '   2. The netting sets are those of Import_NettingSets when it holds
@@ -4091,14 +4093,16 @@ Private Function CheckStaging( _
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when a staging sheet or its names are
 '   missing, and ERR_RUN_ACTIVE while an operation runs, before anything
-'   is written; ERR_OUTPUT_LAYOUT when the NettingSets or Trades table
+'   is written; ERR_RECALC_PENDING when Excel does not finish
+'   recalculating, before anything is judged or written;
+'   ERR_OUTPUT_LAYOUT when the NettingSets or Trades table
 '   it needs cannot be located, before Checks is written. A later error
 '   is raised after Excel's settings have been restored; Checks may then
 '   hold part of the findings, and no status is changed. A setting not
 '   restored raises ERR_CLEANUP_FAILED.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-03
 '==============================================================================
 '
 
@@ -4178,6 +4182,12 @@ Private Function CheckStaging( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
+    'A formula on Params, NettingSets or Trades is judged by its current
+    'result, as a run judges it (#519).
+        If Not InputsRecalculated() Then
+            Err.Raise ERR_RECALC_PENDING, "M_Main.CheckStaging", _
+                      "Excel did not finish recalculating the inputs, so nothing was validated."
+        End If
 
 '------------------------------------------------------------------------------
 ' EACH RECORD
@@ -4692,6 +4702,10 @@ Public Sub CommitImport()
             Notify "An SA-CCR operation is already running.", vbExclamation
             Exit Sub
         End If
+        If Not InputsRecalculated() Then
+            Notify RecalcRefusedText(), vbExclamation
+            Exit Sub
+        End If
         If Not StagingValidationCurrent() Then
             Notify CommitRefusedText(), vbExclamation
             Exit Sub
@@ -4718,6 +4732,46 @@ Failed:
         Notify "Commit import: " & Err.Description, vbCritical
 
 End Sub
+
+
+Private Function InputsRecalculated() As Boolean
+'
+'==============================================================================
+'                              InputsRecalculated
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Bring every formula whose precedents changed up to date, as a run does
+'   before it reads its inputs (#195), so that staging validation and
+'   commit judge a formula on Params, NettingSets or Trades by its current
+'   result, not by the one Excel kept in manual calculation (#519).
+'   Calculate refreshes no external data connection.
+'
+' RETURNS
+'   True when Excel finished recalculating; False when it did not, for
+'   example after Esc.
+'
+' UPDATED
+'   2026-11-03
+'==============================================================================
+'
+        Application.Calculate
+        InputsRecalculated = (Application.CalculationState = xlDone)
+
+End Function
+
+
+Private Function RecalcRefusedText() As String
+'
+'==============================================================================
+' PURPOSE
+'   The message of a commit refused because Excel did not finish
+'   recalculating the inputs (#519).
+'==============================================================================
+'
+        RecalcRefusedText = "Nothing was committed." & vbLf & vbLf & "Excel did not finish recalculating the " & _
+                            "inputs." & vbLf & vbLf & "Press F9, then Commit import again."
+
+End Function
 
 
 Private Function CommitRefusedText() As String
@@ -4850,10 +4904,12 @@ Private Function CommitStaging( _
 '   a value are cleared.
 '
 ' METHOD
-'   1. Refuse unless StagingValidationCurrent is True: the last staging
-'      validation was VALID and nothing it judged, staging blocks, input
-'      sheets and Params, has changed since, also with events off. The
-'      status text is never read.
+'   1. Recalculate the workbook, as a run does, and refuse when Excel does
+'      not finish (#519); then refuse unless StagingValidationCurrent is
+'      True: the last staging validation was VALID and nothing it judged,
+'      staging blocks, input sheets and Params, has changed since, also
+'      with events off or in a formula's result. The status text is never
+'      read.
 '   2. Convert each staged value as a value typed by hand would be:
 '      numbers and integers to numbers, as the reader reads them (Val),
 '      dates to Excel dates, every other type to text written with a
@@ -4878,7 +4934,7 @@ Private Function CommitStaging( _
 '   there too and makes the write-back fail as well.
 '
 ' UPDATED
-'   2026-11-02
+'   2026-11-03
 '==============================================================================
 '
 
@@ -4918,6 +4974,13 @@ Private Function CommitStaging( _
 '------------------------------------------------------------------------------
         If mRunning Then
             Err.Raise ERR_RUN_ACTIVE, "M_Main.CommitStaging", "An SA-CCR operation is already running."
+        End If
+    'A formula input whose precedents changed since the validation must
+    'show its new result before the fingerprints are compared (#519).
+        If Not InputsRecalculated() Then
+            CommitStaging = "RESULT=REFUSED; reason=Excel did not finish recalculating"
+            Message = RecalcRefusedText()
+            Exit Function
         End If
         If Not StagingValidationCurrent() Then
             CommitStaging = "RESULT=REFUSED; reason=no current VALID staging validation"

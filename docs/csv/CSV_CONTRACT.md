@@ -405,7 +405,10 @@ changes.
 ### Validating the staged rows
 
 **Validate staging** (`ValidateStaging`, #209), on either staging sheet,
-checks the rows of both. Each sheet that holds rows is checked as a file's
+checks the rows of both. It first recalculates the workbook, as a run does,
+so that a formula on Params, `NettingSets` or `Trades` is judged by its
+current result also in manual calculation; **Commit import** does the same
+before it checks that the validation still holds (#519). Each sheet that holds rows is checked as a file's
 records are (`CheckStagedRecords`; `check_staged` in the reference): each
 field, the rules between fields and the keys. A row whose fields are all
 blank is one finding, and more rows than the limit is one finding. Then the
