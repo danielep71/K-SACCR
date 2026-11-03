@@ -396,13 +396,11 @@ Use only the categories needed by a release.
   a diagram under "What this project is", from the two exposure engines
   to the ordinary and CCP capital branches and their aggregation, with CVA
   as a separate market-risk memo item. `docs/assets/CCR_framework.svg` is
-  shared with K-SFTs and K-Risk Engines and described in
-  `docs/assets/README.md`.
+  described in `docs/assets/README.md`.
 - Bring the README roadmap in line with the milestones: v1.7.0 is the
-  standalone Python engine (#450–#459); securities financing transactions
-  are developed in K-SFTs, risk-weighted assets, capital and default-fund
-  contributions to CCPs in K-Risk Engines, and CVA risk in an engine of its
-  own, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
+  standalone Python engine (#450–#459); securities financing transactions,
+  risk-weighted assets, capital, default-fund contributions to CCPs and CVA
+  risk are outside K-SACCR, so the v1.8.0 to v1.10.0 rows are gone. The limitations, the
   methodology scope, the clearing coverage, the website and the diagram of
   where SA-CCR is used say the same.
 - Describe CRR Article 305(4) as unsupported in the source register (#445):
@@ -410,9 +408,12 @@ Use only the categories needed by a release.
   and rejects a declared `MULTI` structure for that reason, as decision 6 of
   the clearing coverage says. The rejection is an implementation boundary,
   not a treatment the article prescribes.
-- Link default-fund contributions to their issue's new home: #400 moved to
-  K-Risk Engines as K-Risk-Engines#121, and the clearing coverage and the
-  support matrix now link it there.
+- State default-fund contributions, the own funds requirements for exposures
+  to CCPs, the cap of Art. 303(2) and CRE54.40, and risk-weighted assets as
+  outside K-SACCR, with no tracker in this repository (#483). Decision
+  15 of the clearing coverage records it; the clearing coverage, the support
+  matrix, the README and the two framework diagrams name no other project,
+  and the diagrams' PNG renderings are updated.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the nine production and

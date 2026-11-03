@@ -117,7 +117,7 @@
 <text x="800.0" y="1242" font-size="26" font-weight="bold" font-style="normal" fill="#0B2A5B" text-anchor="middle">K total = K ordinary + K CCP, after the QCCP cap where it applies</text>
 <text x="800.0" y="1276" font-size="20" font-weight="bold" font-style="normal" fill="#1F5AA6" text-anchor="middle">Total RWA = 12.5 × K total</text>
 <rect x="22" y="1298" width="1556" height="160" rx="6" fill="#FFF7EF" stroke="#E07B26" stroke-width="2" stroke-dasharray="8 5"/>
-<text x="40" y="1332" font-size="20" font-weight="bold" font-style="normal" fill="#C2500A" text-anchor="start">MEMO ITEM ONLY: CVA RISK (K-CVA) — market risk, not part of counterparty default risk</text>
+<text x="40" y="1332" font-size="20" font-weight="bold" font-style="normal" fill="#C2500A" text-anchor="start">MEMO ITEM ONLY: CVA RISK — market risk, not part of counterparty default risk</text>
 <text x="40" y="1364" font-size="15.5" font-weight="normal" font-style="normal" fill="#2B3A4E" text-anchor="start">CVA risk belongs to market risk (Basel MAR50; CRR Part Three, Title VI, Art. 381-386). It is shown for completeness only: it uses the EAD</text>
 <text x="40" y="1389" font-size="15.5" font-weight="normal" font-style="normal" fill="#2B3A4E" text-anchor="start">of step 1 as an input, but is excluded from K total and Total RWA above. Total own funds add it separately: K total + K CVA.</text>
 <text x="40" y="1414" font-size="15.5" font-weight="normal" font-style="normal" fill="#2B3A4E" text-anchor="start">BA-CVA: EAD, effective maturity, counterparty data and hedges.   SA-CVA: CVA sensitivities and hedges.   CRR: also a simplified approach.</text>

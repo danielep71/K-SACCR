@@ -110,11 +110,9 @@ only produce one:
 K-SACCR is one calculator of a counterparty credit risk framework: it
 produces the exposure value of derivatives, the **K-SA-CCR** box of step 1,
 including the trade exposures to CCPs (v1.0.2). The other parts of the
-framework are developed outside K-SACCR: the SFT exposure in
-[K-SFTs](https://github.com/danielep71/K-SFTs); risk-weighted assets,
-capital and default-fund contributions to CCPs in
-[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines), which also
-presents the portfolio; and CVA risk in an engine of its own. The
+framework are outside K-SACCR and not supported: the exposure of securities
+financing transactions, risk-weighted assets and capital, default-fund
+contributions to CCPs with the cap of Art. 303(2), and CVA risk. The
 [roadmap](#roadmap) keeps K-SACCR to the derivatives exposure.
 
 <p align="center">
@@ -748,11 +746,9 @@ gantt
 | v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)
-hold the current scope of each release. Securities financing transactions
-are developed in [K-SFTs](https://github.com/danielep71/K-SFTs);
-risk-weighted assets, capital and default-fund contributions to CCPs in
-[K-Risk Engines](https://github.com/danielep71/K-Risk-Engines); CVA risk in
-an engine of its own.
+hold the current scope of each release. Securities financing transactions,
+risk-weighted assets and capital, default-fund contributions to CCPs and CVA
+risk are outside K-SACCR and on no milestone of its roadmap.
 
 ### v1.1.0 — CSV import, staging and workbook protection
 
