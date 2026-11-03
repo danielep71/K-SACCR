@@ -145,18 +145,21 @@ Use only the categories needed by a release.
   both staging sheets (`CommitImport`), after a confirmation that gives each
   input sheet's rows now and the staged rows that replace them, Cancel being
   the default; `CommitStaging_Silent()` for automation. The staging note
-  names the button. It
-  refuses unless `StagingValidationCurrent()` is `True`, replaces whole each
-  input sheet whose staging sheet holds rows, down to the last row with a
-  value or a formula, even one that returns empty text (#512; `TEST_Import`
-  case `commit.trailing-formula`), and leaves the other as it is,
-  writes numbers and dates as numbers and dates and other values as text, so
-  that leading zeros stay, and reads each sheet back. On any failure it puts
-  the input cells back, a text that starts with `=` as text, and checks them, and reports that apart from the
-  error. Each committed staging sheet then reads `COMMITTED`, and Results
-  reads `OUT OF DATE` until the next run. `TEST_Import` runs 5 more cases:
-  refusals, a failed write and read-back put back, a failed put-back
-  reported, a commit of both sheets and a commit of Trades only.
+  names the button. It refuses unless `StagingValidationCurrent()` is
+  `True`, and replaces whole each input sheet whose staging sheet holds
+  rows, down to the last row with a value or a formula, even one that
+  returns empty text (#512), leaving the other as it is. It writes numbers
+  and dates as numbers and dates and other values as text, so that leading
+  zeros stay, as a user typing them would: a run on committed rows gives the
+  same result line, input fingerprint and EADs as a run on the same rows
+  typed by hand. It reads each sheet back. On any failure it puts the input
+  cells back, a text that starts with `=` as text, checks them, and reports
+  that apart from the error. Each committed staging sheet then reads
+  `COMMITTED`, and Results reads `OUT OF DATE` until the next run.
+  `TEST_Import` runs 7 more cases: refusals, a failed write and read-back
+  put back, a failed put-back reported, a commit of both sheets, a commit of
+  Trades only, a formula below the data, and a commit run against the same
+  rows typed by hand.
 - Show `OUT OF DATE` on a staging sheet whose `VALID` validation no longer
   applies (#210). Activating a staging sheet compares what the last
   validation judged with the current staging blocks, `NettingSets`, `Trades`
