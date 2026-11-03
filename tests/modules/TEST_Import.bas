@@ -70,9 +70,9 @@ Attribute VB_Name = "TEST_Import"
 '   Two cases change one Params value each, AsOfDate and Alpha, and put
 '   it back as it was, also after an unexpected error; no other input
 '   cell is touched, and import.live-sheets checks the live inputs and
-'   the run names. Only then does the last case run SA-CCR (#211): it
-'   puts the input sheets back and leaves a new run of them, CURRENT, or
-'   no results when there were none before.
+'   the run names. Only then do the last two cases run SA-CCR (#211):
+'   each puts the input sheets back and leaves a new run of them,
+'   CURRENT, or no results when there were none before.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -105,8 +105,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 31                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 172                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 32                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 183                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const KIND_NS           As Long = 1                            'Import_NettingSets
@@ -263,6 +263,7 @@ Public Sub RunImportTests()
         PutBackLive
         PutChecksBack
         CaseLiveSheets LiveBefore
+        CaseCommitState
         CaseCommitEquivalentRun
 
         PutStagingBack KIND_NS
@@ -1746,6 +1747,138 @@ Unexpected:
         PutBackLive
 
 End Sub
+
+
+Private Sub CaseCommitState()
+'
+'==============================================================================
+' PURPOSE
+'   What a commit leaves of Excel and of the results (#211). From
+'   automatic calculation with events and screen updating on, a commit
+'   that fails on writing and one that succeeds both give the three back
+'   as they were. Results that read CURRENT read OUT OF DATE after the
+'   commit, which runs nothing. A commit whose calculation mode cannot be
+'   put back (gTestFault = "cleanup") raises ERR_CLEANUP_FAILED and stays
+'   done: no rollback, both staging sheets read COMMITTED and the
+'   validation is spent. The input sheets are then put back and run
+'   again, or the outputs cleared, as in commit.equivalent-run; the case
+'   runs after import.live-sheets for that reason.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String           'What a call returned
+    Dim SavedInputs   As String           'Input fingerprint before
+    Dim HadRun        As Boolean          'Results existed before the case
+    Dim Calculation   As XlCalculation    'The suite's calculation mode
+    Dim Events        As Boolean          'The suite's EnableEvents
+    Dim Screen        As Boolean          'The suite's ScreenUpdating
+    Dim ErrorNumber   As Long             'Error of the commit whose cleanup failed
+    Dim ErrorText     As String           'Its description
+
+'------------------------------------------------------------------------------
+' A CURRENT RUN, THEN A FAILED AND A SUCCESSFUL COMMIT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "commit.state"
+        SavedInputs = CORE_Engine.InputFingerprint()
+        HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
+        Calculation = Application.Calculation
+        Events = Application.EnableEvents
+        Screen = Application.ScreenUpdating
+        M_Main.RunSACCR_Silent
+        Check M_Main.ResultsStatus() = "CURRENT", "results before the commit: " & M_Main.ResultsStatus()
+        WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        Application.Calculation = xlCalculationAutomatic
+        Application.EnableEvents = True
+        Application.ScreenUpdating = True
+        M_Main.gTestFault = "commit-write"
+        ResultLine = M_Main.CommitStaging_Silent()
+        M_Main.gTestFault = ""
+        CheckText "failed commit", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=VERIFIED"
+        Check SettingsOn(), "Excel settings after the failed commit: " & SettingsText()
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
+        Check SettingsOn(), "Excel settings after the commit: " & SettingsText()
+        Check M_Main.ResultsStatus() = "STALE", "results after the commit: " & M_Main.ResultsStatus()
+
+'------------------------------------------------------------------------------
+' A COMMIT WHOSE CLEANUP FAILS STAYS DONE
+'------------------------------------------------------------------------------
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation again", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=2"
+        M_Main.gTestFault = "cleanup"
+        On Error Resume Next
+        ResultLine = M_Main.CommitStaging_Silent()
+        ErrorNumber = Err.Number
+        ErrorText = Err.Description
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        Check ErrorNumber = ERR_CLEANUP_FAILED And InStr(1, ErrorText, "were committed", vbBinaryCompare) > 0 And _
+              InStr(1, ErrorText, "Calculation:", vbBinaryCompare) > 0, _
+              "expected the cleanup error, got " & ErrorNumber & ": " & ErrorText
+        Check Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4) = STAGING_COMMITTED & "|" & STAGING_COMMITTED And _
+              Not M_Main.StagingValidationCurrent(), _
+              "after the cleanup error: " & Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4)
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        Application.Calculation = Calculation
+        Application.EnableEvents = Events
+        Application.ScreenUpdating = Screen
+        PutBackLive
+        PutRunBack HadRun
+        Check CORE_Engine.InputFingerprint() = SavedInputs And _
+              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+              "inputs and results after the case: " & M_Main.ResultsStatus()
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        M_Main.gTestFault = ""
+        Application.Calculation = Calculation
+        Application.EnableEvents = Events
+        Application.ScreenUpdating = Screen
+        PutBackLive
+        PutRunBack HadRun
+
+End Sub
+
+
+Private Function SettingsOn() As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True while calculation is automatic and events and screen updating are
+'   on, as CaseCommitState sets them before each commit.
+'==============================================================================
+'
+        SettingsOn = Application.Calculation = xlCalculationAutomatic And Application.EnableEvents And _
+                     Application.ScreenUpdating
+
+End Function
+
+
+Private Function SettingsText() As String
+'
+'==============================================================================
+' PURPOSE
+'   The three Excel settings a commit changes, for a failure message.
+'==============================================================================
+'
+        SettingsText = "Calculation=" & Application.Calculation & "; EnableEvents=" & Application.EnableEvents & _
+                       "; ScreenUpdating=" & Application.ScreenUpdating
+
+End Function
 
 
 Private Sub CaseCommitEquivalentRun()
