@@ -276,7 +276,18 @@ try {
     # ------------------------------------------------------------------------
     # Compile
     # ------------------------------------------------------------------------
-    $compile = $excel.VBE.CommandBars.FindControl(1, $compileControlId)
+    # Debug > Compile VBAProject acts on the VBE's active project and is
+    # greyed out once that project is compiled. The VBE window is shown, so
+    # that the command's state is current, and the state is read afresh.
+    $vbe = $excel.VBE
+    $vbe.MainWindow.Visible = $true
+    try {
+        $vbe.ActiveVBProject = $workbook.VBProject
+    }
+    catch {
+        Write-Session ("The test workbook's project could not be made the active one: " + $_.Exception.Message)
+    }
+    $compile = $vbe.CommandBars.FindControl(1, $compileControlId)
     if ($null -eq $compile) {
         $session.compile = [ordered]@{ status = "FAIL"; detail = "Debug > Compile VBAProject was not found in the VBE" }
         throw "Cannot find Debug > Compile VBAProject."
@@ -284,13 +295,28 @@ try {
     if ($compile.Enabled) {
         $compile.Execute()
     }
-    # The command stays enabled while the project has a compile error.
-    if ($compile.Enabled) {
-        $session.compile = [ordered]@{ status = "FAIL"; detail = "Debug > Compile VBAProject reported an error" }
-        throw "The project does not compile; see the VBE."
+    $compiled = $false
+    for ($attempt = 0; $attempt -lt 10 -and -not $compiled; $attempt++) {
+        Start-Sleep -Milliseconds 500
+        $compiled = -not $vbe.CommandBars.FindControl(1, $compileControlId).Enabled
     }
-    $session.compile = [ordered]@{ status = "PASS"; detail = "Debug > Compile VBAProject completed with no error" }
-    Write-Session "Compiled with no error"
+    $compileDetail = "Debug > Compile VBAProject completed with no error"
+    if (-not $compiled) {
+        # The command can stay enabled without a compile error, so the
+        # operator looks at the VBE instead of the run stopping on a guess.
+        Write-Host ""
+        Write-Host "Debug > Compile VBAProject still looks enabled. In the VBE window, choose"
+        Write-Host "Debug > Compile VBAProject yourself. Type Y if it completes with no error and"
+        Write-Host "the command is then greyed out; type N if it reports a compile error."
+        $answer = Read-Host "Compiled with no error? (Y/N)"
+        if ($answer -notmatch '^\s*y') {
+            $session.compile = [ordered]@{ status = "FAIL"; detail = "Debug > Compile VBAProject reported an error, as the operator saw" }
+            throw "The project does not compile; see the VBE."
+        }
+        $compileDetail = "Debug > Compile VBAProject completed with no error, as the operator saw in the VBE"
+    }
+    $session.compile = [ordered]@{ status = "PASS"; detail = $compileDetail }
+    Write-Session ("Compiled with no error" + $(if ($compiled) { "" } else { ", as the operator saw in the VBE" }))
 
     # ------------------------------------------------------------------------
     # Run the certification

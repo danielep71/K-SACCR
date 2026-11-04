@@ -87,7 +87,10 @@ or double-click `tools\Certify-SACCR.cmd`. The script:
 5. opens it in a visible Excel that follows the Trust Center macro setting.
    When the macros are disabled, it asks the operator to click **Enable
    Content** and waits;
-6. compiles the project (**Debug → Compile VBAProject**) and runs
+6. compiles the project (**Debug → Compile VBAProject**, with the VBE window
+   shown). If the command does not turn grey, the script asks the operator to
+   compile in the VBE and say whether it completed with no error, and the
+   compile result records that the operator saw it. It then runs
    `TEST_Suite.Certify`. That runs the harness and every suite of the policy
    once each, on its own, each into its own log (`harness.log`,
    `TEST_Formulas.log`, …), then `Test_RunAll` into `summary.log`. Each log
