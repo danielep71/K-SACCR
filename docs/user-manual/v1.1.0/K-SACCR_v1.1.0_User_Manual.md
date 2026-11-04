@@ -186,7 +186,7 @@ A new version of K-SACCR is delivered as a new workbook with its own file name, 
 3. Fill every column, code or key that is new in this version as its migration notes and manual say.
 4. Run **Validate inputs**, then compare the results of the two versions on the same inputs before relying on the new one.
 
-The other values on `Params`, the supervisory parameters and `SF_Table`, are the new workbook's reference values and are locked. Change one only if you changed it deliberately in the earlier version, for a what-if analysis, by the maintenance unlock described in *What you can edit: workbook protection*; the run is then classified `WHAT-IF`.
+The other values on `Params`, the supervisory parameters and `SF_Table`, are the new workbook's reference values and are locked. Change one only if you changed it deliberately in the earlier version, for a what-if analysis, by the maintenance unlock described in *What you can edit: workbook protection*; the run is then classified `WHAT-IF`, unless the value changed is `DaysPerYear` or `IRBucketOffset`, conventions that do not change the classification.
 
 Do not copy VBA code between versions: a new version can change worksheets, headers and named ranges as well as code.
 
@@ -336,7 +336,7 @@ A locked cell is changed only on purpose. To change one, for example a superviso
 3. Make the change.
 4. Protect the sheet again: run the macro `ProtectWorkbook` (**Alt+F8**, select it, **Run**), or simply start the next operation, such as **Run SA-CCR**, which protects every sheet and the structure again first.
 
-The change itself is kept. A run on changed reference parameters is classified **`WHAT-IF`**, with a *What-if:* warning on `Checks` for each deviation (see *Regulatory versus what-if classification*); the freshness status and the evidence checks work as before. An output cell changed during an unlock makes `ResultsStatus()` read `EDITED` and the evidence export refuse until the next run, which rewrites the outputs. To return to the reference values, enter them again the same way, or start again from your reference copy.
+The change itself is kept. A run on changed reference parameters is classified **`WHAT-IF`**, except for the conventions `DaysPerYear` and `IRBucketOffset`, with a *What-if:* warning on `Checks` for each deviation (see *Regulatory versus what-if classification*); the freshness status and the evidence checks work as before. An output cell changed during an unlock makes `ResultsStatus()` read `EDITED` and the evidence export refuse until the next run, which rewrites the outputs. To return to the reference values, enter them again the same way, or start again from your reference copy.
 
 Do not unlock a sheet to delete rows, move columns or rename headers: the input tables are found by their workbook names and headers, and a changed layout can stop a run (see *Dates, named ranges and error handling*).
 
@@ -352,7 +352,7 @@ Do not unlock a sheet to delete rows, move columns or rename headers: the input 
 
 The `Params` sheet is a **named-range-driven table**. Each parameter has a code in the `Code` column, a value in the `Value` column and a workbook name of that code. The workbook uses the names `Params_Code`, `Params_Value`, `SF_Table` and `FX_Table`. Names—not fixed row positions—locate the tables; their first header cells must be structurally correct.
 
-`AsOfDate`, `ReportingCcy`, `Regime` and the FX table are the **run configuration**: yellow, and changed in normal use. Every other value on `Params`, the settings below from `Alpha` onwards and `SF_Table`, is a **reference regulatory parameter**: grey and locked, changed only by a deliberate maintenance unlock (see *Maintenance unlock and relock*), after which a run on a changed value is `WHAT-IF`.
+`AsOfDate`, `ReportingCcy`, `Regime` and the FX table are the **run configuration**: yellow, and changed in normal use. Every other value on `Params`, the settings below from `Alpha` onwards and `SF_Table`, is a **reference regulatory parameter**: grey and locked, changed only by a deliberate maintenance unlock (see *Maintenance unlock and relock*), after which a run on a changed value is `WHAT-IF`; `DaysPerYear` and `IRBucketOffset` are the exceptions, conventions that do not change the classification (see *Regulatory versus what-if classification*).
 
 | Setting | Typical regulatory value / convention | Meaning and user action |
 |:--|:--|:--|
@@ -784,7 +784,7 @@ The examples are not a template for a real portfolio: start a real file from the
 | Quoting | A field holding `;`, a double quote or a line break is enclosed in double quotes, and a quote inside it is written twice: `"A ""B"""` reads `A "B"`. A quote inside an unquoted field, text after a closing quote or a quoted field left open is a syntax error. |
 | Records | Separated by CRLF or LF; the last may end without one. A quoted text field may span several lines. |
 | Header | The first record names every column of the file exactly once, in any order, with the exact lower-case names of the specification. A missing, unknown or repeated column rejects the file. There are no optional columns: an optional field is a column whose value may be blank. |
-| Numbers | Decimal point `.`, no thousands separator, no `+` sign, an optional exponent (`1.25e6`), at most 15 significant digits. `1,5` and `1.000,00` are rejected. |
+| Numbers | Decimal point `.`, no thousands separator, no `+` sign, no leading zero (`0.5`, not `007.5`), an optional exponent (`1.25e6`), at most 15 significant digits. `1,5` and `1.000,00` are rejected. |
 | Dates | `yyyy-mm-dd`, from 1950-01-01 to 2200-12-31. `31/03/2027` and serial numbers are rejected. |
 | Codes and flags | Exact spelling and case: `Linear`, not `linear`; `Y` or `N`, not `y`, `Yes`, `TRUE` or `1`. Currencies are three capital letters. |
 | Identifiers | At most 64 characters, no vertical bar or `#`; read as text, so leading zeros are kept. Keys are compared ignoring case, as the calculation compares IDs. |
@@ -1227,7 +1227,7 @@ If an export is **refused**, do **not** disable the guard or hand-edit the CSV t
 
 ## Why an export can be refused
 
-![The four consistency checks governing a new run-evidence CSV.](assets/evidence_gate.png){width=96%}
+![The consistency checks governing a new run-evidence CSV.](assets/evidence_gate.png){width=96%}
 
 
 The implementation deliberately refuses export when:
@@ -1571,7 +1571,7 @@ When a conflict arises between general explanatory prose and the **actual applic
 ## End-user quick-reference card
 
 **Start:** check the SHA-256 → unblock → open and enable macros → keep the delivered file as reference copy → work in a copy; change only yellow cells.\
-**Configure:** AsOfDate, ReportingCcy, Regime, supervisory parameters and FX table → verify netting terms → load trade legs.\
+**Configure:** AsOfDate, ReportingCcy, Regime and FX table → check the locked supervisory parameters against the reference values → verify netting terms → load trade legs.\
 **Import (optional):** Export import specifications or Export CSV template → write UTF-8 files with `;`, a decimal point and `yyyy-mm-dd` dates → Import CSV on both staging sheets → correct → Validate staging until no finding → Commit import.\
 **Calculate:** Validate inputs → resolve `ERROR` → Run SA-CCR → read **status** before numerical EAD → trace intermediates.\
 **Reconcile:** normalize bank currency/units/regime → BankNettingSets/BankTrades → rerun → inspect `MATCH`, `DIFFERENCE` and population exceptions.\

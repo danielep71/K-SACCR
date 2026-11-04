@@ -29,11 +29,12 @@ Current source:
   listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
 - `workbook/M_Main.bas`: the sheet-button macros, the CSV check macros, the
   automation entry points and status functions, and the reading and writing
-  of the reconciliation sheets and the evidence file;
+  of the reconciliation sheets, the staging sheets (`Import_NettingSets`,
+  `Import_Trades`) and the evidence file;
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
   modules, which hold only `Option Explicit`, but for the change handlers of
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
-  edited;
+  edited, and their activation handlers, which refresh its status (#210);
 - `workbook/SACCR_Template.xlsx`: the 18 sheets (README, Params, NettingSets,
   Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
   TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,

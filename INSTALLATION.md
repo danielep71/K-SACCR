@@ -53,7 +53,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | Git | Cloning and all repository work |
 | Python 3.10 or later | `python tools/check.py`; standard library only, no packages |
-| Node.js 20 or later | Optional: local label-catalogue checks |
+| Node.js 20 or later | `python tools/check.py`: the `issue-config` gate and its tests validate the label catalogue with `.github/scripts/labels-sync.mjs` |
 | Microsoft Excel for Windows | Importing, compiling and running the VBA; see [supported hosts](#supported-hosts) |
 | Windows PowerShell, as shipped with Windows | `tools/Sync-SACCR-VBA.cmd`, which runs `tools/Sync-SACCR-VBA.ps1` through `powershell.exe`; not needed to import the VBA by hand |
 
@@ -790,8 +790,9 @@ write are written back to every sheet touched and read back. It returns
 written, `VERIFIED` when the input sheets read back as they were, or
 `FAILED: ...` with what could not be put back. After a commit each committed
 staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
-Results is not recalculated: `ResultsStatus()` reads `OUT OF DATE` until the
-next **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
+Results is not recalculated: `ResultsStatus()` returns `STALE`, and Results C5
+reads `OUT OF DATE`, until the next **Run SA-CCR**. While an operation is
+running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 

@@ -39,8 +39,9 @@ Params, unprotect that sheet (Review > Unprotect Sheet), make the change and
 either protect it again (macro `ProtectWorkbook`) or simply start the next
 operation: every operation protects every sheet and the structure again
 first. The change itself is kept, and a run on changed regulatory
-parameters is still classified `WHAT-IF`; the freshness status and the
-evidence checks work as before.
+parameters is still classified `WHAT-IF`, except for `DaysPerYear` and
+`IRBucketOffset`: they are conventions, which `CORE_Engine.ClassifyRun` does
+not compare. The freshness status and the evidence checks work as before.
 
 ## 🗂️ Matrix
 
@@ -77,7 +78,8 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
   configuration and keep the yellow input fill. Every other value on Params
   is a reference regulatory parameter, filled grey: it is changed only on an
   unprotected sheet, by a deliberate maintenance unlock, and a run on changed
-  values stays `WHAT-IF`, as today.
+  values stays `WHAT-IF`, as today. The exceptions are `DaysPerYear` and
+  `IRBucketOffset`, conventions that do not change the run class.
 - **Staging keeps its provenance.** On `Import_NettingSets` and
   `Import_Trades` the staged values are editable; the CSV line column, the
   status, the source file and the other metadata above the block stay locked.
@@ -134,7 +136,7 @@ the template, and note each outcome in `session.log`
 | 7 | Run SA-CCR, Validate inputs, Clear outputs, then Run SA-CCR again | Each succeeds |
 | 8 | Import CSV on both staging sheets, correct a staged value, Validate staging, Commit import (once Cancel, once OK), Export import specifications, Run SA-CCR | Each succeeds; the staged value is editable, the CSV line column is not |
 | 9 | Enter bank figures, Run SA-CCR, Export evidence | Reconciliation and export succeed |
-| 10 | Unprotect Params, change a grey parameter, Run SA-CCR | The run is `WHAT-IF`; Params is protected again; restore the value |
+| 10 | Unprotect Params, change Alpha (E8), Run SA-CCR | The run is `WHAT-IF`; Params is protected again; restore the value |
 | 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |
 | 12 | Save, close and reopen, then Run SA-CCR | Every sheet still protected; the run succeeds |
 | 13 | Open with macros disabled | Every sheet and the structure are protected; nothing else works until macros are enabled |

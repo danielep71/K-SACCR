@@ -1,6 +1,6 @@
 # Quality settings for the repository's Python tooling (tools/).
-# Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44. The tooling itself needs only
-# the standard library; Ruff and mypy are CI and development tools.
+# The tooling itself needs only the standard library; Ruff and mypy are CI and
+# development tools.
 
 [tool.ruff]
 target-version = "py310"
