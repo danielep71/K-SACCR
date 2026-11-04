@@ -16,9 +16,10 @@ Attribute VB_Name = "TEST_Suite"
 '   of TEST_CaseRunner and of TEST_Benchmark: it writes to the Immediate
 '   window, or during Test_RunAll records the RESULT and FAILURE lines
 '   instead; while Certify runs, every printed line is also written to
-'   the open log file. Certify and CertificationReady are called by
-'   tools\Certify-SACCR.ps1 through Application.Run. Option Private
-'   Module keeps them out of the external workbook automation API.
+'   the open log file. Certify, CertificationReady and
+'   CertificationReferences are called by tools\Certify-SACCR.ps1 through
+'   Application.Run. Option Private Module keeps them out of the external
+'   workbook automation API.
 '
 ' DEPENDENCIES
 '   CORE_Export.Utf8Bytes, to write the log files as UTF-8; TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
@@ -262,6 +263,48 @@ Public Function CertificationReady() As String
 '==============================================================================
 '
         CertificationReady = "READY"
+
+End Function
+
+
+Public Function CertificationReferences() As String
+'
+'==============================================================================
+'                            CertificationReferences
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the description of every reference of this VBA project, one per
+'   line, in the order of Tools > References. tools\Certify-SACCR.ps1 calls
+'   it through Application.Run once the macros run and records the list in
+'   session.json; reading the project from PowerShell before the macros
+'   are enabled can fail.
+'
+' DEPENDENCIES
+'   "Trust access to the VBA project object model", which the build needs
+'   as well. The project is read through late binding, so no reference to
+'   the VBA extensibility library is added.
+'
+' ERROR POLICY
+'   None: an error reaches Certify-SACCR.ps1, which stops the run.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Item        As Object    'One reference of the project
+    Dim Text        As String    'The descriptions read so far
+
+'------------------------------------------------------------------------------
+' LIST
+'------------------------------------------------------------------------------
+        For Each Item In ThisWorkbook.VBProject.References
+            If Len(Text) > 0 Then Text = Text & vbLf
+            Text = Text & Item.Description
+        Next Item
+        CertificationReferences = Text
 
 End Function
 

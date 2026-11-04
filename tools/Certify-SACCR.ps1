@@ -248,8 +248,6 @@ try {
     $excel.AutomationSecurity = $msoAutomationSecurityByUI
     $workbook = $excel.Workbooks.Open($workbookPath)
     $qualified = "'" + $workbook.Name + "'!"
-    $session.references = @($workbook.VBProject.References | ForEach-Object { [string]$_.Description })
-    Write-Session ("References: " + ($session.references -join "; "))
     $ready = $false
     while (-not $ready) {
         try {
@@ -269,6 +267,11 @@ try {
         }
     }
     Write-Session "Macros enabled; the workbook answered READY"
+    # Read by the project itself: before the macros run, the VBProject of a
+    # workbook opened "by UI" may not be readable from PowerShell.
+    $referenceText = [string]$excel.Run($qualified + "TEST_Suite.CertificationReferences")
+    $session.references = @($referenceText -split "`n" | Where-Object { $_ -ne "" })
+    Write-Session ("References: " + ($session.references -join "; "))
 
     # ------------------------------------------------------------------------
     # Compile
