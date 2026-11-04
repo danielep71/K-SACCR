@@ -270,7 +270,7 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 11 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 12 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 13 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -647,6 +647,14 @@ and TradeReconciliation. `total_ead_crr` and `total_ead_bcbs` are the totals
 of each regime's `VALID` netting sets, never added together. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
 run summary on Results C4.
+
+### ValidateInputs_Silent and ClearOutputs_Silent
+
+`ValidateInputs_Silent` and `ClearOutputs_Silent` run **Validate inputs** and
+**Clear outputs** in the same way and return their result line:
+`operation=validate` with the same fields as a run, or `operation=clear` with
+only `cleanup`. `tools/Check-SACCR-Protection.ps1` uses them for the
+[manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks).
 
 ### ResultsStatus and the status cells
 

@@ -19,10 +19,15 @@ For the commit checked out in this repository, with a clean working tree:
    TEST_Suite.Certify, which runs the harness and every suite once each, on
    its own, writing each report to its own log with the commit's SHA as its
    first line, and then Test_RunAll into summary.log;
-6. closes the workbook without saving, writes session.json and runs
-   tools\write_excel_evidence.py, which writes host.json from the logs and
-   validates the bundle with tools\check_excel_evidence.py.
-The exit code is the validator's: 0 only for PASS. The manual procedure of
+6. closes the workbook without saving and runs
+   tools\Check-SACCR-Protection.ps1: the 14 manual protection checks on a
+   production workbook built from the same checkout, written to
+   protection-checks.txt in the bundle;
+7. writes session.json and runs tools\write_excel_evidence.py, which writes
+   host.json from the logs and validates the bundle with
+   tools\check_excel_evidence.py.
+The exit code is 0 only when the bundle validates as PASS and the 14
+protection checks pass. The manual procedure of
 docs\EXCEL_EVIDENCE.md stays available as a fallback.
 .REQUIREMENTS
 - Windows desktop Excel, and Python 3.10 or later on the PATH (or -Python).
@@ -356,6 +361,33 @@ finally {
 }
 
 # ----------------------------------------------------------------------------
+# Protection checks on a production workbook
+# ----------------------------------------------------------------------------
+# Run before session.log is recorded, as the record cites its digest.
+$protectionCode = 1
+if ($session.compile.status -eq "PASS") {
+    Write-Session "Running the protection checks on a production workbook: tools\Check-SACCR-Protection.ps1"
+    try {
+        & (Join-Path $RepoRoot "tools\Check-SACCR-Protection.ps1") -OutputDir $BundleDir -Python $Python -RepoRoot $RepoRoot
+        $protectionCode = $LASTEXITCODE
+    }
+    catch {
+        Write-Session ("The protection checks stopped: " + $_.Exception.Message)
+    }
+    $protectionFile = Join-Path $BundleDir "protection-checks.txt"
+    if (Test-Path -LiteralPath $protectionFile) {
+        Write-Session ("Protection checks: " + @(Get-Content -LiteralPath $protectionFile -Encoding UTF8)[-1])
+    }
+    else {
+        Write-Session "Protection checks: no protection-checks.txt was written"
+        $protectionCode = 1
+    }
+}
+else {
+    Write-Session "Protection checks not run: the development workbook did not compile"
+}
+
+# ----------------------------------------------------------------------------
 # Record and validate
 # ----------------------------------------------------------------------------
 $session.finished_at = Get-Timestamp
@@ -367,10 +399,13 @@ Write-Host ""
 $code = $LASTEXITCODE
 Write-Host ""
 Write-Host "Bundle: $BundleDir"
+if ($code -eq 0 -and $protectionCode -eq 0) {
+    Write-Host "RESULT=PASS: the bundle validates for candidate $sha and the 14 protection checks pass."
+    exit 0
+}
 if ($code -eq 0) {
-    Write-Host "RESULT=PASS: the bundle validates for candidate $sha."
+    Write-Host "RESULT=FAIL: the bundle validates, but the protection checks did not pass; see protection-checks.txt."
+    exit 1
 }
-else {
-    Write-Host "RESULT=FAIL: see the outcomes above and session.log. Keep the bundle as it is."
-}
+Write-Host "RESULT=FAIL: see the outcomes above and session.log. Keep the bundle as it is."
 exit $code
