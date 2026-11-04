@@ -412,6 +412,22 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- The user manual for 1.1.0 is prepared in `docs/user-manual/v1.1.0/`,
+  from the 1.0.2 manual, which is not changed. It adds a chapter on the CSV
+  import from end to end: the blank templates, the import specification page
+  and its examples, the file format, limits and finding codes, the staging
+  sheets and their statuses, correcting staged values, Validate staging and
+  its findings on Checks, Commit import and the run after it. A chapter on
+  the workbook protection gives what each sheet lets a user change, what is
+  refused and the maintenance unlock and relock, after which a run on changed
+  reference parameters is `WHAT-IF`. It also updates the map of the 18
+  worksheets, the buttons, the Origin column of Checks, the user journey,
+  moving inputs from 1.0.2, the evidence export refusals, the silent CSV
+  entry points, the known limitations, the checklists, the troubleshooting
+  table, the test summary (ten suites, 453 cases, 1,855 checks), the glossary
+  and the quick-reference card. The release date and the delivered file
+  names are confirmed when 1.1.0 is released. The CSV contract's link to the
+  manual now points to the 1.1.0 manual.
 - State how the staging and input sheets hold a CSV file up to the import
   limits (#206, #207): rows are written as many as the file has, the value
   columns are unlocked to the last row, and the validation lists bound only
