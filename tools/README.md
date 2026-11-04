@@ -18,7 +18,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -39,6 +39,19 @@ its own log, and the optional `Test_RunAll` summary. `--inventory` prints the
 source digests a record needs, and `--check-policy` is the
 `excel-evidence-policy` gate above. Its synthetic tests,
 `test_excel_evidence.py`, run in `tool-tests`. See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
+
+`Certify-SACCR.ps1` (or `Certify-SACCR.cmd`, double-clicked) runs the Excel
+certification of the checked-out commit with one command on the Windows host
+(#535). It builds a development workbook in a new bundle folder next to the
+checkout, opens it following the Trust Center macro setting, waits for the
+operator to enable content if the macros are disabled, compiles it and runs
+`TEST_Suite.Certify`, which writes the log of the harness, of each suite and of
+`Test_RunAll` to its own file, with the commit's SHA as its first line. It
+never changes the macro setting or *Trust access to the VBA project object
+model*, which the build needs on. `write_excel_evidence.py` then writes
+`host.json` from the logs and `session.json` and validates the bundle; its
+synthetic tests, `test_write_excel_evidence.py`, run in `tool-tests`. See the
+[one-command certification](../docs/EXCEL_EVIDENCE.md#one-command-certification).
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).

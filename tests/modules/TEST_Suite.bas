@@ -6,17 +6,23 @@ Attribute VB_Name = "TEST_Suite"
 '   Run every test suite in one go and print only a summary: one line per
 '   suite with its verdict, counts and duration, the failure lines of any
 '   suite that failed, and a final RESULT line. The suites still print
-'   their full logs when they are run on their own.
+'   their full logs when they are run on their own. Certify runs the
+'   harness and every suite once each, on its own, and then Test_RunAll,
+'   writing each report to its own log file of an evidence bundle, first
+'   line CANDIDATE= (#535).
 '
 ' PUBLIC SURFACE
 '   Test_RunAll runs the suites. Say is the print routine of every suite,
 '   of TEST_CaseRunner and of TEST_Benchmark: it writes to the Immediate
 '   window, or during Test_RunAll records the RESULT and FAILURE lines
-'   instead. Option Private Module keeps both out
-'   of the external workbook automation API.
+'   instead; while Certify runs, every printed line is also written to
+'   the open log file. Certify, CertificationReady and
+'   CertificationReferences are called by tools\Certify-SACCR.ps1 through
+'   Application.Run. Option Private Module keeps them out of the external
+'   workbook automation API.
 '
 ' DEPENDENCIES
-'   TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
+'   CORE_Export.Utf8Bytes, to write the log files as UTF-8; TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
 '   TEST_InputValidation, TEST_Aggregation, TEST_Invariants,
 '   TEST_Reconcile, TEST_CsvReader and TEST_Import, with TEST_CaseRunner
 '   for TEST_Cases, TEST_InputValidation, TEST_Aggregation and
@@ -30,14 +36,17 @@ Attribute VB_Name = "TEST_Suite"
 '
 ' ERROR POLICY
 '   An error raised by a suite is recorded as that suite's failure and the
-'   remaining suites still run.
+'   remaining suites still run. Certify writes it to the suite's log as an
+'   ERROR= line, without a RESULT line, and goes on; a log line it cannot
+'   write is counted and reported in its result.
 '
 ' USAGE
 '   Import with the test modules, compile, then type Test_RunAll in the
-'   Immediate window.
+'   Immediate window. For an evidence bundle, run tools\Certify-SACCR.ps1,
+'   which calls Certify (docs/EXCEL_EVIDENCE.md).
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -61,6 +70,8 @@ Attribute VB_Name = "TEST_Suite"
         Private mQuiet      As Boolean       'True while Test_RunAll runs a suite
         Private mResult     As String        'Last RESULT line of the running suite
         Private mFailures   As Collection    'FAILURE lines of the running suite
+        Private mLogPath    As String        'Log file being written by Certify; "" for none
+        Private mLogErrors  As Long          'Lines Certify could not write
 
 
 '
@@ -77,7 +88,7 @@ Public Sub Test_RunAll()
 '                                 Test_RunAll
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the nine suites in turn and print the summary.
+'   Run the harness and the nine suites in turn and print the summary.
 '
 ' UPDATED
 '   2026-10-17
@@ -96,13 +107,8 @@ Public Sub Test_RunAll()
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        Suites = Array("TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", _
-                       "TEST_MainState.RunMainStateTests", "TEST_Cases.RunCaseTests", _
-                       "TEST_InputValidation.RunInputValidationTests", _
-                       "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
-                       "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
-                       "TEST_Import.RunImportTests")
-        Debug.Print "SACCR TEST SUMMARY " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
+        Suites = SuiteEntries()
+        Emit "SACCR TEST SUMMARY " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
         StartTime = Timer
         For i = LBound(Suites) To UBound(Suites)
             If Not RunOneSuite(CStr(Suites(i))) Then
@@ -117,7 +123,7 @@ Public Sub Test_RunAll()
         If TotalSeconds < 0 Then
             TotalSeconds = TotalSeconds + 86400!
         End If
-        Debug.Print "RESULT=" & IIf(FailedCount = 0, "PASS", "FAIL") & "; suites=" & SUITE_COUNT & _
+        Emit "RESULT=" & IIf(FailedCount = 0, "PASS", "FAIL") & "; suites=" & SUITE_COUNT & _
                     "; passed=" & (SUITE_COUNT - FailedCount) & "; failed=" & FailedCount & _
                     "; seconds=" & Format$(TotalSeconds, "0.0")
 
@@ -134,13 +140,14 @@ Public Sub Say( _
 '   Print one line of a suite's log. During Test_RunAll the line is not
 '   printed: the RESULT line is kept, and the FAILURE= and FAILURE_DETAILS=
 '   lines are collected for the summary; a count such as FAILURES= is not.
+'   A printed line is also written to the log that Certify has open.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '==============================================================================
 '
         If Not mQuiet Then
-            Debug.Print Text
+            Emit Text
         ElseIf Left$(Text, 7) = "RESULT=" Then
             mResult = Text
         ElseIf Left$(Text, 8) = "FAILURE=" Or Left$(Text, 16) = "FAILURE_DETAILS=" Then
@@ -148,6 +155,158 @@ Public Sub Say( _
         End If
 
 End Sub
+
+
+Public Function Certify( _
+    ByVal Folder As String, _
+    ByVal Candidate As String) _
+    As String
+'
+'==============================================================================
+'                                   Certify
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the test logs of an Excel evidence bundle (#535). Run the harness
+'   and every suite once each, on its own and in the order Test_RunAll
+'   runs them, each into its own log file in Folder: harness.log for
+'   TEST_Harness, then TEST_Formulas.log and so on. Then run Test_RunAll
+'   into summary.log. Each log starts with the line CANDIDATE=Candidate,
+'   written here, not typed, followed by every line the run prints, as the
+'   Immediate window shows it. The files are UTF-8, with CRLF line ends.
+'
+' INPUTS
+'   Folder: the bundle folder; it must exist.
+'   Candidate: the full 40-character lowercase SHA of the checked-out
+'      commit, as tools\Certify-SACCR.ps1 reads it from Git.
+'
+' RETURNS
+'   "RESULT=DONE; logs=11; write_errors=0" once every run has ended, the
+'   count of lines that could not be written last. "RESULT=REFUSED;
+'   reason=..." when the candidate is not a full lowercase SHA, the folder
+'   does not exist, or one of the logs exists already: a log is never
+'   replaced, so that a failing report cannot be overwritten by a later
+'   one.
+'
+' ERROR POLICY
+'   An error raised by a suite is printed and written to its log as an
+'   ERROR= line, and the next suite runs. A line that cannot be written is
+'   counted in write_errors; the validator then rejects the log.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Suites      As Variant    'Entry points, as Module.Procedure
+    Dim Base        As String     'Folder with one path separator at its end
+    Dim i           As Long       'Index into Suites
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Not IsCandidate(Candidate) Then
+            Certify = "RESULT=REFUSED; reason=the candidate is not a full lowercase commit SHA"
+            Exit Function
+        End If
+        Base = Folder
+        If Right$(Base, 1) <> Application.PathSeparator Then
+            Base = Base & Application.PathSeparator
+        End If
+        If Not FolderExists(Base) Then
+            Certify = "RESULT=REFUSED; reason=the folder does not exist: " & Folder
+            Exit Function
+        End If
+        Suites = SuiteEntries()
+        For i = LBound(Suites) To UBound(Suites)
+            If FileExists(Base & LogNameOf(CStr(Suites(i)))) Then
+                Certify = "RESULT=REFUSED; reason=a log exists already: " & LogNameOf(CStr(Suites(i)))
+                Exit Function
+            End If
+        Next i
+        If FileExists(Base & "summary.log") Then
+            Certify = "RESULT=REFUSED; reason=a log exists already: summary.log"
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' RUN EACH SUITE ON ITS OWN, THEN THE SUMMARY
+'------------------------------------------------------------------------------
+        mLogErrors = 0
+        For i = LBound(Suites) To UBound(Suites)
+            RunLogged Base & LogNameOf(CStr(Suites(i))), Candidate, CStr(Suites(i))
+        Next i
+        mLogPath = Base & "summary.log"
+        WriteLogLine "CANDIDATE=" & Candidate
+        Test_RunAll
+        mLogPath = ""
+        Certify = "RESULT=DONE; logs=" & (UBound(Suites) - LBound(Suites) + 2) & "; write_errors=" & mLogErrors
+
+End Function
+
+
+Public Function CertificationReady() As String
+'
+'==============================================================================
+'                              CertificationReady
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return "READY". tools\Certify-SACCR.ps1 calls it through
+'   Application.Run before Certify: the call succeeds only when the
+'   workbook's macros may run, so the script can ask the operator to enable
+'   content instead of changing any macro setting.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        CertificationReady = "READY"
+
+End Function
+
+
+Public Function CertificationReferences() As String
+'
+'==============================================================================
+'                            CertificationReferences
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Return the description of every reference of this VBA project, one per
+'   line, in the order of Tools > References. tools\Certify-SACCR.ps1 calls
+'   it through Application.Run once the macros run and records the list in
+'   session.json; reading the project from PowerShell before the macros
+'   are enabled can fail.
+'
+' DEPENDENCIES
+'   "Trust access to the VBA project object model", which the build needs
+'   as well. The project is read through late binding, so no reference to
+'   the VBA extensibility library is added.
+'
+' ERROR POLICY
+'   None: an error reaches Certify-SACCR.ps1, which stops the run.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Item        As Object    'One reference of the project
+    Dim Text        As String    'The descriptions read so far
+
+'------------------------------------------------------------------------------
+' LIST
+'------------------------------------------------------------------------------
+        For Each Item In ThisWorkbook.VBProject.References
+            If Len(Text) > 0 Then Text = Text & vbLf
+            Text = Text & Item.Description
+        Next Item
+        CertificationReferences = Text
+
+End Function
 
 
 '
@@ -201,6 +360,99 @@ Private Function RunOneSuite( _
         M_Main.gQuietLog = True
         StartTime = Timer
         On Error GoTo Raised
+        RunEntry EntryPoint
+
+Report:
+        On Error GoTo 0
+        mQuiet = False
+        M_Main.gQuietLog = False
+        SuiteSeconds = Timer - StartTime
+        If SuiteSeconds < 0 Then
+            SuiteSeconds = SuiteSeconds + 86400!
+        End If
+
+'------------------------------------------------------------------------------
+' PRINT THE SUITE LINE
+'------------------------------------------------------------------------------
+    'The RESULT line without its verdict, which the first column shows.
+        Passed = (Left$(mResult, 11) = "RESULT=PASS") And Len(RaisedError) = 0
+        Detail = mResult
+        If InStr(Detail, "; ") > 0 Then
+            Detail = Mid$(Detail, InStr(Detail, "; ") + 2)
+        ElseIf Len(Detail) = 0 Then
+            Detail = "no RESULT line"
+        End If
+        Emit "  " & IIf(Passed, "PASS", "FAIL") & "  " & Left$(Split(EntryPoint, ".")(0) & Space$(22), 22) & _
+                    Detail & "  (" & Format$(SuiteSeconds, "0.0") & " s)"
+        If Not Passed Then
+            For Each FailureLine In mFailures
+                Emit "        " & FailureLine
+            Next FailureLine
+            If Len(RaisedError) > 0 Then
+                Emit "        ERROR=" & RaisedError
+            End If
+        End If
+        RunOneSuite = Passed
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE A RAISED ERROR
+'------------------------------------------------------------------------------
+Raised:
+        RaisedError = Err.Number & ": " & Err.Description
+        Resume Report
+
+End Function
+
+
+Private Function SuiteEntries() As Variant
+'
+'==============================================================================
+'                                 SuiteEntries
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The entry points of the harness and the nine suites, in the order of
+'   .github/excel-evidence-policy.json, as Module.Procedure. The policy
+'   gate reads this list.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Suites      As Variant    'Entry points, as Module.Procedure
+
+'------------------------------------------------------------------------------
+' LIST
+'------------------------------------------------------------------------------
+        Suites = Array("TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", _
+                       "TEST_MainState.RunMainStateTests", "TEST_Cases.RunCaseTests", _
+                       "TEST_InputValidation.RunInputValidationTests", _
+                       "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
+                       "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
+                       "TEST_Import.RunImportTests")
+        SuiteEntries = Suites
+
+End Function
+
+
+Private Sub RunEntry( _
+    ByVal EntryPoint As String)
+'
+'==============================================================================
+'                                   RunEntry
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run one entry point of SuiteEntries. An error it raises goes to the
+'   caller.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
         Select Case EntryPoint
             Case "TEST_Harness.RunTests"
                 TEST_Harness.RunTests
@@ -224,44 +476,210 @@ Private Function RunOneSuite( _
                 TEST_Import.RunImportTests
         End Select
 
-Report:
-        On Error GoTo 0
-        mQuiet = False
-        M_Main.gQuietLog = False
-        SuiteSeconds = Timer - StartTime
-        If SuiteSeconds < 0 Then
-            SuiteSeconds = SuiteSeconds + 86400!
-        End If
+End Sub
 
-'------------------------------------------------------------------------------
-' PRINT THE SUITE LINE
-'------------------------------------------------------------------------------
-    'The RESULT line without its verdict, which the first column shows.
-        Passed = (Left$(mResult, 11) = "RESULT=PASS") And Len(RaisedError) = 0
-        Detail = mResult
-        If InStr(Detail, "; ") > 0 Then
-            Detail = Mid$(Detail, InStr(Detail, "; ") + 2)
-        ElseIf Len(Detail) = 0 Then
-            Detail = "no RESULT line"
-        End If
-        Debug.Print "  " & IIf(Passed, "PASS", "FAIL") & "  " & Left$(Split(EntryPoint, ".")(0) & Space$(22), 22) & _
-                    Detail & "  (" & Format$(SuiteSeconds, "0.0") & " s)"
-        If Not Passed Then
-            For Each FailureLine In mFailures
-                Debug.Print "        " & FailureLine
-            Next FailureLine
-            If Len(RaisedError) > 0 Then
-                Debug.Print "        ERROR=" & RaisedError
-            End If
-        End If
-        RunOneSuite = Passed
-        Exit Function
 
+Private Sub RunLogged( _
+    ByVal LogPath As String, _
+    ByVal Candidate As String, _
+    ByVal EntryPoint As String)
+'
+'==============================================================================
+'                                  RunLogged
 '------------------------------------------------------------------------------
-' HANDLE A RAISED ERROR
-'------------------------------------------------------------------------------
+' PURPOSE
+'   Run one entry point in normal mode with its log open: the CANDIDATE=
+'   line first, then every line the run prints. An error it raises is
+'   printed and logged as an ERROR= line.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        mLogPath = LogPath
+        WriteLogLine "CANDIDATE=" & Candidate
+        On Error GoTo Raised
+        RunEntry EntryPoint
+        mLogPath = ""
+        Exit Sub
+
 Raised:
-        RaisedError = Err.Number & ": " & Err.Description
-        Resume Report
+        Emit "ERROR=" & Err.Number & ": " & Err.Description
+        mLogPath = ""
 
+End Sub
+
+
+Private Sub Emit( _
+    ByVal Text As String)
+'
+'==============================================================================
+'                                     Emit
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Print one line to the Immediate window and, while Certify has a log
+'   open, append it to that log.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        Debug.Print Text
+        If Len(mLogPath) > 0 Then
+            WriteLogLine Text
+        End If
+
+End Sub
+
+
+Private Sub WriteLogLine( _
+    ByVal Text As String)
+'
+'==============================================================================
+'                                 WriteLogLine
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Append one line, as UTF-8 with CRLF, to the log Certify has open.
+'
+' ERROR POLICY
+'   Contained: a line that cannot be written is counted in mLogErrors.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Buffer()     As Byte       'The line as UTF-8
+    Dim FileNumber   As Integer    'Open file; 0 for none
+
+'------------------------------------------------------------------------------
+' APPEND
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        Buffer = CORE_Export.Utf8Bytes(Text & vbCrLf)
+        FileNumber = FreeFile
+        Open mLogPath For Binary Access Write As #FileNumber
+        Put #FileNumber, LOF(FileNumber) + 1, Buffer
+        Close #FileNumber
+        Exit Sub
+
+Failed:
+        mLogErrors = mLogErrors + 1
+        If FileNumber <> 0 Then
+            On Error Resume Next
+            Close #FileNumber
+        End If
+
+End Sub
+
+
+Private Function LogNameOf( _
+    ByVal EntryPoint As String) _
+    As String
+'
+'==============================================================================
+'                                   LogNameOf
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The log file of an entry point in an evidence bundle: harness.log for
+'   the harness, the module name with .log for a suite.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        If EntryPoint = "TEST_Harness.RunTests" Then
+            LogNameOf = "harness.log"
+        Else
+            LogNameOf = Split(EntryPoint, ".")(0) & ".log"
+        End If
+
+End Function
+
+
+Private Function IsCandidate( _
+    ByVal Candidate As String) _
+    As Boolean
+'
+'==============================================================================
+'                                  IsCandidate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Candidate is a full commit SHA: 40 lowercase hexadecimal
+'   characters.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long    'Character position
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Len(Candidate) <> 40 Then
+            Exit Function
+        End If
+        For i = 1 To 40
+            If InStr(1, "0123456789abcdef", Mid$(Candidate, i, 1), vbBinaryCompare) = 0 Then
+                Exit Function
+            End If
+        Next i
+        IsCandidate = True
+
+End Function
+
+
+Private Function FolderExists( _
+    ByVal Path As String) _
+    As Boolean
+'
+'==============================================================================
+'                                 FolderExists
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Path names an existing folder.
+'
+' ERROR POLICY
+'   Contained: a path that cannot be read is not a folder.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        On Error GoTo Missing
+        FolderExists = (GetAttr(Path) And vbDirectory) = vbDirectory
+
+Missing:
+End Function
+
+
+Private Function FileExists( _
+    ByVal Path As String) _
+    As Boolean
+'
+'==============================================================================
+'                                  FileExists
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Path names an existing file.
+'
+' ERROR POLICY
+'   Contained: a path that cannot be read is not a file.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+        On Error GoTo Missing
+        FileExists = (GetAttr(Path) And vbDirectory) = 0
+
+Missing:
 End Function

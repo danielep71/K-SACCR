@@ -91,8 +91,11 @@ exposure figure, which are reported as issues.
   workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.
-- **Local tooling.** `tools/Sync-SACCR-VBA.ps1` and `tools/Export-SACCR-VBA.ps1`
-  need Excel's **Trust access to the VBA project object model** setting. The
+- **Local tooling.** `tools/Sync-SACCR-VBA.ps1`, `tools/Export-SACCR-VBA.ps1`
+  and `tools/Certify-SACCR.ps1` need Excel's **Trust access to the VBA project
+  object model** setting, which none of them changes. `Certify-SACCR.ps1` opens
+  its workbook following the Trust Center macro setting and asks the operator
+  to enable content. The
   `.cmd` launchers run PowerShell with `-ExecutionPolicy Bypass`, and
   `Sync-SACCR-VBA-Downloads.cmd` imports modules from a folder such as
   Downloads: use it only with files obtained from this repository.

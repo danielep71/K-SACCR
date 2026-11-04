@@ -128,6 +128,22 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Run the Excel certification of a commit with one command (#535).
+  `tools/Certify-SACCR.ps1`, or `Certify-SACCR.cmd` double-clicked, takes the
+  candidate SHA from a clean checkout and records the environment as found.
+  It builds a development workbook from the template and the source, opens it
+  following the Trust Center macro setting and waits for the operator to
+  enable content. It then compiles it and runs `TEST_Suite.Certify`, which
+  runs the harness and every suite once each, on its own, and `Test_RunAll`,
+  writing each report to its own UTF-8 log with `CANDIDATE=` and the SHA as
+  its first line. The Immediate window's 200-line limit no longer cuts a log.
+  `tools/write_excel_evidence.py` writes `host.json` from the logs and
+  validates the bundle; the exit code is the validator's. The script never
+  changes the macro setting or VBA-project access, and the manual procedure
+  stays as the fallback. `test_write_excel_evidence.py` covers passing,
+  failed, incomplete and interrupted runs, a failed compile, an open
+  workbook and a log edited after the record.
+
 - Describe the CSV files for a user who has only the workbook (#473, part
   1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with
   no script and no external file, generated from the contract by

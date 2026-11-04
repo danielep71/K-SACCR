@@ -61,7 +61,8 @@ tests/              verification source and test data
   csv/              synthetic CSV input files and their expected findings
   derivations/      separate Python derivations of illustrative expected values
 tools/              static checks, case generator, VBA synchronizer and
-                    exporter, Excel evidence validator
+                    exporter, one-command Excel certification, Excel
+                    evidence writer and validator
 ```
 
 The root holds the project documents (`README.md`, `INSTALLATION.md`,
