@@ -87,7 +87,7 @@ Public Sub Test_RunAll()
 '                                 Test_RunAll
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the nine suites in turn and print the summary.
+'   Run the harness and the nine suites in turn and print the summary.
 '
 ' UPDATED
 '   2026-10-17
