@@ -427,9 +427,8 @@ Use only the categories needed by a release.
   moving inputs from 1.0.2, the evidence export refusals, the silent CSV
   entry points, the known limitations, the checklists, the troubleshooting
   table, the test summary (ten suites, 453 cases, 1,855 checks), the glossary
-  and the quick-reference card. The release date and the delivered file
-  names are confirmed when 1.1.0 is released. The CSV contract's link to the
-  manual now points to the 1.1.0 manual.
+  and the quick-reference card. The CSV contract's link to the manual now
+  points to the 1.1.0 manual.
 - State how the staging and input sheets hold a CSV file up to the import
   limits (#206, #207): rows are written as many as the file has, the value
   columns are unlocked to the last row, and the validation lists bound only
