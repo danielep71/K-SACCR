@@ -38,7 +38,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -301,65 +301,6 @@ Public Function ToSerial( _
 End Function
 
 
-Public Function ToBool( _
-    ByVal Content As Variant, _
-    Optional ByVal Fallback As Boolean = False) _
-    As Boolean
-'
-'==============================================================================
-'                                    ToBool
-'------------------------------------------------------------------------------
-' PURPOSE
-'   Convert a Y/N style cell value to a Boolean.
-'
-' INPUTS
-'   Content: a Boolean, or text such as Y, YES, TRUE, 1, N, NO, FALSE, 0. The
-'      Italian VERO, SI and FALSO are also accepted.
-'   Fallback: value returned for an error value, Empty or unrecognised text.
-'
-' RETURNS
-'   True or False as read from Content; otherwise Fallback.
-'
-' UPDATED
-'   2026-10-17
-'==============================================================================
-'
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim UpperText   As String    'Upper-case trimmed text of Content
-
-'------------------------------------------------------------------------------
-' HANDLE NON-TEXT VALUES
-'------------------------------------------------------------------------------
-    'Error values and Empty take the default; a real Boolean is returned
-    'as it is.
-        If IsError(Content) Or IsEmpty(Content) Then
-            ToBool = Fallback
-            Exit Function
-        End If
-        If VarType(Content) = vbBoolean Then
-            ToBool = Content
-            Exit Function
-        End If
-
-'------------------------------------------------------------------------------
-' READ TEXT
-'------------------------------------------------------------------------------
-        UpperText = UTxt(Content)
-        Select Case UpperText
-            Case "Y", "YES", "TRUE", "1", "VERO", "SI"
-                ToBool = True
-            Case "N", "NO", "FALSE", "0", "FALSO"
-                ToBool = False
-            Case Else
-                ToBool = Fallback
-        End Select
-
-End Function
-
-
 Public Function TryBool( _
     ByVal Content As Variant, _
     ByVal Fallback As Boolean, _
@@ -370,8 +311,8 @@ Public Function TryBool( _
 '                                   TryBool
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read a Y/N style cell value strictly: unlike ToBool, an unrecognised
-'   value is reported instead of silently taking the default (#35).
+'   Read a Y/N style cell value strictly: an unrecognised value is
+'   reported instead of silently taking the default (#35).
 '
 ' INPUTS
 '   Content: a Boolean, blank, or text such as Y, YES, TRUE, 1, N, NO,
@@ -384,7 +325,7 @@ Public Function TryBool( _
 '   error value or unrecognised text, with Result left as Fallback.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '==============================================================================
 '
 

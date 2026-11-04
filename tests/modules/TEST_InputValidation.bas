@@ -78,7 +78,10 @@ Attribute VB_Name = "TEST_InputValidation"
 '
 ' DEPENDENCIES
 '   TEST_CaseRunner, which writes the inputs, runs the engine, restores the
-'   workbook and reports. These inputs cannot be expressed as JSON
+'   workbook and reports; CORE_Engine for the run class, the trade
+'   counters and the total EAD, CORE_Util for the sheet and cell helpers
+'   and CORE_Config for the sheet, column, name and error constants, used
+'   here directly as well. These inputs cannot be expressed as JSON
 '   fixtures, so they are written here directly, as TEST_CASES.md allows
 '   for invalid inputs. The table cases find their rows on Params by key
 '   (CO_OTHER, EQ_INDEX, OT, EUR, USD, JPY, CHF), so they need the
@@ -94,7 +97,7 @@ Attribute VB_Name = "TEST_InputValidation"
 '   window.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
