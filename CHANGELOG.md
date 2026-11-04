@@ -143,6 +143,16 @@ Use only the categories needed by a release.
   stays as the fallback. `test_write_excel_evidence.py` covers passing,
   failed, incomplete and interrupted runs, a failed compile, an open
   workbook and a log edited after the record.
+- Run the 14 manual protection checks without a person at the keyboard
+  (#535). `tools/Check-SACCR-Protection.ps1`, which `Certify-SACCR.ps1` runs
+  after the suites, builds a production workbook from the same checkout. It
+  checks the protection as a user meets it with the macros disabled, and
+  the operations through the macros' silent entry points with the macros
+  enabled, saving and reopening where a check says so. It writes
+  `protection-checks.txt` into the bundle, and the certification passes
+  only when the 14 checks pass. `M_Main` gains `ValidateInputs_Silent` and
+  `ClearOutputs_Silent`, and `tools/import_spec.py --examples DIR` writes
+  the example files.
 
 - Describe the CSV files for a user who has only the workbook (#473, part
   1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with

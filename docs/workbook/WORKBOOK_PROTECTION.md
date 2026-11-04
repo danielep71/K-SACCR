@@ -121,9 +121,31 @@ SA-CCR once to rebuild the outputs.
 The Excel suites run every operation with the protection active, and
 `TEST_MainState` checks the protection itself, but they act through the
 macros, which protection does not restrict. These checks act as a user does.
-For release evidence (#212), run them on the candidate workbook, built from
-the template, and note each outcome in `session.log`
-([EXCEL_EVIDENCE.md](../EXCEL_EVIDENCE.md#manual-procedure)).
+For release evidence (#212), `tools/Certify-SACCR.ps1` runs them through
+`tools/Check-SACCR-Protection.ps1` on a production workbook built from the
+candidate, and writes each outcome to `protection-checks.txt` in the bundle
+([one-command certification](../EXCEL_EVIDENCE.md#one-command-certification)).
+The script can also be run on its own.
+
+How the script checks them:
+
+- **Macros disabled (2, 3, 4, 6, 14).** It opens the workbook with its macros
+  disabled. Nothing then protects the sheets for the user interface only, so
+  Excel refuses a write to a locked cell from automation as it refuses a
+  user's typing. The script writes the cells of checks 2 and 3, pastes and
+  clears the block of check 4, and tries to add, rename and delete a sheet for
+  check 6.
+- **Check 5** reads what Excel enforces: filtering and an AutoFilter on Trades,
+  inserting rows on Trades and NettingSets, formulas not hidden, output cells
+  copied. The README row groups are checked under check 1, with the macros.
+- **Macros enabled (1, 7 to 13).** It opens the workbook following the Trust
+  Center setting, runs `Auto_Open`, and runs the operations through the silent
+  entry points of `M_Main`. It saves, closes and reopens the workbook where a
+  check says so. Check 8 imports the import specification's example files.
+- **Not automated.** The confirmation dialog of **Commit import** (check 8),
+  which the silent entry point does not show, and the sheet-tab menu
+  (check 6), whose effect, a protected workbook structure, the script tests.
+  A person may still run any check by hand.
 
 | # | Check | Expected |
 | ---: | --- | --- |
