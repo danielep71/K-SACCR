@@ -17,9 +17,10 @@ when evidence is required is in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and
 > the candidate commit. It cannot prove what a person did. `NOT_RUN`,
 > `UNAVAILABLE`, static checks and synthetic fixtures are never an Excel pass.
 
-Execution is **manual**: an operator runs Excel interactively. There is no
-self-hosted runner, no automated Excel job, and the procedure never changes
-macro security or Trust Center settings.
+Execution is **manual**: an operator runs Excel interactively on the Windows
+host, with one command or step by step. There is no self-hosted runner and no
+automated Excel job, and neither way changes macro security or Trust Center
+settings.
 
 <a id="what-a-record-binds"></a>
 
@@ -56,6 +57,55 @@ the test modules and the README; what it compares is listed in its row of the
 `python tools/check_excel_evidence.py --check-policy`, which checks the
 working tree of the repository given by `--root` (default: the current
 directory) and needs no candidate or bundle.
+
+<a id="one-command-certification"></a>
+
+## ⚡ One-command certification
+
+`tools/Certify-SACCR.ps1` does the manual procedure below in one run (#535). It
+needs Windows desktop Excel with *Trust access to the VBA project object
+model* already on, Python 3.10 or later, and a clean checkout of the
+candidate:
+
+```powershell
+git fetch origin
+git switch --detach FULL_SHA
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Certify-SACCR.ps1
+```
+
+or double-click `tools\Certify-SACCR.cmd`. The script:
+
+1. takes the candidate SHA from Git and refuses a working tree with changes;
+2. creates the bundle folder `saccr-evidence-SHORTSHA` next to the checkout
+   (`-BundleDir` names another; a folder that is not empty is refused) and
+   starts `session.log`;
+3. records Windows, the Excel version and build, Office bitness, the macro
+   setting and VBA-project access as found, and stops if VBA-project access
+   is off; it never changes either setting;
+4. builds a development workbook in the bundle from the template and the
+   source (`Sync-SACCR-VBA.ps1 -Mode Development -FromTemplate`);
+5. opens it in a visible Excel that follows the Trust Center macro setting.
+   When the macros are disabled, it asks the operator to click **Enable
+   Content** and waits;
+6. compiles the project (**Debug → Compile VBAProject**) and runs
+   `TEST_Suite.Certify`. That runs the harness and every suite of the policy
+   once each, on its own, each into its own log (`harness.log`,
+   `TEST_Formulas.log`, …), then `Test_RunAll` into `summary.log`. Each log
+   starts with `CANDIDATE=` and the SHA, written by the workbook, followed by
+   every line the run printed, as UTF-8; the Immediate window's 200-line limit
+   no longer applies. An existing log is never replaced;
+7. closes the workbook without saving, writes `session.json` (the observed
+   environment, the import and compile results, whether the workbook closed)
+   and runs `tools/write_excel_evidence.py`. That writes `host.json` from the
+   logs, as the [record template](#record-template) describes, and validates
+   the bundle. The script's exit code is the validator's: 0 only for `PASS`.
+
+`-Operator` sets the record's operator (by default "Repository owner, local
+Windows workstation"), and `-Python` the Python command. For a release
+candidate, the [manual protection checks](workbook/WORKBOOK_PROTECTION.md#manual-checks)
+are still done by hand; note them in a file of their own in the bundle, since
+`session.log` is hashed. Keep a non-passing bundle as it is. When the script
+cannot be used, follow the manual procedure.
 
 <a id="manual-procedure"></a>
 
@@ -374,8 +424,10 @@ Keep non-passing bundles too until the finding is resolved.
 - A pass covers the suites on the recorded host only. It validates SA-CCR
   numbers only as far as the cases do (published values; illustrative ones
   validate nothing), and no other Excel version or bitness.
-- The `CANDIDATE=` line is typed by the operator: it stops a log of one commit
-  from being cited, by mistake, for another, not a deliberate forgery.
+- The `CANDIDATE=` line is typed by the operator in the manual procedure, and
+  written by `TEST_Suite.Certify` from the SHA Git reports in the one-command
+  certification: either way it stops a log of one commit from being cited, by
+  mistake, for another, not a deliberate forgery.
 - A case-runner suite that fails before its first case prints no case name,
   so its log does not say which of the four suites ran. A copy of such a log
   with an added line passes as another suite's failed run. The record is then
@@ -383,8 +435,9 @@ Keep non-passing bundles too until the finding is resolved.
   need each log to name its suite.
 - The summary of `TEST_Suite.Test_RunAll` is an index, not a report: it is
   checked against the suites' own logs and never replaces them.
-- Logs are copied from the VBE Immediate window, which keeps only about the
-  last 200 lines; the suites print there and nowhere else. A run that prints
+- In the manual procedure, logs are copied from the VBE Immediate window,
+  which keeps only about the last 200 lines; the suites print there and,
+  except under `TEST_Suite.Certify`, nowhere else. A run that prints
   more loses its first lines, starting with the header and the first `CASE`
   lines, and its log fails validation (`EVIDENCE_INVALID`).
   `TEST_InputValidation` prints 183 lines on a pass (header, `MODE`, 177

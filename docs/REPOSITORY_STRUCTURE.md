@@ -61,7 +61,8 @@ tests/              verification source and test data
   expected/         expected results with their reference class
   csv/              synthetic CSV input files and their expected findings
 tools/              static checks, case generator, VBA synchronizer and
-                    exporter, Excel evidence validator
+                    exporter, one-command Excel certification, Excel
+                    evidence writer and validator
 ```
 
 The root holds the project documents (`README.md`, `INSTALLATION.md`,
