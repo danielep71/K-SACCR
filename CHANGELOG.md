@@ -416,6 +416,18 @@ Use only the categories needed by a release.
   untouched, as the pull-request checklist now says; release certification
   still runs on the exact candidate commit.
 - Set `release/1.1.0` as the active development branch and the target for Dependabot updates; preserve released history through immutable tags and published artifacts.
+- Correct texts a workbook user sees. A rejected CSV file's message points
+  to **Export import specifications** on `Import_NettingSets` or
+  `Import_Trades` for the codes and rules, not to a repository file; the
+  Checks message of a reporting-currency rate other than 1, the
+  `ERR_FORMULA_DOMAIN` description and the evidence report's LIMITATIONS no
+  longer cite issue numbers. In the template, `Params` states that
+  DaysPerYear and IRBucketOffset are conventions that do not make a run
+  WHAT-IF; the staging sheets say that Commit import replaces each input
+  sheet whose staging sheet holds rows; the README says which buttons and
+  macros protect an unprotected sheet again, lists `CORE_CsvReader`,
+  `CORE_CsvSchema` and `CORE_ImportSpec`, and gives the CSV import steps.
+  The import specification states that a number has no leading zero.
 
 ### Documentation
 

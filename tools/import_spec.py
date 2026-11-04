@@ -248,7 +248,8 @@ def file_format(contract: dict[str, Any]) -> str:
         "break. A finding names the line on which its record starts and the record number, counted from 1 after the "
         "header.</li>",
         f"<li><strong>Numbers.</strong> Decimal point {code(fmt['decimal_separator'])}, no thousands separator, no "
-        f"{code('+')} sign, an optional exponent ({code('1.25e6')}); at most {fmt['max_significant_digits']} "
+        f"{code('+')} sign, no leading zero ({code('0.5')} is a number, {code('007.5')} is not), an optional exponent "
+        f"({code('1.25e6')}); at most {fmt['max_significant_digits']} "
         f"significant digits, so that a value is never rounded when it is read. {code('1,5')} and {code('1.000,00')} "
         "are rejected.</li>",
         f"<li><strong>Dates.</strong> {code(fmt['date_format'])}, from {code(contract['types']['date']['min'])} to "

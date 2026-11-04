@@ -17,14 +17,17 @@ Attribute VB_Name = "TEST_Formulas"
 '   of the external workbook automation API.
 '
 ' DEPENDENCIES
-'   SACCR_Formulas, and TEST_Suite.Say for the log lines. Expected values
-'   are hand calculations from the formulas in the functions' headers; they
-'   check the contract, not the regulation.
+'   SACCR_Formulas; M_Main.ProtectWorkbook, which protects the workbook
+'   structure again when the last case could not; and TEST_Suite.Say for
+'   the log lines. Expected values are hand calculations from the formulas
+'   in the functions' headers; they check the contract, not the regulation.
 '
 ' WORKSHEET SAFETY
-'   The last case adds a temporary worksheet, writes values and formulas
-'   on it and deletes it again, also after an unexpected error. Nothing
-'   else in the workbook is written. Use a development workbook.
+'   The last case unprotects the workbook structure when it is protected,
+'   adds a temporary worksheet, writes values and formulas on it, deletes
+'   it again and protects the structure again, also after an unexpected
+'   error. Nothing else in the workbook is written. Use a development
+'   workbook.
 '
 ' ERROR POLICY
 '   A raised error is a failure of its case: the contract is an error
@@ -40,7 +43,7 @@ Attribute VB_Name = "TEST_Formulas"
 '   Delegated Regulation (EU) 2021/931 Art. 5.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
