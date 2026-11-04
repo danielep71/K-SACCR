@@ -260,8 +260,8 @@ python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.j
   --summary test-results/check_vba_calls.md
 ```
 
-`check_vba_calls.py` is vendored (#60), resynchronised with its upstream
-(#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
+`check_vba_calls.py` was adopted **advisory only** in #60; #504 closed four
+false negatives. `check.py` does not run it. The static
 workflow runs it in a non-blocking step that adds its summary to the job page.
 Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
 compiler: compiling in Excel stays the authoritative call check.
@@ -295,10 +295,8 @@ The document modules (`ThisWorkbook` and the sheet modules) are listed under
 - **Own name of a Function.** Assigning to or reading a Function's bare name is its return value, not a call. A parenthesised use of the name inside a parameterless Function is not checked, because it may index an array result.
 - **Not checked:** dynamic and workbook-qualified call targets, `Object` and `Variant` receivers, and argument types.
 
-**K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
-(no logic change), a Ribbon callback parser, and `document_modules`. Three upstream parser functions
-exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one
-file from C901, so it can still be resynchronised with upstream.
+**Complexity.** Three parser functions exceed the Ruff complexity ceiling of 15.
+`pyproject.toml` exempts this one file from C901.
 
 It does not become a blocking gate until its false-positive behaviour has been
 validated over further changes.

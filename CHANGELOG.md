@@ -112,7 +112,7 @@ Use only the categories needed by a release.
   `P1` only for a confirmed calculation bug, wrong results for valid inputs
   (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
   #194 and #204 change from `P1` to `P2`; #38, #39 and #195 keep `P1`.
-- Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
+- Close four false negatives in the VBA call checker (#504).
   It now matches project names case-insensitively, checks a literal macro
   target qualified by a standard module whatever its name, checks the
   arguments of recursive calls, and reports a class without a default
@@ -501,7 +501,7 @@ Use only the categories needed by a release.
   release branch; the README sheet's link to the reference card, which points
   to C116 since the staging sheets moved its rows; the ten production and
   thirteen test modules of the synchronizer's configurations; the CSV tool
-  tests in `tool-tests`; the action pins, no longer all from the template;
+  tests in `tool-tests`; the action pins;
   and the margin-agreement structures, declared and rejected since #39.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
