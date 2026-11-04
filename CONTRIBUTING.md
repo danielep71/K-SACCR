@@ -28,8 +28,8 @@ label, milestone, dependency section) and the issue triage check are described i
 1. Start from the active release branch named in
    [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches). Never assume GitHub's
    default branch is the right base.
-2. Create one focused task branch: `fix/<issue>-<slug>`, `docs/<slug>` or
-   `chore/<slug>`.
+2. Create one focused task branch: `feat/<issue>-<slug>` for new behavior,
+   `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`.
 3. Reproduce the current behavior, then make the smallest coherent change;
    avoid unrelated formatting, generated output or opportunistic refactoring.
 4. Run `python tools/check.py` before every push; all gates must pass. The

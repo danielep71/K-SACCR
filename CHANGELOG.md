@@ -103,6 +103,10 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Name a task branch for new behavior `feat/<issue>-<slug>`, beside
+  `fix/<issue>-<slug>`, `docs/<slug>` and `chore/<slug>` (CONTRIBUTING,
+  GOVERNANCE).
+
 - State the `P1` rule in every issue form and in the pull request template:
   `P1` only for a confirmed calculation bug, wrong results for valid inputs
   (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
