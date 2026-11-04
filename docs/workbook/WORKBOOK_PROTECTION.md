@@ -139,7 +139,8 @@ the template, and note each outcome in `session.log`
 | 10 | Unprotect Params, change Alpha (E8), Run SA-CCR | The run is `WHAT-IF`; Params is protected again; restore the value |
 | 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |
 | 12 | Save, close and reopen, then Run SA-CCR | Every sheet still protected; the run succeeds |
-| 13 | Open with macros disabled | Every sheet and the structure are protected; nothing else works until macros are enabled |
+| 13 | Import CSV on both staging sheets and Validate staging until both read `VALID`; save, close and reopen; Commit import, then Cancel. Change a staged value; save, close and reopen; Commit import | After the first reopen both sheets still read `VALID` and Commit import asks for confirmation. After the second, the changed sheet reads `EDITED` and Commit import is refused: *Nothing was committed. The staged rows have no VALID validation that still matches them, the input sheets and Params.* (#208) |
+| 14 | Open with macros disabled | Every sheet and the structure are protected; nothing else works until macros are enabled |
 
 ## 🧭 Changing the matrix
 

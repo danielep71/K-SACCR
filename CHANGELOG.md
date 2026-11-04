@@ -419,6 +419,9 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Add a manual protection check that a staging validation stays current
+  across save and reopen, and that an edit made before saving refuses
+  Commit import after reopening (#208).
 - The user manual for 1.1.0 is prepared in `docs/user-manual/v1.1.0/`,
   from the 1.0.2 manual, which is not changed. It adds a chapter on the CSV
   import from end to end: the blank templates, the import specification page
