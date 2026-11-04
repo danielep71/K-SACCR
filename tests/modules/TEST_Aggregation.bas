@@ -20,8 +20,10 @@ Attribute VB_Name = "TEST_Aggregation"
 '
 ' DEPENDENCIES
 '   TEST_CaseRunner, which writes the inputs, runs the engine, records the
-'   checks and restores the workbook. The offset checks compare outputs
-'   with each other, so they need no expected value from outside; they are
+'   checks and restores the workbook; CORE_Util for the sheet and cell
+'   helpers and CORE_Config for the sheet, column and code constants, used
+'   here directly as well. The offset checks compare outputs with each
+'   other, so they need no expected value from outside; they are
 '   illustrative. The order checks use the workbook's own inputs, so the
 '   workbook must be built from the template.
 '
@@ -33,7 +35,7 @@ Attribute VB_Name = "TEST_Aggregation"
 '   Run TEST_Aggregation.RunAggregationTests from the Immediate window.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza

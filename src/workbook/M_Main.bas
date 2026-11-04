@@ -87,7 +87,7 @@ Attribute VB_Name = "M_Main"
 '   mRunning, the reconciliation outcomes of the last operation
 '   (mReconState, mTradeReconState, mReconLine), and the test seams
 '   gTestFault, gQuietLog (silent-mode messages dropped instead of
-'   printed) and gLastMessage.
+'   printed), gLastMessage and gKeepProtection.
 '
 ' ERROR POLICY
 '   The primary error is copied before cleanup. Each setting is restored by
@@ -118,8 +118,8 @@ Attribute VB_Name = "M_Main"
 '   the write-back of the input sheets fail as well (#211).
 '   tests/modules/TEST_MainState.bas uses the first four;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
-'   evidence faults; tests/modules/TEST_Import.bas uses "staging-write"
-'   and the commit faults.
+'   evidence faults; tests/modules/TEST_Import.bas uses "cleanup",
+'   "evidence-write", "staging-write" and the commit faults.
 '   gLastMessage keeps the last message passed to Notify (a failure
 '   message is not kept), so that a test can read it in silent mode.
 '   gKeepProtection lists, between bars, sheets whose protection
@@ -135,7 +135,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -209,8 +209,9 @@ Attribute VB_Name = "M_Main"
     'gSilent switches messages to the Immediate window and errors to the
     'caller. gTestFault and gLastMessage are the test seams described above.
     'gQuietLog drops the messages of silent mode instead of printing them,
-    'for the test suites (TEST_Suite.Test_RunAll, TEST_MainState and
-    'TEST_Reconcile), whose output would overflow the Immediate window.
+    'for the test suites (TEST_Suite.Test_RunAll, TEST_MainState,
+    'TEST_Reconcile and TEST_Import), whose output would overflow the
+    'Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
         Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write" or "commit-*"
@@ -1580,7 +1581,7 @@ Private Function EvidenceProblem() As String
 '   Never raises: an error is itself the reason.
 '
 ' UPDATED
-'   2026-10-28
+'   2026-11-04
 '==============================================================================
 '
 
@@ -1638,8 +1639,9 @@ Private Function EvidenceProblem() As String
                 End If
             End If
         Next kind
-    'The output sheets are not protected: ResultsStatus has compared them
-    'with what the run wrote, which a run that recorded nothing cannot be.
+    'The output sheets are protected for the user interface only, and a
+    'user may unprotect one: ResultsStatus has compared them with what the
+    'run wrote, which a run that recorded nothing cannot be.
         StoredFingerprint = StoredText(RUN_OUTPUTS_NAME)
         If Len(StoredFingerprint) = 0 Then
             EvidenceProblem = "the outputs of the last run were not recorded; press Run SA-CCR first"
@@ -2795,7 +2797,8 @@ Private Sub CheckCsvFile( _
 ' PURPOSE
 '   Ask for a CSV file, read it as a file of Kind and report whether it
 '   follows the contract: the number of records of an accepted file, or
-'   the number of findings and the first of them. A cancelled dialog does
+'   the number of findings and the first of them, up to
+'   CSV_MESSAGE_FINDINGS (CsvCheckMessage). A cancelled dialog does
 '   nothing; nothing is ever written to the workbook.
 '
 ' ERROR POLICY
@@ -2803,7 +2806,7 @@ Private Sub CheckCsvFile( _
 '   window in silent mode; never raises.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-11-04
 '==============================================================================
 '
 
@@ -2850,7 +2853,8 @@ Private Function CsvCheckMessage( _
 '   The outcome of a CSV check or load for the user: an accepted file's
 '   record count, or a rejected file's findings, the first
 '   CSV_MESSAGE_FINDINGS of them with their line, record and column, then
-'   how many more there are, Note, and where the codes are explained.
+'   how many more there are, Note, and the button that exports the import
+'   specification, where the codes and rules are explained.
 '
 ' INPUTS
 '   Note: what was done with the file, in a sentence or two; "" for a
@@ -2860,10 +2864,11 @@ Private Function CsvCheckMessage( _
 '   A long path is shown by its end, a long column name and a long line
 '   are cut, and a finding is listed only while the whole message stays
 '   within CSV_MESSAGE_LENGTH characters, so a message box never cuts the
-'   count of the findings left or the pointer to the contract.
+'   count of the findings left or the pointer to the import
+'   specification.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-04
 '==============================================================================
 '
 
@@ -2872,7 +2877,7 @@ Private Function CsvCheckMessage( _
 '------------------------------------------------------------------------------
     Dim Head        As String    'The path and the verdict
     Dim Body        As String    'The findings listed
-    Dim Tail        As String    'Note and where the codes are explained
+    Dim Tail        As String    'Note and the pointer to the import specification
     Dim MoreText    As String    'The longest "... and N more." line
     Dim LineText    As String    'One finding's line
     Dim Shown       As Long      'Findings listed
@@ -2895,7 +2900,8 @@ Private Function CsvCheckMessage( _
         If Len(Note) > 0 Then
             Tail = vbLf & vbLf & Note
         End If
-        Tail = Tail & vbLf & vbLf & "Codes and rules: docs/csv/CSV_CONTRACT.md."
+        Tail = Tail & vbLf & vbLf & "Codes and rules: press Export import specifications on " & _
+               "Import_NettingSets or Import_Trades."
         MoreText = vbLf & "... and " & Result.FindingCount & " more."
         For f = 1 To Result.FindingCount
             If Shown = CSV_MESSAGE_FINDINGS Then
@@ -3030,14 +3036,15 @@ Public Function ImportCsv_Silent( _
 '   False. The sheet is changed only when the result is LOADED.
 '
 ' ERROR POLICY
-'   An unknown kind and a file that cannot be read raise ERR_CSV_READ. A
-'   staging sheet or name that is missing, and a value longer than a cell
-'   holds, raise ERR_STAGING_WRITE before the sheet changes; an error
-'   while the sheet is written is raised after the sheet has been put back
-'   as it was, as LoadStaging.
+'   An unknown kind and a file that cannot be read raise ERR_CSV_READ. An
+'   SA-CCR operation in progress raises ERR_RUN_ACTIVE, and a staging
+'   sheet or name that is missing, and a value longer than a cell holds,
+'   raise ERR_STAGING_WRITE, before the sheet changes; an error while the
+'   sheet is written is raised after the sheet has been put back as it
+'   was, as LoadStaging.
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-04
 '==============================================================================
 '
 
@@ -5342,11 +5349,12 @@ Private Function TypedBlock( _
 '   the input sheet's, in the same order (check_csv_contract.py).
 '
 ' ERROR POLICY
-'   Raises ERR_STAGING_WRITE for a date that cannot be read, which a VALID
+'   Raises ERR_CSV_READ when the contract has no Kind file, and
+'   ERR_STAGING_WRITE for a date that cannot be read, which a VALID
 '   validation rules out.
 '
 ' UPDATED
-'   2026-11-02
+'   2026-11-04
 '==============================================================================
 '
 
@@ -5365,7 +5373,7 @@ Private Function TypedBlock( _
 ' CONVERT
 '------------------------------------------------------------------------------
         If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
-            Err.Raise ERR_STAGING_WRITE, "M_Main.TypedBlock", "the contract has no " & Kind & " file"
+            Err.Raise ERR_CSV_READ, "M_Main.TypedBlock", "the contract has no " & Kind & " file"
         End If
         ReDim Block(1 To RowCount, 1 To Spec.ColumnCount)
         For r = 1 To RowCount
