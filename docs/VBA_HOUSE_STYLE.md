@@ -8,8 +8,7 @@ This document is authoritative for **how K-SACCR's VBA is written**: naming,
 contracts, errors, Excel-state handling and source presentation. Where a
 component lives is owned by
 [`REPOSITORY_STRUCTURE.md`](REPOSITORY_STRUCTURE.md); importing and exporting
-by [`INSTALLATION.md`](../INSTALLATION.md#importing-vba-into-excel). It adapts
-`docs/VBA_HOUSE_STYLE.md` from EXCEL-VBA-PROJECT-TEMPLATE.
+by [`INSTALLATION.md`](../INSTALLATION.md#importing-vba-into-excel).
 
 <a id="naming"></a>
 

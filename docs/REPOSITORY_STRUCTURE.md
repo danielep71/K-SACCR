@@ -6,8 +6,7 @@
 
 This document is authoritative for **the project profile, where every durable
 artifact belongs and the boundary between the calculation core, the public
-interface and the Excel host**. It adapts
-`docs/REPOSITORY_STRUCTURE.md` from EXCEL-VBA-PROJECT-TEMPLATE to SACCR.
+interface and the Excel host**.
 Import order and host support are owned by [`INSTALLATION.md`](../INSTALLATION.md);
 how VBA is written by [`VBA_HOUSE_STYLE.md`](VBA_HOUSE_STYLE.md).
 
@@ -60,8 +59,10 @@ tests/              verification source and test data
   fixtures/         synthetic case inputs
   expected/         expected results with their reference class
   csv/              synthetic CSV input files and their expected findings
+  derivations/      separate Python derivations of illustrative expected values
 tools/              static checks, case generator, VBA synchronizer and
-                    exporter, Excel evidence validator
+                    exporter, one-command Excel certification, Excel
+                    evidence writer and validator
 ```
 
 The root holds the project documents (`README.md`, `INSTALLATION.md`,
@@ -160,11 +161,11 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging` and `CommitImport`, and reads and writes the reconciliation and staging sheets |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
-| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine` and `CORE_Reconcile` directly |
+| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec` and `CORE_Util` directly |
 | No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
 
 Each deviation is removed by a reviewed change, not by reformatting. Their

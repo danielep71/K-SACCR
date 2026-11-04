@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v1.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 33335    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 33410    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -183,8 +183,8 @@ Private Sub AppendPart2( _
         Page = Page & "<li><strong>Line endings.</strong> Records are separated by CRLF or LF; the last record may end without one. A carriage return anywhere else outside a quoted field is an error.</li>" & vbLf
         Page = Page & "<li><strong>Multi-line fields.</strong> A quoted field may span several lines; only text fields accept a line break. A finding names the line on which its record starts and the record number, counted "
         Page = Page & "from 1 after the header.</li>" & vbLf
-        Page = Page & "<li><strong>Numbers.</strong> Decimal point <code>.</code>, no thousands separator, no <code>+</code> sign, an optional exponent (<code>1.25e6</code>); at most 15 significant digits, so that a value i"
-        Page = Page & "s never rounded when it is read. <code>1,5</code> and <code>1.000,00</code> are rejected.</li>" & vbLf
+        Page = Page & "<li><strong>Numbers.</strong> Decimal point <code>.</code>, no thousands separator, no <code>+</code> sign, no leading zero (<code>0.5</code> is a number, <code>007.5</code> is not), an optional expon"
+        Page = Page & "ent (<code>1.25e6</code>); at most 15 significant digits, so that a value is never rounded when it is read. <code>1,5</code> and <code>1.000,00</code> are rejected.</li>" & vbLf
         Page = Page & "<li><strong>Dates.</strong> <code>yyyy-mm-dd</code>, from <code>1950-01-01</code> to <code>2200-12-31</code>; <code>31/03/2027</code> and serial numbers are rejected.</li>" & vbLf
         Page = Page & "<li><strong>Spaces.</strong> Spaces belong to the field. A value of a type other than text with a leading or trailing space is rejected, never trimmed.</li>" & vbLf
         Page = Page & "<li><strong>No formulas.</strong> Text that starts with <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a carriage return is rejected, so that no field becomes a formula on a "

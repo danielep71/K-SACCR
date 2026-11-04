@@ -75,18 +75,23 @@ Attribute VB_Name = "TEST_Import"
 '   edit their cells, then put both sheets back: their blocks and metadata
 '   as values, the data columns formatted as text, and the hidden
 '   fingerprint names, also after an unexpected error. The files are
-'   written to the TEMP folder (K-SACCR_import_test.csv) and deleted.
+'   written to the TEMP folder (K-SACCR_import_test.csv and the import
+'   specification K-SACCR_import_spec_test.html) and deleted.
 '   The validation cases rewrite Checks; its lines are put back as
 '   values, an ERROR line in bold, so that the run's outputs read as they
 '   did, and the hidden name of the last VALID validation is put back.
-'   Three cases change one Params value each, AsOfDate, Alpha and the
-'   first FX rate, and put it back as it was, also after an unexpected
-'   error; one types a trade ID below the legs on Trades and clears it;
-'   the commit cases put the input sheets back. No other input cell is
-'   touched, and import.live-sheets checks the live inputs and the run
-'   names. Only then do the last three cases run SA-CCR (#211, #212):
-'   each puts the input sheets back and leaves a new run of them,
-'   CURRENT, or no results when there were none before.
+'   Five cases change Params and put it back as it was, also after an
+'   unexpected error: validate.params-invalid clears AsOfDate,
+'   validate.current and validate.out-of-date change Alpha,
+'   validate.live-changes the first FX rate, and validate.recalc makes
+'   AsOfDate a formula of a free Params cell, which it writes and clears,
+'   under manual calculation, then gives the calculation mode back;
+'   validate.live-changes also types a trade ID below the legs on Trades
+'   and clears it; the commit cases put the input sheets back. No other
+'   input cell is touched, and import.live-sheets checks the live inputs
+'   and the run names. Only then do the last three cases run SA-CCR
+'   (#211, #212): each puts the input sheets back and leaves a new run of
+'   them, CURRENT, or no results when there were none before.
 '
 ' STATE OWNERSHIP
 '   Restores the caller's calculation mode, events, M_Main.gSilent and
@@ -103,7 +108,7 @@ Attribute VB_Name = "TEST_Import"
 '   RESULT=PASS; cases=...; checks=...; failures=0.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -2394,7 +2399,7 @@ Private Sub TypeStaged( _
 ' TYPE
 '------------------------------------------------------------------------------
         If Not CsvSpecOf(KindName, Spec, Columns, Rules) Then
-            Err.Raise vbObjectError + 513, "TEST_Import.TypeStaged", "the contract has no " & KindName & " file"
+            Err.Raise ERR_TEST_SETUP, "TEST_Import.TypeStaged", "the contract has no " & KindName & " file"
         End If
         Set Sheet = GetSheet(SheetName)
         FirstRow = TableFirstRow(SheetName)

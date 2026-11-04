@@ -16,8 +16,9 @@ Attribute VB_Name = "CORE_Config"
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
-'   by CORE_Util, CORE_Engine, CORE_Reconcile, M_Main and the test modules;
-'   Option Private Module keeps them off the supported external surface.
+'   by CORE_Util, CORE_Engine, CORE_Reconcile, CORE_CsvReader (ERR_CSV_READ
+'   and the RG_ regime codes), M_Main and the test modules; Option Private
+'   Module keeps them off the supported external surface.
 '
 ' DEPENDENCIES
 '   None. Every value is a literal.
@@ -32,7 +33,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -49,7 +50,6 @@ Attribute VB_Name = "CORE_Config"
 ' SHEET NAMES
 '------------------------------------------------------------------------------
     'Worksheet tab names, as the engine looks them up in ThisWorkbook.
-        Public Const SH_README      As String = "README"         'Read-me; not used by the engine
         Public Const SH_PARAMS      As String = "Params"         'Parameters, factor and FX tables
         Public Const SH_NS          As String = "NettingSets"    'Netting-set inputs
         Public Const SH_TRADES      As String = "Trades"         'Trade inputs
@@ -362,8 +362,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const STAGED_TR_NAME         As String = "SACCR_ImportTRStaged"        'Fingerprint of the last Trades load
         Public Const STAGING_VALIDATED_NAME As String = "SACCR_StagingValidated"      'Fingerprint of the last VALID staging validation (#209)
         Public Const STAGING_CHECKED_NAME   As String = "SACCR_StagingChecked"        'Fingerprint of the last staging validation, any result (#210)
-    'Status of a staging sheet, in its _Status cell.
-        Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded
+    'Status of a staging sheet, in its _Status cell; the template's EMPTY
+    'means that nothing was loaded.
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
         Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
         Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)
@@ -546,12 +546,12 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_INJECTED_FAULT   As Long = vbObjectError + 2051    'Test seam: injected failure
         Public Const ERR_TEST_SETUP       As Long = vbObjectError + 2052    'Test runner: workbook not set up
         Public Const ERR_CHECKS_WRITE     As Long = vbObjectError + 2053    'Checks sheet could not be written
-        Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'Params names missing: no fingerprint
+        Public Const ERR_PARAMS_LAYOUT    As Long = vbObjectError + 2054    'A Params, BankNettingSets or BankTrades name missing or broken
         Public Const ERR_FORMULA_DOMAIN   As Long = vbObjectError + 2055    'SACCR_* function rejected engine inputs
         Public Const ERR_RECALC_PENDING   As Long = vbObjectError + 2056    'Inputs not recalculated before a run
         Public Const ERR_EXPORT_WRITE     As Long = vbObjectError + 2057    'Export file read-only or not written whole
-        Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output table header name missing
-        Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or unknown CSV kind
+        Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output, NettingSets or Trades table header name missing
+        Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or kind, file or column not in the contract
         Public Const ERR_STAGING_WRITE    As Long = vbObjectError + 2062    'Staging sheet missing or not written as read
 
 '------------------------------------------------------------------------------

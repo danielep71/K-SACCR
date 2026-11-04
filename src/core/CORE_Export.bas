@@ -33,7 +33,7 @@ Attribute VB_Name = "CORE_Export"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -260,7 +260,7 @@ Public Function LimitationLines() As String
 '   report does and does not show.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '==============================================================================
 '
 
@@ -277,7 +277,7 @@ Public Function LimitationLines() As String
         Notes = Array( _
             "The report describes one run of this workbook on the inputs fingerprinted in RUN; it is not a " & _
                 "regulatory certification.", _
-            "A comparison with a bank's figures is not independent validation of either (#100).", _
+            "A comparison with a bank's figures is not independent validation of either.", _
             "Expected values classed illustrative show a behaviour and validate nothing.", _
             "Totals cover the VALID netting sets of one regime only; regimes are never added together.", _
             "Netting sets that are INVALID, INCOMPLETE or NO TRADES have no EAD and are listed on RESULTS " & _

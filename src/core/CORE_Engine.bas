@@ -89,7 +89,8 @@ Attribute VB_Name = "CORE_Engine"
 '   Checks sheet that cannot be written withdraws the results and raises
 '   ERR_CHECKS_WRITE (#36). Any other unexpected error during a run also
 '   withdraws the results, is logged on Checks and in the run summary, and
-'   is raised unchanged to M_Main (#36).
+'   is raised to M_Main with its original number, source and description,
+'   with any output-cleanup or Checks-write diagnostics appended (#36).
 '
 ' KNOWN DEVIATION
 '   This module lives in src/core but reads and writes worksheets, which the
@@ -100,7 +101,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-04
 '
 ' AUTHOR
 '   Daniele Penza
@@ -1860,7 +1861,7 @@ Private Function LoadFXTable() As Boolean
 '   is an error (#41).
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-04
 '==============================================================================
 '
 
@@ -1952,7 +1953,7 @@ Private Function LoadFXTable() As Boolean
         ElseIf Abs(mFXRate(KeyIndex(mFXIndex, pRepCcy)) - 1#) > 0.0000001 Then
             LogMsg SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
                    CStr(mFXRate(KeyIndex(mFXIndex, pRepCcy))) & "): rates are units of the reporting " & _
-                   "currency per unit (#41)."
+                   "currency per unit."
             Exit Function
         End If
         LoadFXTable = True
@@ -1979,12 +1980,12 @@ Private Function FormulaNumber( _
 '   withdraws the results and reports it.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '==============================================================================
 '
         If IsError(Result) Then
             Err.Raise ERR_FORMULA_DOMAIN, "CORE_Engine." & FunctionName, FunctionName & " returned " & _
-                      CStr(Result) & " for inputs the engine had accepted (#42)."
+                      CStr(Result) & " for inputs the engine had accepted."
         End If
         FormulaNumber = CDbl(Result)
 

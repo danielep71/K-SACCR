@@ -80,6 +80,7 @@ breaking change under **Compatibility**.
 | **Fixed** | Corrected defects |
 | **Security** | Safely disclosed security corrections |
 | **Documentation** | Material documentation-only changes |
+| **Maintenance** | Repository tooling, governance and CI that do not change the workbook |
 | **Validation** | Evidence actually produced |
 | **Compatibility** | Upgrade or migration effects |
 | **Known limitations** | Deliberate, unresolved boundaries |
@@ -103,11 +104,15 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Name a task branch for new behavior `feat/<issue>-<slug>`, beside
+  `fix/<issue>-<slug>`, `docs/<slug>` and `chore/<slug>` (CONTRIBUTING,
+  GOVERNANCE).
+
 - State the `P1` rule in every issue form and in the pull request template:
   `P1` only for a confirmed calculation bug, wrong results for valid inputs
   (#506). The rule now applies to closed issues too: #35, #36, #37, #41,
   #194 and #204 change from `P1` to `P2`; #38, #39 and #195 keep `P1`.
-- Resynchronise the vendored VBA call checker with upstream `35d6857` (#504).
+- Close four false negatives in the VBA call checker (#504).
   It now matches project names case-insensitively, checks a literal macro
   target qualified by a standard module whatever its name, checks the
   arguments of recursive calls, and reports a class without a default
@@ -122,6 +127,22 @@ Use only the categories needed by a release.
   on `release/1.1.0`, and its advisory CI step passes.
 
 ### Added
+
+- Run the Excel certification of a commit with one command (#535).
+  `tools/Certify-SACCR.ps1`, or `Certify-SACCR.cmd` double-clicked, takes the
+  candidate SHA from a clean checkout and records the environment as found.
+  It builds a development workbook from the template and the source, opens it
+  following the Trust Center macro setting and waits for the operator to
+  enable content. It then compiles it and runs `TEST_Suite.Certify`, which
+  runs the harness and every suite once each, on its own, and `Test_RunAll`,
+  writing each report to its own UTF-8 log with `CANDIDATE=` and the SHA as
+  its first line. The Immediate window's 200-line limit no longer cuts a log.
+  `tools/write_excel_evidence.py` writes `host.json` from the logs and
+  validates the bundle; the exit code is the validator's. The script never
+  changes the macro setting or VBA-project access, and the manual procedure
+  stays as the fallback. `test_write_excel_evidence.py` covers passing,
+  failed, incomplete and interrupted runs, a failed compile, an open
+  workbook and a log edited after the record.
 
 - Describe the CSV files for a user who has only the workbook (#473, part
   1): `docs/csv/K-SACCR_Import_Specification.html`, one standalone page with
@@ -411,9 +432,24 @@ Use only the categories needed by a release.
   untouched, as the pull-request checklist now says; release certification
   still runs on the exact candidate commit.
 - Set `release/1.1.0` as the active development branch and the target for Dependabot updates; preserve released history through immutable tags and published artifacts.
+- Correct texts a workbook user sees. A rejected CSV file's message points
+  to **Export import specifications** on `Import_NettingSets` or
+  `Import_Trades` for the codes and rules, not to a repository file; the
+  Checks message of a reporting-currency rate other than 1, the
+  `ERR_FORMULA_DOMAIN` description and the evidence report's LIMITATIONS no
+  longer cite issue numbers. In the template, `Params` states that
+  DaysPerYear and IRBucketOffset are conventions that do not make a run
+  WHAT-IF; the staging sheets say that Commit import replaces each input
+  sheet whose staging sheet holds rows; the README says which buttons and
+  macros protect an unprotected sheet again, lists `CORE_CsvReader`,
+  `CORE_CsvSchema` and `CORE_ImportSpec`, and gives the CSV import steps.
+  The import specification states that a number has no leading zero.
 
 ### Documentation
 
+- Add a manual protection check that a staging validation stays current
+  across save and reopen, and that an edit made before saving refuses
+  Commit import after reopening (#208).
 - The user manual for 1.1.0 is prepared in `docs/user-manual/v1.1.0/`,
   from the 1.0.2 manual, which is not changed. It adds a chapter on the CSV
   import from end to end: the blank templates, the import specification page
@@ -445,9 +481,11 @@ Use only the categories needed by a release.
 - Correct counts that had gone stale: `RELEASING.md` asks for the harness
   and the nine policy suites throughout (it also said seven and eight), and
   its tag message takes the suite count from the run; `tools/README.md`
-  counts ten production modules since `CORE_ImportSpec`. The traffic
-  workflow, the governance, `pyproject.toml` and the VBA call checker with
-  its tests no longer name the projects they were taken from.
+  counts ten production modules since `CORE_ImportSpec`. The workflows, the
+  Dependabot configuration, `pyproject.toml`, the governance, the Excel
+  evidence validator and its record, the VBA house style, the repository
+  structure, the tooling README and the VBA call checker with its tests no
+  longer name the projects they were taken from.
 - Describe the current branch rulesets in the governance (#485): no ruleset
   has a bypass, release branches accept squash and merge commits, and
   `traffic-history` has its own ruleset. After an integration into `main`,
@@ -457,11 +495,11 @@ Use only the categories needed by a release.
   CodeQL default setup for the workflows and the Python tools, secret scanning
   with push protection, and Dependabot security updates, whose pull requests
   target `main` and are applied on the release branch instead.
-- Show the release plan in the README roadmap as a timeline of the
-  milestones' due dates, and the v1.1.0 schedule as a timeline of its issues'
-  planned dates, both drawn by GitHub from Mermaid text and dated; the
-  milestones stay the source of the dates, which are planning targets. The
-  v1.1.0 scope also lists #468 and #473.
+- Show the release plan in the README roadmap as a timeline, drawn by GitHub
+  from Mermaid text and dated: released versions on their release dates and
+  planned ones up to their milestones' due dates; the milestones stay the
+  source of the planned dates, which are planning targets. The v1.1.0 scope
+  also lists #468 and #473.
 - Follow the repository's rename to `danielep71/K-SACCR`: the links in the
   README, INSTALLATION, governance, methodology, issue templates and
   website, the website address <https://danielep71.github.io/K-SACCR/>
@@ -492,9 +530,9 @@ Use only the categories needed by a release.
   and the diagrams' PNG renderings are updated.
 - Correct the READMEs against the repository: the v1.1.0 work already on the
   release branch; the README sheet's link to the reference card, which points
-  to C116 since the staging sheets moved its rows; the nine production and
-  twelve test modules of the synchronizer's configurations; the CSV tool
-  tests in `tool-tests`; the action pins, no longer all from the template;
+  to C116 since the staging sheets moved its rows; the ten production and
+  thirteen test modules of the synchronizer's configurations; the CSV tool
+  tests in `tool-tests`; the action pins;
   and the margin-agreement structures, declared and rejected since #39.
 - Count the release website as updated only once its change is integrated
   into `main` and the Pages deployment shows the new release, and add the
@@ -514,10 +552,23 @@ Use only the categories needed by a release.
   articles K-SACCR applies, the 10-day CCP MPOR floor in the parameter table,
   the CCP label of the CRR diagram, the core's host independence as a goal
   with known deviations, the number of CSV files `TEST_Reconcile` writes, the
-  harness and seven policy suites of the release certification, the website
+  harness and nine policy suites of the release certification, the website
   update after publication, every place that names the active branch, the CI
   steps beyond `check.py`, the `check_test_cases` rules, the roadmap rows of
   v1.2.0 and v1.3.0, and a broken link in the VBA house style.
+- Correct documentation found inconsistent in the 1.1.0 audit: `check.py`
+  needs Node.js 20 or later for the label catalogue; after a commit
+  `ResultsStatus()` returns `STALE` while Results C5 reads `OUT OF DATE`;
+  `DaysPerYear` and `IRBucketOffset` do not make a run `WHAT-IF`; a `number`
+  has no leading zero; the gate table lists `generated-csv-modules`, the
+  protection gate's tests and the module role prefixes; the security notes
+  cover Import CSV, Commit import, Export import specifications and the
+  files of `TEST_Import` and the CSV benchmark; `tests/README.md` lists
+  `TEST_Import` and `context.json`; the repository structure lists
+  `ExportImportSpecification`, every core module `M_Main` calls and
+  `tests/derivations/`; the README roadmap draws released versions on their
+  release dates; and the manual's evidence-gate caption and quick-reference
+  card match the workbook.
 - Describe measurements, screenshots, sources and test derivations without
   referring to the author in the third person: descriptive text no longer
   names "the owner" or "the maintainer", and the expected-value notes of the

@@ -18,7 +18,7 @@ The active release branch is `release/1.1.0`.
 | `release/1.0.1` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.1` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
-| Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
+| Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `feat/<issue>-<slug>` for new behavior, `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
 | `traffic-history` | Retained for the traffic-export automation; not a release branch or cleanup target. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
 
@@ -35,7 +35,7 @@ release-deletion row under [GitHub settings](#github-settings),
 `main`, the `git switch` command under
 [Get the source](../INSTALLATION.md#get-the-source) in `INSTALLATION.md`, and
 the section of the current milestone in the
-[README roadmap](../README.md#roadmap), which names the branch.
+[README roadmap](../README.md#roadmap), which describes its scope and status.
 
 <a id="integrating-the-release-branch-into-main"></a>
 
@@ -199,9 +199,7 @@ configuration.
 
 ## Labels
 
-K-SACCR uses the 20-label core catalogue from
-danielep71/EXCEL-VBA-PROJECT-TEMPLATE at commit
-b903fe44ef6a032c4689870b83745afa1c22490d. Names, colours and descriptions are
+K-SACCR uses a catalogue of 20 labels. Names, colours and descriptions are
 defined in `.github/labels.json`, schema version 2: its root holds only
 `schema_version`, `prune` and the `labels` list, with no profiles or
 overlays. Its `prune: true` policy removes labels outside the catalogue during
@@ -281,7 +279,9 @@ before integration. Do not modify main solely to trigger sync.
 
 To update the catalogue, edit the manifest through a pull request. Review
 removals carefully: deleting a label also removes its issue/PR associations.
-Optional local checks, with Node.js:
+`python tools/check.py` needs Node.js 20 or later: its `issue-config` gate
+validates the manifest with `labels-sync.mjs --mode validate`. The self-tests
+are further local checks:
 
 ```sh
 node .github/scripts/labels-sync.mjs --self-test

@@ -108,17 +108,27 @@ Confirm the hosted **Repository integrity** check is green on the same SHA.
 
 ### 5. Certify in Excel
 
-Import the exact candidate into a clean workbook, compile, and run the harness
-and the nine suites listed in `.github/excel-evidence-policy.json`, each on
-its own, following the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure).
-In the same session, before the logs are hashed, run the
+On a clean checkout of the candidate, run the one-command certification:
+
+```powershell
+git switch --detach FULL_SHA
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Certify-SACCR.ps1
+```
+
+It builds a development workbook from the candidate, compiles it, runs the
+harness and the nine suites listed in `.github/excel-evidence-policy.json`,
+each on its own, and `Test_RunAll`, writes every log and `host.json` into a new
+bundle next to the checkout and validates it
+([one-command certification](docs/EXCEL_EVIDENCE.md#one-command-certification);
+the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure) remains the
+fallback). In the same session, run the
 [manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
-on a production workbook built from the candidate's template and note each
-outcome in the bundle's `session.log`. Then validate the bundle against the
-candidate SHA:
+on a production workbook built from the candidate's template, and note each
+outcome in `protection-checks.txt` in the bundle. To validate the bundle again
+later:
 
 ```sh
-python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../bundle/host.json
+python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../saccr-evidence-SHORTSHA/host.json
 ```
 
 Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
