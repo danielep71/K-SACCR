@@ -1,7 +1,7 @@
 # K-SACCR user manual, version 1.1.0
 
 The source of the user manual for K-SACCR 1.1.0. The PDF built from it is
-to be attached to the
+attached to the
 [1.1.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0);
 it is not stored in this repository.
 
@@ -17,8 +17,7 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 
 ## Status
 
-Prepared for 1.1.0; the release date and file names are confirmed at
-release. Started from the 1.0.2 manual and updated for the changes of 1.1.0:
+Released with 1.1.0 (tag `v1.1.0`, 5 November 2026). Started from the 1.0.2 manual and updated for the changes of 1.1.0:
 the CSV import from end to end (the blank templates, the import
 specification page, the staging sheets `Import_NettingSets` and
 `Import_Trades` and their statuses, correcting staged values, Validate
