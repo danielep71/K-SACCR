@@ -18,7 +18,7 @@ The active release branch is `release/1.1.0`.
 | `release/1.0.1` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.1` and its release artifacts; all former branch commits are retained in `main`. |
 | `release/1.0.0` | Deleted after release. Published history remains available through tag `v1.0.0` and its release artifacts. |
 | `main` | Default branch. Receives the active release branch only through an owner-requested PR merged with a merge commit. Nothing is committed to main directly. |
-| Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
+| Short-lived task branches | Every change: branch from the active release branch, open the PR against it and squash-merge it. Use a descriptive name such as `feat/<issue>-<slug>` for new behavior, `fix/<issue>-<slug>`, `docs/<slug>` or `chore/<slug>`. |
 | `traffic-history` | Retained for the traffic-export automation; not a release branch or cleanup target. |
 | Other `release/*` branches | Reserved for explicitly agreed future milestones; do not infer a new development target from a version number. |
 
