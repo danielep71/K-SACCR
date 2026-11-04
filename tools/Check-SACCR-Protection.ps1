@@ -110,12 +110,16 @@ function Get-Unprotected {
 }
 
 function Test-Write {
-    # True when Excel accepts the value; a refused write throws. The value is
-    # unwrapped first: Excel rejects a value PowerShell has wrapped in a
-    # PSObject, such as one taken from a pipeline or made by New-Object.
+    # True when Excel accepts the value; a refused write throws. The property
+    # is set through reflection: PowerShell's own COM binding of one
+    # assignment keeps the type of its first value, so a number or an array
+    # written after a string would be refused as a failed cast to a string.
     param($Range, $Value)
     try {
-        $Range.Value2 = $Value.PSObject.BaseObject
+        $arguments = New-Object 'object[]' 1
+        $arguments[0] = $Value.PSObject.BaseObject
+        [void][System.__ComObject].InvokeMember("Value2", [System.Reflection.BindingFlags]::SetProperty, $null,
+                                                $Range.PSObject.BaseObject, $arguments)
         return $true
     }
     catch {
