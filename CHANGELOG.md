@@ -426,6 +426,7 @@ Use only the categories needed by a release.
   sheet whose staging sheet holds rows; the README says which buttons and
   macros protect an unprotected sheet again, lists `CORE_CsvReader`,
   `CORE_CsvSchema` and `CORE_ImportSpec`, and gives the CSV import steps.
+  The import specification states that a number has no leading zero.
 
 ### Documentation
 
