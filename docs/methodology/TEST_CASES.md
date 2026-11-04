@@ -108,7 +108,7 @@ counterparties, collateral agreements or portfolio extracts.
 | `mpor_override_business_days` | whole number above 0, or `null` | MPOR override, with no upper bound; `null` for none, never 0 |
 | `variation_margin_net_amount`, `independent_collateral_net_amount` | amount | Net VM and NICA, held minus posted |
 | `threshold_amount`, `minimum_transfer_amount` | amount, at least 0 | Margin agreement terms |
-| `alpha_factor` | number above 0, or `null` | Alpha override; `null` uses the regime's alpha |
+| `alpha_factor` | number above 0, or `null` | Alpha override; `null` uses the Params alpha (`Alpha`) |
 | `qccp`, `ccp_retains_variation_margin` | Boolean, or `null` | NettingSets *QCCP* and *CCP retains VM, collateral not protected* (columns R and S): `true` writes Y, `false` N, `null` leaves the cell blank. The engine requires both for `ccp` and neither for another role (#112) |
 
 | Trade field | Type | Meaning |

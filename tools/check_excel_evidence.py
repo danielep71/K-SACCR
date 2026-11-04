@@ -9,8 +9,8 @@ policy lists, each run on its own, and of the optional Test_RunAll summary.
 With --check-policy it instead checks that the policy matches the test modules
 of the working tree, the suites Test_RunAll runs (with SUITE_COUNT), and the
 suites and counts the root README.md shows. See docs/EXCEL_EVIDENCE.md.
-Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44: manual execution only, and
-the source inventory is derived from the repository layout.
+Execution is manual only, and the source inventory is derived from the
+repository layout.
 """
 from __future__ import annotations
 

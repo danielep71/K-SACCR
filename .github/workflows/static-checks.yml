@@ -1,7 +1,6 @@
 name: Static repository checks
 run-name: Static checks — ${{ github.ref_name }} @ ${{ github.sha }}
 
-# Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe4 for SACCR's existing runner.
 # Static source/tooling checks only; no VBA compilation or Excel execution.
 on:
   pull_request:

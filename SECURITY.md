@@ -60,16 +60,35 @@ exposure figure, which are reported as issues.
 - **CSV check** (`M_Main.CheckTradesCsv` and `CheckNettingSetsCsv`) reads the
   file chosen in `Application.GetOpenFilename` up to the contract's 128 MiB
   limit and writes nothing; the size is checked before the file is read.
+- **Import CSV** (`M_Main.ImportTradesCsv` and `ImportNettingSetsCsv`) reads
+  the file chosen in `Application.GetOpenFilename` with the same reader and
+  limit and writes its records as text to the staging sheet `Import_Trades`
+  or `Import_NettingSets`; when that sheet has changes since its last load, it
+  asks before replacing them. It writes no file.
+- **Commit import** (`M_Main.CommitImport`) overwrites the input sheets
+  `NettingSets` and `Trades` with the staged rows of a current `VALID`
+  validation, only after a confirmation (OK or Cancel, Cancel by default)
+  naming each sheet and the rows that replace its rows.
 - **Export evidence** (`M_Main.ExportEvidence`) and **Export CSV template**
   (`M_Main.ExportTradesCsvTemplate` and `ExportNettingSetsCsvTemplate`) ask for
   a file name with `Application.GetSaveAsFilename` and write the evidence CSV
-  or the blank template there. An existing file of that name, hidden ones
-  included, is deleted and replaced without a further prompt from the macro; a
-  read-only file is left unchanged and the export fails.
+  or the blank template there. For these two exports an existing file of that
+  name, hidden ones included, is deleted and replaced without a further prompt
+  from the macro; a read-only file is left unchanged and the export fails.
+- **Export import specifications** (`M_Main.ExportImportSpecification`) asks
+  for a file name with `Application.GetSaveAsFilename`, asks before replacing
+  an existing file of that name, and writes the import specification page
+  there. When the user agrees, it opens the page with
+  `ThisWorkbook.FollowHyperlink`, in the application Windows associates with
+  `.html` files.
 - **Test suites** and the benchmark `TEST_Benchmark` also write the input and
-  output sheets, and `TEST_Reconcile` and `TEST_CsvReader` write and delete
-  five CSV files and one in `%TEMP%` (or the workbook's folder); run them only
-  in a development workbook.
+  output sheets. In `%TEMP%` (or the workbook's folder) `TEST_Reconcile` and
+  `TEST_CsvReader` write and delete five CSV files and one,
+  `TEST_Import` writes and deletes `K-SACCR_import_test.csv` and
+  `K-SACCR_import_spec_test.html`, and `TEST_Benchmark.RunCsvBenchmark` writes
+  each of its files as `K-SACCR_csv_benchmark_<n>.csv`, under a number not
+  already taken, and deletes it once read. Run them only in a development
+  workbook.
   `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
   access.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1`, `tools/Export-SACCR-VBA.ps1`

@@ -1,7 +1,9 @@
 # K-SACCR tooling
 
-Requirements: Git and Python 3.10+ on PATH. `check.py` needs no Python packages
-and no Excel. Run from the repository root before every push:
+Requirements: Git, Python 3.10+ and Node.js 20+ on PATH. `check.py` needs no
+Python packages and no Excel; Node.js runs `.github/scripts/labels-sync.mjs`,
+which validates the label catalogue for the `issue-config` gate and its tests.
+Run from the repository root before every push:
 
 ```sh
 python tools/check.py
@@ -16,8 +18,8 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
-| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
+| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
@@ -28,6 +30,7 @@ pull request's whole range.
 | `check_workbook_protection` | Every sheet of the template is in the editability matrix `docs/workbook/protection.json` and nothing else is; each cell is locked or unlocked as the matrix says, judged by its own format, else its row's, else its column's, so a cell the template does not store yet counts too; the input columns are unlocked to the last row and no other column is; no row format is unlocked; no locked cell has the yellow input fill; every sheet and the workbook structure are saved protected without a password, each sheet allowing sorting, filtering and inserting rows exactly as the matrix says, filtering only with an AutoFilter; the `PROTECT_` lists of `CORE_Config` name the same sheets |
 | `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
 | `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
+| `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
 | `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
 
 `check_excel_evidence.py` validates a manual Excel evidence bundle against a
@@ -251,20 +254,17 @@ it does not migrate old module names or delete unrelated user components.
 It requires Windows desktop Excel and Excel's **Trust access to the VBA project
 object model** setting. The workbook VBA project must not be password-locked.
 
-## VBA checkers: source and adaptations
+## VBA checkers
 
-`check_vba_jumps.py`, `check_vba_conditionals.py` and `check_vba_public_api.py`
-come from EXCEL-VBA-PROJECT-TEMPLATE at commit
-`b903fe44ef6a032c4689870b83745afa1c22490d`. K-SACCR now evaluates jumps per
-reachable compilation environment and checks `PtrSafe` in the declaration
-modifier position. The
-public-API checker takes each component's role from its folder, as defined in
+`check_vba_jumps.py` evaluates jumps per reachable compilation environment, and
+`check_vba_conditionals.py` checks `PtrSafe` in the declaration modifier
+position. `check_vba_public_api.py` takes each component's role from its
+folder, as defined in
 [`docs/REPOSITORY_STRUCTURE.md`](../docs/REPOSITORY_STRUCTURE.md): `src/modules/`
 is public; the other `src/` folders are internal; `tests/` and `examples/` are
-test and example. The template instead reads a component registry from
-`.github/repository-profile.json`, which K-SACCR does not use. `test_tooling.py`
-adds fixtures for that role mapping. `test_review_regressions.py` covers the
-post-merge findings, including colon-separated public declarations.
+test and example. `test_tooling.py` adds fixtures for that role mapping.
+`test_review_regressions.py` covers the post-merge findings, including
+colon-separated public declarations.
 
 ### Project-wide call resolution: advisory
 
@@ -273,8 +273,8 @@ python tools/check_vba_calls.py --root . --output test-results/check_vba_calls.j
   --summary test-results/check_vba_calls.md
 ```
 
-`check_vba_calls.py` is vendored (#60), resynchronised with its upstream
-(#504), and adopted **advisory only** (#60). `check.py` does not run it. The static
+`check_vba_calls.py` was adopted **advisory only** in #60; #504 closed four
+false negatives. `check.py` does not run it. The static
 workflow runs it in a non-blocking step that adds its summary to the job page.
 Its fixtures (`test_vba_calls.py`) do run in `tool-tests`. It is not a VBA
 compiler: compiling in Excel stays the authoritative call check.
@@ -308,10 +308,8 @@ The document modules (`ThisWorkbook` and the sheet modules) are listed under
 - **Own name of a Function.** Assigning to or reading a Function's bare name is its return value, not a call. A parenthesised use of the name inside a parameterless Function is not checked, because it may index an array result.
 - **Not checked:** dynamic and workbook-qualified call targets, `Object` and `Variant` receivers, and argument types.
 
-**K-SACCR changes to the vendored file.** Type annotations for `mypy --strict`
-(no logic change), a Ribbon callback parser, and `document_modules`. Three upstream parser functions
-exceed the Ruff complexity ceiling of 15. `pyproject.toml` exempts this one
-file from C901, so it can still be resynchronised with upstream.
+**Complexity.** Three parser functions exceed the Ruff complexity ceiling of 15.
+`pyproject.toml` exempts this one file from C901.
 
 It does not become a blocking gate until its false-positive behaviour has been
 validated over further changes.

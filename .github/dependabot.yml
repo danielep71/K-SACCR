@@ -1,6 +1,6 @@
 # Version updates for pinned GitHub Actions and Python quality tools.
-# Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44. Every update arrives as a pull
-# request for review; nothing merges automatically. See
+# Every update arrives as a pull request for review; nothing merges
+# automatically. See
 # tools/README.md -> "Dependency updates".
 version: 2
 updates:

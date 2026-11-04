@@ -1,6 +1,6 @@
 # Quality settings for the repository's Python tooling (tools/).
-# Adapted from EXCEL-VBA-PROJECT-TEMPLATE b903fe44. The tooling itself needs only
-# the standard library; Ruff and mypy are CI and development tools.
+# The tooling itself needs only the standard library; Ruff and mypy are CI and
+# development tools.
 
 [tool.ruff]
 target-version = "py310"
@@ -14,8 +14,7 @@ select = ["E4", "E7", "E9", "F", "I001", "C90"]
 max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
-# Vendored (#60) and kept close to its upstream so it can be
-# resynchronised; three of its parser functions exceed the ceiling. Advisory only.
+# Three of its parser functions exceed the ceiling. Advisory only (#60).
 "tools/check_vba_calls.py" = ["C901"]
 
 [tool.mypy]
