@@ -91,7 +91,7 @@ mapped to a contract by guessing what a column means.
 | `flag` | `Y` or `N` | Exact; `y`, `Yes`, `TRUE` or `1` are rejected |
 | `currency` | Three capital letters | `EUR`, not `eur` or `€` |
 | `integer` | `-?digits` | No sign `+`, no leading zero, no decimal point |
-| `number` | `-?digits[.digits][e±digits]` | Decimal point `.`, no thousands separator, no sign `+`; at most 15 significant digits, so a value is never rounded when it is read; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307, as a worksheet cell holds; `NaN` and `inf` are not numbers |
+| `number` | `-?digits[.digits][e±digits]` | Decimal point `.`, no thousands separator, no sign `+`, no leading zero (`0.5` is a number, `007.5` is not); at most 15 significant digits, so a value is never rounded when it is read; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307, as a worksheet cell holds; `NaN` and `inf` are not numbers |
 | `date` | `yyyy-mm-dd` | A calendar date from 1950-01-01 to 2200-12-31, as the sheet's validation allows; `31/03/2027` and serial numbers are rejected |
 
 Text that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is
@@ -554,6 +554,6 @@ names and the other sheets are not changed.
   kept as a record of what was loaded, and the stored `VALID` validation is
   emptied, so the same rows are not committed twice without a new
   validation. Results, `Checks` and the run and reconciliation fingerprints
-  are not changed: as after any edit of the inputs, `ResultsStatus()` reads
-  `OUT OF DATE` and the evidence export refuses until the next
-  **Run SA-CCR**, which the commit never starts.
+  are not changed: as after any edit of the inputs, `ResultsStatus()` returns
+  `STALE`, Results C5 reads `OUT OF DATE` and the evidence export refuses
+  until the next **Run SA-CCR**, which the commit never starts.

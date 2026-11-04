@@ -199,7 +199,8 @@ python tools/check.py
 
 Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
 VBA out with the CRLF line endings the VBE expects. The checks need Python 3.10
-or later and no packages.
+or later, with no packages, and Node.js 20 or later, which validates the label
+catalogue.
 
 ## 2. Build the workbook
 
@@ -744,21 +745,23 @@ produces it.
   </a>
 </p>
 
-The plan below follows the
-[milestones](https://github.com/danielep71/K-SACCR/milestones)' due dates as
-of 2026-10-28; each bar starts the day after the previous milestone's due
-date. The dates are planning targets, not release commitments.
+The plan below shows each released version on its release date and each
+planned one up to its
+[milestone](https://github.com/danielep71/K-SACCR/milestones)'s due date as
+of 2026-10-28; a planned bar starts the day after the previous version's
+release or due date. The due dates are planning targets, not release
+commitments.
 
 ```mermaid
 gantt
-    title K-SACCR release plan (milestone due dates as of 2026-10-28)
+    title K-SACCR release plan (release dates; planned due dates as of 2026-10-28)
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     todayMarker on
     section Released
-    v1.0.0 First supported release           :done, 2026-10-18, 1d
-    v1.0.1 Post-release hardening            :done, 2026-10-19, 1d
-    v1.0.2 Clearing coverage and CCPs        :done, 2026-10-25, 1d
+    v1.0.0 First supported release           :done, 2026-10-17, 1d
+    v1.0.1 Post-release hardening            :done, 2026-10-18, 1d
+    v1.0.2 Clearing coverage and CCPs        :done, 2026-10-23, 1d
     v1.1.0 CSV import, staging, protection   :done, v11, 2026-11-05, 1d
     section Planned
     v1.2.0 Excel Ribbon interface            :v12, after v11, 2027-01-10
