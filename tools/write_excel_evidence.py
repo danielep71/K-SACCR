@@ -7,6 +7,8 @@ docs/EXCEL_EVIDENCE.md describes the record; it then validates the bundle with
 check_excel_evidence.py and returns its exit code. It never runs Excel and records
 only what the logs and session.json show: a suite without a log is NOT_RUN, a log
 without a RESULT line is TIMEOUT, and the counts are the ones the RESULT lines print.
+A summary.log left by the run is always cited, so that a Test_RunAll stopped or
+failed after the suites passed is judged by the validator rather than ignored.
 """
 from __future__ import annotations
 
@@ -64,10 +66,13 @@ def harness_record(policy: dict[str, Any], log: str | None) -> tuple[str, dict[s
     if len(found) != 1:
         return "TIMEOUT", None, "NOT_RUN"
     verdict, completeness, cases, assertions, failures, cleanup = found[0]
-    clean = verdict == "PASS"
+    # As check_excel_evidence.validate_harness: the expected errors follow from a
+    # complete harness without assertion failures, whatever its cleanup gave.
+    clean = completeness == "COMPLETE" and int(failures) == 0
     errors = [{"case": case, "status": "PASS" if clean else "NOT_RUN",
-               "detail": "Implied by the complete passing harness" if clean
-               else "Not inferred: the harness did not pass"} for case in policy["expected_error_cases"]]
+               "detail": "Implied by the complete harness without assertion failures" if clean
+               else "Not inferred: the harness was incomplete or an assertion failed"}
+              for case in policy["expected_error_cases"]]
     harness = {"entry_point": policy["entry_point"], "cases": int(cases), "assertions": int(assertions),
                "failures": int(failures), "completeness": completeness, "expected_errors": errors}
     return verdict, harness, cleanup
@@ -118,10 +123,9 @@ def build_record(root: Path, sha: str, bundle: Path) -> dict[str, Any]:
     cleanup_detail = (f"Harness cleanup {cleanup}; " if cleanup != "NOT_RUN" else "") + \
         ("workbook closed" if closed else "workbook not closed")
     summary = None
-    if harness_status in ("PASS", "FAIL") and all(item["log"] for item in suites):
-        text = read(bundle, "summary.log")
-        if text is not None and re.search(r"^RESULT=", text, re.MULTILINE):
-            summary = reference(bundle, "summary.log")
+    if harness_status in ("PASS", "FAIL") and all(item["log"] for item in suites) \
+            and (bundle / "summary.log").is_file():
+        summary = reference(bundle, "summary.log")
     return {
         "schema_version": 2, "repository": policy["repository"], "candidate_sha": sha,
         "execution": "manual", "availability_reason": None,
