@@ -63,6 +63,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $script:results = New-Object System.Collections.Generic.List[string]
 $script:failures = 0
 $script:stops = New-Object System.Collections.Generic.List[string]
+$script:lastWriteError = ""
 $script:excel = $null
 $script:workbook = $null
 
@@ -109,15 +110,25 @@ function Get-Unprotected {
 }
 
 function Test-Write {
-    # True when Excel accepts the value; a refused write throws.
+    # True when Excel accepts the value; a refused write throws. The value is
+    # unwrapped first: Excel rejects a value PowerShell has wrapped in a
+    # PSObject, such as one taken from a pipeline or made by New-Object.
     param($Range, $Value)
     try {
-        $Range.Value2 = $Value
+        $Range.Value2 = $Value.PSObject.BaseObject
         return $true
     }
     catch {
+        $script:lastWriteError = $_.Exception.Message
         return $false
     }
+}
+
+function Get-StopDetail {
+    # The message of an error record and the script line that raised it.
+    param($Record)
+    return ("{0} (line {1}: {2})" -f $Record.Exception.Message, $Record.InvocationInfo.ScriptLineNumber,
+            $Record.InvocationInfo.Line.Trim())
 }
 
 function Invoke-Macro {
@@ -281,9 +292,13 @@ try {
     )
     $refused = @($targets | Where-Object { -not (Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) $_[2]) } |
         ForEach-Object { $_[0] + "!" + $_[1] })
+    $reason = ""
+    if ($refused.Count -gt 0) {
+        $reason = "; last error: " + $script:lastWriteError
+    }
     Add-Result 3 ($refused.Count -eq 0) `
         ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E58, BankNettingSets!C9 and D5; refused [" +
-         ($refused -join ", ") + "]")
+         ($refused -join ", ") + "]" + $reason)
 
     # 4: several rows of values pasted into the input columns, then cleared.
     $block = New-Object 'object[,]' 3, 3
@@ -294,6 +309,10 @@ try {
     }
     $pasteRange = $workbook.Worksheets.Item("Trades").Range("C80:E82")
     $pasted = Test-Write $pasteRange $block
+    $reason = ""
+    if (-not $pasted) {
+        $reason = " (" + $script:lastWriteError + ")"
+    }
     $cleared = $true
     try {
         [void]$pasteRange.ClearContents()
@@ -301,7 +320,7 @@ try {
     catch {
         $cleared = $false
     }
-    Add-Result 4 ($pasted -and $cleared) "Three rows pasted into Trades!C80:E82: $pasted; cleared: $cleared"
+    Add-Result 4 ($pasted -and $cleared) "Three rows pasted into Trades!C80:E82: $pasted$reason; cleared: $cleared"
 
     # 5: what each sheet allows, as Excel enforces it, and formulas visible.
     $problems = New-Object System.Collections.Generic.List[string]
@@ -317,12 +336,22 @@ try {
     if ($workbook.Worksheets.Item("Results").Range("C5").FormulaHidden) {
         $problems.Add("the formula of Results!C5 is hidden")
     }
+    # Copied into a new workbook rather than the clipboard, which a hidden
+    # Excel may not reach.
+    $scratch = $null
     try {
-        [void]$workbook.Worksheets.Item("Results").Range("C5:E7").Copy()
-        $excel.CutCopyMode = $false
+        $scratch = $excel.Workbooks.Add()
+        [void]$workbook.Worksheets.Item("Results").Range("C5:E7").Copy($scratch.Worksheets.Item(1).Range("A1"))
     }
     catch {
-        $problems.Add("output cells cannot be copied")
+        $problems.Add("output cells cannot be copied: " + $_.Exception.Message)
+    }
+    if ($null -ne $scratch) {
+        try {
+            [void]$scratch.Close($false)
+        }
+        catch {
+        }
     }
     Add-Result 5 ($problems.Count -eq 0) `
         ("Filtering, inserting rows, copying, formulas visible; the README row groups are checked under 1 with the macros; problems [" +
@@ -352,7 +381,7 @@ try {
         ("Add, rename and delete a sheet (the tab menu's Delete, Rename, Move, Hide); done [" + ($changed -join "; ") + "]")
 }
 catch {
-    Add-Stop ("The macros-disabled checks stopped: " + $_.Exception.Message)
+    Add-Stop ("The macros-disabled checks stopped: " + (Get-StopDetail $_))
 }
 finally {
     Close-Excel $excel $workbook
@@ -424,10 +453,11 @@ try {
     # 9: bank figures entered, a run reconciles them, the export succeeds.
     $bank = $workbook.Worksheets.Item("BankNettingSets")
     $eadColumn = Get-HeaderColumn $resultsSheet 6 "EAD"
-    $bank.Range("C9").Value2 = $resultsSheet.Range("C7").Value2
-    $bank.Range("D9").Value2 = $resultsSheet.Range("E7").Value2
+    # Cast, so that Excel receives a plain string and number.
+    $bank.Range("C9").Value2 = [string]$resultsSheet.Range("C7").Value2
+    $bank.Range("D9").Value2 = [string]$resultsSheet.Range("E7").Value2
     if ($eadColumn -gt 0) {
-        $bank.Range("E9").Value2 = $resultsSheet.Cells.Item(7, $eadColumn).Value2
+        $bank.Range("E9").Value2 = [double]$resultsSheet.Cells.Item(7, $eadColumn).Value2
     }
     $reconciled = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $exported = Invoke-Macro $excel $workbook "M_Main.ExportEvidence_Silent" @((Join-Path $work "evidence.csv"))
@@ -497,7 +527,7 @@ try {
          "save and reopen: $edited, commit: $refused")
 }
 catch {
-    Add-Stop ("The macros-enabled checks stopped: " + $_.Exception.Message)
+    Add-Stop ("The macros-enabled checks stopped: " + (Get-StopDetail $_))
 }
 finally {
     Close-Workbook
