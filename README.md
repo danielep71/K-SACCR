@@ -11,7 +11,7 @@
 [![Excel VBA](https://img.shields.io/badge/Excel_VBA-64--bit-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#requirements)
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
-[![Release](https://img.shields.io/badge/Release-1.0.2-2ea44f?style=for-the-badge)](#status)
+[![Release](https://img.shields.io/badge/Release-1.1.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
 [![Regression](https://img.shields.io/badge/Regression-453_cases_%C2%B7_1855_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
@@ -63,11 +63,11 @@
 </div>
 
 > [!IMPORTANT]
-> **Version 1.0.2** is the current release: the
-> [1.0.2 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2)
+> **Version 1.1.0** is the current release: the
+> [1.1.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0)
 > carries the workbook and the user manual. The engine
 > implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
-> v1.0.2, by the published CRE99 examples. CRR rules are implemented and tested
+> v1.1.0, by the published CRE99 examples. CRR rules are implemented and tested
 > against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
 
 > [!NOTE]
@@ -180,8 +180,8 @@ supported, what the user must enter in a given form, and what is out of scope.
 # ⚡ Quick start
 
 To use the released workbook without building it, download
-`K-SACCR_1.0.2.xlsm` from the
-[1.0.2 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2)
+`K-SACCR_1.1.0.xlsm` from the
+[1.1.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0)
 and check it as in [INSTALLATION.md › Released workbook](INSTALLATION.md#released-workbook),
 then go to [section 3](#3-run). The steps below build the workbook from source.
 
@@ -190,11 +190,11 @@ then go to [section 3](#3-run). The steps below build the workbook from source.
 ```sh
 git clone https://github.com/danielep71/K-SACCR.git
 cd K-SACCR
-git switch --detach v1.0.2
+git switch --detach v1.1.0
 python tools/check.py
 ```
 
-`v1.0.2` is the released source; for current development, switch to the
+`v1.1.0` is the released source; for current development, switch to the
 [active release branch](docs/GOVERNANCE.md#branches) instead.
 
 Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
@@ -694,7 +694,7 @@ and the VBA references are listed in `INSTALLATION.md`.
 
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
-  next release; use the `v1.0.2` tag or its workbook for stable results.
+  next release; use the `v1.1.0` tag or its workbook for stable results.
 - **CRR is implemented, not validated.** The only published reference values
   are Basel examples; CRR results are tested against illustrative values.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
@@ -759,8 +759,8 @@ gantt
     v1.0.0 First supported release           :done, 2026-10-18, 1d
     v1.0.1 Post-release hardening            :done, 2026-10-19, 1d
     v1.0.2 Clearing coverage and CCPs        :done, 2026-10-25, 1d
+    v1.1.0 CSV import, staging, protection   :done, v11, 2026-11-05, 1d
     section Planned
-    v1.1.0 CSV import, staging, protection   :active, v11, 2026-10-26, 2026-11-29
     v1.2.0 Excel Ribbon interface            :v12, after v11, 2027-01-10
     v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
     v1.4.0 Advanced products, FX provenance  :v14, after v13, 2027-04-18
@@ -789,63 +789,16 @@ risk are outside K-SACCR and on no milestone of its roadmap.
 
 ### v1.1.0 — CSV import, staging and workbook protection
 
-Development starts from the released **v1.0.2** baseline on
-`release/1.1.0`, retaining its clearing and settlement input contracts.
-None of this work is in a released workbook yet. On the release branch so
-far: the CSV contract and its blank templates (#206), the CSV reader and the
-check macros (#207), the staging sheets with their CSV import (#208), and the
-rules between Trades records (#209, part 1).
-
-The schedule comes from each issue's planned start and target completion
-dates, as of 2026-10-28; the dates of an issue already under way are those of
-its remaining work.
-
-```mermaid
-gantt
-    title v1.1.0 - CSV import, staging and workbook protection (due 2026-11-29)
-    dateFormat YYYY-MM-DD
-    axisFormat %d %b
-    todayMarker on
-    section CSV input
-    #206 CSV contract and templates          :a206, 2026-10-28, 2026-11-06
-    #207 CSV parsing                         :a207, 2026-10-28, 2026-11-20
-    #473 HTML import specifications          :a473, 2026-11-16, 2026-11-20
-    section Staging and commit
-    #208 Staging sheets                      :a208, 2026-10-28, 2026-11-20
-    #468 Formula edits in staging            :a468, 2026-10-28, 2026-10-30
-    #209 Validate staged inputs              :a209, 2026-10-28, 2026-11-06
-    #210 Correct and revalidate              :a210, 2026-11-09, 2026-11-13
-    #211 Atomic commit with rollback         :a211, 2026-11-16, 2026-11-20
-    section Workbook protection
-    #420 Protect cells and structure         :a420, 2026-10-28, 2026-11-06
-    #421 Protection lifecycle                :a421, 2026-11-09, 2026-11-13
-    #422 Protected workflow tests            :a422, 2026-11-23, 2026-11-27
-    section Integration
-    #212 Regressions and release evidence    :a212, 2026-11-23, 2026-11-29
-```
-
-| Workstream | Deliverables | Issues |
-| --- | --- | --- |
-| CSV input | Versioned Trades/NettingSets contracts and blank templates; deterministic local parsing that preserves identifiers and prevents formula execution; import specifications exported from the workbook | #206, #207, #473 |
-| Staging and commit | Editable staging, actionable validation findings, correction/revalidation and explicit replacement of selected live datasets with rollback and stale-result handling | #208–#211, #468 |
-| Workbook protection | Editable input cells, protected generated content and workbook structure, macro-compatible protection, recovery tests and documented maintenance unlock | #420–#422 |
-| Integration and closeout | Combined regressions, candidate-bound Excel evidence, operating guidance and release checks for both workstreams | #212 |
-
-Acceptance requires equivalent manual and CSV portfolios to produce the
-same results, invalid or stale candidates to be refused at commit, and
-normal supported workflows to work with protection active. Error and
-cancellation paths must preserve or explicitly report recovery of data,
-protection and Excel state. Protection prevents accidental edits; it does
-not replace validation, freshness checks or output-integrity checks.
-
-The scope does not change SA-CCR calculation methodology or add automatic
-post-import calculation, incremental upserts, online feeds or XLSX/JSON
-imports. The keyboard-interruption proposal (#417) was closed as not
-planned and is excluded. The existing recalculation guard remains in place.
-
-The milestone's due date is a planning target, not a release commitment.
-Release publication remains subject to the owner's explicit authorization
-and the gates in [RELEASING.md](RELEASING.md).
+Released on 2026-11-05. Trades and NettingSets can be imported from CSV files
+through the staging sheets: the contract and its blank templates (#206), the
+reader (#207), the staging sheets (#208), the validation against the live
+inputs and Params (#209), corrections and the `OUT OF DATE` status (#210), the
+commit with rollback (#211) and the import specification exported from the
+workbook (#473). The workbook protects its cells and structure against
+accidental edits, with a documented maintenance unlock (#420–#422). A commit
+replaces whole sheets and runs nothing: SA-CCR is calculated by **Run SA-CCR**
+as before, and the calculation methodology is unchanged. The integration and
+release evidence are recorded in #212.
 
 ---
 
@@ -856,7 +809,7 @@ and the gates in [RELEASING.md](RELEASING.md).
 | [Wiki](https://github.com/danielep71/K-SACCR/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
-| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, and its blank templates (import planned for v1.1.0) |
+| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, its blank templates and the import through the staging sheets (since v1.1.0) |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) | Source of the user manual for 1.0.2; its PDF is attached to the [1.0.2 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2). The 1.0.0 and 1.0.1 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md) and [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) |
@@ -877,13 +830,13 @@ and the gates in [RELEASING.md](RELEASING.md).
 
 ## 📌 Status
 
-**Version 1.0.2**, released on 2026-10-23 and tagged `v1.0.2`, after 1.0.1
-on 2026-10-18 and 1.0.0 on 2026-10-17. Its
-[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2)
-carries the production workbook `K-SACCR_1.0.2.xlsm`, the user manual PDF and
+**Version 1.1.0**, released on 2026-11-05 and tagged `v1.1.0`, after 1.0.2
+on 2026-10-23, 1.0.1 on 2026-10-18 and 1.0.0 on 2026-10-17. Its
+[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0)
+carries the production workbook `K-SACCR_1.1.0.xlsm`, the user manual PDF and
 their SHA-256 sums. The release notes and the tag message record the Excel
-certification of the tagged source: compile, the eight suites each run on its
-own, and the evidence validator.
+certification of the tagged source: compile, the harness and the nine suites
+each run on its own, and the evidence validator.
 
 Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches) through task branches and

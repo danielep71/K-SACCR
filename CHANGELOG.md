@@ -94,6 +94,8 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-05
+
 ### Security
 
 - Migrate traffic API collection to a dedicated GitHub App with step-scoped
@@ -1231,7 +1233,8 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0
 [1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
 [1.0.1]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.1
 [1.0.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.0
