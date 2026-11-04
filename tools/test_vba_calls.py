@@ -1,7 +1,7 @@
 """Fixtures for check_vba_calls.py: every supported defect next to a valid twin.
 
-Vendored with the checker (#60); SACCR
-adds type annotations and a fixture for ``document_modules``.
+Added with the checker (#60), with type annotations and a fixture for
+``document_modules``.
 """
 import unittest
 from typing import Any

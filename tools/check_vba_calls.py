@@ -15,9 +15,8 @@ exclusive ``#If`` branches are never combined. It is not a VBA compiler. What it
 cannot resolve is reported as unknown, never as a defect, and an empty defect
 list is a clean verdict only when every module parsed and coverage is complete.
 
-Vendored (#60) and resynchronised with its upstream (#504), which closes four
-false negatives. SACCR changes: type annotations for ``mypy --strict``; a
-Ribbon callback parser; and the manifest key ``document_modules``,
+Adopted in #60; #504 closed four false negatives. It has type annotations for
+``mypy --strict``, a Ribbon callback parser and the manifest key ``document_modules``,
 which lists tracked document modules (ThisWorkbook and the sheet modules) that
 are not analyzed, because their Excel members (``Names``, ``Worksheets``) are
 unknown to the checker and would be reported as missing.
@@ -1320,10 +1319,7 @@ def merge_environments(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def ribbon_callback_attributes(data: bytes) -> list[tuple[str, str, str]]:
-    """Parse bounded XML with DTDs forbidden; return (element, attribute, callback) triples.
-
-    Taken from the upstream source gate, which SACCR does not share.
-    """
+    """Parse bounded XML with DTDs forbidden; return (element, attribute, callback) triples."""
     if len(data) > 1_000_000:
         raise ValueError("Ribbon XML exceeds 1 MB")
     parser = expat.ParserCreate()
