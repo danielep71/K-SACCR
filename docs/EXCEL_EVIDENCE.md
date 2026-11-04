@@ -97,17 +97,24 @@ or double-click `tools\Certify-SACCR.cmd`. The script:
    starts with `CANDIDATE=` and the SHA, written by the workbook, followed by
    every line the run printed, as UTF-8; the Immediate window's 200-line limit
    no longer applies. An existing log is never replaced;
-7. closes the workbook without saving, writes `session.json` (the observed
-   environment, the import and compile results, whether the workbook closed)
-   and runs `tools/write_excel_evidence.py`. That writes `host.json` from the
-   logs, as the [record template](#record-template) describes, and validates
-   the bundle. The script's exit code is the validator's: 0 only for `PASS`.
+7. closes the workbook without saving and runs
+   `tools/Check-SACCR-Protection.ps1`, the
+   [manual protection checks](workbook/WORKBOOK_PROTECTION.md#manual-checks)
+   on a production workbook built from the same checkout in the bundle's
+   `protection` folder. It writes one line per check, and a final `RESULT=`
+   line, to `protection-checks.txt`, and the summary to `session.log`;
+8. writes `session.json` (the observed environment, the import and compile
+   results, whether the workbook closed) and runs
+   `tools/write_excel_evidence.py`. That writes `host.json` from the logs, as
+   the [record template](#record-template) describes, and validates the
+   bundle. The script's exit code is 0 only when the bundle validates as
+   `PASS` and the 14 protection checks pass.
 
 `-Operator` sets the record's operator (by default "Repository owner, local
-Windows workstation"), and `-Python` the Python command. For a release
-candidate, the [manual protection checks](workbook/WORKBOOK_PROTECTION.md#manual-checks)
-are still done by hand; note them in a file of their own in the bundle, since
-`session.log` is hashed. Keep a non-passing bundle as it is. When the script
+Windows workstation"), and `-Python` the Python command. The operator enables
+content once for the development workbook and, unless Excel trusts the file
+from then on, again for the production workbook each time it is reopened.
+Keep a non-passing bundle as it is. When the script
 cannot be used, follow the manual procedure.
 
 <a id="manual-procedure"></a>

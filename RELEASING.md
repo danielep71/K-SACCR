@@ -121,11 +121,11 @@ each on its own, and `Test_RunAll`, writes every log and `host.json` into a new
 bundle next to the checkout and validates it
 ([one-command certification](docs/EXCEL_EVIDENCE.md#one-command-certification);
 the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure) remains the
-fallback). In the same session, run the
+fallback). It then runs the
 [manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
-on a production workbook built from the candidate's template, and note each
-outcome in `protection-checks.txt` in the bundle. To validate the bundle again
-later:
+on a production workbook built from the candidate and writes each outcome to
+`protection-checks.txt` in the bundle; its exit code is 0 only when the bundle
+validates and the 14 checks pass. To validate the bundle again later:
 
 ```sh
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../saccr-evidence-SHORTSHA/host.json

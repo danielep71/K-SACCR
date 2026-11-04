@@ -50,7 +50,12 @@ operator to enable content if the macros are disabled, compiles it and runs
 never changes the macro setting or *Trust access to the VBA project object
 model*, which the build needs on. `write_excel_evidence.py` then writes
 `host.json` from the logs and `session.json` and validates the bundle; its
-synthetic tests, `test_write_excel_evidence.py`, run in `tool-tests`. See the
+synthetic tests, `test_write_excel_evidence.py`, run in `tool-tests`. Before
+that, `Check-SACCR-Protection.ps1` runs the 14
+[manual protection checks](../docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
+on a production workbook built from the same checkout and writes
+`protection-checks.txt`; `import_spec.py --examples DIR` writes the example
+files it imports. See the
 [one-command certification](../docs/EXCEL_EVIDENCE.md#one-command-certification).
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they

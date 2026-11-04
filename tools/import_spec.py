@@ -440,8 +440,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--write", action="store_true", help=f"Write {SPECIFICATION}")
+    parser.add_argument("--examples", type=Path, metavar="DIR",
+                        help="Write the example files, NettingSets.csv and Trades.csv, into DIR")
     args = parser.parse_args()
     contract = load_contract(args.root)
+    if args.examples is not None:
+        for kind in contract["files"]:
+            (args.examples / f"{kind}.csv").write_bytes(example_text(kind, contract).encode("utf-8"))
+        print(f"wrote the example files into {args.examples}")
+        return 0
     if args.write:
         path = args.root / SPECIFICATION
         path.write_bytes(render(contract).encode("utf-8"))

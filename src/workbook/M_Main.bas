@@ -13,6 +13,9 @@ Attribute VB_Name = "M_Main"
 '   ClearOutputs: empty every output sheet.
 '   RunSACCR_Silent: RunSACCR for automation. Returns a machine-readable
 '   result line and raises errors instead of showing them.
+'   ValidateInputs_Silent and ClearOutputs_Silent: the same for
+'   ValidateInputs and ClearOutputs, for the automated protection checks
+'   of tools\Check-SACCR-Protection.ps1 (#535).
 '   ResultsStatus: whether the results on the sheets match the current
 '   inputs and are still as the run wrote them (CURRENT, EDITED, STALE or
 '   NONE).
@@ -420,10 +423,102 @@ Public Function RunSACCR_Silent() As String
 '   settings could not be restored, after gSilent has been restored.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-04
 '==============================================================================
 '
 
+'------------------------------------------------------------------------------
+' RUN SILENTLY
+'------------------------------------------------------------------------------
+        RunSACCR_Silent = SilentOperation(OP_RUN)
+
+End Function
+
+
+Public Function ValidateInputs_Silent() As String
+'
+'==============================================================================
+'                            ValidateInputs_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run ValidateInputs unattended, as RunSACCR_Silent runs RunSACCR.
+'   tools\Check-SACCR-Protection.ps1 calls it through Application.Run.
+'
+' RETURNS
+'   The result line of ReportOutcome: RESULT=OK or STOPPED,
+'   operation=validate, and the fields RunSACCR_Silent returns.
+'
+' ERROR POLICY
+'   As RunSACCR_Silent.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+'------------------------------------------------------------------------------
+' VALIDATE SILENTLY
+'------------------------------------------------------------------------------
+        ValidateInputs_Silent = SilentOperation(OP_VALIDATE)
+
+End Function
+
+
+Public Function ClearOutputs_Silent() As String
+'
+'==============================================================================
+'                             ClearOutputs_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run ClearOutputs unattended, as RunSACCR_Silent runs RunSACCR.
+'   tools\Check-SACCR-Protection.ps1 calls it through Application.Run.
+'
+' RETURNS
+'   The result line of ReportOutcome: RESULT=OK, operation=clear and
+'   cleanup=PASS or FAIL.
+'
+' ERROR POLICY
+'   As RunSACCR_Silent.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
+'------------------------------------------------------------------------------
+' CLEAR SILENTLY
+'------------------------------------------------------------------------------
+        ClearOutputs_Silent = SilentOperation(OP_CLEAR)
+
+End Function
+
+
+Private Function SilentOperation( _
+    ByVal Operation As Long) _
+    As String
+'
+'==============================================================================
+'                               SilentOperation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run one operation with gSilent set, for RunSACCR_Silent,
+'   ValidateInputs_Silent and ClearOutputs_Silent.
+'
+' INPUTS
+'   Operation: OP_RUN, OP_VALIDATE or OP_CLEAR.
+'
+' RETURNS
+'   The result line of ExecuteOperation.
+'
+' STATE OWNERSHIP
+'   Sets gSilent for the operation and restores its previous value
+'   afterwards, also when the operation raises.
+'
+' ERROR POLICY
+'   Re-raises the operation's error after gSilent has been restored.
+'
+' UPDATED
+'   2026-11-04
+'==============================================================================
+'
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
@@ -438,7 +533,7 @@ Public Function RunSACCR_Silent() As String
         PreviousSilent = gSilent
         gSilent = True
         On Error GoTo Failed
-        RunSACCR_Silent = ExecuteOperation(OP_RUN)
+        SilentOperation = ExecuteOperation(Operation)
         gSilent = PreviousSilent
         Exit Function
 
