@@ -402,7 +402,6 @@ the exposure value (select it to open it full size):
 | Sheet | Role |
 | --- | --- |
 | `Home` | Start page: what the workbook does, the steps of a run and a link to every sheet; the workbook opens on it |
-| `README` | In-workbook guide |
 | `Params` | Run parameters, supervisory-factor table, FX rates |
 | `NettingSets` · `Trades` | Inputs |
 | `Import_NettingSets` · `Import_Trades` | CSV staging: a file's records as text, to check and correct before they replace the inputs |
@@ -414,6 +413,7 @@ the exposure value (select it to open it full size):
 | `BankTrades` · `TradeReconciliation` | The same per trade leg, against TradeCalc |
 | `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
 | `Basel_vs_CRR` | The two regimes side by side |
+| `README` | In-workbook guide: conventions, methodology summary, worksheet functions and the reference card; the last tab |
 
 Results after a run of the demonstration portfolio: the run summary and
 stale-result indicator, RC and the add-ons per asset class, then the

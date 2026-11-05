@@ -103,6 +103,8 @@ Use only the categories needed by a release.
   to every sheet, grouped as on the Go to menu. The links are worksheet
   hyperlinks, so they work with macros disabled. Home is protected like
   README and holds no input. **Go to** and its Home entry now open it. The
+  README sheet moves to the last tab, after Basel_vs_CRR, so the tabs run
+  from Home through the inputs and outputs to the reference sheets. The
   defined names of the template keep their sheet scopes.
 
 - Put the K-SACCR Ribbon tab in the workbook (#214, #215). The template
