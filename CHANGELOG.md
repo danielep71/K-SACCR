@@ -454,6 +454,11 @@ Use only the categories needed by a release.
   macros protect an unprotected sheet again, lists `CORE_CsvReader`,
   `CORE_CsvSchema` and `CORE_ImportSpec`, and gives the CSV import steps.
   The import specification states that a number has no leading zero.
+- Retry the recalculation before a run, a staging validation and a commit
+  up to three times when Excel does not report it finished. An owner
+  certification run saw Excel report a completed `Calculate` as unfinished
+  and refuse two runs as if the user had interrupted them; only a
+  recalculation that never finishes now refuses the operation.
 
 ### Documentation
 
