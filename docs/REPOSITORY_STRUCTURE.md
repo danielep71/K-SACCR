@@ -92,7 +92,7 @@ Subdirectories are created with their first real file, never empty.
 | `src/core/` | Calculation engine: configuration, validation, parsing, aggregation, reconciliation, evidence encoding, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
 | `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers; reserved, none yet | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx`; also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, the macro-free template `SACCR_Template.xlsx` and the Ribbon source `customUI14.xml` ([contract](workbook/RIBBON.md)); also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
 | `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed; reserved, none yet | — |
 
 ### Wiki

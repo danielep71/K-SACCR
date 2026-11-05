@@ -95,6 +95,20 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- Define the workbook's SA-CCR Ribbon tab (#213):
+  `src/workbook/customUI14.xml` and its contract
+  `docs/workbook/RIBBON.md`. Six groups: Calculation (a Run split button
+  with Validate inputs and Clear outputs), CSV import, Evidence, Parameters,
+  Status (Results and both staging statuses) and Navigate (a Go to split
+  button reaching every sheet). The contract gives every control its ID,
+  label, tips, keytip, icon, callback and macro or sheet, and the enabled
+  states. `tools/test_ribbon_contract.py` checks that the source and the
+  contract agree, that every macro is a public `M_Main` procedure and that
+  every sheet has a Go to entry. The Ribbon is not yet in the template: its
+  embedding and callbacks follow (#214, #215).
+
 ### Changed
 
 - Name every recognised clearing-role code in the NettingSets header
