@@ -149,7 +149,7 @@ been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 | `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Unique netting-set ID, compared case-insensitively; referenced by every trade. | `NS-001` |
 | `counterparty` | Counterparty | text (<= 500 characters) | no |  | Descriptive counterparty name or identifier. | `CPTY-A` |
 | `margined` | Margined (Y/N) | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
-| `clearing_role` | Client clearing role (N / CM / CLIENT) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
+| `clearing_role` | Client clearing role (N / CM / CLIENT / CCP; MULTI rejected) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
 | `remargin_period_business_days` | Remargin frequency N (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
 | `large_or_illiquid` | >5,000 trades or illiquid collateral (Y/N) | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
 | `margin_disputes` | Margin disputes (Y/N) | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |

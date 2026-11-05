@@ -300,7 +300,7 @@ Attribute VB_Name = "CORE_Config"
     'deleted or moved, and the run stops (#35). The Params, factor and FX headers are
     'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Client clearing role (N / CM / CLIENT)|Remargin frequency N (BD)|" & _
+            "Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
