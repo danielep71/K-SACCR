@@ -3,7 +3,7 @@ Attribute VB_Name = "M_Ribbon"
 ' MODULE: M_Ribbon
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Answer the callbacks of the workbook's SA-CCR Ribbon tab (#213, #215):
+'   Answer the callbacks of the workbook's K-SACCR Ribbon tab (#213, #215):
 '   run the existing M_Main macro of a command, activate the sheet of a
 '   Go to entry, and give the state of the controls. The contract is
 '   docs/workbook/RIBBON.md; the RibbonX source is src/workbook/customUI14.xml.

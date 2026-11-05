@@ -36,7 +36,7 @@ class RibbonTemplateTests(unittest.TestCase):
 
     def test_stale_part_fails(self) -> None:
         source = self.folder / gate.SOURCE
-        source.write_bytes(source.read_bytes().replace(b'label="SA-CCR"', b'label="SA-CCR changed"'))
+        source.write_bytes(source.read_bytes().replace(b'label="K-SACCR"', b'label="K-SACCR changed"'))
         self.assertTrue(any("differs" in p for p in gate.problems(self.folder)))
 
     def test_missing_part_fails(self) -> None:
@@ -55,7 +55,7 @@ class RibbonTemplateTests(unittest.TestCase):
 
     def test_write_repairs_and_is_idempotent(self) -> None:
         source = self.folder / gate.SOURCE
-        source.write_bytes(source.read_bytes().replace(b'label="SA-CCR"', b'label="SA-CCR changed"'))
+        source.write_bytes(source.read_bytes().replace(b'label="K-SACCR"', b'label="K-SACCR changed"'))
         gate.write(self.folder)
         self.assertEqual(gate.problems(self.folder), [])
         first = (self.folder / gate.TEMPLATE).read_bytes()

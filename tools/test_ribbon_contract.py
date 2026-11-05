@@ -87,7 +87,7 @@ class RibbonContractTests(unittest.TestCase):
         self.assertEqual(self.root.tag, f"{{{NAMESPACE}}}customUI")
         self.assertEqual(self.root.get("onLoad"), "RibbonOnLoad")
         tabs = [element for element in self.root.iter() if local(element.tag) == "tab"]
-        self.assertEqual([(tab.get("id"), tab.get("label")) for tab in tabs], [("ksTab", "SA-CCR")])
+        self.assertEqual([(tab.get("id"), tab.get("label")) for tab in tabs], [("ksTab", "K-SACCR")])
 
     def test_ids_are_unique_and_prefixed(self) -> None:
         ids = [element.get("id") for element in self.root.iter() if element.get("id")]

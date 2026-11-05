@@ -1,6 +1,6 @@
 # Ribbon
 
-The workbook carries its own **SA-CCR** Ribbon tab (#213). The tab holds
+The workbook carries its own **K-SACCR** Ribbon tab (#213). The tab holds
 every command, the status of the results and of both staging sheets, and a
 way to reach every sheet. This document is the contract. The RibbonX source
 that implements it is [`src/workbook/customUI14.xml`](../../src/workbook/customUI14.xml),

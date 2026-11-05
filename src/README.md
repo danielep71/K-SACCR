@@ -31,7 +31,7 @@ Current source:
   automation entry points and status functions, and the reading and writing
   of the reconciliation sheets, the staging sheets (`Import_NettingSets`,
   `Import_Trades`) and the evidence file;
-- `workbook/M_Ribbon.bas`: the callbacks of the SA-CCR Ribbon tab, which
+- `workbook/M_Ribbon.bas`: the callbacks of the K-SACCR Ribbon tab, which
   call the `M_Main` macros and read the status cells
   ([contract](../docs/workbook/RIBBON.md));
 - `workbook/customUI14.xml`: the Ribbon source, which the template carries

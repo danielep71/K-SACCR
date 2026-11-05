@@ -97,7 +97,7 @@ Use only the categories needed by a release.
 
 ### Added
 
-- Put the SA-CCR Ribbon tab in the workbook (#214, #215). The template
+- Put the K-SACCR Ribbon tab in the workbook (#214, #215). The template
   carries `src/workbook/customUI14.xml` as its `customUI/customUI14.xml`
   part, which the build's `SaveAs .xlsm` keeps, so every built workbook has
   the tab; `tools/ribbon_template.py --write` embeds it and the
@@ -111,7 +111,7 @@ Use only the categories needed by a release.
   configurations of `tools/vba-projects.json` list `M_Ribbon` and the
   Ribbon, so the call checker resolves every callback.
 
-- Define the workbook's SA-CCR Ribbon tab (#213):
+- Define the workbook's K-SACCR Ribbon tab (#213):
   `src/workbook/customUI14.xml` and its contract
   `docs/workbook/RIBBON.md`. Six groups: Calculation (a Run split button
   with Validate inputs and Clear outputs), CSV import, Evidence, Parameters,
