@@ -159,6 +159,10 @@ Attribute VB_Name = "M_Main"
         Private Const OP_VALIDATE   As Long = 2    'Validate only
         Private Const OP_CLEAR      As Long = 3    'Clear every output sheet
 
+    'Recalculations tried before an operation is refused because Excel did
+    'not report it finished.
+        Private Const RECALC_ATTEMPTS As Long = 3
+
     'Title of every message box: the project name.
         Private Const MSG_TITLE     As String = "K-SACCR"
 
@@ -5062,14 +5066,31 @@ Private Function InputsRecalculated() As Boolean
 '
 ' RETURNS
 '   True when Excel finished recalculating; False when it did not, for
-'   example after Esc.
+'   example after Esc. Excel can report the calculation unfinished just
+'   after Calculate returns, also with nothing left to interrupt it: an
+'   owner certification run of 2026-11-05 refused two runs this way. So
+'   Calculate is tried up to RECALC_ATTEMPTS times, and only a
+'   recalculation that never reports done returns False.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-05
 '==============================================================================
 '
-        Application.Calculate
-        InputsRecalculated = (Application.CalculationState = xlDone)
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Attempt     As Long    'Recalculations tried
+
+'------------------------------------------------------------------------------
+' RECALCULATE
+'------------------------------------------------------------------------------
+        For Attempt = 1 To RECALC_ATTEMPTS
+            Application.Calculate
+            If Application.CalculationState = xlDone Then
+                InputsRecalculated = True
+                Exit Function
+            End If
+        Next Attempt
 
 End Function
 
@@ -6662,7 +6683,7 @@ Private Function ExecuteOperation( _
 '   with it, or on its own when the operation succeeded.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-05
 '==============================================================================
 '
 
@@ -6742,8 +6763,7 @@ Private Function ExecuteOperation( _
             If gTestFault = "recalc-error" Then
                 Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected recalculation failure."
             End If
-            Application.Calculate
-            If Application.CalculationState <> xlDone Or gTestFault = "recalc" Then
+            If Not InputsRecalculated() Or gTestFault = "recalc" Then
                 Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
                           "Excel did not finish recalculating the inputs, so the operation was not started " & _
                           "and the previous results are no longer reported as current."
