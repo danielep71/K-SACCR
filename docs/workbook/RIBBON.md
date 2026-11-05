@@ -1,6 +1,6 @@
 # Ribbon
 
-The workbook carries its own **SA-CCR** Ribbon tab (#213). The tab holds
+The workbook carries its own **K-SACCR** Ribbon tab (#213). The tab holds
 every command, the status of the results and of both staging sheets, and a
 way to reach every sheet. This document is the contract. The RibbonX source
 that implements it is [`src/workbook/customUI14.xml`](../../src/workbook/customUI14.xml),
@@ -21,10 +21,11 @@ the user. They never replace those gates.
   read. Icons are built-in Office icons (`imageMso`), so the workbook ships no
   image file.
 - **Packaging:** the macro-free template carries the source as its
-  `customUI/customUI14.xml` part. The build's `SaveAs .xlsm` keeps it, and
-  so do ordinary saves; the owner's spike of 2026-11-05 checked both in
-  Excel. Embedding the part and the gate that compares it with this source
-  are #214.
+  `customUI/customUI14.xml` part (#214). The build's `SaveAs .xlsm` keeps
+  it, and so do ordinary saves; the owner's spike of 2026-11-05 checked
+  both in Excel. `tools/ribbon_template.py --write` embeds the source, and
+  the `ribbon-template` gate of `tools/check.py` fails when the template's
+  part differs from it.
 - **Which workbook:** a tab embedded in a workbook shows only while that
   workbook is active, and its callbacks run in that workbook's VBA project.
   Every callback acts on `ThisWorkbook`, so another open workbook is never
@@ -136,12 +137,16 @@ refresh; until then every command is enabled.
 
 The labels and enabled states are refreshed at the end of every operation,
 on a staging edit, when a sheet or the workbook is activated, and after a
-VBA state reset (#216).
+VBA state reset (#216). Until then a command run from the Ribbon refreshes
+them once Excel is idle (`Application.OnTime`), so that the labels read Results
+C5 after its recalculation, and only while the session holds the Ribbon object, which Excel
+passes to `RibbonOnLoad` when it loads the tab. `?M_Ribbon.RibbonLoaded()`
+in the Immediate window tells whether it does.
 
 ## 🔌 Callbacks
 
-All callbacks live in one standard module, `M_Ribbon` (#215, #216, #329),
-with the signatures Office requires:
+All callbacks live in one standard module, `src/workbook/M_Ribbon.bas`
+(#215, #216, #329), with the signatures Office requires:
 
 ```vb
 Public Sub RibbonOnLoad(ByVal Ribbon As IRibbonUI)
@@ -154,5 +159,9 @@ Public Sub RibbonGetLabel(ByVal Control As IRibbonControl, ByRef ReturnedVal)
 `IRibbonUI` and `IRibbonControl` come from the Microsoft Office Object
 Library, already one of the workbook's four references. The control-to-macro
 and control-to-sheet maps are pure functions, so that tests can check them
-against this contract; `IRibbonControl` cannot be created from VBA. An
-unknown control ID raises an error and runs nothing.
+against this contract; `IRibbonControl` cannot be created from VBA. No
+callback raises to Excel: a control with no command, or a command whose
+macro the workbook does not have yet, is reported in a message box and runs
+nothing. Until #357 delivers `RestoreRegulatoryParameters`, **Restore
+parameters** says the command is not available yet; until #330 adds Home,
+**Go to** says the workbook has no sheet for that entry.

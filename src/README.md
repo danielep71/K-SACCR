@@ -31,6 +31,11 @@ Current source:
   automation entry points and status functions, and the reading and writing
   of the reconciliation sheets, the staging sheets (`Import_NettingSets`,
   `Import_Trades`) and the evidence file;
+- `workbook/M_Ribbon.bas`: the callbacks of the K-SACCR Ribbon tab, which
+  call the `M_Main` macros and read the status cells
+  ([contract](../docs/workbook/RIBBON.md));
+- `workbook/customUI14.xml`: the Ribbon source, which the template carries
+  as its `customUI/customUI14.xml` part (`tools/ribbon_template.py`);
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
   modules, which hold only `Option Explicit`, but for the change handlers of
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
@@ -39,8 +44,8 @@ Current source:
   Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
   TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,
   TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR) with their
-  formulas, named ranges, data validation and buttons, and no VBA project or
-  document properties.
+  formulas, named ranges, data validation, buttons and the Ribbon part, and no
+  VBA project or document properties.
 
 The engine does not yet follow every rule of the layout: `CORE_Engine` and
 `CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a
