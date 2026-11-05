@@ -95,6 +95,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Changed
+
+- Set `release/1.2.0` as the active development branch and the target for
+  Dependabot updates; `release/1.1.0` is closed and takes no new work.
+
 ### Documentation
 
 - The website's download buttons, checksum link, status line, certification

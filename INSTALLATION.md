@@ -160,7 +160,7 @@ Use a **Git clone**:
 ```sh
 git clone https://github.com/danielep71/K-SACCR.git
 cd K-SACCR
-git switch release/1.1.0
+git switch release/1.2.0
 ```
 
 The branch to switch to is the
