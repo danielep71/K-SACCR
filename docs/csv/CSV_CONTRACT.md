@@ -183,7 +183,7 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `option_type` | Option type | code: `Call`, `Put` | no |  | Call or Put; required by the engine for an option. |  |
 | `nature` | Nature | code: `Standard`, `Basis`, `Volatility` | no | Standard | Hedging-set nature. | `Standard` |
 | `hedging_set_label` | Basis / vol hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
-| `notional_amount` | Notional | number (> 0) | yes |  | Unscaled notional of this leg. | `10000000` |
+| `notional_amount` | Notional | number (>= 0) | yes |  | Unscaled notional of this leg. | `10000000` |
 | `notional_currency` | Notional ccy | currency | no | the reporting currency | Currency of the notional. | `EUR` |
 | `market_value_amount` | MtM | number | yes |  | Mark-to-market of the leg; in an economic trade, only its MtM leg carries a value. | `250000` |
 | `market_value_currency` | MtM ccy | currency | no | the notional currency | Currency of the MtM. |  |

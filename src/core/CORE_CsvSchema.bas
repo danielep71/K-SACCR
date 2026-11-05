@@ -151,7 +151,7 @@ Public Function CsvSpecOf( _
                 SetColumn Columns(8), "option_type", "code", False, "Call|Put", False, 0, False, 0, False, 0
                 SetColumn Columns(9), "nature", "code", False, "Standard|Basis|Volatility", False, 0, False, 0, False, 0
                 SetColumn Columns(10), "hedging_set_label", "id", False, "", False, 0, False, 0, False, 0
-                SetColumn Columns(11), "notional_amount", "number", True, "", False, 0, True, 0, False, 0
+                SetColumn Columns(11), "notional_amount", "number", True, "", True, 0, False, 0, False, 0
                 SetColumn Columns(12), "notional_currency", "currency", False, "", False, 0, False, 0, False, 0
                 SetColumn Columns(13), "market_value_amount", "number", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(14), "market_value_currency", "currency", False, "", False, 0, False, 0, False, 0

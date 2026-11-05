@@ -337,7 +337,7 @@ Private Sub AppendPart4( _
         Page = Page & "Standard</td><td><code>Standard</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">10</td><td><code>hedging_set_label</code></td><td>Basis / vol hedging-set label</td><td>Label of a basis or volatility hedging set; required by the engine for those.</td><td>id (at"
         Page = Page & " most 64 characters)</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
-        Page = Page & "<tr><td class=""num"">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&gt; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code><"
+        Page = Page & "<tr><td class=""num"">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&ge; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code><"
         Page = Page & "/td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">12</td><td><code>notional_currency</code></td><td>Notional ccy</td><td>Currency of the notional.</td><td>currency</td><td>no</td><td>three capital letters, such as <code>EUR</code>"
         Page = Page & "</td><td>the reporting currency</td><td><code>EUR</code></td></tr>" & vbLf

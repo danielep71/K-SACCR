@@ -535,12 +535,6 @@
       "findings": [
         [
           "CSV-RANGE",
-          2,
-          1,
-          "notional_amount"
-        ],
-        [
-          "CSV-RANGE",
           3,
           2,
           "notional_amount"
