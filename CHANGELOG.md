@@ -131,6 +131,10 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Say in the README that K-SACCR is part of a broader framework, K-Risk
+  Engines, with a link to its website, near the title and in *Where K-SACCR
+  belongs* (#555).
+
 - Describe an unlisted multi-name credit position as not supported in the
   methodology (#580). The support matrix and the list of unsupported rules
   told the user to enter the credit quality step of the weighted factor or a

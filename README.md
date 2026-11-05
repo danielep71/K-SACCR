@@ -32,6 +32,8 @@
 
 **No add-in · No external reference · No DLL · No installer · Reviewable source for every calculation**
 
+Part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Risk-Engines/)
+
 [Project website](https://danielep71.github.io/K-SACCR/)
 &nbsp;·&nbsp;
 [Quick start](#quick-start)
@@ -113,7 +115,8 @@ including the trade exposures to CCPs (v1.0.2). The other parts of the
 framework are outside K-SACCR and not supported: the exposure of securities
 financing transactions, risk-weighted assets and capital, default-fund
 contributions to CCPs with the cap of Art. 303(2), and CVA risk. The
-[roadmap](#roadmap) keeps K-SACCR to the derivatives exposure.
+[roadmap](#roadmap) keeps K-SACCR to the derivatives exposure. K-SACCR is
+part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Risk-Engines/).
 
 <p align="center">
   <a href="docs/assets/CCR_framework.svg">
