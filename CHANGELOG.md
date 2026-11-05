@@ -97,6 +97,23 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Name every recognised clearing-role code in the NettingSets header
+  (#560): "Client clearing role (N / CM / CLIENT)" becomes "Client clearing
+  role (N / CM / CLIENT / CCP; MULTI rejected)", so the header shows `CCP`,
+  supported since 1.0.2, and says that `MULTI` is recognised only to reject
+  the netting set. `NS_HEADERS`, the template's NettingSets and
+  Import_NettingSets headers, the CSV contract's `sheet_header`, its field
+  table and the import specification change together; the CSV column
+  `clearing_role` and the contract version do not. The two header cells use
+  an 8-point font so the longer text fits the unchanged row and column. The
+  input fingerprint covers the headers, so it changes for the same inputs:
+  the demonstration portfolio gives `inputs=119D94E2` (INSTALLATION). Upgrade: a run
+  compares the input headers, so a workbook built from an earlier template
+  stops at NettingSets F6 with the VBA of this version. Build a new
+  workbook from the current template and move the inputs into it, or,
+  in a copy, unprotect NettingSets and Import_NettingSets and type the new
+  header in NettingSets F6 and Import_NettingSets G9.
+
 - Accept a zero notional on every path (#561). The engine already accepted
   it, but the CSV contract rejected it (`CSV-RANGE`) and the Trades
   validation required a number above zero, so the same leg could be typed

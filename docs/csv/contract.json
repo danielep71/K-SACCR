@@ -41,7 +41,7 @@
          "description": "Descriptive counterparty name or identifier.", "example": "CPTY-A"},
         {"name": "margined", "sheet_header": "Margined (Y/N)", "type": "flag", "required": false,
          "blank": "N", "description": "Y for a supported margin agreement.", "example": "Y"},
-        {"name": "clearing_role", "sheet_header": "Client clearing role (N / CM / CLIENT)", "type": "code",
+        {"name": "clearing_role", "sheet_header": "Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)", "type": "code",
          "allowed": ["N", "CM", "CLIENT", "CCP", "MULTI"], "required": false, "blank": "N",
          "description": "Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine.",
          "example": "CM"},
