@@ -3964,7 +3964,7 @@ Private Sub ReadTradeAmounts( _
     'Both amounts are converted to the reporting currency.
         If IsNum(InputBlock(DataRow, TR_NOTIONAL)) Then
             Trade.notional = CDbl(InputBlock(DataRow, TR_NOTIONAL))
-            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must be positive (use Direction for the sign)"
+            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must not be negative (use Direction for the sign)"
         ElseIf IsBlankCell(InputBlock(DataRow, TR_NOTIONAL)) And Not IsError(InputBlock(DataRow, TR_NOTIONAL)) Then
             AddErr Trade.ok, Trade.msg, "notional missing"
         Else

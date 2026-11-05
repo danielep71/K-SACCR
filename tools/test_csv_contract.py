@@ -174,7 +174,9 @@ class FieldTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertEqual(self.check_trade("notional_amount", value), ["CSV-TYPE"])
         self.assertEqual(self.check_trade("market_value_amount", "-250000.75"), [])
-        self.assertEqual(self.check_trade("notional_amount", "0"), ["CSV-RANGE"])
+        # A zero notional is accepted, as the engine accepts it; a negative one is not (#561).
+        self.assertEqual(self.check_trade("notional_amount", "0"), [])
+        self.assertEqual(self.check_trade("notional_amount", "-1"), ["CSV-RANGE"])
         for value in ("1e9999", "-1e309", "1e-9999", "1e308"):
             with self.subTest(value=value):
                 self.assertIn(self.check_trade("market_value_amount", value), (["CSV-RANGE"],))

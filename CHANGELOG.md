@@ -97,6 +97,20 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Accept a zero notional on every path (#561). The engine already accepted
+  it, but the CSV contract rejected it (`CSV-RANGE`) and the Trades
+  validation required a number above zero, so the same leg could be typed
+  but not imported. A zero notional is now valid on the sheet (its
+  validation and the column description say "zero or more"), in the
+  engine, in the CSV contract, the reference validator and the import
+  specification: the leg adds nothing to the add-on and its MtM still
+  counts in V (CRR Art. 275(1); CRE52.10). A negative notional stays
+  rejected, and the engine now says "notional must not be negative".
+  `TEST_InputValidation` gains two cases, for a zero and a negative
+  notional (179 cases, 314 checks); the CSV bounds case and the invalid
+  Trades fixture now test a negative notional. The CSV contract stays
+  version 1: its columns are unchanged.
+
 - Set `release/1.2.0` as the active development branch and the target for
   Dependabot updates; `release/1.1.0` is closed and takes no new work.
 
