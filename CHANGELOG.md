@@ -125,6 +125,17 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Remove the calculation and export buttons from the sheets now that the
+  K-SACCR Ribbon tab carries every command (#217): Run SA-CCR, Validate
+  inputs and Clear outputs on Trades, Results and TestCatalogue, Export CSV
+  template on NettingSets and Trades, and Export evidence on Reconciliation,
+  12 buttons with their drawings and control parts. The 8 buttons of
+  Import_NettingSets and Import_Trades stay, next to the rows they act on.
+  The README sheet and the sheet notes, the reconciliation status texts,
+  README, INSTALLATION, RELEASING, the CSV contract and the Ribbon contract
+  point to the Ribbon. The macros and their silent entry points are
+  unchanged.
+
 - Name every recognised clearing-role code in the NettingSets header
   (#560): "Client clearing role (N / CM / CLIENT)" becomes "Client clearing
   role (N / CM / CLIENT / CCP; MULTI rejected)", so the header shows `CCP`,

@@ -200,8 +200,8 @@ from the release page:
    [`INSTALLATION.md`](INSTALLATION.md#released-workbook) describes.
 2. Open it and enable macros. **Data → Edit Links** lists no external links,
    and **Formulas → Name Manager** shows no name with a `#REF!` reference.
-3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** with the sheet
-   buttons, then **Run SA-CCR** again. Save, close and reopen it: Results C5
+3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** from the K-SACCR
+   Ribbon tab, then **Run SA-CCR** again. Save, close and reopen it: Results C5
    reads current.
 4. **Export evidence**: the file is written. Unprotect Results (**Review →
    Unprotect Sheet**, a deliberate maintenance unlock on this copy), change an

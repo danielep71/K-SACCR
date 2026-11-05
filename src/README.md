@@ -27,7 +27,7 @@ Current source:
 - `core/CORE_Util.bas`: value conversions, keyed lookups and sheet helpers;
 - `modules/SACCR_Formulas.bas`: the public `SACCR_*` worksheet functions,
   listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
-- `workbook/M_Main.bas`: the sheet-button macros, the CSV check macros, the
+- `workbook/M_Main.bas`: the command macros, the CSV check macros, the
   automation entry points and status functions, and the reading and writing
   of the reconciliation sheets, the staging sheets (`Import_NettingSets`,
   `Import_Trades`) and the evidence file;
@@ -49,7 +49,8 @@ Current source:
 
 The engine does not yet follow every rule of the layout: `CORE_Engine` and
 `CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a
-standard module kept with the workbook glue because the sheet buttons call it.
+standard module kept with the workbook glue because the Ribbon and the
+staging-sheet buttons call it.
 See [known deviations](../docs/REPOSITORY_STRUCTURE.md#known-deviations).
 
 Do not place tests, examples, built workbooks or generated output here.
