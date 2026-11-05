@@ -401,6 +401,7 @@ the exposure value (select it to open it full size):
 
 | Sheet | Role |
 | --- | --- |
+| `Home` | Start page: what the workbook does, the steps of a run and a link to every sheet; the workbook opens on it |
 | `README` | In-workbook guide |
 | `Params` | Run parameters, supervisory-factor table, FX rates |
 | `NettingSets` · `Trades` | Inputs |

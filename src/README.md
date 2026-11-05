@@ -40,7 +40,7 @@ Current source:
   modules, which hold only `Option Explicit`, but for the change handlers of
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
   edited, and their activation handlers, which refresh its status (#210);
-- `workbook/SACCR_Template.xlsx`: the 18 sheets (README, Params, NettingSets,
+- `workbook/SACCR_Template.xlsx`: the 19 sheets (Home, README, Params, NettingSets,
   Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
   TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,
   TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR) with their

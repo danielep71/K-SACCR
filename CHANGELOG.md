@@ -97,6 +97,14 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add a Home sheet, the first sheet of the workbook, which it opens on
+  (#330). Home says what K-SACCR calculates and what it does not cover,
+  lists the six steps of a run with the Ribbon commands they use, and links
+  to every sheet, grouped as on the Go to menu. The links are worksheet
+  hyperlinks, so they work with macros disabled. Home is protected like
+  README and holds no input. **Go to** and its Home entry now open it. The
+  defined names of the template keep their sheet scopes.
+
 - Put the K-SACCR Ribbon tab in the workbook (#214, #215). The template
   carries `src/workbook/customUI14.xml` as its `customUI/customUI14.xml`
   part, which the build's `SaveAs .xlsm` keeps, so every built workbook has

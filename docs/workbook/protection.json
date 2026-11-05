@@ -2,6 +2,7 @@
   "description": "Editability matrix of the workbook template (#420): the cells a user may change in normal use, and what else each protected sheet allows (sorting, filtering where the template has an AutoFilter, inserting rows, opening and closing row groups). Every other cell is locked. tools/check_workbook_protection.py checks the template and the PROTECT_ constants of CORE_Config against it.",
   "schema_version": 1,
   "sheets": {
+    "Home": {"role": "Instructions"},
     "README": {"role": "Instructions", "allow": ["outlining"]},
     "Params": {
       "role": "Run configuration and reference regulatory parameters",
