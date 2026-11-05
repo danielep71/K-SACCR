@@ -17,7 +17,9 @@ Attribute VB_Name = "M_Ribbon"
 '   RibbonGetLabel: the text of a Status label, read from a status cell.
 '   RibbonMacro, RibbonSheet and ResultsLabelFor: the pure maps behind
 '   them, for tests: IRibbonControl cannot be created from VBA.
-'   RefreshRibbon: refresh the tab after an operation.
+'   RefreshRibbon: refresh the tab after an operation. RibbonLoaded:
+'   whether Excel passed the Ribbon object, from the Immediate window or
+'   a test (?M_Ribbon.RibbonLoaded()).
 '   The callbacks have the signatures Office requires and are called by
 '   Excel by name. Like the M_Main macros, they are a host-only surface and
 '   are not listed in docs/PUBLIC_API.txt, which lists src/modules only.
@@ -421,6 +423,24 @@ Public Sub RefreshRibbon()
         On Error GoTo 0
 
 End Sub
+
+Public Function RibbonLoaded() As Boolean
+'
+'==============================================================================
+'                                RibbonLoaded
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether this session holds the Ribbon object, so that RefreshRibbon can
+'   refresh the tab. False when Excel loaded the tab before macros were
+'   enabled, or after a VBA state reset.
+'
+' UPDATED
+'   2026-11-05
+'==============================================================================
+'
+        RibbonLoaded = Not mRibbon Is Nothing
+
+End Function
 
 '------------------------------------------------------------------------------
 ' PRIVATE PROCEDURES
