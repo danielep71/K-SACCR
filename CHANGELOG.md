@@ -102,6 +102,14 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe an unlisted multi-name credit position as not supported in the
+  methodology (#580). The support matrix and the list of unsupported rules
+  told the user to enter the credit quality step of the weighted factor or a
+  quoted index, which gives the wrong factor or the single-name correlation;
+  they now agree with the Basel_vs_CRR sheet: a basket is not relabelled or
+  rounded, and a factor-table row added after a maintenance unlock gives a
+  `WHAT-IF` run.
+
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.1.0, now published.
 
