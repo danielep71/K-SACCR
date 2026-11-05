@@ -53,7 +53,7 @@ docs/               contracts, architecture, governance, evidence record
 src/                production VBA source: the only input to the workbook
   core/             calculation engine (internal)
   modules/          public worksheet functions
-  workbook/         template, M_Main and the document modules
+  workbook/         template, Ribbon source, M_Main, M_Ribbon and the document modules
 tests/              verification source and test data
   modules/          harness, case runner, suites and Test_RunAll
   fixtures/         synthetic case inputs
@@ -161,8 +161,8 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets |
-| Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
+| Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
 | `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec` and `CORE_Util` directly |

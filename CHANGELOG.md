@@ -97,6 +97,20 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Put the SA-CCR Ribbon tab in the workbook (#214, #215). The template
+  carries `src/workbook/customUI14.xml` as its `customUI/customUI14.xml`
+  part, which the build's `SaveAs .xlsm` keeps, so every built workbook has
+  the tab; `tools/ribbon_template.py --write` embeds it and the
+  `ribbon-template` gate checks it. The new standard module `M_Ribbon`
+  answers the callbacks: `RibbonAction` runs the `M_Main` macro of a
+  command, `RibbonGoTo` opens a sheet by its CodeName, `RibbonGetLabel`
+  reads Results C5 and the staging status cells, and `RibbonGetEnabled`
+  enables every command until #216. Its pure maps `RibbonMacro` and
+  `RibbonSheet` are checked against the contract. Restore parameters and
+  Go to Home say they are not available until #357 and #330. Both VBA
+  configurations of `tools/vba-projects.json` list `M_Ribbon` and the
+  Ribbon, so the call checker resolves every callback.
+
 - Define the workbook's SA-CCR Ribbon tab (#213):
   `src/workbook/customUI14.xml` and its contract
   `docs/workbook/RIBBON.md`. Six groups: Calculation (a Run split button

@@ -17,6 +17,7 @@ RIBBON = ROOT / "src" / "workbook" / "customUI14.xml"
 CONTRACT = ROOT / "docs" / "workbook" / "RIBBON.md"
 M_MAIN = ROOT / "src" / "workbook" / "M_Main.bas"
 MANIFEST = ROOT / "tools" / "vba-projects.json"
+M_RIBBON = ROOT / "src" / "workbook" / "M_Ribbon.bas"
 
 NAMESPACE = "http://schemas.microsoft.com/office/2009/07/customui"
 CALLBACKS = {"RibbonOnLoad", "RibbonAction", "RibbonGoTo", "RibbonGetEnabled", "RibbonGetLabel"}
@@ -50,6 +51,25 @@ def contract_table(heading: str) -> list[list[str]]:
     body = next(part for part in section if part.split("\n", 1)[0].strip().endswith(heading))
     rows = [line for line in body.splitlines() if line.startswith("|")]
     return [[cell.strip() for cell in row.strip("|").split("|")] for row in rows[2:]]
+
+
+def vba_map(function: str) -> dict[str, str]:
+    """The Select Case map of a pure M_Ribbon function: control ID to the string it returns."""
+    text = M_RIBBON.read_text(encoding="cp1252").replace("\r\n", "\n")
+    body = re.search(rf"^Public Function {function}\(.*?^End Function", text, flags=re.M | re.S)
+    if not body:
+        raise AssertionError(f"M_Ribbon has no function {function}")
+    mapping: dict[str, str] = {}
+    cases: list[str] = []
+    for line in body.group(0).splitlines():
+        case = re.match(r'\s*Case ("[^"]+"(?:\s*,\s*"[^"]+")*)\s*$', line)
+        result = re.match(rf'\s*{function} = "([^"]*)"', line)
+        if case:
+            cases = re.findall(r'"([^"]+)"', case.group(1))
+        elif result and cases:
+            mapping.update({control_id: result.group(1) for control_id in cases})
+            cases = []
+    return mapping
 
 
 def code(cell: str) -> str:
@@ -113,6 +133,18 @@ class RibbonContractTests(unittest.TestCase):
             with self.subTest(sheet=sheet):
                 self.assertTrue(sheet in sheets or sheet in PLANNED_SHEETS, f"{sheet} is not a sheet of the template")
         self.assertEqual(sheets - targets, set(), "every sheet needs a Go to entry")
+
+    def test_vba_command_map_matches_contract(self) -> None:
+        documented = {code(row[0]): code(row[3]) for row in contract_table("Commands")}
+        self.assertEqual(vba_map("RibbonMacro"), documented)
+        text = M_RIBBON.read_text(encoding="cp1252")
+        dispatched = set(re.findall(r"^\s*M_Main\.(\w+)\s*$", text, flags=re.M))
+        self.assertEqual(dispatched, set(documented.values()) - set(PLANNED_MACROS),
+                         "RibbonAction must call every mapped macro, and only those")
+
+    def test_vba_sheet_map_matches_contract(self) -> None:
+        documented = {code(row[1]): code(row[3]) for row in contract_table("Navigation")}
+        self.assertEqual(vba_map("RibbonSheet"), documented)
 
     def test_status_matches_contract(self) -> None:
         documented = {code(row[0]) for row in contract_table("Status")}
