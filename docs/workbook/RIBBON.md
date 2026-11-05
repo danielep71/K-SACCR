@@ -44,7 +44,7 @@ the user. They never replace those gates.
 | Evidence | **Export evidence** |
 | Parameters | **Restore parameters**, which restores the regulatory parameters (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
-| Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections (#329) |
+| Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) |
 
 Labels on the large buttons are short, so that they wrap cleanly; the full
 name is in the screentip. The tab's keytip is `KS`, so **Alt, K, S** opens it.
@@ -84,7 +84,6 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | --- | --- | --- | --- |
 | — | `ksGo` | Go to | `shHome` |
 | Start | `ksGoHome` | Home | `shHome` |
-| Start | `ksGoReadme` | README | `shReadme` |
 | Inputs | `ksGoParams` | Params | `shParams` |
 | Inputs | `ksGoNettingSets` | NettingSets | `shNettingSets` |
 | Inputs | `ksGoTrades` | Trades | `shTrades` |
@@ -102,6 +101,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Reference and tests | `ksGoTestCatalogue` | TestCatalogue | `shTestCatalogue` |
 | Reference and tests | `ksGoFormulaTest` | FormulaTest | `shTests` |
 | Reference and tests | `ksGoBaselVsCRR` | Basel_vs_CRR | `shBaselVsCRR` |
+| Reference and tests | `ksGoReadme` | README | `shReadme` |
 
 `shHome` is the Home sheet (#330), the first sheet of the workbook. `RibbonGoTo` reports a target sheet the
 workbook does not have and changes nothing, so an entry can never act on

@@ -103,7 +103,6 @@
             <menu id="ksGoMenu" itemSize="normal">
               <menuSeparator id="ksGoSepStart" title="Start"/>
               <button id="ksGoHome" label="Home" onAction="RibbonGoTo" supertip="The starting page: scope, workflow and links."/>
-              <button id="ksGoReadme" label="README" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
               <menuSeparator id="ksGoSepInputs" title="Inputs"/>
               <button id="ksGoParams" label="Params" onAction="RibbonGoTo" supertip="Reporting date, currency, regime, reference parameters and FX rates."/>
               <button id="ksGoNettingSets" label="NettingSets" onAction="RibbonGoTo" supertip="One row per netting set."/>
@@ -126,6 +125,7 @@
               <button id="ksGoTestCatalogue" label="TestCatalogue" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
               <button id="ksGoFormulaTest" label="FormulaTest" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>
               <button id="ksGoBaselVsCRR" label="Basel_vs_CRR" onAction="RibbonGoTo" supertip="CRE52 and the CRR compared, with the workbook treatment."/>
+              <button id="ksGoReadme" label="README" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
             </menu>
           </splitButton>
         </group>
