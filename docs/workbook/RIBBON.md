@@ -138,7 +138,8 @@ refresh; until then every command is enabled.
 The labels and enabled states are refreshed at the end of every operation,
 on a staging edit, when a sheet or the workbook is activated, and after a
 VBA state reset (#216). Until then a command run from the Ribbon refreshes
-them, and only while the session holds the Ribbon object, which Excel
+them once Excel is idle (`Application.OnTime`), so that the labels read Results
+C5 after its recalculation, and only while the session holds the Ribbon object, which Excel
 passes to `RibbonOnLoad` when it loads the tab. `?M_Ribbon.RibbonLoaded()`
 in the Immediate window tells whether it does.
 

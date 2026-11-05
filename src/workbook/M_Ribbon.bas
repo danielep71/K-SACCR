@@ -17,7 +17,8 @@ Attribute VB_Name = "M_Ribbon"
 '   RibbonGetLabel: the text of a Status label, read from a status cell.
 '   RibbonMacro, RibbonSheet and ResultsLabelFor: the pure maps behind
 '   them, for tests: IRibbonControl cannot be created from VBA.
-'   RefreshRibbon: refresh the tab after an operation. RibbonLoaded:
+'   RefreshRibbon: refresh the tab; ScheduleRefresh: refresh it once Excel
+'   is idle, after an operation and its recalculation. RibbonLoaded:
 '   whether Excel passed the Ribbon object, from the Immediate window or
 '   a test (?M_Ribbon.RibbonLoaded()).
 '   The callbacks have the signatures Office requires and are called by
@@ -101,7 +102,7 @@ Public Sub RibbonAction( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the M_Main macro mapped to a command control (RibbonMacro), then
-'   refresh the tab so that the Status labels follow.
+'   schedule a refresh of the tab so that the Status labels follow.
 '
 ' ERROR POLICY
 '   The macros report their own outcome and never raise. An unknown control
@@ -145,7 +146,7 @@ Public Sub RibbonAction( _
                 'Mapped, but delivered by a later change (RestoreRegulatoryParameters, #357).
                 MsgBox "This command is not available in this workbook yet.", vbInformation, MSG_TITLE
         End Select
-        RefreshRibbon
+        ScheduleRefresh
         Exit Sub
 
 Failed:
@@ -423,6 +424,36 @@ Public Sub RefreshRibbon()
         On Error GoTo 0
 
 End Sub
+
+Public Sub ScheduleRefresh()
+'
+'==============================================================================
+'                               ScheduleRefresh
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Refresh the tab once Excel is idle. Excel asks for the labels as soon as
+'   the tab is invalidated; inside an operation, before Excel has
+'   recalculated the status formula in Results C5, the labels would show
+'   the state before the operation. Application.OnTime runs RefreshRibbon
+'   of this workbook when the operation and its recalculation are over.
+'
+' ERROR POLICY
+'   Never raises; if the refresh cannot be scheduled, the tab is refreshed
+'   at once.
+'
+' UPDATED
+'   2026-11-05
+'==============================================================================
+'
+        On Error GoTo Immediate
+        Application.OnTime Now, "'" & ThisWorkbook.Name & "'!M_Ribbon.RefreshRibbon"
+        Exit Sub
+
+Immediate:
+        RefreshRibbon
+
+End Sub
+
 
 Public Function RibbonLoaded() As Boolean
 '
