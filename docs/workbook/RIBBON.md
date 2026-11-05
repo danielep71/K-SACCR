@@ -103,7 +103,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Reference and tests | `ksGoFormulaTest` | FormulaTest | `shTests` |
 | Reference and tests | `ksGoBaselVsCRR` | Basel_vs_CRR | `shBaselVsCRR` |
 
-`shHome` is the Home sheet of #330. `RibbonGoTo` reports a target sheet the
+`shHome` is the Home sheet (#330), the first sheet of the workbook. `RibbonGoTo` reports a target sheet the
 workbook does not have and changes nothing, so an entry can never act on
 another sheet or workbook.
 
@@ -164,5 +164,4 @@ against this contract; `IRibbonControl` cannot be created from VBA. No
 callback raises to Excel: a control with no command, or a command whose
 macro the workbook does not have yet, is reported in a message box and runs
 nothing. Until #357 delivers `RestoreRegulatoryParameters`, **Restore
-parameters** says the command is not available yet; until #330 adds Home,
-**Go to** says the workbook has no sheet for that entry.
+parameters** says the command is not available yet.
