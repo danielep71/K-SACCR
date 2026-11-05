@@ -27,9 +27,9 @@ column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, the **Export CSV template** button on `Trades` and on
-`NettingSets` writes the same file, byte for byte, to a file the user
-chooses. The macros take the header line from constants in `CORE_Config`,
+In the workbook, **NettingSets template** and **Trades template** in the
+**Templates** menu of the K-SACCR Ribbon tab write the same file, byte for
+byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An

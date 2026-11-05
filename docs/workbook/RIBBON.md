@@ -7,8 +7,9 @@ that implements it is [`src/workbook/customUI14.xml`](../../src/workbook/customU
 and `tools/test_ribbon_contract.py` checks that the two agree: the same
 controls, callbacks and targets.
 
-The Ribbon is a second way to reach the existing macros, not a new
-implementation. Every command runs an `M_Main` macro, and that macro keeps
+The Ribbon reaches the existing macros; it is not a new implementation.
+Since #217 it is the only place for the calculation and export commands: the
+only worksheet buttons left are those of the two staging sheets. Every command runs an `M_Main` macro, and that macro keeps
 its protection, busy guard, error handling and every gate: staging
 validation, commit and export eligibility. The Ribbon's enabled states help
 the user. They never replace those gates.

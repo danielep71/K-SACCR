@@ -67,9 +67,11 @@ Attribute VB_Name = "M_Main"
 '   sheet and the workbook structure, without a password, so that the
 '   macros write while the user changes only the unlocked cells (#421);
 '   also run when each operation starts.
-'   The sheet buttons call the first three, ExportEvidence, the two
+'   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging, CommitImport and
-'   ExportImportSpecification by name.
+'   ExportImportSpecification; the buttons of the staging sheets call the
+'   imports, ValidateStaging, CommitImport and ExportImportSpecification
+'   by name (#217).
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
@@ -864,11 +866,11 @@ Private Function ReconStatus( _
         StoredFingerprint = SafeStr(StoredRecon)
         If Len(StoredFingerprint) = 0 Or Len(SafeStr(StoredRun)) = 0 Then
             ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(ReconKind) & _
-                          " and press Run SA-CCR (on Results or Trades)."
+                          " and press Run SA-CCR (on the K-SACCR tab)."
         ElseIf StoredFingerprint = ReconFingerprint(ReconKind) Then
             ReconStatus = "Reconciliation current (bank figures and inputs " & StoredFingerprint & ")"
         Else
-            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on Results or Trades)."
+            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on the K-SACCR tab)."
         End If
         Exit Function
 

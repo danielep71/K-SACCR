@@ -236,13 +236,18 @@ The manual import order, references and troubleshooting are in
 The template ships with a demonstration portfolio: the five CRE99 examples and
 further illustrative netting sets.
 
-| Button | Macro | Does |
+Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
+the status of the results and of both staging sheets and reaches every sheet
+through **Go to** ([Ribbon](docs/workbook/RIBBON.md)). The two staging sheets
+also carry buttons for their own commands.
+
+| Command | Macro | Does |
 | --- | --- | --- |
-| **Run SA-CCR** | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
-| **Validate inputs** | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
-| **Clear outputs** | `ClearOutputs` | Empties the output sheets |
-| **Export evidence** (on Reconciliation) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
-| **Export CSV template** (on Trades and NettingSets) | `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
+| **Run** (Calculation) | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
+| **Validate inputs** (Run menu) | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
+| **Clear outputs** (Run menu) | `ClearOutputs` | Empties the output sheets |
+| **Export evidence** (Evidence) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
+| **NettingSets template**, **Trades template** (CSV import, Templates menu) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
 | **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | **Commit import** (on Import_Trades and Import_NettingSets) | `CommitImport` | After a confirmation that gives each input sheet's rows now and the staged rows that replace it, replaces NettingSets and Trades with the staged rows of a `VALID` validation that still holds; an input sheet whose staging sheet holds no rows is left as it is. On a failure the input sheets are put back and checked. Results reads `OUT OF DATE` until the next run |
@@ -255,8 +260,8 @@ further illustrative netting sets.
 
 1. **Prepare the files.** On `Import_NettingSets` or `Import_Trades`, press
    **Export import specifications** for the description of both files with an
-   example of each, or **Export CSV template** on `NettingSets` and `Trades`
-   for the header line alone. Write the files with a program that follows the
+   example of each, or use **Templates** on the K-SACCR tab for the header
+   line alone. Write the files with a program that follows the
    [contract](docs/csv/CSV_CONTRACT.md): `;` between fields, `.` as decimal
    point, dates as `yyyy-mm-dd`, UTF-8. A file saved by Excel in a locale with
    a decimal comma is rejected.
