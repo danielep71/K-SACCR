@@ -50,14 +50,28 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
+function Invoke-GitRaw {
+    # Run git in the checkout; returns its exit code and its output, stdout
+    # and stderr, as text. Git writes progress and ordinary messages to
+    # stderr; under Windows PowerShell 5.1 a redirected stderr line is an
+    # error record, which the script's "Stop" preference would turn into a
+    # terminating error, so the preference is "Continue" here and only the
+    # exit code decides.
+    param([string[]]$Arguments)
+    $ErrorActionPreference = "Continue"
+    $lines = @(& git -C $RepoRoot @Arguments 2>&1 | ForEach-Object { [string]$_ })
+    $code = $LASTEXITCODE
+    return [pscustomobject]@{ Code = $code; Output = ($lines -join [Environment]::NewLine).Trim() }
+}
+
 function Invoke-Git {
     # Run git in the checkout and stop on a failure; returns its output.
     param([string[]]$Arguments, [string]$Failure)
-    $output = & git -C $RepoRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw ($Failure + " (git " + ($Arguments -join " ") + ": " + (($output | Out-String).Trim()) + ")")
+    $result = Invoke-GitRaw $Arguments
+    if ($result.Code -ne 0) {
+        throw ($Failure + " (git " + ($Arguments -join " ") + ": " + $result.Output + ")")
     }
-    return $output
+    return $result.Output
 }
 
 function Get-FileText {
@@ -75,20 +89,18 @@ function Get-FileText {
 if ($Branch.StartsWith("-")) {
     throw "Not a branch name: $Branch"
 }
-& git -C $RepoRoot check-ref-format --branch $Branch *> $null
-if ($LASTEXITCODE -ne 0) {
+if ((Invoke-GitRaw @("check-ref-format", "--branch", $Branch)).Code -ne 0) {
     throw "Not a valid branch name: $Branch"
 }
 $dirty = Invoke-Git @("status", "--porcelain", "--untracked-files=no") "Cannot read the working tree"
-if (-not [string]::IsNullOrWhiteSpace(($dirty | Out-String))) {
+if (-not [string]::IsNullOrWhiteSpace($dirty)) {
     throw "The working tree has changes. Commit or stash them first; nothing was checked out."
 }
 
 Write-Host "Fetching $Branch from origin..."
 [void](Invoke-Git @("fetch", "origin", ("+refs/heads/" + $Branch + ":refs/remotes/origin/" + $Branch)) `
     "Cannot fetch the branch from origin")
-& git -C $RepoRoot show-ref --verify --quiet ("refs/heads/" + $Branch)
-if ($LASTEXITCODE -eq 0) {
+if ((Invoke-GitRaw @("show-ref", "--verify", "--quiet", ("refs/heads/" + $Branch))).Code -eq 0) {
     [void](Invoke-Git @("checkout", $Branch) "Cannot check out the branch")
     [void](Invoke-Git @("merge", "--ff-only", ("origin/" + $Branch)) `
         "The local branch has commits origin does not have; it was left as it is")
@@ -96,8 +108,8 @@ if ($LASTEXITCODE -eq 0) {
 else {
     [void](Invoke-Git @("checkout", "-b", $Branch, "--track", ("origin/" + $Branch)) "Cannot check out the branch")
 }
-$sha = ((Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit") | Out-String).Trim()
-$remoteSha = ((Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin") | Out-String).Trim()
+$sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
+$remoteSha = Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin"
 if ($sha -ne $remoteSha) {
     throw "The checkout is at $sha, not at origin/$Branch ($remoteSha)."
 }
