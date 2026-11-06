@@ -97,6 +97,24 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Keep the K-SACCR tab's enabled states and Status labels current (#216).
+  `RibbonGetEnabled` follows the state table of the Ribbon contract, through
+  the pure `M_Ribbon.EnabledFor`: nothing while an operation runs
+  (`M_Main.OperationRunning`), Validate staging only with rows staged, Commit
+  import only with a `VALID` staging sheet, Export evidence only with current
+  results; a status that cannot be read enables the control, and the macros
+  keep refusing on their own. The tab is refreshed after every macro that
+  changes a state it shows, from the Ribbon, a staging button, the Macros
+  dialog or a staging sheet's handlers, after any cell edit, which can
+  change Results C5, and when the workbook or a sheet is activated. After a VBA state reset `M_Ribbon` rebuilds the Ribbon object
+  from its pointer with `RtlMoveMemory` of `kernel32`, the project's first
+  Windows API declaration: the pointer is kept with the session's window
+  handle in the hidden name `ksRibbonPointer`, written without marking the
+  workbook changed, used only in that session and removed before every save
+  by the new `ThisWorkbook` events. README and SECURITY describe the
+  declaration. `TEST_MainState` gains the state table and the pointer's
+  format and save handling (37 cases, 571 checks).
+
 - Add **Restore parameters** to the K-SACCR tab (#357):
   `RestoreRegulatoryParameters` writes the regulatory parameter set
   `CRE52-CRR-2026-10-09` back to Params, through the macros' protection and

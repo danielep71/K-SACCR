@@ -151,26 +151,54 @@ refuses edited results on its own.
 
 ## ✅ Enabled states
 
-Every command calls `RibbonGetEnabled`. Like the labels, it reads only
-status cells and the busy flag of `M_Main`. The macros enforce the same
-rules again, whatever the Ribbon shows. #216 implements this table and the
-refresh; until then every command is enabled.
+Every command calls `RibbonGetEnabled` (#216). Like the labels, it reads
+only the busy flag of `M_Main` (`OperationRunning`), Results C5 and the two
+staging status cells; it never calculates or writes. The pure function
+`EnabledFor` holds the table, and `TEST_MainState` checks it. The macros
+enforce the same rules again, whatever the Ribbon shows.
 
 | Control | Enabled when |
 | --- | --- |
-| Every command | No operation is running |
-| `ksValidateStaging` | A staging sheet holds rows |
+| Every control | No operation is running |
+| `ksValidateStaging` | A staging sheet holds rows: its status is not `EMPTY` |
 | `ksCommitImport` | A staging sheet reads `VALID` |
-| `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run |
-| Every other command | Always, apart from a running operation |
+| `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE` |
+| Every other control | Always, apart from a running operation |
 
-The labels and enabled states are refreshed at the end of every operation,
-on a staging edit, when a sheet or the workbook is activated, and after a
-VBA state reset (#216). Until then a command run from the Ribbon refreshes
-them once Excel is idle (`Application.OnTime`), so that the labels read Results
-C5 after its recalculation, and only while the session holds the Ribbon object, which Excel
-passes to `RibbonOnLoad` when it loads the tab. `?M_Ribbon.RibbonLoaded()`
-in the Immediate window tells whether it does.
+A status that cannot be read enables its control, and so does an error or a
+call made while another state callback runs: a control is never disabled on a
+guess, and the macro decides. The states carry no colour; the Status labels
+give the state in words.
+
+**Refresh.** The tab reads its labels and states again:
+
+- after every operation, once Excel is idle (`Application.OnTime`), so that
+  the labels read Results C5 after its recalculation: a command run from the
+  Ribbon, a staging button or the Macros dialog, and the change and activation
+  handlers of the staging sheets (`M_Main.RibbonStateChanged`, not in silent
+  mode);
+- after any cell edit in the workbook, once Excel is idle, since an input
+  edit recalculates Results C5 (`ThisWorkbook.Workbook_SheetChange`);
+- when the workbook or one of its sheets is activated, so switching
+  workbooks refreshes it (`ThisWorkbook`);
+- when the workbook is reopened in a running Excel, as Excel loads the tab
+  again.
+
+**After a VBA state reset.** An unhandled error or a code edit clears the
+Ribbon object `RibbonOnLoad` kept. `RibbonOnLoad` therefore also stores the
+object's pointer, with the window handle of this Excel session, in the hidden
+workbook name `ksRibbonPointer`. After a reset, `RefreshRibbon` rebuilds the
+object from that pointer with `RtlMoveMemory` of `kernel32`, a function that
+is part of Windows; nothing is installed. The pointer is used only when the
+handle is this session's; a negative pointer, as 32-bit Excel can have, is
+read back as written. The name never marks the workbook as changed: it is
+written with the `Saved` flag kept. It never reaches the file either:
+`ThisWorkbook` removes it before every save and puts it back after
+(`HidePointer`, `ShowPointer`), so a workbook never opens with the pointer of
+an earlier session. Without a usable pointer the tab is simply not refreshed
+until the workbook is reopened; the commands still work.
+`?M_Ribbon.RibbonLoaded()` in the Immediate window tells whether the session
+holds or can recover the object.
 
 ## 🔌 Callbacks
 
@@ -187,8 +215,10 @@ Public Sub RibbonGetLabel(ByVal Control As IRibbonControl, ByRef ReturnedVal)
 
 `IRibbonUI` and `IRibbonControl` come from the Microsoft Office Object
 Library, already one of the workbook's four references. The control-to-macro
-and control-to-sheet maps are pure functions, so that tests can check them
-against this contract; `IRibbonControl` cannot be created from VBA. No
+and control-to-sheet maps, the state table (`EnabledFor`) and the pointer's
+format (`PointerText`, `PointerFromText`) are pure functions, so that tests
+can check them against this contract; `IRibbonControl` cannot be created from
+VBA. No
 callback raises to Excel: a control with no command, or a command whose
 macro `RibbonAction` does not call, is reported in a message box and runs
 nothing.

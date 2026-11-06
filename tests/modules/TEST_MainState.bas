@@ -28,7 +28,9 @@ Attribute VB_Name = "TEST_MainState"
 '   parameters and factor rows back to the regulatory set, so that the
 '   next run is REGULATORY and as before, reports a repeat as unchanged,
 '   puts Params back when a write fails, and refuses with a key below the
-'   factor table (issue #357).
+'   factor table (issue #357); and that the Ribbon's state table
+'   (M_Ribbon.EnabledFor) and the stored pointer's format and save handling
+'   follow the contract (issue #216).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -58,7 +60,9 @@ Attribute VB_Name = "TEST_MainState"
 '   and deletes it again, and breaks the Checks_Header name and restores
 '   it. Three cases change reference parameters and factor rows on Params
 '   and restore the regulatory set, one also types a key below the factor
-'   table; each puts Params back as it found it. Each of these is undone
+'   table; each puts Params back as it found it. One case takes the
+'   Ribbon's hidden pointer name out and puts it back, as a save does, and
+'   gives the workbook its Saved flag back. Each of these is undone
 '   also after an unexpected error. The last
 '   case leaves the outputs of a normal run. Use a development workbook
 '   only.
@@ -97,7 +101,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 35   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 37   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -197,6 +201,8 @@ Public Sub RunMainStateTests()
         CaseRestoreParams
         CaseRestoreFailures
         CaseRestoreRefused
+        CaseRibbonEnabledStates
+        CaseRibbonPointer
         CaseStaleValueType
         CaseStaleHeaders
         CaseStaleDateSystem
@@ -1768,6 +1774,148 @@ Unexpected:
         PutParamsBack
 
 End Sub
+
+
+Private Sub CaseRibbonEnabledStates()
+'
+'==============================================================================
+'                           CaseRibbonEnabledStates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The state table of docs/workbook/RIBBON.md (#216), through the pure
+'   M_Ribbon.EnabledFor: nothing while an operation runs; Validate staging
+'   with rows staged; Commit import with a VALID staging sheet; Export
+'   evidence with CURRENT results; a status that could not be read
+'   enables the control; any other control is enabled.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        On Error GoTo Unexpected
+        BeginCase "ribbon.enabled-states"
+        Check Not M_Ribbon.EnabledFor("ksRun", True, "CURRENT", "VALID", "VALID"), "Run while busy"
+        Check Not M_Ribbon.EnabledFor("ksExportEvidence", True, "CURRENT", "EMPTY", "EMPTY"), "export while busy"
+        Check M_Ribbon.EnabledFor("ksRun", False, "NONE", "EMPTY", "EMPTY"), "Run when idle"
+        Check Not M_Ribbon.EnabledFor("ksValidateStaging", False, "NONE", "EMPTY", "EMPTY"), "validate with nothing staged"
+        Check M_Ribbon.EnabledFor("ksValidateStaging", False, "NONE", "LOADED", "EMPTY"), "validate with netting sets staged"
+        Check M_Ribbon.EnabledFor("ksValidateStaging", False, "NONE", "EMPTY", "unavailable"), "validate, status unreadable"
+        Check M_Ribbon.EnabledFor("ksCommitImport", False, "NONE", "VALID", "EMPTY"), "commit with a VALID sheet"
+        Check Not M_Ribbon.EnabledFor("ksCommitImport", False, "NONE", "EDITED", "OUT OF DATE"), "commit, edited and out of date"
+        Check Not M_Ribbon.EnabledFor("ksCommitImport", False, "NONE", "INVALID", "COMMITTED"), "commit, invalid and committed"
+        Check M_Ribbon.EnabledFor("ksCommitImport", False, "NONE", "unavailable", "EMPTY"), "commit, status unreadable"
+        Check M_Ribbon.EnabledFor("ksExportEvidence", False, "CURRENT", "EMPTY", "EMPTY"), "export, results current"
+        Check Not M_Ribbon.EnabledFor("ksExportEvidence", False, "OUT OF DATE", "EMPTY", "EMPTY"), "export, results out of date"
+        Check Not M_Ribbon.EnabledFor("ksExportEvidence", False, "NONE", "EMPTY", "EMPTY"), "export, no results"
+        Check M_Ribbon.EnabledFor("ksExportEvidence", False, "UNKNOWN", "EMPTY", "EMPTY"), "export, status unreadable"
+        Check M_Ribbon.EnabledFor("ksNoSuchControl", False, "NONE", "EMPTY", "EMPTY"), "unknown control"
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseRibbonPointer()
+'
+'==============================================================================
+'                              CaseRibbonPointer
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The stored Ribbon pointer (#216): M_Ribbon.PointerText writes
+'   "pointer|handle"; PointerFromText reads the pointer back only for this
+'   session's handle, also a negative one as 32-bit Excel can have, and
+'   gives 0 for any other handle or malformed text.
+'   M_Ribbon.HidePointer takes the hidden name out, as before a save, and
+'   ShowPointer puts it back as it was, as after a save, both keeping the
+'   workbook's Saved flag. The name is put back as the case found it, and
+'   so is the Saved flag, also after an unexpected error.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    'The name M_Ribbon keeps private as RIBBON_POINTER_NAME.
+    Const POINTER_NAME  As String = "ksRibbonPointer"
+    Dim SavedFlag       As Boolean    'The workbook's Saved flag before the case
+    Dim HadName         As Boolean    'The name existed before the case
+    Dim OriginalRefers  As String     'Its RefersTo
+    Dim Expected        As Boolean    'ShowPointer should store a pointer
+    Dim Stored          As Boolean    'The name is there after ShowPointer
+
+'------------------------------------------------------------------------------
+' FORMAT
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "ribbon.pointer"
+        SavedFlag = ThisWorkbook.Saved
+        Check M_Ribbon.PointerText(123456, 789) = "123456|789", "text: " & M_Ribbon.PointerText(123456, 789)
+        Check M_Ribbon.PointerFromText("123456|789", 789) = 123456, "this session's pointer not read back"
+        Check M_Ribbon.PointerFromText("123456|789", 790) = 0, "another session's pointer read"
+        Check M_Ribbon.PointerFromText("12a456|789", 789) = 0, "a pointer with a letter read"
+        Check M_Ribbon.PointerFromText("123456", 789) = 0, "a pointer without a handle read"
+        Check M_Ribbon.PointerFromText("|789", 789) = 0, "an empty pointer read"
+        Check M_Ribbon.PointerFromText("0|789", 789) = 0, "a zero pointer read"
+        Check M_Ribbon.PointerText(-123456, 789) = "-123456|789", "negative text: " & M_Ribbon.PointerText(-123456, 789)
+        Check M_Ribbon.PointerFromText("-123456|789", 789) = -123456, "a negative pointer, as 32-bit Excel can have, not read back"
+
+'------------------------------------------------------------------------------
+' OUT FOR A SAVE AND BACK
+'------------------------------------------------------------------------------
+        OriginalRefers = PointerRefers(POINTER_NAME, HadName)
+        Expected = HadName Or M_Ribbon.RibbonLoaded()
+        ThisWorkbook.Saved = True
+        M_Ribbon.HidePointer
+        Check Len(PointerRefers(POINTER_NAME)) = 0, "the name is still there after HidePointer"
+        Check ThisWorkbook.Saved, "HidePointer marked the workbook changed"
+        M_Ribbon.ShowPointer
+    'A statement that starts "Check (" and contains "=" reads as an
+    'assignment, so the comparison goes through Stored.
+        Stored = Len(PointerRefers(POINTER_NAME)) > 0
+        Check Stored = Expected, "after ShowPointer the name is " & IIf(Expected, "missing", "there")
+        Check ThisWorkbook.Saved, "ShowPointer marked the workbook changed"
+        Check Not HadName Or PointerRefers(POINTER_NAME) = OriginalRefers, "the name changed: " & _
+              PointerRefers(POINTER_NAME) & " | before: " & OriginalRefers
+        ThisWorkbook.Saved = SavedFlag
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If HadName And Len(PointerRefers(POINTER_NAME)) = 0 Then
+            ThisWorkbook.Names.Add Name:=POINTER_NAME, RefersTo:=OriginalRefers, Visible:=False
+        End If
+        ThisWorkbook.Saved = SavedFlag
+
+End Sub
+
+
+Private Function PointerRefers( _
+    ByVal NameText As String, _
+    Optional ByRef Exists As Boolean) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   A workbook name's RefersTo, and whether the name exists; "" when it
+'   does not.
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        Exists = False
+        On Error GoTo Missing
+        PointerRefers = ThisWorkbook.Names(NameText).RefersTo
+        Exists = True
+
+Missing:
+
+End Function
 
 
 Private Function FactorCell( _
