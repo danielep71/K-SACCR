@@ -380,14 +380,15 @@ Public Sub RunSACCR()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the full SA-CCR calculation and write every output sheet, then
-'   report the economic trades and legs used, the total EAD of each regime
-'   and the number of errors and warnings.
+'   show Results and report the economic trades and legs used, the total
+'   EAD of each regime and the number of errors and warnings. A run that
+'   stops shows Checks.
 '
 ' USAGE
-'   Assigned to the Run SA-CCR button.
+'   Called by Run on the K-SACCR Ribbon tab.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-06
 '==============================================================================
 '
 
@@ -7130,7 +7131,7 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-06
 '==============================================================================
 '
 
@@ -7144,8 +7145,9 @@ Private Function ReportOutcome( _
 '------------------------------------------------------------------------------
 ' BUILD THE MESSAGE
 '------------------------------------------------------------------------------
-    'A completed run can still have excluded trades, so it points to Checks
-    'whenever there are errors or warnings. ShowChecksSheet never raises.
+    'A completed run shows Results, and its message points to Checks whenever
+    'there are errors or warnings, since it can still have excluded trades. A
+    'stopped run and a validation show Checks. ShowSheet never raises.
         Select Case Operation
             Case OP_RUN
                 If Completed Then
@@ -7156,6 +7158,7 @@ Private Function ReportOutcome( _
                           TotalLines() & _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
+                    ShowSheet SH_RESULTS
                     If CORE_Engine.IncompleteCount > 0 Then
                         Message = Message & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
                               " netting set(s) with rejected trades or invalid inputs: " & _
@@ -7171,10 +7174,10 @@ Private Function ReportOutcome( _
                 Else
                     Message = "SA-CCR run stopped - see the Checks sheet."
                     IconStyle = vbCritical
-                    ShowChecksSheet
+                    ShowSheet SH_CHECKS
                 End If
             Case OP_VALIDATE
-                ShowChecksSheet
+                ShowSheet SH_CHECKS
                 Message = "Validation finished: " & CORE_Engine.ErrorCount & " error(s), " & _
                       CORE_Engine.WarningCount & " warning(s)." & vbCrLf & RunClassLine()
                 IconStyle = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
@@ -7236,17 +7239,21 @@ Private Function ReportOutcome( _
 End Function
 
 
-Private Sub ShowChecksSheet()
+Private Sub ShowSheet(ByVal SheetName As String)
 '
 '==============================================================================
-'                               ShowChecksSheet
+'                                  ShowSheet
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Bring the Checks sheet to the front so the user sees the findings.
+'   Bring the sheet an operation leaves the user on to the front: Results
+'   after a completed run, Checks after a stopped run or a validation.
+'
+' INPUTS
+'   SheetName: the sheet's name, SH_RESULTS or SH_CHECKS.
 '
 ' STATE OWNERSHIP
-'   Activates the Checks sheet; does nothing in silent mode, where no one
-'   is looking and the window may be hidden.
+'   Activates the sheet; does nothing in silent mode, where no one is
+'   looking and the window may be hidden.
 '
 ' ERROR POLICY
 '   Best effort: activation fails when the window or the sheet is hidden.
@@ -7254,7 +7261,7 @@ Private Sub ShowChecksSheet()
 '   and must not replace the operation's outcome.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-11-06
 '==============================================================================
 '
 
@@ -7265,7 +7272,7 @@ Private Sub ShowChecksSheet()
             Exit Sub
         End If
         On Error GoTo NotShown
-        ThisWorkbook.Worksheets(SH_CHECKS).Activate
+        ThisWorkbook.Worksheets(SheetName).Activate
         Exit Sub
 
 '------------------------------------------------------------------------------

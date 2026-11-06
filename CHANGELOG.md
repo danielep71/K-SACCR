@@ -137,6 +137,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Show Results after a completed run (#589). Run, from the Ribbon or the
+  macro, used to leave the user on the sheet where it was started; it now
+  opens Results before the completion message, which still points to Checks
+  when there are errors or warnings. A run that stops and Validate inputs
+  still open Checks, Clear outputs keeps the active sheet, and a silent run
+  activates no sheet. README and the Ribbon contract say where each
+  operation leaves the user.
+
 - Remove the calculation and export buttons from the sheets now that the
   K-SACCR Ribbon tab carries every command (#217): Run SA-CCR, Validate
   inputs and Clear outputs on Trades, Results and TestCatalogue, Export CSV

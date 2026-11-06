@@ -69,6 +69,9 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` (#357) |
 
+A completed run leaves the user on Results; a run that stops, and Validate
+inputs, leave the user on Checks (#589). Clear outputs keeps the active sheet.
+
 `ksRunSplit`, `ksImportMenu` and `ksTemplatesMenu` hold the controls above
 and call no macro themselves. The Templates menu writes blank CSV templates
 or the import specification; **Export evidence** writes the evidence CSV of a
