@@ -178,6 +178,11 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Schedule the Ribbon refresh also for a workbook whose file name holds an
+  apostrophe, such as `O'Brien.xlsm` (#216): `M_Ribbon.ScheduleRefresh`
+  doubles the apostrophe in the workbook-qualified macro name, as Excel
+  requires, so the labels and enabled states follow an operation there too.
+
 - Extend the automated protection checks to Home (#218):
   `tools/Check-SACCR-Protection.ps1` check 2 also types into Home, and check
   14, with macros disabled, checks that the workbook opens on Home and that
