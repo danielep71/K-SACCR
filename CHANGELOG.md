@@ -242,6 +242,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Add a Ribbon walk-through to RELEASING.md (#218): the checks of the K-SACCR
+  tab that certification cannot make, from packaging and every command to the
+  enabled states, a VBA reset, Restore parameters, the CSV workflow and the
+  saved file, with a row in the maintainer checklist. README lists the Ribbon
+  contract and the 1.2.0 manual source; INSTALLATION and src/README name the
+  Ribbon where they named the removed buttons.
+
 - Say in the README that K-SACCR is part of a broader framework, K-Risk
   Engines, with a link to its website, near the title and in *Where K-SACCR
   belongs* (#555).

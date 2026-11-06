@@ -219,7 +219,8 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 19 sheets, named ranges, formulas and buttons, and no VBA. Built
+   holds the 19 sheets, named ranges, formulas, the staging-sheet buttons and
+   the Ribbon part, and no VBA. Built
    workbooks are never committed.
 
    Instead of this step and the manual import in steps 4 and 5,
@@ -232,8 +233,8 @@ The layout and file conventions are defined in
    To synchronize a workbook you saved yourself, drag it onto
    `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; its sheets
    are kept as they are. It first asks which workbook you are building:
-   **P**roduction, with the engine, the worksheet functions and the
-   sheet-button macros, or **D**evelopment, which adds every test module of
+   **P**roduction, with the engine, the worksheet functions, the command
+   macros and the Ribbon callbacks, or **D**evelopment, which adds every test module of
    `tests/modules/`. The two component sets are listed in
    `tools/vba-projects.json`. Build a production workbook to calculate and a
    development workbook only to run the tests, which write to the input and
@@ -626,7 +627,7 @@ within the limit, rejected with `CSV-TOO-MANY-RECORDS` above it. A last
 ## 🤖 Automation entry points
 
 `M_Main` has entry points for a caller that runs the workbook without the
-buttons, such as a script or a test. None of them shows a message box.
+Ribbon or the staging buttons, such as a script or a test. None of them shows a message box.
 
 ### RunSACCR_Silent
 

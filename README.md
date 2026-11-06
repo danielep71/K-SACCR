@@ -825,6 +825,8 @@ release evidence are recorded in #212.
 | [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, its blank templates and the import through the staging sheets (since v1.1.0) |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
+| [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |
+| [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) | Source of the user manual prepared for 1.2.0, not yet released |
 | [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) | Source of the user manual for 1.1.0; its PDF is attached to the [1.1.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0). The 1.0.0, 1.0.1 and 1.0.2 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md) and [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |

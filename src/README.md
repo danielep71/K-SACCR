@@ -16,8 +16,8 @@ Current source:
   from `docs/csv/contract.json` by `tools/generate_csv_vba.py`;
 - `core/CORE_ImportSpec.bas`: the CSV import specification page and its
   example files, generated from `docs/csv/contract.json` by
-  `tools/generate_csv_vba.py`, for the **Export import specifications**
-  button;
+  `tools/generate_csv_vba.py`, for **Import specification...** on the Ribbon
+  and the **Export import specifications** button;
 - `core/CORE_Engine.bas`: the calculation of EAD per netting set, which reads
   the input sheets and writes the output sheets;
 - `core/CORE_Export.bas`: the CSV encoding of the evidence report; it reads no
