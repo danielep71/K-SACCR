@@ -97,6 +97,23 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add **Restore parameters** to the K-SACCR tab (#357):
+  `RestoreRegulatoryParameters` writes the regulatory parameter set
+  `CRE52-CRR-2026-10-09` back to Params, through the macros' protection and
+  with no maintenance unlock, after a confirmation that lists each value it
+  overwrites, Cancel being the default. It restores the reference parameters,
+  the conventions `DaysPerYear` (365) and `IRBucketOffset` (TRUE), and the 26
+  rows of the supervisory-factor table; the reporting date, currency and
+  regime, the FX table and the alpha overrides are inputs and stay. The values
+  come from the engine's own set: `CORE_Engine.RegulatoryFactorRows` and
+  `RegulatoryParameterCodes` now serve both the run classification and the
+  restore. A failed write puts Params back and checks it; a key below the
+  factor table refuses the restore. Results then reads `OUT OF DATE` and the
+  evidence export refuses until the next run.
+  `RestoreRegulatoryParameters_Silent` serves automation. `TEST_MainState`
+  gains three cases (35 cases, 538 checks): restore and repeat, the three
+  failure paths, and the refusal.
+
 - Add a Home sheet, the first sheet of the workbook, which it opens on
   (#330). Home says what K-SACCR calculates and what it does not cover,
   lists the six steps of a run with the Ribbon commands they use, and links
@@ -118,8 +135,7 @@ Use only the categories needed by a release.
   command, `RibbonGoTo` opens a sheet by its CodeName, `RibbonGetLabel`
   reads Results C5 and the staging status cells, and `RibbonGetEnabled`
   enables every command until #216. Its pure maps `RibbonMacro` and
-  `RibbonSheet` are checked against the contract. Restore parameters and
-  Go to Home say they are not available until #357 and #330. Both VBA
+  `RibbonSheet` are checked against the contract. Both VBA
   configurations of `tools/vba-projects.json` list `M_Ribbon` and the
   Ribbon, so the call checker resolves every callback.
 

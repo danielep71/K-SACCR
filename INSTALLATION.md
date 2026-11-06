@@ -271,7 +271,7 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonGetEnabled` and `RibbonGetLabel` give the state of the controls |
    | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -804,6 +804,24 @@ staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
 Results is not recalculated: `ResultsStatus()` returns `STALE`, and Results C5
 reads `OUT OF DATE`, until the next **Run SA-CCR**. While an operation is
 running it raises `ERR_RUN_ACTIVE`.
+
+### RestoreRegulatoryParameters_Silent
+
+`RestoreRegulatoryParameters_Silent()` writes the regulatory parameter set
+back to Params without a confirmation or a message, as **Restore parameters**
+on the K-SACCR tab (`RestoreRegulatoryParameters`) does after its
+confirmation (#357): the reference parameters, `DaysPerYear` and
+`IRBucketOffset`, and the rows of the supervisory-factor table, key to
+regimes ([scope](docs/workbook/RIBBON.md#-commands)). Only the cells that
+differ from the set are written, and each is read back; on any failure the
+cells kept before the write are written back and read back. It returns
+`RESULT=RESTORED; parameters=N; factor_rows=M` with the parameters and rows
+that were changed, `RESULT=UNCHANGED` when Params already holds the set,
+`RESULT=REFUSED; reason=...` when a Params name is missing or a key stands
+below the factor table, or `RESULT=FAILED; error=...; rollback=...` with
+`NONE`, `VERIFIED` or `FAILED: ...` as for `CommitStaging_Silent`. Results is
+not recalculated: `ResultsStatus()` returns `STALE` until the next
+**Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 

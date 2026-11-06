@@ -25,7 +25,7 @@ CALLBACK_ATTRIBUTES = ("onLoad", "onAction", "getEnabled", "getLabel")
 
 # Targets delivered by a later issue of the milestone. Remove an entry when its
 # issue lands, so the target is then checked like every other.
-PLANNED_MACROS = {"RestoreRegulatoryParameters": "#357"}
+PLANNED_MACROS: dict[str, str] = {}
 PLANNED_SHEETS: dict[str, str] = {}
 
 

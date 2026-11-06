@@ -80,6 +80,8 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
   unprotected sheet, by a deliberate maintenance unlock, and a run on changed
   values stays `WHAT-IF`, as today. The exceptions are `DaysPerYear` and
   `IRBucketOffset`, conventions that do not change the run class.
+  **Restore parameters** on the K-SACCR tab puts them all back to the
+  regulatory set without an unlock (#357).
 - **Staging keeps its provenance.** On `Import_NettingSets` and
   `Import_Trades` the staged values are editable; the CSV line column, the
   status, the source file and the other metadata above the block stay locked.
