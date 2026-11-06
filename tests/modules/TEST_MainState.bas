@@ -1846,6 +1846,7 @@ Private Sub CaseRibbonPointer()
     Dim HadName         As Boolean    'The name existed before the case
     Dim OriginalRefers  As String     'Its RefersTo
     Dim Expected        As Boolean    'ShowPointer should store a pointer
+    Dim Stored          As Boolean    'The name is there after ShowPointer
 
 '------------------------------------------------------------------------------
 ' FORMAT
@@ -1873,8 +1874,10 @@ Private Sub CaseRibbonPointer()
         Check Len(PointerRefers(POINTER_NAME)) = 0, "the name is still there after HidePointer"
         Check ThisWorkbook.Saved, "HidePointer marked the workbook changed"
         M_Ribbon.ShowPointer
-        Check (Len(PointerRefers(POINTER_NAME)) > 0) = Expected, "after ShowPointer the name is " & _
-              IIf(Expected, "missing", "there")
+    'A statement that starts "Check (" and contains "=" reads as an
+    'assignment, so the comparison goes through Stored.
+        Stored = Len(PointerRefers(POINTER_NAME)) > 0
+        Check Stored = Expected, "after ShowPointer the name is " & IIf(Expected, "missing", "there")
         Check ThisWorkbook.Saved, "ShowPointer marked the workbook changed"
         Check Not HadName Or PointerRefers(POINTER_NAME) = OriginalRefers, "the name changed: " & _
               PointerRefers(POINTER_NAME) & " | before: " & OriginalRefers
