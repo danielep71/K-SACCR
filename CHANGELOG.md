@@ -95,12 +95,184 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- Add `tools/Verify-SACCR-Branch.ps1` and its launcher
+  `Verify-SACCR-Branch.cmd`: for the branch of a pull request, it fetches and
+  checks out the branch, runs `Certify-SACCR.ps1` on it in a new bundle folder
+  and prints a summary to report (the commit, the `Test_RunAll` summary and
+  the 14 protection checks), also written to `verify-summary.txt`.
+
+- Keep the K-SACCR tab's enabled states and Status labels current (#216).
+  `RibbonGetEnabled` follows the state table of the Ribbon contract, through
+  the pure `M_Ribbon.EnabledFor`: nothing while an operation runs
+  (`M_Main.OperationRunning`), Validate staging only with rows staged, Commit
+  import only with a `VALID` staging sheet, Export evidence only with current
+  results; a status that cannot be read enables the control, and the macros
+  keep refusing on their own. The tab is refreshed after every macro that
+  changes a state it shows, from the Ribbon, a staging button, the Macros
+  dialog or a staging sheet's handlers, after any cell edit, which can
+  change Results C5, and when the workbook or a sheet is activated. After a VBA state reset `M_Ribbon` rebuilds the Ribbon object
+  from its pointer with `RtlMoveMemory` of `kernel32`, the project's first
+  Windows API declaration: the pointer is kept with the session's window
+  handle in the hidden name `ksRibbonPointer`, written without marking the
+  workbook changed, used only in that session and removed before every save
+  by the new `ThisWorkbook` events. README and SECURITY describe the
+  declaration. `TEST_MainState` gains the state table and the pointer's
+  format and save handling (37 cases, 571 checks).
+
+- Add **Restore parameters** to the K-SACCR tab (#357):
+  `RestoreRegulatoryParameters` writes the regulatory parameter set
+  `CRE52-CRR-2026-10-09` back to Params, through the macros' protection and
+  with no maintenance unlock, after a confirmation that lists each value it
+  overwrites, Cancel being the default. It restores the reference parameters,
+  the conventions `DaysPerYear` (365) and `IRBucketOffset` (TRUE), and the 26
+  rows of the supervisory-factor table; the reporting date, currency and
+  regime, the FX table and the alpha overrides are inputs and stay. The values
+  come from the engine's own set: `CORE_Engine.RegulatoryFactorRows` and
+  `RegulatoryParameterCodes` now serve both the run classification and the
+  restore. A failed write puts Params back and checks it; a factor row
+  below the regulatory rows, right below them or further down above the FX
+  table, refuses the restore. Results then reads `OUT OF DATE` and the
+  evidence export refuses until the next run.
+  `RestoreRegulatoryParameters_Silent` serves automation. `TEST_MainState`
+  gains three cases (35 cases, 542 checks): restore and repeat, the three
+  failure paths, and the refusal.
+
+- Add a Home sheet, the first sheet of the workbook, which it opens on
+  (#330). Home says what K-SACCR calculates and what it does not cover,
+  lists the six steps of a run with the Ribbon commands they use, and links
+  to every sheet, grouped as on the Go to menu. The links are worksheet
+  hyperlinks, so they work with macros disabled. Home is protected like
+  README and holds no input. **Go to** and its Home entry now open it. The
+  README sheet moves to the last tab, after Basel_vs_CRR, so the tabs run
+  from Home through the inputs and outputs to the reference sheets; the Go
+  to menu and the Home links list README last too, under Reference and
+  tests. The
+  defined names of the template keep their sheet scopes.
+
+- Put the K-SACCR Ribbon tab in the workbook (#214, #215). The template
+  carries `src/workbook/customUI14.xml` as its `customUI/customUI14.xml`
+  part, which the build's `SaveAs .xlsm` keeps, so every built workbook has
+  the tab; `tools/ribbon_template.py --write` embeds it and the
+  `ribbon-template` gate checks it. The new standard module `M_Ribbon`
+  answers the callbacks: `RibbonAction` runs the `M_Main` macro of a
+  command, `RibbonGoTo` opens a sheet by its CodeName, `RibbonGetLabel`
+  reads Results C5 and the staging status cells, and `RibbonGetEnabled`
+  enables every command until #216. Its pure maps `RibbonMacro` and
+  `RibbonSheet` are checked against the contract. Both VBA
+  configurations of `tools/vba-projects.json` list `M_Ribbon` and the
+  Ribbon, so the call checker resolves every callback.
+
+- Define the workbook's K-SACCR Ribbon tab (#213):
+  `src/workbook/customUI14.xml` and its contract
+  `docs/workbook/RIBBON.md`. Six groups: Calculation (a Run split button
+  with Validate inputs and Clear outputs), CSV import, Evidence, Parameters,
+  Status (Results and both staging statuses) and Navigate (a Go to split
+  button reaching every sheet). The contract gives every control its ID,
+  label, tips, keytip, icon, callback and macro or sheet, and the enabled
+  states. `tools/test_ribbon_contract.py` checks that the source and the
+  contract agree, that every macro is a public `M_Main` procedure and that
+  every sheet has a Go to entry. The Ribbon is not yet in the template: its
+  embedding and callbacks follow (#214, #215).
+
 ### Changed
+
+- Recalculate the status cells when Restore parameters ends (#357): in
+  manual calculation Results C5 kept reporting the last run as current
+  after a restore, and so did the Ribbon, which left Export evidence
+  enabled, although the export itself refused. `RestoreParameters` now
+  recalculates them before it restores the Excel settings, as each
+  operation does. `TEST_MainState` runs the restore in manual calculation
+  and reads Results C5 (37 cases, 572 checks).
+
+- Schedule the Ribbon refresh also for a workbook whose file name holds an
+  apostrophe, such as `O'Brien.xlsm` (#216): `M_Ribbon.ScheduleRefresh`
+  doubles the apostrophe in the workbook-qualified macro name, as Excel
+  requires, so the labels and enabled states follow an operation there too.
+
+- Extend the automated protection checks to Home (#218):
+  `tools/Check-SACCR-Protection.ps1` check 2 also types into Home, and check
+  14, with macros disabled, checks that the workbook opens on Home and that
+  each of its links opens its sheet. The Ribbon refresh is no longer
+  scheduled while Excel is hidden, as under automation, which may close the
+  workbook before it runs. The `USAGE` notes of `M_Main` name the Ribbon
+  commands instead of the removed sheet buttons, and `.gitignore` also
+  excludes Java keystores, KeePass databases and private SSH keys.
+
+- Show Results after a completed run (#589). Run, from the Ribbon or the
+  macro, used to leave the user on the sheet where it was started; it now
+  opens Results before the completion message, which still points to Checks
+  when there are errors or warnings. A run that stops and Validate inputs
+  still open Checks, Clear outputs keeps the active sheet, and a silent run
+  activates no sheet. README and the Ribbon contract say where each
+  operation leaves the user.
+
+- Remove the calculation and export buttons from the sheets now that the
+  K-SACCR Ribbon tab carries every command (#217): Run SA-CCR, Validate
+  inputs and Clear outputs on Trades, Results and TestCatalogue, Export CSV
+  template on NettingSets and Trades, and Export evidence on Reconciliation,
+  12 buttons with their drawings and control parts. The 8 buttons of
+  Import_NettingSets and Import_Trades stay, next to the rows they act on.
+  The README sheet and the sheet notes, the reconciliation status texts,
+  README, INSTALLATION, RELEASING, the CSV contract and the Ribbon contract
+  point to the Ribbon. The macros and their silent entry points are
+  unchanged.
+
+- Name every recognised clearing-role code in the NettingSets header
+  (#560): "Client clearing role (N / CM / CLIENT)" becomes "Client clearing
+  role (N / CM / CLIENT / CCP; MULTI rejected)", so the header shows `CCP`,
+  supported since 1.0.2, and says that `MULTI` is recognised only to reject
+  the netting set. `NS_HEADERS`, the template's NettingSets and
+  Import_NettingSets headers, the CSV contract's `sheet_header`, its field
+  table and the import specification change together; the CSV column
+  `clearing_role` and the contract version do not. The two header cells use
+  an 8-point font so the longer text fits the unchanged row and column. The
+  input fingerprint covers the headers, so it changes for the same inputs:
+  the demonstration portfolio gives `inputs=119D94E2` (INSTALLATION). Upgrade: a run
+  compares the input headers, so a workbook built from an earlier template
+  stops at NettingSets F6 with the VBA of this version. Build a new
+  workbook from the current template and move the inputs into it, or,
+  in a copy, unprotect NettingSets and Import_NettingSets and type the new
+  header in NettingSets F6 and Import_NettingSets G9.
+
+- Accept a zero notional on every path (#561). The engine already accepted
+  it, but the CSV contract rejected it (`CSV-RANGE`) and the Trades
+  validation required a number above zero, so the same leg could be typed
+  but not imported. A zero notional is now valid on the sheet (its
+  validation and the column description say "zero or more"), in the
+  engine, in the CSV contract, the reference validator and the import
+  specification: the leg adds nothing to the add-on and its MtM still
+  counts in V (CRR Art. 275(1); CRE52.10). A negative notional stays
+  rejected, and the engine now says "notional must not be negative".
+  `TEST_InputValidation` gains two cases, for a zero and a negative
+  notional (179 cases, 314 checks); the CSV bounds case and the invalid
+  Trades fixture now test a negative notional. The CSV contract stays
+  version 1: its columns are unchanged.
 
 - Set `release/1.2.0` as the active development branch and the target for
   Dependabot updates; `release/1.1.0` is closed and takes no new work.
 
 ### Documentation
+
+- Add a Ribbon walk-through to RELEASING.md (#218): the checks of the K-SACCR
+  tab that certification cannot make, from packaging and every command to the
+  enabled states, a VBA reset, Restore parameters, the CSV workflow and the
+  saved file, with a row in the maintainer checklist. README lists the Ribbon
+  contract and the 1.2.0 manual source; INSTALLATION and src/README name the
+  Ribbon where they named the removed buttons.
+
+- Say in the README that K-SACCR is part of a broader framework, K-Risk
+  Engines, with a link to its website, near the title and in *Where K-SACCR
+  belongs* (#555).
+
+- Describe an unlisted multi-name credit position as not supported in the
+  methodology (#580). The support matrix and the list of unsupported rules
+  told the user to enter the credit quality step of the weighted factor or a
+  quoted index, which gives the wrong factor or the single-name correlation;
+  they now agree with the Basel_vs_CRR sheet: a basket is not relabelled or
+  rounded, and a factor-table row added after a maintenance unlock gives a
+  `WHAT-IF` run.
 
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.1.0, now published.

@@ -135,6 +135,61 @@ Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
 task PR into the release branch, integrate again and certify the new merge
 commit.
 
+<a id="ribbon-walk-through"></a>
+
+**Then walk through the Ribbon by hand.** Certification cannot press the
+controls of the K-SACCR tab or read its labels, so on the development
+workbook of the bundle, opened in a visible Excel with macros enabled, check
+the following and record each result with the release evidence
+([Ribbon contract](docs/workbook/RIBBON.md)):
+
+1. **Packaging.** The workbook opens on Home with no repair prompt and no
+   prompt beyond Excel's own macro notification. The K-SACCR tab (**Alt, K,
+   S**) shows its six groups: Calculation, CSV import, Evidence, Parameters,
+   Status and Navigate.
+2. **Commands.** Each command runs its macro: Run, and Run SA-CCR, Validate
+   inputs and Clear outputs in its menu; Import CSV > NettingSets file... and
+   Trades file...; Validate staging; Commit import; Templates >
+   NettingSets template..., Trades template... and Import specification...;
+   Export evidence; Restore parameters. A completed run opens Results,
+   Validate inputs opens Checks, Clear outputs keeps the sheet.
+3. **Go to.** The primary click opens Home, and every menu entry opens its
+   sheet, in six sections in tab order, README last.
+4. **Enabled states and labels.** With both staging sheets `EMPTY`, Validate
+   staging and Commit import are disabled; after an import Validate staging
+   is enabled; Commit import only once a staging sheet reads `VALID`. Export
+   evidence is disabled before a run and while Results reads `OUT OF DATE`,
+   and enabled again when an input edit is undone. The three Status labels
+   follow a load, an edit of a staged cell, a validation, a commit, a run, a
+   clear and Restore parameters, also when started from the staging buttons.
+5. **After a VBA reset.** Reset the project in the Visual Basic editor
+   (Run > Reset), then run an operation: the labels and states still follow.
+6. **Restore parameters.** After a maintenance unlock change `Alpha` and one
+   factor: the confirmation lists both, Cancel changes nothing, OK restores
+   them and Results reads `OUT OF DATE`; the next run is `REGULATORY`; a
+   second restore says nothing changed.
+7. **CSV workflow from the Ribbon.** Import both example files of the import
+   specification, correct a staged value, validate until both sheets read
+   `VALID`, commit and run: the run uses all 5 legs of the 3 netting sets.
+   Commit import refuses after a staged edit, from the tab and from the
+   staging button.
+8. **Buttons.** Only the 8 buttons of `Import_NettingSets` and
+   `Import_Trades` remain on the sheets.
+9. **Saving.** Open the workbook and close it without changes: Excel asks
+   nothing. Save it and close it: the saved file holds no name
+   `ksRibbonPointer`. In PowerShell this prints `False`:
+
+   ```powershell
+   Add-Type -AssemblyName System.IO.Compression.FileSystem
+   $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path .\K-SACCR_Certification.xlsm))
+   (New-Object IO.StreamReader($zip.GetEntry("xl/workbook.xml").Open())).ReadToEnd() -match "ksRibbonPointer"
+   $zip.Dispose()
+   ```
+
+The protection, the evidence export, the Home links with macros disabled and
+every automation entry point are covered by the certification above and its
+protection checks; repeat them by hand only when a check fails.
+
 ### 6. Build artifacts
 
 From a clean checkout of the candidate, build:
@@ -198,10 +253,11 @@ from the release page:
 
 1. Check it against `SHA256SUMS.txt` and unblock it, as
    [`INSTALLATION.md`](INSTALLATION.md#released-workbook) describes.
-2. Open it and enable macros. **Data → Edit Links** lists no external links,
-   and **Formulas → Name Manager** shows no name with a `#REF!` reference.
-3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** with the sheet
-   buttons, then **Run SA-CCR** again. Save, close and reopen it: Results C5
+2. Open it and enable macros: it opens on Home and the K-SACCR tab is on
+   the Ribbon. **Data → Edit Links** lists no external links, and
+   **Formulas → Name Manager** shows no name with a `#REF!` reference.
+3. **Validate inputs**, **Run SA-CCR** and **Clear outputs** from the K-SACCR
+   Ribbon tab, then **Run SA-CCR** again. Save, close and reopen it: Results C5
    reads current.
 4. **Export evidence**: the file is written. Unprotect Results (**Review →
    Unprotect Sheet**, a deliberate maintenance unlock on this copy), change an
@@ -253,6 +309,7 @@ it does not replace it.
 | 5 | Candidate frozen: the merge commit's SHA, diff reviewed | ☐ |
 | 6 | Static checks pass locally and in CI on the candidate | ☐ |
 | 7 | Excel certification passes for the harness and the nine policy suites on the candidate, and the manual protection checks pass | ☐ |
+| 7a | [Ribbon walk-through](#ribbon-walk-through) done on the certified development workbook and recorded | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
 | 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |

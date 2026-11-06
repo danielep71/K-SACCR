@@ -16,6 +16,7 @@
     "src/workbook/shBuckets.cls",
     "src/workbook/shChecks.cls",
     "src/workbook/shHedgingSets.cls",
+    "src/workbook/shHome.cls",
     "src/workbook/shImportNettingSets.cls",
     "src/workbook/shImportTrades.cls",
     "src/workbook/shNettingSets.cls",
@@ -31,24 +32,9 @@
   ],
   "configurations": {
     "production": {
-      "description": "The production modules of a workbook built from the template: the engine, the worksheet functions and the sheet-button macros.",
+      "description": "The production modules of a workbook built from the template: the engine, the worksheet functions, the sheet-button macros and the Ribbon callbacks.",
       "gating": true,
-      "modules": [
-        "src/core/CORE_Config.bas",
-        "src/core/CORE_CsvReader.bas",
-        "src/core/CORE_CsvSchema.bas",
-        "src/core/CORE_Engine.bas",
-        "src/core/CORE_Export.bas",
-        "src/core/CORE_ImportSpec.bas",
-        "src/core/CORE_Reconcile.bas",
-        "src/core/CORE_Util.bas",
-        "src/modules/SACCR_Formulas.bas",
-        "src/workbook/M_Main.bas"
-      ]
-    },
-    "development": {
-      "description": "The development workbook of INSTALLATION.md: the production modules and every test module.",
-      "gating": true,
+      "ribbon": "src/workbook/customUI14.xml",
       "modules": [
         "src/core/CORE_Config.bas",
         "src/core/CORE_CsvReader.bas",
@@ -60,6 +46,25 @@
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
         "src/workbook/M_Main.bas",
+        "src/workbook/M_Ribbon.bas"
+      ]
+    },
+    "development": {
+      "description": "The development workbook of INSTALLATION.md: the production modules and every test module.",
+      "gating": true,
+      "ribbon": "src/workbook/customUI14.xml",
+      "modules": [
+        "src/core/CORE_Config.bas",
+        "src/core/CORE_CsvReader.bas",
+        "src/core/CORE_CsvSchema.bas",
+        "src/core/CORE_Engine.bas",
+        "src/core/CORE_Export.bas",
+        "src/core/CORE_ImportSpec.bas",
+        "src/core/CORE_Reconcile.bas",
+        "src/core/CORE_Util.bas",
+        "src/modules/SACCR_Formulas.bas",
+        "src/workbook/M_Main.bas",
+        "src/workbook/M_Ribbon.bas",
         "tests/modules/TEST_Aggregation.bas",
         "tests/modules/TEST_Benchmark.bas",
         "tests/modules/TEST_CaseRunner.bas",

@@ -191,6 +191,11 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_RHO13        As Double = 0.3       'CRE52.57; CRR Art. 280a(3)
         Public Const REF_LAMIR        As Double = 0.001     'CRR-RTS Art. 5(2)
         Public Const REF_LAMCO        As Double = 0.1       'CRR-RTS Art. 5(2)
+    'The two conventions of Params, outside the comparison: Restore
+    'regulatory parameters (M_Main, #357) writes them back with the set, so
+    'that a restored workbook calculates as the template does.
+        Public Const REF_DAYSYEAR     As Double = 365       'Calendar days per year for S, E, M, T
+        Public Const REF_IRFULL       As Boolean = True     'CRE52.57(5); the CRR allows TRUE only
 
 '------------------------------------------------------------------------------
 ' NETTING-SET CODES
@@ -300,7 +305,7 @@ Attribute VB_Name = "CORE_Config"
     'deleted or moved, and the run stops (#35). The Params, factor and FX headers are
     'checked from the cells that their workbook names locate.
         Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Client clearing role (N / CM / CLIENT)|Remargin frequency N (BD)|" & _
+            "Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)|Remargin frequency N (BD)|" & _
             ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
@@ -364,6 +369,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const STAGING_CHECKED_NAME   As String = "SACCR_StagingChecked"        'Fingerprint of the last staging validation, any result (#210)
     'Status of a staging sheet, in its _Status cell; the template's EMPTY
     'means that nothing was loaded.
+        Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded, as the template ships (#216)
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
         Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
         Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)
@@ -553,6 +559,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_OUTPUT_LAYOUT    As Long = vbObjectError + 2058    'Output, NettingSets or Trades table header name missing
         Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or kind, file or column not in the contract
         Public Const ERR_STAGING_WRITE    As Long = vbObjectError + 2062    'Staging sheet missing or not written as read
+        Public Const ERR_PARAMS_WRITE     As Long = vbObjectError + 2063    'Params not written as read (#357)
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

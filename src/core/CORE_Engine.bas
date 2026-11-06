@@ -2452,6 +2452,162 @@ Public Function NoPairRateText( _
 End Function
 
 
+Public Function RegulatoryFactorRows() As Variant
+'
+'==============================================================================
+'                             RegulatoryFactorRows
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The supervisory-factor table of the regulatory set REF_SET_ID (#41),
+'   in the template's order: the rows ClassifyRun compares the table with,
+'   and the rows M_Main.RestoreRegulatoryParameters writes back (#357).
+'
+' RETURNS
+'   A zero-based array of texts, one per row: key|asset class|category|
+'   factor|correlation|volatility|commodity hedging set|regimes, as the
+'   engine stores a row. A blank correlation is no correlation; blank
+'   regimes are both regimes, BOTH on Params.
+'
+' REFERENCE
+'   CRE52.72; CRR Art. 280a to 280f; CRR-RTS Art. 5.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim FirstRows     As Variant    'Rows, first half: one Array call holds 24 continuations
+    Dim SecondRows    As Variant    'Rows, second half
+    Dim AllRows()     As String     'Every row
+    Dim k             As Long       'Row
+
+'------------------------------------------------------------------------------
+' ROWS
+'------------------------------------------------------------------------------
+        FirstRows = Array( _
+            "IR|IR||0.005||0.5||", _
+            "FX|FX||0.04||0.15||", _
+            "CR_AAA|CR|AAA|0.0038|0.5|1||", _
+            "CR_AA|CR|AA|0.0038|0.5|1||", _
+            "CR_A|CR|A|0.0042|0.5|1||", _
+            "CR_BBB|CR|BBB|0.0054|0.5|1||", _
+            "CR_BB|CR|BB|0.0106|0.5|1||", _
+            "CR_B|CR|B|0.016|0.5|1||", _
+            "CR_CCC|CR|CCC|0.06|0.5|1||", _
+            "CR_CQS1|CR|CQS1|0.0038|0.5|1||", _
+            "CR_CQS2|CR|CQS2|0.0042|0.5|1||", _
+            "CR_CQS3|CR|CQS3|0.0054|0.5|1||", _
+            "CR_CQS4|CR|CQS4|0.0106|0.5|1||")
+        SecondRows = Array( _
+            "CR_CQS5|CR|CQS5|0.016|0.5|1||", _
+            "CR_CQS6|CR|CQS6|0.06|0.5|1||", _
+            "CR_IG_INDEX|CR|IG_INDEX|0.0038|0.8|0.8||", _
+            "CR_SG_INDEX|CR|SG_INDEX|0.0106|0.8|0.8||", _
+            "EQ_SINGLE|EQ|SINGLE|0.32|0.5|1.2||", _
+            "EQ_INDEX|EQ|INDEX|0.2|0.8|0.75||", _
+            "CO_ELECTRICITY|CO|ELECTRICITY|0.4|0.4|1.5|ENERGY|", _
+            "CO_OIL_GAS|CO|OIL_GAS|0.18|0.4|0.7|ENERGY|", _
+            "CO_METALS|CO|METALS|0.18|0.4|0.7|METALS|", _
+            "CO_AGRICULTURAL|CO|AGRICULTURAL|0.18|0.4|0.7|AGRICULTURAL|", _
+            "CO_OTHER|CO|OTHER|0.18|0.4|0.7|OTHER|", _
+            "CO_CLIMATIC|CO|CLIMATIC|0.18|0.4|0.7|CLIMATIC|CRR", _
+            "OT|OT||0.08||1.5||CRR")
+        ReDim AllRows(0 To UBound(FirstRows) + UBound(SecondRows) + 1)
+        For k = 0 To UBound(FirstRows)
+            AllRows(k) = FirstRows(k)
+        Next k
+        For k = 0 To UBound(SecondRows)
+            AllRows(UBound(FirstRows) + 1 + k) = SecondRows(k)
+        Next k
+        RegulatoryFactorRows = AllRows
+
+End Function
+
+
+Public Function RegulatoryParameterCodes() As Variant
+'
+'==============================================================================
+'                           RegulatoryParameterCodes
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The Params codes that M_Main.RestoreRegulatoryParameters writes back
+'   (#357): the reference parameters ClassifyRun compares, then the two
+'   conventions DaysPerYear and IRBucketOffset. AsOfDate, ReportingCcy
+'   and Regime are run settings and are not listed.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        RegulatoryParameterCodes = Array(PRM_ALPHA, PRM_FLOOR, PRM_DAYSYEAR, PRM_BDYEAR, PRM_MINMAT, PRM_SDFLOOR, _
+                                   PRM_MPOR_BIL, PRM_MPOR_CLR, PRM_MPOR_LARGE, PRM_BASIS, PRM_VOLF, PRM_RHO12, _
+                                   PRM_RHO23, PRM_RHO13, PRM_IRFULL, PRM_LAMIR, PRM_LAMCO)
+
+End Function
+
+
+Public Function RegulatoryParameterValue( _
+    ByVal Code As String) _
+    As Variant
+'
+'==============================================================================
+'                           RegulatoryParameterValue
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The value of a code of RegulatoryParameterCodes in the regulatory set
+'   REF_SET_ID, or of a convention, as Params holds it: a number, or
+'   TRUE for IRBucketOffset.
+'
+' RETURNS
+'   Empty for a code that is not listed.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        Select Case Code
+            Case PRM_ALPHA
+                RegulatoryParameterValue = REF_ALPHA
+            Case PRM_FLOOR
+                RegulatoryParameterValue = REF_FLOOR
+            Case PRM_DAYSYEAR
+                RegulatoryParameterValue = REF_DAYSYEAR
+            Case PRM_BDYEAR
+                RegulatoryParameterValue = REF_BDYEAR
+            Case PRM_MINMAT
+                RegulatoryParameterValue = REF_MINMAT
+            Case PRM_SDFLOOR
+                RegulatoryParameterValue = REF_SDFLOOR
+            Case PRM_MPOR_BIL
+                RegulatoryParameterValue = REF_MPOR_BIL
+            Case PRM_MPOR_CLR
+                RegulatoryParameterValue = REF_MPOR_CLR
+            Case PRM_MPOR_LARGE
+                RegulatoryParameterValue = REF_MPOR_LARGE
+            Case PRM_BASIS
+                RegulatoryParameterValue = REF_BASIS
+            Case PRM_VOLF
+                RegulatoryParameterValue = REF_VOLF
+            Case PRM_RHO12
+                RegulatoryParameterValue = REF_RHO12
+            Case PRM_RHO23
+                RegulatoryParameterValue = REF_RHO23
+            Case PRM_RHO13
+                RegulatoryParameterValue = REF_RHO13
+            Case PRM_IRFULL
+                RegulatoryParameterValue = REF_IRFULL
+            Case PRM_LAMIR
+                RegulatoryParameterValue = REF_LAMIR
+            Case PRM_LAMCO
+                RegulatoryParameterValue = REF_LAMCO
+        End Select
+
+End Function
+
+
 Private Sub ClassifyRun()
 '
 '==============================================================================
@@ -2473,15 +2629,13 @@ Private Sub ClassifyRun()
 '   CRR-RTS Art. 5. Values listed in docs/methodology/README.md.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-06
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim RegulatoryRowsA   As Variant       'Regulatory factor rows, first half
-    Dim RegulatoryRowsB   As Variant       'Regulatory factor rows, second half
     Dim RegulatoryRows    As Collection    'Every regulatory factor row, by key
     Dim RegulatoryRow     As Variant       'One row: key|class|category|SF|corr|vol|group|regimes
     Dim Fields            As Variant       'Fields of the row
@@ -2511,42 +2665,10 @@ Private Sub ClassifyRun()
 '------------------------------------------------------------------------------
 ' SUPERVISORY-FACTOR TABLE
 '------------------------------------------------------------------------------
-    'Fields: key, asset class, category, factor, correlation, volatility,
-    'commodity hedging set, regimes (blank for both), as the engine stores
-    'them. A row missing, different or added makes the run what-if.
-        RegulatoryRowsA = Array( _
-            "IR|IR||0.005||0.5||", _
-            "FX|FX||0.04||0.15||", _
-            "CR_AAA|CR|AAA|0.0038|0.5|1||", _
-            "CR_AA|CR|AA|0.0038|0.5|1||", _
-            "CR_A|CR|A|0.0042|0.5|1||", _
-            "CR_BBB|CR|BBB|0.0054|0.5|1||", _
-            "CR_BB|CR|BB|0.0106|0.5|1||", _
-            "CR_B|CR|B|0.016|0.5|1||", _
-            "CR_CCC|CR|CCC|0.06|0.5|1||", _
-            "CR_CQS1|CR|CQS1|0.0038|0.5|1||", _
-            "CR_CQS2|CR|CQS2|0.0042|0.5|1||", _
-            "CR_CQS3|CR|CQS3|0.0054|0.5|1||", _
-            "CR_CQS4|CR|CQS4|0.0106|0.5|1||")
-        RegulatoryRowsB = Array( _
-            "CR_CQS5|CR|CQS5|0.016|0.5|1||", _
-            "CR_CQS6|CR|CQS6|0.06|0.5|1||", _
-            "CR_IG_INDEX|CR|IG_INDEX|0.0038|0.8|0.8||", _
-            "CR_SG_INDEX|CR|SG_INDEX|0.0106|0.8|0.8||", _
-            "EQ_SINGLE|EQ|SINGLE|0.32|0.5|1.2||", _
-            "EQ_INDEX|EQ|INDEX|0.2|0.8|0.75||", _
-            "CO_ELECTRICITY|CO|ELECTRICITY|0.4|0.4|1.5|ENERGY|", _
-            "CO_OIL_GAS|CO|OIL_GAS|0.18|0.4|0.7|ENERGY|", _
-            "CO_METALS|CO|METALS|0.18|0.4|0.7|METALS|", _
-            "CO_AGRICULTURAL|CO|AGRICULTURAL|0.18|0.4|0.7|AGRICULTURAL|", _
-            "CO_OTHER|CO|OTHER|0.18|0.4|0.7|OTHER|", _
-            "CO_CLIMATIC|CO|CLIMATIC|0.18|0.4|0.7|CLIMATIC|CRR", _
-            "OT|OT||0.08||1.5||CRR")
+    'RegulatoryFactorRows gives the fields of each row. A row missing,
+    'different or added makes the run what-if.
         Set RegulatoryRows = New Collection
-        For Each RegulatoryRow In RegulatoryRowsA
-            RegulatoryRows.Add RegulatoryRow, Split(RegulatoryRow, "|")(0)
-        Next RegulatoryRow
-        For Each RegulatoryRow In RegulatoryRowsB
+        For Each RegulatoryRow In RegulatoryFactorRows()
             RegulatoryRows.Add RegulatoryRow, Split(RegulatoryRow, "|")(0)
         Next RegulatoryRow
         For Each RegulatoryRow In RegulatoryRows
@@ -3964,7 +4086,7 @@ Private Sub ReadTradeAmounts( _
     'Both amounts are converted to the reporting currency.
         If IsNum(InputBlock(DataRow, TR_NOTIONAL)) Then
             Trade.notional = CDbl(InputBlock(DataRow, TR_NOTIONAL))
-            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must be positive (use Direction for the sign)"
+            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must not be negative (use Direction for the sign)"
         ElseIf IsBlankCell(InputBlock(DataRow, TR_NOTIONAL)) And Not IsError(InputBlock(DataRow, TR_NOTIONAL)) Then
             AddErr Trade.ok, Trade.msg, "notional missing"
         Else

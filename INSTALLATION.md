@@ -219,7 +219,8 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 18 sheets, named ranges, formulas and buttons, and no VBA. Built
+   holds the 19 sheets, named ranges, formulas, the staging-sheet buttons and
+   the Ribbon part, and no VBA. Built
    workbooks are never committed.
 
    Instead of this step and the manual import in steps 4 and 5,
@@ -232,8 +233,8 @@ The layout and file conventions are defined in
    To synchronize a workbook you saved yourself, drag it onto
    `tools/Sync-SACCR-VBA.cmd`, or pass its path to the launcher; its sheets
    are kept as they are. It first asks which workbook you are building:
-   **P**roduction, with the engine, the worksheet functions and the
-   sheet-button macros, or **D**evelopment, which adds every test module of
+   **P**roduction, with the engine, the worksheet functions, the command
+   macros and the Ribbon callbacks, or **D**evelopment, which adds every test module of
    `tests/modules/`. The two component sets are listed in
    `tools/vba-projects.json`. Build a production workbook to calculate and a
    development workbook only to run the tests, which write to the input and
@@ -250,7 +251,8 @@ The layout and file conventions are defined in
    1. every file in `src/core/`;
    2. every file in `src/classes/` (none at present);
    3. every file in `src/modules/`;
-   4. every standard module (`.bas`) in `src/workbook/`, currently `M_Main`;
+   4. every standard module (`.bas`) in `src/workbook/`, currently `M_Main`
+      and `M_Ribbon`;
       the `.cls` document modules there are pasted, not imported (step 5);
    5. every `.frm` in `src/forms/` (none at present; its `.frx` loads with it;
       never import a `.frx`);
@@ -270,26 +272,28 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
-   | 11 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 12 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
-   | 13 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
-   | 14 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 15 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
-   | 16 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 17 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 18 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
-   | 19 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 20 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 21 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 22 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 23 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonGetEnabled` and `RibbonGetLabel` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
+   | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 14 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 15 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 16 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
+   | 17 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 18 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 19 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
+   | 20 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 21 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 22 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 23 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 24 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
-   The sheet buttons call `RunSACCR`, `ValidateInputs`, `ClearOutputs`,
-   `ExportEvidence`, `ExportTradesCsvTemplate`,
-   `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`,
-   `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, so they
-   work once `M_Main` is imported.
+   The K-SACCR Ribbon tab of the template calls every command through
+   `M_Ribbon`, and the buttons of the two staging sheets call
+   `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`,
+   `CommitImport` and `ExportImportSpecification`, so they work once
+   `M_Main` and `M_Ribbon` are imported; until then a click shows that Excel
+   cannot find the macro.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
    `ThisWorkbook1`. Instead, open the `.cls` file in a text editor, copy the code
@@ -623,7 +627,7 @@ within the limit, rejected with `CSV-TOO-MANY-RECORDS` above it. A last
 ## 🤖 Automation entry points
 
 `M_Main` has entry points for a caller that runs the workbook without the
-buttons, such as a script or a test. None of them shows a message box.
+Ribbon or the staging buttons, such as a script or a test. None of them shows a message box.
 
 ### RunSACCR_Silent
 
@@ -633,7 +637,7 @@ demonstration portfolio with the bank figures of the reconciliation
 screenshot:
 
 ```text
-RESULT=OK; operation=run; errors=5; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=3B2754CA; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS
+RESULT=OK; operation=run; errors=5; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=119D94E2; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
@@ -801,6 +805,24 @@ staging sheet reads `COMMITTED` and the `VALID` validation is emptied.
 Results is not recalculated: `ResultsStatus()` returns `STALE`, and Results C5
 reads `OUT OF DATE`, until the next **Run SA-CCR**. While an operation is
 running it raises `ERR_RUN_ACTIVE`.
+
+### RestoreRegulatoryParameters_Silent
+
+`RestoreRegulatoryParameters_Silent()` writes the regulatory parameter set
+back to Params without a confirmation or a message, as **Restore parameters**
+on the K-SACCR tab (`RestoreRegulatoryParameters`) does after its
+confirmation (#357): the reference parameters, `DaysPerYear` and
+`IRBucketOffset`, and the rows of the supervisory-factor table, key to
+regimes ([scope](docs/workbook/RIBBON.md#-commands)). Only the cells that
+differ from the set are written, and each is read back; on any failure the
+cells kept before the write are written back and read back. It returns
+`RESULT=RESTORED; parameters=N; factor_rows=M` with the parameters and rows
+that were changed, `RESULT=UNCHANGED` when Params already holds the set,
+`RESULT=REFUSED; reason=...` when a Params name is missing or a factor row
+stands below the regulatory rows of the factor table, or `RESULT=FAILED; error=...; rollback=...` with
+`NONE`, `VERIFIED` or `FAILED: ...` as for `CommitStaging_Silent`. Results is
+not recalculated: `ResultsStatus()` returns `STALE` until the next
+**Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### ExportCsvTemplate_Silent
 

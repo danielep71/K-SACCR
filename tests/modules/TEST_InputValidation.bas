@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 177               'Cases in a complete run
-        Private Const CHECKS      As Long = 308               'Checks in a complete run
+        Private Const CASES       As Long = 179               'Cases in a complete run
+        Private Const CHECKS      As Long = 314               'Checks in a complete run
 
 
 '
@@ -176,6 +176,25 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MTM, Empty
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+    'A zero notional is accepted, as the CSV contract accepts it: the leg
+    'adds nothing to the add-on, but its MtM still counts in V. A negative
+    'notional is rejected; Direction gives the sign (#561).
+        StartCase "trade-zero-notional", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NOTIONAL, 0#
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "0", "0", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "add-on-ir", "", "add_on.interest_rate", "0", "0", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "replacement-cost", "", "replacement_cost", "30", "0.000001", "0", _
+                                     "illustrative"
+
+        StartCase "trade-negative-notional", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NOTIONAL, -1#
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksLine "negative-notional", SEV_ERROR, _
+                                         "notional must not be negative", "illustrative"
 
         StartCase "trade-unreadable-date", "N"
         AddSwap "T1"

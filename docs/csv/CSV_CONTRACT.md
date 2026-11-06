@@ -27,9 +27,9 @@ column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, the **Export CSV template** button on `Trades` and on
-`NettingSets` writes the same file, byte for byte, to a file the user
-chooses. The macros take the header line from constants in `CORE_Config`,
+In the workbook, **NettingSets template** and **Trades template** in the
+**Templates** menu of the K-SACCR Ribbon tab write the same file, byte for
+byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An
@@ -149,7 +149,7 @@ been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 | `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Unique netting-set ID, compared case-insensitively; referenced by every trade. | `NS-001` |
 | `counterparty` | Counterparty | text (<= 500 characters) | no |  | Descriptive counterparty name or identifier. | `CPTY-A` |
 | `margined` | Margined (Y/N) | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
-| `clearing_role` | Client clearing role (N / CM / CLIENT) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
+| `clearing_role` | Client clearing role (N / CM / CLIENT / CCP; MULTI rejected) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
 | `remargin_period_business_days` | Remargin frequency N (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
 | `large_or_illiquid` | >5,000 trades or illiquid collateral (Y/N) | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
 | `margin_disputes` | Margin disputes (Y/N) | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |
@@ -183,7 +183,7 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `option_type` | Option type | code: `Call`, `Put` | no |  | Call or Put; required by the engine for an option. |  |
 | `nature` | Nature | code: `Standard`, `Basis`, `Volatility` | no | Standard | Hedging-set nature. | `Standard` |
 | `hedging_set_label` | Basis / vol hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
-| `notional_amount` | Notional | number (> 0) | yes |  | Unscaled notional of this leg. | `10000000` |
+| `notional_amount` | Notional | number (>= 0) | yes |  | Unscaled notional of this leg. | `10000000` |
 | `notional_currency` | Notional ccy | currency | no | the reporting currency | Currency of the notional. | `EUR` |
 | `market_value_amount` | MtM | number | yes |  | Mark-to-market of the leg; in an economic trade, only its MtM leg carries a value. | `250000` |
 | `market_value_currency` | MtM ccy | currency | no | the notional currency | Currency of the MtM. |  |

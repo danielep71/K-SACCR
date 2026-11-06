@@ -450,9 +450,9 @@ Keep non-passing bundles too until the finding is resolved.
   except under `TEST_Suite.Certify`, nowhere else. A run that prints
   more loses its first lines, starting with the header and the first `CASE`
   lines, and its log fails validation (`EVIDENCE_INVALID`).
-  `TEST_InputValidation` prints 183 lines on a pass (header, `MODE`, 177
+  `TEST_InputValidation` prints 185 lines on a pass (header, `MODE`, 179
   `CASE` lines and four result lines), so a failing run with more than about
-  15 `FAILURE=` lines overflows; other suites can too when many checks fail.
+  13 `FAILURE=` lines overflows; other suites can too when many checks fail.
   `TEST_MainState` and `TEST_Reconcile` run the workbook macros, whose run
   messages would overflow the window on their own; both suites set
   `M_Main.gQuietLog` for their run, as `Test_RunAll` does, so their report

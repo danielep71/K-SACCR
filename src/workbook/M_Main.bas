@@ -3,7 +3,8 @@ Attribute VB_Name = "M_Main"
 ' MODULE: M_Main
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Provide the macros behind the buttons on the sheets, run each operation
+'   Provide the macros behind the K-SACCR Ribbon tab and the staging-sheet
+'   buttons, run each operation
 '   with Excel prepared for speed, put Excel back exactly as it was, and
 '   report the outcome to the user.
 '
@@ -62,18 +63,30 @@ Attribute VB_Name = "M_Main"
 '   rows once a VALID staging validation still holds, putting them back
 '   on any failure (#211); CommitImport: the same after a confirmation
 '   that names each input sheet with its row counts.
+'   RestoreRegulatoryParameters: put the reference parameters and the
+'   factor table on Params back to the regulatory set, after a
+'   confirmation that lists what is overwritten, putting Params back on
+'   any failure (#357); RestoreRegulatoryParameters_Silent: the same
+'   without a confirmation, for automation and tests.
 '   Auto_Open: run by Excel when the workbook opens; protects every sheet
 '   again for the user interface only. ProtectWorkbook: protect every
 '   sheet and the workbook structure, without a password, so that the
 '   macros write while the user changes only the unlocked cells (#421);
 '   also run when each operation starts.
-'   The sheet buttons call the first three, ExportEvidence, the two
-'   template exports, the two imports, ValidateStaging, CommitImport and
-'   ExportImportSpecification by name.
+'   OperationRunning: whether an operation is in progress, for the
+'   Ribbon's enabled states (#216); RibbonStateChanged: refresh the tab
+'   once Excel is idle, also for ThisWorkbook's change handler.
+'   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
+'   template exports, the two imports, ValidateStaging, CommitImport,
+'   ExportImportSpecification and RestoreRegulatoryParameters; the
+'   buttons of the staging sheets call the
+'   imports, ValidateStaging, CommitImport and ExportImportSpecification
+'   by name (#217).
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
-'   CORE_Engine for the calculation and its run counters; CORE_Reconcile
+'   M_Ribbon to refresh the K-SACCR tab after a macro that changes a state
+'   it shows (#216); CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
 '   evidence report and its UTF-8 encoding; CORE_CsvReader and
@@ -119,7 +132,10 @@ Attribute VB_Name = "M_Main"
 '   CommitStaging once the first input sheet has been written;
 '   "commit-verify" makes its read-back fail, and "commit-rollback" makes
 '   the write-back of the input sheets fail as well (#211).
-'   tests/modules/TEST_MainState.bas uses the first four;
+'   gTestFault = "restore-write", "restore-verify" and "restore-rollback"
+'   do the same in RestoreParameters for Params (#357).
+'   tests/modules/TEST_MainState.bas uses the first four and the restore
+'   faults;
 '   tests/modules/TEST_Reconcile.bas uses "recalc", "reconcile" and the
 '   evidence faults; tests/modules/TEST_Import.bas uses "cleanup",
 '   "evidence-write", "staging-write" and the commit faults.
@@ -138,7 +154,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-06
 '
 ' AUTHOR
 '   Daniele Penza
@@ -193,6 +209,10 @@ Attribute VB_Name = "M_Main"
         Private Const STAGING_PARAMS_CODE   As String = "CSV-CONTEXT-PARAMS"
         Private Const STAGING_ROW_SEARCH    As Long = 16
 
+    'Restore regulatory parameters (#357): the overwritten values its
+    'confirmation lists at most; a last line counts the others.
+        Private Const RESTORE_LISTED        As Long = 12
+
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
         Private Const RECON_TR      As Long = 2    'BankTrades against TradeCalc
@@ -221,7 +241,7 @@ Attribute VB_Name = "M_Main"
     'Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write" or "commit-*"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write", "commit-*" or "restore-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
@@ -378,14 +398,15 @@ Public Sub RunSACCR()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the full SA-CCR calculation and write every output sheet, then
-'   report the economic trades and legs used, the total EAD of each regime
-'   and the number of errors and warnings.
+'   show Results and report the economic trades and legs used, the total
+'   EAD of each regime and the number of errors and warnings. A run that
+'   stops shows Checks.
 '
 ' USAGE
-'   Assigned to the Run SA-CCR button.
+'   Called by Run on the K-SACCR Ribbon tab.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-06
 '==============================================================================
 '
 
@@ -393,6 +414,7 @@ Public Sub RunSACCR()
 ' RUN
 '------------------------------------------------------------------------------
         ExecuteOperation OP_RUN
+        RibbonStateChanged
 
 End Sub
 
@@ -565,7 +587,8 @@ Public Sub ValidateInputs()
 '   report the number of errors and warnings.
 '
 ' USAGE
-'   Assigned to the Validate inputs button.
+'   Validate inputs on the K-SACCR Ribbon tab (Run menu), or the Macros
+'   dialog.
 '
 ' UPDATED
 '   2026-10-06
@@ -576,6 +599,7 @@ Public Sub ValidateInputs()
 ' VALIDATE
 '------------------------------------------------------------------------------
         ExecuteOperation OP_VALIDATE
+        RibbonStateChanged
 
 End Sub
 
@@ -590,7 +614,8 @@ Public Sub ClearOutputs()
 '   the stored fingerprints, and stamp the time on the Results sheet.
 '
 ' USAGE
-'   Assigned to the Clear outputs button.
+'   Clear outputs on the K-SACCR Ribbon tab (Run menu), or the Macros
+'   dialog.
 '
 ' UPDATED
 '   2026-10-17
@@ -601,6 +626,7 @@ Public Sub ClearOutputs()
 ' CLEAR
 '------------------------------------------------------------------------------
         ExecuteOperation OP_CLEAR
+        RibbonStateChanged
 
 End Sub
 
@@ -864,11 +890,11 @@ Private Function ReconStatus( _
         StoredFingerprint = SafeStr(StoredRecon)
         If Len(StoredFingerprint) = 0 Or Len(SafeStr(StoredRun)) = 0 Then
             ReconStatus = "No reconciliation: enter bank figures on " & BankSheetOf(ReconKind) & _
-                          " and press Run SA-CCR (on Results or Trades)."
+                          " and press Run SA-CCR (on the K-SACCR tab)."
         ElseIf StoredFingerprint = ReconFingerprint(ReconKind) Then
             ReconStatus = "Reconciliation current (bank figures and inputs " & StoredFingerprint & ")"
         Else
-            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on Results or Trades)."
+            ReconStatus = "OUT OF DATE - bank figures or inputs changed since the last run; press Run SA-CCR (on the K-SACCR tab)."
         End If
         Exit Function
 
@@ -1577,7 +1603,7 @@ Public Sub ExportEvidence()
 '   an output cell was edited after the run.
 '
 ' USAGE
-'   Assigned to the Export evidence button on Reconciliation.
+'   Export evidence on the K-SACCR Ribbon tab, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports a refusal or a write failure in a message, or in the Immediate
@@ -2461,7 +2487,8 @@ Public Sub ExportNettingSetsCsvTemplate()
 '   to a file chosen by the user: its header line only.
 '
 ' USAGE
-'   Assigned to the Export CSV template button on NettingSets.
+'   NettingSets template on the K-SACCR Ribbon tab (Templates menu), or
+'   the Macros dialog.
 '
 ' ERROR POLICY
 '   As ExportCsvTemplate; never raises.
@@ -2485,7 +2512,8 @@ Public Sub ExportTradesCsvTemplate()
 '   file chosen by the user: its header line only.
 '
 ' USAGE
-'   Assigned to the Export CSV template button on Trades.
+'   Trades template on the K-SACCR Ribbon tab (Templates menu), or the
+'   Macros dialog.
 '
 ' ERROR POLICY
 '   As ExportCsvTemplate; never raises.
@@ -2658,8 +2686,9 @@ Public Sub ExportImportSpecification()
 '   confirms it; the user may then open the page.
 '
 ' USAGE
-'   Assigned to the Export import specifications button on
-'   Import_NettingSets and Import_Trades.
+'   Import specification on the K-SACCR Ribbon tab (Templates menu), the
+'   Export import specifications button on Import_NettingSets and
+'   Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports a failure in a message, or in the Immediate window in silent
@@ -3073,7 +3102,8 @@ Public Sub ImportNettingSetsCsv()
 '   (#208), for checking and correction before it replaces NettingSets.
 '
 ' USAGE
-'   The Import CSV button on Import_NettingSets, or the Macros dialog.
+'   NettingSets file on the K-SACCR Ribbon tab (Import CSV menu), the
+'   Import CSV button on Import_NettingSets, or the Macros dialog.
 '
 ' ERROR POLICY
 '   As ImportCsv; never raises.
@@ -3083,6 +3113,7 @@ Public Sub ImportNettingSetsCsv()
 '==============================================================================
 '
         ImportCsv "NettingSets"
+        RibbonStateChanged
 
 End Sub
 
@@ -3097,7 +3128,8 @@ Public Sub ImportTradesCsv()
 '   for checking and correction before it replaces Trades.
 '
 ' USAGE
-'   The Import CSV button on Import_Trades, or the Macros dialog.
+'   Trades file on the K-SACCR Ribbon tab (Import CSV menu), the Import
+'   CSV button on Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   As ImportCsv; never raises.
@@ -3107,6 +3139,7 @@ Public Sub ImportTradesCsv()
 '==============================================================================
 '
         ImportCsv "Trades"
+        RibbonStateChanged
 
 End Sub
 
@@ -3237,6 +3270,7 @@ Public Sub StagingEdited( _
                 StatusCell.Value2 = STAGING_EDITED
             End If
         End If
+        RibbonStateChanged
 
 Failed:
 
@@ -4281,8 +4315,8 @@ Public Sub ValidateStaging()
 '   on its staging sheet. Nothing is copied to NettingSets or Trades.
 '
 ' USAGE
-'   The Validate staging button on Import_NettingSets and Import_Trades,
-'   or the Macros dialog.
+'   Validate staging on the K-SACCR Ribbon tab, the Validate staging
+'   button on Import_NettingSets and Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
@@ -4304,6 +4338,7 @@ Public Sub ValidateStaging()
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         ResultLine = CheckStaging(Message)
+        RibbonStateChanged
         If Left$(ResultLine, Len("RESULT=REFUSED")) <> "RESULT=REFUSED" And Not gSilent Then
             GetSheet(SH_CHECKS).Activate
         End If
@@ -4951,6 +4986,7 @@ Public Sub RefreshStagingStatus()
                 End If
             End If
         Next Kind
+        RibbonStateChanged
 
 Failed:
         Application.EnableEvents = Events
@@ -4993,8 +5029,9 @@ Public Sub CommitImport()
 '   left as it is.
 '
 ' USAGE
-'   The Commit import button on Import_NettingSets and Import_Trades, or
-'   the Macros dialog. Automation calls CommitStaging_Silent.
+'   Commit import on the K-SACCR Ribbon tab, the Commit import button on
+'   Import_NettingSets and Import_Trades, or the Macros dialog. Automation
+'   calls CommitStaging_Silent.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
@@ -5037,6 +5074,7 @@ Public Sub CommitImport()
             Exit Sub
         End If
         ResultLine = CommitStaging(Message)
+        RibbonStateChanged
         If Left$(ResultLine, Len("RESULT=COMMITTED")) = "RESULT=COMMITTED" Then
             Notify Message, vbInformation
         ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
@@ -5686,10 +5724,12 @@ Private Function FormulasOnly( _
 '   The formulas of Target's formula cells, by row and column within
 '   Target, and "" for every other cell (#211). Formula returns the value
 '   of a constant cell, so a text that starts with "=" would be taken for
-'   a formula; the formula cells are found with SpecialCells instead.
+'   a formula; the formula cells are found with SpecialCells instead. A
+'   single cell is read by itself: SpecialCells on one cell searches the
+'   whole sheet (#357).
 '
 ' UPDATED
-'   2026-11-02
+'   2026-11-06
 '==============================================================================
 '
 
@@ -5705,6 +5745,13 @@ Private Function FormulasOnly( _
 ' FIND
 '------------------------------------------------------------------------------
         ReDim Out(1 To Target.Rows.Count, 1 To Target.Columns.Count)
+        If Target.Cells.Count = 1 Then
+            If Target.HasFormula Then
+                Out(1, 1) = Target.Formula
+            End If
+            FormulasOnly = Out
+            Exit Function
+        End If
         If Not IsNull(Target.HasFormula) Then
             If Not Target.HasFormula Then
                 FormulasOnly = Out
@@ -5806,7 +5853,49 @@ Private Function PutSheetBack( _
 '   Contains every error.
 '
 ' UPDATED
-'   2026-11-02
+'   2026-11-06
+'==============================================================================
+'
+        On Error GoTo Failed
+        PutSheetBack = PutRangeBack(TableRange(Sheet, FirstRow, 1, LastRow, Width), KeptValues, KeptFormulas)
+        Exit Function
+
+Failed:
+        PutSheetBack = "; " & Sheet.Name & ": " & Err.Description
+
+End Function
+
+
+Private Function PutRangeBack( _
+    ByVal Target As Range, _
+    ByRef KeptValues As Variant, _
+    ByRef KeptFormulas As Variant) _
+    As String
+'
+'==============================================================================
+'                                 PutRangeBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back the kept cells of a block and read them back: a formula as
+'   its formula, a text with a leading apostrophe so that it stays text,
+'   any other value as it was. Used by a failed commit (#211) and a failed
+'   restore of the regulatory parameters (#357).
+'
+' INPUTS
+'   Target: the block, as it was kept.
+'   KeptValues: its Value2, by row and column, also for a single cell.
+'   KeptFormulas: its formulas, as FormulasOnly gives them.
+'
+' RETURNS
+'   "" when every cell reads back as it was; otherwise "; " and what
+'   failed.
+'
+' ERROR POLICY
+'   Contains every error. gTestFault = "commit-rollback" or
+'   "restore-rollback" makes the write fail.
+'
+' UPDATED
+'   2026-11-06
 '==============================================================================
 '
 
@@ -5817,6 +5906,8 @@ Private Function PutSheetBack( _
     Dim Grid        As Variant    'What is read back, Value2
     Dim Formulas    As Variant    'What is read back, Formula
     Dim Text        As String     'A kept formula
+    Dim RowCount    As Long       'Rows of the block
+    Dim ColCount    As Long       'Columns of the block
     Dim r           As Long       'Row
     Dim c           As Long       'Column
 
@@ -5824,9 +5915,11 @@ Private Function PutSheetBack( _
 ' WRITE BACK
 '------------------------------------------------------------------------------
         On Error GoTo Failed
-        ReDim Restore(1 To LastRow - FirstRow + 1, 1 To Width)
-        For r = 1 To LastRow - FirstRow + 1
-            For c = 1 To Width
+        RowCount = Target.Rows.Count
+        ColCount = Target.Columns.Count
+        ReDim Restore(1 To RowCount, 1 To ColCount)
+        For r = 1 To RowCount
+            For c = 1 To ColCount
                 Text = CStr(KeptFormulas(r, c))
                 If Left$(Text, 1) = "=" Then
                     Restore(r, c) = Text
@@ -5837,29 +5930,27 @@ Private Function PutSheetBack( _
                 End If
             Next c
         Next r
-        If gTestFault = "commit-rollback" Then
-            Err.Raise ERR_INJECTED_FAULT, "M_Main.PutSheetBack", "Injected write-back failure."
+        If gTestFault = "commit-rollback" Or gTestFault = "restore-rollback" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.PutRangeBack", "Injected write-back failure."
         End If
-        TableRange(Sheet, FirstRow, 1, LastRow, Width).Value = Restore
+        Target.Value = Restore
 
 '------------------------------------------------------------------------------
 ' READ BACK
 '------------------------------------------------------------------------------
-        With TableRange(Sheet, FirstRow, 1, LastRow, Width)
-            Grid = .Value2
-            Formulas = FormulasOnly(.Cells)
-        End With
-        For r = 1 To LastRow - FirstRow + 1
-            For c = 1 To Width
+        Grid = BlockValues(Target)
+        Formulas = FormulasOnly(Target)
+        For r = 1 To RowCount
+            For c = 1 To ColCount
                 Text = CStr(KeptFormulas(r, c))
                 If Left$(Text, 1) = "=" Then
                     If CStr(Formulas(r, c)) <> Text Then
-                        PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                        PutRangeBack = "; " & Target.Worksheet.Name & "!" & Target.Cells(r, c).Address(False, False) & _
                                        " does not hold its formula again"
                         Exit Function
                     End If
                 ElseIf Len(CStr(Formulas(r, c))) > 0 Or Not SameCellValue(Grid(r, c), KeptValues(r, c)) Then
-                    PutSheetBack = "; " & Sheet.Name & "!" & TableCell(Sheet, FirstRow + r - 1, c).Address(False, False) & _
+                    PutRangeBack = "; " & Target.Worksheet.Name & "!" & Target.Cells(r, c).Address(False, False) & _
                                    " does not hold its value again"
                     Exit Function
                 End If
@@ -5868,7 +5959,41 @@ Private Function PutSheetBack( _
         Exit Function
 
 Failed:
-        PutSheetBack = "; " & Sheet.Name & ": " & Err.Description
+        PutRangeBack = "; " & Target.Worksheet.Name & ": " & Err.Description
+
+End Function
+
+
+Private Function BlockValues( _
+    ByVal Target As Range) _
+    As Variant
+'
+'==============================================================================
+'                                 BlockValues
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Target's Value2 by row and column, also for a single cell, whose
+'   Value2 Excel gives as a value rather than an array.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim One(1 To 1, 1 To 1) As Variant    'A single cell's value
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        If Target.Cells.Count = 1 Then
+            One(1, 1) = Target.Value2
+            BlockValues = One
+        Else
+            BlockValues = Target.Value2
+        End If
 
 End Function
 
@@ -6648,6 +6773,764 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+'                         REGULATORY PARAMETERS (#357)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub RestoreRegulatoryParameters()
+'
+'==============================================================================
+'                         RestoreRegulatoryParameters
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Put the reference parameters on Params and the supervisory-factor
+'   table back to the regulatory set REF_SET_ID (#357), after a
+'   confirmation that lists what will be overwritten, with Cancel as the
+'   default. The reporting date, the reporting currency, the default
+'   regime, the FX table and the netting sets' alpha overrides are inputs
+'   and are not changed.
+'
+' USAGE
+'   Restore parameters on the K-SACCR Ribbon tab, or the Macros dialog.
+'   Automation calls RestoreRegulatoryParameters_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. In silent mode, where no confirmation can be
+'   given, nothing is restored.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Changes     As String    'What would be overwritten, one line each
+    Dim Problem     As String    'Why nothing can be restored; "" when it can
+    Dim Count       As Long      'Cells or rows that differ from the set
+    Dim ResultLine  As String    'What the restore returned
+    Dim Message     As String    'Its message
+
+'------------------------------------------------------------------------------
+' CONFIRM, RESTORE AND REPORT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was restored." & vbLf & vbLf & "A restore is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls RestoreRegulatoryParameters_Silent.", vbExclamation
+            Exit Sub
+        End If
+        Count = RestoreDifferences(Changes, Problem)
+        If Len(Problem) > 0 Then
+            Notify "Nothing was restored." & vbLf & vbLf & Problem, vbExclamation
+            Exit Sub
+        End If
+        If Count = 0 Then
+            Notify UnchangedText(), vbInformation
+            Exit Sub
+        End If
+        If MsgBox(RestoreQuestion(Changes, Count), vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        ResultLine = RestoreParameters(Message)
+        RibbonStateChanged
+        If Left$(ResultLine, Len("RESULT=RESTORED")) = "RESULT=RESTORED" Or _
+           Left$(ResultLine, Len("RESULT=UNCHANGED")) = "RESULT=UNCHANGED" Then
+            Notify Message, vbInformation
+        ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
+            Notify Message, vbCritical
+        Else
+            Notify Message, vbExclamation
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Restore regulatory parameters: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function RestoreRegulatoryParameters_Silent() As String
+'
+'==============================================================================
+'                      RestoreRegulatoryParameters_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Restore the regulatory parameters (#357), for automation and tests,
+'   without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=RESTORED; parameters=N; factor_rows=M", N and M being the
+'   Params values and factor-table rows that differed and were written;
+'   "RESULT=UNCHANGED" when Params already holds the set;
+'   "RESULT=REFUSED; reason=..." when nothing was written; or
+'   "RESULT=FAILED; error=...; rollback=..." when a write failed, with
+'   rollback=NONE when nothing had been written, VERIFIED when Params was
+'   put back and read back as it was, and FAILED: ... when it could not
+'   be.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, and ERR_CLEANUP_FAILED
+'   when the restore was done but Excel settings were not restored.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Message     As String    'The message, not shown
+
+'------------------------------------------------------------------------------
+' RESTORE
+'------------------------------------------------------------------------------
+        RestoreRegulatoryParameters_Silent = RestoreParameters(Message)
+
+End Function
+
+
+Private Function RestoreParameters( _
+    ByRef Message As String) _
+    As String
+'
+'==============================================================================
+'                              RestoreParameters
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the regulatory set REF_SET_ID back to Params (#357): each value
+'   of CORE_Engine.RegulatoryParameterCodes, and the rows of
+'   CORE_Engine.RegulatoryFactorRows into the factor table, below its
+'   header, in the columns from the key to the regimes. The Reference
+'   column, the other parameters, the FX table and every other sheet are
+'   not touched.
+'
+' METHOD
+'   1. Find the cells (RestoreTargets) and refuse, writing nothing, when
+'      a Params name is missing or the factor table has a key below the
+'      regulatory rows. When every cell already holds its value, write
+'      nothing and say so.
+'   2. Keep the values and formulas of the cells that differ, write the
+'      set into them through the macros' protection, with events off and
+'      calculation manual, and read each cell back.
+'   3. On any failure, write the kept cells back and read them back; the
+'      result tells whether that was verified, apart from the error
+'      itself.
+'   4. Results, Checks and the run fingerprints are left as they are:
+'      Results reads OUT OF DATE until the next run, as after any edit,
+'      and the evidence export refuses until then. The status cells are
+'      recalculated before Excel settings are restored, so that they read
+'      OUT OF DATE in manual calculation too.
+'
+' ERROR POLICY
+'   See RestoreRegulatoryParameters_Silent. gTestFault = "restore-write"
+'   raises ERR_INJECTED_FAULT once the first cell is written;
+'   "restore-verify" makes the read-back fail; "restore-rollback" raises
+'   it there too and makes the write-back fail as well.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Targets()           As Range            'The cells of the set: parameters, then factor rows
+    Dim Expected()          As Variant          'What each holds in the set, by row and column
+    Dim TargetCount         As Long             'Parameters and factor rows
+    Dim ParameterCount      As Long             'Of which parameters
+    Dim Problem             As String           'Why nothing can be restored
+    Dim Differs()           As Boolean          'The target does not hold the set
+    Dim KeptValues()        As Variant          'Value2 of each differing target
+    Dim KeptFormulas()      As Variant          'Its formulas
+    Dim Touched()           As Boolean          'The target may have been written
+    Dim ChangedParameters   As Long             'Parameters that differed
+    Dim ChangedRows         As Long             'Factor rows that differed
+    Dim k                   As Long             'Target
+    Dim SavedCalculation    As XlCalculation    'Calculation mode before the restore
+    Dim SavedEvents         As Boolean          'EnableEvents before the restore
+    Dim SavedScreen         As Boolean          'ScreenUpdating before the restore
+    Dim StateCaptured       As Boolean          'True once all three were read
+    Dim Restored            As Boolean          'Every target was written and read back
+    Dim ErrorNumber         As Long             'Primary error number; 0 for none
+    Dim ErrorDescription    As String           'Primary error description
+    Dim Rollback            As String           'NONE, VERIFIED or FAILED: details
+    Dim CleanupDetails      As String           'Settings not restored
+
+'------------------------------------------------------------------------------
+' PLAN
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.RestoreParameters", "An SA-CCR operation is already running."
+        End If
+        TargetCount = RestoreTargets(Targets, Expected, ParameterCount, Problem)
+        If Len(Problem) > 0 Then
+            RestoreParameters = "RESULT=REFUSED; reason=" & Problem
+            Message = "Nothing was restored." & vbLf & vbLf & Problem
+            Exit Function
+        End If
+        ReDim Differs(1 To TargetCount)
+        ReDim KeptValues(1 To TargetCount)
+        ReDim KeptFormulas(1 To TargetCount)
+        ReDim Touched(1 To TargetCount)
+        For k = 1 To TargetCount
+            Differs(k) = Not HoldsExpected(Targets(k), Expected(k))
+            If Differs(k) Then
+                If k <= ParameterCount Then
+                    ChangedParameters = ChangedParameters + 1
+                Else
+                    ChangedRows = ChangedRows + 1
+                End If
+            End If
+        Next k
+        If ChangedParameters + ChangedRows = 0 Then
+            RestoreParameters = "RESULT=UNCHANGED"
+            Message = UnchangedText()
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' KEEP, WRITE AND READ BACK
+'------------------------------------------------------------------------------
+        mRunning = True
+        ProtectWorkbook
+        On Error GoTo Failed
+        For k = 1 To TargetCount
+            If Differs(k) Then
+                KeptValues(k) = BlockValues(Targets(k))
+                KeptFormulas(k) = FormulasOnly(Targets(k))
+            End If
+        Next k
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+        For k = 1 To TargetCount
+            If Differs(k) Then
+                Touched(k) = True
+                Targets(k).Value = Expected(k)
+                If gTestFault = "restore-write" Or gTestFault = "restore-rollback" Then
+                    Err.Raise ERR_INJECTED_FAULT, "M_Main.RestoreParameters", "Injected restore write failure."
+                End If
+            End If
+        Next k
+        If gTestFault = "restore-verify" Then
+            Err.Raise ERR_PARAMS_WRITE, "M_Main.RestoreParameters", "Injected read-back difference on " & SH_PARAMS
+        End If
+        For k = 1 To TargetCount
+            If Differs(k) Then
+                If Not HoldsExpected(Targets(k), Expected(k)) Then
+                    Err.Raise ERR_PARAMS_WRITE, "M_Main.RestoreParameters", SH_PARAMS & "!" & _
+                              Targets(k).Address(False, False) & " does not read as written"
+                End If
+            End If
+        Next k
+        Restored = True
+
+'------------------------------------------------------------------------------
+' RESTORE EXCEL AND REPORT
+'------------------------------------------------------------------------------
+    'The status cells are recalculated first: in manual calculation they
+    'would keep the value computed before the restore and still report the
+    'last run as current.
+CleanUp:
+        On Error GoTo 0
+        If StateCaptured Then
+            RefreshResultsStatus
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If Not Restored Then
+            RestoreParameters = "RESULT=FAILED; error=" & ErrorDescription & "; rollback=" & Rollback
+            Message = "Nothing was restored." & vbLf & vbLf & ErrorDescription & " (error " & ErrorNumber & ")."
+            If Left$(Rollback, 6) = "FAILED" Then
+                Message = Message & vbLf & vbLf & SH_PARAMS & " could not be put back as it was: " & _
+                          Mid$(Rollback, 9) & ". Check " & SH_PARAMS & " before any run."
+            ElseIf Rollback = "VERIFIED" Then
+                Message = Message & vbLf & vbLf & SH_PARAMS & " was put back as it was and checked."
+            End If
+            If Len(CleanupDetails) > 0 Then
+                Message = Message & vbLf & vbLf & "Excel settings were not restored: " & CleanupDetails
+            End If
+            Exit Function
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.RestoreParameters", _
+                      "The regulatory parameters were restored, but Excel settings were not restored: " & CleanupDetails
+        End If
+        RestoreParameters = "RESULT=RESTORED; parameters=" & ChangedParameters & "; factor_rows=" & ChangedRows
+        Message = "Restored the regulatory parameter set " & REF_SET_ID & "." & vbLf & vbLf & _
+                  "Parameters changed: " & ChangedParameters & vbLf & _
+                  "Factor-table rows changed: " & ChangedRows & vbLf & vbLf & _
+                  "The reporting date, currency, regime, FX rates and the netting sets' alpha overrides " & _
+                  "were not changed. Results reads OUT OF DATE until the next Run SA-CCR."
+        Exit Function
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorDescription = Err.Description
+        Rollback = "NONE"
+        For k = 1 To TargetCount
+            If Touched(k) Then
+                Rollback = ""
+            End If
+        Next k
+        If Len(Rollback) = 0 Then
+            For k = 1 To TargetCount
+                If Touched(k) Then
+                    Rollback = Rollback & PutRangeBack(Targets(k), KeptValues(k), KeptFormulas(k))
+                End If
+            Next k
+            If Len(Rollback) = 0 Then
+                Rollback = "VERIFIED"
+            Else
+                Rollback = "FAILED: " & Mid$(Rollback, 3)
+            End If
+        End If
+        Resume CleanUp
+
+End Function
+
+
+Private Function RestoreTargets( _
+    ByRef Targets() As Range, _
+    ByRef Expected() As Variant, _
+    ByRef ParameterCount As Long, _
+    ByRef Problem As String) _
+    As Long
+'
+'==============================================================================
+'                                RestoreTargets
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The cells Restore regulatory parameters writes (#357), and what each
+'   holds in the regulatory set: first the cell of each code of
+'   CORE_Engine.RegulatoryParameterCodes, then one row of the factor
+'   table, key to regimes, for each row of CORE_Engine.RegulatoryFactorRows,
+'   from the row below the table's header. A factor row is written as
+'   Params shows it: blank fields blank, blank regimes as BOTH, the
+'   numbers as numbers.
+'
+' RETURNS
+'   The number of targets, ParameterCount of them parameters; 0 with
+'   Problem set when a Params name is missing or not on Params, the
+'   header is not where the name says, or a factor row stands below the
+'   regulatory rows: a key right below them, which the loader would read
+'   as part of the table, or, from that row down to the row above the FX
+'   table, a row with a number in the factor column that is not a
+'   parameter row, which the loader rejects as a row after the end
+'   (ValuesAfterEnd). The restore would leave either, and the next run
+'   would not be the template's.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet     As Worksheet    'Params
+    Dim Codes           As Variant      'Parameter codes
+    Dim FactorRows      As Variant      'The set's factor rows
+    Dim Fields          As Variant      'One row's fields
+    Dim Cell            As Range        'A parameter cell
+    Dim HeaderRow       As Long         'Header row of the factor table
+    Dim KeyColumn       As Long         'Its key column, as TableCell counts
+    Dim RowValues()     As Variant      'One row as written
+    Dim BelowKey        As Variant      'The key cell below the regulatory rows
+    Dim FirstBelow      As Long         'Row below the regulatory rows
+    Dim LastBelow       As Long         'Last row searched for a factor row
+    Dim r               As Long         'Row searched
+    Dim k               As Long         'Target
+    Dim i               As Long         'Code or row
+    Dim c               As Long         'Field
+
+'------------------------------------------------------------------------------
+' PARAMETERS
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        Codes = CORE_Engine.RegulatoryParameterCodes()
+        FactorRows = CORE_Engine.RegulatoryFactorRows()
+        ParameterCount = UBound(Codes) - LBound(Codes) + 1
+        ReDim Targets(1 To ParameterCount + UBound(FactorRows) - LBound(FactorRows) + 1)
+        ReDim Expected(1 To UBound(Targets))
+        For i = LBound(Codes) To UBound(Codes)
+            Set Cell = NamedCell(CStr(Codes(i)))
+            If Cell Is Nothing Then
+                Problem = "the workbook name '" & Codes(i) & "' is missing or no longer refers to a cell on " & SH_PARAMS
+                Exit Function
+            ElseIf Cell.Worksheet.Name <> ParamsSheet.Name Then
+                Problem = "the workbook name '" & Codes(i) & "' must refer to a cell on " & SH_PARAMS
+                Exit Function
+            End If
+            k = k + 1
+            Set Targets(k) = Cell.Cells(1, 1)
+            Expected(k) = CORE_Engine.RegulatoryParameterValue(CStr(Codes(i)))
+        Next i
+
+'------------------------------------------------------------------------------
+' FACTOR TABLE
+'------------------------------------------------------------------------------
+        HeaderRow = NamedRow(NM_SF_TABLE)
+        If HeaderRow = 0 Then
+            Problem = "the workbook name '" & NM_SF_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_SF_TABLE)
+        If NamedCell(NM_SF_TABLE).Worksheet.Name <> ParamsSheet.Name Or _
+           UCase$(SafeStr(TableCell(ParamsSheet, HeaderRow, KeyColumn).Value2)) <> UCase$(HDR_SF) Then
+            Problem = "the factor table's header " & HDR_SF & " is not where the workbook name '" & NM_SF_TABLE & "' says"
+            Exit Function
+        End If
+        FirstBelow = HeaderRow + UBound(FactorRows) - LBound(FactorRows) + 2
+        BelowKey = TableCell(ParamsSheet, FirstBelow, KeyColumn).Value2
+        If Len(Trim$(SafeStr(BelowKey))) > 0 Then
+            Problem = "the factor table holds a row below its " & UBound(FactorRows) - LBound(FactorRows) + 1 & _
+                      " regulatory rows (" & SafeStr(BelowKey) & "); remove it by hand after a maintenance unlock"
+            Exit Function
+        End If
+    'From that row down, as CORE_Engine.LoadSFTable searches from the blank
+    'key that ends the table: to the row above the FX table when that
+    'follows, otherwise to the last used row.
+        LastBelow = UsedLastRow(ParamsSheet)
+        If NamedRow(NM_FX_TABLE) > HeaderRow Then
+            LastBelow = NamedRow(NM_FX_TABLE) - 1
+        End If
+        For r = FirstBelow To LastBelow
+            If IsNum(TableCell(ParamsSheet, r, KeyColumn + 3).Value) And _
+               Not IsListedCode(SafeStr(TableCell(ParamsSheet, r, ParamsCodeCol()).Value)) Then
+                Problem = "the factor table holds a row below its " & UBound(FactorRows) - LBound(FactorRows) + 1 & _
+                          " regulatory rows (" & SH_PARAMS & " row " & r & "); remove it by hand after a " & _
+                          "maintenance unlock"
+                Exit Function
+            End If
+        Next r
+        For i = LBound(FactorRows) To UBound(FactorRows)
+            Fields = Split(FactorRows(i), "|")
+            ReDim RowValues(1 To 1, 1 To 8)
+            For c = 0 To 7
+                Select Case c
+                    Case 3, 4, 5
+                        If Len(Fields(c)) > 0 Then
+                            RowValues(1, c + 1) = Val(Fields(c))
+                        End If
+                    Case 7
+                        RowValues(1, c + 1) = IIf(Len(Fields(c)) = 0, "BOTH", Fields(c))
+                    Case Else
+                        If Len(Fields(c)) > 0 Then
+                            RowValues(1, c + 1) = CStr(Fields(c))
+                        End If
+                End Select
+            Next c
+            k = k + 1
+            Set Targets(k) = TableRange(ParamsSheet, HeaderRow + 1 + i - LBound(FactorRows), KeyColumn, _
+                                        HeaderRow + 1 + i - LBound(FactorRows), KeyColumn + 7)
+            Expected(k) = RowValues
+        Next i
+        RestoreTargets = k
+
+End Function
+
+
+Private Function IsListedCode( _
+    ByVal Candidate As String) _
+    As Boolean
+'
+'==============================================================================
+'                                 IsListedCode
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Candidate is a Params code of CORE_Engine.ParameterCodes,
+'   ignoring case, so that RestoreTargets tells a parameter row from a
+'   factor row, as the engine's loader does (#357).
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code    As Variant    'A supported code
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+        For Each Code In CORE_Engine.ParameterCodes()
+            If StrComp(Candidate, CStr(Code), vbTextCompare) = 0 Then
+                IsListedCode = True
+                Exit Function
+            End If
+        Next Code
+
+End Function
+
+
+Private Function HoldsExpected( _
+    ByVal Target As Range, _
+    ByVal Expected As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                                HoldsExpected
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether a restore target holds its value in the regulatory set (#357):
+'   a constant equal to it in every cell, compared as SameCellValue does,
+'   with no formula.
+'
+' INPUTS
+'   Target: one parameter cell, or one factor row.
+'   Expected: a value for a cell, an array by row and column for a row.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Grid        As Variant    'Target's Value2
+    Dim Formulas    As Variant    'Its formulas
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        Grid = BlockValues(Target)
+        Formulas = FormulasOnly(Target)
+        If IsArray(Expected) Then
+            For c = 1 To Target.Columns.Count
+                If Len(CStr(Formulas(1, c))) > 0 Or Not SameCellValue(Grid(1, c), Expected(1, c)) Then
+                    Exit Function
+                End If
+            Next c
+            HoldsExpected = True
+        Else
+            HoldsExpected = Len(CStr(Formulas(1, 1))) = 0 And SameCellValue(Grid(1, 1), Expected)
+        End If
+
+End Function
+
+
+Private Function RestoreDifferences( _
+    ByRef Changes As String, _
+    ByRef Problem As String) _
+    As Long
+'
+'==============================================================================
+'                              RestoreDifferences
+'------------------------------------------------------------------------------
+' PURPOSE
+'   What a restore would overwrite (#357), for its confirmation: a line
+'   for each parameter that differs from the set, with its value now and
+'   in the set, and for each factor row that differs, by its key in the
+'   set. At most RESTORE_LISTED lines are listed; a last line counts the
+'   others.
+'
+' RETURNS
+'   The number of parameters and rows that differ; 0 with Problem set
+'   when the restore would be refused.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Targets()       As Range       'The cells of the set
+    Dim Expected()      As Variant     'What each holds in the set
+    Dim TargetCount     As Long        'Their number
+    Dim ParameterCount  As Long        'Of which parameters
+    Dim Codes           As Variant     'Parameter codes
+    Dim FactorRows      As Variant     'The set's factor rows
+    Dim Listed          As Long        'Lines listed
+    Dim ChangeLine      As String      'One line
+    Dim k               As Long        'Target
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        TargetCount = RestoreTargets(Targets, Expected, ParameterCount, Problem)
+        If Len(Problem) > 0 Then
+            Exit Function
+        End If
+        Codes = CORE_Engine.RegulatoryParameterCodes()
+        FactorRows = CORE_Engine.RegulatoryFactorRows()
+        For k = 1 To TargetCount
+            If Not HoldsExpected(Targets(k), Expected(k)) Then
+                RestoreDifferences = RestoreDifferences + 1
+                If k <= ParameterCount Then
+                    ChangeLine = Codes(LBound(Codes) + k - 1) & ": " & ShownValue(Targets(k)) & " -> " & CStr(Expected(k))
+                Else
+                    ChangeLine = "Factor-table row " & Split(FactorRows(LBound(FactorRows) + k - ParameterCount - 1), "|")(0) & _
+                           " (" & SH_PARAMS & " row " & Targets(k).Row & ")"
+                End If
+                If Listed < RESTORE_LISTED Then
+                    Listed = Listed + 1
+                    Changes = Changes & vbLf & "  " & ChangeLine
+                End If
+            End If
+        Next k
+        If RestoreDifferences > Listed Then
+            Changes = Changes & vbLf & "  and " & Format$(RestoreDifferences - Listed, "#,##0") & " more"
+        End If
+
+End Function
+
+
+Private Function ShownValue( _
+    ByVal Cell As Range) _
+    As String
+'
+'==============================================================================
+'                                  ShownValue
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A parameter cell's content for the confirmation of a restore (#357):
+'   its value, "blank", or "a formula" for a formula cell.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        If Cell.HasFormula Then
+            ShownValue = "a formula"
+        ElseIf IsError(Cell.Value2) Then
+            ShownValue = CStr(Cell.Text)
+        ElseIf Len(SafeStr(Cell.Value2)) = 0 Then
+            ShownValue = "blank"
+        Else
+            ShownValue = CStr(Cell.Value2)
+        End If
+
+End Function
+
+
+Private Function RestoreQuestion( _
+    ByVal Changes As String, _
+    ByVal Count As Long) _
+    As String
+'
+'==============================================================================
+'                               RestoreQuestion
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The confirmation of a restore (#357): what will be overwritten, what
+'   is left as it is, and the effect on Results.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        RestoreQuestion = "Restore the regulatory parameter set " & REF_SET_ID & "?" & vbLf & vbLf & _
+                          "These values on " & SH_PARAMS & " will be overwritten (" & Count & "):" & Changes & _
+                          vbLf & vbLf & "Not changed: the reporting date, currency and regime, the FX rates and " & _
+                          "the netting sets' alpha overrides." & vbLf & vbLf & _
+                          "Results will read OUT OF DATE until the next Run SA-CCR."
+
+End Function
+
+
+Private Function UnchangedText() As String
+'
+'==============================================================================
+'                                UnchangedText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message of a restore that finds nothing to change (#357).
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        UnchangedText = "Nothing was changed: the reference parameters and the factor table on " & SH_PARAMS & _
+                        " already hold the regulatory parameter set " & REF_SET_ID & "."
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              RIBBON STATE (#216)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Function OperationRunning() As Boolean
+'
+'==============================================================================
+'                               OperationRunning
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether an operation is in progress, for the Ribbon's enabled states
+'   (M_Ribbon.RibbonGetEnabled, #216). Read only: the flag mRunning stays
+'   this module's.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        OperationRunning = mRunning
+
+End Function
+
+
+Public Sub RibbonStateChanged()
+'
+'==============================================================================
+'                             RibbonStateChanged
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask the K-SACCR tab to read its states and labels again once Excel is
+'   idle (M_Ribbon.ScheduleRefresh, #216), after a macro that can change
+'   Results or a staging status, whether the Ribbon, a staging button,
+'   the Macros dialog or a change handler started it, and after any cell
+'   edit (ThisWorkbook.Workbook_SheetChange): an input edit recalculates
+'   Results C5, which decides Export evidence. Nothing is scheduled in
+'   silent mode or while Excel is hidden, as under automation, which may
+'   close the workbook at once: Excel would reopen it to run the scheduled
+'   refresh, and a hidden Excel shows no Ribbon.
+'
+' ERROR POLICY
+'   Never raises: the refresh is a convenience.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        On Error GoTo Skipped
+        If gSilent Or Not Application.Visible Then
+            Exit Sub
+        End If
+        M_Ribbon.ScheduleRefresh
+
+Skipped:
+
+End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
 '                              OPERATION RUNNER
 '
 '------------------------------------------------------------------------------
@@ -7128,7 +8011,7 @@ Private Function ReportOutcome( _
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-06
 '==============================================================================
 '
 
@@ -7142,8 +8025,9 @@ Private Function ReportOutcome( _
 '------------------------------------------------------------------------------
 ' BUILD THE MESSAGE
 '------------------------------------------------------------------------------
-    'A completed run can still have excluded trades, so it points to Checks
-    'whenever there are errors or warnings. ShowChecksSheet never raises.
+    'A completed run shows Results, and its message points to Checks whenever
+    'there are errors or warnings, since it can still have excluded trades. A
+    'stopped run and a validation show Checks. ShowSheet never raises.
         Select Case Operation
             Case OP_RUN
                 If Completed Then
@@ -7154,6 +8038,7 @@ Private Function ReportOutcome( _
                           TotalLines() & _
                           "Errors: " & CORE_Engine.ErrorCount & "   Warnings: " & CORE_Engine.WarningCount & _
                           vbCrLf & RunClassLine()
+                    ShowSheet SH_RESULTS
                     If CORE_Engine.IncompleteCount > 0 Then
                         Message = Message & vbCrLf & "EAD withheld for " & CORE_Engine.IncompleteCount & _
                               " netting set(s) with rejected trades or invalid inputs: " & _
@@ -7169,10 +8054,10 @@ Private Function ReportOutcome( _
                 Else
                     Message = "SA-CCR run stopped - see the Checks sheet."
                     IconStyle = vbCritical
-                    ShowChecksSheet
+                    ShowSheet SH_CHECKS
                 End If
             Case OP_VALIDATE
-                ShowChecksSheet
+                ShowSheet SH_CHECKS
                 Message = "Validation finished: " & CORE_Engine.ErrorCount & " error(s), " & _
                       CORE_Engine.WarningCount & " warning(s)." & vbCrLf & RunClassLine()
                 IconStyle = IIf(CORE_Engine.ErrorCount > 0, vbExclamation, vbInformation)
@@ -7234,17 +8119,21 @@ Private Function ReportOutcome( _
 End Function
 
 
-Private Sub ShowChecksSheet()
+Private Sub ShowSheet(ByVal SheetName As String)
 '
 '==============================================================================
-'                               ShowChecksSheet
+'                                  ShowSheet
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Bring the Checks sheet to the front so the user sees the findings.
+'   Bring the sheet an operation leaves the user on to the front: Results
+'   after a completed run, Checks after a stopped run or a validation.
+'
+' INPUTS
+'   SheetName: the sheet's name, SH_RESULTS or SH_CHECKS.
 '
 ' STATE OWNERSHIP
-'   Activates the Checks sheet; does nothing in silent mode, where no one
-'   is looking and the window may be hidden.
+'   Activates the sheet; does nothing in silent mode, where no one is
+'   looking and the window may be hidden.
 '
 ' ERROR POLICY
 '   Best effort: activation fails when the window or the sheet is hidden.
@@ -7252,7 +8141,7 @@ Private Sub ShowChecksSheet()
 '   and must not replace the operation's outcome.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-11-06
 '==============================================================================
 '
 
@@ -7263,7 +8152,7 @@ Private Sub ShowChecksSheet()
             Exit Sub
         End If
         On Error GoTo NotShown
-        ThisWorkbook.Worksheets(SH_CHECKS).Activate
+        ThisWorkbook.Worksheets(SheetName).Activate
         Exit Sub
 
 '------------------------------------------------------------------------------

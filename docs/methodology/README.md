@@ -101,8 +101,9 @@ Copies of the checked versions, with their addresses and SHA-256 hashes, are in
 What v1.1.0 calculates, what the user must enter in a supported form, and what
 is outside it (#33). "Not supported" means nothing is calculated for the case:
 it cannot be entered or, where it can be declared, the netting set is
-rejected. Whether a supported rule is also validated is in the
-[traceability](#traceability) table.
+rejected; where neither holds, the row says it cannot be detected. Whether a
+supported rule is also validated is in the [traceability](#traceability)
+table.
 
 | Area | Item | Status | How it is entered or treated | Reference |
 | --- | --- | --- | --- | --- |
@@ -121,7 +122,8 @@ rejected. Whether a supported rule is also validated is in the
 | Instruments | Option combinations: collars, spreads, straddles, strangles, caps and floors | Supported with legs | One option leg per component, same Economic trade ID, MtM on the MtM leg; a cap or floor as its caplets or floorlets. Legs in the same asset class must all be options: a linear product such as a swap may not be split (#38) | CRR Art. 274(6) (mandatory); CRE52.42(4), CRE52.43, CRE52.1 FAQ3 (decomposition) |
 | Instruments | Sold options and sold credit protection | Supported, without the optional reductions | Calculated as ordinary trades; the zero EAD and premium cap are not applied, so the EAD is not lower than with them (it can be equal) | CRR Art. 274(5), (7); CRE52.1 FAQ1–2 |
 | Credit factors | Rated single names; quoted IG and SG indices | Supported | Sub-class AAA–CCC (BCBS) or CQS1–CQS6 (CRR); `IG_INDEX`, `SG_INDEX` | CRE52.72; CRR Art. 280c(5) |
-| Credit factors | Unrated single names; unlisted multi-name positions | Entered by the user | CQS3, CQS5 where Art. 128 applies, or the mapped step; for an unlisted multi-name position, the step of its weighted factor | CRR Art. 280c(5) |
+| Credit factors | Unrated single names | Entered by the user | CQS3, CQS5 where Art. 128 applies, or the mapped step | CRR Art. 280c(5)(a) |
+| Credit factors | Unlisted multi-name positions (a basket that is not an index listed on a recognised exchange) | Not supported; cannot be detected | No factor row computes the notional-weighted factor of the constituents, and the `CQS1`–`CQS6` rows carry the single-name correlation of 50% where a multi-name credit reference entity takes 80%. A basket entered with a step or an index row is calculated with the wrong factor or correlation, and the engine cannot tell it from a single name or a listed index: do not relabel a basket as `IG_INDEX` or `SG_INDEX` or round its factor to a credit quality step. A factor-table row with the weighted factor and a correlation of 80%, added after a maintenance unlock of Params, gives a `WHAT-IF` run (#580) | CRR Art. 280c(1)(b), (3), (5)(b)(ii) |
 | Netting sets | Unmargined netting set | Supported | Margined = N; collateral in NICA | CRE52.10; CRR Art. 275(1) |
 | Netting sets | Margined netting set with VM, NICA, threshold and MTA | Supported | Margined = Y; MPOR from floor, remargining frequency, large or illiquid flag, disputes and override. The remargining frequency is a whole number of business days from 0 to 10,000 (0 is read as daily, with a warning); the MPOR override is a whole number above 0, used only if it is not below the computed MPOR | CRE52.18, .50–.53; CRR Art. 275(2), 279c, 285 |
 | Netting sets | Cap of a margined netting set | Supported | Cap with C = NICA in both regimes | CRE52.2, CRE52.10; CRR Art. 274(3), 275(1) |
@@ -240,7 +242,9 @@ and the message box name the set, and the result line gives
 difference is a warning starting "What-if:" on Checks. `DaysPerYear` (a
 day-count convention, 360 in CRE99 example 3) and `IRBucketOffset` (the
 bank's option under CRE52.57(5), rejected under CRR) do not change the class.
-The reporting currency's FX rate must be 1.
+The reporting currency's FX rate must be 1. **Restore parameters** on the
+K-SACCR tab writes this set back to Params, the two conventions with it as
+365 and TRUE (#357).
 
 How the points found in the CRR text are handled (#33):
 
@@ -264,8 +268,14 @@ How the points found in the CRR text are handled (#33):
 - Article 274(4) and 275(3) are declared as MIXED or SHARED in the Margin
   agreements column, and the netting set is rejected (#39).
 - Article 280c(5)(b)(ii) (an unlisted multi-name credit position takes the
-  notional-weighted factor of its constituents) is not automated: the user
-  enters the resulting factor's credit quality step or a quoted index.
+  notional-weighted factor of its constituents) is not supported. That factor
+  need not equal any credit quality step or quoted-index factor, and such a
+  position is a multi-name credit reference entity, with a correlation of 80%
+  (Art. 280c(1)(b), (3)), while the `CQS1`–`CQS6` rows carry the single-name
+  50%. Entering a step or `IG_INDEX`/`SG_INDEX` for a basket gives a wrong
+  add-on in a run still classified `REGULATORY`. The only workaround is a
+  factor-table row with the weighted factor and a correlation of 80%, added
+  after a maintenance unlock of Params; the run is then `WHAT-IF` (#580).
 
 <a id="traceability"></a>
 

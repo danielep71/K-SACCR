@@ -47,6 +47,8 @@ def main() -> int:
                      [sys.executable, "tools/check_issues.py", "--root", str(root), "--check-config"]))
     commands.append(("generated-csv-modules",
                      [sys.executable, "tools/generate_csv_vba.py", "--root", str(root), "--check"]))
+    commands.append(("ribbon-template",
+                     [sys.executable, "tools/ribbon_template.py", "--root", str(root)]))
     results = []
     for name, command in commands:
         try:

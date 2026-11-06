@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v1.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 33410    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 33432    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -252,8 +252,9 @@ Private Sub AppendPart3( _
         Page = Page & "><td><code>CPTY-A</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">3</td><td><code>margined</code></td><td>Margined (Y/N)</td><td>Y for a supported margin agreement.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td>N</td><td>"
         Page = Page & "<code>Y</code></td></tr>" & vbLf
-        Page = Page & "<tr><td class=""num"">4</td><td><code>clearing_role</code></td><td>Client clearing role (N / CM / CLIENT)</td><td>Bank&#x27;s clearing role; MULTI is accepted by the file and makes the netting set INVAL"
-        Page = Page & "ID in the engine.</td><td>code</td><td>no</td><td><code>N</code>, <code>CM</code>, <code>CLIENT</code>, <code>CCP</code>, <code>MULTI</code></td><td>N</td><td><code>CM</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">4</td><td><code>clearing_role</code></td><td>Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)</td><td>Bank&#x27;s clearing role; MULTI is accepted by the file and makes"
+        Page = Page & " the netting set INVALID in the engine.</td><td>code</td><td>no</td><td><code>N</code>, <code>CM</code>, <code>CLIENT</code>, <code>CCP</code>, <code>MULTI</code></td><td>N</td><td><code>CM</code></td"
+        Page = Page & "></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">5</td><td><code>remargin_period_business_days</code></td><td>Remargin frequency N (BD)</td><td>Remargining every N business days; 0 is read as daily with a warning.</td><td>integer"
         Page = Page & " (&ge; 0, &le; 10000)</td><td>no</td><td></td><td>1</td><td><code>1</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">6</td><td><code>large_or_illiquid</code></td><td>&gt;5,000 trades or illiquid collateral (Y/N)</td><td>Y applies the 20-business-day MPOR floor.</td><td>flag</td><td>no</td><td><co"
@@ -294,7 +295,6 @@ Private Sub AppendPart3( _
         Page = Page & "00731;&quot;M" & ChrW(252) & "ller &amp; S" & ChrW(248) & "n &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;" & vbLf
         Page = Page & "NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N" & vbLf
         Page = Page & "</pre>" & vbLf
-        Page = Page & "</section>" & vbLf
 
 End Sub
 
@@ -304,6 +304,7 @@ Private Sub AppendPart4( _
 '
 '   Piece 4 of 6 of the page.
 '
+        Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""trades"">" & vbLf
         Page = Page & "<h2>Trades file</h2>" & vbLf
         Page = Page & "<p>One record per <strong>leg</strong>. <code>trade_id</code> is the key: unique in the file and compared case-insensitively. Each leg names its netting set in <code>netting_set_id</code>, which must "
@@ -337,7 +338,7 @@ Private Sub AppendPart4( _
         Page = Page & "Standard</td><td><code>Standard</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">10</td><td><code>hedging_set_label</code></td><td>Basis / vol hedging-set label</td><td>Label of a basis or volatility hedging set; required by the engine for those.</td><td>id (at"
         Page = Page & " most 64 characters)</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
-        Page = Page & "<tr><td class=""num"">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&gt; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code><"
+        Page = Page & "<tr><td class=""num"">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&ge; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code><"
         Page = Page & "/td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">12</td><td><code>notional_currency</code></td><td>Notional ccy</td><td>Currency of the notional.</td><td>currency</td><td>no</td><td>three capital letters, such as <code>EUR</code>"
         Page = Page & "</td><td>the reporting currency</td><td><code>EUR</code></td></tr>" & vbLf
@@ -363,7 +364,6 @@ Private Sub AppendPart4( _
         Page = Page & "<tr><td class=""num"">25</td><td><code>mtm_leg</code></td><td>MtM leg (Y/N)</td><td>Y on the one leg of an economic trade that carries its whole MtM.</td><td>flag</td><td>no</td><td><code>Y</code>, <cod"
         Page = Page & "e>N</code></td><td></td><td><code>Y</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">26</td><td><code>settlement_type</code></td><td>Settlement type (N/STM)</td><td>STM for a settled-to-market trade.</td><td>code</td><td>no</td><td><code>N</code>, <code>STM</code><"
-        Page = Page & "/td><td>N</td><td></td></tr>" & vbLf
 
 End Sub
 
@@ -373,6 +373,7 @@ Private Sub AppendPart5( _
 '
 '   Piece 5 of 6 of the page.
 '
+        Page = Page & "/td><td>N</td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">27</td><td><code>next_reset_date</code></td><td>Next reset date</td><td>STM only, and then required: the first settlement date after the reporting date.</td><td>date</td><td>no</td"
         Page = Page & "><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">28</td><td><code>comment</code></td><td>Comment</td><td>Free-text note; not read by the engine.</td><td>text (at most 500 characters)</td><td>no</td><td></td><td></td><td></td></tr"
@@ -432,7 +433,6 @@ Private Sub AppendPart5( _
         Page = Page & " text editor, and save it as UTF-8 with the extension <code>.csv</code>; then import both files and validate them.</p>" & vbLf
         Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""findings"">" & vbLf
-        Page = Page & "<h2>Findings</h2>" & vbLf
 
 End Sub
 
@@ -442,6 +442,7 @@ Private Sub AppendPart6( _
 '
 '   Piece 6 of 6 of the page.
 '
+        Page = Page & "<h2>Findings</h2>" & vbLf
         Page = Page & "<p>Every finding of the import and of the validation has one of these codes.</p>" & vbLf
         Page = Page & "<table>" & vbLf
         Page = Page & "<thead><tr><th>Finding</th><th>Meaning</th></tr></thead>" & vbLf

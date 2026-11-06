@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  K-SACCR Ribbon: the K-SACCR tab (#213).
+
+  This file is the canonical RibbonX source. The contract it implements, with
+  every control, callback, target and state rule, is docs/workbook/RIBBON.md;
+  tools/test_ribbon_contract.py checks that the two agree. Callbacks hold no
+  business logic: RibbonAction calls an existing M_Main macro, RibbonGoTo
+  activates a sheet of this workbook by its CodeName, RibbonGetEnabled and
+  RibbonGetLabel only read status cells.
+-->
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RibbonOnLoad">
+  <ribbon>
+    <tabs>
+      <tab id="ksTab" label="K-SACCR" keytip="KS">
+
+        <group id="ksGrpCalculation" label="Calculation">
+          <splitButton id="ksRunSplit" size="large" keytip="R" getEnabled="RibbonGetEnabled">
+            <button id="ksRun" label="Run" imageMso="CalculateNow"
+                    screentip="Run SA-CCR"
+                    supertip="Validate every input, calculate the EAD of every netting set and write Results, HedgingSets, Buckets, TradeCalc, Checks and both reconciliations."
+                    onAction="RibbonAction"/>
+            <menu id="ksRunMenu" itemSize="normal">
+              <menuSeparator id="ksRunSepCalculation" title="Calculation"/>
+              <button id="ksRunMenuRun" label="Run SA-CCR" imageMso="CalculateNow" keytip="R"
+                      supertip="Validate every input and calculate."
+                      onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+              <button id="ksValidateInputs" label="Validate inputs" imageMso="DataValidation" keytip="V"
+                      supertip="Clear the outputs and check every input; the findings are listed on Checks. Nothing is calculated."
+                      onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+              <button id="ksClearOutputs" label="Clear outputs" imageMso="ClearAll" keytip="C"
+                      supertip="Empty the five output tables and both reconciliations."
+                      onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            </menu>
+          </splitButton>
+        </group>
+
+        <group id="ksGrpImport" label="CSV import">
+          <menu id="ksImportMenu" label="Import CSV" size="large" imageMso="ImportTextFile" keytip="I"
+                screentip="Import CSV"
+                supertip="Load a CSV file onto its staging sheet as text. The input sheets do not change until Commit import."
+                getEnabled="RibbonGetEnabled">
+            <button id="ksImportNettingSets" label="NettingSets file..." keytip="N"
+                    supertip="Load a NettingSets CSV file onto Import_NettingSets."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportTrades" label="Trades file..." keytip="T"
+                    supertip="Load a Trades CSV file onto Import_Trades."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          </menu>
+          <button id="ksValidateStaging" label="Validate staging" imageMso="DataValidation" keytip="V"
+                  supertip="Check the staged rows of both staging sheets against the CSV contract, each other, the input sheets and Params; the findings are listed on Checks."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          <button id="ksCommitImport" label="Commit import" imageMso="ReviewAcceptChange" keytip="M"
+                  supertip="Replace NettingSets, Trades or both with the staged rows of a VALID validation that still holds. Nothing is calculated until Run."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          <menu id="ksTemplatesMenu" label="Templates" imageMso="ExportTextFile" keytip="P"
+                supertip="Write blank CSV templates or the import specification."
+                getEnabled="RibbonGetEnabled">
+            <button id="ksTemplateNettingSets" label="NettingSets template..." keytip="N"
+                    supertip="Write the blank NettingSets CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksTemplateTrades" label="Trades template..." keytip="T"
+                    supertip="Write the blank Trades CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportSpecification" label="Import specification..." keytip="S"
+                    supertip="Save one HTML page describing both CSV files, every column, rule and finding code, with an example of each file."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          </menu>
+        </group>
+
+        <group id="ksGrpEvidence" label="Evidence">
+          <button id="ksExportEvidence" label="Export evidence" size="large" imageMso="FileSaveAs" keytip="E"
+                  screentip="Export evidence"
+                  supertip="Write the evidence CSV of the current run. Refused while the results are out of date or edited."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+        </group>
+
+        <group id="ksGrpParameters" label="Parameters">
+          <button id="ksRestoreParameters" label="Restore parameters" size="large" imageMso="Undo" keytip="A"
+                  screentip="Restore regulatory parameters"
+                  supertip="Put the reference parameters and the supervisory-factor table back to the regulatory set, so the next run is REGULATORY. The reporting date, currency, regime and FX table are not changed."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+        </group>
+
+        <group id="ksGrpStatus" label="Status">
+          <labelControl id="ksStatusResults" getLabel="RibbonGetLabel"
+                        screentip="Results status"
+                        supertip="Whether Results still describes the current inputs, as Results C5 says."/>
+          <labelControl id="ksStatusNettingSets" getLabel="RibbonGetLabel"
+                        screentip="NettingSets staging status"
+                        supertip="The status of Import_NettingSets, as its cell D7 says."/>
+          <labelControl id="ksStatusTrades" getLabel="RibbonGetLabel"
+                        screentip="Trades staging status"
+                        supertip="The status of Import_Trades, as its cell D7 says."/>
+        </group>
+
+        <group id="ksGrpNavigate" label="Navigate">
+          <splitButton id="ksGoSplit" size="large" keytip="G">
+            <button id="ksGo" label="Go to" imageMso="FileOpen"
+                    screentip="Go to"
+                    supertip="Open Home. The arrow lists every sheet."
+                    onAction="RibbonGoTo"/>
+            <menu id="ksGoMenu" itemSize="normal">
+              <menuSeparator id="ksGoSepStart" title="Start"/>
+              <button id="ksGoHome" label="Home" onAction="RibbonGoTo" supertip="The starting page: scope, workflow and links."/>
+              <menuSeparator id="ksGoSepInputs" title="Inputs"/>
+              <button id="ksGoParams" label="Params" onAction="RibbonGoTo" supertip="Reporting date, currency, regime, reference parameters and FX rates."/>
+              <button id="ksGoNettingSets" label="NettingSets" onAction="RibbonGoTo" supertip="One row per netting set."/>
+              <button id="ksGoTrades" label="Trades" onAction="RibbonGoTo" supertip="One row per trade leg."/>
+              <menuSeparator id="ksGoSepStaging" title="Staging"/>
+              <button id="ksGoImportNettingSets" label="Import_NettingSets" onAction="RibbonGoTo" supertip="Netting sets loaded from a CSV file, before Commit import."/>
+              <button id="ksGoImportTrades" label="Import_Trades" onAction="RibbonGoTo" supertip="Trade legs loaded from a CSV file, before Commit import."/>
+              <menuSeparator id="ksGoSepOutputs" title="Outputs"/>
+              <button id="ksGoResults" label="Results" onAction="RibbonGoTo" supertip="EAD per netting set and the totals per regime."/>
+              <button id="ksGoHedgingSets" label="HedgingSets" onAction="RibbonGoTo" supertip="Effective notionals and add-ons per hedging set."/>
+              <button id="ksGoBuckets" label="Buckets" onAction="RibbonGoTo" supertip="Maturity buckets, FX pairs, entities and commodity types."/>
+              <button id="ksGoTradeCalc" label="TradeCalc" onAction="RibbonGoTo" supertip="Every trade-level quantity, or why a trade was excluded."/>
+              <button id="ksGoChecks" label="Checks" onAction="RibbonGoTo" supertip="Errors, warnings and information lines."/>
+              <menuSeparator id="ksGoSepReconciliation" title="Reconciliation"/>
+              <button id="ksGoBankNettingSets" label="BankNettingSets" onAction="RibbonGoTo" supertip="A bank's own figures per netting set."/>
+              <button id="ksGoReconciliation" label="Reconciliation" onAction="RibbonGoTo" supertip="Bank figures against Results."/>
+              <button id="ksGoBankTrades" label="BankTrades" onAction="RibbonGoTo" supertip="A bank's own figures per trade leg."/>
+              <button id="ksGoTradeReconciliation" label="TradeReconciliation" onAction="RibbonGoTo" supertip="Bank figures against TradeCalc."/>
+              <menuSeparator id="ksGoSepReference" title="Reference and tests"/>
+              <button id="ksGoTestCatalogue" label="TestCatalogue" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
+              <button id="ksGoFormulaTest" label="FormulaTest" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>
+              <button id="ksGoBaselVsCRR" label="Basel_vs_CRR" onAction="RibbonGoTo" supertip="CRE52 and the CRR compared, with the workbook treatment."/>
+              <button id="ksGoReadme" label="README" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
+            </menu>
+          </splitButton>
+        </group>
+
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

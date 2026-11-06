@@ -16,8 +16,8 @@ Current source:
   from `docs/csv/contract.json` by `tools/generate_csv_vba.py`;
 - `core/CORE_ImportSpec.bas`: the CSV import specification page and its
   example files, generated from `docs/csv/contract.json` by
-  `tools/generate_csv_vba.py`, for the **Export import specifications**
-  button;
+  `tools/generate_csv_vba.py`, for **Import specification...** on the Ribbon
+  and the **Export import specifications** button;
 - `core/CORE_Engine.bas`: the calculation of EAD per netting set, which reads
   the input sheets and writes the output sheets;
 - `core/CORE_Export.bas`: the CSV encoding of the evidence report; it reads no
@@ -27,24 +27,34 @@ Current source:
 - `core/CORE_Util.bas`: value conversions, keyed lookups and sheet helpers;
 - `modules/SACCR_Formulas.bas`: the public `SACCR_*` worksheet functions,
   listed in [`docs/PUBLIC_API.txt`](../docs/PUBLIC_API.txt);
-- `workbook/M_Main.bas`: the sheet-button macros, the CSV check macros, the
+- `workbook/M_Main.bas`: the command macros, the CSV check macros, the
   automation entry points and status functions, and the reading and writing
   of the reconciliation sheets, the staging sheets (`Import_NettingSets`,
   `Import_Trades`) and the evidence file;
+- `workbook/M_Ribbon.bas`: the callbacks of the K-SACCR Ribbon tab, which
+  call the `M_Main` macros and read the status cells
+  ([contract](../docs/workbook/RIBBON.md));
+- `workbook/customUI14.xml`: the Ribbon source, which the template carries
+  as its `customUI/customUI14.xml` part (`tools/ribbon_template.py`);
 - `workbook/ThisWorkbook.cls` and the `sh*.cls` sheet modules: the document
   modules, which hold only `Option Explicit`, but for the change handlers of
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
-  edited, and their activation handlers, which refresh its status (#210);
-- `workbook/SACCR_Template.xlsx`: the 18 sheets (README, Params, NettingSets,
-  Trades, Import_NettingSets, Import_Trades, Results, HedgingSets, Buckets,
-  TradeCalc, Checks, BankNettingSets, Reconciliation, BankTrades,
-  TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR) with their
-  formulas, named ranges, data validation and buttons, and no VBA project or
-  document properties.
+  edited, and their activation handlers, which refresh its status (#210),
+  and the events of `ThisWorkbook`, which refresh the Ribbon tab on
+  activation and after an edit, and keep its pointer out of every saved
+  file (#216);
+- `workbook/SACCR_Template.xlsx`: the 19 sheets, in tab order (Home, Params,
+  NettingSets, Trades, Import_NettingSets, Import_Trades, Results,
+  HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets, Reconciliation,
+  BankTrades, TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR,
+  README) with their
+  formulas, named ranges, data validation, buttons and the Ribbon part, and no
+  VBA project or document properties.
 
 The engine does not yet follow every rule of the layout: `CORE_Engine` and
 `CORE_Util` read and write worksheets from `src/core`, and `M_Main` is a
-standard module kept with the workbook glue because the sheet buttons call it.
+standard module kept with the workbook glue because the Ribbon and the
+staging-sheet buttons call it.
 See [known deviations](../docs/REPOSITORY_STRUCTURE.md#known-deviations).
 
 Do not place tests, examples, built workbooks or generated output here.

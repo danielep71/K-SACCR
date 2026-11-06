@@ -53,7 +53,7 @@ docs/               contracts, architecture, governance, evidence record
 src/                production VBA source: the only input to the workbook
   core/             calculation engine (internal)
   modules/          public worksheet functions
-  workbook/         template, M_Main and the document modules
+  workbook/         template, Ribbon source, M_Main, M_Ribbon and the document modules
 tests/              verification source and test data
   modules/          harness, case runner, suites and Test_RunAll
   fixtures/         synthetic case inputs
@@ -92,7 +92,7 @@ Subdirectories are created with their first real file, never empty.
 | `src/core/` | Calculation engine: configuration, validation, parsing, aggregation, reconciliation, evidence encoding, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
 | `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers; reserved, none yet | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, and the macro-free template `SACCR_Template.xlsx`; also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, the macro-free template `SACCR_Template.xlsx` and the Ribbon source `customUI14.xml` ([contract](workbook/RIBBON.md)); also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
 | `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed; reserved, none yet | — |
 
 ### Wiki
@@ -161,8 +161,8 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the sheet-button macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets |
-| Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix; it has no role prefix of its own until it moves out of the standard modules |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
+| Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
 | `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec` and `CORE_Util` directly |

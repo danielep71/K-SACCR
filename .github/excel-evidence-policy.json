@@ -32,8 +32,8 @@
       "entry_point": "TEST_MainState.RunMainStateTests",
       "header": "SACCR MAIN STATE TESTS",
       "mode_line": false,
-      "cases": 32,
-      "checks": {"32-bit": 512, "64-bit": 512},
+      "cases": 37,
+      "checks": {"32-bit": 572, "64-bit": 572},
       "restoration": "caller_state=RESTORED",
       "first_case": null
     },
@@ -50,8 +50,8 @@
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 177,
-      "checks": {"32-bit": 308, "64-bit": 308},
+      "cases": 179,
+      "checks": {"32-bit": 314, "64-bit": 314},
       "restoration": "restore=PASS",
       "first_case": "input-trade-middle-row-without-id"
     },
