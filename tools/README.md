@@ -59,6 +59,19 @@ on a production workbook built from the same checkout and writes
 files it imports. See the
 [one-command certification](../docs/EXCEL_EVIDENCE.md#one-command-certification).
 
+`Verify-SACCR-Branch.ps1` (or `Verify-SACCR-Branch.cmd BRANCH`, or
+double-clicked, when it asks for the branch) certifies the branch of a pull
+request in one step: with a working tree free of changes, it fetches the
+branch from origin, checks it out (a local branch is created to track origin,
+or fast-forwarded to it; one with commits origin lacks is refused) and runs
+`Certify-SACCR.ps1` of that branch in a new bundle folder next to the
+checkout, with a date and time added to its name when one exists for the same
+commit. It then writes `verify-summary.txt` in the bundle and prints it: the
+branch, the commit, the `Test_RunAll` summary, the 14 protection checks and
+the result, ready to report. Its exit code is that of `Certify-SACCR.ps1`. It
+never pushes or discards changes, and checks made by eye, such as the
+Ribbon's labels, stay with the operator.
+
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
 The script opens a built workbook read-only in Excel and exports every VBA
