@@ -48,7 +48,7 @@ Attribute VB_Name = "M_Ribbon"
 '   Object Library, one of the workbook's default references.
 '
 ' UPDATED
-'   2026-11-05
+'   2026-11-06
 '
 ' AUTHOR
 '   Daniele Penza
@@ -106,11 +106,11 @@ Public Sub RibbonAction( _
 '
 ' ERROR POLICY
 '   The macros report their own outcome and never raise. An unknown control
-'   or a command whose macro this workbook does not have yet is reported in
-'   a message box, and nothing runs.
+'   or a mapped macro this procedure does not call is reported in a
+'   message box, and nothing runs.
 '
 ' UPDATED
-'   2026-11-05
+'   2026-11-06
 '==============================================================================
 '
     Dim Macro       As String    'The macro mapped to the control
@@ -140,11 +140,13 @@ Public Sub RibbonAction( _
                 M_Main.ExportImportSpecification
             Case "ExportEvidence"
                 M_Main.ExportEvidence
+            Case "RestoreRegulatoryParameters"
+                M_Main.RestoreRegulatoryParameters
             Case ""
                 MsgBox "The Ribbon control " & Control.Id & " runs no command.", vbExclamation, MSG_TITLE
             Case Else
-                'Mapped, but delivered by a later change (RestoreRegulatoryParameters, #357).
-                MsgBox "This command is not available in this workbook yet.", vbInformation, MSG_TITLE
+                'Mapped, but not a macro this module calls: a contract error.
+                MsgBox "This command is not available in this workbook.", vbInformation, MSG_TITLE
         End Select
         ScheduleRefresh
         Exit Sub

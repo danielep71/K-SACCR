@@ -242,7 +242,9 @@ and the message box name the set, and the result line gives
 difference is a warning starting "What-if:" on Checks. `DaysPerYear` (a
 day-count convention, 360 in CRE99 example 3) and `IRBucketOffset` (the
 bank's option under CRE52.57(5), rejected under CRR) do not change the class.
-The reporting currency's FX rate must be 1.
+The reporting currency's FX rate must be 1. **Restore parameters** on the
+K-SACCR tab writes this set back to Params, the two conventions with it as
+365 and TRUE (#357).
 
 How the points found in the CRR text are handled (#33):
 

@@ -42,7 +42,7 @@ the user. They never replace those gates.
 | Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR, Validate inputs and Clear outputs |
 | CSV import | Menu **Import CSV** (NettingSets file, Trades file) · **Validate staging** · **Commit import** · menu **Templates** (NettingSets template, Trades template, Import specification) |
 | Evidence | **Export evidence** |
-| Parameters | **Restore parameters**, which restores the regulatory parameters (#357) |
+| Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) |
 
@@ -67,10 +67,35 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksTemplateTrades` | Trades template... | P, T | `ExportTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
-| `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` (#357) |
+| `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |
 
 A completed run leaves the user on Results; a run that stops, and Validate
 inputs, leave the user on Checks (#589). Clear outputs keeps the active sheet.
+
+**Restore parameters** (#357) writes the regulatory parameter set
+`CRE52-CRR-2026-10-09` back to Params, from the engine's own definition of the
+set, the one every run is compared with:
+
+- **Restored:** the reference parameters `Alpha`, `MultiplierFloor`,
+  `BusinessDaysPerYear`, `MinMaturityBD`, `SDFloorBD`, the three MPOR floors,
+  `BasisFactor`, `VolatilityFactor`, the three IR correlations and the two
+  CRR lambda thresholds; the conventions `DaysPerYear` (365) and
+  `IRBucketOffset` (TRUE); and the 26 rows of the supervisory-factor table,
+  from the key to the regimes.
+- **Not changed:** `AsOfDate`, `ReportingCcy`, `Regime`, the FX table, the
+  Reference column of the factor table, and the alpha overrides on
+  NettingSets, which are inputs. A run with an alpha override stays `WHAT-IF`.
+- **Confirmation:** it lists what will be overwritten, the value now and in
+  the set, with **Cancel** as the default. When Params already holds the set
+  it says so and changes nothing.
+- **Write:** through the macros' protection, with no maintenance unlock. A
+  failed write puts Params back as it was and checks it, as **Commit import**
+  does. A factor row below the 26 rows of the factor table, right below
+  them or further down above the FX table, refuses the restore, which would
+  leave it there.
+- **Effect:** Results reads `OUT OF DATE` until the next run, and the
+  evidence export refuses until then. Automation calls
+  `RestoreRegulatoryParameters_Silent`, which returns a result line.
 
 `ksRunSplit`, `ksImportMenu` and `ksTemplatesMenu` hold the controls above
 and call no macro themselves. The Templates menu writes blank CSV templates
@@ -165,6 +190,5 @@ Library, already one of the workbook's four references. The control-to-macro
 and control-to-sheet maps are pure functions, so that tests can check them
 against this contract; `IRibbonControl` cannot be created from VBA. No
 callback raises to Excel: a control with no command, or a command whose
-macro the workbook does not have yet, is reported in a message box and runs
-nothing. Until #357 delivers `RestoreRegulatoryParameters`, **Restore
-parameters** says the command is not available yet.
+macro `RibbonAction` does not call, is reported in a message box and runs
+nothing.

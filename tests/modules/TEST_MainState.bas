@@ -23,7 +23,12 @@ Attribute VB_Name = "TEST_MainState"
 '   cell, so that it can move; and that M_Main.ProtectWorkbook protects
 '   every sheet and the structure for the user interface only, again
 '   after a maintenance unlock or a reopening, but leaves a sheet a test
-'   made unwritable as it is (issue #421).
+'   made unwritable as it is (issue #421); and that
+'   M_Main.RestoreRegulatoryParameters_Silent puts changed reference
+'   parameters and factor rows back to the regulatory set, so that the
+'   next run is REGULATORY and as before, reports a repeat as unchanged,
+'   puts Params back when a write fails, and refuses with a key below the
+'   factor table (issue #357).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -51,7 +56,10 @@ Attribute VB_Name = "TEST_MainState"
 '   it again. One case switches the workbook to the 1904 date system and
 '   back. One case inserts a row above the HedgingSets table for its run
 '   and deletes it again, and breaks the Checks_Header name and restores
-'   it. Each of these is undone also after an unexpected error. The last
+'   it. Three cases change reference parameters and factor rows on Params
+'   and restore the regulatory set, one also types a key below the factor
+'   table; each puts Params back as it found it. Each of these is undone
+'   also after an unexpected error. The last
 '   case leaves the outputs of a normal run. Use a development workbook
 '   only.
 '
@@ -73,7 +81,7 @@ Attribute VB_Name = "TEST_MainState"
 '   TEST_MainState.RunMainStateTests from the Immediate window.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-06
 '
 ' AUTHOR
 '   Daniele Penza
@@ -89,7 +97,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 32   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 35   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -99,6 +107,9 @@ Attribute VB_Name = "TEST_MainState"
         Private mFailureCount   As Long      'Failed checks and unexpected errors
         Private mCurrentCase    As String    'Case being run, for messages
         Private mParamsRunLine  As String    'Result line of the unshifted Params run
+    'Params as a restore case found it (#357), put back at its end.
+        Private mSavedParams    As Variant    'Formula of each parameter cell and factor row
+        Private mParamsBefore   As String     'CORE_Engine.InputFingerprint before the case
 
 
 '
@@ -183,6 +194,9 @@ Public Sub RunMainStateTests()
         CaseEditedOutput
         CaseStaleParams False
         CaseStaleParams True
+        CaseRestoreParams
+        CaseRestoreFailures
+        CaseRestoreRefused
         CaseStaleValueType
         CaseStaleHeaders
         CaseStaleDateSystem
@@ -1523,6 +1537,370 @@ Unexpected:
         End If
 
 End Sub
+
+
+Private Sub CaseRestoreParams()
+'
+'==============================================================================
+'                              CaseRestoreParams
+'------------------------------------------------------------------------------
+' PURPOSE
+'   M_Main.RestoreRegulatoryParameters_Silent (#357): from Params holding
+'   the regulatory set, a run is REGULATORY; after four parameters (one a
+'   convention, one the logical IRBucketOffset) and three factor rows (a
+'   factor, the regimes and a key) are changed, a run is WHAT-IF and the
+'   restore reports exactly those, with Excel settings as they were.
+'   Results is then STALE and the evidence export refuses; the next run
+'   gives the same result line as the first, fingerprint included, and a
+'   second restore changes nothing. The interactive macro restores nothing
+'   in silent mode. Params is put back as the case found it, also after an
+'   unexpected error.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String    'What a call returned
+    Dim BaseRun     As String    'Result line of the regulatory run
+    Dim ExportPath  As String    'Evidence file the export would write
+
+'------------------------------------------------------------------------------
+' THE REGULATORY SET, THEN CHANGES
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "params.restore"
+        SetState xlCalculationAutomatic, True, True
+        SaveParams
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Check Left$(Result, 15) = "RESULT=RESTORED" Or Result = "RESULT=UNCHANGED", "first restore: " & Result
+        BaseRun = M_Main.RunSACCR_Silent()
+        Check InStr(1, BaseRun, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & BaseRun
+        NamedCell(PRM_ALPHA).Value = 1.5
+        NamedCell(PRM_MPOR_LARGE).Value = 25
+        NamedCell(PRM_DAYSYEAR).Value = 360
+        NamedCell(PRM_IRFULL).Value = False
+        FactorCell("CR_A", 4).Value = 0.005
+        FactorCell("CO_CLIMATIC", 8).Value = "BOTH"
+        FactorCell("EQ_INDEX", 1).Value = "EQ_IDX"
+        Result = M_Main.RunSACCR_Silent()
+        Check InStr(1, Result, "run_class=WHAT-IF", vbBinaryCompare) > 0, "run on the changes: " & Result
+
+'------------------------------------------------------------------------------
+' RESTORE
+'------------------------------------------------------------------------------
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Check Result = "RESULT=RESTORED; parameters=4; factor_rows=3", "restore: " & Result
+        CheckState xlCalculationAutomatic, True, True
+        Check M_Main.ResultsStatus() = "STALE", "after the restore: " & M_Main.ResultsStatus()
+        ExportPath = Environ$("TEMP")
+        If Len(ExportPath) = 0 Then
+            ExportPath = ThisWorkbook.Path
+        End If
+        ExportPath = ExportPath & Application.PathSeparator & "K-SACCR_evidence_test_restore.csv"
+        Result = M_Main.ExportEvidence_Silent(ExportPath)
+        Check Result = "RESULT=REFUSED; reason=the results are not those of the current inputs; press Run SA-CCR first", _
+              "export after the restore: " & Result
+        Result = M_Main.RunSACCR_Silent()
+        Check Result = BaseRun, "run after the restore: " & Result & " | on the set: " & BaseRun
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Check Result = "RESULT=UNCHANGED", "second restore: " & Result
+
+'------------------------------------------------------------------------------
+' THE INTERACTIVE MACRO IN SILENT MODE
+'------------------------------------------------------------------------------
+        NamedCell(PRM_ALPHA).Value = 1.5
+        M_Main.RestoreRegulatoryParameters
+        Check NamedCell(PRM_ALPHA).Value2 = 1.5, "the macro changed Alpha in silent mode"
+        Check Left$(M_Main.gLastMessage, 21) = "Nothing was restored.", "message: " & M_Main.gLastMessage
+        PutParamsBack
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutParamsBack
+
+End Sub
+
+
+Private Sub CaseRestoreFailures()
+'
+'==============================================================================
+'                             CaseRestoreFailures
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A restore that fails once the first cell is written, or whose
+'   read-back finds a difference, puts Params back and reports
+'   rollback=VERIFIED (#357): the inputs read as they were, and Excel
+'   settings, off before, are off again. A restore whose write-back fails
+'   too reports rollback=FAILED with what failed, apart from the error.
+'   Params is put back as the case found it.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String    'What a call returned
+    Dim Changed     As String    'Input fingerprint with the changes
+
+'------------------------------------------------------------------------------
+' FAIL AND PUT BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "params.restore-failures"
+        SetState xlCalculationManual, False, False
+        SaveParams
+        NamedCell(PRM_ALPHA).Value = 1.5
+        FactorCell("CR_A", 4).Value = 0.005
+        Changed = CORE_Engine.InputFingerprint()
+        M_Main.gTestFault = "restore-write"
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        M_Main.gTestFault = ""
+        Check Result = "RESULT=FAILED; error=Injected restore write failure.; rollback=VERIFIED", "write failure: " & Result
+        Check CORE_Engine.InputFingerprint() = Changed, "write failure: Params was not put back"
+        CheckState xlCalculationManual, False, False
+        M_Main.gTestFault = "restore-verify"
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        M_Main.gTestFault = ""
+        Check Result = "RESULT=FAILED; error=Injected read-back difference on " & SH_PARAMS & "; rollback=VERIFIED", _
+              "read-back failure: " & Result
+        Check CORE_Engine.InputFingerprint() = Changed, "read-back failure: Params was not put back"
+        M_Main.gTestFault = "restore-rollback"
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        M_Main.gTestFault = ""
+        Check Result = "RESULT=FAILED; error=Injected restore write failure.; rollback=FAILED: " & SH_PARAMS & _
+              ": Injected write-back failure.", "write-back failure: " & Result
+        PutParamsBack
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutParamsBack
+
+End Sub
+
+
+Private Sub CaseRestoreRefused()
+'
+'==============================================================================
+'                             CaseRestoreRefused
+'------------------------------------------------------------------------------
+' PURPOSE
+'   A key typed in the row below the regulatory factor rows makes the
+'   restore refuse, naming it, and so does a factor without a key typed in
+'   that row or further down, after a blank row, naming its row; Params is
+'   left as it was (#357).
+'   The cells typed and Params are put back as the case found them.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String     'What the call returned
+    Dim Changed     As String     'Input fingerprint with the changes
+    Dim BelowCell   As Range      'The key cell below the regulatory rows
+    Dim SavedBelow  As Variant    'Its formula
+    Dim Typed       As Boolean    'The key was typed and must be cleared
+    Dim LowerCell   As Range      'A factor cell after a blank row
+    Dim SavedLower  As Variant    'Its formula
+    Dim LowerTyped  As Boolean    'The factor was typed and must be cleared
+    Dim RowsDown    As Long       'Rows below the set's next row: 0, then 1
+
+'------------------------------------------------------------------------------
+' REFUSE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "params.restore-refused"
+        SetState xlCalculationAutomatic, False, False
+        SaveParams
+        Set BelowCell = TableCell(GetSheet(SH_PARAMS), NamedRow(NM_SF_TABLE) + _
+                        UBound(CORE_Engine.RegulatoryFactorRows()) + 2, NamedTableCol(NM_SF_TABLE))
+        SavedBelow = BelowCell.Formula
+        NamedCell(PRM_ALPHA).Value = 1.5
+        Typed = True
+        BelowCell.Value = "XX_EXTRA"
+        Changed = CORE_Engine.InputFingerprint()
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Check Result = "RESULT=REFUSED; reason=the factor table holds a row below its " & _
+              UBound(CORE_Engine.RegulatoryFactorRows()) + 1 & " regulatory rows (XX_EXTRA); remove it by hand " & _
+              "after a maintenance unlock", "refusal: " & Result
+        Check CORE_Engine.InputFingerprint() = Changed, "the refused restore changed Params"
+        BelowCell.Formula = SavedBelow
+        Typed = False
+
+    'A factor without a key, in the row below the set, then after a blank
+    'row: the factor column is the fourth from the key.
+        For RowsDown = 0 To 1
+            Set LowerCell = BelowCell.Offset(RowsDown, 3)
+            SavedLower = LowerCell.Formula
+            LowerTyped = True
+            LowerCell.Value = 0.5
+            Changed = CORE_Engine.InputFingerprint()
+            Result = M_Main.RestoreRegulatoryParameters_Silent()
+            Check Result = "RESULT=REFUSED; reason=the factor table holds a row below its " & _
+                  UBound(CORE_Engine.RegulatoryFactorRows()) + 1 & " regulatory rows (" & SH_PARAMS & " row " & _
+                  LowerCell.Row & "); remove it by hand after a maintenance unlock", _
+                  "refusal, factor in row " & LowerCell.Row & ": " & Result
+            Check CORE_Engine.InputFingerprint() = Changed, "the refused restore changed Params, row " & LowerCell.Row
+            LowerCell.Formula = SavedLower
+            LowerTyped = False
+        Next RowsDown
+        PutParamsBack
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Typed Then BelowCell.Formula = SavedBelow
+        If LowerTyped Then LowerCell.Formula = SavedLower
+        PutParamsBack
+
+End Sub
+
+
+Private Function FactorCell( _
+    ByVal Key As String, _
+    ByVal Field As Long) _
+    As Range
+'
+'==============================================================================
+'                                  FactorCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The cell of a field of the factor table's row with a key: 1 key, 4
+'   factor, 8 regimes. Raises ERR_TEST_SETUP when no row has the key.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet     As Worksheet    'Params
+    Dim r               As Long         'Row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        r = NamedRow(NM_SF_TABLE) + 1
+        Do While Len(SafeStr(TableCell(ParamsSheet, r, NamedTableCol(NM_SF_TABLE)).Value2)) > 0
+            If SafeStr(TableCell(ParamsSheet, r, NamedTableCol(NM_SF_TABLE)).Value2) = Key Then
+                Set FactorCell = TableCell(ParamsSheet, r, NamedTableCol(NM_SF_TABLE) + Field - 1)
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+        Err.Raise ERR_TEST_SETUP, "TEST_MainState.FactorCell", "No factor row " & Key & " on " & SH_PARAMS
+
+End Function
+
+
+Private Sub SaveParams()
+'
+'==============================================================================
+'                                  SaveParams
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Keep what a restore case may change on Params (#357), for
+'   PutParamsBack: the formula of each parameter cell the restore writes,
+'   and of the factor table's regulatory rows, key to regimes, with the
+'   input fingerprint.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Codes   As Variant    'Parameter codes the restore writes
+    Dim Kept()  As Variant    'One formula per cell, then the factor block
+    Dim i       As Long       'Code
+
+'------------------------------------------------------------------------------
+' KEEP
+'------------------------------------------------------------------------------
+        Codes = CORE_Engine.RegulatoryParameterCodes()
+        ReDim Kept(LBound(Codes) To UBound(Codes) + 1)
+        For i = LBound(Codes) To UBound(Codes)
+            Kept(i) = NamedCell(CStr(Codes(i))).Formula
+        Next i
+        Kept(UBound(Codes) + 1) = FactorBlock().Formula
+        mSavedParams = Kept
+        mParamsBefore = CORE_Engine.InputFingerprint()
+
+End Sub
+
+
+Private Sub PutParamsBack()
+'
+'==============================================================================
+'                                PutParamsBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write back what SaveParams kept, and check that the inputs read as
+'   they did then.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Codes   As Variant    'Parameter codes the restore writes
+    Dim i       As Long       'Code
+
+'------------------------------------------------------------------------------
+' PUT BACK
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        M_Main.gTestFault = ""
+        Codes = CORE_Engine.RegulatoryParameterCodes()
+        For i = LBound(Codes) To UBound(Codes)
+            NamedCell(CStr(Codes(i))).Formula = mSavedParams(i)
+        Next i
+        FactorBlock().Formula = mSavedParams(UBound(Codes) + 1)
+        Check CORE_Engine.InputFingerprint() = mParamsBefore, "Params was not put back as the case found it"
+        Exit Sub
+
+Failed:
+        Fail mCurrentCase, "could not put Params back: " & Err.Description
+
+End Sub
+
+
+Private Function FactorBlock() As Range
+'
+'==============================================================================
+' PURPOSE
+'   The factor table's regulatory rows on Params, key to regimes.
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        Set FactorBlock = TableRange(GetSheet(SH_PARAMS), NamedRow(NM_SF_TABLE) + 1, NamedTableCol(NM_SF_TABLE), _
+                                     NamedRow(NM_SF_TABLE) + UBound(CORE_Engine.RegulatoryFactorRows()) + 1, _
+                                     NamedTableCol(NM_SF_TABLE) + 7)
+
+End Function
 
 
 Private Sub EditAndUndo( _

@@ -32,8 +32,8 @@
       "entry_point": "TEST_MainState.RunMainStateTests",
       "header": "SACCR MAIN STATE TESTS",
       "mode_line": false,
-      "cases": 32,
-      "checks": {"32-bit": 512, "64-bit": 512},
+      "cases": 35,
+      "checks": {"32-bit": 542, "64-bit": 542},
       "restoration": "caller_state=RESTORED",
       "first_case": null
     },
