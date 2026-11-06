@@ -176,7 +176,7 @@ give the state in words.
   the labels read Results C5 after its recalculation: a command run from the
   Ribbon, a staging button or the Macros dialog, and the change and activation
   handlers of the staging sheets (`M_Main.RibbonStateChanged`, not in silent
-  mode);
+  mode or while Excel is hidden, as under automation);
 - after any cell edit in the workbook, once Excel is idle, since an input
   edit recalculates Results C5 (`ThisWorkbook.Workbook_SheetChange`);
 - when the workbook or one of its sheets is activated, so switching

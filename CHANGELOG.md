@@ -178,6 +178,15 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Extend the automated protection checks to Home (#218):
+  `tools/Check-SACCR-Protection.ps1` check 2 also types into Home, and check
+  14, with macros disabled, checks that the workbook opens on Home and that
+  each of its links opens its sheet. The Ribbon refresh is no longer
+  scheduled while Excel is hidden, as under automation, which may close the
+  workbook before it runs. The `USAGE` notes of `M_Main` name the Ribbon
+  commands instead of the removed sheet buttons, and `.gitignore` also
+  excludes Java keystores, KeePass databases and private SSH keys.
+
 - Show Results after a completed run (#589). Run, from the Ribbon or the
   macro, used to leave the user on the sheet where it was started; it now
   opens Results before the completion message, which still points to Checks
