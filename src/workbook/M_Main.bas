@@ -6926,7 +6926,9 @@ Private Function RestoreParameters( _
 '      itself.
 '   4. Results, Checks and the run fingerprints are left as they are:
 '      Results reads OUT OF DATE until the next run, as after any edit,
-'      and the evidence export refuses until then.
+'      and the evidence export refuses until then. The status cells are
+'      recalculated before Excel settings are restored, so that they read
+'      OUT OF DATE in manual calculation too.
 '
 ' ERROR POLICY
 '   See RestoreRegulatoryParameters_Silent. gTestFault = "restore-write"
@@ -7040,9 +7042,13 @@ Private Function RestoreParameters( _
 '------------------------------------------------------------------------------
 ' RESTORE EXCEL AND REPORT
 '------------------------------------------------------------------------------
+    'The status cells are recalculated first: in manual calculation they
+    'would keep the value computed before the restore and still report the
+    'last run as current.
 CleanUp:
         On Error GoTo 0
         If StateCaptured Then
+            RefreshResultsStatus
             CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
         End If
         mRunning = False

@@ -178,6 +178,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Recalculate the status cells when Restore parameters ends (#357): in
+  manual calculation Results C5 kept reporting the last run as current
+  after a restore, and so did the Ribbon, which left Export evidence
+  enabled, although the export itself refused. `RestoreParameters` now
+  recalculates them before it restores the Excel settings, as each
+  operation does. `TEST_MainState` runs the restore in manual calculation
+  and reads Results C5 (37 cases, 572 checks).
+
 - Schedule the Ribbon refresh also for a workbook whose file name holds an
   apostrophe, such as `O'Brien.xlsm` (#216): `M_Ribbon.ScheduleRefresh`
   doubles the apostrophe in the workbook-qualified macro name, as Excel

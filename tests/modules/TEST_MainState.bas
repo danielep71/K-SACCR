@@ -1556,7 +1556,9 @@ Private Sub CaseRestoreParams()
 '   convention, one the logical IRBucketOffset) and three factor rows (a
 '   factor, the regimes and a key) are changed, a run is WHAT-IF and the
 '   restore reports exactly those, with Excel settings as they were.
-'   Results is then STALE and the evidence export refuses; the next run
+'   The restore runs in manual calculation, and Results C5 reads OUT OF
+'   DATE without a recalculation. Results is then STALE and the
+'   evidence export refuses; the next run
 '   gives the same result line as the first, fingerprint included, and a
 '   second restore changes nothing. The interactive macro restores nothing
 '   in silent mode. Params is put back as the case found it, also after an
@@ -1598,9 +1600,16 @@ Private Sub CaseRestoreParams()
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
+    'In manual calculation, so that Results C5 is read as the restore left
+    'it, without a recalculation.
+        SetState xlCalculationManual, True, True
         Result = M_Main.RestoreRegulatoryParameters_Silent()
         Check Result = "RESULT=RESTORED; parameters=4; factor_rows=3", "restore: " & Result
-        CheckState xlCalculationAutomatic, True, True
+        CheckState xlCalculationManual, True, True
+        Check Left$(SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value), 11) = "OUT OF DATE", _
+              "Results C5 after the restore in manual calculation: " & _
+              SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value)
+        SetState xlCalculationAutomatic, True, True
         Check M_Main.ResultsStatus() = "STALE", "after the restore: " & M_Main.ResultsStatus()
         ExportPath = Environ$("TEMP")
         If Len(ExportPath) = 0 Then
