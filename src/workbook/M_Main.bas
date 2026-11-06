@@ -7099,10 +7099,11 @@ Private Function RestoreTargets( _
 '   Problem set when a Params name is missing or not on Params, the
 '   header is not where the name says, or a factor row stands below the
 '   regulatory rows: a key right below them, which the loader would read
-'   as part of the table, or further down, above the FX table, a row with
-'   a number in the factor column that is not a parameter row, which the
-'   loader rejects as a row after the end (ValuesAfterEnd). The restore
-'   would leave either, and the next run would not be the template's.
+'   as part of the table, or, from that row down to the row above the FX
+'   table, a row with a number in the factor column that is not a
+'   parameter row, which the loader rejects as a row after the end
+'   (ValuesAfterEnd). The restore would leave either, and the next run
+'   would not be the template's.
 '
 ' UPDATED
 '   2026-11-06
@@ -7172,13 +7173,14 @@ Private Function RestoreTargets( _
                       " regulatory rows (" & SafeStr(BelowKey) & "); remove it by hand after a maintenance unlock"
             Exit Function
         End If
-    'Further down, as CORE_Engine.LoadSFTable searches: to the row above the
-    'FX table when that follows, otherwise to the last used row.
+    'From that row down, as CORE_Engine.LoadSFTable searches from the blank
+    'key that ends the table: to the row above the FX table when that
+    'follows, otherwise to the last used row.
         LastBelow = UsedLastRow(ParamsSheet)
         If NamedRow(NM_FX_TABLE) > HeaderRow Then
             LastBelow = NamedRow(NM_FX_TABLE) - 1
         End If
-        For r = FirstBelow + 1 To LastBelow
+        For r = FirstBelow To LastBelow
             If IsNum(TableCell(ParamsSheet, r, KeyColumn + 3).Value) And _
                Not IsListedCode(SafeStr(TableCell(ParamsSheet, r, ParamsCodeCol()).Value)) Then
                 Problem = "the factor table holds a row below its " & UBound(FactorRows) - LBound(FactorRows) + 1 & _

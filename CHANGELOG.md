@@ -112,7 +112,7 @@ Use only the categories needed by a release.
   table, refuses the restore. Results then reads `OUT OF DATE` and the
   evidence export refuses until the next run.
   `RestoreRegulatoryParameters_Silent` serves automation. `TEST_MainState`
-  gains three cases (35 cases, 540 checks): restore and repeat, the three
+  gains three cases (35 cases, 542 checks): restore and repeat, the three
   failure paths, and the refusal.
 
 - Add a Home sheet, the first sheet of the workbook, which it opens on
