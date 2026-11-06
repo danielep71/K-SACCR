@@ -152,7 +152,7 @@ How the script checks them:
 | # | Check | Expected |
 | ---: | --- | --- |
 | 1 | Open the workbook with macros enabled; look at Review on every sheet | Every sheet offers **Unprotect Sheet**; **Protect Workbook** is on |
-| 2 | Type into a header (`Trades` C4), a grey Params value (E8), an output cell and a staging metadata cell | Refused |
+| 2 | Type into a header (`Trades` C4), a grey Params value (E8), an output cell, a staging metadata cell and `Home` | Refused |
 | 3 | Type into `Trades` C5, a `Trades` cell a few thousand rows down, `NettingSets` C7, Params E6 and an FX rate, a bank figure and a bank tolerance | Accepted |
 | 4 | Paste several rows of values into the input columns of `Trades`, then clear them | Accepted |
 | 5 | Filter `Trades` from its header; insert a row on `Trades` and on `NettingSets`; open and close a README group; select and copy output cells and a formula | Accepted; formulas visible |
@@ -164,7 +164,7 @@ How the script checks them:
 | 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |
 | 12 | Save, close and reopen, then Run SA-CCR | Every sheet still protected; the run succeeds |
 | 13 | Import CSV on both staging sheets and Validate staging until both read `VALID`; save, close and reopen; Commit import, then Cancel. Change a staged value; save, close and reopen; Commit import | After the first reopen both sheets still read `VALID` and Commit import asks for confirmation. After the second, the changed sheet reads `EDITED` and Commit import is refused: *Nothing was committed. The staged rows have no VALID validation that still matches them, the input sheets and Params.* (#208) |
-| 14 | Open with macros disabled | Every sheet and the structure are protected; nothing else works until macros are enabled |
+| 14 | Open with macros disabled; follow every link on `Home` | Every sheet and the structure are protected; the workbook opens on `Home`, and each link opens its sheet; nothing else works until macros are enabled |
 
 ## 🧭 Changing the matrix
 

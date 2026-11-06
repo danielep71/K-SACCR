@@ -265,7 +265,9 @@ try {
     $excel.AutomationSecurity = $msoAutomationSecurityForceDisable
     $workbook = $excel.Workbooks.Open($script:workbookPath)
 
-    # 14: every sheet and the structure protected; no macro runs.
+    # 14: every sheet and the structure protected; no macro runs. The
+    # workbook opens on Home, whose links reach every other sheet without a
+    # macro (#330).
     $open = Get-Unprotected $workbook
     $macroRan = $true
     try {
@@ -274,18 +276,39 @@ try {
     catch {
         $macroRan = $false
     }
-    Add-Result 14 ($open.Count -eq 0 -and -not $macroRan) `
-        ("Opened with macros disabled: unprotected [" + ($open -join ", ") + "]; a macro ran: $macroRan")
+    $opensOn = [string]$workbook.ActiveSheet.Name
+    $homeSheet = $workbook.Worksheets.Item("Home")
+    $linkCount = [int]$homeSheet.Hyperlinks.Count
+    $broken = New-Object System.Collections.Generic.List[string]
+    foreach ($link in $homeSheet.Hyperlinks) {
+        $target = ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
+        try {
+            $link.Follow()
+            if ([string]$workbook.ActiveSheet.Name -ne $target) {
+                $broken.Add($target)
+            }
+        }
+        catch {
+            $broken.Add($target)
+        }
+    }
+    $expectedLinks = [int]$workbook.Worksheets.Count - 1
+    Add-Result 14 ($open.Count -eq 0 -and -not $macroRan -and $opensOn -eq "Home" -and
+                   $linkCount -eq $expectedLinks -and $broken.Count -eq 0) `
+        ("Opened with macros disabled: unprotected [" + ($open -join ", ") + "]; a macro ran: $macroRan; opens on " +
+         $opensOn + "; Home links " + $linkCount + " of " + $expectedLinks + ", not reaching their sheet [" +
+         ($broken -join ", ") + "]")
 
-    # 2: typing into a header, a grey Params value, an output cell and a
-    # staging metadata cell is refused.
+    # 2: typing into a header, a grey Params value, an output cell, a
+    # staging metadata cell and Home is refused.
     $targets = @(
-        @("Trades", "C4"), @("Params", "E8"), @("Results", "K7"), @("Import_Trades", "D4")
+        @("Trades", "C4"), @("Params", "E8"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
     )
     $accepted = @($targets | Where-Object { Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) "x" } |
         ForEach-Object { $_[0] + "!" + $_[1] })
     Add-Result 2 ($accepted.Count -eq 0) `
-        ("Writes to Trades!C4, Params!E8, Results!K7 and Import_Trades!D4; accepted [" + ($accepted -join ", ") + "]")
+        ("Writes to Trades!C4, Params!E8, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
+         ($accepted -join ", ") + "]")
 
     # 3: inputs, Params configuration, an FX rate, a bank figure and a bank
     # tolerance are accepted, also thousands of rows down.

@@ -3,7 +3,8 @@ Attribute VB_Name = "M_Main"
 ' MODULE: M_Main
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Provide the macros behind the buttons on the sheets, run each operation
+'   Provide the macros behind the K-SACCR Ribbon tab and the staging-sheet
+'   buttons, run each operation
 '   with Excel prepared for speed, put Excel back exactly as it was, and
 '   report the outcome to the user.
 '
@@ -586,7 +587,8 @@ Public Sub ValidateInputs()
 '   report the number of errors and warnings.
 '
 ' USAGE
-'   Assigned to the Validate inputs button.
+'   Validate inputs on the K-SACCR Ribbon tab (Run menu), or the Macros
+'   dialog.
 '
 ' UPDATED
 '   2026-10-06
@@ -612,7 +614,8 @@ Public Sub ClearOutputs()
 '   the stored fingerprints, and stamp the time on the Results sheet.
 '
 ' USAGE
-'   Assigned to the Clear outputs button.
+'   Clear outputs on the K-SACCR Ribbon tab (Run menu), or the Macros
+'   dialog.
 '
 ' UPDATED
 '   2026-10-17
@@ -1600,7 +1603,7 @@ Public Sub ExportEvidence()
 '   an output cell was edited after the run.
 '
 ' USAGE
-'   Assigned to the Export evidence button on Reconciliation.
+'   Export evidence on the K-SACCR Ribbon tab, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports a refusal or a write failure in a message, or in the Immediate
@@ -2484,7 +2487,8 @@ Public Sub ExportNettingSetsCsvTemplate()
 '   to a file chosen by the user: its header line only.
 '
 ' USAGE
-'   Assigned to the Export CSV template button on NettingSets.
+'   NettingSets template on the K-SACCR Ribbon tab (Templates menu), or
+'   the Macros dialog.
 '
 ' ERROR POLICY
 '   As ExportCsvTemplate; never raises.
@@ -2508,7 +2512,8 @@ Public Sub ExportTradesCsvTemplate()
 '   file chosen by the user: its header line only.
 '
 ' USAGE
-'   Assigned to the Export CSV template button on Trades.
+'   Trades template on the K-SACCR Ribbon tab (Templates menu), or the
+'   Macros dialog.
 '
 ' ERROR POLICY
 '   As ExportCsvTemplate; never raises.
@@ -2681,8 +2686,9 @@ Public Sub ExportImportSpecification()
 '   confirms it; the user may then open the page.
 '
 ' USAGE
-'   Assigned to the Export import specifications button on
-'   Import_NettingSets and Import_Trades.
+'   Import specification on the K-SACCR Ribbon tab (Templates menu), the
+'   Export import specifications button on Import_NettingSets and
+'   Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports a failure in a message, or in the Immediate window in silent
@@ -3096,7 +3102,8 @@ Public Sub ImportNettingSetsCsv()
 '   (#208), for checking and correction before it replaces NettingSets.
 '
 ' USAGE
-'   The Import CSV button on Import_NettingSets, or the Macros dialog.
+'   NettingSets file on the K-SACCR Ribbon tab (Import CSV menu), the
+'   Import CSV button on Import_NettingSets, or the Macros dialog.
 '
 ' ERROR POLICY
 '   As ImportCsv; never raises.
@@ -3121,7 +3128,8 @@ Public Sub ImportTradesCsv()
 '   for checking and correction before it replaces Trades.
 '
 ' USAGE
-'   The Import CSV button on Import_Trades, or the Macros dialog.
+'   Trades file on the K-SACCR Ribbon tab (Import CSV menu), the Import
+'   CSV button on Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   As ImportCsv; never raises.
@@ -4307,8 +4315,8 @@ Public Sub ValidateStaging()
 '   on its staging sheet. Nothing is copied to NettingSets or Trades.
 '
 ' USAGE
-'   The Validate staging button on Import_NettingSets and Import_Trades,
-'   or the Macros dialog.
+'   Validate staging on the K-SACCR Ribbon tab, the Validate staging
+'   button on Import_NettingSets and Import_Trades, or the Macros dialog.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
@@ -5021,8 +5029,9 @@ Public Sub CommitImport()
 '   left as it is.
 '
 ' USAGE
-'   The Commit import button on Import_NettingSets and Import_Trades, or
-'   the Macros dialog. Automation calls CommitStaging_Silent.
+'   Commit import on the K-SACCR Ribbon tab, the Commit import button on
+'   Import_NettingSets and Import_Trades, or the Macros dialog. Automation
+'   calls CommitStaging_Silent.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
@@ -7491,8 +7500,9 @@ Public Sub RibbonStateChanged()
 '   the Macros dialog or a change handler started it, and after any cell
 '   edit (ThisWorkbook.Workbook_SheetChange): an input edit recalculates
 '   Results C5, which decides Export evidence. Nothing is scheduled in
-'   silent mode: automation may close the workbook at once, and Excel
-'   would reopen it to run the scheduled refresh.
+'   silent mode or while Excel is hidden, as under automation, which may
+'   close the workbook at once: Excel would reopen it to run the scheduled
+'   refresh, and a hidden Excel shows no Ribbon.
 '
 ' ERROR POLICY
 '   Never raises: the refresh is a convenience.
@@ -7501,11 +7511,13 @@ Public Sub RibbonStateChanged()
 '   2026-11-06
 '==============================================================================
 '
-        If gSilent Then
+        On Error GoTo Skipped
+        If gSilent Or Not Application.Visible Then
             Exit Sub
         End If
-        On Error Resume Next
         M_Ribbon.ScheduleRefresh
+
+Skipped:
 
 End Sub
 
