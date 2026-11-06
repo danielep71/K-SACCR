@@ -90,8 +90,9 @@ set, the one every run is compared with:
   it says so and changes nothing.
 - **Write:** through the macros' protection, with no maintenance unlock. A
   failed write puts Params back as it was and checks it, as **Commit import**
-  does. A key below the 26 rows of the factor table refuses the restore,
-  which would leave it in the table.
+  does. A factor row below the 26 rows of the factor table, right below
+  them or further down above the FX table, refuses the restore, which would
+  leave it there.
 - **Effect:** Results reads `OUT OF DATE` until the next run, and the
   evidence export refuses until then. Automation calls
   `RestoreRegulatoryParameters_Silent`, which returns a result line.

@@ -817,8 +817,8 @@ differ from the set are written, and each is read back; on any failure the
 cells kept before the write are written back and read back. It returns
 `RESULT=RESTORED; parameters=N; factor_rows=M` with the parameters and rows
 that were changed, `RESULT=UNCHANGED` when Params already holds the set,
-`RESULT=REFUSED; reason=...` when a Params name is missing or a key stands
-below the factor table, or `RESULT=FAILED; error=...; rollback=...` with
+`RESULT=REFUSED; reason=...` when a Params name is missing or a factor row
+stands below the regulatory rows of the factor table, or `RESULT=FAILED; error=...; rollback=...` with
 `NONE`, `VERIFIED` or `FAILED: ...` as for `CommitStaging_Silent`. Results is
 not recalculated: `ResultsStatus()` returns `STALE` until the next
 **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.

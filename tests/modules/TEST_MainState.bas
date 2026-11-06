@@ -1695,8 +1695,9 @@ Private Sub CaseRestoreRefused()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   A key typed in the row below the regulatory factor rows makes the
-'   restore refuse, naming it, and Params is left as it was (#357). The
-'   key and Params are put back as the case found them.
+'   restore refuse, naming it, and so does a factor typed further down,
+'   after a blank row, naming its row; Params is left as it was (#357).
+'   The cells typed and Params are put back as the case found them.
 '
 ' UPDATED
 '   2026-11-06
@@ -1711,6 +1712,9 @@ Private Sub CaseRestoreRefused()
     Dim BelowCell   As Range      'The key cell below the regulatory rows
     Dim SavedBelow  As Variant    'Its formula
     Dim Typed       As Boolean    'The key was typed and must be cleared
+    Dim LowerCell   As Range      'A factor cell after a blank row
+    Dim SavedLower  As Variant    'Its formula
+    Dim LowerTyped  As Boolean    'The factor was typed and must be cleared
 
 '------------------------------------------------------------------------------
 ' REFUSE
@@ -1733,6 +1737,20 @@ Private Sub CaseRestoreRefused()
         Check CORE_Engine.InputFingerprint() = Changed, "the refused restore changed Params"
         BelowCell.Formula = SavedBelow
         Typed = False
+
+    'A factor after a blank row, in the factor column of the row below it.
+        Set LowerCell = BelowCell.Offset(1, 3)
+        SavedLower = LowerCell.Formula
+        LowerTyped = True
+        LowerCell.Value = 0.5
+        Changed = CORE_Engine.InputFingerprint()
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Check Result = "RESULT=REFUSED; reason=the factor table holds a row below its " & _
+              UBound(CORE_Engine.RegulatoryFactorRows()) + 1 & " regulatory rows (" & SH_PARAMS & " row " & _
+              LowerCell.Row & "); remove it by hand after a maintenance unlock", "refusal further down: " & Result
+        Check CORE_Engine.InputFingerprint() = Changed, "the refused restore changed Params further down"
+        LowerCell.Formula = SavedLower
+        LowerTyped = False
         PutParamsBack
         Exit Sub
 
@@ -1740,6 +1758,7 @@ Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
         If Typed Then BelowCell.Formula = SavedBelow
+        If LowerTyped Then LowerCell.Formula = SavedLower
         PutParamsBack
 
 End Sub

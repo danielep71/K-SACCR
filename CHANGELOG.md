@@ -107,11 +107,12 @@ Use only the categories needed by a release.
   regime, the FX table and the alpha overrides are inputs and stay. The values
   come from the engine's own set: `CORE_Engine.RegulatoryFactorRows` and
   `RegulatoryParameterCodes` now serve both the run classification and the
-  restore. A failed write puts Params back and checks it; a key below the
-  factor table refuses the restore. Results then reads `OUT OF DATE` and the
+  restore. A failed write puts Params back and checks it; a factor row
+  below the regulatory rows, right below them or further down above the FX
+  table, refuses the restore. Results then reads `OUT OF DATE` and the
   evidence export refuses until the next run.
   `RestoreRegulatoryParameters_Silent` serves automation. `TEST_MainState`
-  gains three cases (35 cases, 538 checks): restore and repeat, the three
+  gains three cases (35 cases, 540 checks): restore and repeat, the three
   failure paths, and the refusal.
 
 - Add a Home sheet, the first sheet of the workbook, which it opens on

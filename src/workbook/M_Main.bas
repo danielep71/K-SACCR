@@ -7097,8 +7097,12 @@ Private Function RestoreTargets( _
 ' RETURNS
 '   The number of targets, ParameterCount of them parameters; 0 with
 '   Problem set when a Params name is missing or not on Params, the
-'   header is not where the name says, or a key stands below the
-'   regulatory rows, which the restore would leave in the table.
+'   header is not where the name says, or a factor row stands below the
+'   regulatory rows: a key right below them, which the loader would read
+'   as part of the table, or further down, above the FX table, a row with
+'   a number in the factor column that is not a parameter row, which the
+'   loader rejects as a row after the end (ValuesAfterEnd). The restore
+'   would leave either, and the next run would not be the template's.
 '
 ' UPDATED
 '   2026-11-06
@@ -7117,6 +7121,9 @@ Private Function RestoreTargets( _
     Dim KeyColumn       As Long         'Its key column, as TableCell counts
     Dim RowValues()     As Variant      'One row as written
     Dim BelowKey        As Variant      'The key cell below the regulatory rows
+    Dim FirstBelow      As Long         'Row below the regulatory rows
+    Dim LastBelow       As Long         'Last row searched for a factor row
+    Dim r               As Long         'Row searched
     Dim k               As Long         'Target
     Dim i               As Long         'Code or row
     Dim c               As Long         'Field
@@ -7158,12 +7165,28 @@ Private Function RestoreTargets( _
             Problem = "the factor table's header " & HDR_SF & " is not where the workbook name '" & NM_SF_TABLE & "' says"
             Exit Function
         End If
-        BelowKey = TableCell(ParamsSheet, HeaderRow + UBound(FactorRows) - LBound(FactorRows) + 2, KeyColumn).Value2
+        FirstBelow = HeaderRow + UBound(FactorRows) - LBound(FactorRows) + 2
+        BelowKey = TableCell(ParamsSheet, FirstBelow, KeyColumn).Value2
         If Len(Trim$(SafeStr(BelowKey))) > 0 Then
             Problem = "the factor table holds a row below its " & UBound(FactorRows) - LBound(FactorRows) + 1 & _
                       " regulatory rows (" & SafeStr(BelowKey) & "); remove it by hand after a maintenance unlock"
             Exit Function
         End If
+    'Further down, as CORE_Engine.LoadSFTable searches: to the row above the
+    'FX table when that follows, otherwise to the last used row.
+        LastBelow = UsedLastRow(ParamsSheet)
+        If NamedRow(NM_FX_TABLE) > HeaderRow Then
+            LastBelow = NamedRow(NM_FX_TABLE) - 1
+        End If
+        For r = FirstBelow + 1 To LastBelow
+            If IsNum(TableCell(ParamsSheet, r, KeyColumn + 3).Value) And _
+               Not IsListedCode(SafeStr(TableCell(ParamsSheet, r, ParamsCodeCol()).Value)) Then
+                Problem = "the factor table holds a row below its " & UBound(FactorRows) - LBound(FactorRows) + 1 & _
+                          " regulatory rows (" & SH_PARAMS & " row " & r & "); remove it by hand after a " & _
+                          "maintenance unlock"
+                Exit Function
+            End If
+        Next r
         For i = LBound(FactorRows) To UBound(FactorRows)
             Fields = Split(FactorRows(i), "|")
             ReDim RowValues(1 To 1, 1 To 8)
@@ -7187,6 +7210,41 @@ Private Function RestoreTargets( _
             Expected(k) = RowValues
         Next i
         RestoreTargets = k
+
+End Function
+
+
+Private Function IsListedCode( _
+    ByVal Candidate As String) _
+    As Boolean
+'
+'==============================================================================
+'                                 IsListedCode
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Candidate is a Params code of CORE_Engine.ParameterCodes,
+'   ignoring case, so that RestoreTargets tells a parameter row from a
+'   factor row, as the engine's loader does (#357).
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code    As Variant    'A supported code
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+        For Each Code In CORE_Engine.ParameterCodes()
+            If StrComp(Candidate, CStr(Code), vbTextCompare) = 0 Then
+                IsListedCode = True
+                Exit Function
+            End If
+        Next Code
 
 End Function
 
