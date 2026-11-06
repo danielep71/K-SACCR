@@ -97,6 +97,12 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add `tools/Verify-SACCR-Branch.ps1` and its launcher
+  `Verify-SACCR-Branch.cmd`: for the branch of a pull request, it fetches and
+  checks out the branch, runs `Certify-SACCR.ps1` on it in a new bundle folder
+  and prints a summary to report (the commit, the `Test_RunAll` summary and
+  the 14 protection checks), also written to `verify-summary.txt`.
+
 - Keep the K-SACCR tab's enabled states and Status labels current (#216).
   `RibbonGetEnabled` follows the state table of the Ribbon contract, through
   the pure `M_Ribbon.EnabledFor`: nothing while an operation runs
