@@ -243,8 +243,8 @@ also carry buttons for their own commands.
 
 | Command | Macro | Does |
 | --- | --- | --- |
-| **Run** (Calculation) | `RunSACCR` | Validates the inputs, calculates and writes every output sheet |
-| **Validate inputs** (Run menu) | `ValidateInputs` | Checks the inputs and lists the findings on Checks without calculating |
+| **Run** (Calculation) | `RunSACCR` | Validates the inputs, calculates, writes every output sheet and opens Results; a run that stops opens Checks |
+| **Validate inputs** (Run menu) | `ValidateInputs` | Checks the inputs and lists the findings on Checks, which it opens, without calculating |
 | **Clear outputs** (Run menu) | `ClearOutputs` | Empties the output sheets |
 | **Export evidence** (Evidence) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **NettingSets template**, **Trades template** (CSV import, Templates menu) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
