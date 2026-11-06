@@ -177,6 +177,8 @@ give the state in words.
   Ribbon, a staging button or the Macros dialog, and the change and activation
   handlers of the staging sheets (`M_Main.RibbonStateChanged`, not in silent
   mode);
+- after any cell edit in the workbook, once Excel is idle, since an input
+  edit recalculates Results C5 (`ThisWorkbook.Workbook_SheetChange`);
 - when the workbook or one of its sheets is activated, so switching
   workbooks refreshes it (`ThisWorkbook`);
 - when the workbook is reopened in a running Excel, as Excel loads the tab
@@ -188,7 +190,8 @@ object's pointer, with the window handle of this Excel session, in the hidden
 workbook name `ksRibbonPointer`. After a reset, `RefreshRibbon` rebuilds the
 object from that pointer with `RtlMoveMemory` of `kernel32`, a function that
 is part of Windows; nothing is installed. The pointer is used only when the
-handle is this session's. The name never marks the workbook as changed: it is
+handle is this session's; a negative pointer, as 32-bit Excel can have, is
+read back as written. The name never marks the workbook as changed: it is
 written with the `Saved` flag kept. It never reaches the file either:
 `ThisWorkbook` removes it before every save and puts it back after
 (`HidePointer`, `ShowPointer`), so a workbook never opens with the pointer of

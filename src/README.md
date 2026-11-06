@@ -41,7 +41,8 @@ Current source:
   `shImportNettingSets` and `shImportTrades`, which mark a staging sheet as
   edited, and their activation handlers, which refresh its status (#210),
   and the events of `ThisWorkbook`, which refresh the Ribbon tab on
-  activation and keep its pointer out of every saved file (#216);
+  activation and after an edit, and keep its pointer out of every saved
+  file (#216);
 - `workbook/SACCR_Template.xlsx`: the 19 sheets, in tab order (Home, Params,
   NettingSets, Trades, Import_NettingSets, Import_Trades, Results,
   HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets, Reconciliation,

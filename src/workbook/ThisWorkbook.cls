@@ -25,6 +25,12 @@ Private Sub Workbook_SheetActivate(ByVal Sh As Object)
 
 End Sub
 
+Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+    'An input edit recalculates Results C5: refresh the tab once Excel is idle (#216).
+        M_Main.RibbonStateChanged
+
+End Sub
+
 Private Sub Workbook_BeforeSave(ByVal SaveAsUI As Boolean, Cancel As Boolean)
     'Keep the Ribbon's pointer out of the saved file (#216).
         M_Ribbon.HidePointer

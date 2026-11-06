@@ -548,9 +548,11 @@ Public Function PointerFromText( _
 '   Excel session with WindowHandle (#216).
 '
 ' RETURNS
-'   0 when the text is not two decimal numbers joined by "|", the handle
+'   0 when the text is not two decimal integers joined by "|", the handle
 '   is another session's, or the pointer is 0: no pointer is ever used
-'   unless it is this session's.
+'   unless it is this session's. A minus sign is accepted: on 32-bit
+'   Excel an address with its high bit set is a negative LongPtr, which
+'   PointerText writes so.
 '
 ' UPDATED
 '   2026-11-06
@@ -569,7 +571,7 @@ Public Function PointerFromText( _
         If UBound(Parts) <> 1 Then
             Exit Function
         End If
-        If Not IsDigits(CStr(Parts(0))) Or Not IsDigits(CStr(Parts(1))) Then
+        If Not IsInteger(CStr(Parts(0))) Or Not IsInteger(CStr(Parts(1))) Then
             Exit Function
         End If
         If CStr(Parts(1)) <> CStr(WindowHandle) Then
@@ -932,20 +934,24 @@ Failed:
 End Sub
 
 
-Private Function IsDigits( _
+Private Function IsInteger( _
     ByVal Text As String) _
     As Boolean
 '
 '==============================================================================
-'                                   IsDigits
+'                                  IsInteger
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Whether Text is one or more decimal digits and nothing else.
+'   Whether Text is a decimal integer as CStr writes one: one or more
+'   digits, after a minus sign or not, and nothing else.
 '
 ' UPDATED
 '   2026-11-06
 '==============================================================================
 '
-        IsDigits = Len(Text) > 0 And Not Text Like "*[!0-9]*"
+        If Left$(Text, 1) = "-" Then
+            Text = Mid$(Text, 2)
+        End If
+        IsInteger = Len(Text) > 0 And Not Text Like "*[!0-9]*"
 
 End Function

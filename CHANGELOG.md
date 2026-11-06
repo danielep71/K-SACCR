@@ -105,15 +105,15 @@ Use only the categories needed by a release.
   results; a status that cannot be read enables the control, and the macros
   keep refusing on their own. The tab is refreshed after every macro that
   changes a state it shows, from the Ribbon, a staging button, the Macros
-  dialog or a staging sheet's handlers, and when the workbook or a sheet is
-  activated. After a VBA state reset `M_Ribbon` rebuilds the Ribbon object
+  dialog or a staging sheet's handlers, after any cell edit, which can
+  change Results C5, and when the workbook or a sheet is activated. After a VBA state reset `M_Ribbon` rebuilds the Ribbon object
   from its pointer with `RtlMoveMemory` of `kernel32`, the project's first
   Windows API declaration: the pointer is kept with the session's window
   handle in the hidden name `ksRibbonPointer`, written without marking the
   workbook changed, used only in that session and removed before every save
   by the new `ThisWorkbook` events. README and SECURITY describe the
   declaration. `TEST_MainState` gains the state table and the pointer's
-  format and save handling (37 cases, 569 checks).
+  format and save handling (37 cases, 571 checks).
 
 - Add **Restore parameters** to the K-SACCR tab (#357):
   `RestoreRegulatoryParameters` writes the regulatory parameter set

@@ -1825,7 +1825,8 @@ Private Sub CaseRibbonPointer()
 ' PURPOSE
 '   The stored Ribbon pointer (#216): M_Ribbon.PointerText writes
 '   "pointer|handle"; PointerFromText reads the pointer back only for this
-'   session's handle and gives 0 for any other handle or malformed text.
+'   session's handle, also a negative one as 32-bit Excel can have, and
+'   gives 0 for any other handle or malformed text.
 '   M_Ribbon.HidePointer takes the hidden name out, as before a save, and
 '   ShowPointer puts it back as it was, as after a save, both keeping the
 '   workbook's Saved flag. The name is put back as the case found it, and
@@ -1859,6 +1860,8 @@ Private Sub CaseRibbonPointer()
         Check M_Ribbon.PointerFromText("123456", 789) = 0, "a pointer without a handle read"
         Check M_Ribbon.PointerFromText("|789", 789) = 0, "an empty pointer read"
         Check M_Ribbon.PointerFromText("0|789", 789) = 0, "a zero pointer read"
+        Check M_Ribbon.PointerText(-123456, 789) = "-123456|789", "negative text: " & M_Ribbon.PointerText(-123456, 789)
+        Check M_Ribbon.PointerFromText("-123456|789", 789) = -123456, "a negative pointer, as 32-bit Excel can have, not read back"
 
 '------------------------------------------------------------------------------
 ' OUT FOR A SAVE AND BACK

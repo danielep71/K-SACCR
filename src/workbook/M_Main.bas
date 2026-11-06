@@ -73,7 +73,8 @@ Attribute VB_Name = "M_Main"
 '   macros write while the user changes only the unlocked cells (#421);
 '   also run when each operation starts.
 '   OperationRunning: whether an operation is in progress, for the
-'   Ribbon's enabled states (#216).
+'   Ribbon's enabled states (#216); RibbonStateChanged: refresh the tab
+'   once Excel is idle, also for ThisWorkbook's change handler.
 '   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging, CommitImport,
 '   ExportImportSpecification and RestoreRegulatoryParameters; the
@@ -7478,7 +7479,7 @@ Public Function OperationRunning() As Boolean
 End Function
 
 
-Private Sub RibbonStateChanged()
+Public Sub RibbonStateChanged()
 '
 '==============================================================================
 '                             RibbonStateChanged
@@ -7487,9 +7488,11 @@ Private Sub RibbonStateChanged()
 '   Ask the K-SACCR tab to read its states and labels again once Excel is
 '   idle (M_Ribbon.ScheduleRefresh, #216), after a macro that can change
 '   Results or a staging status, whether the Ribbon, a staging button,
-'   the Macros dialog or a change handler started it. Nothing is
-'   scheduled in silent mode: automation may close the workbook at once,
-'   and Excel would reopen it to run the scheduled refresh.
+'   the Macros dialog or a change handler started it, and after any cell
+'   edit (ThisWorkbook.Workbook_SheetChange): an input edit recalculates
+'   Results C5, which decides Export evidence. Nothing is scheduled in
+'   silent mode: automation may close the workbook at once, and Excel
+'   would reopen it to run the scheduled refresh.
 '
 ' ERROR POLICY
 '   Never raises: the refresh is a convenience.
