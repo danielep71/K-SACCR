@@ -369,6 +369,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const STAGING_CHECKED_NAME   As String = "SACCR_StagingChecked"        'Fingerprint of the last staging validation, any result (#210)
     'Status of a staging sheet, in its _Status cell; the template's EMPTY
     'means that nothing was loaded.
+        Public Const STAGING_EMPTY          As String = "EMPTY"       'Nothing loaded, as the template ships (#216)
         Public Const STAGING_LOADED         As String = "LOADED"      'As the last load wrote it
         Public Const STAGING_EDITED         As String = "EDITED"      'Changed since
         Public Const STAGING_VALID          As String = "VALID"       'Validated without an error (#209)

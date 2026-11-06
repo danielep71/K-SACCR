@@ -89,8 +89,16 @@ exposure figure, which are reported as issues.
   each of its files as `K-SACCR_csv_benchmark_<n>.csv`, under a number not
   already taken, and deletes it once read. Run them only in a development
   workbook.
-  `src/` and `tests/` contain no `Declare`, `Shell`, `CreateObject` or network
-  access.
+  `src/` and `tests/` contain no `Shell`, `CreateObject` or network access,
+  and one `Declare`, described next.
+- **Windows API.** `M_Ribbon` declares one function of Windows,
+  `RtlMoveMemory` of `kernel32`, with `PtrSafe` and `LongPtr`. It copies the
+  Ribbon object's pointer into an object variable to recover the K-SACCR tab
+  after a VBA state reset (#216). The pointer is kept in the hidden workbook
+  name `ksRibbonPointer` with the window handle of the Excel session, used only
+  in that session, and removed before every save, so no file carries it.
+  Nothing is installed, registered or loaded beyond `kernel32`, which every
+  Windows process has.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1`, `tools/Export-SACCR-VBA.ps1`
   and `tools/Certify-SACCR.ps1` need Excel's **Trust access to the VBA project
   object model** setting, which none of them changes. `Certify-SACCR.ps1` and

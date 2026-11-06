@@ -72,6 +72,8 @@ Attribute VB_Name = "M_Main"
 '   sheet and the workbook structure, without a password, so that the
 '   macros write while the user changes only the unlocked cells (#421);
 '   also run when each operation starts.
+'   OperationRunning: whether an operation is in progress, for the
+'   Ribbon's enabled states (#216).
 '   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging, CommitImport,
 '   ExportImportSpecification and RestoreRegulatoryParameters; the
@@ -81,7 +83,8 @@ Attribute VB_Name = "M_Main"
 '   These macros are not listed in docs/PUBLIC_API.txt.
 '
 ' DEPENDENCIES
-'   CORE_Engine for the calculation and its run counters; CORE_Reconcile
+'   M_Ribbon to refresh the K-SACCR tab after a macro that changes a state
+'   it shows (#216); CORE_Engine for the calculation and its run counters; CORE_Reconcile
 '   for the comparison of the bank figures with Results and TradeCalc
 '   (#45), whose sheets this module reads and writes; CORE_Export for the
 '   evidence report and its UTF-8 encoding; CORE_CsvReader and
@@ -409,6 +412,7 @@ Public Sub RunSACCR()
 ' RUN
 '------------------------------------------------------------------------------
         ExecuteOperation OP_RUN
+        RibbonStateChanged
 
 End Sub
 
@@ -592,6 +596,7 @@ Public Sub ValidateInputs()
 ' VALIDATE
 '------------------------------------------------------------------------------
         ExecuteOperation OP_VALIDATE
+        RibbonStateChanged
 
 End Sub
 
@@ -617,6 +622,7 @@ Public Sub ClearOutputs()
 ' CLEAR
 '------------------------------------------------------------------------------
         ExecuteOperation OP_CLEAR
+        RibbonStateChanged
 
 End Sub
 
@@ -3099,6 +3105,7 @@ Public Sub ImportNettingSetsCsv()
 '==============================================================================
 '
         ImportCsv "NettingSets"
+        RibbonStateChanged
 
 End Sub
 
@@ -3123,6 +3130,7 @@ Public Sub ImportTradesCsv()
 '==============================================================================
 '
         ImportCsv "Trades"
+        RibbonStateChanged
 
 End Sub
 
@@ -3253,6 +3261,7 @@ Public Sub StagingEdited( _
                 StatusCell.Value2 = STAGING_EDITED
             End If
         End If
+        RibbonStateChanged
 
 Failed:
 
@@ -4320,6 +4329,7 @@ Public Sub ValidateStaging()
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         ResultLine = CheckStaging(Message)
+        RibbonStateChanged
         If Left$(ResultLine, Len("RESULT=REFUSED")) <> "RESULT=REFUSED" And Not gSilent Then
             GetSheet(SH_CHECKS).Activate
         End If
@@ -4967,6 +4977,7 @@ Public Sub RefreshStagingStatus()
                 End If
             End If
         Next Kind
+        RibbonStateChanged
 
 Failed:
         Application.EnableEvents = Events
@@ -5053,6 +5064,7 @@ Public Sub CommitImport()
             Exit Sub
         End If
         ResultLine = CommitStaging(Message)
+        RibbonStateChanged
         If Left$(ResultLine, Len("RESULT=COMMITTED")) = "RESULT=COMMITTED" Then
             Notify Message, vbInformation
         ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
@@ -6818,6 +6830,7 @@ Public Sub RestoreRegulatoryParameters()
             Exit Sub
         End If
         ResultLine = RestoreParameters(Message)
+        RibbonStateChanged
         If Left$(ResultLine, Len("RESULT=RESTORED")) = "RESULT=RESTORED" Or _
            Left$(ResultLine, Len("RESULT=UNCHANGED")) = "RESULT=UNCHANGED" Then
             Notify Message, vbInformation
@@ -7436,6 +7449,62 @@ Private Function UnchangedText() As String
                         " already hold the regulatory parameter set " & REF_SET_ID & "."
 
 End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              RIBBON STATE (#216)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Function OperationRunning() As Boolean
+'
+'==============================================================================
+'                               OperationRunning
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether an operation is in progress, for the Ribbon's enabled states
+'   (M_Ribbon.RibbonGetEnabled, #216). Read only: the flag mRunning stays
+'   this module's.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        OperationRunning = mRunning
+
+End Function
+
+
+Private Sub RibbonStateChanged()
+'
+'==============================================================================
+'                             RibbonStateChanged
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ask the K-SACCR tab to read its states and labels again once Excel is
+'   idle (M_Ribbon.ScheduleRefresh, #216), after a macro that can change
+'   Results or a staging status, whether the Ribbon, a staging button,
+'   the Macros dialog or a change handler started it. Nothing is
+'   scheduled in silent mode: automation may close the workbook at once,
+'   and Excel would reopen it to run the scheduled refresh.
+'
+' ERROR POLICY
+'   Never raises: the refresh is a convenience.
+'
+' UPDATED
+'   2026-11-06
+'==============================================================================
+'
+        If gSilent Then
+            Exit Sub
+        End If
+        On Error Resume Next
+        M_Ribbon.ScheduleRefresh
+
+End Sub
 
 
 '
