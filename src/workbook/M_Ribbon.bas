@@ -634,18 +634,20 @@ Public Sub ScheduleRefresh()
 '   the tab is invalidated; inside an operation, before Excel has
 '   recalculated the status formula in Results C5, the labels would show
 '   the state before the operation. Application.OnTime runs RefreshRibbon
-'   of this workbook when the operation and its recalculation are over.
+'   of this workbook when the operation and its recalculation are over. The
+'   workbook name is quoted, with an apostrophe in it doubled, as Excel
+'   requires in a workbook-qualified macro name ('O''Brien.xlsm'!...).
 '
 ' ERROR POLICY
 '   Never raises; if the refresh cannot be scheduled, the tab is refreshed
 '   at once.
 '
 ' UPDATED
-'   2026-11-05
+'   2026-11-06
 '==============================================================================
 '
         On Error GoTo Immediate
-        Application.OnTime Now, "'" & ThisWorkbook.Name & "'!M_Ribbon.RefreshRibbon"
+        Application.OnTime Now, "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Ribbon.RefreshRibbon"
         Exit Sub
 
 Immediate:
