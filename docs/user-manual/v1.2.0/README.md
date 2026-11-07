@@ -1,7 +1,9 @@
 # K-SACCR user manual, version 1.2.0
 
-The source of the user manual for K-SACCR 1.2.0. The PDF built from it is to
-be attached to the 1.2.0 GitHub Release; it is not stored in this repository.
+The source of the user manual for K-SACCR 1.2.0. The PDF built from it is
+attached to the
+[1.2.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0);
+it is not stored in this repository.
 
 | File | Contents |
 | --- | --- |
@@ -15,8 +17,8 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 
 ## Status
 
-Not yet released; prepared for 1.2.0. Started from the 1.1.0 manual and
-updated for the changes of 1.2.0:
+Released with 1.2.0 (tag `v1.2.0`, 7 November 2026). Started from the 1.1.0
+manual and updated for the changes of 1.2.0:
 
 - the **K-SACCR** Ribbon tab, in a new chapter that replaces *Buttons and
   their exact roles*: the six groups, every control with its keytip, macro and
@@ -52,8 +54,8 @@ The calculation is unchanged, and so is every rule the manual states about
 it. As before, the manual is written for someone who receives only the
 workbook `K-SACCR_1.2.0.xlsm` and `SHA256SUMS.txt`: it does not mention the
 source repository, building the workbook from source or the release process,
-and of the testing it gives only the summary result. The release's PDF is to
-be built from this folder at the release tag, and its SHA-256 listed in the
+and of the testing it gives only the summary result. The release's PDF is built
+from this folder at the release tag, and its SHA-256 is listed in the
 release's `SHA256SUMS.txt`. The 1.0.0, 1.0.1, 1.0.2 and 1.1.0 manuals stay as
 released in [`../v1.0.0/`](../v1.0.0/README.md),
 [`../v1.0.1/`](../v1.0.1/README.md), [`../v1.0.2/`](../v1.0.2/README.md) and
