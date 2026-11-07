@@ -95,6 +95,23 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
+  now, is widened, frozen and filled with the title band's colour, and holds
+  a bar of linked shapes that opens every sheet, also with macros disabled
+  and on the protected sheets. The bar lists the sheets in the sections of
+  the Ribbon's Go to menu, with its tooltips: Inputs sits in rows 1 to 3,
+  frozen on every sheet, so it never scrolls; the other sections follow below
+  the frozen rows, with Start (Home) last, and scroll with the rows. The
+  current sheet is highlighted, and the bar is not printed. No table, header
+  or input cell moves, and no row height changes; FormulaTest now freezes
+  rows 1 to 3 as every other sheet does. `tools/navigation_bar.py` draws the
+  bar into the template from `customUI14.xml`, deterministically, and the
+  new `navigation-bar` gate checks it. Protection check 14 also follows every
+  link of every sheet's bar with macros disabled, and counts only the cell
+  links of Home. The Home sheet mentions the bar.
+
 ### Changed
 
 - Set `release/1.3.0` as the active development branch and the target for

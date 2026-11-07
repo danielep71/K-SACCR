@@ -94,6 +94,29 @@ function Get-SheetNames {
     return @($matrix.sheets.PSObject.Properties | ForEach-Object { $_.Name })
 }
 
+function Get-BarLinks {
+    # The hyperlinks of the shapes of a sheet's navigation bar (#615), read
+    # from the groups NavBarTop and NavBar; a shape without a link is skipped.
+    param($Sheet)
+    $links = New-Object System.Collections.Generic.List[object]
+    foreach ($shape in $Sheet.Shapes) {
+        if ([string]$shape.Name -notlike "NavBar*") {
+            continue
+        }
+        foreach ($item in $shape.GroupItems) {
+            try {
+                $link = $item.Hyperlink
+                if ($null -ne $link -and [string]$link.SubAddress) {
+                    $links.Add($link)
+                }
+            }
+            catch {
+            }
+        }
+    }
+    return , $links
+}
+
 function Get-Unprotected {
     # The sheets not protected, and "workbook structure" when it is not.
     param($Workbook)
@@ -266,8 +289,10 @@ try {
     $workbook = $excel.Workbooks.Open($script:workbookPath)
 
     # 14: every sheet and the structure protected; no macro runs. The
-    # workbook opens on Home, whose links reach every other sheet without a
-    # macro (#330).
+    # workbook opens on Home, whose cell links reach every other sheet without
+    # a macro (#330), and the navigation bar of every sheet links every other
+    # sheet, also without a macro, on the protected sheets (#615). Only the
+    # cell links (Type 0) of Home count as its links.
     $open = Get-Unprotected $workbook
     $macroRan = $true
     try {
@@ -278,9 +303,10 @@ try {
     }
     $opensOn = [string]$workbook.ActiveSheet.Name
     $homeSheet = $workbook.Worksheets.Item("Home")
-    $linkCount = [int]$homeSheet.Hyperlinks.Count
+    $homeLinks = @($homeSheet.Hyperlinks | Where-Object { [int]$_.Type -eq 0 })
+    $linkCount = $homeLinks.Count
     $broken = New-Object System.Collections.Generic.List[string]
-    foreach ($link in $homeSheet.Hyperlinks) {
+    foreach ($link in $homeLinks) {
         $target = ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
         try {
             $link.Follow()
@@ -293,11 +319,39 @@ try {
         }
     }
     $expectedLinks = [int]$workbook.Worksheets.Count - 1
+    $sheetNames = @(foreach ($sheet in $workbook.Worksheets) { [string]$sheet.Name })
+    $barWrong = New-Object System.Collections.Generic.List[string]
+    $barBroken = New-Object System.Collections.Generic.List[string]
+    foreach ($sheetName in $sheetNames) {
+        $barLinks = Get-BarLinks $workbook.Worksheets.Item($sheetName)
+        $targets = @(foreach ($link in $barLinks) {
+            ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
+        })
+        $expected = @($sheetNames | Where-Object { $_ -ne $sheetName })
+        if ((($targets | Sort-Object) -join "|") -ne (($expected | Sort-Object) -join "|")) {
+            $barWrong.Add($sheetName)
+        }
+        foreach ($link in $barLinks) {
+            $target = ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
+            try {
+                $link.Follow()
+                if ([string]$workbook.ActiveSheet.Name -ne $target) {
+                    $barBroken.Add($sheetName + ">" + $target)
+                }
+            }
+            catch {
+                $barBroken.Add($sheetName + ">" + $target)
+            }
+        }
+    }
     Add-Result 14 ($open.Count -eq 0 -and -not $macroRan -and $opensOn -eq "Home" -and
-                   $linkCount -eq $expectedLinks -and $broken.Count -eq 0) `
+                   $linkCount -eq $expectedLinks -and $broken.Count -eq 0 -and
+                   $barWrong.Count -eq 0 -and $barBroken.Count -eq 0) `
         ("Opened with macros disabled: unprotected [" + ($open -join ", ") + "]; a macro ran: $macroRan; opens on " +
          $opensOn + "; Home links " + $linkCount + " of " + $expectedLinks + ", not reaching their sheet [" +
-         ($broken -join ", ") + "]")
+         ($broken -join ", ") + "]; navigation bar on " + ($sheetNames.Count - $barWrong.Count) + " of " +
+         $sheetNames.Count + " sheets, wrong [" + ($barWrong -join ", ") + "], links not reaching their sheet [" +
+         ($barBroken -join ", ") + "]")
 
     # 2: typing into a header, a grey Params value, an output cell, a
     # staging metadata cell and Home is refused.

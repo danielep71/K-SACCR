@@ -135,6 +135,24 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 workbook does not have and changes nothing, so an entry can never act on
 another sheet or workbook.
 
+<a id="navigation-bar"></a>
+
+**Navigation bar (#615).** Every sheet of the template also carries this
+menu as a bar of linked shapes in column A, which is frozen, so the bar works
+with macros disabled. Its sections, their order, the sheet labels and the
+tooltips come from this menu, with two placements:
+
+- **Inputs** is the bar's top block, in rows 1 to 3, which are frozen on every
+  sheet: it stays in view when the sheet scrolls in either direction.
+- The other sections follow from the first row below the frozen rows, in the
+  menu's order except **Start** (Home), which comes last; that block scrolls
+  with the rows.
+
+The current sheet is highlighted and not linked, and the bar is not printed.
+`tools/navigation_bar.py` draws the bar into the template (`--write`), and
+the `navigation-bar` gate of `tools/check.py` fails when the template's bar
+no longer matches this menu.
+
 ## 🚦 Status
 
 Each label calls `RibbonGetLabel`, which only reads a status cell.
