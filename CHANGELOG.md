@@ -95,6 +95,8 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-07
+
 ### Added
 
 - Add `tools/Verify-SACCR-Branch.ps1` and its launcher
@@ -254,6 +256,16 @@ Use only the categories needed by a release.
   Dependabot updates; `release/1.1.0` is closed and takes no new work.
 
 ### Documentation
+
+- Add the user manual for 1.2.0, `docs/user-manual/v1.2.0/` (#218),
+  started from the 1.1.0 manual, which is not changed: the K-SACCR Ribbon tab
+  in place of the chapter on the buttons, the Home sheet and the map of the
+  19 worksheets, Restore parameters, where each command leaves the user, the
+  two input-contract corrections kept apart from the Ribbon changes,
+  *Moving inputs from 1.1.0*, the test summary (ten suites, 460 cases, 1,921
+  checks), the checklists, the troubleshooting table and the quick-reference
+  card. The CSV contract's link to the manual now points to the 1.2.0
+  manual.
 
 - Add a Ribbon walk-through to RELEASING.md (#218): the checks of the K-SACCR
   tab that certification cannot make, from packaging and every command to the
@@ -1496,7 +1508,8 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0
 [1.1.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0
 [1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
 [1.0.1]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.1

@@ -38,7 +38,7 @@ same `economic_trade_id` and `netting_set_id`; exactly one leg has
 `mtm_leg` `Y` and carries the whole MtM, and the others have `mtm_leg` `N` and
 an MtM of `0`. The engine rejects every leg of an economic trade that breaks
 this rule (see the
-[user manual](../user-manual/v1.1.0/K-SACCR_v1.1.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
+[user manual](../user-manual/v1.2.0/K-SACCR_v1.2.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
 
 ## 🧾 File format
 
