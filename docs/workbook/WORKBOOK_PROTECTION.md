@@ -31,6 +31,10 @@ lists of `CORE_Config` that the macros apply.
   shown. No macro of the workbook needs to.
 - **No password.** Review > Unprotect Sheet, or Review > Protect Workbook
   for the structure, removes the protection at once.
+- **Navigation bar.** Column A of every sheet holds the navigation bar
+  ([Ribbon contract › Navigation bar](RIBBON.md#navigation-bar)). Its cells
+  are locked and its shapes are protected with the sheet; their links still
+  open their sheets, also with macros disabled.
 
 ## 🔧 Maintenance unlock
 
@@ -164,7 +168,7 @@ How the script checks them:
 | 11 | Unprotect Results, change an output cell, Export evidence, then Run SA-CCR | The export is refused as `EDITED`; the run rebuilds Results and protects it again |
 | 12 | Save, close and reopen, then Run SA-CCR | Every sheet still protected; the run succeeds |
 | 13 | Import CSV on both staging sheets and Validate staging until both read `VALID`; save, close and reopen; Commit import, then Cancel. Change a staged value; save, close and reopen; Commit import | After the first reopen both sheets still read `VALID` and Commit import asks for confirmation. After the second, the changed sheet reads `EDITED` and Commit import is refused: *Nothing was committed. The staged rows have no VALID validation that still matches them, the input sheets and Params.* (#208) |
-| 14 | Open with macros disabled; follow every link on `Home` | Every sheet and the structure are protected; the workbook opens on `Home`, and each link opens its sheet; nothing else works until macros are enabled |
+| 14 | Open with macros disabled; follow every link on `Home` and every link of the navigation bar on every sheet | Every sheet and the structure are protected; the workbook opens on `Home`, each link of `Home` opens its sheet, and each sheet's bar links every other sheet and opens it; nothing else works until macros are enabled |
 
 ## 🧭 Changing the matrix
 
