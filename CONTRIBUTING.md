@@ -48,10 +48,14 @@ label, milestone, dependency section) and the issue triage check are described i
    the automated code review, is resolved. For a VBA or template change, the
    owner's Excel verification still counts after such an update only if the
    incoming changes touch nothing in `src/`, `tests/modules/` or the
-   template; otherwise compile and the affected suites are run again. This
-   applies to the check before a pull request merges; release certification
-   always runs on the exact candidate commit, and its evidence record names
-   that commit ([RELEASING.md](RELEASING.md)).
+   template; otherwise compile and the affected suites are run again. For
+   that check, the quick run `tools/Verify-SACCR-Branch.ps1 -Branch NAME
+   -Quick` is enough: compile, `Test_RunAll` once and the 14 protection
+   checks, unattended
+   ([pull-request check](docs/EXCEL_EVIDENCE.md#pull-request-check)). It is
+   a check, not evidence; release certification always runs on the exact
+   candidate commit with the full run, and its evidence record names that
+   commit ([RELEASING.md](RELEASING.md)).
 
 ### Commit messages
 

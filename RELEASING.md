@@ -133,7 +133,8 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../sacc
 
 Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
 task PR into the release branch, integrate again and certify the new merge
-commit.
+commit. The quick run of `tools/Verify-SACCR-Branch.ps1 -Quick` is a
+pull-request check and writes no record: it never certifies a candidate.
 
 <a id="ribbon-walk-through"></a>
 

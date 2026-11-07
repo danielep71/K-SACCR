@@ -117,6 +117,24 @@ from then on, again for the production workbook each time it is reopened.
 Keep a non-passing bundle as it is. When the script
 cannot be used, follow the manual procedure.
 
+<a id="pull-request-check"></a>
+
+### Pull-request check
+
+A pull request's branch needs no certification: `tools/Verify-SACCR-Branch.ps1
+-Branch NAME -Quick` checks it out and runs the quick check (#618),
+unattended, in `saccr-verify-SHORTSHA` next to the checkout. It builds the
+development workbook, opens it with its macros enabled for that Excel
+session only (the Trust Center is not changed), compiles it, runs
+`Test_RunAll` once, into `summary.log` with the `CANDIDATE=` line
+(`TEST_Suite.Verify`), and runs the 14 protection checks with
+`Check-SACCR-Protection.ps1 -Unattended`. Its `verify-summary.txt` says so
+in its first line. The suites do not run on their own, and no `session.json`
+or `host.json` is written: the folder holds no record, so this validator
+cannot accept it, and it is never cited as release evidence. A release
+candidate takes the full run, `Verify-SACCR-Branch.ps1 -Branch NAME` or
+`Certify-SACCR.ps1` on its checkout, as above.
+
 <a id="manual-procedure"></a>
 
 ## 🧑‍💻 Manual procedure

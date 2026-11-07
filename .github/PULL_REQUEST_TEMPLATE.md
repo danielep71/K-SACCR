@@ -25,7 +25,7 @@ Closes #
 ## Validation
 
 - `python tools/check.py`: <!-- PASS / FAIL -->
-- Excel `TEST_Suite.Test_RunAll`: <!-- the RESULT= line verbatim and the full commit SHA it ran on, or NOT RUN and the reason -->
+- Excel `TEST_Suite.Test_RunAll`: <!-- the RESULT= line verbatim and the full commit SHA it ran on, or NOT RUN and the reason; a quick run of tools/Verify-SACCR-Branch.ps1 -Quick is enough for a pull request -->
 - Evidence record (`tools/check_excel_evidence.py`): <!-- PASS / FAIL with the record's candidate SHA, or N/A -->
 
 ## Documentation

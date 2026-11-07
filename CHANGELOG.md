@@ -97,6 +97,19 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add a quick, unattended mode to the branch verification for pull-request
+  checks (#618): `tools/Verify-SACCR-Branch.ps1 -Branch NAME -Quick`, or
+  `quick` as the second argument of the `.cmd`, builds the development
+  workbook, opens it with its macros enabled for that Excel session only,
+  compiles it, runs `Test_RunAll` once (`TEST_Suite.Verify`, into
+  `summary.log`) and runs the 14 protection checks with the new
+  `Check-SACCR-Protection.ps1 -Unattended`, with no prompt, in
+  `saccr-verify-SHORTSHA`. The suites do not run on their own and no
+  evidence record is written, so the folder is not an evidence bundle and
+  the summary says so: a quick run is a pull-request check, never a release
+  certification. The summary of both modes now records the mode and the
+  duration. Without `-Quick`, and in `Certify-SACCR.ps1`, nothing changes.
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
