@@ -22,7 +22,8 @@ For the branch of a pull request, with one command on the Windows host:
    saccr-verify-SHORTSHA next to the checkout, unattended: it builds a
    development workbook, opens it with its macros enabled for that Excel
    session only (AutomationSecurity Low; the Trust Center is not changed),
-   compiles it, runs Test_RunAll once (TEST_Suite.Verify, into summary.log)
+   runs its Auto_Open as Excel does for a user, compiles it, runs
+   Test_RunAll once (TEST_Suite.Verify, into summary.log)
    and runs the 14 protection checks with
    tools\Check-SACCR-Protection.ps1 -Unattended. No prompt is shown; a step
    that would need one stops the run. A compile error opens a dialog in the
@@ -76,6 +77,7 @@ $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 $msoAutomationSecurityLow = 1
+$xlAutoOpen = 1
 $compileControlId = 578
 $compileSeconds = 60
 
@@ -207,6 +209,10 @@ function Invoke-QuickRun {
             throw "The workbook's macros did not run although they were enabled for this Excel session."
         }
         Write-Log "Macros enabled for this Excel session; the workbook answered READY"
+        # Excel runs Auto_Open when a user opens the workbook, or enables its
+        # content, but not when automation opens it.
+        [void]$workbook.RunAutoMacros($xlAutoOpen)
+        Write-Log "Auto_Open run, as when a user opens the workbook"
 
         # Compile, as Certify-SACCR.ps1 does, but without asking the operator
         # when Debug > Compile VBAProject does not turn grey on its own, and
