@@ -49,6 +49,8 @@ def main() -> int:
                      [sys.executable, "tools/generate_csv_vba.py", "--root", str(root), "--check"]))
     commands.append(("ribbon-template",
                      [sys.executable, "tools/ribbon_template.py", "--root", str(root)]))
+    commands.append(("navigation-bar",
+                     [sys.executable, "tools/navigation_bar.py", "--root", str(root)]))
     results = []
     for name, command in commands:
         try:
