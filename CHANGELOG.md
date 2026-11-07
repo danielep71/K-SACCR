@@ -95,6 +95,11 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct the CCR framework SVG and PNG labels to K-SACCR, K-SFTs and CCP CAPITAL.
+
+
 ### Added
 
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
