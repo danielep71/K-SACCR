@@ -65,7 +65,7 @@ For a standard regulatory run, **alpha is 1.4**. `RC` is replacement cost; `PFE`
 
 K-SACCR 1.2.0 implements both Basel CRE52 and EU CRR rules. The **published, independently external numerical reference values** it was tested against come from Basel CRE99 examples 1–5. The other test cases, including the CRR-specific ones and those for client clearing, settled-to-market trades and trade exposures to a CCP, are **illustrative**, not independently validated: their values come from a separate implementation by the same author, with no independent review. As a result, describe the result as **“BCBS published-example regression coverage; CRR implemented and illustratively tested”**—not as independently validated CRR.
 
-Before release, the workbook's VBA code was compiled and tested in 64-bit Windows Excel with **ten automated test suites, a test harness among them (460 cases, 1,920 checks)**, all passing. The tests are not part of the delivered workbook. That testing covers the code as delivered: check the workbook's SHA-256 when you receive it (see *Getting started*) and do not change its VBA code.
+Before release, the workbook's VBA code was compiled and tested in 64-bit Windows Excel with **ten automated test suites, a test harness among them (460 cases, 1,921 checks)**, all passing. The tests are not part of the delivered workbook. That testing covers the code as delivered: check the workbook's SHA-256 when you receive it (see *Getting started*) and do not change its VBA code.
 
 **Changes from 1.1.0.** The calculation is unchanged: a portfolio entered as in 1.1.0 gives the same EAD. New in the way you work with the workbook are:
 
