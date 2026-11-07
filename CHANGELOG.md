@@ -116,6 +116,9 @@ Use only the categories needed by a release.
 
 - Set `release/1.3.0` as the active development branch and the target for
   Dependabot updates; `release/1.2.0` is closed and takes no new work.
+- Record in GOVERNANCE that `release/1.1.0` and `release/1.2.0` were deleted
+  after owner-authorized cleanup; their tags, releases and assets remain, and
+  their content is in `main`.
 
 ### Documentation
 
