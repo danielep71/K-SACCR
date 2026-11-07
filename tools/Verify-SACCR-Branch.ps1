@@ -25,7 +25,10 @@ For the branch of a pull request, with one command on the Windows host:
    compiles it, runs Test_RunAll once (TEST_Suite.Verify, into summary.log)
    and runs the 14 protection checks with
    tools\Check-SACCR-Protection.ps1 -Unattended. No prompt is shown; a step
-   that would need one stops the run. The suites do not run on their own
+   that would need one stops the run. A compile error opens a dialog in the
+   VBE, which the compile command waits on: a watchdog closes the Excel of
+   this run when the compile has not returned after 60 seconds, and the run
+   fails with that reason. The suites do not run on their own
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
@@ -74,6 +77,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 $msoAutomationSecurityLow = 1
 $compileControlId = 578
+$compileSeconds = 60
 
 function Invoke-GitRaw {
     # Run git in the checkout; returns its exit code and its output, stdout
@@ -114,6 +118,46 @@ function Write-Log {
     $line = "{0}  {1}" -f (Get-Date).ToString("HH:mm:ss"), $Text
     Write-Host $line
     [System.IO.File]::AppendAllText($script:verifyLog, $line + "`r`n", $script:utf8NoBom)
+}
+
+function Start-CompileWatchdog {
+    # A job that closes the Excel process of this run when the marker file
+    # has not appeared after the given seconds: a compile error opens a modal
+    # dialog in the VBE, which Debug > Compile VBAProject waits on, so the
+    # compile call would otherwise wait for an operator. Returns the job, or
+    # $null when the process could not be told apart from other Excels.
+    param($Excel, [int]$Seconds, [string]$Marker)
+    $handle = [int64]$Excel.Hwnd
+    $process = @(Get-Process -Name "EXCEL" -ErrorAction SilentlyContinue |
+                 Where-Object { [int64]$_.MainWindowHandle -eq $handle })
+    if ($process.Count -ne 1) {
+        return $null
+    }
+    return Start-Job -ArgumentList $process[0].Id, $Seconds, $Marker -ScriptBlock {
+        param([int]$ProcessId, [int]$Seconds, [string]$Marker)
+        $deadline = (Get-Date).AddSeconds($Seconds)
+        while ((Get-Date) -lt $deadline) {
+            if (Test-Path -LiteralPath $Marker) {
+                return "released"
+            }
+            Start-Sleep -Milliseconds 500
+        }
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        return "closed"
+    }
+}
+
+function Stop-CompileWatchdog {
+    # Release the watchdog and return what it did: "released", "closed", or
+    # "none" when there was no watchdog.
+    param($Job, [string]$Marker)
+    if ($null -eq $Job) {
+        return "none"
+    }
+    [System.IO.File]::WriteAllText($Marker, "done", $script:utf8NoBom)
+    $outcome = [string](Receive-Job -Job $Job -Wait -AutoRemoveJob)
+    Remove-Item -LiteralPath $Marker -Force -ErrorAction SilentlyContinue
+    return $outcome
 }
 
 function Invoke-QuickRun {
@@ -165,7 +209,13 @@ function Invoke-QuickRun {
         Write-Log "Macros enabled for this Excel session; the workbook answered READY"
 
         # Compile, as Certify-SACCR.ps1 does, but without asking the operator
-        # when Debug > Compile VBAProject does not turn grey on its own.
+        # when Debug > Compile VBAProject does not turn grey on its own, and
+        # with a watchdog for the dialog a compile error opens.
+        $marker = Join-Path $Bundle "compile.marker"
+        $watchdog = Start-CompileWatchdog -Excel $excel -Seconds $compileSeconds -Marker $marker
+        if ($null -eq $watchdog) {
+            Write-Log "No compile watchdog: this run's Excel process was not found"
+        }
         $vbe = $excel.VBE
         $vbe.MainWindow.Visible = $true
         try {
@@ -179,13 +229,32 @@ function Invoke-QuickRun {
             $script:compileLine = "Compile: FAIL; Debug > Compile VBAProject was not found in the VBE"
             throw "Cannot find Debug > Compile VBAProject."
         }
-        if ($compile.Enabled) {
-            [void]$compile.Execute()
-        }
         $compiled = $false
-        for ($attempt = 0; $attempt -lt 10 -and -not $compiled; $attempt++) {
-            Start-Sleep -Milliseconds 500
-            $compiled = -not $vbe.CommandBars.FindControl(1, $compileControlId).Enabled
+        $compileError = ""
+        try {
+            if ($compile.Enabled) {
+                [void]$compile.Execute()
+            }
+            for ($attempt = 0; $attempt -lt 10 -and -not $compiled; $attempt++) {
+                Start-Sleep -Milliseconds 500
+                $compiled = -not $vbe.CommandBars.FindControl(1, $compileControlId).Enabled
+            }
+        }
+        catch {
+            # The call fails when the watchdog closed Excel under it.
+            $compileError = $_.Exception.Message
+        }
+        finally {
+            $outcome = Stop-CompileWatchdog -Job $watchdog -Marker $marker
+        }
+        if ($outcome -eq "closed") {
+            $script:compileLine = ("Compile: FAIL; Debug > Compile VBAProject did not return in $compileSeconds s, " +
+                                   "as when a compile error opens a dialog in the VBE; this run's Excel was closed")
+            throw "The compile did not return; see the compile error in the VBE, without -Quick."
+        }
+        if ($compileError -ne "") {
+            $script:compileLine = "Compile: FAIL; Debug > Compile VBAProject could not be run: " + $compileError
+            throw "The compile could not be run: $compileError"
         }
         if (-not $compiled) {
             $script:compileLine = ("Compile: FAIL; Debug > Compile VBAProject did not complete on its own. " +

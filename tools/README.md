@@ -79,7 +79,10 @@ opens it with its macros enabled for that Excel session only
 protection checks with `Check-SACCR-Protection.ps1 -Unattended`, which opens
 the production workbook the same way. No prompt is shown; a step that would
 need one, such as a compile the VBE does not confirm on its own, stops the
-run. The suites do not run on their own and no evidence record is written,
+run, and a compile error, which opens a dialog in the VBE that the compile
+command waits on, is cut short by a watchdog that closes that run's Excel
+after 60 seconds and fails the run. The suites do not run on their own and
+no evidence record is written,
 so the folder is not an evidence bundle and `check_excel_evidence.py` cannot
 validate it: a quick run is enough for a pull request, never for a release
 candidate, which the full run certifies. Its exit code is 0 only when the

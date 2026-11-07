@@ -129,7 +129,10 @@ session only (the Trust Center is not changed), compiles it, runs
 `Test_RunAll` once, into `summary.log` with the `CANDIDATE=` line
 (`TEST_Suite.Verify`), and runs the 14 protection checks with
 `Check-SACCR-Protection.ps1 -Unattended`. Its `verify-summary.txt` says so
-in its first line. The suites do not run on their own, and no `session.json`
+in its first line. A compile error opens a dialog in the VBE, which the
+compile command waits on: a watchdog closes that run's Excel after 60
+seconds, and the run fails with that reason; run it without `-Quick` to see
+the error. The suites do not run on their own, and no `session.json`
 or `host.json` is written: the folder holds no record, so this validator
 cannot accept it, and it is never cited as release evidence. A release
 candidate takes the full run, `Verify-SACCR-Branch.ps1 -Branch NAME` or

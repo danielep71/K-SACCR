@@ -104,7 +104,9 @@ Use only the categories needed by a release.
   compiles it, runs `Test_RunAll` once (`TEST_Suite.Verify`, into
   `summary.log`) and runs the 14 protection checks with the new
   `Check-SACCR-Protection.ps1 -Unattended`, with no prompt, in
-  `saccr-verify-SHORTSHA`. The suites do not run on their own and no
+  `saccr-verify-SHORTSHA`; a compile error, which opens a dialog in the VBE,
+  closes that run's Excel after 60 seconds and fails the run instead of
+  waiting for an operator. The suites do not run on their own and no
   evidence record is written, so the folder is not an evidence bundle and
   the summary says so: a quick run is a pull-request check, never a release
   certification. The summary of both modes now records the mode and the
