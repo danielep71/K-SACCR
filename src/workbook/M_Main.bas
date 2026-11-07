@@ -7521,7 +7521,8 @@ Public Sub RibbonStateChanged()
 '   Ask the K-SACCR tab to read its states and labels again once Excel is
 '   idle (M_Ribbon.ScheduleRefresh, #216), after a macro that can change
 '   Results or a staging status, whether the Ribbon, a staging button,
-'   the Macros dialog or a change handler started it, and after any cell
+'   the Macros dialog or a change handler started it, after showing or
+'   hiding the navigation bar (ShowNavigationBar, #620), and after any cell
 '   edit (ThisWorkbook.Workbook_SheetChange): an input edit recalculates
 '   Results C5, which decides Export evidence. Nothing is scheduled in
 '   silent mode or while Excel is hidden, as under automation, which may
@@ -7532,7 +7533,7 @@ Public Sub RibbonStateChanged()
 '   Never raises: the refresh is a convenience.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-07
 '==============================================================================
 '
         On Error GoTo Skipped
@@ -7591,7 +7592,9 @@ Public Sub ShowNavigationBar( _
 '   Show or hide the navigation bar on every sheet at once (#620): column
 '   A and the bar's two shape groups. The sheets stay protected; the
 '   change is for this session only, since a save shows the bar again
-'   (NavigationBarBeforeSave).
+'   (NavigationBarBeforeSave). The tab is then refreshed
+'   (RibbonStateChanged), so the Ribbon's toggle shows the state the
+'   workbook holds also when the change came from the Macros dialog.
 '
 ' USAGE
 '   The Navigation bar toggle of the K-SACCR Ribbon tab
@@ -7609,12 +7612,14 @@ Public Sub ShowNavigationBar( _
         On Error GoTo Failed
         If mRunning Then
             Notify "An SA-CCR operation is already running.", vbExclamation
-            Exit Sub
+        Else
+            ApplyNavigationBar Shown
         End If
-        ApplyNavigationBar Shown
+        RibbonStateChanged
         Exit Sub
 
 Failed:
+        RibbonStateChanged
         Notify "Navigation bar: " & Err.Description, vbExclamation
 
 End Sub
@@ -7647,7 +7652,9 @@ Public Function SetNavigationBar_Silent( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Show or hide the navigation bar on every sheet (#620), for automation
-'   and tests, without a message.
+'   and tests, without a message. The tab is then refreshed
+'   (RibbonStateChanged) when Excel is visible, so that the Ribbon's
+'   toggle follows.
 '
 ' RETURNS
 '   "RESULT=SHOWN; sheets=N" or "RESULT=HIDDEN; sheets=N", N being the
@@ -7667,10 +7674,12 @@ Public Function SetNavigationBar_Silent( _
         End If
         On Error GoTo Failed
         SetNavigationBar_Silent = IIf(Shown, "RESULT=SHOWN", "RESULT=HIDDEN") & "; sheets=" & ApplyNavigationBar(Shown)
+        RibbonStateChanged
         Exit Function
 
 Failed:
         SetNavigationBar_Silent = "RESULT=FAILED; error=" & Err.Description
+        RibbonStateChanged
 
 End Function
 

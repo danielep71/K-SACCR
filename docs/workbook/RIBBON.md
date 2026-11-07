@@ -182,7 +182,9 @@ change. A
 workbook opened with macros disabled therefore always has its bar, whose
 links work without macros. `ToggleNavigationBar` flips the state from the
 Macros dialog; automation calls `SetNavigationBar_Silent(Shown)`, which
-returns a result line.
+returns a result line. Both refresh the tab like the toggle, so the toggle
+follows a change made outside the Ribbon. The save handlers do not: a
+refresh scheduled while the workbook closes would make Excel reopen it.
 
 ## 🚦 Status
 
@@ -226,6 +228,9 @@ give the state in words.
   Ribbon, a staging button or the Macros dialog, and the change and activation
   handlers of the staging sheets (`M_Main.RibbonStateChanged`, not in silent
   mode or while Excel is hidden, as under automation);
+- after the navigation bar is shown or hidden from the Ribbon, the Macros
+  dialog or automation (`M_Main.ShowNavigationBar`,
+  `M_Main.SetNavigationBar_Silent`), under the same conditions;
 - after any cell edit in the workbook, once Excel is idle, since an input
   edit recalculates Results C5 (`ThisWorkbook.Workbook_SheetChange`);
 - when the workbook or one of its sheets is activated, so switching

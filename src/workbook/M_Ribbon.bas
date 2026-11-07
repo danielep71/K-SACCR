@@ -336,8 +336,8 @@ Public Sub RibbonToggle( _
 ' PURPOSE
 '   Answer a toggle button: Navigation bar (ksNavigationBar) shows the
 '   navigation bar of every sheet when pressed and hides it when released
-'   (M_Main.ShowNavigationBar, #620). The tab is then refreshed, so that
-'   the toggle shows the state the workbook holds.
+'   (M_Main.ShowNavigationBar, #620), which then refreshes the tab, so
+'   that the toggle shows the state the workbook holds.
 '
 ' ERROR POLICY
 '   M_Main.ShowNavigationBar reports its own failure. An unknown toggle is
@@ -353,8 +353,8 @@ Public Sub RibbonToggle( _
                 M_Main.ShowNavigationBar Pressed
             Case Else
                 MsgBox "The Ribbon toggle " & Control.Id & " changes nothing.", vbExclamation, MSG_TITLE
+                ScheduleRefresh
         End Select
-        ScheduleRefresh
         Exit Sub
 
 Failed:
