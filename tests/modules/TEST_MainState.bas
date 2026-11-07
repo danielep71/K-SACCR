@@ -30,7 +30,10 @@ Attribute VB_Name = "TEST_MainState"
 '   puts Params back when a write fails, and refuses with a key below the
 '   factor table (issue #357); and that the Ribbon's state table
 '   (M_Ribbon.EnabledFor) and the stored pointer's format and save handling
-'   follow the contract (issue #216).
+'   follow the contract (issue #216); and that the navigation bar of every
+'   sheet is hidden and shown at once, with the sheets protected and the
+'   Saved flag kept, and is shown for a save and hidden again after it
+'   (issue #620).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -101,7 +104,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 37   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 38   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -214,6 +217,7 @@ Public Sub RunMainStateTests()
         CaseProtectionApplied
         CaseProtectionRelock
         CaseFaultProtectionKept
+        CaseNavigationBar
 
 '------------------------------------------------------------------------------
 ' RESTORE THE CALLER AND REPORT
@@ -1824,6 +1828,145 @@ Unexpected:
         Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
+
+
+Private Sub CaseNavigationBar()
+'
+'==============================================================================
+'                              CaseNavigationBar
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The Ribbon's Navigation bar toggle (#620), through
+'   M_Main.SetNavigationBar_Silent: hiding hides column A and both shape
+'   groups of the bar on every sheet, NavigationBarShown reads it, the
+'   sheets stay protected and the Saved flag is kept. The save handlers
+'   show the bar for a save and hide it again after, keeping the Saved
+'   flag; showing it puts every sheet back, and a save with the bar shown
+'   leaves it shown. The bar is shown again also after an unexpected error.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String     'What a call returned
+    Dim WasSaved    As Boolean    'The workbook's Saved flag before the hide
+    Dim SheetCount  As Long       'Worksheets in the workbook
+
+'------------------------------------------------------------------------------
+' HIDE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "navigation.bar-toggle"
+        SheetCount = ThisWorkbook.Worksheets.Count
+        Result = M_Main.SetNavigationBar_Silent(True)
+        Check Result = "RESULT=SHOWN; sheets=" & SheetCount, "show at the start: " & Result
+        WasSaved = ThisWorkbook.Saved
+        Result = M_Main.SetNavigationBar_Silent(False)
+        Check Result = "RESULT=HIDDEN; sheets=" & SheetCount, "hide: " & Result
+        Check Not M_Main.NavigationBarShown(), "NavigationBarShown after the hide"
+        Check BarSheets(False) = SheetCount, "sheets with the bar hidden: " & BarSheets(False) & " of " & SheetCount
+        Check ProtectedSheets() = SheetCount, "sheets protected after the hide: " & ProtectedSheets() & " of " & SheetCount
+        Check ThisWorkbook.Saved = WasSaved, "the hide changed the Saved flag"
+
+'------------------------------------------------------------------------------
+' SAVE WITH THE BAR HIDDEN
+'------------------------------------------------------------------------------
+        M_Main.NavigationBarBeforeSave
+        Check BarSheets(True) = SheetCount, "sheets with the bar shown for a save: " & BarSheets(True) & " of " & SheetCount
+        Check ThisWorkbook.Saved = WasSaved, "NavigationBarBeforeSave changed the Saved flag"
+        M_Main.NavigationBarAfterSave
+        Check BarSheets(False) = SheetCount, "sheets with the bar hidden after a save: " & BarSheets(False) & " of " & SheetCount
+        Check ThisWorkbook.Saved = WasSaved, "NavigationBarAfterSave changed the Saved flag"
+
+'------------------------------------------------------------------------------
+' SHOW, AND SAVE WITH THE BAR SHOWN
+'------------------------------------------------------------------------------
+        Result = M_Main.SetNavigationBar_Silent(True)
+        Check Result = "RESULT=SHOWN; sheets=" & SheetCount, "show: " & Result
+        Check M_Main.NavigationBarShown(), "NavigationBarShown after the show"
+        Check BarSheets(True) = SheetCount, "sheets with the bar shown: " & BarSheets(True) & " of " & SheetCount
+        Check ProtectedSheets() = SheetCount, "sheets protected after the show: " & ProtectedSheets() & " of " & SheetCount
+        M_Main.NavigationBarBeforeSave
+        M_Main.NavigationBarAfterSave
+        Check BarSheets(True) = SheetCount, "a save with the bar shown left it on " & BarSheets(True) & " of " & SheetCount
+        Exit Sub
+
+Unexpected:
+        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        Result = M_Main.SetNavigationBar_Silent(True)
+
+End Sub
+
+
+Private Function BarSheets( _
+    ByVal Shown As Boolean) _
+    As Long
+'
+'==============================================================================
+'                                  BarSheets
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The worksheets whose navigation bar is in the given state (#620):
+'   column A hidden when it is not shown, and both shape groups present and
+'   visible exactly when it is.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet       As Worksheet    'Each worksheet
+    Dim Item        As Shape        'Each shape of a sheet
+    Dim Groups      As Long         'Bar groups found in the state
+    Dim Wanted      As Long         'msoTrue or msoFalse
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        Wanted = IIf(Shown, msoTrue, msoFalse)
+        For Each Sheet In ThisWorkbook.Worksheets
+            Groups = 0
+            For Each Item In Sheet.Shapes
+                If (Item.Name = NAV_GROUP_TOP Or Item.Name = NAV_GROUP_REST) And Item.Visible = Wanted Then
+                    Groups = Groups + 1
+                End If
+            Next Item
+            If Groups = 2 And Sheet.Columns(1).Hidden = Not Shown Then
+                BarSheets = BarSheets + 1
+            End If
+        Next Sheet
+
+End Function
+
+
+Private Function ProtectedSheets() As Long
+'
+'==============================================================================
+'                               ProtectedSheets
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The worksheets whose contents are protected.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+    Dim Sheet       As Worksheet    'Each worksheet
+
+        For Each Sheet In ThisWorkbook.Worksheets
+            If Sheet.ProtectContents Then
+                ProtectedSheets = ProtectedSheets + 1
+            End If
+        Next Sheet
+
+End Function
 
 
 Private Sub CaseRibbonPointer()

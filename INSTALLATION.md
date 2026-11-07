@@ -272,7 +272,7 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonGetEnabled` and `RibbonGetLabel` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -823,6 +823,18 @@ stands below the regulatory rows of the factor table, or `RESULT=FAILED; error=.
 `NONE`, `VERIFIED` or `FAILED: ...` as for `CommitStaging_Silent`. Results is
 not recalculated: `ResultsStatus()` returns `STALE` until the next
 **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
+
+### SetNavigationBar_Silent
+
+`SetNavigationBar_Silent(shown)` shows (`True`) or hides (`False`) the
+navigation bar on every sheet at once, as the **Navigation bar** toggle of the
+K-SACCR tab does (#620, [Ribbon contract](docs/workbook/RIBBON.md#-toggles)):
+column A and the bar's two shape groups, with the sheets kept protected and
+the workbook's `Saved` flag kept. It returns `RESULT=SHOWN; sheets=N` or
+`RESULT=HIDDEN; sheets=N`, N being the worksheets changed,
+`RESULT=REFUSED; reason=...` while an operation is running, or
+`RESULT=FAILED; error=...`. The state lasts for the session: every save
+writes the bar shown.
 
 ### ExportCsvTemplate_Silent
 

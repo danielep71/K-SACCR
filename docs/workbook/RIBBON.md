@@ -44,7 +44,7 @@ the user. They never replace those gates.
 | Evidence | **Export evidence** |
 | Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
-| Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) |
+| Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
 
 Labels on the large buttons are short, so that they wrap cleanly; the full
 name is in the screentip. The tab's keytip is `KS`, so **Alt, K, S** opens it.
@@ -153,6 +153,32 @@ The current sheet is highlighted and not linked, and the bar is not printed.
 the `navigation-bar` gate of `tools/check.py` fails when the template's bar
 no longer matches this menu.
 
+## 🔀 Toggles
+
+Each toggle calls `RibbonToggle` when clicked and `RibbonGetPressed` for its
+state.
+
+| Control ID | Label | Keytip | Pressed when |
+| --- | --- | --- | --- |
+| `ksNavigationBar` | Navigation bar | B | The navigation bar is shown |
+
+**Navigation bar** (#620) shows or hides the
+[navigation bar](#navigation-bar) on every sheet at once: column A and the
+bar's two shape groups, `NavBarTop` and `NavBar`. Every sheet changes, so the
+layout stays the same from sheet to sheet, and the sheets stay protected: the
+macros change them through their user-interface protection. Its state is read
+from the workbook (`M_Main.NavigationBarShown`: column A of the first sheet
+is not hidden), so the toggle is right also after a VBA state reset.
+
+Hiding the bar lasts for the session only. The workbook is always saved with
+the bar shown: `ThisWorkbook` shows it before every save and hides it again
+after (`NavigationBarBeforeSave`, `NavigationBarAfterSave`), keeping the
+`Saved` flag, so hiding or showing the bar never asks the user to save. A
+workbook opened with macros disabled therefore always has its bar, whose
+links work without macros. `ToggleNavigationBar` flips the state from the
+Macros dialog; automation calls `SetNavigationBar_Silent(Shown)`, which
+returns a result line.
+
 ## 🚦 Status
 
 Each label calls `RibbonGetLabel`, which only reads a status cell.
@@ -181,7 +207,7 @@ enforce the same rules again, whatever the Ribbon shows.
 | `ksValidateStaging` | A staging sheet holds rows: its status is not `EMPTY` |
 | `ksCommitImport` | A staging sheet reads `VALID` |
 | `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE` |
-| Every other control | Always, apart from a running operation |
+| Every other control, `ksNavigationBar` included | Always, apart from a running operation |
 
 A status that cannot be read enables its control, and so does an error or a
 call made while another state callback runs: a control is never disabled on a
@@ -221,7 +247,7 @@ holds or can recover the object.
 ## 🔌 Callbacks
 
 All callbacks live in one standard module, `src/workbook/M_Ribbon.bas`
-(#215, #216, #329), with the signatures Office requires:
+(#215, #216, #329, #620), with the signatures Office requires:
 
 ```vb
 Public Sub RibbonOnLoad(ByVal Ribbon As IRibbonUI)
@@ -229,6 +255,8 @@ Public Sub RibbonAction(ByVal Control As IRibbonControl)
 Public Sub RibbonGoTo(ByVal Control As IRibbonControl)
 Public Sub RibbonGetEnabled(ByVal Control As IRibbonControl, ByRef ReturnedVal)
 Public Sub RibbonGetLabel(ByVal Control As IRibbonControl, ByRef ReturnedVal)
+Public Sub RibbonToggle(ByVal Control As IRibbonControl, ByVal Pressed As Boolean)
+Public Sub RibbonGetPressed(ByVal Control As IRibbonControl, ByRef ReturnedVal)
 ```
 
 `IRibbonUI` and `IRibbonControl` come from the Microsoft Office Object

@@ -76,6 +76,12 @@ Attribute VB_Name = "M_Main"
 '   OperationRunning: whether an operation is in progress, for the
 '   Ribbon's enabled states (#216); RibbonStateChanged: refresh the tab
 '   once Excel is idle, also for ThisWorkbook's change handler.
+'   NavigationBarShown, ShowNavigationBar and ToggleNavigationBar: whether
+'   the navigation bar of every sheet is shown, and show or hide it on
+'   every sheet at once (#620); SetNavigationBar_Silent: the same for
+'   automation and tests. NavigationBarBeforeSave and
+'   NavigationBarAfterSave: show the bar for a save and hide it again
+'   after, for ThisWorkbook, so that a saved file always shows it.
 '   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging, CommitImport,
 '   ExportImportSpecification and RestoreRegulatoryParameters; the
@@ -246,6 +252,9 @@ Attribute VB_Name = "M_Main"
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
+    'The navigation bar was hidden when a save began, and is hidden again
+    'after it (#620).
+        Private mBarHiddenForSave As Boolean
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
         Private mReconState      As String    'Netting-set reconciliation outcome
@@ -7526,6 +7535,261 @@ Public Sub RibbonStateChanged()
 Skipped:
 
 End Sub
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                            NAVIGATION BAR (#620)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Function NavigationBarShown() As Boolean
+'
+'==============================================================================
+'                              NavigationBarShown
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether the navigation bar of #615 is shown, read from the workbook:
+'   column A of the first worksheet is not hidden. The Ribbon's toggle
+'   reads it, so its state survives a VBA state reset.
+'
+' ERROR POLICY
+'   Never raises; True when the sheet cannot be read.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        NavigationBarShown = Not ThisWorkbook.Worksheets(1).Columns(1).Hidden
+        Exit Function
+
+Failed:
+        NavigationBarShown = True
+
+End Function
+
+
+Public Sub ShowNavigationBar( _
+    ByVal Shown As Boolean)
+'
+'==============================================================================
+'                              ShowNavigationBar
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show or hide the navigation bar on every sheet at once (#620): column
+'   A and the bar's two shape groups. The sheets stay protected; the
+'   change is for this session only, since a save shows the bar again
+'   (NavigationBarBeforeSave).
+'
+' USAGE
+'   The Navigation bar toggle of the K-SACCR Ribbon tab
+'   (M_Ribbon.RibbonToggle). ToggleNavigationBar flips the state from the
+'   Macros dialog; automation calls SetNavigationBar_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        ApplyNavigationBar Shown
+        Exit Sub
+
+Failed:
+        Notify "Navigation bar: " & Err.Description, vbExclamation
+
+End Sub
+
+
+Public Sub ToggleNavigationBar()
+'
+'==============================================================================
+'                             ToggleNavigationBar
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Hide the navigation bar when it is shown and show it when it is
+'   hidden (ShowNavigationBar), from the Macros dialog (#620).
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        ShowNavigationBar Not NavigationBarShown()
+
+End Sub
+
+
+Public Function SetNavigationBar_Silent( _
+    ByVal Shown As Boolean) _
+    As String
+'
+'==============================================================================
+'                           SetNavigationBar_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show or hide the navigation bar on every sheet (#620), for automation
+'   and tests, without a message.
+'
+' RETURNS
+'   "RESULT=SHOWN; sheets=N" or "RESULT=HIDDEN; sheets=N", N being the
+'   worksheets changed; "RESULT=REFUSED; reason=..." while an operation
+'   runs; "RESULT=FAILED; error=..." when a sheet could not be changed.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        If mRunning Then
+            SetNavigationBar_Silent = "RESULT=REFUSED; reason=an SA-CCR operation is running"
+            Exit Function
+        End If
+        On Error GoTo Failed
+        SetNavigationBar_Silent = IIf(Shown, "RESULT=SHOWN", "RESULT=HIDDEN") & "; sheets=" & ApplyNavigationBar(Shown)
+        Exit Function
+
+Failed:
+        SetNavigationBar_Silent = "RESULT=FAILED; error=" & Err.Description
+
+End Function
+
+
+Public Sub NavigationBarBeforeSave()
+'
+'==============================================================================
+'                           NavigationBarBeforeSave
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Before a save, show the navigation bar when it is hidden, and note it,
+'   so that the saved file always shows the bar, also to a user who opens
+'   it with macros disabled (#620). ThisWorkbook.Workbook_BeforeSave calls
+'   it. The Saved flag is kept.
+'
+' ERROR POLICY
+'   Never raises: a bar left hidden is shown again by the toggle.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        mBarHiddenForSave = Not NavigationBarShown()
+        If mBarHiddenForSave Then
+            ApplyNavigationBar True
+        End If
+
+Failed:
+
+End Sub
+
+
+Public Sub NavigationBarAfterSave()
+'
+'==============================================================================
+'                           NavigationBarAfterSave
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a save, hide the navigation bar again when
+'   NavigationBarBeforeSave showed it (#620). ThisWorkbook.Workbook_AfterSave
+'   calls it. The Saved flag is kept, so a saved workbook stays saved.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        If mBarHiddenForSave Then
+            ApplyNavigationBar False
+        End If
+
+Failed:
+        mBarHiddenForSave = False
+
+End Sub
+
+
+Private Function ApplyNavigationBar( _
+    ByVal Shown As Boolean) _
+    As Long
+'
+'==============================================================================
+'                             ApplyNavigationBar
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Show or hide column A and the shape groups NAV_GROUP_TOP and
+'   NAV_GROUP_REST of every worksheet in one pass, with screen updating
+'   off, so the layout changes at once (#620). ProtectWorkbook runs first,
+'   so the macros change the protected sheets through their user-interface
+'   protection. The workbook's Saved flag and screen updating are kept.
+'
+' RETURNS
+'   The number of worksheets changed.
+'
+' ERROR POLICY
+'   Re-raises the first error after screen updating and the Saved flag are
+'   restored.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet               As Worksheet    'Each worksheet
+    Dim Item                As Shape        'Each shape of a sheet
+    Dim WasSaved            As Boolean      'The workbook's Saved flag before
+    Dim SavedScreen         As Boolean      'Screen updating before
+    Dim Changed             As Long         'Worksheets changed
+    Dim ErrorNumber         As Long         'The first error's number
+    Dim ErrorDescription    As String       'The first error's description
+
+'------------------------------------------------------------------------------
+' SHOW OR HIDE
+'------------------------------------------------------------------------------
+        WasSaved = ThisWorkbook.Saved
+        SavedScreen = Application.ScreenUpdating
+        On Error GoTo Failed
+        Application.ScreenUpdating = False
+        ProtectWorkbook
+        For Each Sheet In ThisWorkbook.Worksheets
+            Sheet.Columns(1).Hidden = Not Shown
+            For Each Item In Sheet.Shapes
+                If Item.Name = NAV_GROUP_TOP Or Item.Name = NAV_GROUP_REST Then
+                    Item.Visible = IIf(Shown, msoTrue, msoFalse)
+                End If
+            Next Item
+            Changed = Changed + 1
+        Next Sheet
+        Application.ScreenUpdating = SavedScreen
+        ThisWorkbook.Saved = WasSaved
+        ApplyNavigationBar = Changed
+        Exit Function
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorDescription = Err.Description
+        Application.ScreenUpdating = SavedScreen
+        ThisWorkbook.Saved = WasSaved
+        Err.Raise ErrorNumber, "M_Main.ApplyNavigationBar", ErrorDescription
+
+End Function
 
 
 '

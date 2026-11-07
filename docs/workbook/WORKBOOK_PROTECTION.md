@@ -34,7 +34,10 @@ lists of `CORE_Config` that the macros apply.
 - **Navigation bar.** Column A of every sheet holds the navigation bar
   ([Ribbon contract › Navigation bar](RIBBON.md#navigation-bar)). Its cells
   are locked and its shapes are protected with the sheet; their links still
-  open their sheets, also with macros disabled.
+  open their sheets, also with macros disabled. The **Navigation bar** toggle
+  of the K-SACCR tab hides and shows column A and the bar through the macros'
+  user-interface protection, for the session only: every save writes the bar
+  shown (#620).
 
 ## 🔧 Maintenance unlock
 

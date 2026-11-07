@@ -44,6 +44,7 @@ from xml.sax.saxutils import escape
 
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 CONTRACT = "src/workbook/customUI14.xml"
+CONFIG = "src/core/CORE_Config.bas"           # names the groups for the VBA (#620)
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 
 # ------------------------------------------------------------------ design ----
@@ -490,13 +491,27 @@ def bar_problems(package: Package, contract: str) -> list[str]:
     return found
 
 
+def config_problems(root: Path) -> list[str]:
+    """CORE_Config names the two groups as this tool draws them, for the VBA that hides them."""
+    config = root / CONFIG
+    if not config.is_file():
+        return [f"{CONFIG} is missing"]
+    text = config.read_text(encoding="cp1252")
+    found = []
+    for constant, expected in (("NAV_GROUP_TOP", GROUP_TOP), ("NAV_GROUP_REST", GROUP_REST)):
+        match = re.search(r'Public Const %s\s+As String = "([^"]*)"' % constant, text)
+        if not match or match.group(1) != expected:
+            found.append(f'{CONFIG}: {constant} must be "{expected}", the name tools/navigation_bar.py draws')
+    return found
+
+
 def problems(root: Path) -> list[str]:
     template, source = root / TEMPLATE, root / CONTRACT
     if not source.is_file():
         return [f"{CONTRACT} is missing"]
     contract = source.read_text(encoding="utf-8")
     committed = Package(template)
-    found: list[str] = []
+    found: list[str] = config_problems(root)
     try:
         found += bar_problems(committed, contract)
     except (ValueError, KeyError, AttributeError) as error:

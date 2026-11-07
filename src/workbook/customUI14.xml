@@ -128,6 +128,11 @@
               <button id="ksGoReadme" label="README" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
             </menu>
           </splitButton>
+          <toggleButton id="ksNavigationBar" label="Navigation bar" keytip="B"
+                        screentip="Navigation bar"
+                        supertip="Show or hide the bar of sheet links on the left of every sheet, for this session. The workbook is always saved with the bar shown."
+                        getPressed="RibbonGetPressed" onAction="RibbonToggle"
+                        getEnabled="RibbonGetEnabled"/>
         </group>
 
       </tab>
