@@ -312,6 +312,9 @@ Public Sub ProtectWorkbook()
 '   LoadStaging, CheckStaging and CommitStaging): a sheet unprotected for
 '   maintenance is protected again then. A sheet already protected for
 '   the user interface only is left as it is.
+'   The workbook's Saved flag is kept: protecting again is not a change
+'   of the file, so opening the workbook with macros enabled does not ask
+'   to save it on closing (#620).
 '
 ' USAGE
 '   Also listed in the Macros dialog, to protect the workbook again at
@@ -322,18 +325,20 @@ Public Sub ProtectWorkbook()
 '   left as it is, and so is a sheet the test seam gKeepProtection lists.
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-07
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Sheet   As Worksheet    'Each worksheet
+    Dim Sheet       As Worksheet    'Each worksheet
+    Dim WasSaved    As Boolean      'The workbook's Saved flag before
 
 '------------------------------------------------------------------------------
 ' PROTECT
 '------------------------------------------------------------------------------
+        WasSaved = ThisWorkbook.Saved
         For Each Sheet In ThisWorkbook.Worksheets
             ProtectSheet Sheet
         Next Sheet
@@ -343,6 +348,7 @@ Public Sub ProtectWorkbook()
         End If
 
 Failed:
+        ThisWorkbook.Saved = WasSaved
 
 End Sub
 

@@ -32,8 +32,9 @@ Attribute VB_Name = "TEST_MainState"
 '   (M_Ribbon.EnabledFor) and the stored pointer's format and save handling
 '   follow the contract (issue #216); and that the navigation bar of every
 '   sheet is hidden and shown at once, with the sheets protected and the
-'   Saved flag kept, and is shown for a save and hidden again after it
-'   (issue #620).
+'   Saved flag kept, and is shown for a save and hidden again after it,
+'   and that protecting the workbook again keeps the Saved flag (issue
+'   #620).
 '
 ' PUBLIC SURFACE
 '   RunMainStateTests is the entry point. Option Private Module keeps it out
@@ -104,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 38   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 39   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -217,6 +218,7 @@ Public Sub RunMainStateTests()
         CaseProtectionApplied
         CaseProtectionRelock
         CaseFaultProtectionKept
+        CaseProtectionKeepsSaved
         CaseNavigationBar
 
 '------------------------------------------------------------------------------
@@ -2586,6 +2588,55 @@ Private Sub CaseProtectionApplied()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail "protection.applied", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseProtectionKeepsSaved()
+'
+'==============================================================================
+'                          CaseProtectionKeepsSaved
+'------------------------------------------------------------------------------
+' PURPOSE
+'   M_Main.ProtectWorkbook, which Auto_Open runs when the workbook opens,
+'   protects again a sheet protected as the saved file has it (not for the
+'   user interface only) and keeps the workbook's Saved flag, so opening
+'   the workbook does not mark it changed (#620).
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim WasSaved    As Boolean    'The workbook's Saved flag before the case
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        BeginCase "protection.keeps-saved"
+        WasSaved = ThisWorkbook.Saved
+        With GetSheet(SH_RESULTS)
+            .Unprotect
+            .Protect DrawingObjects:=True, Contents:=True, Scenarios:=True, UserInterfaceOnly:=False
+        End With
+        ThisWorkbook.Saved = True
+        M_Main.ProtectWorkbook
+        Check SheetProtected(SH_RESULTS), "ProtectWorkbook did not protect Results for the user interface only"
+        Check ThisWorkbook.Saved, "ProtectWorkbook marked the workbook changed"
+        ThisWorkbook.Saved = WasSaved
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        Fail "protection.keeps-saved", "unexpected error " & Err.Number & ": " & Err.Description
+        ThisWorkbook.Saved = WasSaved
+        M_Main.ProtectWorkbook
 
 End Sub
 

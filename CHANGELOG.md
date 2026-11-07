@@ -112,7 +112,13 @@ Use only the categories needed by a release.
   bar's shape groups, and the `navigation-bar` gate checks those names
   against the template. The Ribbon contract gains a Toggles table, checked
   by the contract tests; `TEST_MainState` gains the case
-  `navigation.bar-toggle` (38 cases, 587 checks).
+  `navigation.bar-toggle`.
+
+- Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
+  again (#620): `Auto_Open` runs it at every opening with macros enabled,
+  and protecting again marked the workbook changed, so closing a workbook
+  only opened asked to save it. `TEST_MainState` gains the case
+  `protection.keeps-saved` (39 cases, 589 checks).
 
 - Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
   now, is widened, frozen and filled with the title band's colour, and holds
