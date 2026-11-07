@@ -97,6 +97,29 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
+  (#620): it hides and shows column A and the navigation bar on every sheet at
+  once, so that wide sheets such as Trades and TradeCalc get the space back.
+  The sheets stay protected, and the workbook's Saved flag is kept, so the
+  toggle never asks to save. Hiding lasts for the session: `ThisWorkbook`
+  shows the bar before every save and hides it again after, also when the
+  save does not happen, as a cancelled Save As, so a saved file, also opened
+  with macros disabled, always has its bar. The toggle's state is
+  read from the workbook, so it is right after a VBA state reset. New
+  callbacks `RibbonToggle` and `RibbonGetPressed`, macros
+  `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, and the
+  automation entry point `SetNavigationBar_Silent`. `CORE_Config` names the
+  bar's shape groups, and the `navigation-bar` gate checks those names
+  against the template. The Ribbon contract gains a Toggles table, checked
+  by the contract tests; `TEST_MainState` gains the case
+  `navigation.bar-toggle`.
+
+- Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
+  again (#620): `Auto_Open` runs it at every opening with macros enabled,
+  and protecting again marked the workbook changed, so closing a workbook
+  only opened asked to save it. `TEST_MainState` gains the case
+  `protection.keeps-saved` (39 cases, 589 checks).
+
 - Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
   now, is widened, frozen and filled with the title band's colour, and holds
   a bar of linked shapes that opens every sheet, also with macros disabled

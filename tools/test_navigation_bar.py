@@ -14,7 +14,7 @@ class NavigationBarTests(unittest.TestCase):
     def setUp(self) -> None:
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder)
-        for path in (bar.TEMPLATE, bar.CONTRACT):
+        for path in (bar.TEMPLATE, bar.CONTRACT, bar.CONFIG):
             (self.folder / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / path, self.folder / path)
 
@@ -71,6 +71,13 @@ class NavigationBarTests(unittest.TestCase):
         found = bar.problems(self.folder)
         self.assertTrue(any("NavBarTop missing" in p for p in found))
         self.assertTrue(any("not current" in p for p in found))
+
+    def test_config_group_name_must_match(self) -> None:
+        config = self.folder / bar.CONFIG
+        text = config.read_text(encoding="cp1252")
+        config.write_text(text.replace('NAV_GROUP_REST  As String = "NavBar"', 'NAV_GROUP_REST  As String = "Nav"'),
+                          encoding="cp1252")
+        self.assertTrue(any("NAV_GROUP_REST" in p for p in bar.problems(self.folder)))
 
     def test_missing_contract_fails(self) -> None:
         self.contract().unlink()

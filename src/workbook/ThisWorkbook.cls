@@ -32,13 +32,17 @@ Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
 End Sub
 
 Private Sub Workbook_BeforeSave(ByVal SaveAsUI As Boolean, Cancel As Boolean)
-    'Keep the Ribbon's pointer out of the saved file (#216).
+    'Keep the Ribbon's pointer out of the saved file (#216), and save the
+    'navigation bar shown even while it is hidden (#620).
         M_Ribbon.HidePointer
+        M_Main.NavigationBarBeforeSave
 
 End Sub
 
 Private Sub Workbook_AfterSave(ByVal Success As Boolean)
-    'Store the Ribbon's pointer again for this session (#216).
+    'Store the Ribbon's pointer again for this session (#216), and hide the
+    'navigation bar again if it was hidden before the save (#620).
         M_Ribbon.ShowPointer
+        M_Main.NavigationBarAfterSave
 
 End Sub
