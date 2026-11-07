@@ -173,7 +173,12 @@ is not hidden), so the toggle is right also after a VBA state reset.
 Hiding the bar lasts for the session only. The workbook is always saved with
 the bar shown: `ThisWorkbook` shows it before every save and hides it again
 after (`NavigationBarBeforeSave`, `NavigationBarAfterSave`), keeping the
-`Saved` flag, so hiding or showing the bar never asks the user to save. A
+`Saved` flag, so hiding or showing the bar never asks the user to save.
+Excel raises no after-save event when a save does not happen, as when the
+Save As dialog is cancelled, so the hide is also scheduled for when Excel is
+idle again (`Application.OnTime`); the after-save handler cancels it when it
+runs first, with the name it was scheduled with, which a Save As does not
+change. A
 workbook opened with macros disabled therefore always has its bar, whose
 links work without macros. `ToggleNavigationBar` flips the state from the
 Macros dialog; automation calls `SetNavigationBar_Silent(Shown)`, which

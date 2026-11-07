@@ -253,8 +253,11 @@ Attribute VB_Name = "M_Main"
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
     'The navigation bar was hidden when a save began, and is hidden again
-    'after it (#620).
+    'after it, or by the restore scheduled at mBarRestoreAt when the save
+    'never ends, as a cancelled Save As (#620).
         Private mBarHiddenForSave As Boolean
+        Private mBarRestoreAt     As Date      'When the restore was scheduled; 0 for none
+        Private mBarRestoreName   As String    'The procedure it was scheduled with
     'The reconciliations of the last operation (#45), for its message and
     'result line: NONE, DONE, FAILED or UNAVAILABLE, and the message lines.
         Private mReconState      As String    'Netting-set reconciliation outcome
@@ -7676,9 +7679,13 @@ Public Sub NavigationBarBeforeSave()
 '   so that the saved file always shows the bar, also to a user who opens
 '   it with macros disabled (#620). ThisWorkbook.Workbook_BeforeSave calls
 '   it. The Saved flag is kept.
+'   Excel raises Workbook_AfterSave only after a save that happened: a
+'   cancelled Save As dialog raises none. So the restore is also scheduled
+'   (Application.OnTime) for when Excel is idle again, after the save or
+'   the dialog; NavigationBarAfterSave cancels it when it runs first.
 '
 ' ERROR POLICY
-'   Never raises: a bar left hidden is shown again by the toggle.
+'   Never raises: a bar left shown is hidden again by the toggle.
 '
 ' UPDATED
 '   2026-11-07
@@ -7688,6 +7695,9 @@ Public Sub NavigationBarBeforeSave()
         mBarHiddenForSave = Not NavigationBarShown()
         If mBarHiddenForSave Then
             ApplyNavigationBar True
+            mBarRestoreAt = Now
+            mBarRestoreName = BarRestoreProcedure()
+            Application.OnTime mBarRestoreAt, mBarRestoreName
         End If
 
 Failed:
@@ -7702,8 +7712,10 @@ Public Sub NavigationBarAfterSave()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   After a save, hide the navigation bar again when
-'   NavigationBarBeforeSave showed it (#620). ThisWorkbook.Workbook_AfterSave
-'   calls it. The Saved flag is kept, so a saved workbook stays saved.
+'   NavigationBarBeforeSave showed it (#620), and cancel the restore it
+'   scheduled. ThisWorkbook.Workbook_AfterSave calls it, and so does that
+'   scheduled restore when no save followed, as after a cancelled Save As.
+'   The Saved flag is kept, so a saved workbook stays saved.
 '
 ' ERROR POLICY
 '   Never raises.
@@ -7712,6 +7724,7 @@ Public Sub NavigationBarAfterSave()
 '   2026-11-07
 '==============================================================================
 '
+        CancelBarRestore
         On Error GoTo Failed
         If mBarHiddenForSave Then
             ApplyNavigationBar False
@@ -7719,6 +7732,56 @@ Public Sub NavigationBarAfterSave()
 
 Failed:
         mBarHiddenForSave = False
+
+End Sub
+
+
+Private Function BarRestoreProcedure() As String
+'
+'==============================================================================
+'                             BarRestoreProcedure
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The workbook-qualified name of NavigationBarAfterSave for
+'   Application.OnTime, with an apostrophe in the workbook name doubled, as
+'   Excel requires (#620).
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        BarRestoreProcedure = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Main.NavigationBarAfterSave"
+
+End Function
+
+
+Private Sub CancelBarRestore()
+'
+'==============================================================================
+'                              CancelBarRestore
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Cancel the restore NavigationBarBeforeSave scheduled, when one is
+'   pending, so that it neither runs twice nor runs after a Save As has
+'   renamed the workbook (#620). It is cancelled with the name it was
+'   scheduled with, which a Save As does not change.
+'
+' ERROR POLICY
+'   Never raises: a restore that already ran cannot be cancelled, and that
+'   is the expected case when the restore itself calls this.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Done
+        If mBarRestoreAt <> 0 Then
+            Application.OnTime mBarRestoreAt, mBarRestoreName, , False
+        End If
+
+Done:
+        mBarRestoreAt = 0
+        mBarRestoreName = vbNullString
 
 End Sub
 

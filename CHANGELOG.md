@@ -102,8 +102,9 @@ Use only the categories needed by a release.
   once, so that wide sheets such as Trades and TradeCalc get the space back.
   The sheets stay protected, and the workbook's Saved flag is kept, so the
   toggle never asks to save. Hiding lasts for the session: `ThisWorkbook`
-  shows the bar before every save and hides it again after, so a saved file,
-  also opened with macros disabled, always has its bar. The toggle's state is
+  shows the bar before every save and hides it again after, also when the
+  save does not happen, as a cancelled Save As, so a saved file, also opened
+  with macros disabled, always has its bar. The toggle's state is
   read from the workbook, so it is right after a VBA state reset. New
   callbacks `RibbonToggle` and `RibbonGetPressed`, macros
   `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, and the
