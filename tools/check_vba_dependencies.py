@@ -10,6 +10,7 @@ from _gatelib import parse_report_args, run_gate
 from check_vba_calls import Module, parse_module, statements_of
 from check_vba_conditionals import logical_units, reachable_sources
 from check_vba_identifiers import HOST_OBJECTS, project_sources, references
+from vba_lexer import analysis_source
 
 POLICY = "tools/vba-dependency-exceptions.json"
 ALLOWED = {"core": {"core"}, "modules": {"modules", "core", "classes", "host"},
@@ -45,7 +46,9 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> li
             if tokens[0].is_kw("attribute", "option", "rem"):
                 continue
             field_name = (tokens[0].low if tokens[0].is_id() and len(tokens) > 1
-                          and tokens[1].is_kw("as") else None)
+                          and (tokens[1].is_kw("as") or
+                               (tokens[1].is_op("(") and any(t.is_kw("as") for t in tokens)))
+                          else None)
             type_names = {tokens[i + 1].low for i, t in enumerate(tokens[:-1])
                           if t.is_kw("as", "new")}
             for token in references(tokens):
@@ -69,7 +72,7 @@ def analyze(sources: dict[str, str], exceptions: list[dict[str, str]]) -> dict[s
     failures: list[dict[str, Any]] = []
     variants: dict[str, dict[str, str]] = {}
     for path, text in sources.items():
-        environments, errors = reachable_sources(path, text)
+        environments, errors = reachable_sources(path, analysis_source(text))
         failures.extend(errors)
         for env, source in environments.items():
             variants.setdefault(env, {})[path] = source

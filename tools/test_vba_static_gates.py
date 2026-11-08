@@ -114,6 +114,11 @@ End Sub''')
         findings = identifiers.analyze({'src/core/CORE_A.bas': source})['findings']
         self.assertEqual({f['environment'] for f in findings}, {'vba6-win32', 'vba7-win32'})
 
+    def test_parameter_types_and_defaults_are_checked(self) -> None:
+        source = module('CORE_A', 'Sub Run(Optional x As MissingType = MissingDefault)\nEnd Sub')
+        self.assertEqual({f['identifier'] for f in identifiers.analyze({'src/core/CORE_A.bas': source})['findings']},
+                         {'MissingType', 'MissingDefault'})
+
     def test_unknown_host_name_is_not_exempt_by_prefix(self) -> None:
         source = module('CORE_A', 'Sub Run()\nDebug.Print xlTypo, vbTypo\nEnd Sub')
         self.assertEqual({f['identifier'] for f in identifiers.analyze({'src/core/CORE_A.bas': source})['findings']},
@@ -150,6 +155,13 @@ class DependencyTests(unittest.TestCase):
                 source = module('CORE_A', f'Sub Work()\n{code}\nEnd Sub')
                 self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], expected)
 
+    def test_udt_field_names_are_not_host_roots_but_types_are(self) -> None:
+        for field, expected in (('Range(1 To 2) As Long', 'pass'),
+                                ('Columns As Long', 'pass'), ('Items(1 To 2) As Worksheet', 'fail')):
+            with self.subTest(field=field):
+                source = module('CORE_A', f'Public Type Data\n{field}\nEnd Type')
+                self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], expected)
+
     def test_production_to_tests_and_examples_to_core_fail(self) -> None:
         sources = {'src/core/CORE_A.bas': module('CORE_A', 'Sub Work()\nTEST_A.Help\nEnd Sub'),
                    'tests/modules/TEST_A.bas': module('TEST_A', 'Public Sub Help()\nEnd Sub')}
@@ -165,6 +177,20 @@ class DependencyTests(unittest.TestCase):
                         lambda: identifiers.analyze({'src/core/CORE_A.bas': source}))
         for checker in checkers:
             self.assertEqual(checker()['status'], 'fail')
+
+    def test_rem_comments_cannot_create_references_or_declarations(self) -> None:
+        source = module('CORE_A', '''Sub Work()
+Dim n As Long
+n = 1: Rem old code: Application.Calculate: Dim hidden As Long
+10 Rem also: Excel.Application.Calculate
+Done: Rem label comment: UnknownMember
+Rem continued _
+Application.Calculate
+Debug.Print hidden
+End Sub''')
+        files = {'src/core/CORE_A.bas': source}
+        self.assertEqual(dependencies.analyze(files, [])['status'], 'pass')
+        self.assertEqual({f['identifier'] for f in identifiers.analyze(files)['findings']}, {'hidden'})
 
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

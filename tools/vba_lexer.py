@@ -169,3 +169,33 @@ def non_ascii_outside_strings(text: str) -> list[tuple[int, int]]:
                 statement_start = False
         continued_comment = comment and raw.rstrip().endswith(" _")
     return findings
+
+def analysis_source(text: str) -> str:
+    """Blank comments for the new analyses, preserving physical line numbers.
+
+    Legacy gates keep their historical lexical profiles. Here a Rem statement
+    consumes the entire remaining line, including any colons/declarations in it.
+    """
+    lines = []
+    continued_comment = False
+    for raw in text.splitlines():
+        if continued_comment:
+            lines.append("")
+            continued_comment = raw.rstrip().endswith(" _")
+            continue
+        code = strip_vba(raw)
+        statement_start = True
+        for match in TOKEN_RE.finditer(code):
+            if match.lastgroup == "ws":
+                continue
+            value = match.group().casefold()
+            if statement_start and value == "rem":
+                code = code[:match.start()]
+                break
+            if value == ":" or value in {"then", "else"}:
+                statement_start = True
+            elif not (statement_start and match.lastgroup == "num"):
+                statement_start = False
+        continued_comment = code.rstrip() != raw.rstrip() and raw.rstrip().endswith(" _")
+        lines.append(code)
+    return "\n".join(lines)

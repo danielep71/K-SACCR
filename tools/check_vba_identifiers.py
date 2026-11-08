@@ -8,8 +8,8 @@ from typing import Any
 
 from _gatelib import parse_report_args, run_gate, tracked_files
 from check_vba_calls import KEYWORDS, STATEMENT_KEYWORDS, Module, Proc, parse_module
-from check_vba_conditionals import reachable_sources
-from vba_lexer import Tok
+from check_vba_conditionals import logical_units, reachable_sources
+from vba_lexer import Tok, analysis_source, tokenize
 
 # Explicit language/runtime names, never a blanket vb*/xl* or capitalization exemption.
 BUILTINS = frozenset("""
@@ -81,10 +81,11 @@ def visible_names(modules: list[Module], current: Module) -> set[str]:
     return names
 
 
-def procedure_findings(module: Module, proc: Proc, visible: set[str]) -> list[dict[str, Any]]:
+def procedure_findings(module: Module, proc: Proc, visible: set[str],
+                       header: list[Tok]) -> list[dict[str, Any]]:
     known = visible | set(proc.locals) | KNOWN_NAMES | {proc.name.casefold()}
     findings = []
-    for line, tokens in proc.statements:
+    for line, tokens in [(proc.line, header), *proc.statements]:
         # Rem after a colon is a comment, not an identifier use.
         if tokens and tokens[0].is_kw("rem"):
             continue
@@ -100,7 +101,7 @@ def analyze(sources: dict[str, str]) -> dict[str, Any]:
     variants: dict[str, dict[str, str]] = {}
     failures: list[dict[str, Any]] = []
     for path, source in sources.items():
-        reachable, errors = reachable_sources(path, source)
+        reachable, errors = reachable_sources(path, analysis_source(source))
         failures.extend(errors)
         for environment, text in reachable.items():
             variants.setdefault(environment, {})[path] = text
@@ -110,8 +111,10 @@ def analyze(sources: dict[str, str]) -> dict[str, Any]:
         for module in modules:
             failures.extend(module.failures)
             visible = visible_names(modules, module)
+            headers = {line: tokenize(code) for line, _, _, code
+                       in logical_units(files[module.path].splitlines())}
             for proc in module.procs:
-                for item in procedure_findings(module, proc, visible):
+                for item in procedure_findings(module, proc, visible, headers[proc.line]):
                     findings.append({**item, "environment": environment})
     return {"status": "fail" if failures else "pass", "advisory": True,
             "findings": findings, "analysis_failures": failures,
