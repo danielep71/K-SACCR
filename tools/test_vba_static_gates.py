@@ -255,6 +255,18 @@ End Sub''')
             self.assertEqual(identifiers.analyze(files)['analysis_failures'], [])
             self.assertEqual(identifiers.analyze(files)['findings'], [])
 
+    def test_qualified_ui_calls_fail_but_pure_runtime_calls_pass(self) -> None:
+        for call, expected in (('VBA.MsgBox "hello"', 'fail'),
+                               ('VBA.Interaction.MsgBox "hello"', 'fail'),
+                               ('Interaction.MsgBox "hello"', 'fail'),
+                               ('VBA.Interaction.InputBox$("prompt")', 'fail'),
+                               ('Debug.Print VBA.Len("safe")', 'pass'),
+                               ('Debug.Print VBA.Strings.Len("safe")', 'pass'),
+                               ('Dim VBA As Object: VBA.MsgBox "late-bound"', 'pass')):
+            with self.subTest(call=call):
+                source = module('CORE_A', f'Sub Run()\n{call}\nEnd Sub')
+                self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], expected)
+
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

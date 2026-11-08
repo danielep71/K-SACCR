@@ -9,7 +9,7 @@ from typing import Any
 from _gatelib import parse_report_args, run_gate
 from check_vba_calls import Module, matching_paren, parse_module, parse_params, statements_of
 from check_vba_conditionals import logical_units, reachable_sources
-from check_vba_identifiers import HOST_OBJECTS, project_sources, references
+from check_vba_identifiers import HOST_OBJECTS, UI_NAMES, project_sources, references
 from vba_lexer import Tok
 
 POLICY = "tools/vba-dependency-exceptions.json"
@@ -49,6 +49,19 @@ def event_parameters(tokens: list[Tok]) -> set[str]:
     return {p.name.casefold() for p in parse_params(tokens[opening + 1:closing])}
 
 
+def qualified_ui(token: Tok, tokens: list[Tok]) -> str | None:
+    """Statically named VBA/Interaction UI entry points; ordinary runtime calls are pure here."""
+    if token.low not in {"vba", "interaction"}:
+        return None
+    index = next(i for i, item in enumerate(tokens) if item is token)
+    tail = tokens[index + 1:]
+    if token.low == "vba" and len(tail) >= 2 and tail[0].is_op(".") and tail[1].is_kw("interaction"):
+        tail = tail[2:]
+    if len(tail) >= 2 and tail[0].is_op(".") and tail[1].low in UI_NAMES:
+        return tail[1].low
+    return None
+
+
 def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                  type_owners: dict[str, set[str]]) -> list[dict[str, Any]]:
     edges = []
@@ -79,8 +92,10 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                     continue
                 targets = ({"host:" + token.low} if token.kind == "host" else
                            (type_owners if is_type else owners).get(token.low, set()))
-                if not targets and token.low in HOST_OBJECTS:
-                    targets = {"host:" + token.low}
+                if not targets:
+                    host = qualified_ui(token, tokens) or (token.low if token.low in HOST_OBJECTS else None)
+                    if host:
+                        targets = {"host:" + host}
                 for target in targets:
                     target_layer = "host" if target.startswith("host:") else layer(target)
                     if target != module.path and target_layer not in ALLOWED.get(layer(module.path), set()):

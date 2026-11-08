@@ -32,6 +32,8 @@ vbquestion vbexclamation vbinformation vbdefaultbutton1 vbdefaultbutton2 vbdefau
 vbok vbcancel vbabort vbretry vbignore vbyes vbno vbmethod vbget vblet vbset vbnewline
 access append binary input output random read write shared encoding
 """.lower().split())
+UI_NAMES = frozenset("msgbox inputbox doevents sendkeys appactivate shell beep".split())
+
 # Host object roots/types: also used by the dependency gate to detect core -> Excel.
 HOST_OBJECTS = frozenset("""
 msgbox inputbox doevents sendkeys appactivate shell beep excel office application thisworkbook activeworkbook activesheet activecell selection workbooks worksheets
