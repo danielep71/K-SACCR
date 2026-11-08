@@ -52,6 +52,13 @@ class LexicalTests(unittest.TestCase):
                 self.assertEqual(len(non_ascii_outside_strings(source)), 1)
 
 
+    def test_bracketed_sheet_quotes_do_not_start_comments(self) -> None:
+        source = "Debug.Print ['Sheet 1'!A1], \"caf\u00e9\""
+        self.assertEqual(non_ascii_outside_strings(source), [])
+        self.assertEqual(len(non_ascii_outside_strings(source + " ' caf\u00e9")), 1)
+        source = "Debug.Print ['Rem Then Else'!A1], \"caf\u00e9\""
+        self.assertEqual(non_ascii_outside_strings(source), [])
+
     def test_source_gate_enforces_ascii_outside_literals(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

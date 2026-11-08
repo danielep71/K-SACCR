@@ -149,10 +149,18 @@ def logical_lines(lines: list[str], *, mask_strings: bool = False) -> list[tuple
 def comment_column(raw: str) -> int | None:
     """Find apostrophe/Rem comments outside literals, including inline If branches."""
     statement_start = True
+    brackets = 0
     for match in TOKEN_RE.finditer(raw):
         if match.lastgroup == "ws":
             continue
         value = match.group().casefold()
+        if value == "[":
+            brackets += 1
+            statement_start = False
+        elif value == "]" and brackets:
+            brackets -= 1
+        if brackets:
+            continue
         if value == "'" or (statement_start and value == "rem"):
             return match.start()
         if value == ":" or value in {"then", "else"}:
