@@ -451,7 +451,9 @@ Public Function RunSACCR_Silent() As String
 '   operation=run, errors, warnings, trades_used, trades_read,
 '   economic_trades_used, economic_trades_read, incomplete,
 '   total_ead_crr, total_ead_bcbs, inputs, run_class, reconciliation,
-'   trade_reconciliation and cleanup=PASS or FAIL, separated by "; ".
+'   trade_reconciliation, codes and cleanup=PASS or FAIL, separated by "; ".
+'   codes lists distinct ERROR/WARNING codes in encounter order, comma-separated;
+'   it is empty when the current run has none.
 '   incomplete counts netting sets whose EAD was withheld; total_ead_crr
 '   and total_ead_bcbs are the totals of each regime's VALID netting sets,
 '   0 when it has none (#198); inputs is the fingerprint of the inputs

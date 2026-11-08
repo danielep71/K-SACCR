@@ -963,6 +963,8 @@ Private Sub LogMsg( _
 '   validation (#209).
 '
 ' INPUTS
+'   DiagnosticCode: declared stable rule identifier from CORE_Config.
+'   FieldName: field concerned, or empty for a rule spanning fields.
 '   Severity: SEV_ERROR, SEV_WARN or SEV_INFO.
 '   SheetName: sheet the message refers to.
 '   Reference: the ID or parameter code concerned; may be empty.
@@ -1359,7 +1361,7 @@ Private Function HeadersMatch( _
                 FoundHeader = TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Value
                 If StrComp(HeaderKey(SafeStr(FoundHeader)), HeaderKey(CStr(Headers(c))), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg DIAG_LAYOUT_HEADER, "", SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
+                    LogMsg DIAG_LAYOUT_HEADER, CStr(Headers(c)), SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
                            "Header must be '" & Headers(c) & "' (found " & DescribeValue(FoundHeader) & _
                            ") - a column was inserted, deleted or moved, or the header renamed.", HeaderRow
                 End If

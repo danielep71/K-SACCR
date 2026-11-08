@@ -193,7 +193,7 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NOTIONAL, -1#
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "negative-notional", SEV_ERROR, DIAG_TR_NOTIONAL_NEGATIVE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "negative-notional", SEV_ERROR, DIAG_TR_NOTIONAL_NEGATIVE, "illustrative"
 
         StartCase "trade-unreadable-date", "N"
         AddSwap "T1"
@@ -495,7 +495,7 @@ TEST_CaseRunner.ExpectChecksCode "negative-notional", SEV_ERROR, DIAG_TR_NOTIONA
         StartMarginedCase "netting-set-ccp-qccp-missing", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "qccp-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "QCCP"
+        TEST_CaseRunner.ExpectChecksCode "qccp-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "QCCP"
         TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, _
                                          "Trade exposure to a CCP of unknown QCCP status: MPOR floor 10 BD", "illustrative"
         TEST_CaseRunner.ExpectChecksLine "weight-unknown", SEV_INFO, "risk weight not stated", "illustrative"
@@ -503,12 +503,12 @@ TEST_CaseRunner.ExpectChecksCode "qccp-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQ
         StartMarginedCase "netting-set-ccp-retained-vm-missing", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", ""
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "retained-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "CCP retains VM"
+        TEST_CaseRunner.ExpectChecksCode "retained-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "CCP retains VM"
 
         StartMarginedCase "netting-set-ccp-qccp-not-a-code", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "X", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "qccp-code", SEV_ERROR, DIAG_NS_FLAG, "illustrative", "QCCP"
+        TEST_CaseRunner.ExpectChecksCode "qccp-code", SEV_ERROR, DIAG_NS_FLAG, "illustrative", "QCCP"
         TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, "Trade exposure to a CCP of unknown QCCP status", _
                                          "illustrative"
 
@@ -517,18 +517,18 @@ TEST_CaseRunner.ExpectChecksCode "qccp-code", SEV_ERROR, DIAG_NS_FLAG, "illustra
         AddSwap "T1"
         SetCcp "Y", "Y"
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "retained-unmargined", SEV_ERROR, DIAG_NS_RETAINS_UNMARGINED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "retained-unmargined", SEV_ERROR, DIAG_NS_RETAINS_UNMARGINED, "illustrative"
 
         StartCase "netting-set-qccp-on-role-n", "N"
         AddSwap "T1"
         SetCcp "Y", ""
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "qccp-role-n", SEV_ERROR, DIAG_NS_QCCP_ROLE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "qccp-role-n", SEV_ERROR, DIAG_NS_QCCP_ROLE, "illustrative"
 
         StartMarginedCase "netting-set-retained-vm-on-role-cm", "CRR", CL_CM, "1", "N", "N"
         SetCcp "", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "retained-role-cm", SEV_ERROR, DIAG_NS_RETAINS_ROLE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "retained-role-cm", SEV_ERROR, DIAG_NS_RETAINS_ROLE, "illustrative"
 
         StartMarginedCase "netting-set-ccp-crr", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", "N"
@@ -561,7 +561,7 @@ TEST_CaseRunner.ExpectChecksCode "retained-role-cm", SEV_ERROR, DIAG_NS_RETAINS_
         SetCcp "Y", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 5#
         ExpectMPOR 10
-TEST_CaseRunner.ExpectChecksCode "override", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "override", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
 
         StartMarginedCase "netting-set-ccp-override-above-floor", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", "N"
@@ -598,7 +598,7 @@ TEST_CaseRunner.ExpectChecksCode "override", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illu
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_MULTI
         AddSwap "T1"
         ExpectStatus "INVALID: multi-level client structure, not supported"
-TEST_CaseRunner.ExpectChecksCode "error", SEV_ERROR, DIAG_NS_MULTILEVEL, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "error", SEV_ERROR, DIAG_NS_MULTILEVEL, "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
         ExpectMPOR 5
@@ -647,7 +647,7 @@ TEST_CaseRunner.ExpectChecksCode "error", SEV_ERROR, DIAG_NS_MULTILEVEL, "illust
         StartMarginedCase "netting-set-clearing-member-override-below-floor", "CRR", "CM", "1", "N", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 3#
         ExpectMPOR 5
-TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-override-above-floor", "CRR", "CM", "1", "N", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 7#
@@ -671,7 +671,7 @@ TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illus
             AddSwap "T" & i
         Next i
         ExpectStatus "VALID"
-TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_LARGE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_LARGE, "illustrative"
 
     'Margin-agreement structures the engine does not model (#39) are
     'declared and rejected [CRE52.74, CRE52.75; CRR Art. 274(4), 275(3)].
@@ -725,7 +725,7 @@ TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_LARGE, "illustrati
 
         StartMarginedCase "netting-set-remargin-zero", "CRR", "N", "0", "N", "N"
         ExpectMPOR 10
-TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_REMARGIN_FLOOR, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_REMARGIN_FLOOR, "illustrative"
 
     'Remargining boundaries (#147): half a day is not a whole number, 10000
     'is the highest accepted frequency (MPOR 10 + 10000 - 1), 10001 is above
@@ -763,21 +763,21 @@ TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_REMARGIN_FLOOR, "i
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), 1.5
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "run-class-what-if-zero-factor", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EQ_INDEX"), TableCol(NM_SF_TABLE, 4), 0#
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "run-class-what-if-alpha-override", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_ALPHA, 1.2
         AddSwap "T1"
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "fx-reporting-currency-rate-not-one", "N"
         AddSwap "T1"
@@ -841,7 +841,7 @@ TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustra
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "Y"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "two-mtm-legs", SEV_ERROR, DIAG_ECON_MTM_COUNT, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "two-mtm-legs", SEV_ERROR, DIAG_ECON_MTM_COUNT, "illustrative"
 
         StartCase "legs-repeated-mtm", "N"
         AddEquityForward "L1", "30"
@@ -849,7 +849,7 @@ TEST_CaseRunner.ExpectChecksCode "two-mtm-legs", SEV_ERROR, DIAG_ECON_MTM_COUNT,
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "N"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "repeated-mtm", SEV_ERROR, DIAG_ECON_MTM_VALUE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "repeated-mtm", SEV_ERROR, DIAG_ECON_MTM_VALUE, "illustrative"
 
         StartCase "legs-no-mtm-leg", "N"
         AddEquityForward "L1", "30"
@@ -866,7 +866,7 @@ TEST_CaseRunner.ExpectChecksCode "repeated-mtm", SEV_ERROR, DIAG_ECON_MTM_VALUE,
         SetLeg 2, "E1", "N"
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NS, "NS2"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "netting-sets", SEV_ERROR, DIAG_ECON_NETTING_SET, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "netting-sets", SEV_ERROR, DIAG_ECON_NETTING_SET, "illustrative"
 
         StartCase "legs-linear-product-split", "N"
         AddSwap "L1"
@@ -875,7 +875,7 @@ TEST_CaseRunner.ExpectChecksCode "netting-sets", SEV_ERROR, DIAG_ECON_NETTING_SE
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "N"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "linear-split", SEV_ERROR, DIAG_ECON_ASSET_CLASS, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "linear-split", SEV_ERROR, DIAG_ECON_ASSET_CLASS, "illustrative"
 
         StartCase "legs-option-structure", "N"
         AddEquityCall "L1", "Long", "100", "30"
@@ -904,7 +904,7 @@ TEST_CaseRunner.ExpectChecksCode "linear-split", SEV_ERROR, DIAG_ECON_ASSET_CLAS
         AddSwap "T1"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_ECON, CVErr(xlErrNA)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "economic-id-error", SEV_ERROR, DIAG_ECON_ID, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "economic-id-error", SEV_ERROR, DIAG_ECON_ID, "illustrative"
 
         StartCase "legs-mtm-flag-error", "N"
         AddEquityForward "L1", "30"
@@ -913,7 +913,7 @@ TEST_CaseRunner.ExpectChecksCode "economic-id-error", SEV_ERROR, DIAG_ECON_ID, "
         SetLeg 2, "E1", "N"
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_MTMLEG, CVErr(xlErrNA)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "mtm-flag-error", SEV_ERROR, DIAG_ECON_MTM_FLAG, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "mtm-flag-error", SEV_ERROR, DIAG_ECON_MTM_FLAG, "illustrative"
 
     'Settled-to-market trades (#360). The next reset date must be after the
     'reporting date and not after the maturity as entered; a reset on the
@@ -925,7 +925,7 @@ TEST_CaseRunner.ExpectChecksCode "mtm-flag-error", SEV_ERROR, DIAG_ECON_MTM_FLAG
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", DateSerial(2026, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "reset-on-date", SEV_ERROR, DIAG_TR_RESET_PAST, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "reset-on-date", SEV_ERROR, DIAG_TR_RESET_PAST, "illustrative"
 
         StartCase "stm-reset-before-reporting-date", "N"
         AddEquityForward "T1", "0"
@@ -936,7 +936,7 @@ TEST_CaseRunner.ExpectChecksCode "reset-on-date", SEV_ERROR, DIAG_TR_RESET_PAST,
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", DateSerial(2031, 10, 1)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "reset-after-maturity", SEV_ERROR, DIAG_TR_RESET_MATURITY, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "reset-after-maturity", SEV_ERROR, DIAG_TR_RESET_MATURITY, "illustrative"
 
         StartCase "stm-reset-on-maturity", "N"
         AddEquityForward "T1", "0"
@@ -954,13 +954,13 @@ TEST_CaseRunner.ExpectChecksCode "reset-after-maturity", SEV_ERROR, DIAG_TR_RESE
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", Empty
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "no-reset", SEV_ERROR, DIAG_TR_RESET_MISSING, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "no-reset", SEV_ERROR, DIAG_TR_RESET_MISSING, "illustrative"
 
         StartCase "settlement-blank-with-reset", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, Empty, DateSerial(2026, 10, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "blank-with-reset", SEV_ERROR, DIAG_TR_RESET_NONSTM, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "blank-with-reset", SEV_ERROR, DIAG_TR_RESET_NONSTM, "illustrative"
 
         StartCase "settlement-n-with-reset", "N"
         AddEquityForward "T1", "0"
@@ -971,19 +971,19 @@ TEST_CaseRunner.ExpectChecksCode "blank-with-reset", SEV_ERROR, DIAG_TR_RESET_NO
         AddEquityForward "T1", "0"
         SetSettlement 1, "X", Empty
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "not-a-code", SEV_ERROR, DIAG_TR_SETTLEMENT, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "not-a-code", SEV_ERROR, DIAG_TR_SETTLEMENT, "illustrative"
 
         StartCase "settlement-type-error", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, CVErr(xlErrNA), DateSerial(2026, 10, 1)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "type-error", SEV_ERROR, DIAG_TR_TEXT, "illustrative", "Settlement type"
+        TEST_CaseRunner.ExpectChecksCode "type-error", SEV_ERROR, DIAG_TR_TEXT, "illustrative", "Settlement type"
 
         StartCase "stm-reset-not-a-date", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", "soon"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "reset-not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "next reset date"
+        TEST_CaseRunner.ExpectChecksCode "reset-not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "next reset date"
 
         StartCase "stm-daily-lower-case", "N"
         AddEquityForward "T1", "0"
@@ -1003,7 +1003,7 @@ TEST_CaseRunner.ExpectChecksCode "reset-not-a-date", SEV_ERROR, DIAG_TR_DATE, "i
         SetSettlement 1, "STM", DateSerial(2026, 10, 1)
         ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
                      "not supported"
-TEST_CaseRunner.ExpectChecksCode "margined-stm", SEV_ERROR, DIAG_NS_STM_MARGINED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "margined-stm", SEV_ERROR, DIAG_NS_STM_MARGINED, "illustrative"
 
         StartMarginedCase "stm-margined-all-bcbs", "BCBS", "N", "1", "N", "N"
         SetSettlement 1, "STM", DateSerial(2026, 10, 1)
@@ -1039,7 +1039,7 @@ TEST_CaseRunner.ExpectChecksCode "margined-stm", SEV_ERROR, DIAG_NS_STM_MARGINED
         SetLeg 2, "E1", "N"
         SetSettlement 1, "STM", DateSerial(2026, 10, 30)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "settlement-differ", SEV_ERROR, DIAG_ECON_SETTLEMENT, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "settlement-differ", SEV_ERROR, DIAG_ECON_SETTLEMENT, "illustrative"
 
         StartCase "legs-reset-differ", "N"
         AddEquityCall "L1", "Long", "100", "30"
@@ -1049,7 +1049,7 @@ TEST_CaseRunner.ExpectChecksCode "settlement-differ", SEV_ERROR, DIAG_ECON_SETTL
         SetSettlement 1, "STM", DateSerial(2026, 10, 30)
         SetSettlement 2, "STM", DateSerial(2026, 11, 30)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "reset-differ", SEV_ERROR, DIAG_ECON_RESET, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "reset-differ", SEV_ERROR, DIAG_ECON_RESET, "illustrative"
 
         StartCase "separate-trades-settlement-differ", "N"
         AddEquityForward "T1", "0"
@@ -1087,7 +1087,7 @@ TEST_CaseRunner.ExpectChecksCode "reset-differ", SEV_ERROR, DIAG_ECON_RESET, "il
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_END, "'30/09/2031"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MAT, "'30/09/2031"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "maturity date"
+        TEST_CaseRunner.ExpectChecksCode "not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "maturity date"
 
         StartCase "reporting-date-iso-text", "N"
         AddSwap "T1"
@@ -1151,7 +1151,7 @@ TEST_CaseRunner.ExpectChecksCode "not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustr
         StartCase "trade-maturing-on-reporting-date", "N"
         AddSwapTo "T1", VALUATION
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "matured", SEV_ERROR, DIAG_TR_MATURED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "matured", SEV_ERROR, DIAG_TR_MATURED, "illustrative"
 
         StartCase "trade-starting-on-reporting-date", "N"
         AddSwap "T1"
@@ -1164,13 +1164,13 @@ TEST_CaseRunner.ExpectChecksCode "matured", SEV_ERROR, DIAG_TR_MATURED, "illustr
         AddEquityCall "T1", "Long", "100", "30"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2026, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "expired", SEV_ERROR, DIAG_TR_EXPIRED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "expired", SEV_ERROR, DIAG_TR_EXPIRED, "illustrative"
 
         StartCase "option-expiry-after-maturity", "N"
         AddEquityCall "T1", "Long", "100", "30"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2028, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "expiry-after-maturity", SEV_ERROR, DIAG_TR_EXPIRY_MATURITY, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "expiry-after-maturity", SEV_ERROR, DIAG_TR_EXPIRY_MATURITY, "illustrative"
 
     'Option dates of a swaption (#40): S is the start of the underlying, so
     'an IR option without a start date is rejected instead of taking S = 0.
@@ -1183,7 +1183,7 @@ TEST_CaseRunner.ExpectChecksCode "expiry-after-maturity", SEV_ERROR, DIAG_TR_EXP
         StartCase "ir-option-start-required", "N"
         AddSwaption "T1", ""
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "start-required", SEV_ERROR, DIAG_TR_START_REQUIRED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "start-required", SEV_ERROR, DIAG_TR_START_REQUIRED, "illustrative"
 
         StartCase "ir-option-bermudan-dates", "N"
         AddSwaption "T1", "2027-09-30"
@@ -1200,12 +1200,12 @@ TEST_CaseRunner.ExpectChecksCode "start-required", SEV_ERROR, DIAG_TR_START_REQU
         StartCase "fx-pair-unknown-currency", "N"
         AddFxForwardOn "T1", "EUR/XYZ", "Long"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "unknown-currency", SEV_ERROR, DIAG_TR_FX_PAIR_RATE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "unknown-currency", SEV_ERROR, DIAG_TR_FX_PAIR_RATE, "illustrative"
 
         StartCase "fx-notional-outside-pair", "N"
         AddFxForwardOn "T1", "USD/JPY", "Long"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "notional-outside-pair", SEV_ERROR, DIAG_TR_FX_NOTIONAL, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "notional-outside-pair", SEV_ERROR, DIAG_TR_FX_NOTIONAL, "illustrative"
 
         StartCase "fx-reversed-pair-linear", "N"
         AddFxForwardOn "T1", "EUR/USD", "Long"
@@ -1226,7 +1226,7 @@ TEST_CaseRunner.ExpectChecksCode "notional-outside-pair", SEV_ERROR, DIAG_TR_FX_
         StartCase "fx-option-reversed-pair", "N"
         AddFxOption "T1", "USD/EUR", "1.1", "1.1", "EUR"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "quote-order", SEV_ERROR, DIAG_TR_FX_QUOTE, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "quote-order", SEV_ERROR, DIAG_TR_FX_QUOTE, "illustrative"
 
         StartCase "fx-option-market-order", "N"
         AddFxOption "T1", "EUR/USD", "1.1", "1.1", "EUR"
@@ -1253,14 +1253,14 @@ TEST_CaseRunner.ExpectChecksCode "quote-order", SEV_ERROR, DIAG_TR_FX_QUOTE, "il
             AddSwap "T1"
             TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(TextFields(f)), CVErr(xlErrNA)
             ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_TR_TEXT, "illustrative", CStr(TextFields(f + 1))
+            TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_TR_TEXT, "illustrative", CStr(TextFields(f + 1))
         Next f
 
         StartCase "text-error-netting-set-regime", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, CVErr(xlErrNA)
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
-TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_NS_REGIME, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_NS_REGIME, "illustrative"
 
         StartCase "text-error-params-regime", "N"
         AddSwap "T1"
@@ -1347,7 +1347,7 @@ TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_NS_REGIME, "illu
         TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "CRR"
         AddSwap "T1"
         TEST_CaseRunner.RunCase
-TEST_CaseRunner.ExpectChecksCode "reserved-id", SEV_ERROR, DIAG_NS_ID_RESERVED, "illustrative"
+        TEST_CaseRunner.ExpectChecksCode "reserved-id", SEV_ERROR, DIAG_NS_ID_RESERVED, "illustrative"
         ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
 
         TEST_CaseRunner.EndSuite ""
