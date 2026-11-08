@@ -226,6 +226,19 @@ def check_dependabot(config: Any, bug_form: str) -> list[str]:
     return findings
 
 
+def check_triage_runtimes(workflows: Docs) -> list[str]:
+    """Triage and static checks use the same explicitly installed exact runtimes."""
+    findings = []
+    for name, job_id in (("issue-triage.yml", "audit"), (INTEGRITY_FILE, INTEGRITY_JOB)):
+        for action, key, version in (("setup-python", "python-version", "3.10.19"),
+                                      ("setup-node", "node-version", "22.21.1")):
+            configured = [step for step in steps(jobs(workflows.get(name, {})).get(job_id, {}))
+                          if str(step.get("uses", "")).startswith(f"actions/{action}@")]
+            if len(configured) != 1 or (configured[0].get("with") or {}).get(key) != version:
+                findings.append(f"{name}: requires one {action} step with {key}: {version}")
+    return findings
+
+
 def all_findings(root: Path = ROOT) -> list[str]:
     workflows = load_workflows(root / ".github" / "workflows")
     governance = (root / "docs" / "GOVERNANCE.md").read_text(encoding="utf-8")
@@ -237,6 +250,7 @@ def all_findings(root: Path = ROOT) -> list[str]:
         lambda: check_integrity_job(workflows, governance),
         lambda: check_label_sync(workflows),
         lambda: check_milestones(workflows),
+        lambda: check_triage_runtimes(workflows),
         lambda: check_dependabot(load_yaml(root / ".github" / "dependabot.yml"), bug_form),
     ]
     return [finding for check in checks for finding in check()]

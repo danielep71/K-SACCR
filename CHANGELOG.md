@@ -97,6 +97,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Check open issues for closed milestones, invalid or conflicting target dates,
+  and targets beyond milestone deadlines (#539). Add an optional target-date
+  form field and pin the triage and integrity workflow runtimes explicitly.
+
 - Refuse all label synchronization changes when any label scheduled for deletion
   is still used by an open or closed issue or PR (#540). Dry-run and drift reports
   identify the labels and usage counts; failed usage reads also prevent mutation.
