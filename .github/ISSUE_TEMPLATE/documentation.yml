@@ -77,3 +77,12 @@ body:
           required: true
         - label: This request contains no secrets, private links or real portfolio data.
           required: true
+
+  - type: input
+    id: target_date
+    attributes:
+      label: "📅 Target date"
+      description: "Optional planning date in YYYY-MM-DD format, no later than the milestone deadline."
+      placeholder: "2027-01-15"
+    validations:
+      required: false

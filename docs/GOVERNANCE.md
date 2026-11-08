@@ -142,6 +142,14 @@ audits every open issue:
 - `blocked` only with an open prerequisite or an external condition, and
   always with an external condition.
 
+The audit reports open issues in closed milestones and target dates after the
+milestone deadline (equality is allowed). The optional **Target date** form field
+uses `YYYY-MM-DD`; existing **Target completion date** / **Target date** entries
+under **Planning dates** are also recognized. Invalid or conflicting target dates
+are findings; absent dates remain optional. Dates elsewhere in the body are not
+interpreted as planning fields. Triage and repository integrity explicitly install
+Python 3.10.19 and Node 22.21.1, with setup actions pinned by commit SHA.
+
 Traffic alerts need no milestone or dependency section. The workflow never
 changes an issue: a failed run lists the findings, and I resolve each by hand.
 Issue events run it from `main`, so a change to it takes effect after the next
