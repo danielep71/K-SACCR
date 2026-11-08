@@ -206,6 +206,16 @@ End Sub''')
             source = module('CORE_A', f'Public Event Changed(ByVal columns As {type_name})')
             self.assertEqual(dependencies.analyze({'src/core/CORE_A.cls': source}, [])['status'], expected)
 
+    def test_project_symbols_take_precedence_over_host_fallback(self) -> None:
+        for name in ('Columns', 'Range', 'Worksheet'):
+            sources = {'src/core/CORE_A.bas': module('CORE_A', f'Public Sub {name}()\nEnd Sub'),
+                       'src/core/CORE_B.bas': module('CORE_B', f'Sub Run()\n{name}\nEnd Sub')}
+            self.assertEqual(dependencies.analyze(sources, [])['status'], 'pass')
+            sources['src/core/CORE_B.bas'] = module('CORE_B', f'Sub Run()\nDim x As {name}\nEnd Sub')
+            self.assertEqual(dependencies.analyze(sources, [])['status'], 'fail')
+        source = module('CORE_A', 'Private Type Worksheet\nx As Long\nEnd Type\nSub Run()\nDim x As Worksheet\nEnd Sub')
+        self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], 'pass')
+
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

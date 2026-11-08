@@ -25,12 +25,13 @@ def layer(path: str) -> str:
     return parts[1] if parts[0] == "src" else parts[0]
 
 
-def symbols(modules: list[Module]) -> dict[str, set[str]]:
+def symbols(modules: list[Module], *, types_only: bool = False) -> dict[str, set[str]]:
     owners: dict[str, set[str]] = {}
     for module in modules:
         owners.setdefault(module.name.casefold(), set()).add(module.path)
         for name, member in module.members.items():
-            if member.visibility != "private" and module.kind == "standard":
+            if (member.visibility != "private" and module.kind == "standard"
+                    and (not types_only or member.kind in {"type", "enum"})):
                 owners.setdefault(name, set()).add(module.path)
     return owners
 
@@ -47,7 +48,8 @@ def event_parameters(tokens: list[Tok]) -> set[str]:
     return {p.name.casefold() for p in parse_params(tokens[opening + 1:closing])}
 
 
-def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> list[dict[str, Any]]:
+def module_edges(module: Module, source: str, owners: dict[str, set[str]],
+                 type_owners: dict[str, set[str]]) -> list[dict[str, Any]]:
     edges = []
     procedures = module.procs + [member.accessors["declare"] for member in module.members.values()
                                  if "declare" in member.accessors]
@@ -64,15 +66,18 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> li
                           and (tokens[1].is_kw("as") or
                                (tokens[1].is_op("(") and any(t.is_kw("as") for t in tokens)))
                           else None)
-            type_names = {tokens[i + 1].low for i, t in enumerate(tokens[:-1])
+            type_tokens = {id(tokens[i + 1]) for i, t in enumerate(tokens[:-1])
                           if t.is_kw("as", "new")}
             for token in references(tokens):
                 if field_name is not None and token is tokens[0]:
                     continue
-                if token.low not in type_names and (token.low in local_names or token.low in module.members):
+                is_type = id(token) in type_tokens
+                own = module.members.get(token.low)
+                if (not is_type and token.low in local_names) or (own is not None and
+                        (not is_type or own.kind in {"type", "enum"})):
                     continue
-                targets = owners.get(token.low, set())
-                if token.low in HOST_OBJECTS:
+                targets = (type_owners if is_type else owners).get(token.low, set())
+                if not targets and token.low in HOST_OBJECTS:
                     targets = {"host:" + token.low}
                 for target in targets:
                     target_layer = "host" if target.startswith("host:") else layer(target)
@@ -96,9 +101,10 @@ def analyze(sources: dict[str, str], exceptions: list[dict[str, str]]) -> dict[s
     for env, files in variants.items():
         modules = [parse_module(path, text) for path, text in files.items()]
         owners = symbols(modules)
+        type_owners = symbols(modules, types_only=True)
         for module in modules:
             failures.extend(module.failures)
-            for edge in module_edges(module, files[module.path], owners):
+            for edge in module_edges(module, files[module.path], owners, type_owners):
                 target = exemptions if (edge["path"], edge["target"]) in accepted else violations
                 target.append({**edge, "environment": env})
     return {"status": "fail" if violations or failures else "pass", "findings": violations,

@@ -9,7 +9,7 @@
     },
     {
       "source": "src/core/CORE_Engine.bas",
-      "target": "host:thisworkbook",
+      "target": "src/workbook/ThisWorkbook.cls",
       "issue": "#220",
       "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
     },
@@ -33,7 +33,7 @@
     },
     {
       "source": "src/core/CORE_Util.bas",
-      "target": "host:thisworkbook",
+      "target": "src/workbook/ThisWorkbook.cls",
       "issue": "#220",
       "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
     },
