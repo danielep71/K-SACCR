@@ -1,0 +1,860 @@
+{
+  "schema_version": 1,
+  "codes": {
+    "RUN-ERROR": {
+      "constant": "DIAG_RUN_ERROR",
+      "description": "Run stopped by error  :",
+      "status": "active"
+    },
+    "PRM-NAME": {
+      "constant": "DIAG_PRM_NAME",
+      "description": "Workbook name '",
+      "status": "active"
+    },
+    "PRM-DUP-SAME": {
+      "constant": "DIAG_PRM_DUP_SAME",
+      "description": "Parameter listed twice with the same value (rows",
+      "status": "active"
+    },
+    "PRM-DUP": {
+      "constant": "DIAG_PRM_DUP",
+      "description": "Parameter listed twice with different values (rows",
+      "status": "active"
+    },
+    "LAYOUT-SHEET": {
+      "constant": "DIAG_LAYOUT_SHEET",
+      "description": "Sheet ' ' not found.",
+      "status": "active"
+    },
+    "LAYOUT-PARAM-NAME": {
+      "constant": "DIAG_LAYOUT_PARAM_NAME",
+      "description": "Workbook name '",
+      "status": "active"
+    },
+    "LAYOUT-PARAM-POSITION": {
+      "constant": "DIAG_LAYOUT_PARAM_POSITION",
+      "description": "Workbook name '",
+      "status": "active"
+    },
+    "LAYOUT-PARAM-ROW": {
+      "constant": "DIAG_LAYOUT_PARAM_ROW",
+      "description": "Workbook names ' ' and '",
+      "status": "active"
+    },
+    "LAYOUT-HEADER-NAME": {
+      "constant": "DIAG_LAYOUT_HEADER_NAME",
+      "description": "Workbook name '",
+      "status": "active"
+    },
+    "LAYOUT-HEADER": {
+      "constant": "DIAG_LAYOUT_HEADER",
+      "description": "A table header differs from the required column name.",
+      "status": "active"
+    },
+    "PRM-RANGE": {
+      "constant": "DIAG_PRM_RANGE",
+      "description": "must be   (found  ).",
+      "status": "active"
+    },
+    "PRM-DEFAULT": {
+      "constant": "DIAG_PRM_DEFAULT",
+      "description": "Parameter missing - default   used.",
+      "status": "active"
+    },
+    "PRM-NUMBER": {
+      "constant": "DIAG_PRM_NUMBER",
+      "description": "Parameter must be a number (found  ).",
+      "status": "active"
+    },
+    "LAYOUT-DATE-SYSTEM": {
+      "constant": "DIAG_LAYOUT_DATE_SYSTEM",
+      "description": "The workbook uses the 1904 date system, which is not supported.",
+      "status": "active"
+    },
+    "PRM-ASOF": {
+      "constant": "DIAG_PRM_ASOF",
+      "description": "Reporting date missing or not a date (enter a date,",
+      "status": "active"
+    },
+    "PRM-CURRENCY-MISSING": {
+      "constant": "DIAG_PRM_CURRENCY_MISSING",
+      "description": "Reporting currency missing.",
+      "status": "active"
+    },
+    "PRM-CURRENCY": {
+      "constant": "DIAG_PRM_CURRENCY",
+      "description": "Reporting currency must be three letters A to Z,",
+      "status": "active"
+    },
+    "PRM-ALPHA": {
+      "constant": "DIAG_PRM_ALPHA",
+      "description": "Alpha must be greater than zero.",
+      "status": "active"
+    },
+    "PRM-BOOLEAN": {
+      "constant": "DIAG_PRM_BOOLEAN",
+      "description": "Parameter must be TRUE or FALSE (found",
+      "status": "active"
+    },
+    "PRM-REGIME": {
+      "constant": "DIAG_PRM_REGIME",
+      "description": "Regime must be BCBS or CRR (found an error value).",
+      "status": "active"
+    },
+    "PRM-REGIME-DEFAULT": {
+      "constant": "DIAG_PRM_REGIME_DEFAULT",
+      "description": "Regime missing - CRR assumed.",
+      "status": "active"
+    },
+    "PRM-IR-CORRELATION": {
+      "constant": "DIAG_PRM_IR_CORRELATION",
+      "description": "The IR bucket correlations  ,",
+      "status": "active"
+    },
+    "PRM-READ": {
+      "constant": "DIAG_PRM_READ",
+      "description": "Cannot read parameters:",
+      "status": "active"
+    },
+    "SF-TABLE": {
+      "constant": "DIAG_SF_TABLE",
+      "description": "Supervisory factor table not found (workbook name '",
+      "status": "active"
+    },
+    "SF-NUMBER": {
+      "constant": "DIAG_SF_NUMBER",
+      "description": "Supervisory factor, correlation and volatility must be numbers.",
+      "status": "active"
+    },
+    "SF-RANGE": {
+      "constant": "DIAG_SF_RANGE",
+      "description": "Supervisory factor and correlation must be from 0 to 1 and",
+      "status": "active"
+    },
+    "SF-DUP-SAME": {
+      "constant": "DIAG_SF_DUP_SAME",
+      "description": "Supervisory factor key listed twice with the same values -",
+      "status": "active"
+    },
+    "SF-DUP": {
+      "constant": "DIAG_SF_DUP",
+      "description": "Supervisory factor key listed twice with different values.",
+      "status": "active"
+    },
+    "SF-EMPTY": {
+      "constant": "DIAG_SF_EMPTY",
+      "description": "Supervisory factor table is empty.",
+      "status": "active"
+    },
+    "FX-TABLE": {
+      "constant": "DIAG_FX_TABLE",
+      "description": "FX table not found (workbook name ' ').",
+      "status": "active"
+    },
+    "FX-RATE": {
+      "constant": "DIAG_FX_RATE",
+      "description": "FX rate missing or not positive - currency ignored.",
+      "status": "active"
+    },
+    "FX-DUP-SAME": {
+      "constant": "DIAG_FX_DUP_SAME",
+      "description": "Currency listed twice with the same rate - first row used.",
+      "status": "active"
+    },
+    "FX-DUP": {
+      "constant": "DIAG_FX_DUP",
+      "description": "Currency listed twice with different rates.",
+      "status": "active"
+    },
+    "FX-REPORTING-RATE": {
+      "constant": "DIAG_FX_REPORTING_RATE",
+      "description": "Rate of the reporting currency must be 1 (found",
+      "status": "active"
+    },
+    "TABLE-KEY": {
+      "constant": "DIAG_TABLE_KEY",
+      "description": "row has a value but no key - not read.",
+      "status": "active"
+    },
+    "TABLE-GAP": {
+      "constant": "DIAG_TABLE_GAP",
+      "description": "row below a blank row - not read;",
+      "status": "active"
+    },
+    "RUN-WHATIF": {
+      "constant": "DIAG_RUN_WHATIF",
+      "description": "What-if:",
+      "status": "active"
+    },
+    "NS-EMPTY": {
+      "constant": "DIAG_NS_EMPTY",
+      "description": "No netting sets defined.",
+      "status": "active"
+    },
+    "NS-ID-MISSING": {
+      "constant": "DIAG_NS_ID_MISSING",
+      "description": "Row has netting-set data but no ID - row ignored.",
+      "status": "active"
+    },
+    "NS-ID-RESERVED": {
+      "constant": "DIAG_NS_ID_RESERVED",
+      "description": "Netting set ID   is reserved for a TOTAL row on Results - row ignored.",
+      "status": "active"
+    },
+    "NS-DUP-ID": {
+      "constant": "DIAG_NS_DUP_ID",
+      "description": "Netting set ID listed twice - row ignored and EAD withheld.",
+      "status": "active"
+    },
+    "NS-REMARGIN": {
+      "constant": "DIAG_NS_REMARGIN",
+      "description": "Remargin frequency must be a whole number of business days",
+      "status": "active"
+    },
+    "NS-REMARGIN-FLOOR": {
+      "constant": "DIAG_NS_REMARGIN_FLOOR",
+      "description": "Remargin frequency",
+      "status": "active"
+    },
+    "NS-TH": {
+      "constant": "DIAG_NS_TH",
+      "description": "Threshold TH must not be negative (found  ).",
+      "status": "active"
+    },
+    "NS-MTA": {
+      "constant": "DIAG_NS_MTA",
+      "description": "MTA must not be negative (found  ).",
+      "status": "active"
+    },
+    "NS-ALPHA": {
+      "constant": "DIAG_NS_ALPHA",
+      "description": "Alpha override must be greater than zero (found",
+      "status": "active"
+    },
+    "NS-REGIME": {
+      "constant": "DIAG_NS_REGIME",
+      "description": "Regime override must be BCBS or CRR (found",
+      "status": "active"
+    },
+    "NS-VM-RECEIVED": {
+      "constant": "DIAG_NS_VM_RECEIVED",
+      "description": "VM received on an unmargined netting set: a counterparty",
+      "status": "active"
+    },
+    "NS-VM-POSTED": {
+      "constant": "DIAG_NS_VM_POSTED",
+      "description": "VM posted on an unmargined CRR netting set: under CRR",
+      "status": "active"
+    },
+    "NS-ONEWAY": {
+      "constant": "DIAG_NS_ONEWAY",
+      "description": "VM posted under a one-way margin agreement: unmargined",
+      "status": "active"
+    },
+    "NS-MULTILEVEL": {
+      "constant": "DIAG_NS_MULTILEVEL",
+      "description": "A multi-level client structure is not supported",
+      "status": "active"
+    },
+    "NS-RETAINS-UNMARGINED": {
+      "constant": "DIAG_NS_RETAINS_UNMARGINED",
+      "description": "CCP retains VM is Y on an unmargined netting set:",
+      "status": "active"
+    },
+    "NS-QCCP-ROLE": {
+      "constant": "DIAG_NS_QCCP_ROLE",
+      "description": "QCCP applies only to Client clearing role CCP -",
+      "status": "active"
+    },
+    "NS-RETAINS-ROLE": {
+      "constant": "DIAG_NS_RETAINS_ROLE",
+      "description": "CCP retains VM applies only to Client clearing role",
+      "status": "active"
+    },
+    "NS-MARGIN-MULTIPLE": {
+      "constant": "DIAG_NS_MARGIN_MULTIPLE",
+      "description": "Several margin agreements, or margined and unmargined",
+      "status": "active"
+    },
+    "NS-MARGIN-SHARED": {
+      "constant": "DIAG_NS_MARGIN_SHARED",
+      "description": "One margin agreement over several netting sets is not",
+      "status": "active"
+    },
+    "NS-MPOR": {
+      "constant": "DIAG_NS_MPOR",
+      "description": "MPOR override must be a whole number of business days",
+      "status": "active"
+    },
+    "NS-MPOR-INFO": {
+      "constant": "DIAG_NS_MPOR_INFO",
+      "description": ".",
+      "status": "active"
+    },
+    "NS-MPOR-FLOOR": {
+      "constant": "DIAG_NS_MPOR_FLOOR",
+      "description": "MPOR override",
+      "status": "active"
+    },
+    "NS-CLEARING-UNMARGINED": {
+      "constant": "DIAG_NS_CLEARING_UNMARGINED",
+      "description": "Client clearing role   on an unmargined",
+      "status": "active"
+    },
+    "NS-CCP-UNMARGINED": {
+      "constant": "DIAG_NS_CCP_UNMARGINED",
+      "description": "on an unmargined netting set: no MPOR",
+      "status": "active"
+    },
+    "NS-NONE-VALID": {
+      "constant": "DIAG_NS_NONE_VALID",
+      "description": "No valid netting sets.",
+      "status": "active"
+    },
+    "NS-FLAG": {
+      "constant": "DIAG_NS_FLAG",
+      "description": "must be Y or N (found  ).",
+      "status": "active"
+    },
+    "NS-CCP-FLAG-REQUIRED": {
+      "constant": "DIAG_NS_CCP_FLAG_REQUIRED",
+      "description": "(Y/N) is required for Client clearing role CCP.",
+      "status": "active"
+    },
+    "NS-CODE": {
+      "constant": "DIAG_NS_CODE",
+      "description": "must be  / ,",
+      "status": "active"
+    },
+    "NS-NUMBER": {
+      "constant": "DIAG_NS_NUMBER",
+      "description": "must be a number (found  ).",
+      "status": "active"
+    },
+    "TR-DATE": {
+      "constant": "DIAG_TR_DATE",
+      "description": "is not a date (found  )",
+      "status": "active"
+    },
+    "TR-TEXT": {
+      "constant": "DIAG_TR_TEXT",
+      "description": "must be text or blank (found an error value)",
+      "status": "active"
+    },
+    "ECON-NETTING-SET": {
+      "constant": "DIAG_ECON_NETTING_SET",
+      "description": "its legs are in different netting sets ( ,",
+      "status": "active"
+    },
+    "ECON-SETTLEMENT": {
+      "constant": "DIAG_ECON_SETTLEMENT",
+      "description": "its legs have different settlement types (",
+      "status": "active"
+    },
+    "ECON-RESET": {
+      "constant": "DIAG_ECON_RESET",
+      "description": "its legs have different next reset dates",
+      "status": "active"
+    },
+    "ECON-ID": {
+      "constant": "DIAG_ECON_ID",
+      "description": "Economic trade ID must be text or blank (found an error value on row",
+      "status": "active"
+    },
+    "ECON-MTM-FLAG": {
+      "constant": "DIAG_ECON_MTM_FLAG",
+      "description": "MtM leg must be Y or N (found an error value on row",
+      "status": "active"
+    },
+    "ECON-WHOLE-MTM": {
+      "constant": "DIAG_ECON_WHOLE_MTM",
+      "description": "a trade without an Economic trade ID carries its own MtM, so",
+      "status": "active"
+    },
+    "ECON-MTM-COUNT": {
+      "constant": "DIAG_ECON_MTM_COUNT",
+      "description": "exactly one leg must be the MtM leg (MtM leg = Y), found",
+      "status": "active"
+    },
+    "ECON-MTM-VALUE": {
+      "constant": "DIAG_ECON_MTM_VALUE",
+      "description": "leg   is not the MtM leg, so its MtM",
+      "status": "active"
+    },
+    "ECON-ASSET-CLASS": {
+      "constant": "DIAG_ECON_ASSET_CLASS",
+      "description": "it has   legs in asset class",
+      "status": "active"
+    },
+    "TR-EMPTY": {
+      "constant": "DIAG_TR_EMPTY",
+      "description": "No trades found.",
+      "status": "active"
+    },
+    "TR-ID-MISSING": {
+      "constant": "DIAG_TR_ID_MISSING",
+      "description": "Row has trade data but no Trade ID - trade rejected.",
+      "status": "active"
+    },
+    "TR-DUP-ID": {
+      "constant": "DIAG_TR_DUP_ID",
+      "description": "duplicate Trade ID (first used on row  )",
+      "status": "active"
+    },
+    "TR-NETTING-SET": {
+      "constant": "DIAG_TR_NETTING_SET",
+      "description": "unknown netting set ' '",
+      "status": "active"
+    },
+    "TR-ASSET-CLASS": {
+      "constant": "DIAG_TR_ASSET_CLASS",
+      "description": "asset class must be IR, FX, CR, EQ, CO or OT",
+      "status": "active"
+    },
+    "TR-REFERENCE-MISSING": {
+      "constant": "DIAG_TR_REFERENCE_MISSING",
+      "description": "risk factor / reference missing",
+      "status": "active"
+    },
+    "TR-REFERENCE-CHAR": {
+      "constant": "DIAG_TR_REFERENCE_CHAR",
+      "description": "risk factor / reference must not contain '/' or '#'",
+      "status": "active"
+    },
+    "TR-IR-CURRENCY": {
+      "constant": "DIAG_TR_IR_CURRENCY",
+      "description": "interest-rate risk factor must be a 3-letter currency code such as EUR,",
+      "status": "active"
+    },
+    "TR-INSTRUMENT": {
+      "constant": "DIAG_TR_INSTRUMENT",
+      "description": "instrument type must be Linear, Option or CDO",
+      "status": "active"
+    },
+    "TR-CDO-CLASS": {
+      "constant": "DIAG_TR_CDO_CLASS",
+      "description": "CDO tranches are credit (CR) trades",
+      "status": "active"
+    },
+    "TR-DIRECTION": {
+      "constant": "DIAG_TR_DIRECTION",
+      "description": "direction must be Long or Short",
+      "status": "active"
+    },
+    "TR-LABEL-CHAR": {
+      "constant": "DIAG_TR_LABEL_CHAR",
+      "description": "hedging-set label must not contain '/' or '#'",
+      "status": "active"
+    },
+    "TR-BASIS-LABEL": {
+      "constant": "DIAG_TR_BASIS_LABEL",
+      "description": "basis trade needs a hedging-set label",
+      "status": "active"
+    },
+    "TR-VOL-LABEL": {
+      "constant": "DIAG_TR_VOL_LABEL",
+      "description": "volatility trade needs a hedging-set label",
+      "status": "active"
+    },
+    "TR-NATURE": {
+      "constant": "DIAG_TR_NATURE",
+      "description": "nature must be Standard, Basis or Volatility",
+      "status": "active"
+    },
+    "TR-FACTOR": {
+      "constant": "DIAG_TR_FACTOR",
+      "description": "No supervisory-factor row exists for the asset class/sub-class.",
+      "status": "active"
+    },
+    "TR-OTHER-REGIME": {
+      "constant": "DIAG_TR_OTHER_REGIME",
+      "description": "Other risks (OT) is unavailable under the effective regime.",
+      "status": "active"
+    },
+    "TR-FACTOR-REGIME": {
+      "constant": "DIAG_TR_FACTOR_REGIME",
+      "description": "The supervisory-factor row excludes the effective regime.",
+      "status": "active"
+    },
+    "TR-NOTIONAL-NEGATIVE": {
+      "constant": "DIAG_TR_NOTIONAL_NEGATIVE",
+      "description": "notional must not be negative (use Direction for the sign)",
+      "status": "active"
+    },
+    "TR-NOTIONAL-MISSING": {
+      "constant": "DIAG_TR_NOTIONAL_MISSING",
+      "description": "notional missing",
+      "status": "active"
+    },
+    "TR-NOTIONAL-NUMBER": {
+      "constant": "DIAG_TR_NOTIONAL_NUMBER",
+      "description": "notional must be a number (found  )",
+      "status": "active"
+    },
+    "TR-NOTIONAL-CURRENCY": {
+      "constant": "DIAG_TR_NOTIONAL_CURRENCY",
+      "description": "notional",
+      "status": "active"
+    },
+    "TR-MTM-MISSING": {
+      "constant": "DIAG_TR_MTM_MISSING",
+      "description": "MtM missing (enter 0 if the trade has no value)",
+      "status": "active"
+    },
+    "TR-MTM-NUMBER": {
+      "constant": "DIAG_TR_MTM_NUMBER",
+      "description": "MtM must be a number (found  )",
+      "status": "active"
+    },
+    "TR-MTM-CURRENCY": {
+      "constant": "DIAG_TR_MTM_CURRENCY",
+      "description": "MtM",
+      "status": "active"
+    },
+    "TR-MATURITY-MISSING": {
+      "constant": "DIAG_TR_MATURITY_MISSING",
+      "description": "maturity / end date missing",
+      "status": "active"
+    },
+    "TR-MATURED": {
+      "constant": "DIAG_TR_MATURED",
+      "description": "The trade maturity is on or before the reporting date.",
+      "status": "active"
+    },
+    "TR-DATE-ORDER": {
+      "constant": "DIAG_TR_DATE_ORDER",
+      "description": "end date must be after start date",
+      "status": "active"
+    },
+    "TR-START-REQUIRED": {
+      "constant": "DIAG_TR_START_REQUIRED",
+      "description": "an interest-rate or credit option needs the start date S of its underlying",
+      "status": "active"
+    },
+    "TR-SETTLEMENT": {
+      "constant": "DIAG_TR_SETTLEMENT",
+      "description": "settlement type must be N, STM or blank (found",
+      "status": "active"
+    },
+    "TR-RESET-NONSTM": {
+      "constant": "DIAG_TR_RESET_NONSTM",
+      "description": "a next reset date is given but the settlement type is not STM",
+      "status": "active"
+    },
+    "TR-RESET-MISSING": {
+      "constant": "DIAG_TR_RESET_MISSING",
+      "description": "a settled-to-market trade (STM) needs its next reset date",
+      "status": "active"
+    },
+    "TR-RESET-PAST": {
+      "constant": "DIAG_TR_RESET_PAST",
+      "description": "The STM next reset date is on or before the reporting date.",
+      "status": "active"
+    },
+    "TR-RESET-MATURITY": {
+      "constant": "DIAG_TR_RESET_MATURITY",
+      "description": "next reset date is after the maturity date",
+      "status": "active"
+    },
+    "NS-STM-MARGINED": {
+      "constant": "DIAG_NS_STM_MARGINED",
+      "description": "Trade   is settled-to-market (STM) in a",
+      "status": "active"
+    },
+    "TR-OPTION-TYPE": {
+      "constant": "DIAG_TR_OPTION_TYPE",
+      "description": "option type must be Call or Put",
+      "status": "active"
+    },
+    "TR-EXPIRY-MISSING": {
+      "constant": "DIAG_TR_EXPIRY_MISSING",
+      "description": "option expiry missing",
+      "status": "active"
+    },
+    "TR-EXPIRED": {
+      "constant": "DIAG_TR_EXPIRED",
+      "description": "The option has expired on or before the reporting date.",
+      "status": "active"
+    },
+    "TR-EXPIRY-MATURITY": {
+      "constant": "DIAG_TR_EXPIRY_MATURITY",
+      "description": "option expiry is after the maturity date (M is the latest",
+      "status": "active"
+    },
+    "TR-OPTION-INPUTS": {
+      "constant": "DIAG_TR_OPTION_INPUTS",
+      "description": "option needs underlying price and strike",
+      "status": "active"
+    },
+    "TR-LAMBDA-NUMBER": {
+      "constant": "DIAG_TR_LAMBDA_NUMBER",
+      "description": "lambda must be a number (found  )",
+      "status": "active"
+    },
+    "TR-LAMBDA-IGNORED": {
+      "constant": "DIAG_TR_LAMBDA_IGNORED",
+      "description": "lambda input ignored under CRR - RTS lambda applied",
+      "status": "active"
+    },
+    "TR-SHIFTED-PRICE": {
+      "constant": "DIAG_TR_SHIFTED_PRICE",
+      "description": "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)",
+      "status": "active"
+    },
+    "TR-VOLATILITY": {
+      "constant": "DIAG_TR_VOLATILITY",
+      "description": "supervisory volatility missing for ' '",
+      "status": "active"
+    },
+    "TR-CDO-POINTS": {
+      "constant": "DIAG_TR_CDO_POINTS",
+      "description": "CDO tranche needs attachment and detachment points",
+      "status": "active"
+    },
+    "TR-CDO-RANGE": {
+      "constant": "DIAG_TR_CDO_RANGE",
+      "description": "attachment/detachment must satisfy 0 <= A < D <= 1",
+      "status": "active"
+    },
+    "TR-FX-PAIR": {
+      "constant": "DIAG_TR_FX_PAIR",
+      "description": "FX risk factor must be a currency pair such as EUR/USD",
+      "status": "active"
+    },
+    "TR-FX-PAIR-RATE": {
+      "constant": "DIAG_TR_FX_PAIR_RATE",
+      "description": "A currency in the FX pair has no usable FX rate.",
+      "status": "active"
+    },
+    "TR-FX-NOTIONAL": {
+      "constant": "DIAG_TR_FX_NOTIONAL",
+      "description": "notional currency ' ' is not a currency of the pair",
+      "status": "active"
+    },
+    "TR-FX-QUOTE": {
+      "constant": "DIAG_TR_FX_QUOTE",
+      "description": "FX option must be entered in market quote order as",
+      "status": "active"
+    },
+    "TR-COMMODITY-GROUP": {
+      "constant": "DIAG_TR_COMMODITY_GROUP",
+      "description": "commodity hedging group missing for ' '",
+      "status": "active"
+    },
+    "TR-REFERENCE-CONFLICT": {
+      "constant": "DIAG_TR_REFERENCE_CONFLICT",
+      "description": "Reference ' ' is   here but",
+      "status": "active"
+    },
+    "NS-IR-OFFSET": {
+      "constant": "DIAG_NS_IR_OFFSET",
+      "description": "IRBucketOffset is FALSE, but the",
+      "status": "active"
+    },
+    "NS-LARGE": {
+      "constant": "DIAG_NS_LARGE",
+      "description": "Netting set has",
+      "status": "active"
+    },
+    "NS-INPUT-INCOMPLETE": {
+      "constant": "DIAG_NS_INPUT_INCOMPLETE",
+      "description": "EAD withheld:",
+      "status": "active"
+    },
+    "NS-TRADE-INCOMPLETE": {
+      "constant": "DIAG_NS_TRADE_INCOMPLETE",
+      "description": "EAD withheld:",
+      "status": "active"
+    },
+    "NS-NO-TRADES": {
+      "constant": "DIAG_NS_NO_TRADES",
+      "description": "Netting set has no trades - no EAD.",
+      "status": "active"
+    },
+    "RUN-TOTAL": {
+      "constant": "DIAG_RUN_TOTAL",
+      "description": "TOTAL",
+      "status": "active"
+    },
+    "RUN-CLEAN": {
+      "constant": "DIAG_RUN_CLEAN",
+      "description": "No issues found.",
+      "status": "active"
+    },
+    "IMPORT-SUMMARY": {
+      "constant": "DIAG_IMPORT_SUMMARY",
+      "description": "Staging validation summary.",
+      "status": "active"
+    },
+    "CSV-ENCODING": {
+      "constant": "CSV_ENCODING",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-SYNTAX": {
+      "constant": "CSV_SYNTAX",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-EMPTY": {
+      "constant": "CSV_EMPTY",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-DELIMITER": {
+      "constant": "CSV_OTHER_DELIMITER",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-HEADER-DUPLICATE": {
+      "constant": "CSV_HEADER_DUPLICATE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-HEADER-MISSING": {
+      "constant": "CSV_HEADER_MISSING",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-HEADER-UNKNOWN": {
+      "constant": "CSV_HEADER_UNKNOWN",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-FIELD-COUNT": {
+      "constant": "CSV_FIELD_COUNT",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-BLANK-RECORD": {
+      "constant": "CSV_BLANK_RECORD",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-TOO-MANY-RECORDS": {
+      "constant": "CSV_TOO_MANY_RECORDS",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-TOO-LARGE": {
+      "constant": "CSV_TOO_LARGE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-REQUIRED": {
+      "constant": "CSV_REQUIRED",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-TYPE": {
+      "constant": "CSV_TYPE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-RANGE": {
+      "constant": "CSV_RANGE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ALLOWED": {
+      "constant": "CSV_ALLOWED",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-LENGTH": {
+      "constant": "CSV_LENGTH",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-FORMULA": {
+      "constant": "CSV_FORMULA",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-DUPLICATE-KEY": {
+      "constant": "CSV_DUPLICATE_KEY",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-RESERVED-KEY": {
+      "constant": "CSV_RESERVED_KEY",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ROW-RULE": {
+      "constant": "CSV_ROW_RULE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-NETTING-SET-UNKNOWN": {
+      "constant": "CSV_NS_UNKNOWN",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ECON-MTM-LEG": {
+      "constant": "CSV_ECON_MTM_LEG",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ECON-MTM-VALUE": {
+      "constant": "CSV_ECON_MTM_VALUE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ECON-NETTING-SET": {
+      "constant": "CSV_ECON_NS",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ECON-SETTLEMENT": {
+      "constant": "CSV_ECON_SETTLEMENT",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-ECON-ASSET-CLASS": {
+      "constant": "CSV_ECON_ASSET_CLASS",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-MATURED": {
+      "constant": "CSV_CONTEXT_MATURED",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-EXPIRED": {
+      "constant": "CSV_CONTEXT_EXPIRED",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-RESET": {
+      "constant": "CSV_CONTEXT_RESET",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-CURRENCY": {
+      "constant": "CSV_CONTEXT_CURRENCY",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-PAIR": {
+      "constant": "CSV_CONTEXT_PAIR",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-FACTOR": {
+      "constant": "CSV_CONTEXT_FACTOR",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-REGIME": {
+      "constant": "CSV_CONTEXT_REGIME",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    },
+    "CSV-CONTEXT-PARAMS": {
+      "constant": "STAGING_PARAMS_CODE",
+      "description": "Existing CSV contract diagnostic; meaning unchanged.",
+      "status": "active"
+    }
+  }
+}

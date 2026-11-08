@@ -117,6 +117,15 @@ expected value, and the fixtures it cannot represent, with the reason:
 python tools/rsaccr_crosscheck.py --rscript Rscript --out <folder>
 ```
 
+Exit status is 0 for agreement, 1 for numerical differences and 2 for a missing
+or invalid mapped package quantity (diagnostic on stderr), in both text and
+`--json` modes. Unmapped quantities remain outside comparison. Credit subclasses
+are trimmed and uppercased before rating/index mapping and regime filtering.
+Incomplete option type/price/strike inputs are rejected before R is called.
+Distinct electricity risk factors in one fixture are unsupported: the package
+would collapse them into its single Electricity commodity type. Repeated trades
+on the same normalized electricity reference remain representable.
+
 The comparison uses `max(absolute, relative * abs(expected))`, matching the
 case runner. It includes potential future exposure when an expected file
 requests it. Credit and interest-rate trades whose maturity differs from
@@ -631,3 +640,7 @@ and fixture outcomes remain unchanged by this extraction.
 `test_vba_static_gates.py` supplies valid/defective twins for undeclared names,
 layer inversions, host access, exceptions, conditional compilation and ASCII.
 These gates change no VBA source, workbook or calculation behavior.
+
+## Stable diagnostic registry
+
+`python tools/check_diagnostics.py --root .` checks the [Checks diagnostic contract](../docs/DIAGNOSTICS.md), all engine emission sites, active/retired codes and unused entries. It runs in `tools/check.py`; mutation tests run with the tooling suite.

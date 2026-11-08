@@ -95,7 +95,20 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- Checks diagnostics (#81): append stable Code/Field columns, preserve CSV staging
+  identifiers, emit one row per trade violation, and include distinct codes in
+  silent run/validation results. Add a registry gate and code-based validation
+  assertions; see [diagnostic compatibility notes](docs/DIAGNOSTICS.md).
+
+
 ### Fixed
+
+- Harden the R cross-check translator and comparison (#352): reject distinct
+  electricity references and incomplete options, normalize credit subclasses,
+  report missing mapped results as errors, and return failure on differences.
+  This tooling change does not establish independent workbook validation.
 
 - Add advisory VBA identifier checks, a dependency-direction gate with explicit
   #220 exceptions, and ASCII checks outside string literals (#538). Share lexer

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -49,6 +50,10 @@ TRADE_QUANTITY = {"adjusted_notional": "adjusted_notional", "supervisory_delta":
 
 class Unsupported(Exception):
     """The package cannot represent a trade or netting set as the engine does."""
+
+
+class ComparisonError(Exception):
+    """A mapped package quantity is missing or is not a finite number."""
 
 
 def years(date: str | None, valuation: dt.date, days_per_year: float) -> float | None:
@@ -109,7 +114,14 @@ def fx_pair(trade: dict[str, Any]) -> tuple[str, bool]:
 
 
 def option_args(trade: dict[str, Any]) -> dict[str, Any]:
-    return {"OptionType": str(trade["option_type"]).capitalize(),
+    kind = str(trade.get("option_type") or "").strip().lower()
+    if kind not in ("call", "put"):
+        raise Unsupported(f"{trade['id']} has a missing or invalid option type")
+    for field in ("underlying_price", "strike_price"):
+        value = trade.get(field)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise Unsupported(f"{trade['id']} has a missing or invalid {field}")
+    return {"OptionType": kind.capitalize(),
             "UnderlyingPrice": trade["underlying_price"], "StrikePrice": trade["strike_price"]}
 
 
@@ -131,7 +143,7 @@ def credit(trade: dict[str, Any], start: float, end: float, maturity: float) -> 
         raise Unsupported("maturity differs from the end date; the package uses E as the maturity")
     if trade["instrument"] != "linear":
         raise Unsupported("the package has no credit option")
-    sub_class = trade["sub_class"]
+    sub_class = str(trade["sub_class"] or "").strip().upper()
     args = {"RefEntity": reference(trade), "Si": start, "Ei": end}
     if sub_class in INDEX_GRADE:
         return "CDX", {**args, "SubClass": INDEX_GRADE[sub_class]}
@@ -141,7 +153,7 @@ def credit(trade: dict[str, Any], start: float, end: float, maturity: float) -> 
 def commodity(trade: dict[str, Any], maturity: float) -> tuple[str, dict[str, Any]]:
     if trade["instrument"] != "linear":
         raise Unsupported("the package has no commodity option")
-    sub_class = trade["sub_class"]
+    sub_class = str(trade["sub_class"] or "").strip().upper()
     if sub_class not in COMMODITY_SET:
         raise Unsupported(f"commodity sub-class {sub_class} has no package hedging set")
     # The package gives electricity its factor by commodity type, so an
@@ -174,6 +186,8 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
         raise Unsupported(f"{trade['nature']} transactions are not translated yet")
     if trade["instrument"] == "option" and trade["option_expiry_date"] is None:
         raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
+    if trade["instrument"] == "option":
+        option_args(trade)  # Refuse incomplete inputs before selecting a package constructor.
     start, end, maturity = trade_times(trade, valuation, days_per_year)
     maturity = settled_maturity(trade, maturity, valuation, days_per_year)
     expiry = years(trade["option_expiry_date"], valuation, days_per_year)
@@ -258,6 +272,11 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
     if fixture["netting_set"]["margined"] and any(
             t["settlement_type"] == "settled_to_market" for t in fixture["trades"]):
         raise Unsupported("a settled-to-market trade in a margined netting set: the engine withholds the EAD")
+    electricity = {reference(t) for t in fixture["trades"]
+                   if t["asset_class"] == "commodity"
+                   and str(t["sub_class"] or "").strip().upper() == "ELECTRICITY"}
+    if len(electricity) > 1:
+        raise Unsupported("distinct electricity risk factors collapse into one package commodity type")
     ns_id = fixture["netting_set"]["id"]
     trades = []
     for trade in fixture["trades"]:
@@ -299,15 +318,21 @@ def build_inputs(root: Path) -> dict[str, Any]:
 
 def package_value(result: dict[str, Any], output: dict[str, Any]) -> float | None:
     quantity = output["quantity"]
+    container: Any
     if quantity in NETTING_SET_QUANTITY:
-        value = result.get(NETTING_SET_QUANTITY[quantity])
+        container, key = result, NETTING_SET_QUANTITY[quantity]
     elif quantity in CLASS_QUANTITY:
-        value = result["add_on_by_class"].get(CLASS_QUANTITY[quantity])
-    elif quantity in TRADE_QUANTITY and output.get("trade") in result["trades"]:
-        value = result["trades"][output["trade"]][TRADE_QUANTITY[quantity]]
+        container, key = result.get("add_on_by_class"), CLASS_QUANTITY[quantity]
+    elif quantity in TRADE_QUANTITY:
+        trades = result.get("trades")
+        container = trades.get(output.get("trade")) if isinstance(trades, dict) else None
+        key = TRADE_QUANTITY[quantity]
     else:
-        return None
-    return None if value is None else float(value)
+        return None  # An unmapped quantity has no package counterpart.
+    value = container.get(key) if isinstance(container, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ComparisonError(f"{quantity} trade={output.get('trade', '')}: missing or invalid package value")
+    return float(value)
 
 
 def regime_difference(fixture: dict[str, Any]) -> str | None:
@@ -319,7 +344,8 @@ def regime_difference(fixture: dict[str, Any]) -> str | None:
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
     days_per_year = float(fixture["parameters"].get("DaysPerYear", 365))
     for trade in fixture["trades"]:
-        asset_class, sub_class = trade["asset_class"], trade["sub_class"] or ""
+        asset_class = trade["asset_class"]
+        sub_class = str(trade["sub_class"] or "").strip().upper()
         if asset_class == "other":
             return "other risks exist only under CRR"
         if asset_class == "commodity" and sub_class == "CLIMATIC":
@@ -355,7 +381,10 @@ def compare(root: Path, results: list[dict[str, Any]]) -> tuple[list[dict[str, A
         for output in expected["outputs"]:
             if not isinstance(output.get("value"), (int, float)) or isinstance(output["value"], bool):
                 continue
-            value = package_value(result, output)
+            try:
+                value = package_value(result, output)
+            except ComparisonError as error:
+                raise ComparisonError(f"{path.stem}: {error}") from error
             if value is None:
                 continue
             tolerance = output["tolerance"]
@@ -407,9 +436,13 @@ def main(argv: list[str] | None = None) -> int:
         out.mkdir(parents=True, exist_ok=True)
         (out / "rsaccr-inputs.json").write_text(json.dumps(inputs, indent=2), encoding="utf-8")
         package = run_package(options.rscript, out / "rsaccr-inputs.json", out / "rsaccr-results.json")
-    rows, left_out = compare(options.root, package["results"])
+    try:
+        rows, left_out = compare(options.root, package["results"])
+    except ComparisonError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
     print(json.dumps(rows, indent=2) if options.json else report(inputs, package, rows, left_out))
-    return 0
+    return 1 if any(not row["agrees"] for row in rows) else 0
 
 
 if __name__ == "__main__":
