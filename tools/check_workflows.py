@@ -33,6 +33,10 @@ INTEGRITY_JOB = "repository-integrity"
 INTEGRITY_NAME = "Repository integrity"
 INTEGRITY_BRANCHES = ["main", "release/**"]
 MILESTONE_FILE = "pr-milestones.yml"
+MILESTONE_CONCURRENCY = {
+    "group": "pr-milestones-${{ github.event.pull_request.number || 'reconcile-all' }}",
+    "cancel-in-progress": False,
+}
 MILESTONE_EVENTS: dict[str, Any] = {
     "push": {"branches": ["main"], "paths": [".github/workflows/pr-milestones.yml"]},
     "pull_request_target": {"types": ["opened", "reopened", "edited", "milestoned"]},
@@ -179,11 +183,13 @@ def check_milestones(workflows: Docs) -> list[str]:
         findings.append(f"{MILESTONE_FILE}: events changed")
     if workflow.get("permissions") != {}:
         findings.append(f"{MILESTONE_FILE}: top-level permissions are not {{}}")
+    if workflow.get("concurrency") != MILESTONE_CONCURRENCY:
+        findings.append(f"{MILESTONE_FILE}: concurrency must isolate each PR and the full scan")
     if list(jobs(workflow)) != ["reconcile"]:
         return findings + [f"{MILESTONE_FILE}: jobs are not exactly ['reconcile']"]
     job = jobs(workflow)["reconcile"]
-    if job.get("permissions") != {"pull-requests": "write"}:
-        findings.append(f"{MILESTONE_FILE}/reconcile: permissions are not pull-requests: write only")
+    if job.get("permissions") != {"issues": "read", "pull-requests": "write"}:
+        findings.append(f"{MILESTONE_FILE}/reconcile: permissions must be issues: read and pull-requests: write only")
     if " ".join(str(job.get("if", "")).split()) != MILESTONE_GUARD:
         findings.append(f"{MILESTONE_FILE}/reconcile: condition changed")
     job_steps = steps(job)

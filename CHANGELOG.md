@@ -97,6 +97,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Isolate PR milestone reconciliation by pull request, so events for different
+  PRs cannot cancel each other while pending (#541). Declare the issues read
+  permission explicitly and check the concurrency and permission contract.
+
 - Correct the CCR framework SVG and PNG labels to K-SACCR, K-SFTs and CCP CAPITAL.
 
 
