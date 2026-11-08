@@ -212,7 +212,6 @@ Attribute VB_Name = "M_Main"
         Private Const STAGING_LISTED_MAX    As Long = 10000       'Findings listed and marked
     'The code of the finding of a run that would stop at Params, and the
     'table columns of its row searched for its reference.
-        Private Const STAGING_PARAMS_CODE   As String = "CSV-CONTEXT-PARAMS"
         Private Const STAGING_ROW_SEARCH    As Long = 16
 
     'Restore regulatory parameters (#357): the overwritten values its
@@ -232,6 +231,7 @@ Attribute VB_Name = "M_Main"
             RowNumber       As Long       'Row of its cell; 0 for none
             CellAddress     As String     'Its cell, as A1; "" for none
             Code            As String     'Stable finding code
+            FieldName       As String     'Structured field context
             Message         As String     'Code, column, message and CSV line
             Marked          As Boolean    'The cell is staged and gets the error fill
         End Type
@@ -6168,7 +6168,7 @@ Private Function CheckLiveContext( _
             AddStagedFinding Found, FoundCount, SH_TRADES, RowNumber, _
                              TableCell(Sheet, RowNumber, SheetColumn).Address(False, False), Findings(r).Code, _
                              Findings(r).Code & ": " & Findings(r).ColumnName & ": " & Findings(r).Message & _
-                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False
+                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False, Findings(r).ColumnName
         Next r
         CheckLiveContext = Result.FindingCount
 
@@ -6242,10 +6242,10 @@ Private Sub AddParamsFinding( _
         End If
         Text = Text & Message & " - a run would stop here, so nothing that depends on Params was checked"
         If Target Is Nothing Then
-            AddStagedFinding Found, FoundCount, SheetName, RowNumber, "", STAGING_PARAMS_CODE, Text, False
+            AddStagedFinding Found, FoundCount, SheetName, RowNumber, "", STAGING_PARAMS_CODE, Text, False, Reference
         Else
             AddStagedFinding Found, FoundCount, Target.Worksheet.Name, Target.Row, Target.Address(False, False), _
-                             STAGING_PARAMS_CODE, Text, False
+                             STAGING_PARAMS_CODE, Text, False, Reference
         End If
 
 End Sub
@@ -6331,7 +6331,7 @@ Private Function CheckLiveTrades( _
             AddStagedFinding Found, FoundCount, SH_TRADES, RowNumber, _
                              TableCell(Sheet, RowNumber, TR_NS).Address(False, False), Findings(r).Code, _
                              Findings(r).Code & ": " & Findings(r).ColumnName & ": " & Findings(r).Message & _
-                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False
+                             " (leg " & Values(Findings(r).RecordNumber, ColID) & " on " & SH_TRADES & ")", False, Findings(r).ColumnName
         Next r
         CheckLiveTrades = Result.FindingCount
 
@@ -6408,7 +6408,7 @@ Private Sub AddCsvFindings( _
                     Text = Text & " (no CSV line: a row added here)"
                 End If
                 AddStagedFinding Found, FoundCount, Sheet.Name, RowNumber, _
-                                 TableCell(Sheet, RowNumber, Column).Address(False, False), .Code, Text, True
+                                 TableCell(Sheet, RowNumber, Column).Address(False, False), .Code, Text, True, .ColumnName
             End With
         Next f
 
@@ -6423,7 +6423,8 @@ Private Sub AddStagedFinding( _
     ByVal CellAddress As String, _
     ByVal Code As String, _
     ByVal Message As String, _
-    ByVal Marked As Boolean)
+    ByVal Marked As Boolean, _
+    ByVal FieldName As String)
 '
 '==============================================================================
 ' PURPOSE
@@ -6439,6 +6440,7 @@ Private Sub AddStagedFinding( _
             .RowNumber = RowNumber
             .CellAddress = CellAddress
             .Code = Code
+            .FieldName = FieldName
             .Message = Message
             .Marked = Marked
         End With
@@ -6619,6 +6621,7 @@ Private Sub WriteStagingChecks( _
         Block(1, 1) = SEV_INFO
         Block(1, 5) = Summary
         Block(1, CK_ORIGIN_COL) = ORIGIN_IMPORT
+        Block(1, CK_CODE_COL) = DIAG_IMPORT_SUMMARY
         For i = 1 To Listed
             With Found(i)
                 Block(i + 1, 1) = SEV_ERROR
@@ -6631,6 +6634,8 @@ Private Sub WriteStagingChecks( _
                 End If
                 Block(i + 1, 5) = .Message
                 Block(i + 1, CK_ORIGIN_COL) = ORIGIN_IMPORT
+                Block(i + 1, CK_CODE_COL) = .Code
+                Block(i + 1, CK_FIELD_COL) = .FieldName
             End With
         Next i
         WriteBlock ChecksSheet, TopRow, Block, Listed + 1, CK_NCOLS
@@ -8430,6 +8435,7 @@ Private Function ReportOutcome( _
                      "; reconciliation=" & mReconState & _
                      "; trade_reconciliation=" & mTradeReconState
         End If
+        If Operation <> OP_CLEAR Then ResultLine = ResultLine & "; codes=" & CORE_Engine.DiagnosticCodes
         ResultLine = ResultLine & "; cleanup=" & IIf(Len(CleanupDetails) = 0, "PASS", "FAIL")
 
 '------------------------------------------------------------------------------

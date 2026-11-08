@@ -873,17 +873,19 @@ Private Sub CaseValidateStaged()
                   SH_IMPORT_TR & "!" & Notional.Address(False, False)
         CheckText "Origin header", SafeStr(TableCell(GetSheet(SH_CHECKS), TableHeaderRow(SH_CHECKS), CK_ORIGIN_COL).Value2), _
                   "Origin"
-        CheckText "summary line", ChecksValue(1, 1) & "|" & ChecksValue(1, CK_ORIGIN_COL), SEV_INFO & "|" & ORIGIN_IMPORT
+        CheckText "summary line", ChecksValue(1, 1) & "|" & ChecksValue(1, CK_ORIGIN_COL) & "|" & ChecksValue(1, CK_CODE_COL), _
+                  SEV_INFO & "|" & ORIGIN_IMPORT & "|" & DIAG_IMPORT_SUMMARY
         CheckText "first finding", ChecksValue(2, 1) & "|" & ChecksValue(2, 2) & "|" & ChecksValue(2, 3) & "|" & _
                   ChecksValue(2, 4) & "|" & ChecksValue(2, CK_ORIGIN_COL), SEV_ERROR & "|" & SH_IMPORT_TR & "|" & _
                   Notional.Row & "|" & Notional.Address(False, False) & "|" & ORIGIN_IMPORT
         Check ChecksCell(2, 4).HasFormula And InStr(1, ChecksCell(2, 4).Formula, "=HYPERLINK(""#'" & SH_IMPORT_TR & _
               "'!" & Notional.Address(False, False) & """,", vbTextCompare) = 1, _
               "the Reference cell is not a link to the notional: " & ChecksCell(2, 4).Formula
-        Check Left$(ChecksValue(2, 5), 26) = "CSV-TYPE: notional_amount:" And InStr(ChecksValue(2, 5), "(CSV line 4)") > 0, _
+        Check Left$(ChecksValue(2, 5), 26) = "CSV-TYPE: notional_amount:" And InStr(ChecksValue(2, 5), "(CSV line 4)") > 0 And _
+              ChecksValue(2, CK_CODE_COL) = CSV_TYPE And ChecksValue(2, CK_FIELD_COL) = "notional_amount", _
               "first message: " & ChecksValue(2, 5)
-        CheckText "second finding", Left$(ChecksValue(3, 5), 23) & "|" & ChecksValue(3, 4), _
-                  "CSV-NETTING-SET-UNKNOWN|" & NettingSet.Address(False, False)
+        CheckText "second finding", ChecksValue(3, CK_CODE_COL) & "|" & ChecksValue(3, CK_FIELD_COL) & "|" & ChecksValue(3, 4), _
+                  "CSV-NETTING-SET-UNKNOWN|netting_set_id|" & NettingSet.Address(False, False)
         Check Len(ChecksValue(4, 1)) = 0, "a fourth Checks line: " & ChecksValue(4, 5)
         Check Notional.Interior.Color = ERROR_FILL And NettingSet.Interior.Color = ERROR_FILL, "the cells are not marked"
         Check StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "a cell without a finding is marked"

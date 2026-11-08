@@ -640,3 +640,7 @@ and fixture outcomes remain unchanged by this extraction.
 `test_vba_static_gates.py` supplies valid/defective twins for undeclared names,
 layer inversions, host access, exceptions, conditional compilation and ASCII.
 These gates change no VBA source, workbook or calculation behavior.
+
+## Stable diagnostic registry
+
+`python tools/check_diagnostics.py --root .` checks the [Checks diagnostic contract](../docs/DIAGNOSTICS.md), all engine emission sites, active/retired codes and unused entries. It runs in `tools/check.py`; mutation tests run with the tooling suite.

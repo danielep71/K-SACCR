@@ -193,8 +193,7 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NOTIONAL, -1#
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "negative-notional", SEV_ERROR, _
-                                         "notional must not be negative", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "negative-notional", SEV_ERROR, DIAG_TR_NOTIONAL_NEGATIVE, "illustrative"
 
         StartCase "trade-unreadable-date", "N"
         AddSwap "T1"
@@ -240,62 +239,62 @@ Public Sub RunInputValidationTests()
         StartCase "params-error-value", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), CVErr(xlErrNA)
-        ExpectStop "Parameter must be a number"
+        ExpectStop DIAG_PRM_NUMBER
 
     'Sheet layout: a header that differs means a column moved.
         StartCase "layout-trades-header-renamed", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_TRADES, TableHeaderRow(SH_TRADES), TR_NOTIONAL, "Nominal"
-        ExpectStop "Header must be 'Notional'"
+        ExpectStop DIAG_LAYOUT_HEADER
 
         StartCase "layout-netting-sets-column-shifted", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold TH"
-        ExpectStop "Header must be 'NICA'"
+        ExpectStop DIAG_LAYOUT_HEADER
 
         StartCase "layout-params-value-header-renamed", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsHeaderRow(), ParamsValueCol(), "Amount"
-        ExpectStop "Header must be 'Value'"
+        ExpectStop DIAG_LAYOUT_HEADER
 
         StartCase "layout-broken-parameter-name", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchName PRM_ALPHA, "=#REF!"
-        ExpectStop "no longer refers to a cell"
+        ExpectStop DIAG_PRM_NAME
 
     'Params is located through workbook names; a broken one stops the run.
         StartCase "layout-params-name-broken", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchName NM_PRM_CODE, "=#REF!"
-        ExpectStop "'" & NM_PRM_CODE & "' is missing or no longer refers to a cell"
+        ExpectStop DIAG_LAYOUT_PARAM_NAME
 
     'NettingSets and Trades are located through the workbook name of their
     'first header cell; a broken one stops the run.
         StartCase "layout-trades-name-broken", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchName NM_TR_HEADER, "=#REF!"
-        ExpectStop "'" & NM_TR_HEADER & "' is missing or no longer refers"
+        ExpectStop DIAG_LAYOUT_HEADER_NAME
 
         StartCase "layout-netting-sets-name-broken", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchName NM_NS_HEADER, "=#REF!"
-        ExpectStop "'" & NM_NS_HEADER & "' is missing or no longer refers"
+        ExpectStop DIAG_LAYOUT_HEADER_NAME
 
     'Duplicates: the same values are accepted, different values stop the run.
         StartCase "params-duplicate-different-value", "N"
         AddSwap "T1"
         AddParamRow PRM_ALPHA, 1.2
-        ExpectStop "Parameter listed twice with different values"
+        ExpectStop DIAG_PRM_DUP
 
         StartCase "params-alpha-zero", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), 0#
-        ExpectStop "Alpha must be greater than zero"
+        ExpectStop DIAG_PRM_ALPHA
 
         StartCase "params-alpha-negative", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), -1#
-        ExpectStop "Alpha must be greater than zero"
+        ExpectStop DIAG_PRM_ALPHA
 
     'Ranges of the data validation, checked by the engine for values that
     'bypass it (#147): a floor of 1 would divide by zero, correlations that
@@ -303,32 +302,32 @@ Public Sub RunInputValidationTests()
         StartCase "params-floor-one", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_FLOOR), ParamsValueCol(), 1#
-        ExpectStop PRM_FLOOR & " must be at least"
+        ExpectStop DIAG_PRM_RANGE
 
         StartCase "params-correlation-above-one", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_RHO13), ParamsValueCol(), 1.5
-        ExpectStop PRM_RHO13 & " must be from"
+        ExpectStop DIAG_PRM_RANGE
 
         StartCase "params-correlations-not-a-matrix", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_RHO12), ParamsValueCol(), 0.95
-        ExpectStop "do not form a valid correlation matrix"
+        ExpectStop DIAG_PRM_IR_CORRELATION
 
         StartCase "params-mpor-floor-zero", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_MPOR_BIL), ParamsValueCol(), 0#
-        ExpectStop PRM_MPOR_BIL & " must be a whole number"
+        ExpectStop DIAG_PRM_RANGE
 
         StartCase "params-business-days-not-whole", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_BDYEAR), ParamsValueCol(), 250.5
-        ExpectStop PRM_BDYEAR & " must be a whole number"
+        ExpectStop DIAG_PRM_RANGE
 
         StartCase "factor-table-negative-factor", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EQ_INDEX"), TableCol(NM_SF_TABLE, 4), -0.2
-        ExpectStop "Supervisory factor and correlation must be from 0 to 1"
+        ExpectStop DIAG_SF_RANGE
 
         StartCase "params-duplicate-below-fx", "N"
         AddSwap "T1"
@@ -348,7 +347,7 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         PatchedRow = ParamsRow("CO_OTHER")
         TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_SF_TABLE, 1), "CO_METALS"
-        ExpectStop "Supervisory factor key listed twice with different values"
+        ExpectStop DIAG_SF_DUP
 
         StartCase "factor-table-duplicate-same-values", "N"
         AddSwap "T1"
@@ -363,7 +362,7 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         PatchedRow = ParamsRow("CHF")
         TEST_CaseRunner.PatchCell SH_PARAMS, PatchedRow, TableCol(NM_FX_TABLE, 1), "USD"
-        ExpectStop "Currency listed twice with different rates"
+        ExpectStop DIAG_FX_DUP
 
         StartCase "fx-table-duplicate-same-rate", "N"
         AddSwap "T1"
@@ -378,22 +377,22 @@ Public Sub RunInputValidationTests()
         StartCase "factor-table-blank-row-inside", "N"
         AddSwap "T1"
         ClearParamsRow ParamsRow("CO_OTHER"), TableCol(NM_SF_TABLE, 1), 8
-        ExpectStop "below a blank row"
+        ExpectStop DIAG_TABLE_GAP
 
         StartCase "factor-table-value-without-key", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("OT"), TableCol(NM_SF_TABLE, 1), Empty
-        ExpectStop "has a value but no key"
+        ExpectStop DIAG_TABLE_KEY
 
         StartCase "fx-table-blank-row-inside", "N"
         AddSwap "T1"
         ClearParamsRow ParamsRow("JPY"), TableCol(NM_FX_TABLE, 1), 3
-        ExpectStop "below a blank row"
+        ExpectStop DIAG_TABLE_GAP
 
         StartCase "fx-table-rate-without-currency", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("CHF"), TableCol(NM_FX_TABLE, 1), Empty
-        ExpectStop "has a value but no key"
+        ExpectStop DIAG_TABLE_KEY
 
     'Aggregation (#37): one reference, one sub-class, whatever the order.
         StartCase "aggregation-reference-two-sub-classes", "N"
@@ -496,8 +495,7 @@ Public Sub RunInputValidationTests()
         StartMarginedCase "netting-set-ccp-qccp-missing", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "qccp-missing", SEV_ERROR, "QCCP (Y/N) is required for Client clearing role CCP", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "qccp-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "QCCP"
         TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, _
                                          "Trade exposure to a CCP of unknown QCCP status: MPOR floor 10 BD", "illustrative"
         TEST_CaseRunner.ExpectChecksLine "weight-unknown", SEV_INFO, "risk weight not stated", "illustrative"
@@ -505,12 +503,12 @@ Public Sub RunInputValidationTests()
         StartMarginedCase "netting-set-ccp-retained-vm-missing", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", ""
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "retained-missing", SEV_ERROR, "CCP retains VM (Y/N) is required", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "retained-missing", SEV_ERROR, DIAG_NS_CCP_FLAG_REQUIRED, "illustrative", "CCP retains VM"
 
         StartMarginedCase "netting-set-ccp-qccp-not-a-code", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "X", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "qccp-code", SEV_ERROR, "QCCP must be Y or N", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "qccp-code", SEV_ERROR, DIAG_NS_FLAG, "illustrative", "QCCP"
         TEST_CaseRunner.ExpectChecksLine "qccp-unknown", SEV_INFO, "Trade exposure to a CCP of unknown QCCP status", _
                                          "illustrative"
 
@@ -519,21 +517,18 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         SetCcp "Y", "Y"
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "retained-unmargined", SEV_ERROR, "variation margin needs Margined = Y", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "retained-unmargined", SEV_ERROR, DIAG_NS_RETAINS_UNMARGINED, "illustrative"
 
         StartCase "netting-set-qccp-on-role-n", "N"
         AddSwap "T1"
         SetCcp "Y", ""
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "qccp-role-n", SEV_ERROR, "QCCP applies only to Client clearing role CCP", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "qccp-role-n", SEV_ERROR, DIAG_NS_QCCP_ROLE, "illustrative"
 
         StartMarginedCase "netting-set-retained-vm-on-role-cm", "CRR", CL_CM, "1", "N", "N"
         SetCcp "", "N"
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "retained-role-cm", SEV_ERROR, "CCP retains VM applies only to Client clearing role", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "retained-role-cm", SEV_ERROR, DIAG_NS_RETAINS_ROLE, "illustrative"
 
         StartMarginedCase "netting-set-ccp-crr", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", "N"
@@ -566,7 +561,7 @@ Public Sub RunInputValidationTests()
         SetCcp "Y", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 5#
         ExpectMPOR 10
-        TEST_CaseRunner.ExpectChecksLine "override", SEV_WARN, "below the regulatory floor", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "override", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
 
         StartMarginedCase "netting-set-ccp-override-above-floor", "CRR", CL_CCP, "1", "N", "N"
         SetCcp "Y", "N"
@@ -603,7 +598,7 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_CLEARED, CL_MULTI
         AddSwap "T1"
         ExpectStatus "INVALID: multi-level client structure, not supported"
-        TEST_CaseRunner.ExpectChecksLine "error", SEV_ERROR, "multi-level client structure is not supported", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "error", SEV_ERROR, DIAG_NS_MULTILEVEL, "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-crr", "CRR", "CM", "1", "N", "N"
         ExpectMPOR 5
@@ -652,7 +647,7 @@ Public Sub RunInputValidationTests()
         StartMarginedCase "netting-set-clearing-member-override-below-floor", "CRR", "CM", "1", "N", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 3#
         ExpectMPOR 5
-        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "below the regulatory floor", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_MPOR_FLOOR, "illustrative"
 
         StartMarginedCase "netting-set-clearing-member-override-above-floor", "CRR", "CM", "1", "N", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_MPOR, 7#
@@ -676,7 +671,7 @@ Public Sub RunInputValidationTests()
             AddSwap "T" & i
         Next i
         ExpectStatus "VALID"
-        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "more than " & LARGE_NS_TRADES, "illustrative"
+TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_LARGE, "illustrative"
 
     'Margin-agreement structures the engine does not model (#39) are
     'declared and rejected [CRE52.74, CRE52.75; CRR Art. 274(4), 275(3)].
@@ -730,7 +725,7 @@ Public Sub RunInputValidationTests()
 
         StartMarginedCase "netting-set-remargin-zero", "CRR", "N", "0", "N", "N"
         ExpectMPOR 10
-        TEST_CaseRunner.ExpectChecksLine "warning", SEV_WARN, "daily remargining (1 BD) used", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "warning", SEV_WARN, DIAG_NS_REMARGIN_FLOOR, "illustrative"
 
     'Remargining boundaries (#147): half a day is not a whole number, 10000
     'is the highest accepted frequency (MPOR 10 + 10000 - 1), 10001 is above
@@ -768,44 +763,44 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ALPHA), ParamsValueCol(), 1.5
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: " & PRM_ALPHA & " is", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "run-class-what-if-zero-factor", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EQ_INDEX"), TableCol(NM_SF_TABLE, 4), 0#
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: factor row EQ_INDEX differs", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "run-class-what-if-alpha-override", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_ALPHA, 1.2
         AddSwap "T1"
         ExpectStatus "VALID"
         ExpectRunClass RUN_WHATIF
-        TEST_CaseRunner.ExpectChecksLine "what-if", SEV_WARN, "What-if: alpha override", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "what-if", SEV_WARN, DIAG_RUN_WHATIF, "illustrative"
 
         StartCase "fx-reporting-currency-rate-not-one", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EUR"), TableCol(NM_FX_TABLE, 3), 0.9
-        ExpectStop "Rate of the reporting currency must be 1"
+        ExpectStop DIAG_FX_REPORTING_RATE
 
     'Reporting currency format (#147): three letters A to Z, case and
     'surrounding spaces ignored. Written by VBA, so the worksheet validation
     'does not stop them; the format is checked, not ISO membership.
         StartReportingCcyCase "reporting-currency-digit", "E1R"
-        ExpectStop "Reporting currency must be three letters"
+        ExpectStop DIAG_PRM_CURRENCY
 
         StartReportingCcyCase "reporting-currency-punctuation", "EU-"
-        ExpectStop "Reporting currency must be three letters"
+        ExpectStop DIAG_PRM_CURRENCY
 
         StartReportingCcyCase "reporting-currency-four-letters", "EURO"
-        ExpectStop "Reporting currency must be three letters"
+        ExpectStop DIAG_PRM_CURRENCY
 
         StartReportingCcyCase "reporting-currency-two-letters", "EU"
-        ExpectStop "Reporting currency must be three letters"
+        ExpectStop DIAG_PRM_CURRENCY
 
         StartReportingCcyCase "reporting-currency-blank", ""
-        ExpectStop "Reporting currency missing"
+        ExpectStop DIAG_PRM_CURRENCY_MISSING
 
         StartReportingCcyCase "reporting-currency-lower-case", " eur "
         ExpectStatus "VALID"
@@ -846,8 +841,7 @@ Public Sub RunInputValidationTests()
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "Y"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "two-mtm-legs", SEV_ERROR, "exactly one leg must be the MtM leg", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "two-mtm-legs", SEV_ERROR, DIAG_ECON_MTM_COUNT, "illustrative"
 
         StartCase "legs-repeated-mtm", "N"
         AddEquityForward "L1", "30"
@@ -855,8 +849,7 @@ Public Sub RunInputValidationTests()
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "N"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "repeated-mtm", SEV_ERROR, "is not the MtM leg, so its MtM must be 0", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "repeated-mtm", SEV_ERROR, DIAG_ECON_MTM_VALUE, "illustrative"
 
         StartCase "legs-no-mtm-leg", "N"
         AddEquityForward "L1", "30"
@@ -873,8 +866,7 @@ Public Sub RunInputValidationTests()
         SetLeg 2, "E1", "N"
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NS, "NS2"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "netting-sets", SEV_ERROR, "its legs are in different netting sets", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "netting-sets", SEV_ERROR, DIAG_ECON_NETTING_SET, "illustrative"
 
         StartCase "legs-linear-product-split", "N"
         AddSwap "L1"
@@ -883,7 +875,7 @@ Public Sub RunInputValidationTests()
         SetLeg 1, "E1", "Y"
         SetLeg 2, "E1", "N"
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "linear-split", SEV_ERROR, "that are not all options", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "linear-split", SEV_ERROR, DIAG_ECON_ASSET_CLASS, "illustrative"
 
         StartCase "legs-option-structure", "N"
         AddEquityCall "L1", "Long", "100", "30"
@@ -912,9 +904,7 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_ECON, CVErr(xlErrNA)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "economic-id-error", SEV_ERROR, _
-                                         "Economic trade ID must be text or blank (found an error value", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "economic-id-error", SEV_ERROR, DIAG_ECON_ID, "illustrative"
 
         StartCase "legs-mtm-flag-error", "N"
         AddEquityForward "L1", "30"
@@ -923,8 +913,7 @@ Public Sub RunInputValidationTests()
         SetLeg 2, "E1", "N"
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_MTMLEG, CVErr(xlErrNA)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "mtm-flag-error", SEV_ERROR, _
-                                         "MtM leg must be Y or N (found an error value", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "mtm-flag-error", SEV_ERROR, DIAG_ECON_MTM_FLAG, "illustrative"
 
     'Settled-to-market trades (#360). The next reset date must be after the
     'reporting date and not after the maturity as entered; a reset on the
@@ -936,8 +925,7 @@ Public Sub RunInputValidationTests()
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", DateSerial(2026, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "reset-on-date", SEV_ERROR, _
-                                         "next reset date must be after the reporting date", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "reset-on-date", SEV_ERROR, DIAG_TR_RESET_PAST, "illustrative"
 
         StartCase "stm-reset-before-reporting-date", "N"
         AddEquityForward "T1", "0"
@@ -948,8 +936,7 @@ Public Sub RunInputValidationTests()
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", DateSerial(2031, 10, 1)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "reset-after-maturity", SEV_ERROR, _
-                                         "next reset date is after the maturity date", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "reset-after-maturity", SEV_ERROR, DIAG_TR_RESET_MATURITY, "illustrative"
 
         StartCase "stm-reset-on-maturity", "N"
         AddEquityForward "T1", "0"
@@ -967,15 +954,13 @@ Public Sub RunInputValidationTests()
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", Empty
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "no-reset", SEV_ERROR, "needs its next reset date", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "no-reset", SEV_ERROR, DIAG_TR_RESET_MISSING, "illustrative"
 
         StartCase "settlement-blank-with-reset", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, Empty, DateSerial(2026, 10, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "blank-with-reset", SEV_ERROR, _
-                                         "a next reset date is given but the settlement type is not STM", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "blank-with-reset", SEV_ERROR, DIAG_TR_RESET_NONSTM, "illustrative"
 
         StartCase "settlement-n-with-reset", "N"
         AddEquityForward "T1", "0"
@@ -986,22 +971,19 @@ Public Sub RunInputValidationTests()
         AddEquityForward "T1", "0"
         SetSettlement 1, "X", Empty
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "not-a-code", SEV_ERROR, "settlement type must be N, STM or blank", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "not-a-code", SEV_ERROR, DIAG_TR_SETTLEMENT, "illustrative"
 
         StartCase "settlement-type-error", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, CVErr(xlErrNA), DateSerial(2026, 10, 1)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "type-error", SEV_ERROR, _
-                                         "Settlement type must be text or blank (found an error value)", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "type-error", SEV_ERROR, DIAG_TR_TEXT, "illustrative", "Settlement type"
 
         StartCase "stm-reset-not-a-date", "N"
         AddEquityForward "T1", "0"
         SetSettlement 1, "STM", "soon"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "reset-not-a-date", SEV_ERROR, "next reset date is not a date", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "reset-not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "next reset date"
 
         StartCase "stm-daily-lower-case", "N"
         AddEquityForward "T1", "0"
@@ -1021,8 +1003,7 @@ Public Sub RunInputValidationTests()
         SetSettlement 1, "STM", DateSerial(2026, 10, 1)
         ExpectStatus "INVALID: STM requires unmargined treatment; mixed margined/unmargined netting sets are " & _
                      "not supported"
-        TEST_CaseRunner.ExpectChecksLine "margined-stm", SEV_ERROR, "STM requires unmargined treatment", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "margined-stm", SEV_ERROR, DIAG_NS_STM_MARGINED, "illustrative"
 
         StartMarginedCase "stm-margined-all-bcbs", "BCBS", "N", "1", "N", "N"
         SetSettlement 1, "STM", DateSerial(2026, 10, 1)
@@ -1058,8 +1039,7 @@ Public Sub RunInputValidationTests()
         SetLeg 2, "E1", "N"
         SetSettlement 1, "STM", DateSerial(2026, 10, 30)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "settlement-differ", SEV_ERROR, "its legs have different settlement types", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "settlement-differ", SEV_ERROR, DIAG_ECON_SETTLEMENT, "illustrative"
 
         StartCase "legs-reset-differ", "N"
         AddEquityCall "L1", "Long", "100", "30"
@@ -1069,8 +1049,7 @@ Public Sub RunInputValidationTests()
         SetSettlement 1, "STM", DateSerial(2026, 10, 30)
         SetSettlement 2, "STM", DateSerial(2026, 11, 30)
         ExpectStatus "INCOMPLETE: 2 of 2 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "reset-differ", SEV_ERROR, "its legs have different next reset dates", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "reset-differ", SEV_ERROR, DIAG_ECON_RESET, "illustrative"
 
         StartCase "separate-trades-settlement-differ", "N"
         AddEquityForward "T1", "0"
@@ -1108,7 +1087,7 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_END, "'30/09/2031"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MAT, "'30/09/2031"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "not-a-date", SEV_ERROR, "maturity date is not a date", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "not-a-date", SEV_ERROR, DIAG_TR_DATE, "illustrative", "maturity date"
 
         StartCase "reporting-date-iso-text", "N"
         AddSwap "T1"
@@ -1118,12 +1097,12 @@ Public Sub RunInputValidationTests()
         StartCase "reporting-date-locale-text", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ASOF), ParamsValueCol(), "'30/09/2026"
-        ExpectStop "Reporting date missing or not a date"
+        ExpectStop DIAG_PRM_ASOF
 
     'The 1904 date system stops the run; the workbook is set back at once.
         StartCase "date-system-1904", "N"
         AddSwap "T1"
-        ExpectStopIn1904 "1904 date system"
+        ExpectStopIn1904 DIAG_LAYOUT_DATE_SYSTEM
 
     'Dates on the reporting date and the IR maturity buckets (#40, #191).
     'E is the end date in years of 365 days from 2026-09-30: 364 days is
@@ -1172,7 +1151,7 @@ Public Sub RunInputValidationTests()
         StartCase "trade-maturing-on-reporting-date", "N"
         AddSwapTo "T1", VALUATION
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "matured", SEV_ERROR, "trade has matured", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "matured", SEV_ERROR, DIAG_TR_MATURED, "illustrative"
 
         StartCase "trade-starting-on-reporting-date", "N"
         AddSwap "T1"
@@ -1185,14 +1164,13 @@ Public Sub RunInputValidationTests()
         AddEquityCall "T1", "Long", "100", "30"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2026, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "expired", SEV_ERROR, "option has expired", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "expired", SEV_ERROR, DIAG_TR_EXPIRED, "illustrative"
 
         StartCase "option-expiry-after-maturity", "N"
         AddEquityCall "T1", "Long", "100", "30"
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2028, 9, 30)
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "expiry-after-maturity", SEV_ERROR, _
-                                         "option expiry is after the maturity date", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "expiry-after-maturity", SEV_ERROR, DIAG_TR_EXPIRY_MATURITY, "illustrative"
 
     'Option dates of a swaption (#40): S is the start of the underlying, so
     'an IR option without a start date is rejected instead of taking S = 0.
@@ -1205,8 +1183,7 @@ Public Sub RunInputValidationTests()
         StartCase "ir-option-start-required", "N"
         AddSwaption "T1", ""
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "start-required", SEV_ERROR, _
-                                         "option needs the start date S of its underlying", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "start-required", SEV_ERROR, DIAG_TR_START_REQUIRED, "illustrative"
 
         StartCase "ir-option-bermudan-dates", "N"
         AddSwaption "T1", "2027-09-30"
@@ -1223,15 +1200,12 @@ Public Sub RunInputValidationTests()
         StartCase "fx-pair-unknown-currency", "N"
         AddFxForwardOn "T1", "EUR/XYZ", "Long"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "unknown-currency", SEV_ERROR, _
-                                         "no FX rate for currency 'XYZ' of the pair EUR/XYZ", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "unknown-currency", SEV_ERROR, DIAG_TR_FX_PAIR_RATE, "illustrative"
 
         StartCase "fx-notional-outside-pair", "N"
         AddFxForwardOn "T1", "USD/JPY", "Long"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "notional-outside-pair", SEV_ERROR, _
-                                         "notional currency 'EUR' is not a currency of the pair JPY/USD", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "notional-outside-pair", SEV_ERROR, DIAG_TR_FX_NOTIONAL, "illustrative"
 
         StartCase "fx-reversed-pair-linear", "N"
         AddFxForwardOn "T1", "EUR/USD", "Long"
@@ -1252,9 +1226,7 @@ Public Sub RunInputValidationTests()
         StartCase "fx-option-reversed-pair", "N"
         AddFxOption "T1", "USD/EUR", "1.1", "1.1", "EUR"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-        TEST_CaseRunner.ExpectChecksLine "quote-order", SEV_ERROR, _
-                                         "FX option must be entered in market quote order as EUR/USD", _
-                                         "illustrative"
+TEST_CaseRunner.ExpectChecksCode "quote-order", SEV_ERROR, DIAG_TR_FX_QUOTE, "illustrative"
 
         StartCase "fx-option-market-order", "N"
         AddFxOption "T1", "EUR/USD", "1.1", "1.1", "EUR"
@@ -1281,22 +1253,19 @@ Public Sub RunInputValidationTests()
             AddSwap "T1"
             TEST_CaseRunner.SetInputCell SH_TRADES, 1, CLng(TextFields(f)), CVErr(xlErrNA)
             ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
-            TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
-                                             CStr(TextFields(f + 1)) & " must be text or blank (found an error value)", _
-                                             "illustrative"
+TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_TR_TEXT, "illustrative", CStr(TextFields(f + 1))
         Next f
 
         StartCase "text-error-netting-set-regime", "N"
         TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, CVErr(xlErrNA)
         AddSwap "T1"
         ExpectStatus "INVALID: 1 input error(s)"
-        TEST_CaseRunner.ExpectChecksLine "error-value", SEV_ERROR, _
-                                         "Regime override must be BCBS or CRR (found an error value", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "error-value", SEV_ERROR, DIAG_NS_REGIME, "illustrative"
 
         StartCase "text-error-params-regime", "N"
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_REGIME), ParamsValueCol(), CVErr(xlErrNA)
-        ExpectStop "Regime must be BCBS or CRR (found an error value)"
+        ExpectStop DIAG_PRM_REGIME
 
     'Number formats do not change what is read (#196): with a Currency
     'format, Range.Value rounds to four decimals. A one-year single-name
@@ -1378,7 +1347,7 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.SetInputCell SH_NS, 2, NS_REGIME, "CRR"
         AddSwap "T1"
         TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectChecksLine "reserved-id", SEV_ERROR, "is reserved for a TOTAL row", "illustrative"
+TEST_CaseRunner.ExpectChecksCode "reserved-id", SEV_ERROR, DIAG_NS_ID_RESERVED, "illustrative"
         ExpectTotal RG_CRR, "1 of 1 netting set(s) VALID; 0 withheld", "NS1"
 
         TEST_CaseRunner.EndSuite ""
@@ -1556,20 +1525,20 @@ End Sub
 
 
 Private Sub ExpectStop( _
-    ByVal MessagePart As String)
+    ByVal DiagnosticCode As String)
 '
 '==============================================================================
 '                                  ExpectStop
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run the case and check that the run stopped with an ERROR on Checks
-'   containing MessagePart.
+'   with DiagnosticCode.
 '
 ' UPDATED
 '   2026-10-17
 '==============================================================================
 '
-        TEST_CaseRunner.RunCaseExpectingStop "stop", MessagePart, "illustrative"
+        TEST_CaseRunner.RunCaseExpectingStop "stop", DiagnosticCode, "illustrative"
 
 End Sub
 
@@ -2026,14 +1995,14 @@ End Sub
 
 
 Private Sub ExpectStopIn1904( _
-    ByVal MessagePart As String)
+    ByVal DiagnosticCode As String)
 '
 '==============================================================================
 '                               ExpectStopIn1904
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Set the workbook to the 1904 date system, run the case expecting it to
-'   stop with MessagePart, and set the workbook back to the 1900 system
+'   stop with DiagnosticCode, and set the workbook back to the 1900 system
 '   (#40). The case's dates shift by 1,462 days while the setting is on;
 '   they return when it is cleared.
 '
@@ -2061,7 +2030,7 @@ Private Sub ExpectStopIn1904( _
         End If
         ThisWorkbook.Date1904 = True
         On Error Resume Next
-        ExpectStop MessagePart
+        ExpectStop DiagnosticCode
         ErrorNumber = Err.Number
         ErrorText = Err.Description
         On Error GoTo 0
