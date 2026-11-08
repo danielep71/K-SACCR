@@ -97,6 +97,11 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Extend workflow guards to action version comments, hash-locked pip installs,
+  runtime consistency and the active Dependabot branch (#542).
+  Add a dedicated Python 3.10.19 compatibility test job, an offline Markdown
+  link gate (#592), and a weekly external-link audit maintaining one report issue.
+
 - Check open issues for closed milestones, invalid or conflicting target dates,
   and targets beyond milestone deadlines (#539). Add an optional target-date
   form field and pin the triage and integrity workflow runtimes explicitly.
