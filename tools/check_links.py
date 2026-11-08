@@ -59,7 +59,7 @@ def anchors(text: str) -> set[str]:
 
 
 def links(text: str) -> list[tuple[int, str]]:
-    clean = re.sub(r"(`+)([^`]|(?!\1)`)*?\1", "", prose(text))
+    clean = re.sub(r"(`+)([^`]|(?!\1)`)*?\1", "code", prose(text))
     definitions = {m[1].strip().casefold(): m[2].strip("<>") for m in re.finditer(
         r"^\s{0,3}\[([^]]+)\]:\s*(<[^>]+>|\S+)", clean, re.M)}
     result = []
@@ -76,6 +76,8 @@ def links(text: str) -> list[tuple[int, str]]:
                     result.append((number, definitions[key]))
                 elif reference is not None:
                     result.append((number, "MISSING_REFERENCE:" + key))
+        for match in re.finditer(r"<(https?://[^<>\s]+)>", line):
+            result.append((number, html.unescape(match[1])))
         for match in re.finditer(r'<(?:a|img)\b[^>]*(?:href|src)=["\']([^"\']+)', line, re.I):
             result.append((number, html.unescape(match[1])))
     return result
