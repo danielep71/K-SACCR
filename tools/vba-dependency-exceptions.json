@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "source": "src/core/CORE_Engine.bas",
+      "target": "host:range",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Engine.bas",
+      "target": "host:thisworkbook",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Engine.bas",
+      "target": "host:worksheet",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Engine.bas",
+      "target": "src/modules/SACCR_Formulas.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Util.bas",
+      "target": "host:range",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Util.bas",
+      "target": "host:thisworkbook",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/core/CORE_Util.bas",
+      "target": "host:worksheet",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_Config.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_CsvReader.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_CsvSchema.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_Engine.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_Export.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_ImportSpec.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_Reconcile.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Main.bas",
+      "target": "src/core/CORE_Util.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Ribbon.bas",
+      "target": "src/core/CORE_Config.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    },
+    {
+      "source": "src/workbook/M_Ribbon.bas",
+      "target": "src/core/CORE_Util.bas",
+      "issue": "#220",
+      "reason": "Existing prototype Excel coupling or direct layer access; see docs/REPOSITORY_STRUCTURE.md#known-deviations."
+    }
+  ]
+}

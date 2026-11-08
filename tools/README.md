@@ -601,3 +601,32 @@ maintains one marked issue, reopening/updating it on failures and closing it whe
 all URLs respond. Only the reporting job has issues:write. A local run without
 `--publish` writes a report and never changes GitHub. External checks are not a
 blocking PR gate because availability is transient.
+
+### VBA identifiers, dependencies and shared lexer (#538)
+
+`check.py` runs `check_vba_identifiers.py` as an advisory inventory and
+`check_vba_dependencies.py` as a gate, for production, development and example
+source sets separately and for every supported conditional-compilation environment.
+Both emit JSON through `--output` and honor `--root`. Identifier findings do not
+fail CI; analysis failures do. Unknown root names are reported with procedure,
+line and environment. Locals, parameters, module/project declarations and explicit
+VBA/Excel names are recognized; there is no blanket `vb*` or `xl*` exemption.
+External member names, late binding and dynamic expressions are outside the
+identifier verdict: Excel compilation is still required.
+
+The dependency gate checks resolved static references, including unqualified
+project names and declared types, against `docs/REPOSITORY_STRUCTURE.md`.
+`vba-dependency-exceptions.json` lists the existing #220 source/target exceptions;
+new forbidden edges fail. Exceptions are exact pairs, not wildcard or whole-layer
+exemptions. They must be removed when their coupling is removed under #220.
+
+`check_source.py` rejects non-ASCII characters outside VBA string literals,
+including comments; quotation marks inside comments do not exempt their text.
+`vba_lexer.py` shares tokenization, comment/string handling, logical lines and
+statement splitting. The jump checker keeps its string-masking profile, while
+the call, conditional and public API checkers preserve strings. Existing findings
+and fixture outcomes remain unchanged by this extraction.
+
+`test_vba_static_gates.py` supplies valid/defective twins for undeclared names,
+layer inversions, host access, exceptions, conditional compilation and ASCII.
+These gates change no VBA source, workbook or calculation behavior.
