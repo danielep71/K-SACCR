@@ -146,56 +146,47 @@ def logical_lines(lines: list[str], *, mask_strings: bool = False) -> list[tuple
     return result
 
 
+def comment_column(raw: str) -> int | None:
+    """Find apostrophe/Rem comments outside literals, including inline If branches."""
+    statement_start = True
+    for match in TOKEN_RE.finditer(raw):
+        if match.lastgroup == "ws":
+            continue
+        value = match.group().casefold()
+        if value == "'" or (statement_start and value == "rem"):
+            return match.start()
+        if value == ":" or value in {"then", "else"}:
+            statement_start = True
+        elif not (statement_start and match.lastgroup == "num"):
+            statement_start = False
+    return None
+
+
 def non_ascii_outside_strings(text: str) -> list[tuple[int, int]]:
     """Physical locations, including comments (quotes in a comment are not literals)."""
     findings: list[tuple[int, int]] = []
     continued_comment = False
     for line, raw in enumerate(text.splitlines(), 1):
-        quoted = False
-        comment = continued_comment
-        statement_start = True
-        for index, char in enumerate(raw):
-            if not comment:
-                if not quoted and (char == "'" or
-                                   (statement_start and re.match(r"Rem(?:\s|$)", raw[index:], re.I))):
-                    comment = True
-                elif char == '"':
-                    quoted = not quoted
-            if ord(char) > 127 and (comment or not quoted):
-                findings.append((line, index + 1))
-            if char == ":" and not quoted:
-                statement_start = True
-            elif not char.isspace() and not (statement_start and char.isdigit()):
-                statement_start = False
-        continued_comment = comment and raw.rstrip().endswith(" _")
+        comment = 0 if continued_comment else comment_column(raw)
+        code = raw if comment is None else raw[:comment]
+        literal_positions = {index for match in TOKEN_RE.finditer(code) if match.lastgroup == "str"
+                             for index in range(match.start(), match.end())}
+        findings.extend((line, index + 1) for index, char in enumerate(raw)
+                        if ord(char) > 127 and index not in literal_positions)
+        continued_comment = comment is not None and raw.rstrip().endswith(" _")
     return findings
 
-def analysis_source(text: str) -> str:
-    """Blank comments for the new analyses, preserving physical line numbers.
 
-    Legacy gates keep their historical lexical profiles. Here a Rem statement
-    consumes the entire remaining line, including any colons/declarations in it.
+def analysis_source(text: str) -> str:
+    """Blank entire comments for new analyses, retaining physical line numbers.
+
+    Legacy gates keep their historical profiles. Rem comments cannot inject
+    colon-separated references or declarations into the new symbol inventory.
     """
     lines = []
     continued_comment = False
     for raw in text.splitlines():
-        if continued_comment:
-            lines.append("")
-            continued_comment = raw.rstrip().endswith(" _")
-            continue
-        code = strip_vba(raw)
-        statement_start = True
-        for match in TOKEN_RE.finditer(code):
-            if match.lastgroup == "ws":
-                continue
-            value = match.group().casefold()
-            if statement_start and value == "rem":
-                code = code[:match.start()]
-                break
-            if value == ":" or value in {"then", "else"}:
-                statement_start = True
-            elif not (statement_start and match.lastgroup == "num"):
-                statement_start = False
-        continued_comment = code.rstrip() != raw.rstrip() and raw.rstrip().endswith(" _")
-        lines.append(code)
+        comment = 0 if continued_comment else comment_column(raw)
+        lines.append(raw if comment is None else raw[:comment])
+        continued_comment = comment is not None and raw.rstrip().endswith(" _")
     return "\n".join(lines)

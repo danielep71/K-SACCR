@@ -46,7 +46,7 @@ class LexicalTests(unittest.TestCase):
     def test_ascii_literal_and_comment_twins(self) -> None:
         self.assertEqual(non_ascii_outside_strings('x = "caf\u00e9"\n\' cafe'), [])
         self.assertEqual(non_ascii_outside_strings('x = "a""caf\u00e9"'), [])
-        for source in ('\' "caf\u00e9"', 'Rem "caf\u00e9"', '10 Rem "caf\u00e9"',
+        for source in ('If True Then Rem "caf\u00e9"', 'If False Then x = 1 Else Rem "caf\u00e9"', '\' "caf\u00e9"', 'Rem "caf\u00e9"', '10 Rem "caf\u00e9"',
                        'x=1: Rem "caf\u00e9"', '\' continued _\n"caf\u00e9"', 'caf\u00e9 = 1'):
             with self.subTest(source=source):
                 self.assertEqual(len(non_ascii_outside_strings(source)), 1)
@@ -193,6 +193,18 @@ End Sub''')
         files = {'src/core/CORE_A.bas': source}
         self.assertEqual(dependencies.analyze(files, [])['status'], 'pass')
         self.assertEqual({f['identifier'] for f in identifiers.analyze(files)['findings']}, {'hidden'})
+
+    def test_native_declaration_parameters_are_not_host_roots(self) -> None:
+        for name in ('columns', 'worksheet', 'range'):
+            source = module('CORE_A', f'Private Declare Sub Work Lib "example" (ByVal {name} As Long)')
+            self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], 'pass')
+        source = module('CORE_A', 'Private Declare Sub Work Lib "example" (ByVal x As Worksheet)')
+        self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], 'fail')
+
+    def test_event_parameter_names_are_not_host_dependencies(self) -> None:
+        for type_name, expected in (('Long', 'pass'), ('Worksheet', 'fail')):
+            source = module('CORE_A', f'Public Event Changed(ByVal columns As {type_name})')
+            self.assertEqual(dependencies.analyze({'src/core/CORE_A.cls': source}, [])['status'], expected)
 
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

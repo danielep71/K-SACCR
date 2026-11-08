@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from _gatelib import parse_report_args, run_gate
-from check_vba_calls import Module, parse_module, statements_of
+from check_vba_calls import Module, matching_paren, parse_module, parse_params, statements_of
 from check_vba_conditionals import logical_units, reachable_sources
 from check_vba_identifiers import HOST_OBJECTS, project_sources, references
-from vba_lexer import analysis_source
+from vba_lexer import Tok, analysis_source
 
 POLICY = "tools/vba-dependency-exceptions.json"
 ALLOWED = {"core": {"core"}, "modules": {"modules", "core", "classes", "host"},
@@ -35,16 +35,31 @@ def symbols(modules: list[Module]) -> dict[str, set[str]]:
     return owners
 
 
+def event_parameters(tokens: list[Tok]) -> set[str]:
+    if not any(token.is_kw("event") for token in tokens[:3]):
+        return set()
+    opening = next((i for i, token in enumerate(tokens) if token.is_op("(")), None)
+    if opening is None:
+        return set()
+    closing = matching_paren(tokens, opening)
+    if closing < 0:
+        raise ValueError("Unclosed event parameter list")
+    return {p.name.casefold() for p in parse_params(tokens[opening + 1:closing])}
+
+
 def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> list[dict[str, Any]]:
     edges = []
-    local_by_line = {line: set(proc.locals) | {proc.name.casefold()}
-                     for proc in module.procs for line in [proc.line, *(line for line, _ in proc.statements)]}
+    procedures = module.procs + [member.accessors["declare"] for member in module.members.values()
+                                 if "declare" in member.accessors]
+    local_by_line = {line: set(proc.locals) | {p.name.casefold() for p in proc.params} | {proc.name.casefold()}
+                     for proc in procedures for line in [proc.line, *(line for line, _ in proc.statements)]}
     for line, _, kind, code in logical_units(source.splitlines()):
         if kind == "directive":
             continue
         for tokens in statements_of(code):
             if tokens[0].is_kw("attribute", "option", "rem"):
                 continue
+            local_names = local_by_line.get(line, set()) | event_parameters(tokens)
             field_name = (tokens[0].low if tokens[0].is_id() and len(tokens) > 1
                           and (tokens[1].is_kw("as") or
                                (tokens[1].is_op("(") and any(t.is_kw("as") for t in tokens)))
@@ -54,7 +69,7 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> li
             for token in references(tokens):
                 if field_name is not None and token is tokens[0]:
                     continue
-                if token.low not in type_names and (token.low in local_by_line.get(line, set()) or token.low in module.members):
+                if token.low not in type_names and (token.low in local_names or token.low in module.members):
                     continue
                 targets = owners.get(token.low, set())
                 if token.low in HOST_OBJECTS:
