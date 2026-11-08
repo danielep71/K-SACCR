@@ -66,7 +66,7 @@ def links(text: str) -> list[tuple[int, str]]:
     for number, line in enumerate(clean.splitlines(), 1):
         if re.match(r"^\s{0,3}\[[^]]+\]:", line):
             continue
-        for match in re.finditer(r"!?\[([^]]+)\](?:\((<[^>]*>|(?:[^()\s]|\([^()]*\))+)(?:\s+[\"'][^\n]*?[\"'])?\)|\[([^]]*)\])?", line):
+        for match in re.finditer(r"(?=!?\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\((<[^>]*>|(?:[^()\s]|\([^()]*\))+)(?:\s+[\"'][^\n]*?[\"'])?\)|\[([^]]*)\])?)", line):
             label, inline, reference = match.groups()
             if inline is not None:
                 result.append((number, html.unescape(inline.strip("<>"))))
@@ -80,7 +80,7 @@ def links(text: str) -> list[tuple[int, str]]:
             result.append((number, html.unescape(match[1])))
         for match in re.finditer(r'<(?:a|img)\b[^>]*(?:href|src)=["\']([^"\']+)', line, re.I):
             result.append((number, html.unescape(match[1])))
-    return result
+    return list(dict.fromkeys(result))
 
 
 def tracked_markdown(root: Path) -> list[Path]:

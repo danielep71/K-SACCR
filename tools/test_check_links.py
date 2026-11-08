@@ -32,6 +32,11 @@ class LinkTests(unittest.TestCase):
         self.assertEqual(local.links("<https://example.com>"), [(1, "https://example.com")])
         self.assertEqual(local.links("`<https://example.com>`"), [])
 
+    def test_linked_badge_checks_both_destinations(self) -> None:
+        self.assertEqual(local.links("![](missing.png)"), [(1, "missing.png")])
+        self.assertEqual(local.links("[![Contributing](https://example.com/badge)](CONTRIBUTING.md#absent)"),
+                         [(1, "CONTRIBUTING.md#absent"), (1, "https://example.com/badge")])
+
     def test_references_and_duplicate_collision(self) -> None:
         self.assertEqual(local.links('[a][ref]\n[ref]: target.md\n'), [(1, 'target.md')])
         self.assertEqual(local.anchors('# A\n# A\n# A-1\n'), {'a', 'a-1', 'a-1-1'})
