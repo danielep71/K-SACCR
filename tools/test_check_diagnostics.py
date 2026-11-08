@@ -4,10 +4,20 @@ from __future__ import annotations
 import copy
 import unittest
 
-from check_diagnostics import CONFIG, check_sources
+from check_diagnostics import CONFIG, check_layout, check_sources
 
 
 class DiagnosticTests(unittest.TestCase):
+    def test_output_width_and_column_declarations(self) -> None:
+        config = "\n".join(f"Public Const {name}   As Long = {value}" for name, value in
+                           (("CK_NCOLS", 8), ("CK_ORIGIN_COL", 6), ("CK_CODE_COL", 7), ("CK_FIELD_COL", 8)))
+        self.assertEqual(check_layout(config), [])
+        for name in ("CK_NCOLS", "CK_ORIGIN_COL", "CK_CODE_COL", "CK_FIELD_COL"):
+            with self.subTest(name=name):
+                self.assertTrue(check_layout(config.replace(name, "REMOVED_" + name)))
+        self.assertTrue(check_layout(config.replace("CK_NCOLS   As Long = 8", "CK_NCOLS   As Long = 6")))
+        self.assertTrue(check_layout(config.replace("CK_FIELD_COL   As Long = 8", "CK_FIELD_COL   As Long = 7")))
+
     def setUp(self) -> None:
         self.registry = {"codes": {"NS-FLAG": {"constant": "DIAG_NS_FLAG",
                          "status": "active", "description": "Y/N flag"}}}

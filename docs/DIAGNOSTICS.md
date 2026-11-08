@@ -45,10 +45,11 @@ historical evidence with its original six-column schema; it must not be rewritte
 ## Validation
 
 `python tools/check_diagnostics.py --root .` runs in `tools/check.py`. It rejects
+a Checks width other than eight or missing/mispositioned Code/Field constants,
 missing/unknown engine emission codes, registry/constant mismatches, retired code
 use and unused active codes. Only the private, reviewed forwarding wrappers may
 pass a dynamic code. Mutation tests cover comments, strings, continuations,
-missing/unknown codes, retirement and registry drift. Static analysis does not
+missing/unknown codes, retirement, registry drift and the shared output width. Static analysis does not
 replace Excel compilation or runtime verification.
 
 The input-validation suite checks ERROR/WARNING identifiers, with explicit field

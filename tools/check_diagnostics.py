@@ -19,6 +19,14 @@ FORWARDERS = {("adderr", "logmsg", "DiagnosticCode"),
               ("loggroupfindings", "logmsg", "CStr(Finding(0))")}
 
 
+def check_layout(config: str) -> list[str]:
+    """The append-only schema must fit every allocated log/output array."""
+    declared = dict(re.findall(r"Public Const (CK_\w+)\s+As Long = (\d+)\b", config, re.I))
+    expected = {"CK_NCOLS": "8", "CK_ORIGIN_COL": "6", "CK_CODE_COL": "7", "CK_FIELD_COL": "8"}
+    return [f"Checks layout: {name} must be declared as {value}"
+            for name, value in expected.items() if declared.get(name) != value]
+
+
 def check_sources(sources: dict[str, str], registry: dict[str, Any]) -> list[str]:
     findings: list[str] = []
     codes = registry["codes"]
@@ -91,7 +99,7 @@ def run_check(root: Path) -> dict[str, Any]:
                for path in (root / "src").rglob("*")
                if path.suffix.lower() in {".bas", ".cls", ".frm"}}
     registry = json.loads((root / REGISTRY).read_text(encoding="utf-8"))
-    findings = check_sources(sources, registry)
+    findings = check_sources(sources, registry) + check_layout(sources[CONFIG])
     return {"schema_version": 1, "status": "fail" if findings else "pass", "findings": findings}
 
 

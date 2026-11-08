@@ -395,8 +395,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const BK_NCOLS   As Long = 11    'Buckets
         Public Const HS_NCOLS   As Long = 14    'HedgingSets
         Public Const RS_NCOLS   As Long = 28    'Results
-        Public Const CK_NCOLS   As Long = 6     'Checks
+        Public Const CK_NCOLS   As Long = 8     'Checks
         Public Const CK_ORIGIN_COL  As Long = 6     'Checks: ORIGIN_RUN or ORIGIN_IMPORT (#209)
+        Public Const CK_CODE_COL    As Long = 7     'Checks: stable diagnostic code
+        Public Const CK_FIELD_COL   As Long = 8     'Checks: field context
         Public Const RS_STATUS_COL  As Long = 28    'Results: VALID, INVALID, INCOMPLETE or NO TRADES
 
 '------------------------------------------------------------------------------
