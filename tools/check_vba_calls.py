@@ -35,6 +35,8 @@ from xml.parsers import expat
 
 from _gatelib import parse_report_args, run_gate, tracked_files
 from check_vba_conditionals import ENVIRONMENTS, logical_units, reachable_sources
+from vba_lexer import Tok
+from vba_lexer import tokenize as tokenize
 
 TOOL_NAME = "VBA project call resolution (diagnostic)"
 MANIFEST = "tools/vba-projects.json"
@@ -79,65 +81,19 @@ chdrive filecopy load unload beep randomize date time sendkeys appactivate saves
 deletesetting reset width mid
 """.split())
 
-TOKEN_RE = re.compile(
-    r"""
-    (?P<ws>\s+)
-  | (?P<str>"(?:[^"]|"")*")
-  | (?P<date>\#\s*\d[\d/\-:. ]*(?:[AaPp][Mm])?\s*\#)
-  | (?P<num>&[HhOo][0-9A-Fa-f]+&?|\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?[%&!#@^]?)
-  | (?P<op>:=|<>|<=|>=|[-+*/\\^&=<>(),.:;!])
-  | (?P<id>[A-Za-z_][A-Za-z0-9_]*[$%&@]?)
-  | (?P<other>.)
-    """,
-    re.VERBOSE,
-)
-
-
-@dataclass(frozen=True)
-class Tok:
-    kind: str
-    text: str
-    # A "." after whitespace that follows the first identifier of a statement: "Check .Name = a, m"
-    # passes a With member to Check, while "Check.Name = a" assigns a member of Check (#498).
-    spaced: bool = field(default=False, compare=False)
-
-    @property
-    def low(self) -> str:
-        return self.text.casefold().rstrip("$%&@")
-
-    def is_id(self) -> bool:
-        return self.kind == "id"
-
-    def is_op(self, *values: str) -> bool:
-        return self.kind == "op" and self.text in values
-
-    def is_kw(self, *words: str) -> bool:
-        return self.kind == "id" and self.low in words
-
-    def continues_chain(self) -> bool:
-        """True for the ``.`` or ``!`` of a member access, false for a spaced ``.`` that starts a With member."""
-        return self.is_op("!") or (self.is_op(".") and not self.spaced)
-
-
-def tokenize(code: str) -> list[Tok]:
-    """Tokens without whitespace; a "." keeps whether whitespace came before it."""
-    tokens = []
-    spaced = False
-    for match in TOKEN_RE.finditer(code):
-        kind = match.lastgroup or "other"
-        if kind == "ws":
-            spaced = True
-            continue
-        tokens.append(Tok(kind, match.group(), spaced and match.group() == "."))
-        spaced = False
-    return tokens
-
-
-def split_top(tokens: list[Tok], separator: str) -> list[list[Tok]]:
+def split_top(tokens: list[Tok], separator: str, *, include_brackets: bool = False) -> list[list[Tok]]:
     """Split on ``separator`` outside parentheses."""
     parts: list[list[Tok]] = [[]]
     depth = 0
+    bracket_depth = 0
     for token in tokens:
+        if include_brackets and token.text == "[":
+            bracket_depth += 1
+        if bracket_depth:
+            parts[-1].append(token)
+            if token.text == "]":
+                bracket_depth -= 1
+            continue
         if token.is_op("("):
             depth += 1
         elif token.is_op(")"):
@@ -355,14 +311,14 @@ def parse_declare(tokens: list[Tok]) -> Proc | None:
     return Proc("", name, "declare", visibility, params, 0)
 
 
-def statements_of(code: str) -> list[list[Tok]]:
+def statements_of(code: str, *, comment_aware: bool = False) -> list[list[Tok]]:
     """Split one logical line into statements; drop a leading line label."""
     tokens = tokenize(code)
     if len(tokens) >= 2 and tokens[0].is_id() and tokens[1].is_op(":") and not tokens[0].is_kw(*KEYWORDS):
         tokens = tokens[2:]
     elif tokens and tokens[0].kind == "num":
         tokens = tokens[1:]
-    return [with_argument(part) for part in split_top(tokens, ":") if part]
+    return [with_argument(part) for part in split_top(tokens, ":", include_brackets=comment_aware) if part]
 
 
 def with_argument(tokens: list[Tok]) -> list[Tok]:
@@ -398,7 +354,7 @@ def add_member(module: Module, member: Member, accessor: str | None = None, proc
     ))
 
 
-def parse_module(path: str, text: str) -> Module:
+def parse_module(path: str, text: str, *, comment_aware: bool = False) -> Module:
     kind = VBA_SUFFIXES[Path(path).suffix.casefold()]
     name_match = re.search(r'^Attribute VB_Name = "([^"]+)"', text, re.MULTILINE)
     module = Module(path, name_match.group(1) if name_match else Path(path).stem, kind)
@@ -411,10 +367,10 @@ def parse_module(path: str, text: str) -> Module:
     current: Proc | None = None
     block: str | None = None
     enum_visibility = "public"
-    for first, _last, unit_kind, code in logical_units(lines):
+    for first, _last, unit_kind, code in logical_units(lines, comment_aware=comment_aware):
         if first <= start or unit_kind == "directive":
             continue
-        for tokens in statements_of(code):
+        for tokens in statements_of(code, comment_aware=comment_aware):
             head = tokens[0]
             if head.is_kw("attribute"):
                 continue

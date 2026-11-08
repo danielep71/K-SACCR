@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from _gatelib import git_bytes, parse_report_args, run_gate, tracked_files
+from vba_lexer import non_ascii_outside_strings
 
 VBA_SUFFIXES = {".bas", ".cls", ".frm"}
 # The VBE exports in the Windows code page; SACCR targets Western-European hosts.
@@ -102,6 +103,8 @@ def check_component(root: Path, path: str, tracked: set[str], names: dict[str, s
         if path.startswith(home) and path.lower().endswith(".bas") and not Path(path).stem.startswith(prefix):
             findings.append(f"{path}: standard modules in {home} must be named {prefix}<subject>")
     findings.extend(f"{path}:{number}: string literal not closed" for number in unclosed_literals(text))
+    findings.extend(f"{path}:{line}:{column}: non-ASCII outside string literal"
+                    for line, column in non_ascii_outside_strings(text))
     if path.lower().endswith(".frm"):
         companions = FRX_REFERENCE.findall(text)
         if not companions:
