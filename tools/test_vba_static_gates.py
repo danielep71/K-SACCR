@@ -157,7 +157,9 @@ class DependencyTests(unittest.TestCase):
 
     def test_udt_field_names_are_not_host_roots_but_types_are(self) -> None:
         for field, expected in (('Range(1 To 2) As Long', 'pass'),
-                                ('Columns As Long', 'pass'), ('Items(1 To 2) As Worksheet', 'fail')):
+                                ('Columns As Long', 'pass'), ('Items(1 To 2) As Worksheet', 'fail'),
+                                ('Worksheet As Worksheet', 'fail'),
+                                ('Worksheet(1 To 2) As Worksheet', 'fail')):
             with self.subTest(field=field):
                 source = module('CORE_A', f'Public Type Data\n{field}\nEnd Type')
                 self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], expected)

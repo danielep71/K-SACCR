@@ -52,7 +52,7 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]]) -> li
             type_names = {tokens[i + 1].low for i, t in enumerate(tokens[:-1])
                           if t.is_kw("as", "new")}
             for token in references(tokens):
-                if token.low == field_name:
+                if field_name is not None and token is tokens[0]:
                     continue
                 if token.low not in type_names and (token.low in local_by_line.get(line, set()) or token.low in module.members):
                     continue
