@@ -26,7 +26,8 @@ DEFAULT_BRANCH_GUARD = "github.ref == format('refs/heads/{0}', github.event.repo
 WRITE_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("labels-sync.yml", "reconcile"): {"issues"},
     ("external-links.yml", "audit"): {"issues"},
-    ("daily-traffic.yml", "traffic"): {"contents", "issues"},
+    ("daily-traffic.yml", "traffic"): {"contents"},
+    ("daily-traffic.yml", "alert"): {"issues"},
     ("pr-milestones.yml", "reconcile"): {"pull-requests"},
 }
 INTEGRITY_FILE = "static-checks.yml"
