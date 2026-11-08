@@ -30,7 +30,8 @@ def symbols(modules: list[Module], *, types_only: bool = False) -> dict[str, set
     for module in modules:
         owners.setdefault(module.name.casefold(), set()).add(module.path)
         for name, member in module.members.items():
-            if (member.visibility != "private" and module.kind == "standard"
+            if (member.visibility != "private"
+                    and (module.kind == "standard" or member.kind in {"enum", "enum_member"})
                     and (not types_only or member.kind in {"type", "enum"})):
                 owners.setdefault(name, set()).add(module.path)
     return owners
@@ -68,7 +69,7 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                           else None)
             type_tokens = {id(tokens[i + 1]) for i, t in enumerate(tokens[:-1])
                           if t.is_kw("as", "new")}
-            for token in references(tokens):
+            for token in references(tokens, include_host_statements=True):
                 if field_name is not None and token is tokens[0]:
                     continue
                 is_type = id(token) in type_tokens

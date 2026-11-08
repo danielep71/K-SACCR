@@ -147,6 +147,8 @@ class DependencyTests(unittest.TestCase):
 
     def test_host_access_and_shadowed_name_twins(self) -> None:
         for code, expected in (('Dim r As Range', 'fail'), ('Application.Calculate', 'fail'),
+                               ('MsgBox "hello"', 'fail'), ('SendKeys "x"', 'fail'), ('DoEvents', 'fail'),
+                               ('Dim x As String: x = InputBox("prompt")', 'fail'),
                                ('Excel.Application.Calculate', 'fail'),
                                ('Dim Range As Range', 'fail'),
                                ('Dim columns As Long\ncolumns = 1', 'pass'),
@@ -215,6 +217,17 @@ End Sub''')
             self.assertEqual(dependencies.analyze(sources, [])['status'], 'fail')
         source = module('CORE_A', 'Private Type Worksheet\nx As Long\nEnd Type\nSub Run()\nDim x As Worksheet\nEnd Sub')
         self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], 'pass')
+
+    def test_public_object_module_enums_have_dependency_owners(self) -> None:
+        source = module('ThisWorkbook', 'Public Enum DocumentState\nReady = 1\nEnd Enum')
+        for use in ('Dim x As DocumentState', 'Dim x As Long: x = Ready'):
+            sources = {'src/workbook/ThisWorkbook.cls': source,
+                       'src/core/CORE_A.bas': module('CORE_A', f'Sub Run()\n{use}\nEnd Sub')}
+            result = dependencies.analyze(sources, [])
+            self.assertEqual(result['status'], 'fail')
+            self.assertEqual({f['target'] for f in result['findings']}, {'src/workbook/ThisWorkbook.cls'})
+            sources['tests/modules/TEST_A.bas'] = sources.pop('src/core/CORE_A.bas')
+            self.assertEqual(dependencies.analyze(sources, [])['status'], 'pass')
 
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

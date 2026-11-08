@@ -34,7 +34,7 @@ access append binary input output random read write shared encoding
 """.lower().split())
 # Host object roots/types: also used by the dependency gate to detect core -> Excel.
 HOST_OBJECTS = frozenset("""
-excel office application thisworkbook activeworkbook activesheet activecell selection workbooks worksheets
+msgbox inputbox doevents sendkeys appactivate shell beep excel office application thisworkbook activeworkbook activesheet activecell selection workbooks worksheets
 sheets range cells rows columns names workbook worksheet chart charts window windows
 shape xlcalculation worksheetfunction evaluate union intersect usedrange iribboncontrol iribbonui
 """.split())
@@ -53,13 +53,14 @@ msoautomationsecurityforcedisable msotrue msofalse
 KNOWN_NAMES = BUILTINS | HOST_OBJECTS | HOST_CONSTANTS | KEYWORDS | STATEMENT_KEYWORDS
 
 
-def references(tokens: list[Tok]) -> list[Tok]:
+def references(tokens: list[Tok], *, include_host_statements: bool = False) -> list[Tok]:
     """Root names only; member names, named-argument keys and labels are not variables."""
     result = []
     for index, token in enumerate(tokens):
         previous = tokens[index - 1] if index else None
         following = tokens[index + 1] if index + 1 < len(tokens) else None
-        if not token.is_id() or token.low in KEYWORDS | STATEMENT_KEYWORDS:
+        if not token.is_id() or (token.low in KEYWORDS | STATEMENT_KEYWORDS and
+                                 not (include_host_statements and token.low in HOST_OBJECTS)):
             continue
         if previous and previous.is_op(".", "!"):
             continue
