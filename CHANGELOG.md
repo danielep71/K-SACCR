@@ -97,6 +97,11 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Harden the R cross-check translator and comparison (#352): reject distinct
+  electricity references and incomplete options, normalize credit subclasses,
+  report missing mapped results as errors, and return failure on differences.
+  This tooling change does not establish independent workbook validation.
+
 - Add advisory VBA identifier checks, a dependency-direction gate with explicit
   #220 exceptions, and ASCII checks outside string literals (#538). Share lexer
   primitives across the existing VBA checks without changing their findings.
