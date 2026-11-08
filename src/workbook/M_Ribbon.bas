@@ -17,6 +17,9 @@ Attribute VB_Name = "M_Ribbon"
 '   RibbonGetEnabled: whether a command can be clicked, by the state table
 '   of the contract (#216).
 '   RibbonGetLabel: the text of a Status label, read from a status cell.
+'   RibbonToggle and RibbonGetPressed: the Navigation bar toggle, which
+'   shows or hides the navigation bar of every sheet, and its state, read
+'   from the workbook (#620).
 '   RibbonMacro, RibbonSheet, ResultsLabelFor and EnabledFor: the pure maps
 '   behind them, for tests: IRibbonControl cannot be created from VBA.
 '   PointerText and PointerFromText: the pure format of the stored pointer.
@@ -66,7 +69,7 @@ Attribute VB_Name = "M_Ribbon"
 '   Object Library, one of the workbook's default references.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-07
 '
 ' AUTHOR
 '   Daniele Penza
@@ -319,6 +322,79 @@ Public Sub RibbonGetLabel( _
 Failed:
         ReturnedVal = "Status unavailable"
         mInCallback = False
+
+End Sub
+
+
+Public Sub RibbonToggle( _
+    ByVal Control As IRibbonControl, _
+    ByVal Pressed As Boolean)
+'
+'==============================================================================
+'                                RibbonToggle
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Answer a toggle button: Navigation bar (ksNavigationBar) shows the
+'   navigation bar of every sheet when pressed and hides it when released
+'   (M_Main.ShowNavigationBar, #620), which then refreshes the tab, so
+'   that the toggle shows the state the workbook holds.
+'
+' ERROR POLICY
+'   M_Main.ShowNavigationBar reports its own failure. An unknown toggle is
+'   reported in a message box, and nothing changes.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        Select Case Control.Id
+            Case "ksNavigationBar"
+                M_Main.ShowNavigationBar Pressed
+            Case Else
+                MsgBox "The Ribbon toggle " & Control.Id & " changes nothing.", vbExclamation, MSG_TITLE
+                ScheduleRefresh
+        End Select
+        Exit Sub
+
+Failed:
+        MsgBox "The Ribbon toggle could not be used: " & Err.Description, vbExclamation, MSG_TITLE
+
+End Sub
+
+
+Public Sub RibbonGetPressed( _
+    ByVal Control As IRibbonControl, _
+    ByRef ReturnedVal As Variant)
+'
+'==============================================================================
+'                              RibbonGetPressed
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether a toggle button is pressed: Navigation bar is pressed while the
+'   navigation bar is shown, as the workbook holds it
+'   (M_Main.NavigationBarShown, #620), so the state survives a VBA state
+'   reset. It never writes.
+'
+' ERROR POLICY
+'   Never raises; an unknown toggle, or a state that cannot be read, gives
+'   True.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        On Error GoTo Failed
+        Select Case Control.Id
+            Case "ksNavigationBar"
+                ReturnedVal = M_Main.NavigationBarShown()
+            Case Else
+                ReturnedVal = True
+        End Select
+        Exit Sub
+
+Failed:
+        ReturnedVal = True
 
 End Sub
 

@@ -20,8 +20,9 @@ MANIFEST = ROOT / "tools" / "vba-projects.json"
 M_RIBBON = ROOT / "src" / "workbook" / "M_Ribbon.bas"
 
 NAMESPACE = "http://schemas.microsoft.com/office/2009/07/customui"
-CALLBACKS = {"RibbonOnLoad", "RibbonAction", "RibbonGoTo", "RibbonGetEnabled", "RibbonGetLabel"}
-CALLBACK_ATTRIBUTES = ("onLoad", "onAction", "getEnabled", "getLabel")
+CALLBACKS = {"RibbonOnLoad", "RibbonAction", "RibbonGoTo", "RibbonGetEnabled", "RibbonGetLabel",
+             "RibbonToggle", "RibbonGetPressed"}
+CALLBACK_ATTRIBUTES = ("onLoad", "onAction", "getEnabled", "getLabel", "getPressed")
 
 # Targets delivered by a later issue of the milestone. Remove an entry when its
 # issue lands, so the target is then checked like every other.
@@ -151,6 +152,26 @@ class RibbonContractTests(unittest.TestCase):
         labels = {element.get("id") for element in self.root.iter() if local(element.tag) == "labelControl"}
         self.assertEqual(labels, documented)
         self.assertEqual(set(controls_with(self.root, "getLabel", "RibbonGetLabel")), documented)
+
+    def test_toggles_match_contract(self) -> None:
+        documented = {code(row[0]): row[2] for row in contract_table("Toggles")}
+        toggles = {element.get("id", ""): element for element in self.root.iter()
+                   if local(element.tag) == "toggleButton"}
+        self.assertEqual(set(toggles), set(documented))
+        self.assertEqual(set(controls_with(self.root, "onAction", "RibbonToggle")), set(documented))
+        text = M_RIBBON.read_text(encoding="cp1252").replace("\r\n", "\n")
+        for name in ("RibbonToggle", "RibbonGetPressed"):
+            body = re.search(rf"^Public Sub {name}\(.*?^End Sub", text, flags=re.M | re.S)
+            self.assertIsNotNone(body, f"M_Ribbon has no {name}")
+            assert body is not None
+            handled = set(re.findall(r'^\s*Case "([^"]+)"\s*$', body.group(0), flags=re.M))
+            with self.subTest(callback=name):
+                self.assertEqual(handled, set(documented), f"{name} must handle every toggle, and only those")
+        for control_id, element in toggles.items():
+            with self.subTest(control=control_id):
+                self.assertEqual(element.get("getPressed"), "RibbonGetPressed")
+                self.assertEqual(element.get("getEnabled"), "RibbonGetEnabled")
+                self.assertEqual(element.get("keytip"), documented[control_id])
 
     def test_top_level_keytips_are_unique(self) -> None:
         for container in self.root.iter():

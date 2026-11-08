@@ -157,6 +157,16 @@ Attribute VB_Name = "CORE_Config"
         Public Const RESULTS_STATUS_CELL   As String = "C5"                 'Results: status formula
 
 '------------------------------------------------------------------------------
+' NAVIGATION BAR
+'------------------------------------------------------------------------------
+    'The two shape groups of the navigation bar every sheet carries in
+    'column A (#615), drawn into the template by tools/navigation_bar.py:
+    'the block in the frozen rows and the block below them. The Ribbon's
+    'Navigation bar toggle shows and hides them (#620).
+        Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Block in the frozen rows 1 to 3
+        Public Const NAV_GROUP_REST  As String = "NavBar"       'Block below the frozen rows
+
+'------------------------------------------------------------------------------
 ' REGIMES
 '------------------------------------------------------------------------------
     'Regime codes accepted on Params and as a netting-set override.
