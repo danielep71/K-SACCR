@@ -615,7 +615,8 @@ External member names, late binding and dynamic expressions are outside the
 identifier verdict: Excel compilation is still required.
 
 The dependency gate checks resolved static references, including unqualified
-project names and declared types, against `docs/REPOSITORY_STRUCTURE.md`.
+project names and declared types (including the build's default `VBAProject`
+qualification), against `docs/REPOSITORY_STRUCTURE.md`.
 `vba-dependency-exceptions.json` lists the existing #220 source/target exceptions;
 new forbidden edges fail. Exceptions are exact pairs, not wildcard or whole-layer
 exemptions. They must be removed when their coupling is removed under #220.

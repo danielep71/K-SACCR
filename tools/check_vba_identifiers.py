@@ -14,7 +14,7 @@ from vba_lexer import Tok, tokenize
 # Explicit language/runtime names, never a blanket vb*/xl* or capitalization exemption.
 BUILTINS = frozenset("""
 choose setattr objptr lenb vbdecimal vbmsgboxstyle boolean byte integer long longlong longptr single double currency decimal date string
-variant object any collection debug err me vba excel office scripting
+variant object any collection debug err me vba vbaproject excel office scripting
 abs array asc ascw atn cbool cbyte ccur cdate cdbl cdec chr chrw cint clng clnglng clngptr
 cos csng cstr cvar cvdate cverr dateadd datediff datepart dateserial datevalue day dir doevents
 environ eof exp fileattr filedatetime filelen fix format freefile getallsettings getattr

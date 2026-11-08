@@ -267,6 +267,16 @@ End Sub''')
                 source = module('CORE_A', f'Sub Run()\n{call}\nEnd Sub')
                 self.assertEqual(dependencies.analyze({'src/core/CORE_A.bas': source}, [])['status'], expected)
 
+    def test_current_project_qualification_cannot_hide_dependencies(self) -> None:
+        facade = module('SACCR_A', 'Public Type FacadeType\nx As Long\nEnd Type\nPublic Sub Run()\nEnd Sub')
+        for use in ('VBAProject.SACCR_A.Run', 'VBAProject.Run', 'Dim x As VBAProject.FacadeType'):
+            sources = {'src/modules/SACCR_A.bas': facade,
+                       'src/core/CORE_A.bas': module('CORE_A', f'Sub Work()\n{use}\nEnd Sub')}
+            self.assertEqual(dependencies.analyze(sources, [])['status'], 'fail')
+            self.assertEqual(identifiers.analyze(sources)['findings'], [])
+            sources['tests/modules/TEST_A.bas'] = sources.pop('src/core/CORE_A.bas')
+            self.assertEqual(dependencies.analyze(sources, [])['status'], 'pass')
+
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

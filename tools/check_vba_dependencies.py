@@ -62,6 +62,16 @@ def qualified_ui(token: Tok, tokens: list[Tok]) -> str | None:
     return None
 
 
+def project_targets(token: Tok, tokens: list[Tok], owners: dict[str, set[str]]) -> set[str]:
+    """Resolve the default current-project namespace used by the workbook build."""
+    if token.low != "vbaproject":
+        return set()
+    index = next(i for i, item in enumerate(tokens) if item is token)
+    if index + 2 < len(tokens) and tokens[index + 1].is_op("."):
+        return owners.get(tokens[index + 2].low, set())
+    return set()
+
+
 def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                  type_owners: dict[str, set[str]]) -> list[dict[str, Any]]:
     edges = []
@@ -92,6 +102,8 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                     continue
                 targets = ({"host:" + token.low} if token.kind == "host" else
                            (type_owners if is_type else owners).get(token.low, set()))
+                if not targets:
+                    targets = project_targets(token, tokens, type_owners if is_type else owners)
                 if not targets:
                     host = qualified_ui(token, tokens) or (token.low if token.low in HOST_OBJECTS else None)
                     if host:
