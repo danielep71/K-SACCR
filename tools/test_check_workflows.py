@@ -131,7 +131,15 @@ class ViolationTests(unittest.TestCase):
             (lambda w: cw.events(w[name]).__setitem__("pull_request", None), "events changed"),
             (lambda w: w[name].__setitem__("permissions", {"contents": "read"}), "top-level permissions"),
             (lambda w: job(w, name, "reconcile")["permissions"].__setitem__("issues", "write"),
-             "pull-requests: write only"),
+             "permissions must be"),
+            (lambda w: job(w, name, "reconcile")["permissions"].pop("issues"), "permissions must be"),
+            (lambda w: job(w, name, "reconcile")["permissions"].__setitem__("contents", "read"),
+             "permissions must be"),
+            (lambda w: w[name]["concurrency"].__setitem__("group", "pr-milestones"), "concurrency"),
+            (lambda w: w[name]["concurrency"].__setitem__(
+                "group", "pr-milestones-${{ github.event.pull_request.number }}"), "concurrency"),
+            (lambda w: w[name]["concurrency"].__setitem__("cancel-in-progress", True), "concurrency"),
+            (lambda w: w[name].pop("concurrency"), "concurrency"),
             (lambda w: job(w, name, "reconcile").__setitem__("if", "true"), "condition changed"),
             (lambda w: job(w, name, "reconcile")["steps"].insert(
                 0, {"uses": "actions/checkout@" + "0" * 40}), "one inline run step"),

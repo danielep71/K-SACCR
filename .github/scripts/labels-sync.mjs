@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { appendFile, readFile } from "node:fs/promises";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 const EXPECTED_SCHEMA_VERSION = 2;
 const DEFAULT_MANIFEST = ".github/labels.json";
@@ -266,6 +267,48 @@ async function listLiveLabels(repository, token) {
   throw new Error(`GitHub label pagination exceeded ${MAX_LABEL_PAGES} pages`);
 }
 
+// The issues collection includes PRs and state=all includes closed records.
+// Scan it once, rather than using label filters (label names can contain commas).
+export async function deletionUsage(changes, readPage) {
+  const counts = new Map(changes.filter(change => change.action === "delete")
+    .map(change => [change.name.toLowerCase(), { name: change.name, count: 0 }]));
+  if (counts.size === 0) return [];
+  const seen = new Set();
+  for (let page = 1; page <= 100; page += 1) {
+    const items = await readPage(page);
+    if (!Array.isArray(items)) throw new Error("Malformed issue usage response");
+    for (const item of items) {
+      if (!item || !Number.isInteger(item.number) || !Array.isArray(item.labels)
+          || item.labels.some(label => !label || typeof label.name !== "string")) {
+        throw new Error("Malformed issue usage record");
+      }
+      if (seen.has(item.number)) throw new Error("Issue usage pagination repeated a record");
+      seen.add(item.number);
+      for (const name of new Set(item.labels.map(label => label.name.toLowerCase()))) {
+        if (counts.has(name)) counts.get(name).count += 1;
+      }
+    }
+    if (items.length < 100) return [...counts.values()];
+  }
+  throw new Error("Issue usage pagination exceeded 100 pages; refusing reconciliation");
+}
+
+export async function liveDeletionUsage(changes, repository, token) {
+  return deletionUsage(changes, page => githubRequest(repository, token, "GET",
+    `/issues?state=all&sort=created&direction=asc&per_page=100&page=${page}`));
+}
+
+export function deletionRefusal(usage) {
+  const used = (usage ?? []).filter(label => label.count > 0);
+  return used.length ? "Refusing all label changes: labels still in use: "
+    + used.map(label => `${JSON.stringify(label.name)} (${label.count} issue/PR records)`).join(", ") : null;
+}
+
+export function usageSummary(usage) {
+  if (usage === null) return "Deletion usage: NOT CHECKED (no complete usage snapshot).";
+  return deletionRefusal(usage) ?? "Deletion usage: checked; no label scheduled for deletion is in use.";
+}
+
 async function applyChanges(repository, token, changes) {
   for (const change of changes) {
     if (change.action === "update") {
@@ -300,7 +343,8 @@ function renderSummary({
   verified = null,
   dryRun = false,
   error = null,
-  partial = false
+  partial = false,
+  usage = null
 }) {
   const resolvedLabels = desiredLabels ?? [];
   const planned = changes !== null;
@@ -319,6 +363,7 @@ function renderSummary({
     `- Planned changes: **${planned ? changes.length : "not computed (live labels not read)"}**`,
     `- Create / update / delete: **${counts.create} / ${counts.update} / ${counts.delete}**`
   ];
+  lines.push("", usageSummary(usage));
   if (verified !== null) lines.push(`- Post-run exact match: **${verified ? "yes" : "no"}**`);
   lines.push(
     "",
@@ -352,6 +397,73 @@ async function publishSummary(summary) {
 
 function expectFailure(operation, pattern) {
   assert.throws(operation, pattern);
+}
+
+async function testUsageGuard(manifestPath, desired) {
+  const deletion = [{ action: "delete", name: "Used, label" }];
+  const pages = [];
+  const usage = await deletionUsage(deletion, page => {
+    pages.push(page);
+    return page === 1 ? Array.from({ length: 100 }, (_, index) => ({ number: index + 1, labels: [] }))
+      : [{ number: 101, state: "closed", pull_request: {}, labels: [{ name: "USED, LABEL" }] }];
+  });
+  assert.deepEqual(pages, [1, 2]);
+  assert.deepEqual(usage, [{ name: "Used, label", count: 1 }]);
+  for (const response of [null, [{ number: 1 }], [{ number: 1, labels: [null] }]]) {
+    await assert.rejects(deletionUsage(deletion, async () => response), /Malformed/);
+  }
+  await assert.rejects(deletionUsage(deletion, async page => Array.from({ length: 100 }, (_, i) => ({
+    number: page * 100 + i, labels: []
+  }))), /exceeded 100 pages/);
+  await assert.rejects(deletionUsage(deletion, async () => Array.from({ length: 100 }, (_, i) => ({
+    number: i, labels: []
+  }))), /repeated a record/);
+
+  const saved = { fetch: globalThis.fetch, argv: process.argv, token: process.env.GITHUB_TOKEN,
+    summary: process.env.GITHUB_STEP_SUMMARY, write: process.stdout.write };
+  try {
+    process.env.GITHUB_TOKEN = "fixture-token";
+    process.env.GITHUB_STEP_SUMMARY = "";
+    for (const mode of ["used", "unused", "dry-run", "read-failure"]) {
+      const writes = [];
+      let output = "";
+      process.stdout.write = chunk => { output += chunk; return true; };
+      const live = [...structuredClone(desired.slice(1)), { name: "extra", color: "ABCDEF", description: "extra" }];
+      live[0].description = "changed fixture";
+      globalThis.fetch = async (url, options) => {
+        if (options.method !== "GET") {
+          writes.push(options.method);
+          return new Response(null, { status: 204 });
+        }
+        if (url.includes("/issues?")) {
+          assert.match(url, /state=all&sort=created&direction=asc/);
+          if (mode === "read-failure") throw new Error("usage unavailable");
+          return Response.json(mode === "unused" ? [] : [
+            { number: 1, state: "open", labels: [{ name: "extra" }] },
+            { number: 2, state: "closed", pull_request: {}, labels: [{ name: "extra" }] }
+          ]);
+        }
+        return Response.json(writes.length ? desired : live);
+      };
+      process.argv = [process.execPath, "labels-sync.mjs", "--manifest", manifestPath,
+        "--mode", "reconcile", "--repository", "fixture/repo", ...(mode === "dry-run" ? ["--dry-run"] : [])];
+      if (mode === "used" || mode === "read-failure") {
+        await assert.rejects(main(), mode === "used" ? /extra.*2 issue\/PR records/ : /usage unavailable/);
+        assert.deepEqual(writes, [], "preflight failure must precede ALL mutations");
+      } else {
+        await main();
+        assert.deepEqual(writes, mode === "unused" ? ["PATCH", "POST", "DELETE"] : []);
+        if (mode === "dry-run") assert.match(output, /Refusing all label changes.*extra.*2 issue\/PR records/);
+      }
+    }
+  } finally {
+    globalThis.fetch = saved.fetch;
+    process.argv = saved.argv;
+    process.stdout.write = saved.write;
+    for (const [name, value] of [["GITHUB_TOKEN", saved.token], ["GITHUB_STEP_SUMMARY", saved.summary]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
 }
 
 async function runSelfTest(manifestPath) {
@@ -462,11 +574,12 @@ async function runSelfTest(manifestPath) {
   assert.match(summary, new RegExp(`Labels \\(${desired.length}\\):`));
   for (const label of desired) assert.match(summary, new RegExp(`"${label.name}"`));
 
+  await testUsageGuard(manifestPath, desired);
   process.stdout.write("SELF-TEST PASS: retry delays, validation and reconciliation fixtures\n");
 }
 
 // What the run knew before a failure, so that the failure summary reports it.
-const runState = { summaryBase: null, changes: null, applying: false, verified: null };
+const runState = { summaryBase: null, changes: null, applying: false, verified: null, usage: null };
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
@@ -490,9 +603,11 @@ async function main() {
   }
 
   let live;
+  let fixtureIssues;
   if (options.mode === "plan") {
     if (!options.live) throw new Error("--mode plan requires --live");
     const liveDocument = await loadJson(options.live);
+    fixtureIssues = liveDocument.issues;
     live = Array.isArray(liveDocument) ? liveDocument : liveDocument.labels;
     if (!Array.isArray(live)) throw new Error("live fixture must be an array or contain a labels array");
   } else if (options.mode === "reconcile") {
@@ -505,11 +620,21 @@ async function main() {
 
   const changes = planChanges(desired, live, { prune: manifest.prune });
   runState.changes = changes;
+  const usage = options.mode === "reconcile"
+    ? await liveDeletionUsage(changes, options.repository, process.env.GITHUB_TOKEN)
+    : fixtureIssues === undefined ? null
+      : await deletionUsage(changes, page => {
+        if (!Array.isArray(fixtureIssues)) throw new Error("fixture issues must be an array");
+        return fixtureIssues.slice((page - 1) * 100, page * 100);
+      });
+  runState.usage = usage;
   if (options.mode === "plan" || options.dryRun) {
-    await publishSummary(renderSummary({ mode: options.mode, ...summaryBase, changes, dryRun: options.dryRun }));
+    await publishSummary(renderSummary({ mode: options.mode, ...summaryBase, changes, usage, dryRun: options.dryRun }));
     return;
   }
 
+  const refusal = deletionRefusal(usage);
+  if (refusal) throw new Error(refusal);
   runState.applying = true;
   await applyChanges(options.repository, process.env.GITHUB_TOKEN, changes);
   const after = await listLiveLabels(options.repository, process.env.GITHUB_TOKEN);
@@ -519,10 +644,10 @@ async function main() {
     runState.verified = false;
     throw new Error(`Post-run verification found ${remaining.length} remaining difference(s)`);
   }
-  await publishSummary(renderSummary({ mode: "reconcile", ...summaryBase, changes, verified }));
+  await publishSummary(renderSummary({ mode: "reconcile", ...summaryBase, changes, verified, usage }));
 }
 
-main().catch(async error => {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(async error => {
   const message = error instanceof Error ? error.message : String(error);
   try {
     await publishSummary(renderSummary({
@@ -535,6 +660,7 @@ main().catch(async error => {
       changes: runState.changes,
       verified: runState.verified,
       partial: runState.applying,
+      usage: runState.usage,
       error: message
     }));
   } finally {
