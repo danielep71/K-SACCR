@@ -97,6 +97,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Keep clone traffic in history and badges without clone-only alerts (#593).
+  Separate collection and alert permissions, bound API retries, and rebuild from
+  fresh remote history before retrying a rejected push.
+
 - Extend workflow guards to action version comments, hash-locked pip installs,
   runtime consistency and the active Dependabot branch (#542).
   Add a dedicated Python 3.10.19 compatibility test job, an offline Markdown

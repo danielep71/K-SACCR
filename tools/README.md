@@ -475,12 +475,14 @@ reads GitHub's traffic API, which keeps just 14 days, and appends the snapshot
 to CSV files under `data/` on the orphan `traffic-history` branch: totals,
 daily views and clones, referrers and popular paths. The first run creates the
 branch. It also opens an alert issue, assigned and labelled **P3**, on a views
-or clones spike, a new star or fork, or a new referrer with at least five
+spike, a new star or fork, or a new referrer with at least five
 views.
 
 The workflow's token defaults to `contents: read`; only the traffic job
 receives `contents: write`, to push the CSV history to `traffic-history`,
-and `issues: write`, to open the alert issue. Its checkout keeps no
+while a separate alert job receives only `issues: write`. It consumes a CSV
+artifact from the successful collection job, with no checkout, analytics
+environment or App credentials. The collection checkout keeps no
 credentials: the token reaches git only in the push to `traffic-history`, as a
 masked authorization header on that one command. The traffic API uses a
 short-lived GitHub App installation token scoped to this repository and
@@ -491,8 +493,13 @@ the token at job completion; there is no personal-token fallback.
 
 The badge files under `data/badges/` remain shields.io endpoint files. This is
 analytics, not CI: it runs inline collection scripts, not repository code.
-The single job still holds both `contents: write` and `issues: write`;
-separating collection, publication and alerts remains an open hardening point.
+Clone counts remain in history and badges but never trigger alerts alone.
+API calls have five bounded retries, a 300-second retry window and 60-second
+request timeout; all responses must succeed and validate before history is pushed.
+History pushes have three attempts: a rejection fetches the complete remote branch
+and rebuilds CSVs from the frozen snapshot before retrying. A newer remote snapshot
+wins. No force push is used. The collection and alert jobs must both succeed on a
+manual main dispatch before this hardening is considered live-verified.
 The migration does not change the CSV layout or collection semantics.
 
 ### App setup and migration
