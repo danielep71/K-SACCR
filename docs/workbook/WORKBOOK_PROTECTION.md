@@ -134,7 +134,9 @@ For release evidence (#212), `tools/Certify-SACCR.ps1` runs them through
 `tools/Check-SACCR-Protection.ps1` on a production workbook built from the
 candidate, and writes each outcome to `protection-checks.txt` in the bundle
 ([one-command certification](../EXCEL_EVIDENCE.md#one-command-certification)).
-The script can also be run on its own.
+The script can also be run on its own, or unattended with `-Unattended`,
+which enables the macros for its own Excel session instead of asking, as the
+[pull-request check](../EXCEL_EVIDENCE.md#pull-request-check) runs it.
 
 How the script checks them:
 
