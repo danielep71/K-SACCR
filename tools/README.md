@@ -117,6 +117,15 @@ expected value, and the fixtures it cannot represent, with the reason:
 python tools/rsaccr_crosscheck.py --rscript Rscript --out <folder>
 ```
 
+Exit status is 0 for agreement, 1 for numerical differences and 2 for a missing
+or invalid mapped package quantity (diagnostic on stderr), in both text and
+`--json` modes. Unmapped quantities remain outside comparison. Credit subclasses
+are trimmed and uppercased before rating/index mapping and regime filtering.
+Incomplete option type/price/strike inputs are rejected before R is called.
+Distinct electricity risk factors in one fixture are unsupported: the package
+would collapse them into its single Electricity commodity type. Repeated trades
+on the same normalized electricity reference remain representable.
+
 The comparison uses `max(absolute, relative * abs(expected))`, matching the
 case runner. It includes potential future exposure when an expected file
 requests it. Credit and interest-rate trades whose maturity differs from

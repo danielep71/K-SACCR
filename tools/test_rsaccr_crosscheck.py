@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
+import io
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -241,6 +244,89 @@ class RegimeDifferenceTests(unittest.TestCase):
         data["trades"][0]["start_date"] = data["trades"][0]["end_date"]
         with self.assertRaisesRegex(xc.Unsupported, "ends on or before"):
             xc.translate_fixture(data)
+
+
+class ReviewFollowupTests(unittest.TestCase):
+    def test_electricity_references_preserve_or_reject_aggregation(self) -> None:
+        data = fixture("cre99-example-3")
+        data["trades"] = data["trades"][:2]
+        for trade in data["trades"]:
+            trade.update(sub_class="ELECTRICITY", risk_factor=" power a ")
+        self.assertEqual(len(xc.translate_fixture(data)["trades"]), 2)
+        data["trades"][1]["risk_factor"] = "POWER A"
+        self.assertEqual(len(xc.translate_fixture(data)["trades"]), 2)
+        data["trades"][1]["risk_factor"] = "POWER B"
+        with self.assertRaisesRegex(xc.Unsupported, "distinct electricity"):
+            xc.translate_fixture(data)
+
+    def test_credit_mapping_and_regime_filter_normalize_subclass(self) -> None:
+        for subclass, name, mapped in [(" cqs2 ", "CDS", "A"), (" ig_index ", "CDX", "IG"),
+                                       (" sg_index ", "CDX", "SG")]:
+            with self.subTest(subclass=subclass):
+                data = fixture("illustrative-credit-quality-step")
+                data["trades"][0]["sub_class"] = subclass
+                trade = xc.translate_fixture(data)["trades"][0]
+                self.assertEqual((trade["class"], trade["args"]["SubClass"]), (name, mapped))
+                if "cqs" in subclass:
+                    self.assertIn("credit quality", xc.regime_difference(data) or "")
+
+    def test_option_inputs_fail_before_package_execution(self) -> None:
+        data = fixture("cre99-example-1")
+        option = data["trades"][2]
+        invalid_fields: dict[str, list[Any]] = {"option_type": [None, "", "straddle"],
+                              "underlying_price": [None, "", True, float("nan")],
+                              "strike_price": [None, "", False, float("inf")]}
+        for field, values in invalid_fields.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    invalid = copy.deepcopy(data)
+                    invalid["trades"][2][field] = value
+                    with self.assertRaisesRegex(xc.Unsupported, "missing or invalid"):
+                        xc.translate_fixture(invalid)
+        option.update(option_type=" put ", underlying_price=0, strike_price=-0.001)
+        args = xc.translate_fixture(data)["trades"][2]["args"]
+        self.assertEqual((args["OptionType"], args["UnderlyingPrice"], args["StrikePrice"]),
+                         ("Put", 0, -0.001))
+
+    def test_mapped_values_cannot_disappear(self) -> None:
+        examples: list[tuple[str, dict[str, Any]]] = [("exposure_value", {"EAD": 0}),
+                               ("add_on.credit", {"add_on_by_class": {"Credit": 0}}),
+                               ("supervisory_delta", {"trades": {"T1": {"supervisory_delta": 0}}})]
+        for quantity, good in examples:
+            output = {"quantity": quantity, "trade": "T1"}
+            self.assertEqual(xc.package_value(good, output), 0)
+            for bad in ({}, {"EAD": None, "add_on_by_class": None, "trades": None},
+                        {"EAD": None, "add_on_by_class": {"Credit": None},
+                         "trades": {"T1": {"supervisory_delta": None}}}):
+                with self.subTest(quantity=quantity, bad=bad):
+                    with self.assertRaises(xc.ComparisonError):
+                        xc.package_value(bad, output)
+        self.assertIsNone(xc.package_value({}, {"quantity": "unmapped"}))
+
+    def test_cli_exit_status_for_agreement_difference_and_missing_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests" / "expected").mkdir(parents=True)
+            expected = {"fixture": "case", "outputs": [{"quantity": "exposure_value", "value": 100,
+                        "tolerance": {"absolute": 0, "relative": 0},
+                        "reference": {"class": "illustrative"}}]}
+            (root / "tests" / "expected" / "case.crr.json").write_text(json.dumps(expected), encoding="utf-8")
+            for json_mode in (False, True):
+                for value, status in [(100, 0), (101, 1), (None, 2)]:
+                    with self.subTest(json_mode=json_mode, value=value):
+                        package = {"versions": {"mock": "test"},
+                                   "results": [{"fixture": "case", "EAD": value}]}
+                        stdout, stderr = io.StringIO(), io.StringIO()
+                        args = ["--root", str(root)] + (["--json"] if json_mode else [])
+                        with mock.patch.object(xc, "run_package", return_value=package), \
+                                contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                            self.assertEqual(xc.main(args), status)
+                        if status == 2:
+                            self.assertIn("case.crr: exposure_value", stderr.getvalue())
+                        elif json_mode:
+                            self.assertEqual(json.loads(stdout.getvalue())[0]["agrees"], status == 0)
+                        else:
+                            self.assertIn("differ=" + str(status), stdout.getvalue())
 
 
 if __name__ == "__main__":
