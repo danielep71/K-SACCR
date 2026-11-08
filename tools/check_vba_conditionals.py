@@ -14,7 +14,7 @@ from typing import Any
 from _gatelib import git_bytes as git
 from _gatelib import parse_report_args as parse_args
 from _gatelib import run_gate
-from vba_lexer import strip_vba
+from vba_lexer import analysis_source, strip_vba
 
 VBA_SUFFIXES = {".bas", ".cls", ".frm"}
 TOOL_NAME = "VBA conditional compilation"
@@ -173,12 +173,14 @@ def tracked_vba(root: Path) -> list[str]:
     return sorted(paths)
 
 
-def logical_units(lines: list[str]) -> list[tuple[int, int, str, str]]:
+def logical_units(lines: list[str], *, comment_aware: bool = False) -> list[tuple[int, int, str, str]]:
+    if comment_aware:
+        lines = analysis_source("\n".join(lines)).split("\n")
     units: list[tuple[int, int, str, str]] = []
     buffer: list[str] = []
     start = 0
     for number, raw in enumerate(lines, start=1):
-        code = strip_vba(raw)
+        code = raw.rstrip() if comment_aware else strip_vba(raw)
         stripped = code.strip()
         if not buffer and stripped.startswith("#"):
             units.append((number, number, "directive", stripped))
@@ -400,13 +402,13 @@ def analyze_component(path: str, text: str) -> list[dict[str, Any]]:
     return findings
 
 
-def reachable_sources(path: str, text: str) -> tuple[dict[str, str], list[dict[str, Any]]]:
+def reachable_sources(path: str, text: str, *, comment_aware: bool = False) -> tuple[dict[str, str], list[dict[str, Any]]]:
     """Return each modeled source with inactive lines blanked, preserving line numbers."""
     lines = text.splitlines()
     sources = {name: [""] * len(lines) for name in ENVIRONMENTS}
     stacks: dict[str, list[Frame]] = {name: [] for name in ENVIRONMENTS}
     findings: list[dict[str, Any]] = []
-    for start, end, kind, code in logical_units(lines):
+    for start, end, kind, code in logical_units(lines, comment_aware=comment_aware):
         if kind == "directive":
             _handle_directive(path, start, code, stacks, findings)
         else:

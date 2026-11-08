@@ -9,7 +9,7 @@ from typing import Any
 from _gatelib import parse_report_args, run_gate, tracked_files
 from check_vba_calls import KEYWORDS, STATEMENT_KEYWORDS, Module, Proc, parse_module
 from check_vba_conditionals import logical_units, reachable_sources
-from vba_lexer import Tok, analysis_source, tokenize
+from vba_lexer import Tok, tokenize
 
 # Explicit language/runtime names, never a blanket vb*/xl* or capitalization exemption.
 BUILTINS = frozenset("""
@@ -56,7 +56,17 @@ KNOWN_NAMES = BUILTINS | HOST_OBJECTS | HOST_CONSTANTS | KEYWORDS | STATEMENT_KE
 def references(tokens: list[Tok], *, include_host_statements: bool = False) -> list[Tok]:
     """Root names only; member names, named-argument keys and labels are not variables."""
     result = []
+    brackets = 0
     for index, token in enumerate(tokens):
+        if token.text == "[":
+            if not brackets:
+                result.append(Tok("host", "Evaluate"))
+            brackets += 1
+        elif token.text == "]" and brackets:
+            brackets -= 1
+            continue
+        if brackets:
+            continue
         previous = tokens[index - 1] if index else None
         following = tokens[index + 1] if index + 1 < len(tokens) else None
         if not token.is_id() or (token.low in KEYWORDS | STATEMENT_KEYWORDS and
@@ -102,18 +112,18 @@ def analyze(sources: dict[str, str]) -> dict[str, Any]:
     variants: dict[str, dict[str, str]] = {}
     failures: list[dict[str, Any]] = []
     for path, source in sources.items():
-        reachable, errors = reachable_sources(path, analysis_source(source))
+        reachable, errors = reachable_sources(path, source, comment_aware=True)
         failures.extend(errors)
         for environment, text in reachable.items():
             variants.setdefault(environment, {})[path] = text
     findings: list[dict[str, Any]] = []
     for environment, files in variants.items():
-        modules = [parse_module(path, source) for path, source in files.items()]
+        modules = [parse_module(path, source, comment_aware=True) for path, source in files.items()]
         for module in modules:
             failures.extend(module.failures)
             visible = visible_names(modules, module)
             headers = {line: tokenize(code) for line, _, _, code
-                       in logical_units(files[module.path].splitlines())}
+                       in logical_units(files[module.path].splitlines(), comment_aware=True)}
             for proc in module.procs:
                 for item in procedure_findings(module, proc, visible, headers[proc.line]):
                     findings.append({**item, "environment": environment})

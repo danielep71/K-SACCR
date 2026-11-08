@@ -236,6 +236,17 @@ End Sub''')
             sources['tests/modules/TEST_A.bas'] = sources.pop('src/core/CORE_A.bas')
             self.assertEqual(dependencies.analyze(sources, [])['status'], 'pass')
 
+    def test_quoted_sheet_references_cannot_hide_later_code(self) -> None:
+        source = module('CORE_A', '''Sub Run()
+Debug.Print ['Sheet 1'!A1]: Application.Calculate
+Dim Evaluate As Long
+Debug.Print ['Sheet 1'!A1:B2]: unknownVariable = 1
+End Sub''')
+        files = {'src/core/CORE_A.bas': source}
+        findings = dependencies.analyze(files, [])['findings']
+        self.assertEqual({f['target'] for f in findings}, {'host:application', 'host:evaluate'})
+        self.assertEqual({f['identifier'] for f in identifiers.analyze(files)['findings']}, {'unknownVariable'})
+
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

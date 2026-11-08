@@ -81,14 +81,14 @@ chdrive filecopy load unload beep randomize date time sendkeys appactivate saves
 deletesetting reset width mid
 """.split())
 
-def split_top(tokens: list[Tok], separator: str) -> list[list[Tok]]:
+def split_top(tokens: list[Tok], separator: str, *, include_brackets: bool = False) -> list[list[Tok]]:
     """Split on ``separator`` outside parentheses."""
     parts: list[list[Tok]] = [[]]
     depth = 0
     for token in tokens:
-        if token.is_op("("):
+        if token.is_op("(") or (include_brackets and token.text == "["):
             depth += 1
-        elif token.is_op(")"):
+        elif token.is_op(")") or (include_brackets and token.text == "]"):
             depth -= 1
         if depth == 0 and token.is_op(separator):
             parts.append([])
@@ -303,14 +303,14 @@ def parse_declare(tokens: list[Tok]) -> Proc | None:
     return Proc("", name, "declare", visibility, params, 0)
 
 
-def statements_of(code: str) -> list[list[Tok]]:
+def statements_of(code: str, *, comment_aware: bool = False) -> list[list[Tok]]:
     """Split one logical line into statements; drop a leading line label."""
     tokens = tokenize(code)
     if len(tokens) >= 2 and tokens[0].is_id() and tokens[1].is_op(":") and not tokens[0].is_kw(*KEYWORDS):
         tokens = tokens[2:]
     elif tokens and tokens[0].kind == "num":
         tokens = tokens[1:]
-    return [with_argument(part) for part in split_top(tokens, ":") if part]
+    return [with_argument(part) for part in split_top(tokens, ":", include_brackets=comment_aware) if part]
 
 
 def with_argument(tokens: list[Tok]) -> list[Tok]:
@@ -346,7 +346,7 @@ def add_member(module: Module, member: Member, accessor: str | None = None, proc
     ))
 
 
-def parse_module(path: str, text: str) -> Module:
+def parse_module(path: str, text: str, *, comment_aware: bool = False) -> Module:
     kind = VBA_SUFFIXES[Path(path).suffix.casefold()]
     name_match = re.search(r'^Attribute VB_Name = "([^"]+)"', text, re.MULTILINE)
     module = Module(path, name_match.group(1) if name_match else Path(path).stem, kind)
@@ -359,10 +359,10 @@ def parse_module(path: str, text: str) -> Module:
     current: Proc | None = None
     block: str | None = None
     enum_visibility = "public"
-    for first, _last, unit_kind, code in logical_units(lines):
+    for first, _last, unit_kind, code in logical_units(lines, comment_aware=comment_aware):
         if first <= start or unit_kind == "directive":
             continue
-        for tokens in statements_of(code):
+        for tokens in statements_of(code, comment_aware=comment_aware):
             head = tokens[0]
             if head.is_kw("attribute"):
                 continue

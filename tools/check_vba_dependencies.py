@@ -10,7 +10,7 @@ from _gatelib import parse_report_args, run_gate
 from check_vba_calls import Module, matching_paren, parse_module, parse_params, statements_of
 from check_vba_conditionals import logical_units, reachable_sources
 from check_vba_identifiers import HOST_OBJECTS, project_sources, references
-from vba_lexer import Tok, analysis_source
+from vba_lexer import Tok
 
 POLICY = "tools/vba-dependency-exceptions.json"
 ALLOWED = {"core": {"core"}, "modules": {"modules", "core", "classes", "host"},
@@ -56,10 +56,10 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                                  if "declare" in member.accessors]
     local_by_line = {line: set(proc.locals) | {p.name.casefold() for p in proc.params} | {proc.name.casefold()}
                      for proc in procedures for line in [proc.line, *(line for line, _ in proc.statements)]}
-    for line, _, kind, code in logical_units(source.splitlines()):
+    for line, _, kind, code in logical_units(source.splitlines(), comment_aware=True):
         if kind == "directive":
             continue
-        for tokens in statements_of(code):
+        for tokens in statements_of(code, comment_aware=True):
             if tokens[0].is_kw("attribute", "option", "rem"):
                 continue
             local_names = local_by_line.get(line, set()) | event_parameters(tokens)
@@ -74,10 +74,11 @@ def module_edges(module: Module, source: str, owners: dict[str, set[str]],
                     continue
                 is_type = id(token) in type_tokens
                 own = module.members.get(token.low)
-                if (not is_type and token.low in local_names) or (own is not None and
-                        (not is_type or own.kind in {"type", "enum"})):
+                if token.kind != "host" and ((not is_type and token.low in local_names) or
+                        (own is not None and (not is_type or own.kind in {"type", "enum"}))):
                     continue
-                targets = (type_owners if is_type else owners).get(token.low, set())
+                targets = ({"host:" + token.low} if token.kind == "host" else
+                           (type_owners if is_type else owners).get(token.low, set()))
                 if not targets and token.low in HOST_OBJECTS:
                     targets = {"host:" + token.low}
                 for target in targets:
@@ -93,14 +94,14 @@ def analyze(sources: dict[str, str], exceptions: list[dict[str, str]]) -> dict[s
     failures: list[dict[str, Any]] = []
     variants: dict[str, dict[str, str]] = {}
     for path, text in sources.items():
-        environments, errors = reachable_sources(path, analysis_source(text))
+        environments, errors = reachable_sources(path, text, comment_aware=True)
         failures.extend(errors)
         for env, source in environments.items():
             variants.setdefault(env, {})[path] = source
     violations: list[dict[str, Any]] = []
     exemptions: list[dict[str, Any]] = []
     for env, files in variants.items():
-        modules = [parse_module(path, text) for path, text in files.items()]
+        modules = [parse_module(path, text, comment_aware=True) for path, text in files.items()]
         owners = symbols(modules)
         type_owners = symbols(modules, types_only=True)
         for module in modules:
