@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import unittest
 import unittest.mock
+from dataclasses import replace
 from pathlib import Path
 
 import check_issues
@@ -72,6 +73,38 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual([(f.number, f.rule) for f in findings], [(1, "catalogue")])
 
 
+class PlanningTests(unittest.TestCase):
+    def test_dates_and_milestone_state_from_api(self) -> None:
+        parsed = check_issues.issue_from_api({"number": 1, "state": "open", "milestone": {
+            "title": "v1", "state": "closed", "due_on": "2027-01-15T00:00:00Z"}})
+        self.assertEqual(parsed.milestone_state, "closed")
+        self.assertEqual(parsed.milestone_due, "2027-01-15T00:00:00Z")
+        self.assertIn("milestone-closed", [f.rule for f in check_issues.planning_findings(parsed)])
+
+    def test_target_boundaries_and_both_formats(self) -> None:
+        for template in ("### 📅 Target date\n\n{}\n", "## 📅 Planning dates\n- **Target completion date:** {}\n"):
+            for value, expected in (("2027-01-14", []), ("2027-01-15", []),
+                                    ("2027-01-16", [(1, "target-after-milestone")])):
+                with self.subTest(template=template, value=value):
+                    candidate = replace(issue(1, body=READY + template.format(value)),
+                                        milestone_state="open", milestone_due="2027-01-15T00:00:00Z")
+                    self.assertEqual(rules([candidate]), expected)
+
+    def test_optional_invalid_conflicting_and_unrelated_dates(self) -> None:
+        for body in (READY, READY + "### Target date\n\n_No response_\n",
+                     READY + "## Notes\nTarget date: 2099-01-01\n",
+                     READY + "## Planning dates\n```\nTarget date: 2099-01-01\n```\n"):
+            self.assertEqual(rules([issue(1, body=body)]), [])
+        for value in ("2027-02-30", "15/01/2027", "2027-1-15", "tomorrow"):
+            self.assertEqual(rules([issue(1, body=READY + "### Target date\n" + value)]), [(1, "target-date")])
+        body = READY + "### Target date\n2027-01-15\n## Planning dates\n- Target date: 2027-01-16\n"
+        self.assertEqual(rules([issue(1, body=body)]), [(1, "target-date")])
+        self.assertEqual(rules([issue(1, body=body.replace("2027-01-16", "2027-01-15"))]), [])
+        candidate = replace(issue(1, body=READY + "### Target date\n2027-01-15"), milestone_due="bad")
+        self.assertEqual(rules([candidate]), [(1, "milestone-date")])
+        self.assertEqual(rules([replace(candidate, state="closed", milestone_state="closed")]), [])
+
+
 class DependencyTests(unittest.TestCase):
     def test_blocked_by_an_open_prerequisite(self) -> None:
         self.assertEqual(rules([issue(2, "P3", BLOCKED_LABEL, body=blocked_by(1)), issue(1)]), [])
@@ -122,6 +155,22 @@ class DependencyTests(unittest.TestCase):
 class ConfigTests(unittest.TestCase):
     def test_repository_configuration_passes(self) -> None:
         self.assertEqual(check_issues.config_findings(ROOT), [])
+
+    def test_forms_require_target_field_and_keep_it_optional(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / ".github/ISSUE_TEMPLATE", root / ".github/ISSUE_TEMPLATE")
+            for name in check_issues.FORM_PRIORITIES:
+                path = root / ".github/ISSUE_TEMPLATE" / name
+                text = path.read_text(encoding="utf-8")
+                field = text.split("id: target_date", 1)[1]
+                self.assertIn('label: "📅 Target date"', field)
+                self.assertIn("required: false", field)
+                path.write_text(text.replace("id: target_date", "id: omitted"), encoding="utf-8")
+            with unittest.mock.patch.object(check_issues, "catalogue_labels", return_value={
+                    "bug", "enhancement", "documentation", "P1", "P2", "P3", "blocked"}):
+                findings = check_issues.config_findings(root)
+            self.assertEqual(sum("has no target_date field" in finding for finding in findings), 3)
 
     def test_an_invalid_manifest_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -121,3 +121,12 @@ body:
           required: true
         - label: This proposal contains no real portfolio data and no secrets or private links.
           required: true
+
+  - type: input
+    id: target_date
+    attributes:
+      label: "📅 Target date"
+      description: "Optional planning date in YYYY-MM-DD format, no later than the milestone deadline."
+      placeholder: "2027-01-15"
+    validations:
+      required: false

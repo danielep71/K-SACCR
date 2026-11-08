@@ -151,6 +151,19 @@ class ViolationTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertFinds(cw.check_milestones(mutated(change)), fragment)
 
+    def test_triage_runtimes_are_installed_and_exact(self) -> None:
+        for name, job_id in (("issue-triage.yml", "audit"), (cw.INTEGRITY_FILE, cw.INTEGRITY_JOB)):
+            for action, key in (("setup-node", "node-version"), ("setup-python", "python-version")):
+                with self.subTest(name=name, action=action):
+                    def change(w: dict[str, Any]) -> None:
+                        step = next(s for s in job(w, name, job_id)["steps"] if action in s.get("uses", ""))
+                        step["with"][key] = "latest"
+                    self.assertFinds(cw.check_triage_runtimes(mutated(change)), "requires one")
+                    def remove(w: dict[str, Any]) -> None:
+                        configured = job(w, name, job_id)["steps"]
+                        configured[:] = [s for s in configured if action not in s.get("uses", "")]
+                    self.assertFinds(cw.check_triage_runtimes(mutated(remove)), "requires one")
+
     def test_dependabot(self) -> None:
         cases: list[tuple[Callable[[dict[str, Any]], None], str]] = [
             (lambda d: d["updates"].append(copy.deepcopy(d["updates"][0])), "2 blocks for 'github-actions'"),

@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,8 @@ class Issue:
     body: str
     title: str = ""
     author: str = ""
+    milestone_state: str | None = None
+    milestone_due: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +63,8 @@ def issue_from_api(item: Mapping[str, Any]) -> Issue:
         labels=tuple(str(label["name"]) for label in item.get("labels", [])),
         assignees=tuple(str(user["login"]) for user in item.get("assignees", [])),
         milestone=str(milestone["title"]) if milestone else None,
+        milestone_state=milestone.get("state") if milestone else None,
+        milestone_due=milestone.get("due_on") if milestone else None,
         body=str(item.get("body") or ""),
         title=str(item.get("title") or ""),
         author=str((item.get("user") or {}).get("login") or ""),
@@ -112,6 +117,64 @@ def metadata_findings(issue: Issue, assignee: str) -> list[Finding]:
     return findings
 
 
+TARGET_LABEL = re.compile(r"^(?:planned )?target(?: completion)? date$", re.I)
+
+
+def target_values(body: str) -> list[str]:
+    """Read the optional form field and labelled legacy Planning dates entries."""
+    values = []
+    section = ""
+    fenced = False
+    for line in body.splitlines():
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        heading = HEADING.match(line)
+        if heading:
+            title = re.sub(r"^[^A-Za-z]+", "", heading.group(1)).strip()
+            section = "target" if TARGET_LABEL.fullmatch(title) else (
+                "planning" if title.lower() == "planning dates" else "")
+            continue
+        clean = line.strip().replace("**", "")
+        if section == "planning":
+            label, separator, value = clean.lstrip("-* ").partition(":")
+            if separator and TARGET_LABEL.fullmatch(label.strip()):
+                values.append(value.strip().strip("`"))
+        elif section == "target" and clean:
+            values.append(clean.strip("`"))
+    return [value for value in values if value and value.lower() not in {"_no response_", "none", "n/a"}]
+
+
+def planning_findings(issue: Issue) -> list[Finding]:
+    findings = []
+    if issue.milestone_state == "closed":
+        findings.append(Finding(issue.number, "milestone-closed", "open issue belongs to a closed milestone"))
+    values = target_values(issue.body)
+    dates = set()
+    for value in values:
+        try:
+            if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+                raise ValueError("expected ISO date")
+            dates.add(date.fromisoformat(value))
+        except ValueError:
+            findings.append(Finding(issue.number, "target-date", f"invalid target date {value!r}; use YYYY-MM-DD"))
+    if len(dates) > 1:
+        findings.append(Finding(issue.number, "target-date", "conflicting target dates in the issue body"))
+    if dates and issue.milestone_due:
+        try:
+            due = date.fromisoformat(issue.milestone_due[:10])
+        except ValueError:
+            findings.append(Finding(issue.number, "milestone-date", "milestone due date is invalid"))
+        else:
+            for target in sorted(dates):
+                if target > due:
+                    findings.append(Finding(issue.number, "target-after-milestone",
+                                            f"target {target} is after milestone due date {due}"))
+    return findings
+
+
 def dependency_findings(issue: Issue, states: Mapping[int, str], repository: str,
                         pulls: Collection[int] = ()) -> list[Finding]:
     """A named pull request is a known reference, never a prerequisite.
@@ -151,6 +214,7 @@ def audit(issues: Sequence[Issue], states: Mapping[int, str], repository: str,
         if issue.state != "open":
             continue
         findings += metadata_findings(issue, assignee)
+        findings += planning_findings(issue)
         findings += dependency_findings(issue, states, repository, pulls)
         if catalogue is not None:
             findings += [Finding(issue.number, "catalogue", f"has label {label!r}, "
@@ -204,6 +268,8 @@ def config_findings(root: Path) -> list[str]:
                      for label in form_labels if label not in labels]
         if flow_list(text, "assignees") != [assignee]:
             problems.append(f"{name} must assign {assignee}")
+        if not re.search(r"^\s*id:\s*target_date\s*$", text, re.M):
+            problems.append(f"{name} has no target_date field")
         if not re.search(r"^\s*id:\s*dependencies\s*$", text, re.M):
             problems.append(f"{name} has no dependencies field")
     config = forms / "config.yml"
