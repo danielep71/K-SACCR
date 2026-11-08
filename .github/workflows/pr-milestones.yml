@@ -20,7 +20,8 @@ on:
 permissions: {}
 
 concurrency:
-  group: pr-milestones
+  # Keep independent PR events out of the same pending-run slot.
+  group: pr-milestones-${{ github.event.pull_request.number || 'reconcile-all' }}
   cancel-in-progress: false
 
 jobs:
@@ -36,6 +37,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      issues: read
       pull-requests: write
     steps:
       # Trusted inline code only: never check out or execute a PR's contents.
