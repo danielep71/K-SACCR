@@ -42,7 +42,7 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
-# Least privilege. Write grants are scoped to the traffic job:
+# Least privilege. Write grants are split between collection and alerts:
 #   contents: write  pushes the CSV history to the traffic-history branch
 #   issues:   write  opens an alert issue on a traffic spike or new referrer
 # Nothing else is granted.
@@ -65,7 +65,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
-      issues: write
 
     # Requests the repository-level analytics environment. Keep this declaration
     # out of every code-executing build, test and release job; the environment
@@ -88,7 +87,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git fetch origin traffic-history:traffic-history || true
+          if git ls-remote --exit-code --heads origin traffic-history; then
+            git fetch origin traffic-history:traffic-history
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then exit "$status"; fi
+          fi
 
           if git show-ref --verify --quiet refs/heads/traffic-history; then
             git checkout traffic-history
@@ -140,7 +144,7 @@ jobs:
             local output="$3"
             local status
 
-            status=$(curl -sS -L \
+            status=$(curl -sS -L --retry 5 --retry-max-time 300 --max-time 60 --connect-timeout 15 --retry-connrefused \
               -o "$output" \
               -w "%{http_code}" \
               -H "Authorization: Bearer $TRAFFIC_TOKEN" \
@@ -157,6 +161,7 @@ jobs:
             fi
           }
 
+          date -u +%Y-%m-%dT%H:%M:%S+00:00 > /tmp/traffic-snapshot-time
           api_get "Page views" "$BASE_URL/traffic/views?per=day" "/tmp/views.json"
           api_get "Clones" "$BASE_URL/traffic/clones?per=day" "/tmp/clones.json"
           api_get "Top referrers" "$BASE_URL/traffic/popular/referrers" "/tmp/referrers.json"
@@ -168,11 +173,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          python3 << 'PY'
+          cat > /tmp/build-traffic.py << 'PY'
           import csv
           import json
           import os
-          from datetime import datetime, timezone
+          from datetime import datetime
 
           def load_json(path):
               with open(path, "r", encoding="utf-8") as f:
@@ -291,7 +296,13 @@ jobs:
           if "stargazers_count" not in repo:
               raise RuntimeError("Unexpected repository metadata API response")
 
-          now = datetime.now(timezone.utc)
+          with open("/tmp/traffic-snapshot-time", encoding="utf-8") as handle:
+              now = datetime.fromisoformat(handle.read().strip())
+          # A newer concurrent snapshot wins; do not replace its observations.
+          if any(row.get("snapshot_datetime_utc", "") > now.isoformat(timespec="seconds")
+                 for row in read_csv("data/traffic.csv")):
+              print("Keeping newer concurrent snapshot")
+              raise SystemExit(0)
           snapshot_date = now.date().isoformat()
           snapshot_datetime = now.isoformat(timespec="seconds")
 
@@ -506,6 +517,7 @@ jobs:
               path_fields
           )
           PY
+          python3 /tmp/build-traffic.py
 
       - name: Commit traffic history
         shell: bash
@@ -514,25 +526,55 @@ jobs:
         run: |
           set -euo pipefail
 
-          git add data/
-
-          if git diff --cached --quiet; then
-            echo "No traffic changes to commit"
-          else
-            git commit -m "Update traffic history"
-          fi
-
-          # The token is given to this one git command only; the checkout
-          # keeps no credentials in .git/config.
           auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$auth"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
-            push origin HEAD:traffic-history
+          for attempt in 1 2 3; do
+            git add data/
+            if ! git diff --cached --quiet; then
+              git commit -m "Update traffic history"
+            fi
+            if git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+                push origin HEAD:traffic-history; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Traffic history push failed after three attempts"
+              exit 1
+            fi
+            # Reset only this ephemeral checkout, then replay the frozen snapshot
+            # over the complete remote history. Never force-push or re-use stale CSVs.
+            git fetch origin traffic-history
+            git reset --hard FETCH_HEAD
+            python3 /tmp/build-traffic.py
+          done
+
+      - name: Publish collected data for alert evaluation
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: traffic-alert-data
+          path: data/*.csv
+          retention-days: 1
+          if-no-files-found: error
+
+  alert:
+    name: Evaluate traffic alerts
+    needs: traffic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Download collected data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: traffic-alert-data
+          path: data
 
       - name: Create alert issue on spike or new referrer
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -583,11 +625,6 @@ jobs:
               to_int(previous["views_14d"]) + 100
           )
 
-          clones_spike = to_int(current["clones_14d"]) >= max(
-              to_int(previous["clones_14d"]) * 2,
-              to_int(previous["clones_14d"]) + 10
-          )
-
           stars_up = to_int(current["stars"]) > to_int(previous["stars"])
           forks_up = to_int(current["forks"]) > to_int(previous["forks"])
 
@@ -617,16 +654,13 @@ jobs:
               and to_int(row.get("count", 0)) >= 5
           ]
 
-          if not (views_spike or clones_spike or stars_up or forks_up or new_referrers):
+          if not (views_spike or stars_up or forks_up or new_referrers):
               sys.exit(0)
 
           reasons = []
 
           if views_spike:
               reasons.append("Views spike")
-
-          if clones_spike:
-              reasons.append("Clones spike")
 
           if stars_up:
               reasons.append("Stars increased")
