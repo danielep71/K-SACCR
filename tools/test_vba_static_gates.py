@@ -247,6 +247,14 @@ End Sub''')
         self.assertEqual({f['target'] for f in findings}, {'host:application', 'host:evaluate'})
         self.assertEqual({f['identifier'] for f in identifiers.analyze(files)['findings']}, {'unknownVariable'})
 
+    def test_parentheses_inside_sheet_names_are_opaque(self) -> None:
+        for sheet in ('Sheet 1', 'Sheet (1', 'Sheet )1'):
+            source = module('SACCR_A', f"Sub Run()\nDebug.Print ['{sheet}'!A1]: End Sub")
+            files = {'src/modules/SACCR_A.bas': source}
+            self.assertEqual(dependencies.analyze(files, [])['status'], 'pass')
+            self.assertEqual(identifiers.analyze(files)['analysis_failures'], [])
+            self.assertEqual(identifiers.analyze(files)['findings'], [])
+
     def test_exception_manifest_rejects_blanket_exemptions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -85,10 +85,18 @@ def split_top(tokens: list[Tok], separator: str, *, include_brackets: bool = Fal
     """Split on ``separator`` outside parentheses."""
     parts: list[list[Tok]] = [[]]
     depth = 0
+    bracket_depth = 0
     for token in tokens:
-        if token.is_op("(") or (include_brackets and token.text == "["):
+        if include_brackets and token.text == "[":
+            bracket_depth += 1
+        if bracket_depth:
+            parts[-1].append(token)
+            if token.text == "]":
+                bracket_depth -= 1
+            continue
+        if token.is_op("("):
             depth += 1
-        elif token.is_op(")") or (include_brackets and token.text == "]"):
+        elif token.is_op(")"):
             depth -= 1
         if depth == 0 and token.is_op(separator):
             parts.append([])
