@@ -9,7 +9,9 @@ Attribute VB_Name = "TEST_Suite"
 '   their full logs when they are run on their own. Certify runs the
 '   harness and every suite once each, on its own, and then Test_RunAll,
 '   writing each report to its own log file of an evidence bundle, first
-'   line CANDIDATE= (#535).
+'   line CANDIDATE= (#535). Verify runs Test_RunAll once into summary.log,
+'   for the quick check of a pull request, which is no evidence bundle
+'   (#618).
 '
 ' PUBLIC SURFACE
 '   Test_RunAll runs the suites. Say is the print routine of every suite,
@@ -18,8 +20,9 @@ Attribute VB_Name = "TEST_Suite"
 '   instead; while Certify runs, every printed line is also written to
 '   the open log file. Certify, CertificationReady and
 '   CertificationReferences are called by tools\Certify-SACCR.ps1 through
-'   Application.Run. Option Private Module keeps them out of the external
-'   workbook automation API.
+'   Application.Run, and Verify by tools\Verify-SACCR-Branch.ps1 -Quick.
+'   Option Private Module keeps them out of the external workbook
+'   automation API.
 '
 ' DEPENDENCIES
 '   CORE_Export.Utf8Bytes, to write the log files as UTF-8; TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
@@ -43,10 +46,11 @@ Attribute VB_Name = "TEST_Suite"
 ' USAGE
 '   Import with the test modules, compile, then type Test_RunAll in the
 '   Immediate window. For an evidence bundle, run tools\Certify-SACCR.ps1,
-'   which calls Certify (docs/EXCEL_EVIDENCE.md).
+'   which calls Certify (docs/EXCEL_EVIDENCE.md); for a pull request,
+'   tools\Verify-SACCR-Branch.ps1 -Quick, which calls Verify.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-07
 '
 ' AUTHOR
 '   Daniele Penza
@@ -193,7 +197,7 @@ Public Function Certify( _
 '   counted in write_errors; the validator then rejects the log.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-07
 '==============================================================================
 '
 
@@ -207,16 +211,8 @@ Public Function Certify( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-        If Not IsCandidate(Candidate) Then
-            Certify = "RESULT=REFUSED; reason=the candidate is not a full lowercase commit SHA"
-            Exit Function
-        End If
-        Base = Folder
-        If Right$(Base, 1) <> Application.PathSeparator Then
-            Base = Base & Application.PathSeparator
-        End If
-        If Not FolderExists(Base) Then
-            Certify = "RESULT=REFUSED; reason=the folder does not exist: " & Folder
+        Certify = Refusal(Folder, Candidate, Base)
+        If Len(Certify) > 0 Then
             Exit Function
         End If
         Suites = SuiteEntries()
@@ -226,10 +222,6 @@ Public Function Certify( _
                 Exit Function
             End If
         Next i
-        If FileExists(Base & "summary.log") Then
-            Certify = "RESULT=REFUSED; reason=a log exists already: summary.log"
-            Exit Function
-        End If
 
 '------------------------------------------------------------------------------
 ' RUN EACH SUITE ON ITS OWN, THEN THE SUMMARY
@@ -243,6 +235,55 @@ Public Function Certify( _
         Test_RunAll
         mLogPath = ""
         Certify = "RESULT=DONE; logs=" & (UBound(Suites) - LBound(Suites) + 2) & "; write_errors=" & mLogErrors
+
+End Function
+
+
+Public Function Verify( _
+    ByVal Folder As String, _
+    ByVal Candidate As String) _
+    As String
+'
+'==============================================================================
+'                                    Verify
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the summary of a quick pull-request check (#618): Test_RunAll
+'   once, into summary.log in Folder, with the line CANDIDATE=Candidate
+'   first, as Certify writes it. Nothing else is written: the suites do
+'   not run on their own, so the folder is not an evidence bundle and
+'   tools\check_excel_evidence.py cannot validate it.
+'   tools\Verify-SACCR-Branch.ps1 -Quick calls it through Application.Run.
+'
+' INPUTS
+'   As Certify.
+'
+' RETURNS
+'   "RESULT=DONE; logs=1; write_errors=0" once the run has ended, the
+'   count of lines that could not be written last; "RESULT=REFUSED;
+'   reason=..." as Certify refuses: the candidate is not a full lowercase
+'   SHA, the folder does not exist, or summary.log exists already.
+'
+' ERROR POLICY
+'   As Certify: Test_RunAll reports a suite's error in the summary, and a
+'   line that cannot be written is counted.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+    Dim Base        As String     'Folder with one path separator at its end
+
+        Verify = Refusal(Folder, Candidate, Base)
+        If Len(Verify) > 0 Then
+            Exit Function
+        End If
+        mLogErrors = 0
+        mLogPath = Base & "summary.log"
+        WriteLogLine "CANDIDATE=" & Candidate
+        Test_RunAll
+        mLogPath = ""
+        Verify = "RESULT=DONE; logs=1; write_errors=" & mLogErrors
 
 End Function
 
@@ -316,6 +357,47 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+
+Private Function Refusal( _
+    ByVal Folder As String, _
+    ByVal Candidate As String, _
+    ByRef Base As String) _
+    As String
+'
+'==============================================================================
+'                                   Refusal
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The check Certify and Verify share: the candidate is a full lowercase
+'   SHA, the folder exists and holds no summary.log yet. Base receives
+'   Folder with one path separator at its end.
+'
+' RETURNS
+'   "" when the folder can take the logs; otherwise the RESULT=REFUSED
+'   line to return.
+'
+' UPDATED
+'   2026-11-07
+'==============================================================================
+'
+        If Not IsCandidate(Candidate) Then
+            Refusal = "RESULT=REFUSED; reason=the candidate is not a full lowercase commit SHA"
+            Exit Function
+        End If
+        Base = Folder
+        If Right$(Base, 1) <> Application.PathSeparator Then
+            Base = Base & Application.PathSeparator
+        End If
+        If Not FolderExists(Base) Then
+            Refusal = "RESULT=REFUSED; reason=the folder does not exist: " & Folder
+            Exit Function
+        End If
+        If FileExists(Base & "summary.log") Then
+            Refusal = "RESULT=REFUSED; reason=a log exists already: summary.log"
+        End If
+
+End Function
+
 
 Private Function RunOneSuite( _
     ByVal EntryPoint As String) _

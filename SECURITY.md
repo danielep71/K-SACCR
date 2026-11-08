@@ -106,7 +106,11 @@ exposure figure, which are reported as issues.
   `Check-SACCR-Protection.ps1`, which it runs, open their workbooks following
   the Trust Center macro setting and ask the operator to enable content; the
   protection checks also open the production workbook with its macros
-  disabled for this Excel session only. The
+  disabled for this Excel session only. `Verify-SACCR-Branch.ps1 -Quick`, the
+  pull-request check, and `Check-SACCR-Protection.ps1 -Unattended`, which it
+  runs, instead enable the macros of the workbooks they build for their own
+  Excel session only (`AutomationSecurity` Low), without touching the Trust
+  Center. The
   `.cmd` launchers run PowerShell with `-ExecutionPolicy Bypass`, and
   `Sync-SACCR-VBA-Downloads.cmd` imports modules from a folder such as
   Downloads: use it only with files obtained from this repository.

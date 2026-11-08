@@ -68,10 +68,27 @@ or fast-forwarded to it; one with commits origin lacks is refused) and runs
 `Certify-SACCR.ps1` of that branch in a new bundle folder next to the
 checkout, with a date and time added to its name when one exists for the same
 commit. It then writes `verify-summary.txt` in the bundle and prints it: the
-branch, the commit, the `Test_RunAll` summary, the 14 protection checks and
-the result, ready to report. Its exit code is that of `Certify-SACCR.ps1`. It
-never pushes or discards changes, and checks made by eye, such as the
-Ribbon's labels, stay with the operator.
+branch, the commit, the mode, the duration, the `Test_RunAll` summary, the
+14 protection checks and the result, ready to report. Its exit code is that
+of `Certify-SACCR.ps1`. With `-Quick` (or `quick` as the second argument of
+the `.cmd`) it runs the quick check of a pull request instead (#618),
+unattended, in `saccr-verify-SHORTSHA`: it builds the development workbook,
+opens it with its macros enabled for that Excel session only
+(`AutomationSecurity` Low; the Trust Center is not changed), compiles it, runs
+`Test_RunAll` once (`TEST_Suite.Verify`, into `summary.log`) and runs the 14
+protection checks with `Check-SACCR-Protection.ps1 -Unattended`, which opens
+the production workbook the same way. No prompt is shown; a step that would
+need one, such as a compile the VBE does not confirm on its own, stops the
+run, and a compile error, which opens a dialog in the VBE that the compile
+command waits on, is cut short by a watchdog that closes that run's Excel
+after 60 seconds and fails the run. The suites do not run on their own and
+no evidence record is written,
+so the folder is not an evidence bundle and `check_excel_evidence.py` cannot
+validate it: a quick run is enough for a pull request, never for a release
+candidate, which the full run certifies. Its exit code is 0 only when the
+project compiled, `Test_RunAll` passed and the 14 checks pass. Either way
+the script never pushes or discards changes, and checks made by eye, such
+as the Ribbon's labels, stay with the operator.
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).

@@ -17,7 +17,10 @@ be run on its own. It:
    protection settings Excel enforces for sorting, filtering, inserting rows,
    row groups and formula display;
 3. opens it again following the Trust Center macro setting, as
-   Certify-SACCR.ps1 does, runs its Auto_Open, and runs checks 1 and 7 to 13
+   Certify-SACCR.ps1 does, or with -Unattended with its macros enabled for
+   that Excel session only (AutomationSecurity Low, no prompt; the Trust
+   Center is not changed), as Verify-SACCR-Branch.ps1 -Quick runs it (#618);
+   runs its Auto_Open, and runs checks 1 and 7 to 13
    through the macros' silent entry points (M_Main.RunSACCR_Silent,
    ValidateInputs_Silent, ClearOutputs_Silent, ImportCsv_Silent,
    ValidateStaging_Silent, CommitStaging_Silent, ExportEvidence_Silent and
@@ -39,7 +42,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$Python = "python",
     [Parameter(Mandatory = $false)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [Parameter(Mandatory = $false)]
+    [switch]$Unattended
 )
 
 Set-StrictMode -Version Latest
@@ -55,6 +60,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $OutputDir = (Resolve-Path -LiteralPath $OutputDir).Path
 
+$msoAutomationSecurityLow = 1
 $msoAutomationSecurityByUI = 2
 $msoAutomationSecurityForceDisable = 3
 $xlAutoOpen = 1
@@ -201,11 +207,18 @@ function Close-Excel {
 function Open-WithMacros {
     # Open the workbook in $script:excel and $script:workbook following the
     # Trust Center setting, wait until its macros run, then run Auto_Open as
-    # Excel does when a user opens it.
+    # Excel does when a user opens it. With -Unattended the macros are
+    # enabled for this Excel session only, and a workbook whose macros still
+    # do not run stops the checks instead of asking.
     $script:excel = New-Object -ComObject Excel.Application
     $script:excel.Visible = $true
     $script:excel.DisplayAlerts = $false
-    $script:excel.AutomationSecurity = $msoAutomationSecurityByUI
+    if ($Unattended) {
+        $script:excel.AutomationSecurity = $msoAutomationSecurityLow
+    }
+    else {
+        $script:excel.AutomationSecurity = $msoAutomationSecurityByUI
+    }
     $script:workbook = $script:excel.Workbooks.Open($script:workbookPath)
     $ready = $false
     while (-not $ready) {
@@ -214,6 +227,10 @@ function Open-WithMacros {
             $ready = $true
         }
         catch {
+            if ($Unattended) {
+                throw ("The production workbook's macros did not run although they were enabled for this " +
+                       "Excel session: " + $_.Exception.Message)
+            }
             Write-Host ""
             Write-Host "The production workbook's macros are disabled. In the Excel window, click Enable"
             Write-Host "Content in the message bar (or File > Info > Enable Content), then press Enter here."
