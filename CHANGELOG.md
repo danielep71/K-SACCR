@@ -97,6 +97,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Refuse all label synchronization changes when any label scheduled for deletion
+  is still used by an open or closed issue or PR (#540). Dry-run and drift reports
+  identify the labels and usage counts; failed usage reads also prevent mutation.
+
 - Isolate PR milestone reconciliation by pull request, so events for different
   PRs cannot cancel each other while pending (#541). Declare the issues read
   permission explicitly and check the concurrency and permission contract.

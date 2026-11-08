@@ -266,7 +266,14 @@ or a manual run on `main`; a manual run on any other branch skips it.
 - **Sync issue labels** (`labels-sync.yml`) validates pull requests into `main`
   or `release/**` without write permission. Pushes to main affecting its inputs,
   and manual runs on main, reconcile live labels and verify an exact match. Only the
-  reconciliation job receives `issues: write`.
+  reconciliation job receives `issues: write`. Before any mutation, a paginated
+  `state=all` scan checks deletion candidates against open/closed issues and PRs.
+  If any candidate is in use, the entire apply is refused with counts per label;
+  unreadable, malformed or incomplete usage scans also fail before mutation.
+  Dry-run and drift summaries report the same refusal. Offline fixtures can
+  include an `issues` array alongside `labels`; without it, usage is explicitly
+  reported as not checked. An unused label may still be deleted. This preflight
+  is not an atomic lock against concurrent label assignments on GitHub.
 - **Detect issue-label drift** (`labels-drift.yml`) checks deterministic
   fixtures on pull requests and compares live labels daily at 05:17 UTC or on
   manual request. It is read-only and uploads JSON/Markdown evidence for 30

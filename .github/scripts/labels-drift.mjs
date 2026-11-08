@@ -8,6 +8,8 @@ import { join } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 
+import { deletionUsage, liveDeletionUsage, usageSummary } from "./labels-sync.mjs";
+
 const execFileAsync = promisify(execFile);
 const TOOL_NAME = "Repository label drift";
 const API_VERSION = "2022-11-28";
@@ -323,6 +325,7 @@ function markdownReport(report) {
     "- Canonical reconciliation plan cross-check: **PASS**",
     ""
   ];
+  lines.push(usageSummary(report.deletion_usage ?? null), "");
   if (report.differences.length === 0) {
     lines.push("No live label drift detected.");
   } else {
@@ -433,6 +436,14 @@ async function runSelfTest(manifestPath) {
   assert.match(markdownReport(driftFirst), /simulated out-of-band change/);
   assert.match(markdownReport(driftFirst), new RegExp(missing.name));
 
+  const usage = await deletionUsage(driftFirst.differences, async () => [
+    { number: 9, state: "closed", pull_request: {}, labels: [{ name: "out-of-band" }] }
+  ]);
+  assert.match(markdownReport({ ...driftFirst, deletion_usage: usage }),
+    /Refusing all label changes.*out-of-band.*1 issue\/PR records/);
+  assert.match(markdownReport({ ...driftFirst, deletion_usage: [] }), /no label scheduled for deletion is in use/);
+  assert.match(markdownReport(driftFirst), /NOT CHECKED/);
+
   process.stdout.write(
     "SELF-TEST PASS: retry delays and deterministic no-drift and create/update/delete drift fixtures are read-only and match the canonical reconciler.\n"
   );
@@ -448,8 +459,10 @@ async function main() {
   const { manifest, desiredLabels } = await prepareContract(options.manifest);
 
   let liveLabels;
+  let fixtureIssues;
   if (options.live) {
     const liveDocument = await loadJson(options.live);
+    fixtureIssues = liveDocument.issues;
     liveLabels = Array.isArray(liveDocument) ? liveDocument : liveDocument.labels;
     if (!Array.isArray(liveLabels)) {
       throw new Error("live fixture must be an array or contain a labels array");
@@ -467,6 +480,13 @@ async function main() {
     desiredLabels,
     liveLabels
   });
+  report.deletion_usage = options.live
+    ? fixtureIssues === undefined ? null
+      : await deletionUsage(report.differences, page => {
+        if (!Array.isArray(fixtureIssues)) throw new Error("fixture issues must be an array");
+        return fixtureIssues.slice((page - 1) * 100, page * 100);
+      })
+    : await liveDeletionUsage(report.differences, options.repository, process.env.GITHUB_TOKEN);
   const json = `${JSON.stringify(report, null, 2)}\n`;
   const markdown = markdownReport(report);
   await writeEvidence(options.output, json);
