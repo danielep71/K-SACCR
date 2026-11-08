@@ -97,6 +97,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Add advisory VBA identifier checks, a dependency-direction gate with explicit
+  #220 exceptions, and ASCII checks outside string literals (#538). Share lexer
+  primitives across the existing VBA checks without changing their findings.
+
 - Keep clone traffic in history and badges without clone-only alerts (#593).
   Separate collection and alert permissions, bound API retries, and rebuild from
   fresh remote history before retrying a rejected push.

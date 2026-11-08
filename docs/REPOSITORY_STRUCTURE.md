@@ -165,8 +165,19 @@ its original structure until it is refactored:
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
-| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec` and `CORE_Util` directly |
+| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec`, `CORE_Config` and `CORE_Util` directly; `M_Ribbon` also calls `CORE_Config` and `CORE_Util` |
 | No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
+
+`tools/check_vba_dependencies.py` enforces static module/member/type references
+against these layers. Its exact source/target exceptions are recorded in
+[`../tools/vba-dependency-exceptions.json`](../tools/vba-dependency-exceptions.json)
+and linked to #220. Core Excel references are allowed only for the existing
+`CORE_Engine` and `CORE_Util` roots/types (`Range`, `Worksheet`, `ThisWorkbook`).
+A new forbidden edge fails; no wildcard exception is permitted. The facade may
+accept Excel host inputs (for example `Range`) at its worksheet-function boundary;
+this does not permit the core to acquire that dependency. Classes may depend on
+core; forms on the facade/classes/host. Dynamic or late-bound targets still need
+review, so this gate does not certify complete host independence.
 
 Each deviation is removed by a reviewed change, not by reformatting. Their
 removal is planned in #220 (v1.3.0).

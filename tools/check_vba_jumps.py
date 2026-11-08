@@ -14,6 +14,8 @@ from _gatelib import git_bytes as git
 from _gatelib import parse_report_args as parse_args
 from _gatelib import run_gate
 from check_vba_conditionals import reachable_sources
+from vba_lexer import logical_lines
+from vba_lexer import strip_vba as strip_source
 
 VBA_SUFFIXES = {".bas", ".cls", ".frm"}
 TOOL_NAME = "Procedure-scoped VBA jumps"
@@ -49,49 +51,11 @@ def tracked_vba(root: Path) -> list[str]:
 
 
 def strip_vba(raw: str) -> str:
-    result: list[str] = []
-    in_string = False
-    index = 0
-    while index < len(raw):
-        char = raw[index]
-        if char == '"':
-            if in_string and index + 1 < len(raw) and raw[index + 1] == '"':
-                result.extend('  ')
-                index += 2
-                continue
-            in_string = not in_string
-            result.append(' ')
-            index += 1
-            continue
-        if char == "'" and not in_string:
-            break
-        result.append(' ' if in_string else char)
-        index += 1
-    text = "".join(result)
-    if re.match(r"^\s*Rem(?:\s|$)", text, re.IGNORECASE):
-        return ""
-    return text.rstrip()
+    return strip_source(raw, mask_strings=True)
 
 
 def logical_statements(lines: list[str]) -> list[tuple[int, int, str]]:
-    statements: list[tuple[int, int, str]] = []
-    buffer: list[str] = []
-    start = 0
-    for number, raw in enumerate(lines, start=1):
-        code = strip_vba(raw)
-        if not buffer:
-            start = number
-        continued = bool(re.search(r"\s_\s*$", code))
-        if continued:
-            code = re.sub(r"\s_\s*$", " ", code)
-            buffer.append(code)
-            continue
-        buffer.append(code)
-        statements.append((start, number, " ".join(part.strip() for part in buffer)))
-        buffer.clear()
-    if buffer:
-        statements.append((start, len(lines), " ".join(part.strip() for part in buffer)))
-    return statements
+    return logical_lines(lines, mask_strings=True)
 
 
 def label_at_start(code: str) -> str | None:
