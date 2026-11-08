@@ -25,6 +25,7 @@ DEFAULT_BRANCH_GUARD = "github.ref == format('refs/heads/{0}', github.event.repo
 # The only write permissions a job may hold: (workflow file, job id) -> scopes.
 WRITE_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("labels-sync.yml", "reconcile"): {"issues"},
+    ("external-links.yml", "audit"): {"issues"},
     ("daily-traffic.yml", "traffic"): {"contents", "issues"},
     ("pr-milestones.yml", "reconcile"): {"pull-requests"},
 }
@@ -239,6 +240,47 @@ def check_triage_runtimes(workflows: Docs) -> list[str]:
     return findings
 
 
+def check_minimum_python(workflows: Docs) -> list[str]:
+    findings = []
+    minimum = jobs(workflows.get(INTEGRITY_FILE, {})).get("minimum-python", {})
+    if not any("unittest discover" in str(step.get("run", "")) for step in steps(minimum)):
+        findings.append("minimum-python: compatibility tests are missing")
+    return findings
+
+
+def check_supply_chain(workflows: Docs, sources: Mapping[str, str],
+                       dependabot: Any, governance: str) -> list[str]:
+    findings = []
+    findings += check_minimum_python(workflows)
+    active = re.search(r"The active release branch is `([^`]+)`", governance)
+    for block in (dependabot or {}).get("updates", []):
+        if not active or block.get("target-branch") != active.group(1):
+            findings.append("dependabot.yml: target-branch differs from active release")
+    for name, source in sources.items():
+        for line in source.splitlines():
+            if re.search(r"\buses:\s*[^#]+@[0-9a-f]{40}", line) and not re.search(
+                    r"#\s*v[0-9]+\.[0-9]+\.[0-9]+(?:\s|$)", line):
+                findings.append(f"{name}: action pin lacks version comment")
+    for name, workflow in workflows.items():
+        for job_id, job in jobs(workflow).items():
+            for step in steps(job):
+                run = str(step.get("run", "")).replace("\\\n", " ")
+                for command in re.split(r"[\n;&|]", run):
+                    if re.search(r"\bpip(?:3)?\s+install\b", command) and not re.search(
+                            r"(?:^|\s)--require-hashes(?:\s|$)", command):
+                        findings.append(f"{name}/{job_id}: pip install lacks --require-hashes")
+                uses = str(step.get("uses", ""))
+                for action, key, expected in (("setup-python", "python-version", "3.10.19"),
+                                              ("setup-node", "node-version", "22.21.1")):
+                    if uses.startswith(f"actions/{action}@"):
+                        # This named compatibility job intentionally keeps the minimum version.
+                        if job_id == "minimum-python" and action == "setup-python":
+                            expected = "3.10.19"
+                        if (step.get("with") or {}).get(key) != expected:
+                            findings.append(f"{name}/{job_id}: inconsistent {key}")
+    return findings
+
+
 def all_findings(root: Path = ROOT) -> list[str]:
     workflows = load_workflows(root / ".github" / "workflows")
     governance = (root / "docs" / "GOVERNANCE.md").read_text(encoding="utf-8")
@@ -251,6 +293,10 @@ def all_findings(root: Path = ROOT) -> list[str]:
         lambda: check_label_sync(workflows),
         lambda: check_milestones(workflows),
         lambda: check_triage_runtimes(workflows),
+        lambda: check_supply_chain(workflows,
+                                   {name: (root / ".github/workflows" / name).read_text(encoding="utf-8")
+                                    for name in workflows},
+                                   load_yaml(root / ".github/dependabot.yml"), governance),
         lambda: check_dependabot(load_yaml(root / ".github" / "dependabot.yml"), bug_form),
     ]
     return [finding for check in checks for finding in check()]

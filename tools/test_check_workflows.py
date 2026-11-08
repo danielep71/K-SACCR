@@ -164,6 +164,24 @@ class ViolationTests(unittest.TestCase):
                         configured[:] = [s for s in configured if action not in s.get("uses", "")]
                     self.assertFinds(cw.check_triage_runtimes(mutated(remove)), "requires one")
 
+    def test_supply_chain_violations(self) -> None:
+        sources = {name: (ROOT / ".github/workflows" / name).read_text(encoding="utf-8") for name in WORKFLOWS}
+        self.assertEqual(cw.check_supply_chain(WORKFLOWS, sources, DEPENDABOT, GOVERNANCE), [])
+        self.assertFinds(cw.check_supply_chain({}, {}, DEPENDABOT, GOVERNANCE), "compatibility tests")
+        bad_sources = {"extra.yml": "uses: owner/action@" + "0" * 40}
+        self.assertFinds(cw.check_supply_chain({}, bad_sources, DEPENDABOT, GOVERNANCE), "version comment")
+        config = copy.deepcopy(DEPENDABOT)
+        config["updates"][0]["target-branch"] = "release/obsolete"
+        self.assertFinds(cw.check_supply_chain({}, {}, config, GOVERNANCE), "target-branch")
+        workflows: dict[str, Any]
+        for command in ("pip install package", "python -m pip install package", "pip3 install package"):
+            workflows = {"extra.yml": {"jobs": {"test": {"steps": [{"run": command}]}}}}
+            self.assertFinds(cw.check_supply_chain(workflows, {}, DEPENDABOT, GOVERNANCE), "require-hashes")
+        for action, key in (("setup-python", "python-version"), ("setup-node", "node-version")):
+            workflows = {"extra.yml": {"jobs": {"test": {"steps": [
+                {"uses": f"actions/{action}@" + "0" * 40, "with": {key: "latest"}}]}}}}
+            self.assertFinds(cw.check_supply_chain(workflows, {}, DEPENDABOT, GOVERNANCE), "inconsistent")
+
     def test_dependabot(self) -> None:
         cases: list[tuple[Callable[[dict[str, Any]], None], str]] = [
             (lambda d: d["updates"].append(copy.deepcopy(d["updates"][0])), "2 blocks for 'github-actions'"),

@@ -11,7 +11,7 @@ After the normal task PR into the active release branch, integrate the reviewed
 website change into `main` through an owner-authorized integration PR. In
 **Settings > Pages**, use **Deploy from a branch**, branch **main**, folder
 **/docs**. GitHub's built-in Pages deployment publishes this directory.
-[`.nojekyll`](.nojekyll) disables Jekyll processing: the landing page needs no
+`.nojekyll` disables Jekyll processing: the landing page needs no
 package installation, build tool, or external font. Its only script, at the
 end of the page, starts the release downloads in a hidden frame so the page
 does not visibly pass through GitHub; the links work without it.

@@ -575,3 +575,22 @@ The actionlint binary remains outside Dependabot's Python coverage. Update
 its version and checksum in the workflow `env` through a reviewed pull request.
 Whether GitHub blocks merging on this check depends on the repository's
 branch rulesets.
+
+### Workflow guard additions (#542)
+
+The workflow checker requires semantic version comments on SHA pins,
+`--require-hashes` on pip install commands, matching declared runtime versions,
+and Dependabot targets matching the active release branch in governance.
+The `minimum-python` job tests on Python 3.10.19 independently of the primary
+runtime policy. `check_links.py` is an offline gate in `check.py`: it checks tracked Markdown
+relative targets and fragments, explicit anchors, reference links and duplicate
+heading slugs. Code blocks/spans and remote URLs are excluded. Reports name the
+source file, line and destination; released manuals currently need no exceptions.
+
+`check_external_links.py` checks remote URLs with three attempts and bounded
+concurrency/timeouts. Repeated 404/410 responses are broken; authentication,
+rate limiting, server and network failures are inconclusive. The Monday workflow
+maintains one marked issue, reopening/updating it on failures and closing it when
+all URLs respond. Only the reporting job has issues:write. A local run without
+`--publish` writes a report and never changes GitHub. External checks are not a
+blocking PR gate because availability is transient.
