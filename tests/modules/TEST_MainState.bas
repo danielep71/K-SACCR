@@ -950,6 +950,9 @@ Private Sub CaseEditedOutput()
     Dim MtmCell       As Range      'MtM of the first trade, edited and restored
     Dim SavedMtm      As Variant    'Its formula
     Dim ExportPath    As String     'Export file, never written
+    Dim DiagnosticCell As Range    'Code/Field mutation target
+    Dim SavedDiagnostic As Variant 'Original diagnostic value
+    Dim c As Long                  'Appended column
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -988,6 +991,14 @@ Private Sub CaseEditedOutput()
         OutputCell.Value2 = ToDbl(SavedOutput, 0#) + 1#
         Result = M_Main.RunSACCR_Silent()
         Check M_Main.ResultsStatus() = "CURRENT", "after a new run: " & M_Main.ResultsStatus()
+        For c = CK_CODE_COL To CK_FIELD_COL
+            Set DiagnosticCell = TableCell(GetSheet(SH_CHECKS), OutputFirstRow(SH_CHECKS), c)
+            SavedDiagnostic = DiagnosticCell.Value2
+            DiagnosticCell.Value2 = "mutated diagnostic"
+            Check M_Main.ResultsStatus() = "EDITED", "diagnostic edit was not detected, column " & c
+            DiagnosticCell.Value2 = SavedDiagnostic
+            Check M_Main.ResultsStatus() = "CURRENT", "diagnostic restore was not detected, column " & c
+        Next c
         CheckState xlCalculationAutomatic, False, False
         Exit Sub
 
@@ -996,6 +1007,7 @@ Private Sub CaseEditedOutput()
 '------------------------------------------------------------------------------
 Unexpected:
         Fail "results.edited-output", "unexpected error " & Err.Number & ": " & Err.Description
+        If Not DiagnosticCell Is Nothing Then DiagnosticCell.Value2 = SavedDiagnostic
         RestoreCell MtmCell, SavedMtm
         If Not OutputCell Is Nothing Then
             OutputCell.Value2 = SavedOutput
@@ -2498,6 +2510,8 @@ Private Sub CaseSilentFlagPreserved()
         SetState xlCalculationAutomatic, True, True
         M_Main.gSilent = False
         Result = M_Main.RunSACCR_Silent()
+        Check InStr(1, Result, "; codes=" & CORE_Engine.DiagnosticCodes & ";", vbBinaryCompare) > 0, _
+              "silent result lacks current diagnostic codes: " & Result
         Check M_Main.gSilent = False, "gSilent was False before a successful run"
         M_Main.gSilent = True
         M_Main.gTestFault = "operation"

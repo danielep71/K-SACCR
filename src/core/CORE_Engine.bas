@@ -337,6 +337,9 @@ Attribute VB_Name = "CORE_Engine"
         Private mEconRead     As Long            'Economic trades read: groups of legs (#38)
         Private mEconUsed     As Long            'Economic trades whose legs were all used
         Private mRowGroup()   As Long            'Economic trade of each Trades row; 0 for a row without ID
+        Private mDiagnosticTradeID As String    'Current trade diagnostic context
+        Private mDiagnosticTradeRow As Long     'Current source row
+        Private mGrpFindings() As Collection     'Structured economic-trade violations
         Private mGrpError()   As String          'Why each economic trade is rejected; "" when it is not
         Private mGrpRejected() As Long           'Rejected legs of each economic trade
         Private mDeviations   As Long            'Parameters that differ from the regulatory set
@@ -523,7 +526,7 @@ Failed:
             WithdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
                                WithdrawalDetails
         End If
-        LogMsg SEV_ERROR, "", "", "Run stopped by error " & ErrNumber & ": " & ErrDescription & _
+        LogMsg DIAG_RUN_ERROR, "", SEV_ERROR, "", "", "Run stopped by error " & ErrNumber & ": " & ErrDescription & _
                " - " & WithdrawalStatus & "."
         If Not WriteChecks(ChecksFailure) Then
             WithdrawalStatus = WithdrawalStatus & "; Checks could not be updated (" & ChecksFailure & _
@@ -943,6 +946,8 @@ End Sub
 
 
 Private Sub LogMsg( _
+    ByVal DiagnosticCode As String, _
+    ByVal FieldName As String, _
     ByVal Severity As String, _
     ByVal SheetName As String, _
     ByVal Reference As String, _
@@ -958,6 +963,8 @@ Private Sub LogMsg( _
 '   validation (#209).
 '
 ' INPUTS
+'   DiagnosticCode: declared stable rule identifier from CORE_Config.
+'   FieldName: field concerned, or empty for a rule spanning fields.
 '   Severity: SEV_ERROR, SEV_WARN or SEV_INFO.
 '   SheetName: sheet the message refers to.
 '   Reference: the ID or parameter code concerned; may be empty.
@@ -988,6 +995,8 @@ Private Sub LogMsg( _
         mLog(4, mLogCount) = Reference
         mLog(5, mLogCount) = Message
         mLog(CK_ORIGIN_COL, mLogCount) = ORIGIN_RUN
+        mLog(CK_CODE_COL, mLogCount) = DiagnosticCode
+        mLog(CK_FIELD_COL, mLogCount) = FieldName
 
 '------------------------------------------------------------------------------
 ' COUNT
@@ -1092,7 +1101,7 @@ Private Function ValidateSchema() As Boolean
         For i = LBound(Codes) To UBound(Codes)
             If NamedCell(CStr(Codes(i))) Is Nothing Then
                 AllValid = False
-                LogMsg SEV_ERROR, SH_PARAMS, Codes(i), "Workbook name '" & Codes(i) & _
+                LogMsg DIAG_PRM_NAME, Codes(i), SEV_ERROR, SH_PARAMS, Codes(i), "Workbook name '" & Codes(i) & _
                        "' is missing or no longer refers to a cell (#REF!); every parameter is read " & _
                        "through its name."
             End If
@@ -1102,11 +1111,11 @@ Private Function ValidateSchema() As Boolean
                     If FirstRow = 0 Then
                         FirstRow = r
                     ElseIf SameValue(ValueCells(FirstRow, 1), ValueCells(r, 1)) Then
-                        LogMsg SEV_WARN, SH_PARAMS, Codes(i), "Parameter listed twice with the same value (rows " & _
+                        LogMsg DIAG_PRM_DUP_SAME, Codes(i), SEV_WARN, SH_PARAMS, Codes(i), "Parameter listed twice with the same value (rows " & _
                                FirstRow & " and " & r & ").", r
                     Else
                         AllValid = False
-                        LogMsg SEV_ERROR, SH_PARAMS, Codes(i), "Parameter listed twice with different values (rows " & _
+                        LogMsg DIAG_PRM_DUP, Codes(i), SEV_ERROR, SH_PARAMS, Codes(i), "Parameter listed twice with different values (rows " & _
                                FirstRow & " and " & r & ").", r
                     End If
                 End If
@@ -1186,7 +1195,7 @@ Private Function SheetPresent( _
                 Exit Function
             End If
         Next CandidateSheet
-        LogMsg SEV_ERROR, SheetName, "", "Sheet '" & SheetName & "' not found."
+        LogMsg DIAG_LAYOUT_SHEET, "", SEV_ERROR, SheetName, "", "Sheet '" & SheetName & "' not found."
 
 End Function
 
@@ -1229,11 +1238,11 @@ Private Function ParamsLayoutValid( _
             Set NameCell = NamedCell(CStr(LayoutNames(i)))
             If NameCell Is Nothing Then
                 AllValid = False
-                LogMsg SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
+                LogMsg DIAG_LAYOUT_PARAM_NAME, CStr(LayoutNames(i)), SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
                        "' is missing or no longer refers to a cell - rebuild the workbook from the template."
             ElseIf NameCell.Worksheet.Name <> ParamsSheet.Name Then
                 AllValid = False
-                LogMsg SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
+                LogMsg DIAG_LAYOUT_PARAM_POSITION, CStr(LayoutNames(i)), SEV_ERROR, SH_PARAMS, CStr(LayoutNames(i)), "Workbook name '" & LayoutNames(i) & _
                        "' must refer to a cell on " & SH_PARAMS & "."
             End If
         Next i
@@ -1246,7 +1255,7 @@ Private Function ParamsLayoutValid( _
 '------------------------------------------------------------------------------
         If NamedRow(NM_PRM_CODE) <> NamedRow(NM_PRM_VALUE) Then
             AllValid = False
-            LogMsg SEV_ERROR, SH_PARAMS, NM_PRM_VALUE, "Workbook names '" & NM_PRM_CODE & "' and '" & _
+            LogMsg DIAG_LAYOUT_PARAM_ROW, "", SEV_ERROR, SH_PARAMS, NM_PRM_VALUE, "Workbook names '" & NM_PRM_CODE & "' and '" & _
                    NM_PRM_VALUE & "' must be on the same row."
         End If
         AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_PRM_CODE), PRM_CODE_HEADER, ParamsCodeCol()) And AllValid
@@ -1295,7 +1304,7 @@ Private Function InputHeadersMatch( _
 '------------------------------------------------------------------------------
         HeaderRow = TableHeaderRow(SheetName)
         If HeaderRow = 0 Then
-            LogMsg SEV_ERROR, SheetName, HeaderName, "Workbook name '" & HeaderName & _
+            LogMsg DIAG_LAYOUT_HEADER_NAME, HeaderName, SEV_ERROR, SheetName, HeaderName, "Workbook name '" & HeaderName & _
                    "' is missing or no longer refers to the first header cell, in column C, of " & _
                    SheetName & " - rebuild the workbook from the template."
             Exit Function
@@ -1352,7 +1361,7 @@ Private Function HeadersMatch( _
                 FoundHeader = TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Value
                 If StrComp(HeaderKey(SafeStr(FoundHeader)), HeaderKey(CStr(Headers(c))), vbTextCompare) <> 0 Then
                     HeadersMatch = False
-                    LogMsg SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
+                    LogMsg DIAG_LAYOUT_HEADER, CStr(Headers(c)), SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
                            "Header must be '" & Headers(c) & "' (found " & DescribeValue(FoundHeader) & _
                            ") - a column was inserted, deleted or moved, or the header renamed.", HeaderRow
                 End If
@@ -1468,7 +1477,7 @@ Private Sub ParamInRange( _
         End If
         If Not InRange Then
             mParamError = True
-            LogMsg SEV_ERROR, SH_PARAMS, Code, Code & " must be " & RangeText & " (found " & CStr(Amount) & ")."
+            LogMsg DIAG_PRM_RANGE, Code, SEV_ERROR, SH_PARAMS, Code, Code & " must be " & RangeText & " (found " & CStr(Amount) & ")."
         End If
 
 End Sub
@@ -1514,11 +1523,11 @@ Private Function NumParam( _
             NumParam = CDbl(RawValue)
         ElseIf IsBlankCell(RawValue) And Not IsError(RawValue) Then
             NumParam = DefaultValue
-            LogMsg SEV_WARN, SH_PARAMS, Code, "Parameter missing - default " & CStr(DefaultValue) & " used."
+            LogMsg DIAG_PRM_DEFAULT, Code, SEV_WARN, SH_PARAMS, Code, "Parameter missing - default " & CStr(DefaultValue) & " used."
         Else
             NumParam = DefaultValue
             mParamError = True
-            LogMsg SEV_ERROR, SH_PARAMS, Code, "Parameter must be a number (found " & DescribeValue(RawValue) & ")."
+            LogMsg DIAG_PRM_NUMBER, Code, SEV_ERROR, SH_PARAMS, Code, "Parameter must be a number (found " & DescribeValue(RawValue) & ")."
         End If
 
 End Function
@@ -1562,23 +1571,23 @@ Private Function LoadParams() As Boolean
     'a plain number would be read 1,462 days early, so the run stops (#40).
         On Error GoTo Fail
         If ThisWorkbook.Date1904 Then
-            LogMsg SEV_ERROR, SH_PARAMS, "", "The workbook uses the 1904 date system, which is not supported. " & _
+            LogMsg DIAG_LAYOUT_DATE_SYSTEM, "", SEV_ERROR, SH_PARAMS, "", "The workbook uses the 1904 date system, which is not supported. " & _
                    "Clear 'Use 1904 date system' in File > Options > Advanced and check the dates."
             Exit Function
         End If
         pAsOf = ToSerial(GetParam(PRM_ASOF))
         If pAsOf <= 0# Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_ASOF, "Reporting date missing or not a date (enter a date, " & _
+            LogMsg DIAG_PRM_ASOF, PRM_ASOF, SEV_ERROR, SH_PARAMS, PRM_ASOF, "Reporting date missing or not a date (enter a date, " & _
                    "or text in the form yyyy-mm-dd; found " & DescribeValue(GetParam(PRM_ASOF)) & ")."
             Exit Function
         End If
         pRepCcy = UTxt(GetParam(PRM_REPCCY))
         If Len(pRepCcy) = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency missing."
+            LogMsg DIAG_PRM_CURRENCY_MISSING, PRM_REPCCY, SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency missing."
             Exit Function
         End If
         If Not pRepCcy Like "[A-Z][A-Z][A-Z]" Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency must be three letters A to Z, " & _
+            LogMsg DIAG_PRM_CURRENCY, PRM_REPCCY, SEV_ERROR, SH_PARAMS, PRM_REPCCY, "Reporting currency must be three letters A to Z, " & _
                    "e.g. EUR (found " & DescribeValue(GetParam(PRM_REPCCY)) & ")."
             Exit Function
         End If
@@ -1589,7 +1598,7 @@ Private Function LoadParams() As Boolean
     'Defaults are the regulatory values: CRE52 and CRR Art. 274 to 280f.
         pAlpha = NumParam(PRM_ALPHA, 1.4)
         If pAlpha <= 0# Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_ALPHA, "Alpha must be greater than zero."
+            LogMsg DIAG_PRM_ALPHA, PRM_ALPHA, SEV_ERROR, SH_PARAMS, PRM_ALPHA, "Alpha must be greater than zero."
             Exit Function
         End If
         pFloor = NumParam(PRM_FLOOR, 0.05)
@@ -1606,7 +1615,7 @@ Private Function LoadParams() As Boolean
         pRho23 = NumParam(PRM_RHO23, 0.7)
         pRho13 = NumParam(PRM_RHO13, 0.3)
         If Not TryBool(GetParam(PRM_IRFULL), True, pIRFull) Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_IRFULL, "Parameter must be TRUE or FALSE (found " & _
+            LogMsg DIAG_PRM_BOOLEAN, PRM_IRFULL, SEV_ERROR, SH_PARAMS, PRM_IRFULL, "Parameter must be TRUE or FALSE (found " & _
                    DescribeValue(GetParam(PRM_IRFULL)) & ")."
             Exit Function
         End If
@@ -1618,13 +1627,13 @@ Private Function LoadParams() As Boolean
     'including an Excel error value, which is not read as blank (#194).
         pRegime = UTxt(GetParam(PRM_REGIME))
         If IsError(GetParam(PRM_REGIME)) Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR (found an error value)."
+            LogMsg DIAG_PRM_REGIME, PRM_REGIME, SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR (found an error value)."
             Exit Function
         ElseIf Len(pRegime) = 0 Then
             pRegime = RG_CRR
-            LogMsg SEV_WARN, SH_PARAMS, PRM_REGIME, "Regime missing - CRR assumed."
+            LogMsg DIAG_PRM_REGIME_DEFAULT, PRM_REGIME, SEV_WARN, SH_PARAMS, PRM_REGIME, "Regime missing - CRR assumed."
         ElseIf pRegime <> RG_BCBS And pRegime <> RG_CRR Then
-            LogMsg SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR."
+            LogMsg DIAG_PRM_REGIME, PRM_REGIME, SEV_ERROR, SH_PARAMS, PRM_REGIME, "Regime must be BCBS or CRR."
             Exit Function
         End If
         pLamThrIR = NumParam(PRM_LAMIR, 0.001)
@@ -1657,7 +1666,7 @@ Private Function LoadParams() As Boolean
             If 1# - pRho12 * pRho12 - pRho23 * pRho23 - pRho13 * pRho13 _
                + 2# * pRho12 * pRho23 * pRho13 < -0.000000000001 Then
                 mParamError = True
-                LogMsg SEV_ERROR, SH_PARAMS, PRM_RHO12, "The IR bucket correlations " & PRM_RHO12 & ", " & _
+                LogMsg DIAG_PRM_IR_CORRELATION, "", SEV_ERROR, SH_PARAMS, PRM_RHO12, "The IR bucket correlations " & PRM_RHO12 & ", " & _
                        PRM_RHO23 & " and " & PRM_RHO13 & " do not form a valid correlation matrix: " & _
                        "the IR effective notional would be undefined (CRE52.57)."
             End If
@@ -1672,7 +1681,7 @@ Private Function LoadParams() As Boolean
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Fail:
-        LogMsg SEV_ERROR, SH_PARAMS, "", "Cannot read parameters: " & Err.Description
+        LogMsg DIAG_PRM_READ, "", SEV_ERROR, SH_PARAMS, "", "Cannot read parameters: " & Err.Description
 
 End Function
 
@@ -1725,7 +1734,7 @@ Private Function LoadSFTable() As Boolean
         HeaderRow = NamedRow(NM_SF_TABLE)
         KeyColumn = NamedTableCol(NM_SF_TABLE)
         If HeaderRow = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (workbook name '" & _
+            LogMsg DIAG_SF_TABLE, "", SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table not found (workbook name '" & _
                    NM_SF_TABLE & "')."
             Exit Function
         End If
@@ -1751,12 +1760,12 @@ Private Function LoadSFTable() As Boolean
             End If
             If RowInvalid Then
                 TableInvalid = True
-                LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor, correlation and volatility must be numbers.", r
+                LogMsg DIAG_SF_NUMBER, "", SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor, correlation and volatility must be numbers.", r
             ElseIf FactorRow.SF < 0# Or FactorRow.SF > 1# Or FactorRow.Corr < 0# Or FactorRow.Corr > 1# _
                    Or FactorRow.Vol < 0# Or FactorRow.Vol > 5# Then
                 RowInvalid = True
                 TableInvalid = True
-                LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor and correlation must be from 0 to 1 and " & _
+                LogMsg DIAG_SF_RANGE, "", SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor and correlation must be from 0 to 1 and " & _
                        "the option volatility from 0 to 5 (found " & CStr(FactorRow.SF) & ", " & CStr(FactorRow.Corr) & _
                        ", " & CStr(FactorRow.Vol) & ").", r
             End If
@@ -1774,11 +1783,11 @@ Private Function LoadSFTable() As Boolean
                 KeyAdd mSFIndex, RowKey, mSFCount
             ElseIf Not RowInvalid Then
                 If SameFactorRow(mSF(EarlierPosition), FactorRow) Then
-                    LogMsg SEV_WARN, SH_PARAMS, RowKey, "Supervisory factor key listed twice with the same values - " & _
+                    LogMsg DIAG_SF_DUP_SAME, "", SEV_WARN, SH_PARAMS, RowKey, "Supervisory factor key listed twice with the same values - " & _
                            "first occurrence used.", r
                 Else
                     TableInvalid = True
-                    LogMsg SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor key listed twice with different values.", r
+                    LogMsg DIAG_SF_DUP, "", SEV_ERROR, SH_PARAMS, RowKey, "Supervisory factor key listed twice with different values.", r
                 End If
             End If
             r = r + 1
@@ -1803,7 +1812,7 @@ Private Function LoadSFTable() As Boolean
 ' CHECK
 '------------------------------------------------------------------------------
         If mSFCount = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table is empty."
+            LogMsg DIAG_SF_EMPTY, "", SEV_ERROR, SH_PARAMS, HDR_SF, "Supervisory factor table is empty."
             Exit Function
         End If
         If TableInvalid Then
@@ -1886,7 +1895,7 @@ Private Function LoadFXTable() As Boolean
         HeaderRow = NamedRow(NM_FX_TABLE)
         CurrencyColumn = NamedTableCol(NM_FX_TABLE)
         If HeaderRow = 0 Then
-            LogMsg SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (workbook name '" & NM_FX_TABLE & "')."
+            LogMsg DIAG_FX_TABLE, "", SEV_ERROR, SH_PARAMS, HDR_FX, "FX table not found (workbook name '" & NM_FX_TABLE & "')."
             Exit Function
         End If
 
@@ -1901,7 +1910,7 @@ Private Function LoadFXTable() As Boolean
             RowRate = ToDbl(TableCell(ParamsSheet, r, CurrencyColumn + 2).Value2, -1#)
             EarlierPosition = KeyIndex(mFXIndex, CurrencyCode)
             If RowRate <= 0# Then
-                LogMsg SEV_WARN, SH_PARAMS, CurrencyCode, "FX rate missing or not positive - currency ignored.", r
+                LogMsg DIAG_FX_RATE, "Rate", SEV_WARN, SH_PARAMS, CurrencyCode, "FX rate missing or not positive - currency ignored.", r
             ElseIf EarlierPosition = 0 Then
                 mFXCount = mFXCount + 1
                 If mFXCount > UBound(mFXRate) Then
@@ -1912,10 +1921,10 @@ Private Function LoadFXTable() As Boolean
                 mFXCode(mFXCount) = CurrencyCode
                 KeyAdd mFXIndex, CurrencyCode, mFXCount
             ElseIf mFXRate(EarlierPosition) = RowRate Then
-                LogMsg SEV_WARN, SH_PARAMS, CurrencyCode, "Currency listed twice with the same rate - first row used.", r
+                LogMsg DIAG_FX_DUP_SAME, "Currency", SEV_WARN, SH_PARAMS, CurrencyCode, "Currency listed twice with the same rate - first row used.", r
             Else
                 TableInvalid = True
-                LogMsg SEV_ERROR, SH_PARAMS, CurrencyCode, "Currency listed twice with different rates.", r
+                LogMsg DIAG_FX_DUP, "Currency", SEV_ERROR, SH_PARAMS, CurrencyCode, "Currency listed twice with different rates.", r
             End If
             r = r + 1
         Loop
@@ -1951,7 +1960,7 @@ Private Function LoadFXTable() As Boolean
             mFXCode(mFXCount) = pRepCcy
             KeyAdd mFXIndex, pRepCcy, mFXCount
         ElseIf Abs(mFXRate(KeyIndex(mFXIndex, pRepCcy)) - 1#) > 0.0000001 Then
-            LogMsg SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
+            LogMsg DIAG_FX_REPORTING_RATE, "Rate", SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
                    CStr(mFXRate(KeyIndex(mFXIndex, pRepCcy))) & "): rates are units of the reporting " & _
                    "currency per unit."
             Exit Function
@@ -2044,9 +2053,9 @@ Private Function ValuesAfterEnd( _
             If IsNum(TableCell(ParamsSheet, r, ValueColumn).Value) And Not IsParameterCode(UTxt(TableCell(ParamsSheet, r, CodeColumn).Value)) Then
                 ValuesAfterEnd = True
                 If Len(RowKey) = 0 Then
-                    LogMsg SEV_ERROR, SH_PARAMS, "", TableName & " row has a value but no key - not read.", r
+                    LogMsg DIAG_TABLE_KEY, "Key", SEV_ERROR, SH_PARAMS, "", TableName & " row has a value but no key - not read.", r
                 Else
-                    LogMsg SEV_ERROR, SH_PARAMS, RowKey, TableName & " row below a blank row - not read; " & _
+                    LogMsg DIAG_TABLE_GAP, "", SEV_ERROR, SH_PARAMS, RowKey, TableName & " row below a blank row - not read; " & _
                            "remove the blank row.", r
                 End If
             End If
@@ -2746,7 +2755,7 @@ Private Sub Deviation( _
 '==============================================================================
 '
         mDeviations = mDeviations + 1
-        LogMsg SEV_WARN, SheetName, Reference, "What-if: " & Detail
+        LogMsg DIAG_RUN_WHATIF, Reference, SEV_WARN, SheetName, Reference, "What-if: " & Detail
 
 End Sub
 
@@ -2871,7 +2880,7 @@ Private Function LoadNettingSets() As Boolean
         TopRow = TableFirstRow(SH_NS)
         LastRow = LastDataRowAny(NettingSetsSheet, TopRow, NS_NCOLS, 0)
         If LastRow < TopRow Then
-            LogMsg SEV_ERROR, SH_NS, "", "No netting sets defined."
+            LogMsg DIAG_NS_EMPTY, "", SEV_ERROR, SH_NS, "", "No netting sets defined."
             Exit Function
         End If
         DataRowCount = LastRow - TopRow + 1
@@ -2891,19 +2900,19 @@ Private Function LoadNettingSets() As Boolean
             NettingSetRef = UTxt(InputBlock(i, NS_ID))
             If Len(NettingSetRef) = 0 Then
                 If RowHasData(InputBlock, i, NS_NCOLS, 0) Then
-                    LogMsg SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", RowNumber
+                    LogMsg DIAG_NS_ID_MISSING, "Netting set ID", SEV_ERROR, SH_NS, "", "Row has netting-set data but no ID - row ignored.", RowNumber
                 End If
                 GoTo NextRow
             End If
             If NettingSetRef = "TOTAL" Or NettingSetRef = "TOTAL " & RG_CRR Or NettingSetRef = "TOTAL " & RG_BCBS Then
-                LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID " & NettingSetRef & " is reserved for a TOTAL row on Results - row ignored.", RowNumber
+                LogMsg DIAG_NS_ID_RESERVED, "Netting set ID", SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID " & NettingSetRef & " is reserved for a TOTAL row on Results - row ignored.", RowNumber
                 GoTo NextRow
             End If
             If KeyIndex(mNSIndex, NettingSetRef) > 0 Then
                 With mNS(KeyIndex(mNSIndex, NettingSetRef))
                     .InputErrors = .InputErrors + 1
                 End With
-                LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID listed twice - row ignored and EAD withheld.", RowNumber
+                LogMsg DIAG_NS_DUP_ID, "Netting set ID", SEV_ERROR, SH_NS, NettingSetRef, "Netting set ID listed twice - row ignored and EAD withheld.", RowNumber
                 GoTo NextRow
             End If
             mNSCount = mNSCount + 1
@@ -2928,11 +2937,11 @@ Private Function LoadNettingSets() As Boolean
                 .RemarginBD = NsNumber(InputBlock(i, NS_FREQ), 1#, "Remargin frequency", NettingSetRef, RowNumber, FieldErrors)
                 If .RemarginBD < 0# Or .RemarginBD > 10000# Or .RemarginBD <> Int(.RemarginBD) Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Remargin frequency must be a whole number of business days " & _
+                    LogMsg DIAG_NS_REMARGIN, "Remargin frequency", SEV_ERROR, SH_NS, NettingSetRef, "Remargin frequency must be a whole number of business days " & _
                            "from 0 to 10000 (found " & CStr(.RemarginBD) & ").", RowNumber
                     .RemarginBD = 1#
                 ElseIf .RemarginBD < 1# Then
-                    LogMsg SEV_WARN, SH_NS, NettingSetRef, "Remargin frequency " & CStr(.RemarginBD) & _
+                    LogMsg DIAG_NS_REMARGIN_FLOOR, "Remargin frequency", SEV_WARN, SH_NS, NettingSetRef, "Remargin frequency " & CStr(.RemarginBD) & _
                            " BD is below 1 - daily remargining (1 BD) used.", RowNumber
                     .RemarginBD = 1#
                 End If
@@ -2944,16 +2953,16 @@ Private Function LoadNettingSets() As Boolean
                 .MTA = NsNumber(InputBlock(i, NS_MTA), 0#, "MTA", NettingSetRef, RowNumber, FieldErrors)
                 If .TH < 0# Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Threshold TH must not be negative (found " & CStr(.TH) & ").", RowNumber
+                    LogMsg DIAG_NS_TH, "TH", SEV_ERROR, SH_NS, NettingSetRef, "Threshold TH must not be negative (found " & CStr(.TH) & ").", RowNumber
                 End If
                 If .MTA < 0# Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "MTA must not be negative (found " & CStr(.MTA) & ").", RowNumber
+                    LogMsg DIAG_NS_MTA, "MTA", SEV_ERROR, SH_NS, NettingSetRef, "MTA must not be negative (found " & CStr(.MTA) & ").", RowNumber
                 End If
                 .Alpha = NsNumber(InputBlock(i, NS_ALPHA), pAlpha, "Alpha override", NettingSetRef, RowNumber, FieldErrors)
                 If .Alpha <= 0# Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Alpha override must be greater than zero (found " & _
+                    LogMsg DIAG_NS_ALPHA, "Alpha override", SEV_ERROR, SH_NS, NettingSetRef, "Alpha override must be greater than zero (found " & _
                            CStr(.Alpha) & ") - leave it blank to use the Params alpha.", RowNumber
                     .Alpha = pAlpha
                 End If
@@ -2965,7 +2974,7 @@ Private Function LoadNettingSets() As Boolean
                     NettingSetRegime = pRegime
                 ElseIf NettingSetRegime <> RG_BCBS And NettingSetRegime <> RG_CRR Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Regime override must be BCBS or CRR (found " & _
+                    LogMsg DIAG_NS_REGIME, "Regime override", SEV_ERROR, SH_NS, NettingSetRef, "Regime override must be BCBS or CRR (found " & _
                            DescribeValue(InputBlock(i, NS_REGIME)) & ").", RowNumber
                     NettingSetRegime = pRegime
                 End If
@@ -2980,15 +2989,15 @@ Private Function LoadNettingSets() As Boolean
     'margin agreement [Art. 272(7a), 275(2)], so the set must be margined.
                 If Not .Margined And .VM > 0# Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "VM received on an unmargined netting set: a counterparty " & _
+                    LogMsg DIAG_NS_VM_RECEIVED, "VM received", SEV_ERROR, SH_NS, NettingSetRef, "VM received on an unmargined netting set: a counterparty " & _
                            "that posts VM makes the netting set margined - set Margined = Y.", RowNumber
                 ElseIf Not .Margined And .VM < 0# Then
                     If .IsCRR Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "VM posted on an unmargined CRR netting set: under CRR " & _
+                        LogMsg DIAG_NS_VM_POSTED, "VM posted", SEV_ERROR, SH_NS, NettingSetRef, "VM posted on an unmargined CRR netting set: under CRR " & _
                                "a one-way margin agreement is a margin agreement (Art. 272(7a)) - set Margined = Y.", RowNumber
                     Else
-                        LogMsg SEV_INFO, SH_NS, NettingSetRef, "VM posted under a one-way margin agreement: unmargined " & _
+                        LogMsg DIAG_NS_ONEWAY, "", SEV_INFO, SH_NS, NettingSetRef, "VM posted under a one-way margin agreement: unmargined " & _
                                "netting set, posted VM included in C with a negative sign (CRE52.10).", RowNumber
                     End If
                 End If
@@ -2998,7 +3007,7 @@ Private Function LoadNettingSets() As Boolean
     'does not model the conditions at each level (#359).
                 If .ClearingRole = CL_MULTI Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "A multi-level client structure is not supported " & _
+                    LogMsg DIAG_NS_MULTILEVEL, "Client clearing role", SEV_ERROR, SH_NS, NettingSetRef, "A multi-level client structure is not supported " & _
                            "(CRE54.14(3); CRR Art. 305(4)).", RowNumber
                 End If
 
@@ -3018,18 +3027,18 @@ Private Function LoadNettingSets() As Boolean
                                                  FieldErrors)
                     If .RetainedVM And Not .Margined Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM is Y on an unmargined netting set: " & _
+                        LogMsg DIAG_NS_RETAINS_UNMARGINED, "CCP retains VM", SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM is Y on an unmargined netting set: " & _
                                "variation margin needs Margined = Y.", RowNumber
                     End If
                 Else
                     If Not IsBlankCell(InputBlock(i, NS_QCCP)) Or IsError(InputBlock(i, NS_QCCP)) Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "QCCP applies only to Client clearing role CCP - " & _
+                        LogMsg DIAG_NS_QCCP_ROLE, "QCCP", SEV_ERROR, SH_NS, NettingSetRef, "QCCP applies only to Client clearing role CCP - " & _
                                "leave it blank (found " & DescribeValue(InputBlock(i, NS_QCCP)) & ").", RowNumber
                     End If
                     If Not IsBlankCell(InputBlock(i, NS_RETAINVM)) Or IsError(InputBlock(i, NS_RETAINVM)) Then
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM applies only to Client clearing role " & _
+                        LogMsg DIAG_NS_RETAINS_ROLE, "CCP retains VM", SEV_ERROR, SH_NS, NettingSetRef, "CCP retains VM applies only to Client clearing role " & _
                                "CCP - leave it blank (found " & DescribeValue(InputBlock(i, NS_RETAINVM)) & ").", RowNumber
                     End If
                 End If
@@ -3041,11 +3050,11 @@ Private Function LoadNettingSets() As Boolean
                                    "Margin agreements", NettingSetRef, RowNumber, FieldErrors)
                     Case MS_MIXED
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "Several margin agreements, or margined and unmargined " & _
+                        LogMsg DIAG_NS_MARGIN_MULTIPLE, "Margin agreement ID", SEV_ERROR, SH_NS, NettingSetRef, "Several margin agreements, or margined and unmargined " & _
                                "trades, in one netting set are not supported (CRE52.74; CRR Art. 274(4)).", RowNumber
                     Case MS_SHARED
                         FieldErrors = FieldErrors + 1
-                        LogMsg SEV_ERROR, SH_NS, NettingSetRef, "One margin agreement over several netting sets is not " & _
+                        LogMsg DIAG_NS_MARGIN_SHARED, "Margin agreement ID", SEV_ERROR, SH_NS, NettingSetRef, "One margin agreement over several netting sets is not " & _
                                "supported (CRE52.75; CRR Art. 275(3), 278(2)).", RowNumber
                 End Select
                 .V = 0#
@@ -3055,7 +3064,7 @@ Private Function LoadNettingSets() As Boolean
                 MPOROverride = NsNumber(InputBlock(i, NS_MPOR), 0#, "MPOR override", NettingSetRef, RowNumber, FieldErrors)
                 If IsNum(InputBlock(i, NS_MPOR)) And (MPOROverride <= 0# Or MPOROverride <> Int(MPOROverride)) Then
                     FieldErrors = FieldErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, NettingSetRef, "MPOR override must be a whole number of business days " & _
+                    LogMsg DIAG_NS_MPOR, "MPOR override", SEV_ERROR, SH_NS, NettingSetRef, "MPOR override must be a whole number of business days " & _
                            "greater than zero (found " & CStr(MPOROverride) & ") - leave it blank for none.", RowNumber
                 End If
                 .InputErrors = FieldErrors
@@ -3120,7 +3129,7 @@ Private Function LoadNettingSets() As Boolean
                             End If
                             InfoText = InfoText & "; " & CcpRiskWeightText(.QCCP, QccpKnown)
                         End If
-                        LogMsg SEV_INFO, SH_NS, NettingSetRef, InfoText & ".", RowNumber
+                        LogMsg DIAG_NS_MPOR_INFO, "", SEV_INFO, SH_NS, NettingSetRef, InfoText & ".", RowNumber
                     End If
                     If .LargeOrIlliquid Then
                         FloorBD = Max2(FloorBD, pMPORLarge)
@@ -3131,7 +3140,7 @@ Private Function LoadNettingSets() As Boolean
                     End If
                     If MPOROverride > 0# Then
                         If MPOROverride < EffectiveMPOR Then
-                            LogMsg SEV_WARN, SH_NS, NettingSetRef, "MPOR override " & CStr(MPOROverride) & _
+                            LogMsg DIAG_NS_MPOR_FLOOR, "MPOR override", SEV_WARN, SH_NS, NettingSetRef, "MPOR override " & CStr(MPOROverride) & _
                                    " BD is below the regulatory floor - " & CStr(EffectiveMPOR) & " BD applied.", RowNumber
                         Else
                             EffectiveMPOR = MPOROverride
@@ -3140,11 +3149,11 @@ Private Function LoadNettingSets() As Boolean
                     .MPOR = EffectiveMPOR
                     .MFMargined = FormulaNumber(SACCR_MaturityFactor(0#, True, .MPOR, pMinMatBD, pBDYear), "SACCR_MaturityFactor")
                 ElseIf .ClearingRole = CL_CM Or .ClearingRole = CL_CLIENT Then
-                    LogMsg SEV_INFO, SH_NS, NettingSetRef, "Client clearing role " & .ClearingRole & " on an unmargined " & _
+                    LogMsg DIAG_NS_CLEARING_UNMARGINED, "Client clearing role", SEV_INFO, SH_NS, NettingSetRef, "Client clearing role " & .ClearingRole & " on an unmargined " & _
                            "netting set: no MPOR floor applies; each trade's maturity factor uses its remaining " & _
                            "maturity (CRE52.48; CRR Art. 279c(1)(a)).", RowNumber
                 ElseIf .ClearingRole = CL_CCP Then
-                    LogMsg SEV_INFO, SH_NS, NettingSetRef, CcpRoleText(.QCCP, QccpKnown) & " on an unmargined netting set: no MPOR " & _
+                    LogMsg DIAG_NS_CCP_UNMARGINED, "", SEV_INFO, SH_NS, NettingSetRef, CcpRoleText(.QCCP, QccpKnown) & " on an unmargined netting set: no MPOR " & _
                            "floor applies; each trade's maturity factor uses its remaining maturity (CRE52.48; CRR " & _
                            "Art. 279c(1)(a)); " & CcpRiskWeightText(.QCCP, QccpKnown) & ".", RowNumber
                 End If
@@ -3157,7 +3166,7 @@ NextRow:
 ' CHECK AND SIZE THE ADD-ON ARRAYS
 '------------------------------------------------------------------------------
         If mNSCount = 0 Then
-            LogMsg SEV_ERROR, SH_NS, "", "No valid netting sets."
+            LogMsg DIAG_NS_NONE_VALID, "", SEV_ERROR, SH_NS, "", "No valid netting sets."
             Exit Function
         End If
         ReDim mAddOnU(1 To mNSCount, 1 To AC_COUNT)
@@ -3206,7 +3215,7 @@ Private Function NsFlag( _
 '------------------------------------------------------------------------------
         If Not TryBool(RawValue, DefaultValue, Result) Then
             FieldErrors = FieldErrors + 1
-            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be Y or N (found " & DescribeValue(RawValue) & ").", RowNumber
+            LogMsg DIAG_NS_FLAG, FieldName, SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be Y or N (found " & DescribeValue(RawValue) & ").", RowNumber
         End If
         NsFlag = Result
 
@@ -3234,7 +3243,7 @@ Private Function NsRequiredFlag( _
 '
         If IsBlankCell(RawValue) And Not IsError(RawValue) Then
             FieldErrors = FieldErrors + 1
-            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " (Y/N) is required for Client clearing role CCP.", _
+            LogMsg DIAG_NS_CCP_FLAG_REQUIRED, FieldName, SEV_ERROR, SH_NS, NettingSetRef, FieldName & " (Y/N) is required for Client clearing role CCP.", _
                    RowNumber
         Else
             NsRequiredFlag = NsFlag(RawValue, False, FieldName, NettingSetRef, RowNumber, FieldErrors)
@@ -3343,7 +3352,7 @@ Private Function NsCode( _
         Code = UTxt(RawValue)
         If IsError(RawValue) Or (Len(Code) > 0 And InStr(1, "|" & AllowedCodes & "|", "|" & Code & "|") = 0) Then
             FieldErrors = FieldErrors + 1
-            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be " & Replace(AllowedCodes, "|", ", ") & _
+            LogMsg DIAG_NS_CODE, FieldName, SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be " & Replace(AllowedCodes, "|", ", ") & _
                    " or blank (found " & DescribeValue(RawValue) & ").", RowNumber
             NsCode = DefaultValue
         ElseIf Len(Code) = 0 Then
@@ -3387,7 +3396,7 @@ Private Function NsNumber( _
 '------------------------------------------------------------------------------
         If Not TryDbl(RawValue, DefaultValue, Result) Then
             FieldErrors = FieldErrors + 1
-            LogMsg SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be a number (found " & DescribeValue(RawValue) & ").", RowNumber
+            LogMsg DIAG_NS_NUMBER, FieldName, SEV_ERROR, SH_NS, NettingSetRef, FieldName & " must be a number (found " & DescribeValue(RawValue) & ").", RowNumber
         End If
         NsNumber = Result
 
@@ -3422,7 +3431,7 @@ Private Function TradeDate( _
         TradeDate = ToSerial(RawValue)
         If TradeDate < 0# Then
             If IsError(RawValue) Or Not IsBlankCell(RawValue) Then
-                AddErr IsValid, Reasons, FieldName & " is not a date (found " & DescribeValue(RawValue) & ")"
+                AddErr DIAG_TR_DATE, FieldName, IsValid, Reasons, FieldName & " is not a date (found " & DescribeValue(RawValue) & ")"
             End If
             TradeDate = -1#
         End If
@@ -3458,7 +3467,7 @@ Private Function TradeText( _
 ' READ
 '------------------------------------------------------------------------------
         If IsError(RawValue) Then
-            AddErr IsValid, Reasons, FieldName & " must be text or blank (found an error value)"
+            AddErr DIAG_TR_TEXT, FieldName, IsValid, Reasons, FieldName & " must be text or blank (found an error value)"
         End If
         TradeText = UTxt(RawValue)
 
@@ -3490,6 +3499,8 @@ End Function
 
 
 Private Sub AddErr( _
+    ByVal DiagnosticCode As String, _
+    ByVal FieldName As String, _
     ByRef IsValid As Boolean, _
     ByRef Reasons As String, _
     ByVal Reason As String)
@@ -3513,6 +3524,7 @@ Private Sub AddErr( _
 '------------------------------------------------------------------------------
 ' APPEND
 '------------------------------------------------------------------------------
+        LogMsg DiagnosticCode, FieldName, SEV_ERROR, SH_TRADES, mDiagnosticTradeID, Reason, mDiagnosticTradeRow
         IsValid = False
         If Len(Reasons) > 0 Then
             Reasons = Reasons & "; "
@@ -3523,6 +3535,8 @@ End Sub
 
 
 Private Sub AddWarn( _
+    ByVal DiagnosticCode As String, _
+    ByVal FieldName As String, _
     ByRef Warnings As String, _
     ByVal Warning As String)
 '
@@ -3544,6 +3558,7 @@ Private Sub AddWarn( _
 '------------------------------------------------------------------------------
 ' APPEND
 '------------------------------------------------------------------------------
+        LogMsg DiagnosticCode, FieldName, SEV_WARN, SH_TRADES, mDiagnosticTradeID, Warning, mDiagnosticTradeRow
         If Len(Warnings) > 0 Then
             Warnings = Warnings & "; "
         End If
@@ -3626,6 +3641,7 @@ Private Sub CheckEconomicTrades( _
 '------------------------------------------------------------------------------
         ReDim mRowGroup(0 To DataRowCount)
         ReDim mGrpError(0 To DataRowCount)
+        ReDim mGrpFindings(0 To DataRowCount)
         ReDim mGrpRejected(0 To DataRowCount)
         ReDim GroupName(0 To DataRowCount)
         ReDim GroupNS(0 To DataRowCount)
@@ -3669,7 +3685,7 @@ Private Sub CheckEconomicTrades( _
                     End If
                 ElseIf GroupHasEconomicID(g) Then
                     If UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
-                        AddGroupError g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
+                        AddGroupError DIAG_ECON_NETTING_SET, "Netting set ID", g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
                                       UTxt(InputBlock(i, TR_NS)) & ")"
                     End If
 
@@ -3677,16 +3693,16 @@ Private Sub CheckEconomicTrades( _
     'arrangement; separately contracted trades have their own Economic
     'trade ID, or none, and may differ (#360).
                     If Settlement <> GroupSettlement(g) Then
-                        AddGroupError g, "its legs have different settlement types (" & GroupSettlement(g) & _
+                        AddGroupError DIAG_ECON_SETTLEMENT, "Settlement type", g, "its legs have different settlement types (" & GroupSettlement(g) & _
                                       ", " & Settlement & ")"
                     ElseIf ToSerial(InputBlock(i, TR_RESET)) <> GroupReset(g) Then
-                        AddGroupError g, "its legs have different next reset dates"
+                        AddGroupError DIAG_ECON_RESET, "Next reset date", g, "its legs have different next reset dates"
                     End If
                 End If
                 mRowGroup(i) = g
                 GroupLegs(g) = GroupLegs(g) + 1
                 If IsError(InputBlock(i, TR_ECON)) Then
-                    AddGroupError g, "Economic trade ID must be text or blank (found an error value on row " & _
+                    AddGroupError DIAG_ECON_ID, "Economic trade ID", g, "Economic trade ID must be text or blank (found an error value on row " & _
                                   (TopRow + i - 1) & ")"
                 End If
 
@@ -3694,17 +3710,17 @@ Private Sub CheckEconomicTrades( _
     'An error value is not read as blank.
                 MtmLegFlag = UTxt(InputBlock(i, TR_MTMLEG))
                 If IsError(InputBlock(i, TR_MTMLEG)) Then
-                    AddGroupError g, "MtM leg must be Y or N (found an error value on row " & _
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found an error value on row " & _
                                   (TopRow + i - 1) & ")"
                 ElseIf MtmLegFlag = "Y" Then
                     GroupMtmLegs(g) = GroupMtmLegs(g) + 1
                 ElseIf MtmLegFlag = "N" Then
                     If Not GroupHasEconomicID(g) Then
-                        AddGroupError g, "a trade without an Economic trade ID carries its own MtM, so " & _
+                        AddGroupError DIAG_ECON_WHOLE_MTM, "MtM leg", g, "a trade without an Economic trade ID carries its own MtM, so " & _
                                       "MtM leg must be Y or blank"
                     End If
                 ElseIf Len(MtmLegFlag) > 0 Then
-                    AddGroupError g, "MtM leg must be Y or N (found " & DescribeValue(InputBlock(i, TR_MTMLEG)) & _
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found " & DescribeValue(InputBlock(i, TR_MTMLEG)) & _
                                   " on row " & (TopRow + i - 1) & ")"
                 End If
 
@@ -3730,7 +3746,7 @@ Private Sub CheckEconomicTrades( _
     'The MtM is counted once: exactly one MtM leg, and 0 on every other leg.
         For g = 1 To mEconRead
             If GroupHasEconomicID(g) And GroupMtmLegs(g) <> 1 Then
-                AddGroupError g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(g)
+                AddGroupError DIAG_ECON_MTM_COUNT, "MtM leg", g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(g)
             End If
         Next g
         For i = 1 To DataRowCount
@@ -3738,7 +3754,7 @@ Private Sub CheckEconomicTrades( _
             If g > 0 Then
                 If GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_MTMLEG)) <> "Y" And IsNum(InputBlock(i, TR_MTM)) Then
                     If CDbl(InputBlock(i, TR_MTM)) <> 0# Then
-                        AddGroupError g, "leg " & SafeStr(InputBlock(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
+                        AddGroupError DIAG_ECON_MTM_VALUE, "MtM", g, "leg " & SafeStr(InputBlock(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
                                       "must be 0 (found " & DescribeValue(InputBlock(i, TR_MTM)) & ")"
                     End If
                 End If
@@ -3750,7 +3766,7 @@ Private Sub CheckEconomicTrades( _
     'Economic trade ID is not a group: ProcessTrades rejects the repeat.
         For a = 1 To ClassCount
             If GroupHasEconomicID(ClassGroup(a)) And ClassLegs(a) > 1 And ClassLinearLegs(a) > 0 Then
-                AddGroupError ClassGroup(a), "it has " & ClassLegs(a) & " legs in asset class " & ClassName(a) & _
+                AddGroupError DIAG_ECON_ASSET_CLASS, "", ClassGroup(a), "it has " & ClassLegs(a) & " legs in asset class " & ClassName(a) & _
                               " that are not all options: only an option structure may be split into " & _
                               "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
                               "one leg (CRR Art. 277(3))"
@@ -3766,6 +3782,8 @@ End Sub
 
 
 Private Sub AddGroupError( _
+    ByVal DiagnosticCode As String, _
+    ByVal FieldName As String, _
     ByVal GroupNumber As Long, _
     ByVal Reason As String)
 '
@@ -3780,12 +3798,30 @@ Private Sub AddGroupError( _
 '==============================================================================
 '
         If InStr(1, mGrpError(GroupNumber), Reason, vbBinaryCompare) = 0 Then
+            If mGrpFindings(GroupNumber) Is Nothing Then Set mGrpFindings(GroupNumber) = New Collection
+            mGrpFindings(GroupNumber).Add Array(DiagnosticCode, FieldName, Reason)
             If Len(mGrpError(GroupNumber)) > 0 Then
                 mGrpError(GroupNumber) = mGrpError(GroupNumber) & "; "
             End If
             mGrpError(GroupNumber) = mGrpError(GroupNumber) & Reason
         End If
 
+End Sub
+
+
+Private Sub LogGroupFindings(ByVal GroupNumber As Long)
+'
+'==============================================================================
+' PURPOSE
+'   Emit each economic-trade violation for the current leg without parsing text.
+'==============================================================================
+'
+    Dim Finding As Variant    'Code, field and message
+        If mGrpFindings(GroupNumber) Is Nothing Then Exit Sub
+        For Each Finding In mGrpFindings(GroupNumber)
+            LogMsg CStr(Finding(0)), CStr(Finding(1)), SEV_ERROR, SH_TRADES, _
+                   mDiagnosticTradeID, CStr(Finding(2)), mDiagnosticTradeRow
+        Next Finding
 End Sub
 
 
@@ -3851,7 +3887,7 @@ Private Sub ProcessTrades( _
         TopRow = TableFirstRow(SH_TRADES)
         LastRow = LastDataRowAny(TradesSheet, TopRow, TR_NCOLS, TR_COMMENT)
         If LastRow < TopRow Then
-            LogMsg SEV_ERROR, SH_TRADES, "", "No trades found."
+            LogMsg DIAG_TR_EMPTY, "", SEV_ERROR, SH_TRADES, "", "No trades found."
             If WriteOutputs Then
                 ClearOutputBlock GetSheet(SH_TRADECALC), OutputFirstRow(SH_TRADECALC), TC_NCOLS
             End If
@@ -3878,10 +3914,12 @@ Private Sub ProcessTrades( _
             RowNumber = TopRow + i - 1
             Trade = FreshTrade
             Trade.tid = SafeStr(InputBlock(i, TR_ID))
+            mDiagnosticTradeID = Trade.tid
+            mDiagnosticTradeRow = RowNumber
             If Len(Trade.tid) = 0 Then
                 If RowHasData(InputBlock, i, TR_NCOLS, TR_COMMENT) Then
                     mTradesRead = mTradesRead + 1
-                    LogMsg SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", RowNumber
+                    LogMsg DIAG_TR_ID_MISSING, "Trade ID", SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", RowNumber
                     NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(i, TR_NS)))
                     If NSPosition > 0 Then mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
                 End If
@@ -3897,10 +3935,8 @@ Private Sub ProcessTrades( _
             TradeDelta Trade, InputBlock, i
             TradeHedgingSet Trade
             UseTrade Trade, RowNumber
-            If Not Trade.ok Then LogMsg SEV_ERROR, SH_TRADES, Trade.tid, "Trade excluded: " & Trade.msg, RowNumber
             If Not Trade.ok And Trade.nsIdx > 0 Then mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
             If Not Trade.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
-            If Len(Trade.warn) > 0 Then LogMsg SEV_WARN, SH_TRADES, Trade.tid, Trade.warn, RowNumber
             OutputCount = OutputCount + 1
             TradeCalcRow Trade, OutputBlock, OutputCount
 NextTrade:
@@ -3968,38 +4004,42 @@ Private Sub ReadTradeClass( _
     'VolatilityFactor [CRE52.46, CRE52.47].
         FirstRow = KeyIndex(SeenIDs, Trade.tid)
         If FirstRow > 0 Then
-            AddErr Trade.ok, Trade.msg, "duplicate Trade ID (first used on row " & FirstRow & ")"
+            AddErr DIAG_TR_DUP_ID, "Trade ID", Trade.ok, Trade.msg, "duplicate Trade ID (first used on row " & FirstRow & ")"
         Else
             KeyAdd SeenIDs, Trade.tid, RowNumber
         End If
 
         Trade.nsId = UTxt(InputBlock(DataRow, TR_NS))
         Trade.nsIdx = KeyIndex(mNSIndex, Trade.nsId)
-        If Trade.nsIdx = 0 Then AddErr Trade.ok, Trade.msg, "unknown netting set '" & Trade.nsId & "'"
-        If Len(mGrpError(mRowGroup(DataRow))) > 0 Then AddErr Trade.ok, Trade.msg, mGrpError(mRowGroup(DataRow))
+        If Trade.nsIdx = 0 Then AddErr DIAG_TR_NETTING_SET, "Netting set ID", Trade.ok, Trade.msg, "unknown netting set '" & Trade.nsId & "'"
+        If Len(mGrpError(mRowGroup(DataRow))) > 0 Then
+            Trade.ok = False
+            Trade.msg = Trade.msg & IIf(Len(Trade.msg) > 0, "; ", "") & mGrpError(mRowGroup(DataRow))
+            LogGroupFindings mRowGroup(DataRow)
+        End If
 
         Trade.acTxt = UTxt(InputBlock(DataRow, TR_AC))
         Trade.ac = ACIndex(Trade.acTxt)
-        If Trade.ac = 0 Then AddErr Trade.ok, Trade.msg, "asset class must be IR, FX, CR, EQ, CO or OT"
+        If Trade.ac = 0 Then AddErr DIAG_TR_ASSET_CLASS, "Asset class", Trade.ok, Trade.msg, "asset class must be IR, FX, CR, EQ, CO or OT"
 
         Trade.subCls = TradeText(InputBlock(DataRow, TR_SUB), "Sub-class", Trade.ok, Trade.msg)
         Trade.rf = UTxt(InputBlock(DataRow, TR_RF))
-        If Len(Trade.rf) = 0 Then AddErr Trade.ok, Trade.msg, "risk factor / reference missing"
+        If Len(Trade.rf) = 0 Then AddErr DIAG_TR_REFERENCE_MISSING, "Risk factor", Trade.ok, Trade.msg, "risk factor / reference missing"
         If InStr(Trade.rf, "|") > 0 Or InStr(Trade.rf, "#") > 0 Then
-            AddErr Trade.ok, Trade.msg, "risk factor / reference must not contain '|' or '#'"
+            AddErr DIAG_TR_REFERENCE_CHAR, "Risk factor", Trade.ok, Trade.msg, "risk factor / reference must not contain '|' or '#'"
         End If
         If Trade.ac = AC_IR And Len(Trade.rf) > 0 And _
            Not (Trade.rf Like "[A-Z][A-Z][A-Z]" Or Trade.rf Like "[A-Z][A-Z][A-Z]-INFL") Then
-            AddErr Trade.ok, Trade.msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
+            AddErr DIAG_TR_IR_CURRENCY, "Risk factor", Trade.ok, Trade.msg, "interest-rate risk factor must be a 3-letter currency code such as EUR, " & _
                    "or EUR-INFL for inflation"
         End If
 
         Trade.instType = TradeText(InputBlock(DataRow, TR_INSTR), "Instrument", Trade.ok, Trade.msg)
         If Len(Trade.instType) = 0 Then Trade.instType = "LINEAR"
         If Trade.instType <> "LINEAR" And Trade.instType <> "OPTION" And Trade.instType <> "CDO" Then
-            AddErr Trade.ok, Trade.msg, "instrument type must be Linear, Option or CDO"
+            AddErr DIAG_TR_INSTRUMENT, "Instrument", Trade.ok, Trade.msg, "instrument type must be Linear, Option or CDO"
         End If
-        If Trade.instType = "CDO" And Trade.ac <> AC_CR Then AddErr Trade.ok, Trade.msg, "CDO tranches are credit (CR) trades"
+        If Trade.instType = "CDO" And Trade.ac <> AC_CR Then AddErr DIAG_TR_CDO_CLASS, "Asset class", Trade.ok, Trade.msg, "CDO tranches are credit (CR) trades"
 
         DirectionText = UTxt(InputBlock(DataRow, TR_DIR))
         Select Case DirectionText
@@ -4008,14 +4048,14 @@ Private Sub ReadTradeClass( _
             Case "SHORT", "SELL", "SOLD", "S"
                 Trade.isLong = False
             Case Else
-                AddErr Trade.ok, Trade.msg, "direction must be Long or Short"
+                AddErr DIAG_TR_DIRECTION, "Direction", Trade.ok, Trade.msg, "direction must be Long or Short"
         End Select
 
         Trade.nature = TradeText(InputBlock(DataRow, TR_NATURE), "Nature", Trade.ok, Trade.msg)
         If Len(Trade.nature) = 0 Then Trade.nature = "STANDARD"
         Trade.lbl = TradeText(InputBlock(DataRow, TR_LABEL), "Hedging-set label", Trade.ok, Trade.msg)
         If InStr(Trade.lbl, "|") > 0 Or InStr(Trade.lbl, "#") > 0 Then
-            AddErr Trade.ok, Trade.msg, "hedging-set label must not contain '|' or '#'"
+            AddErr DIAG_TR_LABEL_CHAR, "Hedging-set label", Trade.ok, Trade.msg, "hedging-set label must not contain '|' or '#'"
         End If
         Select Case Trade.nature
             Case "STANDARD"
@@ -4024,13 +4064,13 @@ Private Sub ReadTradeClass( _
             Case "BASIS"
                 Trade.natFactor = pBasisF
                 Trade.natTag = "BASIS:" & Trade.lbl
-                If Len(Trade.lbl) = 0 Then AddErr Trade.ok, Trade.msg, "basis trade needs a hedging-set label"
+                If Len(Trade.lbl) = 0 Then AddErr DIAG_TR_BASIS_LABEL, "Hedging-set label", Trade.ok, Trade.msg, "basis trade needs a hedging-set label"
             Case "VOLATILITY"
                 Trade.natFactor = pVolF
                 Trade.natTag = "VOL:" & Trade.lbl
-                If Len(Trade.lbl) = 0 Then AddErr Trade.ok, Trade.msg, "volatility trade needs a hedging-set label"
+                If Len(Trade.lbl) = 0 Then AddErr DIAG_TR_VOL_LABEL, "Hedging-set label", Trade.ok, Trade.msg, "volatility trade needs a hedging-set label"
             Case Else
-                AddErr Trade.ok, Trade.msg, "nature must be Standard, Basis or Volatility"
+                AddErr DIAG_TR_NATURE, "Nature", Trade.ok, Trade.msg, "nature must be Standard, Basis or Volatility"
         End Select
 
     'IR, FX and OT have one factor each; the other classes are looked up by
@@ -4039,18 +4079,18 @@ Private Sub ReadTradeClass( _
         If Trade.ac > 0 Then
             Trade.sfKey = FactorKey(Trade.acTxt, Trade.subCls)
             Trade.sfIdx = KeyIndex(mSFIndex, Trade.sfKey)
-            If Trade.sfIdx = 0 Then AddErr Trade.ok, Trade.msg, MissingFactorText(Trade.sfKey)
+            If Trade.sfIdx = 0 Then AddErr DIAG_TR_FACTOR, "Sub-class", Trade.ok, Trade.msg, MissingFactorText(Trade.sfKey)
         End If
 
     'OT exists only under CRR, and a factor-table row limited to one regime
     'cannot be used by a netting set under the other.
         If Trade.nsIdx > 0 And Trade.ac = AC_OT Then
             Problem = OtherRisksRegimeText(mNS(Trade.nsIdx).Regime)
-            If Len(Problem) > 0 Then AddErr Trade.ok, Trade.msg, Problem
+            If Len(Problem) > 0 Then AddErr DIAG_TR_OTHER_REGIME, "Asset class", Trade.ok, Trade.msg, Problem
         End If
         If Trade.nsIdx > 0 And Trade.sfIdx > 0 Then
             Problem = FactorRegimeText(Trade.sfKey, mSF(Trade.sfIdx).Regimes, mNS(Trade.nsIdx).Regime)
-            If Len(Problem) > 0 Then AddErr Trade.ok, Trade.msg, Problem
+            If Len(Problem) > 0 Then AddErr DIAG_TR_FACTOR_REGIME, "Sub-class", Trade.ok, Trade.msg, Problem
         End If
 
 End Sub
@@ -4086,29 +4126,29 @@ Private Sub ReadTradeAmounts( _
     'Both amounts are converted to the reporting currency.
         If IsNum(InputBlock(DataRow, TR_NOTIONAL)) Then
             Trade.notional = CDbl(InputBlock(DataRow, TR_NOTIONAL))
-            If Trade.notional < 0# Then AddErr Trade.ok, Trade.msg, "notional must not be negative (use Direction for the sign)"
+            If Trade.notional < 0# Then AddErr DIAG_TR_NOTIONAL_NEGATIVE, "Notional", Trade.ok, Trade.msg, "notional must not be negative (use Direction for the sign)"
         ElseIf IsBlankCell(InputBlock(DataRow, TR_NOTIONAL)) And Not IsError(InputBlock(DataRow, TR_NOTIONAL)) Then
-            AddErr Trade.ok, Trade.msg, "notional missing"
+            AddErr DIAG_TR_NOTIONAL_MISSING, "Notional", Trade.ok, Trade.msg, "notional missing"
         Else
-            AddErr Trade.ok, Trade.msg, "notional must be a number (found " & DescribeValue(InputBlock(DataRow, TR_NOTIONAL)) & ")"
+            AddErr DIAG_TR_NOTIONAL_NUMBER, "Notional", Trade.ok, Trade.msg, "notional must be a number (found " & DescribeValue(InputBlock(DataRow, TR_NOTIONAL)) & ")"
         End If
         Trade.nccy = TradeText(InputBlock(DataRow, TR_NCCY), "Notional currency", Trade.ok, Trade.msg)
         If Len(Trade.nccy) = 0 Then Trade.nccy = pRepCcy
         Trade.fxN = FXRate(Trade.nccy)
-        If Trade.fxN < 0# Then AddErr Trade.ok, Trade.msg, NoRateText("notional", Trade.nccy)
+        If Trade.fxN < 0# Then AddErr DIAG_TR_NOTIONAL_CURRENCY, "Notional currency", Trade.ok, Trade.msg, NoRateText("notional", Trade.nccy)
         If IsNum(InputBlock(DataRow, TR_MTM)) Then
             Trade.mtm = CDbl(InputBlock(DataRow, TR_MTM))
         ElseIf IsBlankCell(InputBlock(DataRow, TR_MTM)) And Not IsError(InputBlock(DataRow, TR_MTM)) Then
             Trade.mtm = 0#
-            AddErr Trade.ok, Trade.msg, "MtM missing (enter 0 if the trade has no value)"
+            AddErr DIAG_TR_MTM_MISSING, "MtM", Trade.ok, Trade.msg, "MtM missing (enter 0 if the trade has no value)"
         Else
             Trade.mtm = 0#
-            AddErr Trade.ok, Trade.msg, "MtM must be a number (found " & DescribeValue(InputBlock(DataRow, TR_MTM)) & ")"
+            AddErr DIAG_TR_MTM_NUMBER, "MtM", Trade.ok, Trade.msg, "MtM must be a number (found " & DescribeValue(InputBlock(DataRow, TR_MTM)) & ")"
         End If
         Trade.mccy = TradeText(InputBlock(DataRow, TR_MCCY), "MtM currency", Trade.ok, Trade.msg)
         If Len(Trade.mccy) = 0 Then Trade.mccy = Trade.nccy
         Trade.fxM = FXRate(Trade.mccy)
-        If Trade.fxM < 0# Then AddErr Trade.ok, Trade.msg, NoRateText("MtM", Trade.mccy)
+        If Trade.fxM < 0# Then AddErr DIAG_TR_MTM_CURRENCY, "MtM currency", Trade.ok, Trade.msg, NoRateText("MtM", Trade.mccy)
         If Trade.ok Then
             Trade.notionalRep = Trade.notional * Trade.fxN
             Trade.mtmRep = Trade.mtm * Trade.fxM
@@ -4154,7 +4194,7 @@ Private Sub ReadTradeDates( _
         If Trade.dMat < 0# Then Trade.dMat = Trade.dExp
         If Trade.dEnd < 0# Then Trade.dEnd = Trade.dMat
         If Trade.dMat < 0# Then
-            AddErr Trade.ok, Trade.msg, "maturity / end date missing"
+            AddErr DIAG_TR_MATURITY_MISSING, "", Trade.ok, Trade.msg, "maturity / end date missing"
         Else
             Trade.M = (Trade.dMat - pAsOf) / pDaysYear
             Trade.E = (Trade.dEnd - pAsOf) / pDaysYear
@@ -4164,9 +4204,9 @@ Private Sub ReadTradeDates( _
                 Trade.S = 0#
             End If
             If Len(MaturedText(Trade.dMat, pAsOf)) > 0 Then
-                AddErr Trade.ok, Trade.msg, MaturedText(Trade.dMat, pAsOf)
+                AddErr DIAG_TR_MATURED, "", Trade.ok, Trade.msg, MaturedText(Trade.dMat, pAsOf)
             ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.E <= Trade.S Then
-                AddErr Trade.ok, Trade.msg, "end date must be after start date"
+                AddErr DIAG_TR_DATE_ORDER, "", Trade.ok, Trade.msg, "end date must be after start date"
             End If
         End If
 
@@ -4178,7 +4218,7 @@ Private Sub ReadTradeDates( _
     'today, so it is an error (#40).
         If Trade.instType = "OPTION" And (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.dStart < 0# Then
             If IsBlankCell(InputBlock(DataRow, TR_START)) And Not IsError(InputBlock(DataRow, TR_START)) Then
-                AddErr Trade.ok, Trade.msg, "an interest-rate or credit option needs the start date S of its underlying " & _
+                AddErr DIAG_TR_START_REQUIRED, "Start date", Trade.ok, Trade.msg, "an interest-rate or credit option needs the start date S of its underlying " & _
                        "(swaption: the exercise date, the earliest one if Bermudan; cap or floor: the " & _
                        "start of the first period)"
             End If
@@ -4229,7 +4269,7 @@ Private Sub ReadTradeSettlement( _
         If SettlementType = ST_STM Then
             Trade.stm = True
         ElseIf Len(SettlementType) > 0 And SettlementType <> ST_NONE Then
-            AddErr Trade.ok, Trade.msg, "settlement type must be N, STM or blank (found " & _
+            AddErr DIAG_TR_SETTLEMENT, "Settlement type", Trade.ok, Trade.msg, "settlement type must be N, STM or blank (found " & _
                    DescribeValue(InputBlock(DataRow, TR_SETTLE)) & ")"
         End If
 
@@ -4246,17 +4286,17 @@ Private Sub ReadTradeSettlement( _
         Trade.dReset = TradeDate(InputBlock(DataRow, TR_RESET), "next reset date", Trade.ok, Trade.msg)
         If Not Trade.stm Then
             If Trade.dReset >= 0# Then
-                AddErr Trade.ok, Trade.msg, "a next reset date is given but the settlement type is not STM " & _
+                AddErr DIAG_TR_RESET_NONSTM, "Next reset date", Trade.ok, Trade.msg, "a next reset date is given but the settlement type is not STM " & _
                        "(blank or N is the ordinary treatment, without a reset date)"
             End If
         ElseIf Trade.dReset < 0# Then
             If IsBlankCell(InputBlock(DataRow, TR_RESET)) And Not IsError(InputBlock(DataRow, TR_RESET)) Then
-                AddErr Trade.ok, Trade.msg, "a settled-to-market trade (STM) needs its next reset date"
+                AddErr DIAG_TR_RESET_MISSING, "Next reset date", Trade.ok, Trade.msg, "a settled-to-market trade (STM) needs its next reset date"
             End If
         ElseIf Len(ResetText(Trade.dReset, pAsOf)) > 0 Then
-            AddErr Trade.ok, Trade.msg, ResetText(Trade.dReset, pAsOf)
+            AddErr DIAG_TR_RESET_PAST, "Next reset date", Trade.ok, Trade.msg, ResetText(Trade.dReset, pAsOf)
         ElseIf Trade.dMat >= 0# And Trade.dReset > Trade.dMat Then
-            AddErr Trade.ok, Trade.msg, "next reset date is after the maturity date"
+            AddErr DIAG_TR_RESET_MATURITY, "Next reset date", Trade.ok, Trade.msg, "next reset date is after the maturity date"
         Else
             Trade.M = (Trade.dReset - pAsOf) / pDaysYear
         End If
@@ -4274,7 +4314,7 @@ Private Sub ReadTradeSettlement( _
                 If .Margined And Not .MarginedSTM Then
                     .MarginedSTM = True
                     .InputErrors = .InputErrors + 1
-                    LogMsg SEV_ERROR, SH_NS, .ID, "Trade " & Trade.tid & " is settled-to-market (STM) in a " & _
+                    LogMsg DIAG_NS_STM_MARGINED, "Margined", SEV_ERROR, SH_NS, .ID, "Trade " & Trade.tid & " is settled-to-market (STM) in a " & _
                            "margined netting set: STM requires unmargined treatment; mixed margined/" & _
                            "unmargined netting sets are not supported (CRE52.74; CRR Art. 274(4)) - netting " & _
                            "set INVALID, EAD withheld."
@@ -4333,27 +4373,27 @@ Private Sub TradeDelta( _
                     End If
                 Case "OPTION"
                     Trade.optTxt = UTxt(InputBlock(DataRow, TR_OPT))
-                    If Trade.optTxt <> "CALL" And Trade.optTxt <> "PUT" Then AddErr Trade.ok, Trade.msg, "option type must be Call or Put"
+                    If Trade.optTxt <> "CALL" And Trade.optTxt <> "PUT" Then AddErr DIAG_TR_OPTION_TYPE, "Option type", Trade.ok, Trade.msg, "option type must be Call or Put"
                     If Trade.dExp < 0# Then
-                        AddErr Trade.ok, Trade.msg, "option expiry missing"
+                        AddErr DIAG_TR_EXPIRY_MISSING, "Option expiry", Trade.ok, Trade.msg, "option expiry missing"
                     Else
                         Trade.T = (Trade.dExp - pAsOf) / pDaysYear
                         If Len(ExpiredText(Trade.dExp, pAsOf)) > 0 Then
-                            AddErr Trade.ok, Trade.msg, ExpiredText(Trade.dExp, pAsOf)
+                            AddErr DIAG_TR_EXPIRED, "Option expiry", Trade.ok, Trade.msg, ExpiredText(Trade.dExp, pAsOf)
                         ElseIf Trade.dExp > Trade.dMat Then
-                            AddErr Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
+                            AddErr DIAG_TR_EXPIRY_MATURITY, "Option expiry", Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
                                    "date the contract may still be active)"
                         End If
                     End If
                     If Not IsNum(InputBlock(DataRow, TR_PRICE)) Or Not IsNum(InputBlock(DataRow, TR_STRIKE)) Then
-                        AddErr Trade.ok, Trade.msg, "option needs underlying price and strike"
+                        AddErr DIAG_TR_OPTION_INPUTS, "", Trade.ok, Trade.msg, "option needs underlying price and strike"
                     End If
                     If Trade.ok Then
                         Price = CDbl(InputBlock(DataRow, TR_PRICE))
                         Strike = CDbl(InputBlock(DataRow, TR_STRIKE))
                         LambdaInput = InputBlock(DataRow, TR_LAMBDA)
                         If Not IsNum(LambdaInput) And Not (IsBlankCell(LambdaInput) And Not IsError(LambdaInput)) Then
-                            AddErr Trade.ok, Trade.msg, "lambda must be a number (found " & DescribeValue(LambdaInput) & ")"
+                            AddErr DIAG_TR_LAMBDA_NUMBER, "Lambda", Trade.ok, Trade.msg, "lambda must be a number (found " & DescribeValue(LambdaInput) & ")"
                         End If
                         If mNS(Trade.nsIdx).IsCRR And (Trade.ac = AC_IR Or Trade.ac = AC_CO) Then
                             'Delegated Regulation (EU) 2021/931 Art. 5, as amended by 2025/855.
@@ -4364,7 +4404,7 @@ Private Sub TradeDelta( _
                             End If
                             If IsNum(LambdaInput) Then
                                 If Abs(CDbl(LambdaInput) - Trade.lam) > 0.000000001 Then
-                                    AddWarn Trade.warn, "lambda input ignored under CRR - RTS lambda applied"
+                                    AddWarn DIAG_TR_LAMBDA_IGNORED, "Lambda", Trade.warn, "lambda input ignored under CRR - RTS lambda applied"
                                 End If
                             End If
                         Else
@@ -4372,9 +4412,9 @@ Private Sub TradeDelta( _
                         End If
                         Trade.lamOut = Trade.lam
                         If Price + Trade.lam <= 0# Or Strike + Trade.lam <= 0# Then
-                            AddErr Trade.ok, Trade.msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
+                            AddErr DIAG_TR_SHIFTED_PRICE, "", Trade.ok, Trade.msg, "price and strike must be > 0 after lambda shift (BCBS: enter lambda per CRE52.40 FAQ)"
                         ElseIf mSF(Trade.sfIdx).Vol <= 0# Then
-                            AddErr Trade.ok, Trade.msg, "supervisory volatility missing for '" & Trade.sfKey & "'"
+                            AddErr DIAG_TR_VOLATILITY, "Sub-class", Trade.ok, Trade.msg, "supervisory volatility missing for '" & Trade.sfKey & "'"
                         Else
                             DeltaResult = SACCR_OptionDelta(Price, Strike, Trade.T, mSF(Trade.sfIdx).Vol, (Trade.optTxt = "CALL"), Trade.isLong, Trade.lam)
                             Trade.delta = FormulaNumber(DeltaResult, "SACCR_OptionDelta")
@@ -4382,12 +4422,12 @@ Private Sub TradeDelta( _
                     End If
                 Case "CDO"
                     If Not IsNum(InputBlock(DataRow, TR_ATTACH)) Or Not IsNum(InputBlock(DataRow, TR_DETACH)) Then
-                        AddErr Trade.ok, Trade.msg, "CDO tranche needs attachment and detachment points"
+                        AddErr DIAG_TR_CDO_POINTS, "", Trade.ok, Trade.msg, "CDO tranche needs attachment and detachment points"
                     Else
                         Attachment = CDbl(InputBlock(DataRow, TR_ATTACH))
                         Detachment = CDbl(InputBlock(DataRow, TR_DETACH))
                         If Attachment < 0# Or Detachment > 1# Or Attachment >= Detachment Then
-                            AddErr Trade.ok, Trade.msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
+                            AddErr DIAG_TR_CDO_RANGE, "", Trade.ok, Trade.msg, "attachment/detachment must satisfy 0 <= A < D <= 1"
                         Else
                             Trade.delta = FormulaNumber(SACCR_CDODelta(Attachment, Detachment, Trade.isLong), "SACCR_CDODelta")
                         End If
@@ -4456,15 +4496,15 @@ Private Sub TradeHedgingSet( _
                 Case AC_FX
                     Trade.rf = NormalizePair(Trade.rf, Trade.pairSign)
                     If Trade.pairSign = 0# Then
-                        AddErr Trade.ok, Trade.msg, "FX risk factor must be a currency pair such as EUR/USD"
+                        AddErr DIAG_TR_FX_PAIR, "Risk factor", Trade.ok, Trade.msg, "FX risk factor must be a currency pair such as EUR/USD"
                     ElseIf FXRate(Left$(Trade.rf, 3)) < 0# Then
-                        AddErr Trade.ok, Trade.msg, NoPairRateText(Left$(Trade.rf, 3), Trade.rf)
+                        AddErr DIAG_TR_FX_PAIR_RATE, "Risk factor", Trade.ok, Trade.msg, NoPairRateText(Left$(Trade.rf, 3), Trade.rf)
                     ElseIf FXRate(Right$(Trade.rf, 3)) < 0# Then
-                        AddErr Trade.ok, Trade.msg, NoPairRateText(Right$(Trade.rf, 3), Trade.rf)
+                        AddErr DIAG_TR_FX_PAIR_RATE, "Risk factor", Trade.ok, Trade.msg, NoPairRateText(Right$(Trade.rf, 3), Trade.rf)
                     ElseIf Trade.nccy <> Left$(Trade.rf, 3) And Trade.nccy <> Right$(Trade.rf, 3) Then
-                        AddErr Trade.ok, Trade.msg, "notional currency '" & Trade.nccy & "' is not a currency of the pair " & Trade.rf
+                        AddErr DIAG_TR_FX_NOTIONAL, "Notional currency", Trade.ok, Trade.msg, "notional currency '" & Trade.nccy & "' is not a currency of the pair " & Trade.rf
                     ElseIf Trade.instType = "OPTION" And Trade.pairSign * MarketSign(Trade.rf) < 0# Then
-                        AddErr Trade.ok, Trade.msg, "FX option must be entered in market quote order as " & MarketPair(Trade.rf) & _
+                        AddErr DIAG_TR_FX_QUOTE, "Risk factor", Trade.ok, Trade.msg, "FX option must be entered in market quote order as " & MarketPair(Trade.rf) & _
                                ", with price and strike in " & Right$(MarketPair(Trade.rf), 3) & " per " & _
                                Left$(MarketPair(Trade.rf), 3) & " (CRE52.59 FAQ1)"
                     End If
@@ -4484,7 +4524,7 @@ Private Sub TradeHedgingSet( _
                 Case AC_CO
                     Trade.adjN = Trade.notionalRep
                     If Len(mSF(Trade.sfIdx).Group) = 0 Then
-                        AddErr Trade.ok, Trade.msg, "commodity hedging group missing for '" & Trade.sfKey & "'"
+                        AddErr DIAG_TR_COMMODITY_GROUP, "Sub-class", Trade.ok, Trade.msg, "commodity hedging group missing for '" & Trade.sfKey & "'"
                     End If
                     Trade.hsKey = "CO|" & mSF(Trade.sfIdx).Group & "|" & Trade.natTag
                     Trade.subKey = Trade.rf
@@ -4849,7 +4889,7 @@ Private Sub CheckReferenceClass( _
         ElseIf mRefClass(Position) <> FactorKey And Not mRefConflict(Position) Then
             mRefConflict(Position) = True
             mNS(NSPosition).InputErrors = mNS(NSPosition).InputErrors + 1
-            LogMsg SEV_ERROR, SH_TRADES, TradeID, "Reference '" & Reference & "' is " & FactorKey & " here but " & _
+            LogMsg DIAG_TR_REFERENCE_CONFLICT, "Risk factor", SEV_ERROR, SH_TRADES, TradeID, "Reference '" & Reference & "' is " & FactorKey & " here but " & _
                    mRefClass(Position) & " on another trade of the netting set - netting set INVALID, EAD withheld.", RowNumber
         End If
 
@@ -5050,7 +5090,7 @@ Private Sub ComputeHedgingSets()
                         If Not IRRefused(mHS(h).NSIdx) Then
                             IRRefused(mHS(h).NSIdx) = True
                             mNS(mHS(h).NSIdx).InputErrors = mNS(mHS(h).NSIdx).InputErrors + 1
-                            LogMsg SEV_ERROR, SH_NS, mNS(mHS(h).NSIdx).ID, "IRBucketOffset is FALSE, but the " & _
+                            LogMsg DIAG_NS_IR_OFFSET, PRM_IRFULL, SEV_ERROR, SH_NS, mNS(mHS(h).NSIdx).ID, "IRBucketOffset is FALSE, but the " & _
                                    "CRR allows only the formula with offsets across maturity buckets " & _
                                    "(Art. 280a(3)) - netting set INVALID, EAD withheld."
                         End If
@@ -5245,7 +5285,7 @@ Private Sub ComputeNettingSets( _
     'flag may be wrong instead of setting it.
             With mNS(k)
                 If .Margined And Not .LargeOrIlliquid And .EconTrades > LARGE_NS_TRADES Then
-                    LogMsg SEV_WARN, SH_NS, .ID, "Netting set has " & .EconTrades & _
+                    LogMsg DIAG_NS_LARGE, "", SEV_WARN, SH_NS, .ID, "Netting set has " & .EconTrades & _
                            " trades, more than " & LARGE_NS_TRADES & ": if it had more than " & _
                            LARGE_NS_TRADES & " during the previous quarter, set the large or illiquid " & _
                            "flag to Y (20-day MPOR floor)."
@@ -5254,7 +5294,7 @@ Private Sub ComputeNettingSets( _
             If mNS(k).InputErrors > 0 Then
                 mIncomplete = mIncomplete + 1
                 mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
-                LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
+                LogMsg DIAG_NS_INPUT_INCOMPLETE, "", SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).InputErrors & _
                        " invalid netting-set field(s)."
                 Select Case mNS(k).ClearingRole
                     Case CL_MULTI
@@ -5279,7 +5319,7 @@ Private Sub ComputeNettingSets( _
             If mNS(k).Rejected > 0 Then
                 mIncomplete = mIncomplete + 1
                 mRegWithheld(RegimePosition) = mRegWithheld(RegimePosition) + 1
-                LogMsg SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).Rejected & _
+                LogMsg DIAG_NS_TRADE_INCOMPLETE, "", SEV_ERROR, SH_NS, mNS(k).ID, "EAD withheld: " & mNS(k).Rejected & _
                        " trade(s) rejected - see the Trades messages."
                 OutputCount = OutputCount + 1
                 WriteStatusRow OutputBlock, OutputCount, k, "INCOMPLETE: " & mNS(k).Rejected & " of " & _
@@ -5287,7 +5327,7 @@ Private Sub ComputeNettingSets( _
                 GoTo NextNS
             End If
             If mNS(k).Trades = 0 Then
-                LogMsg SEV_INFO, SH_NS, mNS(k).ID, "Netting set has no trades - no EAD."
+                LogMsg DIAG_NS_NO_TRADES, "", SEV_INFO, SH_NS, mNS(k).ID, "Netting set has no trades - no EAD."
                 OutputCount = OutputCount + 1
                 WriteStatusRow OutputBlock, OutputCount, k, "NO TRADES"
                 GoTo NextNS
@@ -5394,7 +5434,7 @@ NextNS:
     'gives their share of it, so that it is identifiable (#112).
         For RegimePosition = 1 To 2
             If CcpSets(RegimePosition) > 0 Then
-                LogMsg SEV_INFO, SH_RESULTS, "TOTAL " & Choose(RegimePosition, RG_CRR, RG_BCBS), _
+                LogMsg DIAG_RUN_TOTAL, "", SEV_INFO, SH_RESULTS, "TOTAL " & Choose(RegimePosition, RG_CRR, RG_BCBS), _
                        "Trade exposures to CCPs in this total: " & CcpValid(RegimePosition) & " of " & _
                        CcpSets(RegimePosition) & " CCP netting set(s) VALID, EAD " & _
                        Format$(CcpEAD(RegimePosition), "#,##0") & "; risk weights not applied."
@@ -6199,6 +6239,7 @@ Private Function WriteChecks( _
             OutputBlock(1, 1) = SEV_INFO
             OutputBlock(1, 5) = "No issues found."
             OutputBlock(1, CK_ORIGIN_COL) = ORIGIN_RUN
+            OutputBlock(1, CK_CODE_COL) = DIAG_RUN_CLEAN
             WriteBlock ChecksSheet, TopRow, OutputBlock, 1, CK_NCOLS
             WriteChecks = True
             Exit Function
@@ -6369,4 +6410,29 @@ Private Function RunClassText() As String
             RunClassText = " | WHAT-IF: " & mDeviations & " parameter(s) differ from " & REF_SET_ID
         End If
 
+End Function
+
+
+Public Function DiagnosticCodes() As String
+'
+'==============================================================================
+' PURPOSE
+'   Return distinct ERROR/WARNING codes in encounter order, comma-separated.
+'   Uses the current run log, never an earlier Checks sheet after a failed run.
+'==============================================================================
+'
+    Dim i       As Long      'Log row
+    Dim Code    As String    'Stable code
+    Dim Seen    As String    'Delimited membership set
+        Seen = ","
+        For i = 1 To mLogCount
+            If mLog(1, i) = SEV_ERROR Or mLog(1, i) = SEV_WARN Then
+                Code = CStr(mLog(CK_CODE_COL, i))
+                If InStr(1, Seen, "," & Code & ",", vbBinaryCompare) = 0 Then
+                    If Len(DiagnosticCodes) > 0 Then DiagnosticCodes = DiagnosticCodes & ","
+                    DiagnosticCodes = DiagnosticCodes & Code
+                    Seen = Seen & Code & ","
+                End If
+            End If
+        Next i
 End Function

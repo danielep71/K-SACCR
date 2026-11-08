@@ -1507,7 +1507,7 @@ Public Sub ClearChecksBlock( _
 '   Sheet: the Checks sheet. FirstRow: its first data row.
 '
 ' STATE OWNERSHIP
-'   Changes the cleared cells only.
+'   Also installs the appended Code/Field headers for older templates (#81).
 '
 ' UPDATED
 '   2026-10-28
@@ -1524,6 +1524,17 @@ Public Sub ClearChecksBlock( _
 '------------------------------------------------------------------------------
 ' CLEAR
 '------------------------------------------------------------------------------
+    'Upgrade older templates in place without shifting existing columns.
+        For c = CK_CODE_COL To CK_FIELD_COL
+            With TableCell(Sheet, FirstRow - 1, c)
+                .Style = TableCell(Sheet, FirstRow - 1, CK_ORIGIN_COL).Style
+                .Interior.Color = TableCell(Sheet, FirstRow - 1, CK_ORIGIN_COL).Interior.Color
+                .Font.Color = TableCell(Sheet, FirstRow - 1, CK_ORIGIN_COL).Font.Color
+                .Font.Bold = True
+                .Value2 = IIf(c = CK_CODE_COL, "Code", "Field")
+                .EntireColumn.ColumnWidth = 28
+            End With
+        Next c
         ClearOutputBlock Sheet, FirstRow, CK_NCOLS
         LastUsedRow = UsedLastRow(Sheet)
         If LastUsedRow < FirstRow Then

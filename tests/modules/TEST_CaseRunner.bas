@@ -701,7 +701,7 @@ End Sub
 
 Public Sub RunCaseExpectingStop( _
     ByVal Label As String, _
-    ByVal MessagePart As String, _
+    ByVal DiagnosticCode As String, _
     ByVal ReferenceClass As String)
 '
 '==============================================================================
@@ -714,7 +714,7 @@ Public Sub RunCaseExpectingStop( _
 '
 ' INPUTS
 '   Label: the check's name in the report.
-'   MessagePart: text the ERROR message must contain, ignoring case.
+'   DiagnosticCode: exact stable code of the ERROR.
 '   ReferenceClass: published, independent or illustrative.
 '
 ' ERROR POLICY
@@ -738,8 +738,8 @@ Public Sub RunCaseExpectingStop( _
         If Completed Then
             Record Label, ReferenceClass, False, "run completed; expected it to stop"
         Else
-            Record Label, ReferenceClass, ChecksHasLine(SEV_ERROR, MessagePart), _
-                   "run stopped, but no ERROR on Checks contains """ & MessagePart & """"
+            Record Label, ReferenceClass, ChecksHasCode(SEV_ERROR, DiagnosticCode, ""), _
+                   "run stopped, but no ERROR on Checks has code """ & DiagnosticCode & """"
         End If
         Exit Sub
 
@@ -1658,4 +1658,46 @@ Private Function IsoDate( _
             IsoDate = DateSerial(CInt(Left$(InputText, 4)), CInt(Mid$(InputText, 6, 2)), CInt(Right$(InputText, 2)))
         End If
 
+End Function
+
+
+Public Sub ExpectChecksCode( _
+    ByVal Label As String, _
+    ByVal Severity As String, _
+    ByVal DiagnosticCode As String, _
+    ByVal ReferenceClass As String, _
+    Optional ByVal FieldName As String = "")
+'
+'==============================================================================
+' PURPOSE
+'   Assert a stable code and optionally its exact field, independent of prose.
+'==============================================================================
+'
+        Record Label, ReferenceClass, ChecksHasCode(Severity, DiagnosticCode, FieldName), _
+               "Checks has no " & Severity & " code " & DiagnosticCode & " field " & FieldName
+End Sub
+
+
+Private Function ChecksHasCode( _
+    ByVal Severity As String, _
+    ByVal DiagnosticCode As String, _
+    ByVal FieldName As String) As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Match a structured diagnostic; an empty field means any field.
+'==============================================================================
+'
+    Dim Sheet As Worksheet    'Checks
+    Dim r As Long             'Data row
+        Set Sheet = GetSheet(SH_CHECKS)
+        For r = OutputFirstRow(SH_CHECKS) To UsedLastRow(Sheet)
+            If SafeStr(TableCell(Sheet, r, 1).Value2) = Severity And _
+               SafeStr(TableCell(Sheet, r, CK_CODE_COL).Value2) = DiagnosticCode Then
+                If Len(FieldName) = 0 Or SafeStr(TableCell(Sheet, r, CK_FIELD_COL).Value2) = FieldName Then
+                    ChecksHasCode = True
+                    Exit Function
+                End If
+            End If
+        Next r
 End Function

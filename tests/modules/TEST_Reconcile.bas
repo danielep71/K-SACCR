@@ -1288,7 +1288,7 @@ Private Sub CaseExportWorkbook()
         Check InStr(FirstText, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
         Check InStr(FirstText, vbCrLf & "TRADE_RECONCILIATION;TradeID;") > 0 And _
               InStr(FirstText, ";Note;Economic trade ID" & vbCrLf) > 0, "trade reconciliation header line"
-        Check InStr(FirstText, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(FirstText, vbCrLf & "CHECKS;") > 0 And _
+        Check InStr(FirstText, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(FirstText, vbCrLf & "CHECKS;Severity;Sheet;Row;Reference;Message;Origin;Code;Field" & vbCrLf) > 0 And _
               InStr(FirstText, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
         Check FileText(SecondFile) = FirstText, "a second export of the same run differs"
