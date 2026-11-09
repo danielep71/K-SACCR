@@ -138,6 +138,14 @@ cannot accept it, and it is never cited as release evidence. A release
 candidate takes the full run, `Verify-SACCR-Branch.ps1 -Branch NAME` or
 `Certify-SACCR.ps1` on its checkout, as above.
 
+Leave Excel alone until the run ends. Excel started by a script loads no
+add-ins and may show the bar *Application add-ins have been disabled*: it
+concerns the installed add-ins, not the workbook's macros, which run all the
+same. Do not click **Enable Content** there, and do not use the window: an
+add-in loaded, or a click in the sheet, during `Test_RunAll` can leave a
+recalculation pending or turn screen updating back on, which the suites
+report as failures.
+
 <a id="manual-procedure"></a>
 
 ## 🧑‍💻 Manual procedure
