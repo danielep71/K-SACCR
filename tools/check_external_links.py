@@ -12,20 +12,129 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
-from urllib.parse import urldefrag
+from urllib.parse import quote, unquote, urldefrag
 
 from check_links import links, tracked_markdown
 
 MARKER = "<!-- saccr-external-link-audit -->"
+USER_AGENT = "K-SACCR-link-audit/1.0"
+API = "https://api.github.com"
+# A github.com repository page: owner, repository (an optional .git dropped), then
+# the path inside the repository; the query string, as in an issues search, is
+# dropped. The site's own pages do not match.
+REPOSITORY_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+?)"
+                             r"(?:\.git)?(?:/([^?]*))?(?:\?.*)?$")
+# A github.com user or organization page.
+ACCOUNT_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/?$")
+# Listing pages verified as the repository itself when nothing follows them in
+# the path: those every repository has, and those of an optional feature, which
+# count only when the repository's API record has the feature on. A path below
+# one, such as a workflow run, a discussion or a wiki page, names a resource of
+# its own and stays on the web check, and so do the pages not listed here.
+REPOSITORY_PAGES = {"stargazers", "watchers", "forks", "pulls", "pulse", "graphs", "network",
+                    "tags", "branches", "releases", "commits", "activity"}
+FEATURE_PAGES = {"issues": "has_issues", "labels": "has_issues", "milestones": "has_issues",
+                 "wiki": "has_wiki", "discussions": "has_discussions", "projects": "has_projects"}
 
 
-def inspect(url: str) -> tuple[str, str]:
+def repository_path(url: str) -> tuple[str, list[str]] | None:
+    """The API base and the decoded path parts of a github.com repository page.
+
+    The path is split on the URL's own slashes and each part decoded, so that
+    an escape in the link (My%20File.md, a ref with %2F) is encoded once, not
+    twice, for the API, and every caller classifies the same decoded parts.
+    None when the URL is not a repository page.
+    """
+    match = REPOSITORY_PAGE.match(url)
+    if not match:
+        return None
+    owner, name, rest = match.groups()
+    return f"/repos/{owner}/{name}", [unquote(part) for part in (rest or "").split("/") if part]
+
+
+def api_targets(url: str) -> list[str]:
+    """The API requests that verify a github.com repository page, in the order to try.
+
+    GitHub answers unauthenticated scripted requests to its web pages with 429
+    (rate limit) and, for some pages, 403 or 404, although a browser opens them
+    (#649), so a repository page is verified through the API instead: the
+    repository for a listing page (with its feature on, for an optional
+    feature's page), a commit listing, a comparison, an issue
+    or pull request, a milestone, a release, or a file or folder at a ref; a
+    user or organization page is
+    verified as the account. A ref may hold slashes, as
+    release/1.3.0, so a blob or tree page gives one candidate per split of the
+    path into ref and file, longest ref last; the first that answers wins. An
+    empty list means the page is left to the web check.
+    """
+    account = ACCOUNT_PAGE.match(url)
+    if account:
+        return [f"/users/{account[1]}"]
+    page = repository_path(url)
+    if page is None:
+        return []
+    base, parts = page
+    if not parts:
+        return [base]
+    head, tail = parts[0], parts[1:]
+    # A resource named by a number, or the latest release, is checked only when
+    # nothing follows it: a page below it, such as pull/7/commits/<sha>, names a
+    # resource of its own and stays on the web check.
+    if head in ("issues", "pull") and len(tail) == 1 and tail[0].isdigit():
+        return [f"{base}/issues/{tail[0]}"]
+    if head == "milestone" and len(tail) == 1 and tail[0].isdigit():
+        return [f"{base}/milestones/{tail[0]}"]
+    if head == "releases" and tail == ["latest"]:
+        return [f"{base}/releases/latest"]
+    # A ref, a tag or a range may hold slashes, as release/1.3.0: the whole
+    # rest of the path is the name. A download names an asset, which only the
+    # web request checks.
+    if head == "commits" and tail:
+        return [f"{base}/commits?sha={quote('/'.join(tail), safe='')}&per_page=1"]
+    if head == "releases" and len(tail) >= 2 and tail[0] == "tag":
+        return [f"{base}/releases/tags/{quote('/'.join(tail[1:]), safe='')}"]
+    if head in ("blob", "tree", "raw") and tail:
+        # The root of a ref is /contents, without a trailing slash, which the API rejects.
+        return [f"{base}/contents{'/' + quote('/'.join(tail[i:])) if tail[i:] else ''}"
+                f"?ref={quote('/'.join(tail[:i]), safe='')}"
+                for i in range(1, len(tail) + 1)]
+    if head == "compare" and tail:
+        return [f"{base}/compare/{quote('/'.join(tail), safe='.')}"]
+    if (head in REPOSITORY_PAGES or head in FEATURE_PAGES) and not tail:
+        return [base]
+    return []
+
+
+def required_feature(url: str) -> str | None:
+    """The repository field an optional feature's listing page needs on, if it is one."""
+    page = repository_path(url)
+    parts = page[1] if page else []
+    return FEATURE_PAGES.get(parts[0]) if len(parts) == 1 else None
+
+
+def api_headers() -> dict[str, str]:
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    return headers
+
+
+def fetch(url: str, headers: dict[str, str], feature: str | None = None) -> tuple[str, str]:
+    """Three attempts at one URL: ok, broken (404 or 410 every time) or inconclusive.
+
+    With a feature, a JSON answer counts as ok only when that field is true; a
+    feature turned off is reported as such, not as ok.
+    """
     outcomes = []
     for attempt in range(3):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "K-SACCR-link-audit/1.0"})
+            request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(request, timeout=10) as response:
                 code = response.status
+                record = json.load(response) if feature and 200 <= code < 300 else {}
+            if feature and 200 <= code < 300 and record.get(feature) is not True:
+                return "inconclusive", f"{code} with {feature} off"
             if 200 <= code < 400:
                 return "ok", str(code)
             outcomes.append(str(code))
@@ -37,6 +146,19 @@ def inspect(url: str) -> tuple[str, str]:
             time.sleep(0.2 * (attempt + 1))
     status = "broken" if all(code in {"404", "410"} for code in outcomes) else "inconclusive"
     return status, ", ".join(outcomes)
+
+
+def inspect(url: str) -> tuple[str, str]:
+    """Verify one URL: a github.com repository page through the API first, then the web."""
+    notes = []
+    feature = required_feature(url)
+    for target in api_targets(url):
+        status, detail = fetch(API + target, api_headers(), feature)
+        if status == "ok":
+            return "ok", "api " + detail
+        notes.append("api " + detail)
+    status, detail = fetch(url, {"User-Agent": USER_AGENT})
+    return status, "; ".join(notes + [detail])
 
 
 def api(repository: str, method: str, suffix: str, data: Any = None) -> Any:
