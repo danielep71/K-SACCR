@@ -76,6 +76,11 @@ class LinkTests(unittest.TestCase):
                                                    '/repos/owner/repo/contents/A.md?ref=release%2F1.3.0%2Fdocs',
                                                    '/repos/owner/repo/contents?ref=release%2F1.3.0%2Fdocs%2FA.md']),
                 ('/tree/main', ['/repos/owner/repo/contents?ref=main']),
+                ('/blob/main/docs/My%20File.md', ['/repos/owner/repo/contents/docs/My%20File.md?ref=main',
+                                                  '/repos/owner/repo/contents/My%20File.md?ref=main%2Fdocs',
+                                                  '/repos/owner/repo/contents?ref=main%2Fdocs%2FMy%20File.md']),
+                ('/commits/release%2F1.3.0', ['/repos/owner/repo/commits?sha=release%2F1.3.0&per_page=1']),
+                ('/releases/tag/release%2F1.3.0', ['/repos/owner/repo/releases/tags/release%2F1.3.0']),
                 ('/tree/release/1.3.0', ['/repos/owner/repo/contents/1.3.0?ref=release',
                                          '/repos/owner/repo/contents?ref=release%2F1.3.0']),
                 ('/settings', []), ('/blob', [])):

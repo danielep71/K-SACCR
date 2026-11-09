@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urldefrag
+from urllib.parse import quote, unquote, urldefrag
 
 from check_links import links, tracked_markdown
 
@@ -60,7 +60,9 @@ def api_targets(url: str) -> list[str]:
         return []
     owner, name, rest = match.groups()
     base = f"/repos/{owner}/{name}"
-    parts = [part for part in (rest or "").split("/") if part]
+    # Split on the URL's own slashes, then decode each part, so that an escape in
+    # the link (My%20File.md, a ref with %2F) is encoded once, not twice, below.
+    parts = [unquote(part) for part in (rest or "").split("/") if part]
     if not parts:
         return [base]
     head, tail = parts[0], parts[1:]
