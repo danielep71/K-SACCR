@@ -18,7 +18,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`) and the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -33,7 +33,11 @@ pull request's whole range.
 | `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
 | `ribbon-template` | The template `src/workbook/SACCR_Template.xlsx` carries the Ribbon source `src/workbook/customUI14.xml` byte for byte as its `customUI/customUI14.xml` part, with exactly one Ribbon relationship and no other customUI part (`tools/ribbon_template.py`; `--write` embeds the source) |
 | `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
-| `*-fixtures` | Each VBA checker and the whitespace gate run their own positive and negative self-tests first |
+| `check_links` | Every relative link and anchor in tracked Markdown reaches an existing, non-empty file inside the repository and a heading or explicit anchor in it; code blocks, code spans and remote URLs are excluded; `check_external_links.py` checks those weekly, outside the gates |
+| `check_vba_identifiers` | Advisory: an inventory of the identifiers each VBA project configuration uses, with the names it cannot resolve; its findings never fail the run, an analysis failure does ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
+| `check_vba_dependencies` | Every reference between VBA modules follows the layer direction, apart from the reviewed #220 exceptions, and source outside string literals is ASCII ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
+| `check_diagnostics` | The Checks diagnostic registry `docs/diagnostics.json` matches the codes `CORE_Config` declares and the engine emits: every emission site passes a declared, active code, the Checks layout constants fit, and no retired code is reused ([contract](../docs/DIAGNOSTICS.md)) |
+| `*-fixtures` | The whitespace gate and the jump, conditional and public-API checkers run their own positive and negative self-tests first |
 
 `check_excel_evidence.py` validates a manual Excel evidence bundle against a
 candidate commit: the harness and every other suite the policy lists, each with
@@ -196,7 +200,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the ten standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the eleven standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -223,7 +227,8 @@ replace changed records, because it compares their fingerprint.
 To test modules received outside the repository, for example downloaded
 during a review, without copying them into the working tree, drag the
 workbook onto `tools/Sync-SACCR-VBA-Downloads.cmd` (or pass its path as the
-argument, as above; without one it stops in the same way). It asks for the
+argument, as above; unlike `Sync-SACCR-VBA.cmd`, without one it stops and
+builds nothing). It asks for the
 folder (Enter for `%USERPROFILE%\Downloads`) and runs the synchronizer with
 `-SourceDir`:
 
@@ -342,7 +347,7 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The ten standard modules of a workbook built from the template |
+| `production` | The eleven standard modules of a workbook built from the template |
 | `development` | Those plus the thirteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
@@ -395,10 +400,10 @@ them against the repository and against a deliberate violation of each:
 | --- | --- |
 | Pins | A `uses:` is not pinned to a 40-character commit SHA, or an `actions/checkout` lacks `persist-credentials: false` |
 | Limits | A workflow declares no top-level `permissions`, or a job has no `timeout-minutes` |
-| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `contents` and `issues` in `daily-traffic.yml`/`traffic`, or `pull-requests` in `pr-milestones.yml`/`reconcile`; or a workflow grants one at its top level |
+| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, or `pull-requests` in `pr-milestones.yml`/`reconcile`; or a workflow grants one at its top level |
 | Repository integrity | The `static-checks.yml` job has an `if` or a `strategy`, another name, `pull_request` or `push` filters other than branches `main` and `release/**`, or `docs/GOVERNANCE.md` no longer names it as the required check |
 | Label sync | The `reconcile` job of `labels-sync.yml` is not limited to the default branch |
-| Milestones | `pr-milestones.yml` changes its events, its permissions or its condition, or is not one inline step whose script contains no `${{` |
+| Milestones | `pr-milestones.yml` changes its events, its permissions, its concurrency (one group per pull request and one for the full scan) or its condition, or is not one inline step whose script contains no `${{` |
 | Dependabot | An ecosystem the repository pins (`github-actions`, `pip`) has no block or more than one, or a block sets a milestone, lacks the `bug.yml` assignee, or has a priority other than exactly `P3` |
 
 The traffic tests also enforce step-scoped App credentials, the exact token
@@ -449,8 +454,9 @@ Every checkout sets `persist-credentials: false`.
 
 `.github/workflows/pr-milestones.yml` keeps milestones on issues only. Its
 single job runs trusted inline Python, with no checkout, and is the only place
-the workflow has a permission: `pull-requests: write`, so that it can clear a
-pull request's milestone through the issues API. It refuses to change an item
+the workflow has permissions: `issues: read`, to read the item, and
+`pull-requests: write`, so that it can clear a pull request's milestone
+through the issues API. It refuses to change an item
 that is not a pull request. It runs on `pull_request_target` (opened, reopened,
 edited, milestoned) for that pull request, and daily at 03:17 UTC, on manual
 dispatch and on a push to `main` that changes the workflow, for every pull
@@ -620,7 +626,8 @@ ref with slashes tried at every split; a user or organization page is
 verified as the account. A page the API does not confirm is
 fetched from the web as any other URL before it is reported. The Monday workflow
 maintains one marked issue, reopening/updating it on failures and closing it when
-all URLs respond. Only the reporting job has issues:write. A local run without
+all URLs respond. Its single job, `audit`, checks and reports, and is the only
+place the workflow has `issues: write`. A local run without
 `--publish` writes a report and never changes GitHub. External checks are not a
 blocking PR gate because availability is transient.
 

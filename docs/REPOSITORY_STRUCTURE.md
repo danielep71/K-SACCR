@@ -40,13 +40,14 @@ The engine imported from the prototype does not meet this yet: see
 
 ```text
 .github/            workflows, issue and pull-request templates, label catalogue
-                    and its scripts, Excel evidence policy
+                    and its scripts, Excel evidence policy, Dependabot
+                    configuration
 docs/               contracts, architecture, governance, evidence record
   index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
   licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
   csv/              CSV input contract, its specification and blank templates
-  workbook/         protection matrix of the workbook template
+  workbook/         Ribbon contract and protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
   user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/, v1.1.0/, v1.2.0/)
@@ -67,8 +68,9 @@ tools/              static checks, case generator, VBA synchronizer and
 
 The root holds the project documents (`README.md`, `INSTALLATION.md`,
 `CONTRIBUTING.md`, `RELEASING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
-`CHANGELOG.md`, `LICENSE`) and the repository configuration (`.editorconfig`,
-`.gitattributes`, `.gitignore`, `pyproject.toml`). `src/classes/`,
+`CHANGELOG.md`, `LICENSE`), the released version in `VERSION`, and the
+repository configuration (`.editorconfig`, `.gitattributes`, `.gitignore`,
+`pyproject.toml`). `src/classes/`,
 `src/forms/` and `examples/` are reserved locations: none exists yet, and each
 is created with its first file.
 
@@ -92,7 +94,7 @@ Subdirectories are created with their first real file, never empty.
 | `src/core/` | Calculation engine: configuration, validation, parsing, aggregation, reconciliation, evidence encoding, shared helpers | In-project only. Every module declares `Option Private Module`. |
 | `src/modules/` | Public facade: the supported entry points, constants and enums | Supported API, listed in [`PUBLIC_API.txt`](PUBLIC_API.txt) |
 | `src/classes/` | Class modules, e.g. trade or netting-set objects, state managers; reserved, none yet | Status stated in each class header |
-| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, the macro-free template `SACCR_Template.xlsx` and the Ribbon source `customUI14.xml` ([contract](workbook/RIBBON.md)); also `M_Main` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
+| `src/workbook/` | Exported document modules: `ThisWorkbook` and sheet modules, the macro-free template `SACCR_Template.xlsx` and the Ribbon source `customUI14.xml` ([contract](workbook/RIBBON.md)); also `M_Main` and `M_Ribbon` (a [known deviation](#known-deviations)) | Host glue only; no calculation logic |
 | `src/forms/` | UserForms, `.frm` beside its `.frx`, only if a form is ever needed; reserved, none yet | — |
 
 ### Wiki
@@ -114,8 +116,9 @@ documents govern.
 | `tests/csv/` | Synthetic CSV input files and their expected findings under the [CSV contract](csv/CSV_CONTRACT.md) |
 | `examples/modules/` | Example modules calling the public facade; created with the first example |
 
-`tools/check_source.py` enforces the placement rules below on every run of
-`python tools/check.py`.
+`tools/check_source.py` enforces rules 1 and 2 of the placement rules below,
+and the content of a committed workbook under rule 5, on every run of
+`python tools/check.py`; the others are kept by review.
 
 ## 🔀 Dependency direction
 
@@ -161,7 +164,7 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport` and `ExportImportSpecification`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
@@ -211,6 +214,9 @@ enforced by `tools/check_source.py`; the others by review.
 - [`../tests/README.md`](../tests/README.md)
 - [`assets/README.md`](assets/README.md)
 - [`methodology/README.md`](methodology/README.md)
+- [`methodology/sources/README.md`](methodology/sources/README.md)
+- [`user-manual/v1.0.0/README.md`](user-manual/v1.0.0/README.md)
+- [`user-manual/v1.0.1/README.md`](user-manual/v1.0.1/README.md)
 - [`user-manual/v1.0.2/README.md`](user-manual/v1.0.2/README.md)
 - [`user-manual/v1.1.0/README.md`](user-manual/v1.1.0/README.md)
 - [`user-manual/v1.2.0/README.md`](user-manual/v1.2.0/README.md)
