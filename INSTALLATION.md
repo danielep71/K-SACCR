@@ -242,7 +242,9 @@ The layout and file conventions are defined in
    `ThisWorkbook` document modules as well: answer Y when building from the
    template (they hold only `Option Explicit`, except the two staging
    sheets', which show `EDITED` after a manual change and refresh their
-   status when activated). It needs Excel's
+   status when activated, and `ThisWorkbook`'s, which refreshes the Ribbon
+   tab and keeps the navigation bar and the Ribbon's pointer right across a
+   save). It needs Excel's
    **Trust access to the VBA project object model** setting; see
    [local VBA synchronization](tools/README.md#local-vba-synchronization).
 3. Open the VBE (**Alt+F11**) and check **Tools → References** shows only the
@@ -272,8 +274,8 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent` and `ResultsStatus`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
-   | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonGetEnabled` and `RibbonGetLabel` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
+   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object, `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
    | 14 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
@@ -302,7 +304,12 @@ The layout and file conventions are defined in
    sheet keeps the code name `shTests`). The document modules hold only
    `Option Explicit`, except `shImportNettingSets` and `shImportTrades`,
    whose change handler shows `EDITED` on a staging sheet changed by hand and
-   whose activation handler refreshes its status (#210).
+   whose activation handler refreshes its status (#210), and `ThisWorkbook`,
+   whose handlers refresh the Ribbon tab when the workbook, a sheet or a cell
+   changes (#216) and, around every save, keep the Ribbon's pointer out of the
+   file and save the navigation bar shown (#620). Without them the workbook
+   calculates, but the Ribbon's labels and states lag behind and a hidden
+   navigation bar is saved hidden.
 6. Run **Debug → Compile VBAProject**; it must complete with no error.
 7. Save, close and reopen when a clean session is needed, then run the harness
    and the specific scenario under test.
@@ -637,7 +644,7 @@ demonstration portfolio with the bank figures of the reconciliation
 screenshot:
 
 ```text
-RESULT=OK; operation=run; errors=5; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=119D94E2; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=5D9B407A; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
@@ -650,14 +657,16 @@ without the two sheets; `trade_reconciliation` says the same for BankTrades
 and TradeReconciliation. `total_ead_crr` and `total_ead_bcbs` are the totals
 of each regime's `VALID` netting sets, never added together. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results C4.
+run summary on Results C4. `codes` lists the distinct
+[diagnostic codes](docs/DIAGNOSTICS.md) of the errors and warnings on Checks,
+comma-separated, and is empty when there are none; `cleanup` is always last.
 
 ### ValidateInputs_Silent and ClearOutputs_Silent
 
 `ValidateInputs_Silent` and `ClearOutputs_Silent` run **Validate inputs** and
 **Clear outputs** in the same way and return their result line:
-`operation=validate` with the same fields as a run, or `operation=clear` with
-only `cleanup`. `tools/Check-SACCR-Protection.ps1` uses them for the
+`operation=validate` with the same fields as a run, `codes` included, or
+`operation=clear` with only `cleanup`. `tools/Check-SACCR-Protection.ps1` uses them for the
 [manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks).
 
 ### ResultsStatus and the status cells
@@ -755,7 +764,7 @@ only on `LOADED`; a load that fails while writing puts it back as it was,
 formulas included. An unknown kind and a file that cannot be read raise
 `ERR_CSV_READ`; a staging sheet or name that is missing, and a value longer
 than a cell holds (32,767 characters), raise `ERR_STAGING_WRITE` before the
-sheet changes. The buttons
+sheet changes; while an operation is running it raises `ERR_RUN_ACTIVE`. The buttons
 **Import CSV** on the two staging sheets do the same for a file chosen in a
 dialog, list the findings, and ask before they replace changes.
 
@@ -792,7 +801,8 @@ evidence export refuses.
 without a confirmation or a message, as the **Commit import** button
 (`CommitImport`) does after its confirmation (#211): each input sheet whose staging
 sheet holds rows, whole; the other is left as it is. It refuses unless
-`StagingValidationCurrent()` is `True`. Numbers and integers are written as
+`StagingValidationCurrent()` is `True`, while Excel has not finished
+recalculating, and when nothing is staged. Numbers and integers are written as
 numbers, dates as Excel dates and other values as text, so that leading zeros
 stay. Each sheet is read back; on any failure the input cells kept before the
 write are written back to every sheet touched and read back. It returns

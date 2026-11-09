@@ -31,9 +31,9 @@ match Code (and Field when appropriate), rather than message wording or a fixed
 number of error lines. Existing INFO prose assertions can still verify detailed
 regulatory explanations.
 
-`RunSACCR_Silent` and `ValidateInputs_Silent` append `; codes=...` to the result
-line: distinct ERROR/WARNING codes in encounter order, comma-separated, or empty
-if there are none. Codes come from the current engine log. Clear does not report
+`RunSACCR_Silent` and `ValidateInputs_Silent` add `; codes=...` to the result
+line, just before the closing `; cleanup=...`: distinct ERROR/WARNING codes in
+encounter order, comma-separated, or empty if there are none. Codes come from the current engine log. Clear does not report
 codes. Existing result fields retain their meaning except the more granular
 error count. Consumers should parse named fields, not require an exact whole-line
 match. Unexpected raised exceptions still use the established exception contract.

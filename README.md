@@ -329,25 +329,26 @@ In the Immediate window:
 Test_RunAll
 ```
 
-Expected summary format and counts (illustrative, not an executed result for #81):
+Expected summary, here from the quick verification of `release/1.3.0` at
+47c5a4b in Windows Excel 64-bit (timings vary):
 
 ```text
-SACCR TEST SUMMARY 2026-MM-DD hh:mm:ss
+SACCR TEST SUMMARY 2026-11-09 22:53:57
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=39; checks=594; failures=0; caller_state=RESTORED  (28,7 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (6,1 s)
-  PASS  TEST_InputValidation  cases=179; checks=314; failures=0; restore=PASS  (28,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,0 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,4 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,4 s)
-  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (0,2 s)
-  PASS  TEST_Import           cases=38; checks=227; failures=0  (37,6 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=114,8
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=39; checks=594; failures=0; caller_state=RESTORED  (28,3 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (5,5 s)
+  PASS  TEST_InputValidation  cases=179; checks=314; failures=0; restore=PASS  (25,0 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,5 s)
+  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (2,0 s)
+  PASS  TEST_Import           cases=38; checks=227; failures=0  (30,2 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=105,3
 ```
 
-The five diagnostic regression assertions added for #81 still
-require an Excel run on the new candidate. See [stable diagnostics](docs/DIAGNOSTICS.md).
+The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
+rather than message texts.
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
 them in a development workbook.
@@ -672,7 +673,7 @@ Excel error (`#NUM!`, `#VALUE!` or `#REF!`) instead of a misleading number.
 | `SACCR_LambdaCRR(P, K, IsInterestRate, [Threshold])` | CRR lambda shift | `CRR-RTS` Art. 5 |
 | `SACCR_CDODelta(A, D, IsLong)` | Supervisory delta of a CDO tranche | CRE52.41 |
 | `SACCR_IREffectiveNotional(D1, D2, D3, [Rho12], [Rho23], [Rho13])` | IR effective notional across buckets | CRE52.57 |
-| `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .68, .70 |
+| `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .66, .70 |
 | `SACCR_Multiplier(VminusC, AddOn, [FloorPct])` | PFE multiplier | CRE52.23; CRR Art. 278(3) |
 | `SACCR_ReplacementCost(V, C, [Margined], [TH], [MTA], [NICA])` | Replacement cost | CRE52.10, .18; CRR Art. 275 |
 | `SACCR_NormCDF(x)` | Standard normal distribution | — |
@@ -794,7 +795,7 @@ gantt
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), a navigation bar on every sheet (#615, #620) and new screenshots (#616) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
@@ -805,19 +806,22 @@ hold the current scope of each release. Securities financing transactions,
 risk-weighted assets and capital, default-fund contributions to CCPs and CVA
 risk are outside K-SACCR and on no milestone of its roadmap.
 
-### v1.2.0 — Excel Ribbon interface
+### v1.3.0 — Diagnostics and independent validation
 
-Released on 2026-11-07. The workbook has a K-SACCR tab on the Ribbon: its
-contract (#213), its embedding in the template and its callbacks (#214, #215),
-enabled states and Status labels kept current, also after a VBA reset (#216),
-and a Go to menu for every sheet (#329). The 12 calculation and export buttons
-are removed from the sheets; the 8 staging buttons remain (#217). The workbook
-opens on a Home sheet (#330), and **Restore parameters** writes the regulatory
-parameter set back to Params (#357). Kept apart from the Ribbon, two
-input-contract corrections: the clearing-role header of NettingSets names
-every code (#560), and a zero notional is accepted on every path (#561). The
-calculation methodology is unchanged. The integration and release evidence
-are recorded in #218.
+In development on `release/1.3.0`; nothing of it is released. Delivered so
+far: a stable code and field on every Checks line, reported by the silent
+entry points (#81); a navigation bar on every sheet that works without
+macros (#615), with a Ribbon toggle that hides it for the session (#620);
+a quick, unattended branch verification for pull requests (#618); and
+repository checks of VBA identifiers, dependency direction and ASCII source
+(#538), issue planning dates (#539), labels and pull-request milestones
+(#540, #541, #591), workflow pins and runtimes (#542), local and external
+documentation links (#592, #649) and the traffic workflow (#593). Still
+open: the engine separated from Excel I/O (#220), an independent
+cross-check (#100, #352), randomised FormulaTest inputs (#165), a formatted
+run report (#259), one shared harness for the suites (#536), accuracy
+contracts for the derived expected values (#537) and new screenshots
+(#616). The calculation methodology is unchanged so far.
 
 ---
 
