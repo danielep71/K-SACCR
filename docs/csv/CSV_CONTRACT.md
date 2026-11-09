@@ -96,8 +96,10 @@ mapped to a contract by guessing what a column means.
 
 Text that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is
 rejected (`CSV-FORMULA`), so a field can never become a formula when it is
-written to a sheet. The rule covers `id` and `text` fields; a negative
-`number` or `integer` is a value, not a formula.
+written to a sheet. The rule covers every type except `number` and
+`integer` (`id`, `text`, `code`, `flag`, `currency` and `date`), so a date
+written as `-2027-03-31` is a `CSV-FORMULA` finding, not a `CSV-TYPE` one; a
+negative `number` or `integer` is a value, not a formula.
 
 ## ⬜ Blank fields, blank records and empty files
 

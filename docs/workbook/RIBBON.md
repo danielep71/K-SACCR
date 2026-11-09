@@ -192,9 +192,13 @@ Each label calls `RibbonGetLabel`, which only reads a status cell.
 
 | Control ID | Reads | Shows |
 | --- | --- | --- |
-| `ksStatusResults` | Results C5 | `Results: CURRENT` when the inputs are unchanged since the last run, `Results: OUT OF DATE` when they changed, `Results: NONE` before any run |
+| `ksStatusResults` | Results C5 | `Results: CURRENT` when the inputs are unchanged since the last run, `Results: OUT OF DATE` when they changed, `Results: NONE` before any run, `Results: UNKNOWN` for any other text in the cell |
 | `ksStatusNettingSets` | Import_NettingSets D7 | `NettingSets staging: ` and the status: `EMPTY`, `LOADED`, `EDITED`, `VALID`, `INVALID`, `OUT OF DATE` or `COMMITTED` |
 | `ksStatusTrades` | Import_Trades D7 | `Trades staging: ` and the same statuses |
+
+A staging sheet whose status name is missing shows `unavailable` after its
+prefix, and a label whose cell cannot be read, or that is asked for while
+another state callback runs, shows `Status unavailable`.
 
 `EDITED` results are not shown: detecting them means recomputing the output
 fingerprint, which a Ribbon callback must not do. The evidence export still
@@ -202,7 +206,9 @@ refuses edited results on its own.
 
 ## ✅ Enabled states
 
-Every command calls `RibbonGetEnabled` (#216). Like the labels, it reads
+Every command and the Navigation bar toggle call `RibbonGetEnabled` (#216);
+the Go to menu, its entries and the Status labels have no enabled state and
+stay available, also while an operation runs. Like the labels, it reads
 only the busy flag of `M_Main` (`OperationRunning`), Results C5 and the two
 staging status cells; it never calculates or writes. The pure function
 `EnabledFor` holds the table, and `TEST_MainState` checks it. The macros
@@ -210,7 +216,7 @@ enforce the same rules again, whatever the Ribbon shows.
 
 | Control | Enabled when |
 | --- | --- |
-| Every control | No operation is running |
+| Every command and toggle | No operation is running |
 | `ksValidateStaging` | A staging sheet holds rows: its status is not `EMPTY` |
 | `ksCommitImport` | A staging sheet reads `VALID` |
 | `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE` |
