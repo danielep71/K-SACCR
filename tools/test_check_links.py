@@ -62,7 +62,7 @@ class LinkTests(unittest.TestCase):
                 ('/milestone/5', ['/repos/owner/repo/milestones/5']),
                 ('/releases/latest', ['/repos/owner/repo/releases/latest']),
                 ('/releases/tag/v1.2.0', ['/repos/owner/repo/releases/tags/v1.2.0']),
-                ('/releases/download/v1.2.0/K-SACCR.xlsm', ['/repos/owner/repo/releases/tags/v1.2.0']),
+                ('/releases/download/v1.2.0/K-SACCR.xlsm', []),
                 ('/blob/release/1.3.0/docs/A.md', ['/repos/owner/repo/contents/1.3.0/docs/A.md?ref=release',
                                                    '/repos/owner/repo/contents/docs/A.md?ref=release%2F1.3.0',
                                                    '/repos/owner/repo/contents/A.md?ref=release%2F1.3.0%2Fdocs',

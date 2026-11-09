@@ -67,7 +67,10 @@ def api_targets(url: str) -> list[str]:
     if head == "releases" and tail:
         if tail[0] == "latest":
             return [f"{base}/releases/latest"]
-        if tail[0] in ("tag", "download") and len(tail) >= 2:
+        if tail[0] == "download":
+            # A download names an asset, which only the web request checks.
+            return []
+        if tail[0] == "tag" and len(tail) >= 2:
             return [f"{base}/releases/tags/{quote(tail[1], safe='')}"]
     if head in ("blob", "tree", "raw") and tail:
         # The root of a ref is /contents, without a trailing slash, which the API rejects.
