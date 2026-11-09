@@ -76,6 +76,11 @@ class LinkTests(unittest.TestCase):
                                                    '/repos/owner/repo/contents/A.md?ref=release%2F1.3.0%2Fdocs',
                                                    '/repos/owner/repo/contents?ref=release%2F1.3.0%2Fdocs%2FA.md']),
                 ('/tree/main', ['/repos/owner/repo/contents?ref=main']),
+                ('/blob/main/docs/My%20File.md', ['/repos/owner/repo/contents/docs/My%20File.md?ref=main',
+                                                  '/repos/owner/repo/contents/My%20File.md?ref=main%2Fdocs',
+                                                  '/repos/owner/repo/contents?ref=main%2Fdocs%2FMy%20File.md']),
+                ('/commits/release%2F1.3.0', ['/repos/owner/repo/commits?sha=release%2F1.3.0&per_page=1']),
+                ('/releases/tag/release%2F1.3.0', ['/repos/owner/repo/releases/tags/release%2F1.3.0']),
                 ('/tree/release/1.3.0', ['/repos/owner/repo/contents/1.3.0?ref=release',
                                          '/repos/owner/repo/contents?ref=release%2F1.3.0']),
                 ('/settings', []), ('/blob', [])):
@@ -139,6 +144,8 @@ class LinkTests(unittest.TestCase):
         self.assertEqual(external.required_feature('https://github.com/owner/repo/issues?q=x'), 'has_issues')
         self.assertIsNone(external.required_feature('https://github.com/owner/repo/stargazers'))
         self.assertIsNone(external.required_feature('https://github.com/owner/repo/wiki/Page'))
+        self.assertEqual(external.required_feature('https://github.com/owner/repo/%64iscussions'),
+                         'has_discussions')
         with patch('urllib.request.urlopen', side_effect=answer), patch('time.sleep'):
             self.assertEqual(external.inspect('https://github.com/owner/repo/wiki'), ('ok', 'api 200'))
             self.assertEqual(external.inspect('https://github.com/owner/repo/issues?q=is%3Aopen'),

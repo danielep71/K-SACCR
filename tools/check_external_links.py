@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urldefrag
+from urllib.parse import quote, unquote, urldefrag
 
 from check_links import links, tracked_markdown
 
@@ -37,6 +37,21 @@ FEATURE_PAGES = {"issues": "has_issues", "labels": "has_issues", "milestones": "
                  "wiki": "has_wiki", "discussions": "has_discussions", "projects": "has_projects"}
 
 
+def repository_path(url: str) -> tuple[str, list[str]] | None:
+    """The API base and the decoded path parts of a github.com repository page.
+
+    The path is split on the URL's own slashes and each part decoded, so that
+    an escape in the link (My%20File.md, a ref with %2F) is encoded once, not
+    twice, for the API, and every caller classifies the same decoded parts.
+    None when the URL is not a repository page.
+    """
+    match = REPOSITORY_PAGE.match(url)
+    if not match:
+        return None
+    owner, name, rest = match.groups()
+    return f"/repos/{owner}/{name}", [unquote(part) for part in (rest or "").split("/") if part]
+
+
 def api_targets(url: str) -> list[str]:
     """The API requests that verify a github.com repository page, in the order to try.
 
@@ -55,12 +70,10 @@ def api_targets(url: str) -> list[str]:
     account = ACCOUNT_PAGE.match(url)
     if account:
         return [f"/users/{account[1]}"]
-    match = REPOSITORY_PAGE.match(url)
-    if not match:
+    page = repository_path(url)
+    if page is None:
         return []
-    owner, name, rest = match.groups()
-    base = f"/repos/{owner}/{name}"
-    parts = [part for part in (rest or "").split("/") if part]
+    base, parts = page
     if not parts:
         return [base]
     head, tail = parts[0], parts[1:]
@@ -94,8 +107,8 @@ def api_targets(url: str) -> list[str]:
 
 def required_feature(url: str) -> str | None:
     """The repository field an optional feature's listing page needs on, if it is one."""
-    match = REPOSITORY_PAGE.match(url)
-    parts = [part for part in (match[3] or "").split("/") if part] if match else []
+    page = repository_path(url)
+    parts = page[1] if page else []
     return FEATURE_PAGES.get(parts[0]) if len(parts) == 1 else None
 
 
