@@ -74,7 +74,8 @@ def api_targets(url: str) -> list[str]:
             # A download names an asset, which only the web request checks.
             return []
         if tail[0] == "tag" and len(tail) >= 2:
-            return [f"{base}/releases/tags/{quote(tail[1], safe='')}"]
+            # A tag may hold slashes, as release/1.3.0: the whole rest is the tag.
+            return [f"{base}/releases/tags/{quote('/'.join(tail[1:]), safe='')}"]
     if head in ("blob", "tree", "raw") and tail:
         # The root of a ref is /contents, without a trailing slash, which the API rejects.
         return [f"{base}/contents{'/' + quote('/'.join(tail[i:])) if tail[i:] else ''}"
