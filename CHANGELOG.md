@@ -109,7 +109,8 @@ Use only the categories needed by a release.
   external-link audit (#649): GitHub answers scripted requests to its web pages
   with rate limits and, for pages such as the stargazers, 403 or 404 that a
   browser does not see, so the audit reported correct README links as broken
-  or inconclusive. The repository for a listing page, a commit listing, a
+  or inconclusive. The repository for a listing page (with its feature on,
+  for issues, the wiki or discussions), a commit listing, a
   comparison, an issue, a milestone, a release and a file at a ref are
   checked by API, a ref with slashes at every
   split, and so is a user page; a page the API does not confirm is fetched

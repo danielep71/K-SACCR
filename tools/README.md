@@ -610,7 +610,9 @@ repository page is verified through the GitHub API first, with the workflow's
 token when there is one, because GitHub answers scripted requests to its web
 pages with rate limits and, for some pages, 403 or 404 that a browser does not
 see (#649): the repository for a listing page with nothing below it, such
-as the stargazers, an issues search or the wiki's home; a commit listing for
+as the stargazers, and, for the page of an optional feature (an issues
+search, the milestones, the wiki's home, the discussions), only with that
+feature on in the repository's record; a commit listing for
 `commits/<ref>`; a comparison for `compare/<range>`; an issue, pull request,
 milestone or
 release by number or tag; a file or folder at a ref for `blob` and `tree`, a

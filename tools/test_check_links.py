@@ -1,6 +1,8 @@
 """Offline link and external-response regression fixtures."""
 from __future__ import annotations
 
+import io
+import json
 import tempfile
 import unittest
 import urllib.error
@@ -58,6 +60,7 @@ class LinkTests(unittest.TestCase):
                 ('/wiki', ['/repos/owner/repo']), ('/wiki/Page', []),
                 ('/compare/v1.2.0...HEAD', ['/repos/owner/repo/compare/v1.2.0...HEAD']),
                 ('/actions/runs/123', []), ('/discussions/5', []), ('/issues/new', []),
+                ('/actions', []), ('/security', []), ('/discussions', ['/repos/owner/repo']),
                 ('/pull/7/commits/deadbeef', []), ('/pull/7/files', []), ('/issues/100/x', []),
                 ('/milestone/5/x', []), ('/releases/latest/x', []),
                 ('/commits/main', ['/repos/owner/repo/commits?sha=main&per_page=1']),
@@ -111,6 +114,37 @@ class LinkTests(unittest.TestCase):
         self.assertEqual([url for url, _ in seen[1:]],
                          ['https://api.github.com/repos/owner/repo/contents/1.3.0/docs/A.md?ref=release'] * 3
                          + ['https://api.github.com/repos/owner/repo/contents/docs/A.md?ref=release%2F1.3.0'])
+
+    def test_optional_feature_page_needs_the_feature_on(self) -> None:
+        class Response:
+            status = 200
+
+            def __init__(self, record: dict[str, bool]) -> None:
+                self.body = io.BytesIO(json.dumps(record).encode())
+
+            def __enter__(self) -> 'Response':
+                return self
+
+            def __exit__(self, *_: object) -> None:
+                return None
+
+            def read(self, *args: int) -> bytes:
+                return self.body.read(*args)
+
+        def answer(request: urllib.request.Request, timeout: int) -> Response:
+            if request.full_url.startswith('https://api.github.com/'):
+                return Response({'has_wiki': True, 'has_discussions': False, 'has_issues': True})
+            raise urllib.error.HTTPError(request.full_url, 404, '', Message(), None)
+
+        self.assertEqual(external.required_feature('https://github.com/owner/repo/issues?q=x'), 'has_issues')
+        self.assertIsNone(external.required_feature('https://github.com/owner/repo/stargazers'))
+        self.assertIsNone(external.required_feature('https://github.com/owner/repo/wiki/Page'))
+        with patch('urllib.request.urlopen', side_effect=answer), patch('time.sleep'):
+            self.assertEqual(external.inspect('https://github.com/owner/repo/wiki'), ('ok', 'api 200'))
+            self.assertEqual(external.inspect('https://github.com/owner/repo/issues?q=is%3Aopen'),
+                             ('ok', 'api 200'))
+            self.assertEqual(external.inspect('https://github.com/owner/repo/discussions'),
+                             ('broken', 'api 200 with has_discussions off; 404, 404, 404'))
 
     def test_github_repository_page_falls_back_to_the_web(self) -> None:
         def answer(request: urllib.request.Request, timeout: int) -> None:

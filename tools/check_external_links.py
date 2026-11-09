@@ -26,13 +26,15 @@ REPOSITORY_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/(
                              r"(?:\.git)?(?:/([^?]*))?(?:\?.*)?$")
 # A github.com user or organization page.
 ACCOUNT_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/?$")
-# Listing pages that exist for every repository, verified as the repository
-# itself when nothing follows them in the path: a list, an issues search, the
-# wiki's home. A path below one, such as a workflow run, a discussion or a wiki
-# page, names a resource of its own and stays on the web check.
-REPOSITORY_PAGES = {"stargazers", "watchers", "forks", "issues", "pulls", "labels", "milestones",
-                    "actions", "security", "pulse", "graphs", "network", "discussions", "projects",
-                    "tags", "branches", "releases", "commits", "wiki", "activity"}
+# Listing pages verified as the repository itself when nothing follows them in
+# the path: those every repository has, and those of an optional feature, which
+# count only when the repository's API record has the feature on. A path below
+# one, such as a workflow run, a discussion or a wiki page, names a resource of
+# its own and stays on the web check, and so do the pages not listed here.
+REPOSITORY_PAGES = {"stargazers", "watchers", "forks", "pulls", "pulse", "graphs", "network",
+                    "tags", "branches", "releases", "commits", "activity"}
+FEATURE_PAGES = {"issues": "has_issues", "labels": "has_issues", "milestones": "has_issues",
+                 "wiki": "has_wiki", "discussions": "has_discussions", "projects": "has_projects"}
 
 
 def api_targets(url: str) -> list[str]:
@@ -41,7 +43,8 @@ def api_targets(url: str) -> list[str]:
     GitHub answers unauthenticated scripted requests to its web pages with 429
     (rate limit) and, for some pages, 403 or 404, although a browser opens them
     (#649), so a repository page is verified through the API instead: the
-    repository for a listing page, a commit listing, a comparison, an issue
+    repository for a listing page (with its feature on, for an optional
+    feature's page), a commit listing, a comparison, an issue
     or pull request, a milestone, a release, or a file or folder at a ref; a
     user or organization page is
     verified as the account. A ref may hold slashes, as
@@ -84,9 +87,16 @@ def api_targets(url: str) -> list[str]:
                 for i in range(1, len(tail) + 1)]
     if head == "compare" and tail:
         return [f"{base}/compare/{quote('/'.join(tail), safe='.')}"]
-    if head in REPOSITORY_PAGES and not tail:
+    if (head in REPOSITORY_PAGES or head in FEATURE_PAGES) and not tail:
         return [base]
     return []
+
+
+def required_feature(url: str) -> str | None:
+    """The repository field an optional feature's listing page needs on, if it is one."""
+    match = REPOSITORY_PAGE.match(url)
+    parts = [part for part in (match[3] or "").split("/") if part] if match else []
+    return FEATURE_PAGES.get(parts[0]) if len(parts) == 1 else None
 
 
 def api_headers() -> dict[str, str]:
@@ -97,14 +107,21 @@ def api_headers() -> dict[str, str]:
     return headers
 
 
-def fetch(url: str, headers: dict[str, str]) -> tuple[str, str]:
-    """Three attempts at one URL: ok, broken (404 or 410 every time) or inconclusive."""
+def fetch(url: str, headers: dict[str, str], feature: str | None = None) -> tuple[str, str]:
+    """Three attempts at one URL: ok, broken (404 or 410 every time) or inconclusive.
+
+    With a feature, a JSON answer counts as ok only when that field is true; a
+    feature turned off is reported as such, not as ok.
+    """
     outcomes = []
     for attempt in range(3):
         try:
             request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(request, timeout=10) as response:
                 code = response.status
+                record = json.load(response) if feature and 200 <= code < 300 else {}
+            if feature and 200 <= code < 300 and record.get(feature) is not True:
+                return "inconclusive", f"{code} with {feature} off"
             if 200 <= code < 400:
                 return "ok", str(code)
             outcomes.append(str(code))
@@ -121,8 +138,9 @@ def fetch(url: str, headers: dict[str, str]) -> tuple[str, str]:
 def inspect(url: str) -> tuple[str, str]:
     """Verify one URL: a github.com repository page through the API first, then the web."""
     notes = []
+    feature = required_feature(url)
     for target in api_targets(url):
-        status, detail = fetch(API + target, api_headers())
+        status, detail = fetch(API + target, api_headers(), feature)
         if status == "ok":
             return "ok", "api " + detail
         notes.append("api " + detail)
