@@ -144,6 +144,8 @@ class LinkTests(unittest.TestCase):
         self.assertEqual(external.required_feature('https://github.com/owner/repo/issues?q=x'), 'has_issues')
         self.assertIsNone(external.required_feature('https://github.com/owner/repo/stargazers'))
         self.assertIsNone(external.required_feature('https://github.com/owner/repo/wiki/Page'))
+        self.assertEqual(external.required_feature('https://github.com/owner/repo/%64iscussions'),
+                         'has_discussions')
         with patch('urllib.request.urlopen', side_effect=answer), patch('time.sleep'):
             self.assertEqual(external.inspect('https://github.com/owner/repo/wiki'), ('ok', 'api 200'))
             self.assertEqual(external.inspect('https://github.com/owner/repo/issues?q=is%3Aopen'),
