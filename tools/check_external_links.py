@@ -26,11 +26,13 @@ REPOSITORY_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/(
                              r"(?:\.git)?(?:/([^?]*))?(?:\?.*)?$")
 # A github.com user or organization page.
 ACCOUNT_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/?$")
-# Pages that exist for every repository, verified as the repository itself: a
-# listing, a search, the wiki, whose pages the API does not serve, and a compare.
+# Listing pages that exist for every repository, verified as the repository
+# itself when nothing follows them in the path: a list, an issues search, the
+# wiki's home. A path below one, such as a workflow run, a discussion or a wiki
+# page, names a resource of its own and stays on the web check.
 REPOSITORY_PAGES = {"stargazers", "watchers", "forks", "issues", "pulls", "labels", "milestones",
                     "actions", "security", "pulse", "graphs", "network", "discussions", "projects",
-                    "tags", "branches", "releases", "commits", "wiki", "compare", "activity"}
+                    "tags", "branches", "releases", "commits", "wiki", "activity"}
 
 
 def api_targets(url: str) -> list[str]:
@@ -39,12 +41,13 @@ def api_targets(url: str) -> list[str]:
     GitHub answers unauthenticated scripted requests to its web pages with 429
     (rate limit) and, for some pages, 403 or 404, although a browser opens them
     (#649), so a repository page is verified through the API instead: the
-    repository, a commit listing, an issue or pull request, a milestone, a
-    release, or a file or folder at a ref; a user or organization page is
+    repository for a listing page, a commit listing, a comparison, an issue
+    or pull request, a milestone, a release, or a file or folder at a ref; a
+    user or organization page is
     verified as the account. A ref may hold slashes, as
     release/1.3.0, so a blob or tree page gives one candidate per split of the
     path into ref and file, longest ref last; the first that answers wins. An
-    empty list means the page is neither.
+    empty list means the page is left to the web check.
     """
     account = ACCOUNT_PAGE.match(url)
     if account:
@@ -77,7 +80,9 @@ def api_targets(url: str) -> list[str]:
         return [f"{base}/contents{'/' + quote('/'.join(tail[i:])) if tail[i:] else ''}"
                 f"?ref={quote('/'.join(tail[:i]), safe='')}"
                 for i in range(1, len(tail) + 1)]
-    if head in REPOSITORY_PAGES:
+    if head == "compare" and tail:
+        return [f"{base}/compare/{quote('/'.join(tail), safe='.')}"]
+    if head in REPOSITORY_PAGES and not tail:
         return [base]
     return []
 

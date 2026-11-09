@@ -609,8 +609,10 @@ rate limiting, server and network failures are inconclusive. A github.com
 repository page is verified through the GitHub API first, with the workflow's
 token when there is one, because GitHub answers scripted requests to its web
 pages with rate limits and, for some pages, 403 or 404 that a browser does not
-see (#649): the repository for a listing, a search, the wiki or a compare; a
-commit listing for `commits/<ref>`; an issue, pull request, milestone or
+see (#649): the repository for a listing page with nothing below it, such
+as the stargazers, an issues search or the wiki's home; a commit listing for
+`commits/<ref>`; a comparison for `compare/<range>`; an issue, pull request,
+milestone or
 release by number or tag; a file or folder at a ref for `blob` and `tree`, a
 ref with slashes tried at every split; a user or organization page is
 verified as the account. A page the API does not confirm is
