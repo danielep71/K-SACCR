@@ -10,8 +10,8 @@ Attribute VB_Name = "CORE_Util"
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. Every procedure is Public for in-project use
-'   by CORE_Engine, CORE_Reconcile, M_Main and the tests; Option Private Module
-'   keeps them off the supported external surface.
+'   by CORE_Engine, CORE_Reconcile, M_Main, M_Ribbon and the tests; Option
+'   Private Module keeps them off the supported external surface.
 '
 ' DEPENDENCIES
 '   CORE_Config for sheet names, layout constants, workbook names, error
@@ -38,7 +38,7 @@ Attribute VB_Name = "CORE_Util"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-09
 '
 ' AUTHOR
 '   Daniele Penza
