@@ -605,7 +605,16 @@ source file, line and destination; released manuals currently need no exceptions
 
 `check_external_links.py` checks remote URLs with three attempts and bounded
 concurrency/timeouts. Repeated 404/410 responses are broken; authentication,
-rate limiting, server and network failures are inconclusive. The Monday workflow
+rate limiting, server and network failures are inconclusive. A github.com
+repository page is verified through the GitHub API first, with the workflow's
+token when there is one, because GitHub answers scripted requests to its web
+pages with rate limits and, for some pages, 403 or 404 that a browser does not
+see (#649): the repository for a listing, a search, the wiki or a compare; a
+commit listing for `commits/<ref>`; an issue, pull request, milestone or
+release by number or tag; a file or folder at a ref for `blob` and `tree`, a
+ref with slashes tried at every split; a user or organization page is
+verified as the account. A page the API does not confirm is
+fetched from the web as any other URL before it is reported. The Monday workflow
 maintains one marked issue, reopening/updating it on failures and closing it when
 all URLs respond. Only the reporting job has issues:write. A local run without
 `--publish` writes a report and never changes GitHub. External checks are not a

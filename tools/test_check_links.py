@@ -49,6 +49,74 @@ class LinkTests(unittest.TestCase):
                     patch('time.sleep'):
                 self.assertEqual(external.inspect('https://example.com')[0], expected)
 
+    def test_github_repository_pages_map_to_the_api(self) -> None:
+        base = 'https://github.com/owner/repo'
+        for page, targets in (
+                ('', ['/repos/owner/repo']), ('.git', ['/repos/owner/repo']),
+                ('/stargazers', ['/repos/owner/repo']),
+                ('/issues?q=is%3Aissue%20label%3AP1', ['/repos/owner/repo']),
+                ('/wiki/Page#why', ['/repos/owner/repo']), ('/compare/v1...HEAD', ['/repos/owner/repo']),
+                ('/commits/main', ['/repos/owner/repo/commits?sha=main&per_page=1']),
+                ('/commits/release/1.3.0', ['/repos/owner/repo/commits?sha=release%2F1.3.0&per_page=1']),
+                ('/issues/100', ['/repos/owner/repo/issues/100']), ('/pull/7', ['/repos/owner/repo/issues/7']),
+                ('/milestone/5', ['/repos/owner/repo/milestones/5']),
+                ('/releases/latest', ['/repos/owner/repo/releases/latest']),
+                ('/releases/tag/v1.2.0', ['/repos/owner/repo/releases/tags/v1.2.0']),
+                ('/releases/download/v1.2.0/K-SACCR.xlsm', ['/repos/owner/repo/releases/tags/v1.2.0']),
+                ('/blob/release/1.3.0/docs/A.md', ['/repos/owner/repo/contents/1.3.0/docs/A.md?ref=release',
+                                                   '/repos/owner/repo/contents/docs/A.md?ref=release%2F1.3.0',
+                                                   '/repos/owner/repo/contents/A.md?ref=release%2F1.3.0%2Fdocs',
+                                                   '/repos/owner/repo/contents?ref=release%2F1.3.0%2Fdocs%2FA.md']),
+                ('/tree/main', ['/repos/owner/repo/contents?ref=main']),
+                ('/tree/release/1.3.0', ['/repos/owner/repo/contents/1.3.0?ref=release',
+                                         '/repos/owner/repo/contents?ref=release%2F1.3.0']),
+                ('/settings', []), ('/blob', [])):
+            with self.subTest(page=page):
+                self.assertEqual(external.api_targets(base + page), targets)
+        self.assertEqual(external.api_targets('https://github.com/owner'), ['/users/owner'])
+        for url in ('https://github.com/', 'https://example.com/owner/repo'):
+            with self.subTest(url=url):
+                self.assertEqual(external.api_targets(url), [])
+
+    def test_github_repository_page_verified_through_the_api(self) -> None:
+        class Response:
+            status = 200
+
+            def __enter__(self) -> 'Response':
+                return self
+
+            def __exit__(self, *_: object) -> None:
+                return None
+
+        def answer(request: urllib.request.Request, timeout: int) -> Response:
+            seen.append((request.full_url, request.get_header('Authorization')))
+            if request.full_url.startswith('https://api.github.com/'):
+                if request.full_url.endswith('?ref=release'):
+                    raise urllib.error.HTTPError(request.full_url, 404, '', Message(), None)
+                return Response()
+            raise urllib.error.HTTPError(request.full_url, 429, '', Message(), None)
+
+        seen: list[tuple[str, str | None]] = []
+        with patch('urllib.request.urlopen', side_effect=answer), patch('time.sleep'), \
+                patch.dict('os.environ', {'GITHUB_TOKEN': 'token'}):
+            self.assertEqual(external.inspect('https://github.com/owner/repo/stargazers'), ('ok', 'api 200'))
+            self.assertEqual(external.inspect('https://github.com/owner/repo/blob/release/1.3.0/docs/A.md'),
+                             ('ok', 'api 200'))
+        self.assertEqual(seen[0], ('https://api.github.com/repos/owner/repo', 'Bearer token'))
+        self.assertEqual([url for url, _ in seen[1:]],
+                         ['https://api.github.com/repos/owner/repo/contents/1.3.0/docs/A.md?ref=release'] * 3
+                         + ['https://api.github.com/repos/owner/repo/contents/docs/A.md?ref=release%2F1.3.0'])
+
+    def test_github_repository_page_falls_back_to_the_web(self) -> None:
+        def answer(request: urllib.request.Request, timeout: int) -> None:
+            code = 404 if request.full_url.startswith('https://api.github.com/') else 429
+            raise urllib.error.HTTPError(request.full_url, code, '', Message(), None)
+
+        with patch('urllib.request.urlopen', side_effect=answer), patch('time.sleep'), \
+                patch.dict('os.environ', {}, clear=True):
+            self.assertEqual(external.inspect('https://github.com/apps/name'),
+                             ('inconclusive', 'api 404, 404, 404; 429, 429, 429'))
+
     def test_report_updates_existing_issue(self) -> None:
         with patch.object(external, 'api', side_effect=[[
             {'number': 7, 'body': external.MARKER, 'state': 'closed'}], {}]) as api:

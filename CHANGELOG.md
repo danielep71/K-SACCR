@@ -105,6 +105,15 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Verify github.com repository pages through the GitHub API in the weekly
+  external-link audit (#649): GitHub answers scripted requests to its web pages
+  with rate limits and, for pages such as the stargazers, 403 or 404 that a
+  browser does not see, so the audit reported correct README links as broken
+  or inconclusive. The repository, a commit listing, an issue, a milestone, a
+  release and a file at a ref are checked by API, a ref with slashes at every
+  split, and so is a user page; a page the API does not confirm is fetched
+  from the web before it is reported. The README links are unchanged.
+
 - Harden the R cross-check translator and comparison (#352): reject distinct
   electricity references and incomplete options, normalize credit subclasses,
   report missing mapped results as errors, and return failure on differences.

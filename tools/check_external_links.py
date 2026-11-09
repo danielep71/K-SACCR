@@ -12,18 +12,87 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
-from urllib.parse import urldefrag
+from urllib.parse import quote, urldefrag
 
 from check_links import links, tracked_markdown
 
 MARKER = "<!-- saccr-external-link-audit -->"
+USER_AGENT = "K-SACCR-link-audit/1.0"
+API = "https://api.github.com"
+# A github.com repository page: owner, repository (an optional .git dropped), then
+# the path inside the repository; the query string, as in an issues search, is
+# dropped. The site's own pages do not match.
+REPOSITORY_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+?)"
+                             r"(?:\.git)?(?:/([^?]*))?(?:\?.*)?$")
+# A github.com user or organization page.
+ACCOUNT_PAGE = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/?$")
+# Pages that exist for every repository, verified as the repository itself: a
+# listing, a search, the wiki, whose pages the API does not serve, and a compare.
+REPOSITORY_PAGES = {"stargazers", "watchers", "forks", "issues", "pulls", "labels", "milestones",
+                    "actions", "security", "pulse", "graphs", "network", "discussions", "projects",
+                    "tags", "branches", "releases", "commits", "wiki", "compare", "activity"}
 
 
-def inspect(url: str) -> tuple[str, str]:
+def api_targets(url: str) -> list[str]:
+    """The API requests that verify a github.com repository page, in the order to try.
+
+    GitHub answers unauthenticated scripted requests to its web pages with 429
+    (rate limit) and, for some pages, 403 or 404, although a browser opens them
+    (#649), so a repository page is verified through the API instead: the
+    repository, a commit listing, an issue or pull request, a milestone, a
+    release, or a file or folder at a ref; a user or organization page is
+    verified as the account. A ref may hold slashes, as
+    release/1.3.0, so a blob or tree page gives one candidate per split of the
+    path into ref and file, longest ref last; the first that answers wins. An
+    empty list means the page is neither.
+    """
+    account = ACCOUNT_PAGE.match(url)
+    if account:
+        return [f"/users/{account[1]}"]
+    match = REPOSITORY_PAGE.match(url)
+    if not match:
+        return []
+    owner, name, rest = match.groups()
+    base = f"/repos/{owner}/{name}"
+    parts = [part for part in (rest or "").split("/") if part]
+    if not parts:
+        return [base]
+    head, tail = parts[0], parts[1:]
+    if head == "commits" and tail:
+        return [f"{base}/commits?sha={quote('/'.join(tail), safe='')}&per_page=1"]
+    if head in ("issues", "pull") and tail and tail[0].isdigit():
+        return [f"{base}/issues/{tail[0]}"]
+    if head == "milestone" and tail and tail[0].isdigit():
+        return [f"{base}/milestones/{tail[0]}"]
+    if head == "releases" and tail:
+        if tail[0] == "latest":
+            return [f"{base}/releases/latest"]
+        if tail[0] in ("tag", "download") and len(tail) >= 2:
+            return [f"{base}/releases/tags/{quote(tail[1], safe='')}"]
+    if head in ("blob", "tree", "raw") and tail:
+        # The root of a ref is /contents, without a trailing slash, which the API rejects.
+        return [f"{base}/contents{'/' + quote('/'.join(tail[i:])) if tail[i:] else ''}"
+                f"?ref={quote('/'.join(tail[:i]), safe='')}"
+                for i in range(1, len(tail) + 1)]
+    if head in REPOSITORY_PAGES:
+        return [base]
+    return []
+
+
+def api_headers() -> dict[str, str]:
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    return headers
+
+
+def fetch(url: str, headers: dict[str, str]) -> tuple[str, str]:
+    """Three attempts at one URL: ok, broken (404 or 410 every time) or inconclusive."""
     outcomes = []
     for attempt in range(3):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "K-SACCR-link-audit/1.0"})
+            request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(request, timeout=10) as response:
                 code = response.status
             if 200 <= code < 400:
@@ -37,6 +106,18 @@ def inspect(url: str) -> tuple[str, str]:
             time.sleep(0.2 * (attempt + 1))
     status = "broken" if all(code in {"404", "410"} for code in outcomes) else "inconclusive"
     return status, ", ".join(outcomes)
+
+
+def inspect(url: str) -> tuple[str, str]:
+    """Verify one URL: a github.com repository page through the API first, then the web."""
+    notes = []
+    for target in api_targets(url):
+        status, detail = fetch(API + target, api_headers())
+        if status == "ok":
+            return "ok", "api " + detail
+        notes.append("api " + detail)
+    status, detail = fetch(url, {"User-Agent": USER_AGENT})
+    return status, "; ".join(notes + [detail])
 
 
 def api(repository: str, method: str, suffix: str, data: Any = None) -> Any:
