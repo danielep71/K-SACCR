@@ -24,8 +24,9 @@ lists of `CORE_Config` that the macros apply.
   sheet again for the user interface only: the macros write every sheet,
   the user changes only the unlocked cells. Excel does not save that
   setting, so every operation (Run SA-CCR, Validate inputs, Clear outputs,
-  Import CSV, Validate staging, Commit import) runs `ProtectWorkbook` first,
-  also when the workbook was opened without `Auto_Open`. A sheet already
+  Import CSV, Validate staging, Commit import, Restore parameters) and the
+  Navigation bar toggle run `ProtectWorkbook` first, also when the workbook
+  was opened without `Auto_Open`. A sheet already
   protected this way is left as it is.
 - **Structure.** Sheets cannot be added, deleted, renamed, moved, hidden or
   shown. No macro of the workbook needs to.
@@ -54,6 +55,7 @@ not compare. The freshness status and the evidence checks work as before.
 
 | Sheet | Role | Unlocked | Also allowed |
 | --- | --- | --- | --- |
+| `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
 | `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) | — |
 | `NettingSets` | Input | Columns `C:S` from row 7 down | Sorting, inserting rows |
@@ -153,8 +155,11 @@ How the script checks them:
   Center setting, runs `Auto_Open`, and runs the operations through the silent
   entry points of `M_Main`. It saves, closes and reopens the workbook where a
   check says so. Check 8 imports the import specification's example files.
-- **Not automated.** The confirmation dialog of **Commit import** (check 8),
-  which the silent entry point does not show, and the sheet-tab menu
+- **Not automated.** The confirmation dialog of **Commit import** (checks 8
+  and 13), which the silent entry point does not show: check 13 tests
+  instead that the validation is still current after the reopen
+  (`StagingValidationCurrent`) and that the commit after a change is refused,
+  by its result, not by the message the button shows. And the sheet-tab menu
   (check 6), whose effect, a protected workbook structure, the script tests.
   A person may still run any check by hand.
 
