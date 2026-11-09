@@ -61,21 +61,22 @@ def api_targets(url: str) -> list[str]:
     if not parts:
         return [base]
     head, tail = parts[0], parts[1:]
+    # A resource named by a number, or the latest release, is checked only when
+    # nothing follows it: a page below it, such as pull/7/commits/<sha>, names a
+    # resource of its own and stays on the web check.
+    if head in ("issues", "pull") and len(tail) == 1 and tail[0].isdigit():
+        return [f"{base}/issues/{tail[0]}"]
+    if head == "milestone" and len(tail) == 1 and tail[0].isdigit():
+        return [f"{base}/milestones/{tail[0]}"]
+    if head == "releases" and tail == ["latest"]:
+        return [f"{base}/releases/latest"]
+    # A ref, a tag or a range may hold slashes, as release/1.3.0: the whole
+    # rest of the path is the name. A download names an asset, which only the
+    # web request checks.
     if head == "commits" and tail:
         return [f"{base}/commits?sha={quote('/'.join(tail), safe='')}&per_page=1"]
-    if head in ("issues", "pull") and tail and tail[0].isdigit():
-        return [f"{base}/issues/{tail[0]}"]
-    if head == "milestone" and tail and tail[0].isdigit():
-        return [f"{base}/milestones/{tail[0]}"]
-    if head == "releases" and tail:
-        if tail[0] == "latest":
-            return [f"{base}/releases/latest"]
-        if tail[0] == "download":
-            # A download names an asset, which only the web request checks.
-            return []
-        if tail[0] == "tag" and len(tail) >= 2:
-            # A tag may hold slashes, as release/1.3.0: the whole rest is the tag.
-            return [f"{base}/releases/tags/{quote('/'.join(tail[1:]), safe='')}"]
+    if head == "releases" and len(tail) >= 2 and tail[0] == "tag":
+        return [f"{base}/releases/tags/{quote('/'.join(tail[1:]), safe='')}"]
     if head in ("blob", "tree", "raw") and tail:
         # The root of a ref is /contents, without a trailing slash, which the API rejects.
         return [f"{base}/contents{'/' + quote('/'.join(tail[i:])) if tail[i:] else ''}"

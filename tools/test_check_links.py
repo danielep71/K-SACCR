@@ -58,6 +58,8 @@ class LinkTests(unittest.TestCase):
                 ('/wiki', ['/repos/owner/repo']), ('/wiki/Page', []),
                 ('/compare/v1.2.0...HEAD', ['/repos/owner/repo/compare/v1.2.0...HEAD']),
                 ('/actions/runs/123', []), ('/discussions/5', []), ('/issues/new', []),
+                ('/pull/7/commits/deadbeef', []), ('/pull/7/files', []), ('/issues/100/x', []),
+                ('/milestone/5/x', []), ('/releases/latest/x', []),
                 ('/commits/main', ['/repos/owner/repo/commits?sha=main&per_page=1']),
                 ('/commits/release/1.3.0', ['/repos/owner/repo/commits?sha=release%2F1.3.0&per_page=1']),
                 ('/issues/100', ['/repos/owner/repo/issues/100']), ('/pull/7', ['/repos/owner/repo/issues/7']),
