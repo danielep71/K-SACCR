@@ -191,6 +191,14 @@ Use only the categories needed by a release.
 
 - Correct the CCR framework SVG and PNG labels to K-SACCR, K-SFTs and CCP CAPITAL.
 
+- Describe the navigation bar and Home on the template's README sheet (#664).
+  The Sheets section gains a Navigation bar row: what column A holds, that the
+  links work with macros disabled, that the bar is not printed, and that the
+  Ribbon's Navigation bar toggle hides it for the session only (#615, #620).
+  The section also lists Home and README, so it names all 19 sheets in tab
+  order; the rows below move down three rows, and the reference card picture
+  with them.
+
 ### Maintenance
 
 - Add a quick, unattended mode to the branch verification for pull-request
