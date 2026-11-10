@@ -6,8 +6,10 @@
   every control, callback, target and state rule, is docs/workbook/RIBBON.md;
   tools/test_ribbon_contract.py checks that the two agree. Callbacks hold no
   business logic: RibbonAction calls an existing M_Main macro, RibbonGoTo
-  activates a sheet of this workbook by its CodeName, RibbonGetEnabled and
-  RibbonGetLabel only read status cells.
+  activates a sheet of this workbook by its CodeName, RibbonToggle shows or
+  hides the navigation bar through M_Main, and RibbonGetEnabled,
+  RibbonGetLabel and RibbonGetPressed only read the busy flag of M_Main,
+  status cells and the workbook.
 -->
 <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RibbonOnLoad">
   <ribbon>

@@ -20,13 +20,13 @@ Attribute VB_Name = "TEST_Benchmark"
 '   values cycling without randomness: seven interest-rate swaps in EUR and
 '   USD ending in all three maturity buckets; three FX forwards and one FX
 '   option on EUR/USD, EUR/GBP, EUR/JPY and EUR/CHF; three single-name
-'   credit default swaps on 50 entities rated AAA to CCC; an equity forward
-'   on a single name, one on an index and an option on a single name;
-'   three commodity forwards on oil and gas and on metals; and one
-'   other-risks (OT) forward, a class only CRR has, on one of three
-'   indices, long or short. A reference always has the same sub-class, no
-'   leg belongs to an economic trade, and every leg is valid, so the
-'   engine must use them all.
+'   credit default swaps on 50 entities of credit quality steps 1 to 6;
+'   an equity forward on a single name, one on an index and an option on
+'   a single name; three commodity forwards on oil and gas and on metals;
+'   and one other-risks (OT) forward, a class only CRR has, on one of
+'   three indices, long or short. A reference always has the same
+'   sub-class, no leg belongs to an economic trade, and every leg is
+'   valid, so the engine must use them all.
 '
 ' PUBLIC SURFACE
 '   RunBenchmark is the entry point for the engine; RunCsvBenchmark times
@@ -793,7 +793,7 @@ Private Sub FillLeg( _
             Case 11 To 13
                 Entity = (Cycle * 3 + Slot - 11) Mod CREDIT_NAMES
                 Block(Leg, TR_AC) = "CR"
-                Block(Leg, TR_SUB) = Choose((Entity Mod 7) + 1, "AAA", "AA", "A", "BBB", "BB", "B", "CCC")
+                Block(Leg, TR_SUB) = Choose((Entity Mod 7) + 1, "CQS1", "CQS1", "CQS2", "CQS3", "CQS4", "CQS5", "CQS6")
                 Block(Leg, TR_RF) = "CR NAME " & Format$(Entity + 1, "00")
                 SetMaturity Block, Leg, Choose(((Cycle + Slot) Mod 5) + 1, 12, 36, 60, 84, 120), True
             Case 14

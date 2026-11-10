@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-462_cases_%C2%B7_1943_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-464_cases_%C2%B7_1947_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -170,7 +170,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (462 cases, 1943 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (464 cases, 1947 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -329,25 +329,26 @@ In the Immediate window:
 Test_RunAll
 ```
 
-Expected summary format and counts (illustrative, not an executed result for #81):
+Expected summary, here from the quick verification of `release/1.3.0` at
+47c5a4b in Windows Excel 64-bit (timings vary):
 
 ```text
-SACCR TEST SUMMARY 2026-MM-DD hh:mm:ss
+SACCR TEST SUMMARY 2026-11-09 22:53:57
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,2 s)
-  PASS  TEST_MainState        cases=39; checks=594; failures=0; caller_state=RESTORED  (28,7 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (6,1 s)
-  PASS  TEST_InputValidation  cases=179; checks=314; failures=0; restore=PASS  (28,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,0 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,4 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,4 s)
-  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (0,2 s)
-  PASS  TEST_Import           cases=38; checks=227; failures=0  (37,6 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=114,8
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0  (0,1 s)
+  PASS  TEST_MainState        cases=39; checks=594; failures=0; caller_state=RESTORED  (28,3 s)
+  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (5,5 s)
+  PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (25,0 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0  (9,5 s)
+  PASS  TEST_CsvReader        cases=123; checks=316; failures=0  (2,0 s)
+  PASS  TEST_Import           cases=38; checks=227; failures=0  (30,2 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=105,3
 ```
 
-The five diagnostic regression assertions added for #81 still
-require an Excel run on the new candidate. See [stable diagnostics](docs/DIAGNOSTICS.md).
+The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
+rather than message texts.
 
 The suites rewrite inputs, outputs and Params and restore them afterwards: run
 them in a development workbook.
@@ -561,7 +562,7 @@ group entities. See
 | --- | --- | --- |
 | Asset classes | Six, with other risks (Art. 277(1)(f), 280f; 8%) | Five (CRE52.72); other-risk trades are rejected |
 | Commodity hedging sets | Adds climatic conditions (Art. 277a(1)(e); 18%) | Energy, metals, agricultural, other |
-| Single-name credit factor | By credit quality step (Art. 280c(5)) | By rating AAA to CCC (CRE52.72) |
+| Single-name credit factor | By credit quality step (Art. 280c(5)); ratings are rejected | By rating AAA to CCC (CRE52.72); credit quality steps are rejected |
 | IR and commodity option delta | Lambda shift of `CRR-RTS` Art. 5 | CRE52.40 |
 | IR maturity bucket 1 | End date up to and including 1 year (Art. 280a(3)) | Under 1 year (CRE52.57(3)) |
 | IR aggregation across buckets | Formula with offsets only (Art. 280a(3)) | With offsets, or sum of absolutes (CRE52.57(5)) |
@@ -618,13 +619,13 @@ required; the project has no separate reviewer.
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
 | `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states and the navigation bar toggle | 39 | 594 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 33 | 186 |
-| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 179 | 314 |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 181 | 318 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 123 | 316 |
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, and the output tables of committed rows against the same rows typed by hand | 38 | 227 |
-| **Total** | | **462** | **1943** |
+| **Total** | | **464** | **1947** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -672,7 +673,7 @@ Excel error (`#NUM!`, `#VALUE!` or `#REF!`) instead of a misleading number.
 | `SACCR_LambdaCRR(P, K, IsInterestRate, [Threshold])` | CRR lambda shift | `CRR-RTS` Art. 5 |
 | `SACCR_CDODelta(A, D, IsLong)` | Supervisory delta of a CDO tranche | CRE52.41 |
 | `SACCR_IREffectiveNotional(D1, D2, D3, [Rho12], [Rho23], [Rho13])` | IR effective notional across buckets | CRE52.57 |
-| `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .68, .70 |
+| `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .66, .70 |
 | `SACCR_Multiplier(VminusC, AddOn, [FloorPct])` | PFE multiplier | CRE52.23; CRR Art. 278(3) |
 | `SACCR_ReplacementCost(V, C, [Margined], [TH], [MTA], [NICA])` | Replacement cost | CRE52.10, .18; CRR Art. 275 |
 | `SACCR_NormCDF(x)` | Standard normal distribution | — |
@@ -794,7 +795,7 @@ gantt
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259) |
+| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), a navigation bar on every sheet (#615, #620) and new screenshots (#616) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
@@ -805,19 +806,22 @@ hold the current scope of each release. Securities financing transactions,
 risk-weighted assets and capital, default-fund contributions to CCPs and CVA
 risk are outside K-SACCR and on no milestone of its roadmap.
 
-### v1.2.0 — Excel Ribbon interface
+### v1.3.0 — Diagnostics and independent validation
 
-Released on 2026-11-07. The workbook has a K-SACCR tab on the Ribbon: its
-contract (#213), its embedding in the template and its callbacks (#214, #215),
-enabled states and Status labels kept current, also after a VBA reset (#216),
-and a Go to menu for every sheet (#329). The 12 calculation and export buttons
-are removed from the sheets; the 8 staging buttons remain (#217). The workbook
-opens on a Home sheet (#330), and **Restore parameters** writes the regulatory
-parameter set back to Params (#357). Kept apart from the Ribbon, two
-input-contract corrections: the clearing-role header of NettingSets names
-every code (#560), and a zero notional is accepted on every path (#561). The
-calculation methodology is unchanged. The integration and release evidence
-are recorded in #218.
+In development on `release/1.3.0`; nothing of it is released. Delivered so
+far: a stable code and field on every Checks line, reported by the silent
+entry points (#81); a navigation bar on every sheet that works without
+macros (#615), with a Ribbon toggle that hides it for the session (#620);
+a quick, unattended branch verification for pull requests (#618); and
+repository checks of VBA identifiers, dependency direction and ASCII source
+(#538), issue planning dates (#539), labels and pull-request milestones
+(#540, #541, #591), workflow pins and runtimes (#542), local and external
+documentation links (#592, #649) and the traffic workflow (#593). Still
+open: the engine separated from Excel I/O (#220), an independent
+cross-check (#100, #352), randomised FormulaTest inputs (#165), a formatted
+run report (#259), one shared harness for the suites (#536), accuracy
+contracts for the derived expected values (#537) and new screenshots
+(#616). The calculation methodology is unchanged so far.
 
 ---
 

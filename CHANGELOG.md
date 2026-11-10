@@ -102,8 +102,111 @@ Use only the categories needed by a release.
   silent run/validation results. Add a registry gate and code-based validation
   assertions; see [diagnostic compatibility notes](docs/DIAGNOSTICS.md).
 
+- Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
+  now, is widened, frozen and filled with the title band's colour, and holds
+  a bar of linked shapes that opens every sheet, also with macros disabled
+  and on the protected sheets. The bar lists the sheets in the sections of
+  the Ribbon's Go to menu, with its tooltips: Inputs sits in rows 1 to 3,
+  frozen on every sheet, so it never scrolls; the other sections follow below
+  the frozen rows, with Start (Home) last, and scroll with the rows. The
+  current sheet is highlighted, and the bar is not printed. No table, header
+  or input cell moves, and no row height changes; FormulaTest now freezes
+  rows 1 to 3 as every other sheet does. `tools/navigation_bar.py` draws the
+  bar into the template from `customUI14.xml`, deterministically, and the
+  new `navigation-bar` gate checks it. Protection check 14 also follows every
+  link of every sheet's bar with macros disabled, and counts only the cell
+  links of Home. The Home sheet mentions the bar.
+
+- Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
+  (#620): it hides and shows column A and the navigation bar on every sheet at
+  once, so that wide sheets such as Trades and TradeCalc get the space back.
+  The sheets stay protected, and the workbook's Saved flag is kept, so the
+  toggle never asks to save. Hiding lasts for the session: `ThisWorkbook`
+  shows the bar before every save and hides it again after, also when the
+  save does not happen, as a cancelled Save As, so a saved file, also opened
+  with macros disabled, always has its bar. The toggle's state is
+  read from the workbook, so it is right after a VBA state reset. New
+  callbacks `RibbonToggle` and `RibbonGetPressed`, macros
+  `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, and the
+  automation entry point `SetNavigationBar_Silent`. `CORE_Config` names the
+  bar's shape groups, and the `navigation-bar` gate checks those names
+  against the template. The Ribbon contract gains a Toggles table, checked
+  by the contract tests; `TEST_MainState` gains the case
+  `navigation.bar-toggle`.
+
+### Changed
+
+- Set `release/1.3.0` as the active development branch and the target for
+  Dependabot updates; `release/1.2.0` is closed and takes no new work.
+- Record in GOVERNANCE that `release/1.1.0` and `release/1.2.0` were deleted
+  after owner-authorized cleanup; their tags, releases and assets remain, and
+  their content is in `main`.
 
 ### Fixed
+
+- Ship the Code and Field headers of Checks (#81) in the template: a workbook
+  built from current sources showed them only after its first run, which
+  upgraded the six-column sheet in place. The description of Checks
+  explains both columns; the in-place upgrade stays for older workbooks.
+
+- Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
+  again (#620): `Auto_Open` runs it at every opening with macros enabled, and
+  protecting again marked the workbook changed. This removes one reason for
+  Excel to ask to save a workbook that was only opened; Excel can still ask
+  after macros are enabled, for a reason outside this change. `TEST_MainState`
+  gains the case `protection.keeps-saved`.
+- Accept each regime's credit scale only (#659): the ratings `AAA` to `CCC`
+  are rows of the BCBS factor table (CRE52.72) and the credit quality steps
+  `CQS1` to `CQS6` rows of the CRR one (Art. 280c(5), Table 3), and both were
+  accepted under either regime. A single-name credit trade on the other
+  regime's scale is now rejected with `TR-FACTOR-REGIME` on its sub-class. The
+  template's Params table marks the rating rows `BCBS` and the step rows
+  `CRR`, the engine's regulatory parameter set does the same, and the README
+  sheet's guidance names the regime of each scale. The demo netting set
+  `NS-GAMMA`, under CRR, now enters trades `B01` and `B02` as `CQS3` instead
+  of `BBB`: the factor is the same (0.54%), so its figures do not change. A
+  workbook whose Params still marks these rows `BOTH` runs as `WHAT-IF`, with
+  each row listed on Checks, until **Restore parameters** writes the
+  regulatory regimes; the Checks line of a factor row that differs from the
+  regulatory set now names its regimes and the regulatory ones, which it did
+  not, so a row that differs only in its regimes showed the same numbers
+  twice. `TEST_InputValidation` gains the cases `credit-rating-under-crr` and
+  `credit-step-under-bcbs`; the cases on one reference with two sub-classes,
+  `TEST_Aggregation` and the benchmark portfolio, all under CRR, use credit
+  quality steps with the same factors.
+
+### Documentation
+
+- The website's download buttons, checksum link, status line, certification
+  note and release link point to release 1.2.0, now published.
+
+- Correct documentation that no longer matched the workbook or the tooling:
+  the `RunSACCR_Silent` example line and its `codes` field, the event handlers
+  of `ThisWorkbook`, the macros, entry points and Ribbon callbacks listed in
+  INSTALLATION, the formula rule of the CSV contract, the equity reference of
+  `SACCR_FactorAggregation`, the Home row and the re-protecting operations of
+  the protection matrix, the Ribbon controls that stay enabled and the labels
+  it can show, the README `Test_RunAll` output, now an executed run, and the
+  roadmap section of the current milestone, v1.3.0.
+
+- Correct the CCR framework SVG and PNG labels to K-SACCR, K-SFTs and CCP CAPITAL.
+
+### Maintenance
+
+- Add a quick, unattended mode to the branch verification for pull-request
+  checks (#618): `tools/Verify-SACCR-Branch.ps1 -Branch NAME -Quick`, or
+  `quick` as the second argument of the `.cmd`, builds the development
+  workbook, opens it with its macros enabled for that Excel session only,
+  compiles it, runs `Test_RunAll` once (`TEST_Suite.Verify`, into
+  `summary.log`) and runs the 14 protection checks with the new
+  `Check-SACCR-Protection.ps1 -Unattended`, with no prompt, in
+  `saccr-verify-SHORTSHA`; a compile error, which opens a dialog in the VBE,
+  closes that run's Excel after 60 seconds and fails the run instead of
+  waiting for an operator. The suites do not run on their own and no
+  evidence record is written, so the folder is not an evidence bundle and
+  the summary says so: a quick run is a pull-request check, never a release
+  certification. The summary of both modes now records the mode and the
+  duration. Without `-Quick`, and in `Certify-SACCR.ps1`, nothing changes.
 
 - Verify github.com repository pages through the GitHub API in the weekly
   external-link audit (#649): GitHub answers scripted requests to its web pages
@@ -145,77 +248,6 @@ Use only the categories needed by a release.
 - Isolate PR milestone reconciliation by pull request, so events for different
   PRs cannot cancel each other while pending (#541). Declare the issues read
   permission explicitly and check the concurrency and permission contract.
-
-- Correct the CCR framework SVG and PNG labels to K-SACCR, K-SFTs and CCP CAPITAL.
-
-
-### Added
-
-- Add a quick, unattended mode to the branch verification for pull-request
-  checks (#618): `tools/Verify-SACCR-Branch.ps1 -Branch NAME -Quick`, or
-  `quick` as the second argument of the `.cmd`, builds the development
-  workbook, opens it with its macros enabled for that Excel session only,
-  compiles it, runs `Test_RunAll` once (`TEST_Suite.Verify`, into
-  `summary.log`) and runs the 14 protection checks with the new
-  `Check-SACCR-Protection.ps1 -Unattended`, with no prompt, in
-  `saccr-verify-SHORTSHA`; a compile error, which opens a dialog in the VBE,
-  closes that run's Excel after 60 seconds and fails the run instead of
-  waiting for an operator. The suites do not run on their own and no
-  evidence record is written, so the folder is not an evidence bundle and
-  the summary says so: a quick run is a pull-request check, never a release
-  certification. The summary of both modes now records the mode and the
-  duration. Without `-Quick`, and in `Certify-SACCR.ps1`, nothing changes.
-
-- Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
-  (#620): it hides and shows column A and the navigation bar on every sheet at
-  once, so that wide sheets such as Trades and TradeCalc get the space back.
-  The sheets stay protected, and the workbook's Saved flag is kept, so the
-  toggle never asks to save. Hiding lasts for the session: `ThisWorkbook`
-  shows the bar before every save and hides it again after, also when the
-  save does not happen, as a cancelled Save As, so a saved file, also opened
-  with macros disabled, always has its bar. The toggle's state is
-  read from the workbook, so it is right after a VBA state reset. New
-  callbacks `RibbonToggle` and `RibbonGetPressed`, macros
-  `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, and the
-  automation entry point `SetNavigationBar_Silent`. `CORE_Config` names the
-  bar's shape groups, and the `navigation-bar` gate checks those names
-  against the template. The Ribbon contract gains a Toggles table, checked
-  by the contract tests; `TEST_MainState` gains the case
-  `navigation.bar-toggle`.
-
-- Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
-  again (#620): `Auto_Open` runs it at every opening with macros enabled,
-  and protecting again marked the workbook changed, so closing a workbook
-  only opened asked to save it. `TEST_MainState` gains the case
-  `protection.keeps-saved` (39 cases, 589 checks).
-
-- Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
-  now, is widened, frozen and filled with the title band's colour, and holds
-  a bar of linked shapes that opens every sheet, also with macros disabled
-  and on the protected sheets. The bar lists the sheets in the sections of
-  the Ribbon's Go to menu, with its tooltips: Inputs sits in rows 1 to 3,
-  frozen on every sheet, so it never scrolls; the other sections follow below
-  the frozen rows, with Start (Home) last, and scroll with the rows. The
-  current sheet is highlighted, and the bar is not printed. No table, header
-  or input cell moves, and no row height changes; FormulaTest now freezes
-  rows 1 to 3 as every other sheet does. `tools/navigation_bar.py` draws the
-  bar into the template from `customUI14.xml`, deterministically, and the
-  new `navigation-bar` gate checks it. Protection check 14 also follows every
-  link of every sheet's bar with macros disabled, and counts only the cell
-  links of Home. The Home sheet mentions the bar.
-
-### Changed
-
-- Set `release/1.3.0` as the active development branch and the target for
-  Dependabot updates; `release/1.2.0` is closed and takes no new work.
-- Record in GOVERNANCE that `release/1.1.0` and `release/1.2.0` were deleted
-  after owner-authorized cleanup; their tags, releases and assets remain, and
-  their content is in `main`.
-
-### Documentation
-
-- The website's download buttons, checksum link, status line, certification
-  note and release link point to release 1.2.0, now published.
 
 ## [1.2.0] - 2026-11-07
 

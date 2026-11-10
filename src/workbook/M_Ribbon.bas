@@ -293,11 +293,12 @@ Public Sub RibbonGetLabel( _
 '   calculates or writes.
 '
 ' ERROR POLICY
-'   A cell that cannot be read gives "unavailable", and a call while
-'   another state callback runs "Status unavailable"; nothing is raised.
+'   A staging status name that is missing gives "unavailable" after the
+'   label's prefix; an error, or a call while another state callback runs,
+'   gives "Status unavailable"; nothing is raised.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-09
 '==============================================================================
 '
         If mInCallback Then

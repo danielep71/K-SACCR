@@ -84,7 +84,8 @@ Attribute VB_Name = "M_Main"
 '   after, for ThisWorkbook, so that a saved file always shows it.
 '   The Ribbon (M_Ribbon) calls the first three, ExportEvidence, the two
 '   template exports, the two imports, ValidateStaging, CommitImport,
-'   ExportImportSpecification and RestoreRegulatoryParameters; the
+'   ExportImportSpecification, RestoreRegulatoryParameters,
+'   ShowNavigationBar and NavigationBarShown; the
 '   buttons of the staging sheets call the
 '   imports, ValidateStaging, CommitImport and ExportImportSpecification
 '   by name (#217).
@@ -160,7 +161,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-09
 '
 ' AUTHOR
 '   Daniele Penza
@@ -8353,14 +8354,16 @@ Private Function ReportOutcome( _
 '
 ' RETURNS
 '   The result line, for example "RESULT=OK; operation=run; ...;
-'   reconciliation=DONE; trade_reconciliation=NONE; cleanup=PASS".
+'   reconciliation=DONE; trade_reconciliation=NONE; codes=TR-MATURED;
+'   cleanup=PASS"; codes, the distinct diagnostic codes of the run, comes
+'   before cleanup for a run and a validation, not for a clear (#81).
 '
 ' ERROR POLICY
 '   In silent mode a cleanup failure raises ERR_CLEANUP_FAILED, with the
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-09
 '==============================================================================
 '
 

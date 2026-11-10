@@ -10,15 +10,18 @@ Attribute VB_Name = "CORE_Config"
 '   column headers, the file names and header lines of the blank CSV templates,
 '   the names and statuses of the CSV staging sheets, the bank-figure and
 '   reconciliation layout, the names of the hidden fingerprints, the regulatory
-'   reference parameter set, the FX quote order and the error numbers raised by
-'   the workbook macros. When a sheet layout changes, it changes here and
-'   nowhere else.
+'   reference parameter set, the FX quote order, the error numbers raised by
+'   the workbook macros and the stable diagnostic codes of the Checks lines
+'   (#81, docs/DIAGNOSTICS.md). When a sheet layout changes, it changes here
+'   and nowhere else.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. The constants are Public for in-project use
-'   by CORE_Util, CORE_Engine, CORE_Reconcile, CORE_CsvReader (ERR_CSV_READ
-'   and the RG_ regime codes), M_Main and the test modules; Option Private
-'   Module keeps them off the supported external surface.
+'   by CORE_Util, CORE_Engine, CORE_Reconcile, CORE_CsvReader (ERR_CSV_READ,
+'   the RG_ regime codes and the CSV_ diagnostic codes), M_Main, M_Ribbon
+'   (sheet, status-cell and staging names and statuses) and the test
+'   modules; Option Private Module keeps them off the supported external
+'   surface.
 '
 ' DEPENDENCIES
 '   None. Every value is a literal.
@@ -33,7 +36,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-09
 '
 ' AUTHOR
 '   Daniele Penza

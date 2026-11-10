@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 179               'Cases in a complete run
-        Private Const CHECKS      As Long = 314               'Checks in a complete run
+        Private Const CASES       As Long = 181               'Cases in a complete run
+        Private Const CHECKS      As Long = 318               'Checks in a complete run
 
 
 '
@@ -396,13 +396,13 @@ Public Sub RunInputValidationTests()
 
     'Aggregation (#37): one reference, one sub-class, whatever the order.
         StartCase "aggregation-reference-two-sub-classes", "N"
-        AddCredit "C1", "AA", "FIRM A"
-        AddCredit "C2", "BBB", "FIRM A"
+        AddCredit "C1", "CQS1", "FIRM A"
+        AddCredit "C2", "CQS3", "FIRM A"
         ExpectStatus "INVALID: 1 input error(s)"
 
         StartCase "aggregation-reference-two-sub-classes-reversed", "N"
-        AddCredit "C2", "BBB", "FIRM A"
-        AddCredit "C1", "AA", "FIRM A"
+        AddCredit "C2", "CQS3", "FIRM A"
+        AddCredit "C1", "CQS1", "FIRM A"
         ExpectStatus "INVALID: 1 input error(s)"
 
         StartCase "aggregation-basis-without-label", "N"
@@ -411,8 +411,22 @@ Public Sub RunInputValidationTests()
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
 
         StartCase "aggregation-reserved-character", "N"
-        AddCredit "C1", "AA", "FIRM|A"
+        AddCredit "C1", "CQS1", "FIRM|A"
         ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+
+    'Credit scale (#659): each regime has its own; a rating under CRR or a
+    'credit quality step under BCBS has no factor in the netting set's
+    'regime, and the trade is rejected on its sub-class.
+        StartCase "credit-rating-under-crr", "N"
+        AddCredit "C1", "BBB", "FIRM A"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "factor-regime", SEV_ERROR, DIAG_TR_FACTOR_REGIME, "illustrative", "Sub-class"
+
+        StartCase "credit-step-under-bcbs", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_REGIME, "BCBS"
+        AddCredit "C1", "CQS3", "FIRM A"
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "factor-regime", SEV_ERROR, DIAG_TR_FACTOR_REGIME, "illustrative", "Sub-class"
 
         StartCase "aggregation-ir-risk-factor-not-currency", "N"
         TEST_CaseRunner.AddTrade "T1", "IR", "", "EURO", "Linear", "Long", "", "Standard", "", _
