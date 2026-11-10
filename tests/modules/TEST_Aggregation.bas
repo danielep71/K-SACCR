@@ -299,14 +299,15 @@ Private Sub AddCredit( _
 '                                  AddCredit
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Add a five-year single-name credit default swap on an AA entity, of
-'   notional 10,000, to NS1.
+'   Add a five-year single-name credit default swap on an entity of credit
+'   quality step 1, the CRR scale of the cases (#659), of notional 10,000,
+'   to NS1.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-10
 '==============================================================================
 '
-        TEST_CaseRunner.AddTrade TradeId, "CR", "AA", Reference, "Linear", Direction, "", "Standard", "", _
+        TEST_CaseRunner.AddTrade TradeId, "CR", "CQS1", Reference, "Linear", Direction, "", "Standard", "", _
                                  "10000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
 
 End Sub

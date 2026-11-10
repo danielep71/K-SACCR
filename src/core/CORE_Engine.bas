@@ -2365,6 +2365,25 @@ Public Function FactorRegimeText( _
 End Function
 
 
+Private Function RegimesShown( _
+    ByVal Regimes As String) _
+    As String
+'
+'==============================================================================
+'                                 RegimesShown
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The regimes of a factor row as Params shows them: BOTH when blank.
+'
+' UPDATED
+'   2026-11-10
+'==============================================================================
+'
+        RegimesShown = IIf(Len(Regimes) = 0, "BOTH", Regimes)
+
+End Function
+
+
 Public Function MaturedText( _
     ByVal Maturity As Double, _
     ByVal AsOf As Double) _
@@ -2478,13 +2497,15 @@ Public Function RegulatoryFactorRows() As Variant
 '   A zero-based array of texts, one per row: key|asset class|category|
 '   factor|correlation|volatility|commodity hedging set|regimes, as the
 '   engine stores a row. A blank correlation is no correlation; blank
-'   regimes are both regimes, BOTH on Params.
+'   regimes are both regimes, BOTH on Params. Each regime has its own
+'   credit scale (#659): the ratings AAA to CCC apply under BCBS only,
+'   the credit quality steps CQS1 to CQS6 under CRR only.
 '
 ' REFERENCE
 '   CRE52.72; CRR Art. 280a to 280f; CRR-RTS Art. 5.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-10
 '==============================================================================
 '
 
@@ -2502,20 +2523,20 @@ Public Function RegulatoryFactorRows() As Variant
         FirstRows = Array( _
             "IR|IR||0.005||0.5||", _
             "FX|FX||0.04||0.15||", _
-            "CR_AAA|CR|AAA|0.0038|0.5|1||", _
-            "CR_AA|CR|AA|0.0038|0.5|1||", _
-            "CR_A|CR|A|0.0042|0.5|1||", _
-            "CR_BBB|CR|BBB|0.0054|0.5|1||", _
-            "CR_BB|CR|BB|0.0106|0.5|1||", _
-            "CR_B|CR|B|0.016|0.5|1||", _
-            "CR_CCC|CR|CCC|0.06|0.5|1||", _
-            "CR_CQS1|CR|CQS1|0.0038|0.5|1||", _
-            "CR_CQS2|CR|CQS2|0.0042|0.5|1||", _
-            "CR_CQS3|CR|CQS3|0.0054|0.5|1||", _
-            "CR_CQS4|CR|CQS4|0.0106|0.5|1||")
+            "CR_AAA|CR|AAA|0.0038|0.5|1||BCBS", _
+            "CR_AA|CR|AA|0.0038|0.5|1||BCBS", _
+            "CR_A|CR|A|0.0042|0.5|1||BCBS", _
+            "CR_BBB|CR|BBB|0.0054|0.5|1||BCBS", _
+            "CR_BB|CR|BB|0.0106|0.5|1||BCBS", _
+            "CR_B|CR|B|0.016|0.5|1||BCBS", _
+            "CR_CCC|CR|CCC|0.06|0.5|1||BCBS", _
+            "CR_CQS1|CR|CQS1|0.0038|0.5|1||CRR", _
+            "CR_CQS2|CR|CQS2|0.0042|0.5|1||CRR", _
+            "CR_CQS3|CR|CQS3|0.0054|0.5|1||CRR", _
+            "CR_CQS4|CR|CQS4|0.0106|0.5|1||CRR")
         SecondRows = Array( _
-            "CR_CQS5|CR|CQS5|0.016|0.5|1||", _
-            "CR_CQS6|CR|CQS6|0.06|0.5|1||", _
+            "CR_CQS5|CR|CQS5|0.016|0.5|1||CRR", _
+            "CR_CQS6|CR|CQS6|0.06|0.5|1||CRR", _
             "CR_IG_INDEX|CR|IG_INDEX|0.0038|0.8|0.8||", _
             "CR_SG_INDEX|CR|SG_INDEX|0.0106|0.8|0.8||", _
             "EQ_SINGLE|EQ|SINGLE|0.32|0.5|1.2||", _
@@ -2641,7 +2662,7 @@ Private Sub ClassifyRun()
 '   CRR-RTS Art. 5. Values listed in docs/methodology/README.md.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-10
 '==============================================================================
 '
 
@@ -2693,8 +2714,9 @@ Private Sub ClassifyRun()
                    Or Not SameAmount(mSF(Position).Corr, Val(Fields(4))) Or Not SameAmount(mSF(Position).Vol, Val(Fields(5))) Then
                 Deviation SH_PARAMS, CStr(Fields(0)), "factor row " & Fields(0) & " differs from the regulatory set " & _
                           "(factor " & CStr(mSF(Position).SF) & ", correlation " & CStr(mSF(Position).Corr) & _
-                          ", volatility " & CStr(mSF(Position).Vol) & "; regulatory " & Fields(3) & ", " & _
-                          IIf(Len(Fields(4)) = 0, "-", Fields(4)) & ", " & Fields(5) & ")."
+                          ", volatility " & CStr(mSF(Position).Vol) & ", regimes " & RegimesShown(mSF(Position).Regimes) & _
+                          "; regulatory " & Fields(3) & ", " & IIf(Len(Fields(4)) = 0, "-", Fields(4)) & ", " & _
+                          Fields(5) & ", " & RegimesShown(CStr(Fields(7))) & ")."
             End If
         Next RegulatoryRow
         For k = 1 To mSFCount

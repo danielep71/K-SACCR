@@ -155,6 +155,25 @@ Use only the categories needed by a release.
   Excel to ask to save a workbook that was only opened; Excel can still ask
   after macros are enabled, for a reason outside this change. `TEST_MainState`
   gains the case `protection.keeps-saved`.
+- Accept each regime's credit scale only (#659): the ratings `AAA` to `CCC`
+  are rows of the BCBS factor table (CRE52.72) and the credit quality steps
+  `CQS1` to `CQS6` rows of the CRR one (Art. 280c(5), Table 3), and both were
+  accepted under either regime. A single-name credit trade on the other
+  regime's scale is now rejected with `TR-FACTOR-REGIME` on its sub-class. The
+  template's Params table marks the rating rows `BCBS` and the step rows
+  `CRR`, the engine's regulatory parameter set does the same, and the README
+  sheet's guidance names the regime of each scale. The demo netting set
+  `NS-GAMMA`, under CRR, now enters trades `B01` and `B02` as `CQS3` instead
+  of `BBB`: the factor is the same (0.54%), so its figures do not change. A
+  workbook whose Params still marks these rows `BOTH` runs as `WHAT-IF`, with
+  each row listed on Checks, until **Restore parameters** writes the
+  regulatory regimes; the Checks line of a factor row that differs from the
+  regulatory set now names its regimes and the regulatory ones, which it did
+  not, so a row that differs only in its regimes showed the same numbers
+  twice. `TEST_InputValidation` gains the cases `credit-rating-under-crr` and
+  `credit-step-under-bcbs`; the cases on one reference with two sub-classes,
+  `TEST_Aggregation` and the benchmark portfolio, all under CRR, use credit
+  quality steps with the same factors.
 
 ### Documentation
 

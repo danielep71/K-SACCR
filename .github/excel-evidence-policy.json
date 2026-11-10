@@ -50,8 +50,8 @@
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 179,
-      "checks": {"32-bit": 314, "64-bit": 314},
+      "cases": 181,
+      "checks": {"32-bit": 318, "64-bit": 318},
       "restoration": "restore=PASS",
       "first_case": "input-trade-middle-row-without-id"
     },
