@@ -55,8 +55,11 @@ Attribute VB_Name = "CORE_Engine"
 '   RegimeWithheldCount, TotalStatusText and WithheldByRegimeText), the
 '   run-fingerprint procedures (InputFingerprint, LastRunInputs,
 '   ForgetRunInputs, and BlockText, which M_Main also uses for the
-'   reconciliation fingerprint) and ParameterCodes, which M_Main uses for
-'   the evidence report, are Public for M_Main and the tests; so are
+'   reconciliation fingerprint), ParameterCodes, which M_Main uses for
+'   the evidence report, the regulatory parameter set that Restore
+'   parameters writes back (RegulatoryFactorRows, RegulatoryParameterCodes
+'   and RegulatoryParameterValue) and DiagnosticCodes, the codes of a run
+'   for its result line (#81), are Public for M_Main and the tests; so are
 '   LoadRunContext, the RunContext it fills, NormalizePair and the rules
 '   shared with the staging validation (FactorKey and the *Text
 '   functions, #209), which M_Main and CORE_CsvReader use. The test seam
@@ -101,7 +104,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-09
 '
 ' AUTHOR
 '   Daniele Penza

@@ -30,7 +30,8 @@ Attribute VB_Name = "CORE_CsvReader"
 '
 ' DEPENDENCIES
 '   CORE_CsvSchema for the contract, generated from docs/csv/contract.json;
-'   CORE_Config for the error number and the regime codes; CORE_Engine for
+'   CORE_Config for the error number, the regime codes and the CSV_
+'   diagnostic codes of the findings (#81); CORE_Engine for
 '   RunContext and the rules CheckContext shares with a run (#209).
 '   tools/csv_contract.py is the reference implementation: for every
 '   fixture and case in tests/csv this module must report exactly its
@@ -52,7 +53,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   IsDate and Excel's own CSV import are never used.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-09
 '
 ' AUTHOR
 '   Daniele Penza
