@@ -144,6 +144,11 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Ship the Code and Field headers of Checks (#81) in the template: a workbook
+  built from current sources showed them only after its first run, which
+  upgraded the six-column sheet in place. The description of Checks
+  explains both columns; the in-place upgrade stays for older workbooks.
+
 - Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
   again (#620): `Auto_Open` runs it at every opening with macros enabled, and
   protecting again marked the workbook changed. This removes one reason for
