@@ -60,7 +60,9 @@ ASSET_CODE = {"interest_rate": "IR", "foreign_exchange": "FX", "credit": "CR", "
 WORDS = {"linear": "Linear", "option": "Option", "long": "Long", "short": "Short", "call": "Call", "put": "Put",
          "standard": "Standard"}
 IR_CURRENCIES = ("EUR", "USD", "GBP", "JPY")
-FX_PAIRS = ("EUR/USD", "USD/JPY", "GBP/USD", "EUR/GBP")
+# Every amount is in EUR, and the engine rejects an FX trade whose notional
+# currency is not a currency of its pair, so every pair has EUR.
+FX_PAIRS = ("EUR/USD", "EUR/GBP", "EUR/JPY", "USD/EUR")
 # One sub-class per reference across the portfolio, as the engine requires per netting set.
 CREDIT_NAMES = {"CORP-A": "CQS1", "CORP-B": "CQS2", "CORP-C": "CQS3", "CORP-D": "CQS4", "CORP-E": "CQS5",
                 "CORP-F": "CQS6", "ITRAXX-MAIN": "IG_INDEX", "CDX-HY": "SG_INDEX"}

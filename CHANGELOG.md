@@ -123,7 +123,9 @@ Use only the categories needed by a release.
   two CSV files of the input contract, runs the package on it, and compares
   each netting set's Results in the workbook's evidence export with the
   package's figures, listing every difference for classification. It is not a
-  gate and needs R.
+  gate and needs R. Every FX pair of the portfolio contains EUR, the notional
+  currency: the engine rejects an FX trade whose notional currency is not a
+  currency of its pair.
 
 - Run the derivations in `tests/derivations/` in `python tools/check.py`
   (#537): the new `check_derivations` gate runs every script's `expected()`
