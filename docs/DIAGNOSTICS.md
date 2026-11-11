@@ -56,8 +56,6 @@ The input-validation suite checks ERROR/WARNING identifiers, with explicit field
 checks for shared text/date/flag validators; `RunCaseExpectingStop` now takes a
 code. INFO-detail tests retain their wording checks. The staging suite verifies
 Code/Field alongside its existing origin, cell-link and message contract.
-Run `tools/Verify-SACCR-Branch.ps1 -Branch feat/81-stable-diagnostics -Quick` in
-Excel before merge, including compilation, all suites and protection checks.
 
 ## Registry
 
@@ -115,29 +113,29 @@ Excel before merge, including compilation, all suites and protection checks.
 | `IMPORT-SUMMARY` | active | Staging validation summary. |
 | `LAYOUT-DATE-SYSTEM` | active | The workbook uses the 1904 date system, which is not supported. |
 | `LAYOUT-HEADER` | active | A table header differs from the required column name. |
-| `LAYOUT-HEADER-NAME` | active | Workbook name ' |
-| `LAYOUT-PARAM-NAME` | active | Workbook name ' |
-| `LAYOUT-PARAM-POSITION` | active | Workbook name ' |
-| `LAYOUT-PARAM-ROW` | active | Workbook names ' ' and ' |
-| `LAYOUT-SHEET` | active | Sheet ' ' not found. |
+| `LAYOUT-HEADER-NAME` | active | The workbook name of an input table's header is missing or no longer refers to its first header cell. |
+| `LAYOUT-PARAM-NAME` | active | A workbook name of the Params layout is missing or no longer refers to a cell. |
+| `LAYOUT-PARAM-POSITION` | active | A workbook name of the Params layout refers to a cell on another sheet. |
+| `LAYOUT-PARAM-ROW` | active | The Params code and value names are not on the same row. |
+| `LAYOUT-SHEET` | active | A sheet the run needs is missing. |
 | `NS-ALPHA` | active | Alpha override must be greater than zero (found |
 | `NS-CCP-FLAG-REQUIRED` | active | (Y/N) is required for Client clearing role CCP. |
 | `NS-CCP-UNMARGINED` | active | on an unmargined netting set: no MPOR |
 | `NS-CLEARING-UNMARGINED` | active | Client clearing role   on an unmargined |
-| `NS-CODE` | active | must be  / , |
+| `NS-CODE` | active | A coded netting-set field holds a value outside its list; the message names the field and the allowed codes. |
 | `NS-DUP-ID` | active | Netting set ID listed twice - row ignored and EAD withheld. |
 | `NS-EMPTY` | active | No netting sets defined. |
 | `NS-FLAG` | active | must be Y or N (found  ). |
 | `NS-ID-MISSING` | active | Row has netting-set data but no ID - row ignored. |
 | `NS-ID-RESERVED` | active | Netting set ID   is reserved for a TOTAL row on Results - row ignored. |
-| `NS-INPUT-INCOMPLETE` | active | EAD withheld: |
+| `NS-INPUT-INCOMPLETE` | active | The EAD of a netting set is withheld because of invalid netting-set fields. |
 | `NS-IR-OFFSET` | active | IRBucketOffset is FALSE, but the |
-| `NS-LARGE` | active | Netting set has |
+| `NS-LARGE` | active | WARNING: a netting set with more than 5,000 trades; the large-netting-set flag may apply (20-day MPOR floor). |
 | `NS-MARGIN-MULTIPLE` | active | Several margin agreements, or margined and unmargined |
 | `NS-MARGIN-SHARED` | active | One margin agreement over several netting sets is not |
 | `NS-MPOR` | active | MPOR override must be a whole number of business days |
-| `NS-MPOR-FLOOR` | active | MPOR override |
-| `NS-MPOR-INFO` | active | . |
+| `NS-MPOR-FLOOR` | active | An MPOR override below the regulatory floor; the floor is applied. |
+| `NS-MPOR-INFO` | active | INFO: the MPOR floor, the rule and the clearing role applied to a margined netting set. |
 | `NS-MTA` | active | MTA must not be negative (found  ). |
 | `NS-MULTILEVEL` | active | A multi-level client structure is not supported |
 | `NS-NO-TRADES` | active | Netting set has no trades - no EAD. |
@@ -147,12 +145,12 @@ Excel before merge, including compilation, all suites and protection checks.
 | `NS-QCCP-ROLE` | active | QCCP applies only to Client clearing role CCP - |
 | `NS-REGIME` | active | Regime override must be BCBS or CRR (found |
 | `NS-REMARGIN` | active | Remargin frequency must be a whole number of business days |
-| `NS-REMARGIN-FLOOR` | active | Remargin frequency |
+| `NS-REMARGIN-FLOOR` | active | A remargining frequency below 1 business day; daily remargining is used. |
 | `NS-RETAINS-ROLE` | active | CCP retains VM applies only to Client clearing role |
 | `NS-RETAINS-UNMARGINED` | active | CCP retains VM is Y on an unmargined netting set: |
 | `NS-STM-MARGINED` | active | Trade   is settled-to-market (STM) in a |
 | `NS-TH` | active | Threshold TH must not be negative (found  ). |
-| `NS-TRADE-INCOMPLETE` | active | EAD withheld: |
+| `NS-TRADE-INCOMPLETE` | active | The EAD of a netting set is withheld because some of its trades were rejected. |
 | `NS-VM-POSTED` | active | VM posted on an unmargined CRR netting set: under CRR |
 | `NS-VM-RECEIVED` | active | VM received on an unmargined netting set: a counterparty |
 | `PRM-ALPHA` | active | Alpha must be greater than zero. |
@@ -164,22 +162,22 @@ Excel before merge, including compilation, all suites and protection checks.
 | `PRM-DUP` | active | Parameter listed twice with different values (rows |
 | `PRM-DUP-SAME` | active | Parameter listed twice with the same value (rows |
 | `PRM-IR-CORRELATION` | active | The IR bucket correlations  , |
-| `PRM-NAME` | active | Workbook name ' |
+| `PRM-NAME` | active | A Params workbook name is missing or no longer refers to a cell (#REF!); every parameter is read through its name. |
 | `PRM-NUMBER` | active | Parameter must be a number (found  ). |
-| `PRM-RANGE` | active | must be   (found  ). |
-| `PRM-READ` | active | Cannot read parameters: |
+| `PRM-RANGE` | active | A Params value is outside its allowed range; the message gives the range and the value found. |
+| `PRM-READ` | active | Params cannot be read; the message gives the reason. |
 | `PRM-REGIME` | active | Regime must be BCBS or CRR (found an error value). |
 | `PRM-REGIME-DEFAULT` | active | Regime missing - CRR assumed. |
 | `RUN-CLEAN` | active | No issues found. |
-| `RUN-ERROR` | active | Run stopped by error  : |
-| `RUN-TOTAL` | active | TOTAL |
-| `RUN-WHATIF` | active | What-if: |
+| `RUN-ERROR` | active | The run stopped on an unexpected error; the message gives its number and description. |
+| `RUN-TOTAL` | active | INFO: the trade exposures to CCPs in a regime's total, with their EAD; risk weights are not applied. |
+| `RUN-WHATIF` | active | WARNING: a regulatory parameter differs from the regulatory set, so the run is WHAT-IF; the message names it. |
 | `SF-DUP` | active | Supervisory factor key listed twice with different values. |
 | `SF-DUP-SAME` | active | Supervisory factor key listed twice with the same values - |
 | `SF-EMPTY` | active | Supervisory factor table is empty. |
 | `SF-NUMBER` | active | Supervisory factor, correlation and volatility must be numbers. |
 | `SF-RANGE` | active | Supervisory factor and correlation must be from 0 to 1 and |
-| `SF-TABLE` | active | Supervisory factor table not found (workbook name ' |
+| `SF-TABLE` | active | The supervisory-factor table is not found through its workbook name. |
 | `TABLE-GAP` | active | row below a blank row - not read; |
 | `TABLE-KEY` | active | row has a value but no key - not read. |
 | `TR-ASSET-CLASS` | active | asset class must be IR, FX, CR, EQ, CO or OT |
@@ -187,8 +185,8 @@ Excel before merge, including compilation, all suites and protection checks.
 | `TR-CDO-CLASS` | active | CDO tranches are credit (CR) trades |
 | `TR-CDO-POINTS` | active | CDO tranche needs attachment and detachment points |
 | `TR-CDO-RANGE` | active | attachment/detachment must satisfy 0 <= A < D <= 1 |
-| `TR-COMMODITY-GROUP` | active | commodity hedging group missing for ' ' |
-| `TR-DATE` | active | is not a date (found  ) |
+| `TR-COMMODITY-GROUP` | active | No commodity hedging set for the trade's factor key. |
+| `TR-DATE` | active | A trade date field holds a value that is not a date. |
 | `TR-DATE-ORDER` | active | end date must be after start date |
 | `TR-DIRECTION` | active | direction must be Long or Short |
 | `TR-DUP-ID` | active | duplicate Trade ID (first used on row  ) |
@@ -210,12 +208,12 @@ Excel before merge, including compilation, all suites and protection checks.
 | `TR-LAMBDA-NUMBER` | active | lambda must be a number (found  ) |
 | `TR-MATURED` | active | The trade maturity is on or before the reporting date. |
 | `TR-MATURITY-MISSING` | active | maturity / end date missing |
-| `TR-MTM-CURRENCY` | active | MtM |
+| `TR-MTM-CURRENCY` | active | The MtM currency has no FX rate. |
 | `TR-MTM-MISSING` | active | MtM missing (enter 0 if the trade has no value) |
 | `TR-MTM-NUMBER` | active | MtM must be a number (found  ) |
 | `TR-NATURE` | active | nature must be Standard, Basis or Volatility |
-| `TR-NETTING-SET` | active | unknown netting set ' ' |
-| `TR-NOTIONAL-CURRENCY` | active | notional |
+| `TR-NETTING-SET` | active | A trade refers to a netting set that is not on NettingSets. |
+| `TR-NOTIONAL-CURRENCY` | active | The notional currency has no FX rate. |
 | `TR-NOTIONAL-MISSING` | active | notional missing |
 | `TR-NOTIONAL-NEGATIVE` | active | notional must not be negative (use Direction for the sign) |
 | `TR-NOTIONAL-NUMBER` | active | notional must be a number (found  ) |
@@ -234,4 +232,4 @@ Excel before merge, including compilation, all suites and protection checks.
 | `TR-START-REQUIRED` | active | an interest-rate or credit option needs the start date S of its underlying |
 | `TR-TEXT` | active | must be text or blank (found an error value) |
 | `TR-VOL-LABEL` | active | volatility trade needs a hedging-set label |
-| `TR-VOLATILITY` | active | supervisory volatility missing for ' ' |
+| `TR-VOLATILITY` | active | No supervisory option volatility for the trade's factor key. |

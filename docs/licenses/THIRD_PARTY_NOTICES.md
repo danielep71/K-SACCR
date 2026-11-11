@@ -8,8 +8,9 @@ notice applies only to the files it lists.
 
 `.github/workflows/pr-milestones.yml` is adapted from danielep71/K-FRTB-SA at
 commit faa5799af271b32aff8f2034125e2f3915180f5d. The modifications are a
-header comment and a condition that limits the job to `pull_request_target`,
-the schedule and the default branch. The original is distributed under the
+header comment, a condition that limits the job to `pull_request_target`,
+the schedule and the default branch, a concurrency group per pull request,
+and an explicit `issues: read` permission. The original is distributed under the
 MIT License:
 
 ```text
