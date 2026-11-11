@@ -144,8 +144,8 @@ Use only the categories needed by a release.
   (#352): the 24 fixture values it computes agree; on a workbook run of the
   seed-352 portfolio, 37 of 40 netting sets agree on every figure and the 13
   differences come from the package's commodity add-on and its multiplier
-  with posted collateral. No K-SACCR defect was found; agreement with a
-  second implementation validates no rule.
+  with posted collateral. No K-SACCR defect was found. Six of the netting
+  sets that agree are the independent test cases of #100.
 
 - Run the derivations in `tests/derivations/` in `python tools/check.py`
   (#537): the new `check_derivations` gate runs every script's `expected()`
