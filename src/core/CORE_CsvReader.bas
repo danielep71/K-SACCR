@@ -806,7 +806,9 @@ Public Sub CheckContext( _
 '   - the notional and MtM currencies have a rate (CSV-CONTEXT-CURRENCY),
 '     a blank one being the reporting currency, or the notional currency
 '     for the MtM, which has one; so do both currencies of an FX pair
-'     (CSV-CONTEXT-PAIR);
+'     (CSV-CONTEXT-PAIR), and once they do, the notional currency, or the
+'     reporting currency for a blank one, is one of them
+'     (CSV-CONTEXT-FX-NOTIONAL);
 '   - the factor table has the trade's key (CSV-CONTEXT-FACTOR), and
 '     under the netting set's regime, its override or else the Params
 '     regime, OT is CRR-only and a factor row limited to a regime is that
@@ -883,7 +885,8 @@ Public Sub CheckContext( _
             If Len(Values(r, Cols.ID)) > 0 Then
                 If Not FactorOnly Then
                     CheckContextDates Values, Lines, r, Columns, Cols, Context.AsOf, AsOfText, Result, Findings
-                    CheckContextCurrencies Values, Lines, r, Columns, Cols, Known, Result, Findings
+                    CheckContextCurrencies Values, Lines, r, Columns, Cols, Known, UCase$(Context.ReportingCcy), _
+                                           Result, Findings
                 End If
                 CheckContextFactor Values, Lines, r, Columns, Cols, Known, UCase$(Context.Regime), Result, Findings
             End If
@@ -1089,6 +1092,7 @@ Private Sub CheckContextCurrencies( _
     ByRef Columns() As CsvColumn, _
     ByRef Cols As ContextColumns, _
     ByRef Known As ContextTables, _
+    ByVal ReportingCcy As String, _
     ByRef Result As CsvReadResult, _
     ByRef Findings() As CsvFinding)
 '
@@ -1100,10 +1104,13 @@ Private Sub CheckContextCurrencies( _
 '   as CORE_Engine.NormalizePair orders them, against the FX table, with
 '   CORE_Engine's NoRateText and NoPairRateText. A blank currency is the
 '   reporting currency, or the notional currency for the MtM, and gives
-'   no finding of its own.
+'   no finding of its own. Once both currencies of the pair have a rate,
+'   the notional currency, or ReportingCcy (upper case) for a blank one,
+'   is one of them, as CORE_Engine requires (TR-FX-NOTIONAL, #678); a
+'   notional currency that is not of its type is left to its own finding.
 '
 ' UPDATED
-'   2026-10-31
+'   2026-11-11
 '==============================================================================
 '
 
@@ -1111,6 +1118,7 @@ Private Sub CheckContextCurrencies( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim Code        As String    'A currency, upper case
+    Dim Notional    As String    'The notional currency, else ReportingCcy
     Dim Pair        As String    'The FX pair as NormalizePair writes it
     Dim OrderSign   As Double    'From NormalizePair: 0 when not a pair
 
@@ -1123,6 +1131,9 @@ Private Sub CheckContextCurrencies( _
                 AddFinding Result, Findings, CSV_CONTEXT_CURRENCY, Lines(r), r, "notional_currency", _
                            CORE_Engine.NoRateText("notional", Code)
             End If
+            Notional = Code
+        ElseIf Len(Values(r, Cols.NotionalCcy)) = 0 Then
+            Notional = ReportingCcy
         End If
         Code = UCase$(UsableField(Values, r, Cols.MtmCcy, Columns))
         If Len(Code) > 0 Then
@@ -1152,6 +1163,9 @@ Private Sub CheckContextCurrencies( _
         ElseIf Not Known.CurrencyUsed(SlotOf(Known.CurrencyKeys, Known.CurrencyUsed, Right$(Pair, 3))) Then
             AddFinding Result, Findings, CSV_CONTEXT_PAIR, Lines(r), r, "risk_factor", _
                        CORE_Engine.NoPairRateText(Right$(Pair, 3), Pair)
+        ElseIf Len(Notional) > 0 And Notional <> Left$(Pair, 3) And Notional <> Right$(Pair, 3) Then
+            AddFinding Result, Findings, CSV_CONTEXT_FX_NOTIONAL, Lines(r), r, "notional_currency", _
+                       CORE_Engine.FxNotionalText(Notional, Pair)
         End If
 
 End Sub

@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v1.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 33432    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 33823    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -408,6 +408,8 @@ Private Sub AppendPart5( _
         Page = Page & "<tr><td><code>currency</code></td><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the n"
         Page = Page & "otional currency.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>pair</code></td><td><code>CSV-CONTEXT-PAIR</code></td><td>Both currencies of an FX pair have a rate in the FX table.</td></tr>" & vbLf
+        Page = Page & "<tr><td><code>fx-notional</code></td><td><code>CSV-CONTEXT-FX-NOTIONAL</code></td><td>Once both currencies of an FX pair have a rate, the notional currency, or the reporting currency when it is blank,"
+        Page = Page & " is one of them.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>factor</code></td><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA.</td></"
         Page = Page & "tr>" & vbLf
         Page = Page & "<tr><td><code>regime</code></td><td><code>CSV-CONTEXT-REGIME</code></td><td>Under the netting set&#x27;s regime, its override or else the Params regime, OT is CRR-only and a factor row limited to a re"
@@ -431,8 +433,6 @@ Private Sub AppendPart5( _
         Page = Page & "<h2>Using the examples</h2>" & vbLf
         Page = Page & "<p>The examples are synthetic and hold no real portfolio data. The two belong together: each leg's netting set is in the NettingSets example. To try them, select the text of an example, copy it into a"
         Page = Page & " text editor, and save it as UTF-8 with the extension <code>.csv</code>; then import both files and validate them.</p>" & vbLf
-        Page = Page & "</section>" & vbLf
-        Page = Page & "<section id=""findings"">" & vbLf
 
 End Sub
 
@@ -442,6 +442,8 @@ Private Sub AppendPart6( _
 '
 '   Piece 6 of 6 of the page.
 '
+        Page = Page & "</section>" & vbLf
+        Page = Page & "<section id=""findings"">" & vbLf
         Page = Page & "<h2>Findings</h2>" & vbLf
         Page = Page & "<p>Every finding of the import and of the validation has one of these codes.</p>" & vbLf
         Page = Page & "<table>" & vbLf
@@ -480,6 +482,7 @@ Private Sub AppendPart6( _
         Page = Page & "<tr><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is not after the reporting date.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional or MtM currency has no rate in the FX table.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-CONTEXT-PAIR</code></td><td>A currency of the FX pair has no rate in the FX table.</td></tr>" & vbLf
+        Page = Page & "<tr><td><code>CSV-CONTEXT-FX-NOTIONAL</code></td><td>The notional currency, or the reporting currency when it is blank, is not a currency of the FX pair.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has no row for the asset class and sub-class.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-CONTEXT-REGIME</code></td><td>The asset class or its supervisory factor is not available under the netting set&#x27;s regime.</td></tr>" & vbLf
         Page = Page & "</tbody>" & vbLf

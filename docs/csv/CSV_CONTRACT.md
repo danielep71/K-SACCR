@@ -248,7 +248,7 @@ supervisory-factor table and the regime of each netting set, its
 `regime_override` or else the Params regime. They are the engine's own rules,
 and the engine and the workbook's reader share their code: `CORE_Engine`
 holds each rule and its message (`MaturedText`, `ExpiredText`, `ResetText`,
-`NoRateText`, `NoPairRateText`, `FactorKey`, `MissingFactorText`,
+`NoRateText`, `NoPairRateText`, `FxNotionalText`, `FactorKey`, `MissingFactorText`,
 `OtherRisksRegimeText`, `FactorRegimeText`), and both a run and
 `CheckContext` call them. The reference applies them with `check_context`.
 
@@ -259,6 +259,7 @@ holds each rule and its message (`MaturedText`, `ExpiredText`, `ResetText`,
 | `reset` | `CSV-CONTEXT-RESET` | An `STM` trade has its `next_reset_date` after the reporting date |
 | `currency` | `CSV-CONTEXT-CURRENCY` | The `notional_currency` and `market_value_currency` have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency, and is not reported |
 | `pair` | `CSV-CONTEXT-PAIR` | Both currencies of an `FX` pair in `risk_factor`, read as the engine reads it, have a rate; the first without one is reported |
+| `fx-notional` | `CSV-CONTEXT-FX-NOTIONAL` | Once both currencies of the pair have a rate, the `notional_currency` of an `FX` trade, or the reporting currency when it is blank, is one of them, in either order of the pair; reported on `notional_currency` |
 | `factor` | `CSV-CONTEXT-FACTOR` | The supervisory-factor table has the trade's key: `IR`, `FX` or `OT`, or else the asset class and sub-class, such as `CR_AAA`; a blank sub-class gives a key such as `CR_`, which no row has |
 | `regime` | `CSV-CONTEXT-REGIME` | Under the netting set's regime, `OT` is CRR-only, and else a factor row limited to one regime is that regime; an override other than `CRR` or `BCBS` reads as the Params regime, as in a run |
 
@@ -325,6 +326,7 @@ Each finding has a stable code, the physical line, the record and the column.
 | `CSV-CONTEXT-RESET` | An `STM` trade whose next reset is not after the reporting date |
 | `CSV-CONTEXT-CURRENCY` | A notional or MtM currency without a rate in the FX table |
 | `CSV-CONTEXT-PAIR` | A currency of an FX pair without a rate in the FX table |
+| `CSV-CONTEXT-FX-NOTIONAL` | An FX trade whose notional currency, or the reporting currency for a blank one, is not a currency of its pair |
 | `CSV-CONTEXT-FACTOR` | No row of the supervisory-factor table for the trade |
 | `CSV-CONTEXT-REGIME` | `OT`, or a factor row limited to a regime, under another regime |
 

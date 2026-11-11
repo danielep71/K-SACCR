@@ -43,8 +43,8 @@ Attribute VB_Name = "TEST_CsvReader"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 123    'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 316    'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 124    'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 317    'Checks in a complete run
         Private Const ROUND_TRIP_LAST_LINE As Long = 11    'Line of the last record of valid/trades.csv
         Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records=9"    'ReadCsv_Silent on it
         Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings=16; first=CSV-RANGE|2|1|attachment_rate"    'ReadCsv_Silent on invalid/trades-fields-and-rules.csv
@@ -155,6 +155,7 @@ Public Sub RunCsvReaderTests()
         Context10
         Context11
         Context12
+        Context13
         CaseUnknownKind
         CaseMissingFile
         CaseFileRoundTrip
@@ -4263,6 +4264,34 @@ End Sub
 
 
 Private Sub Context08()
+    'Context case context-fx-notional.
+    Dim HexText     As String    'The Trades file
+    Dim Expected    As String    'Its findings
+        HexText = "74726164655F69643B6E657474696E675F7365745F69643B61737365745F636C6173733B7375625F636C6173733B7269736B5F666163746F723B696E737472756D656E743B646972656374696F6E3B6F"
+        HexText = HexText & "7074696F6E5F747970653B6E61747572653B68656467696E675F7365745F6C6162656C3B6E6F74696F6E616C5F616D6F756E743B6E6F74696F6E616C5F63757272656E63793B6D61726B65745F76616C"
+        HexText = HexText & "75655F616D6F756E743B6D61726B65745F76616C75655F63757272656E63793B73746172745F646174653B656E645F646174653B6D617475726974795F646174653B6F7074696F6E5F6578706972795F"
+        HexText = HexText & "646174653B756E6465726C79696E675F70726963653B737472696B655F70726963653B6C616D6264615F70726963653B6174746163686D656E745F726174653B6465746163686D656E745F726174653B"
+        HexText = HexText & "65636F6E6F6D69635F74726164655F69643B6D746D5F6C65673B736574746C656D656E745F747970653B6E6578745F72657365745F646174653B636F6D6D656E740A54313B4E532D313B46583B3B5553"
+        HexText = HexText & "442F4742503B4C696E6561723B4C6F6E673B3B3B3B313030303B4555523B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54323B4E532D313B46583B3B55"
+        HexText = HexText & "53442F4742503B4C696E6561723B4C6F6E673B3B3B3B313030303B3B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54333B4E532D313B46583B3B555344"
+        HexText = HexText & "2F4555523B4C696E6561723B4C6F6E673B3B3B3B313030303B5553443B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54343B4E532D313B46583B3B4742"
+        HexText = HexText & "502D5553443B4C696E6561723B4C6F6E673B3B3B3B313030303B4742503B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54353B4E532D313B46583B3B45"
+        HexText = HexText & "55522F4A50593B4C696E6561723B4C6F6E673B3B3B3B313030303B5553443B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54363B4E532D313B46583B3B"
+        HexText = HexText & "4555522F5553443B4C696E6561723B4C6F6E673B3B3B3B313030303B45553B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54373B4E532D313B49523B3B"
+        HexText = HexText & "4555523B4C696E6561723B4C6F6E673B3B3B3B313030303B4742503B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A54383B4E532D313B46583B3B455552"
+        HexText = HexText & "4742503B4C696E6561723B4C6F6E673B3B3B3B313030303B3B303B3B3B323033312D30312D30323B323033312D30312D30323B3B3B3B3B3B3B3B3B3B3B0A"
+        Expected = ""
+        Expected = "CSV-CONTEXT-FX-NOTIONAL|2|1|notional_currency"
+        Expected = Expected & vbLf & "CSV-CONTEXT-FX-NOTIONAL|3|2|notional_currency"
+        Expected = Expected & vbLf & "CSV-CONTEXT-PAIR|6|5|risk_factor"
+        RunContextCase "context-fx-notional", HexText, "2026-06-30", "EUR", _
+                       "CRR", "EUR|USD|GBP", "IR=|FX=|CR_AAA=|EQ_SINGLE=|CO_POWER=BCBS|CO_CLIMATIC=CRR|OT=CRR", "NS-1=|NS-2=BCBS|NS-3=CRR", _
+                       False, Expected
+
+End Sub
+
+
+Private Sub Context09()
     'Context case context-factor.
     Dim HexText     As String    'The Trades file
     Dim Expected    As String    'Its findings
@@ -4284,7 +4313,7 @@ Private Sub Context08()
 End Sub
 
 
-Private Sub Context09()
+Private Sub Context10()
     'Context case context-regime.
     Dim HexText     As String    'The Trades file
     Dim Expected    As String    'Its findings
@@ -4310,7 +4339,7 @@ Private Sub Context09()
 End Sub
 
 
-Private Sub Context10()
+Private Sub Context11()
     'Context case context-params-bcbs.
     Dim HexText     As String    'The Trades file
     Dim Expected    As String    'Its findings
@@ -4330,7 +4359,7 @@ Private Sub Context10()
 End Sub
 
 
-Private Sub Context11()
+Private Sub Context12()
     'Context case context-factor-only.
     Dim HexText     As String    'The Trades file
     Dim Expected    As String    'Its findings
@@ -4349,7 +4378,7 @@ Private Sub Context11()
 End Sub
 
 
-Private Sub Context12()
+Private Sub Context13()
     'Context case context-blank-id.
     Dim HexText     As String    'The Trades file
     Dim Expected    As String    'Its findings

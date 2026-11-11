@@ -841,6 +841,11 @@
       "description": "Existing CSV contract diagnostic; meaning unchanged.",
       "status": "active"
     },
+    "CSV-CONTEXT-FX-NOTIONAL": {
+      "constant": "CSV_CONTEXT_FX_NOTIONAL",
+      "description": "The notional currency of an FX trade, or the reporting currency when it is blank, is not a currency of its pair (#678).",
+      "status": "active"
+    },
     "CSV-CONTEXT-FACTOR": {
       "constant": "CSV_CONTEXT_FACTOR",
       "description": "Existing CSV contract diagnostic; meaning unchanged.",

@@ -1170,8 +1170,9 @@ Private Sub CaseValidateContext()
 '   Staged legs judged against Params (#209): T1 is valid; T2 has
 '   matured, its maturity not after the reporting date; T3 is in SEK,
 '   which has no FX rate; T4 is an OT leg of NS-T3, whose override is
-'   BCBS. The validation is INVALID with three findings, in that order,
-'   each on its staged cell, which is marked; Import_NettingSets is VALID
+'   BCBS; T5 is an FX leg on USD/GBP with its notional in EUR, outside the
+'   pair (#678). The validation is INVALID with four findings, in that
+'   order, each on its staged cell, which is marked; Import_NettingSets is VALID
 '   and Import_Trades INVALID; the counters of the last run are as they
 '   were; and an INVALID validation does not read as current.
 '==============================================================================
@@ -1184,6 +1185,7 @@ Private Sub CaseValidateContext()
     Dim Maturity        As Range     'Maturity of T2
     Dim NotionalCcy     As Range     'Notional currency of T3
     Dim AssetClass      As Range     'Asset class of T4
+    Dim FxNotionalCcy   As Range     'Notional currency of T5
     Dim CountersBefore  As String    'Errors, warnings and trades read of the last run
 
 '------------------------------------------------------------------------------
@@ -1196,22 +1198,26 @@ Private Sub CaseValidateContext()
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & _
                  Replace(TradeRow("T2", "1000", ""), ";2031-01-02;2031-01-02;", ";2026-01-02;2026-01-02;") & vbLf & _
                  Replace(TradeRow("T3", "1000", ""), ";1000;EUR;", ";1000;SEK;") & vbLf & _
-                 Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf
+                 Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf & _
+                 Replace(TradeRow("T5", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T1;FX;;USD/GBP;") & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         Set Maturity = StagingCell(KIND_TR, 2, COL_TR_MATURITY)
         Set NotionalCcy = StagingCell(KIND_TR, 3, COL_TR_NCCY)
         Set AssetClass = StagingCell(KIND_TR, 4, COL_TR_CLASS)
+        Set FxNotionalCcy = StagingCell(KIND_TR, 5, COL_TR_NCCY)
         CountersBefore = RunCounters()
         ResultLine = M_Main.ValidateStaging_Silent()
-        CheckText "result", ResultLine, "RESULT=INVALID; errors=3; nettingsets=3; trades=4; first=CSV-CONTEXT-MATURED|" & _
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=4; nettingsets=3; trades=5; first=CSV-CONTEXT-MATURED|" & _
                   SH_IMPORT_TR & "!" & Maturity.Address(False, False)
         CheckText "findings", FindingCode(2) & "|" & ChecksValue(2, 4) & "|" & FindingCode(3) & "|" & ChecksValue(3, 4) & _
-                  "|" & FindingCode(4) & "|" & ChecksValue(4, 4), "CSV-CONTEXT-MATURED|" & Maturity.Address(False, False) & _
+                  "|" & FindingCode(4) & "|" & ChecksValue(4, 4) & "|" & FindingCode(5) & "|" & ChecksValue(5, 4), _
+                  "CSV-CONTEXT-MATURED|" & Maturity.Address(False, False) & _
                   "|CSV-CONTEXT-CURRENCY|" & NotionalCcy.Address(False, False) & "|CSV-CONTEXT-REGIME|" & _
-                  AssetClass.Address(False, False)
-        TEST_Kit.Check Len(ChecksValue(5, 1)) = 0, "a fifth Checks line: " & ChecksValue(5, 5)
+                  AssetClass.Address(False, False) & "|CSV-CONTEXT-FX-NOTIONAL|" & FxNotionalCcy.Address(False, False)
+        TEST_Kit.Check Len(ChecksValue(6, 1)) = 0, "a sixth Checks line: " & ChecksValue(6, 5)
         TEST_Kit.Check Maturity.Interior.Color = ERROR_FILL And NotionalCcy.Interior.Color = ERROR_FILL And _
-                       AssetClass.Interior.Color = ERROR_FILL, "the cells are not marked"
+                       AssetClass.Interior.Color = ERROR_FILL And FxNotionalCcy.Interior.Color = ERROR_FILL, _
+                       "the cells are not marked"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
         CheckText "counters of the last run", RunCounters(), CountersBefore
         TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "an INVALID validation reads as current"

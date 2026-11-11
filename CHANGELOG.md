@@ -243,6 +243,20 @@ Use only the categories needed by a release.
   `TEST_Aggregation` and the benchmark portfolio, all under CRR, use credit
   quality steps with the same factors.
 
+- Reject in the CSV checks an FX trade whose notional currency is not a
+  currency of its pair (#678). A run rejects such a trade (`TR-FX-NOTIONAL`),
+  but the CSV checks did not know the rule, so the trade passed the import,
+  the staging validation and the commit, and failed only at the run. The new
+  context rule `fx-notional`, code `CSV-CONTEXT-FX-NOTIONAL`, reports it on
+  `notional_currency` once both currencies of the pair have a rate; a blank
+  notional currency is the reporting currency, and the pair is read as the
+  engine reads it, in either order. `tools/csv_contract.py`, the workbook's
+  reader and so the staging validation judge it alike, with the engine's
+  message, now held in `CORE_Engine.FxNotionalText`. The engine rule and its
+  message do not change. `tests/csv/context.json` gains the case
+  `context-fx-notional` (`TEST_CsvReader` has 124 cases and 317 checks), and
+  the `validate.context` case of `TEST_Import` stages such a trade.
+
 ### Documentation
 
 - The website's download buttons, checksum link, status line, certification

@@ -205,6 +205,7 @@
     "CSV-CONTEXT-RESET": "The next reset date of an STM trade is not after the reporting date.",
     "CSV-CONTEXT-CURRENCY": "The notional or MtM currency has no rate in the FX table.",
     "CSV-CONTEXT-PAIR": "A currency of the FX pair has no rate in the FX table.",
+    "CSV-CONTEXT-FX-NOTIONAL": "The notional currency, or the reporting currency when it is blank, is not a currency of the FX pair.",
     "CSV-CONTEXT-FACTOR": "The supervisory-factor table has no row for the asset class and sub-class.",
     "CSV-CONTEXT-REGIME": "The asset class or its supervisory factor is not available under the netting set's regime."
   },
@@ -234,6 +235,8 @@
      "description": "The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency."},
     {"id": "pair", "code": "CSV-CONTEXT-PAIR", "columns": ["asset_class", "risk_factor"],
      "description": "Both currencies of an FX pair have a rate in the FX table."},
+    {"id": "fx-notional", "code": "CSV-CONTEXT-FX-NOTIONAL", "columns": ["asset_class", "risk_factor", "notional_currency"],
+     "description": "Once both currencies of an FX pair have a rate, the notional currency, or the reporting currency when it is blank, is one of them."},
     {"id": "factor", "code": "CSV-CONTEXT-FACTOR", "columns": ["asset_class", "sub_class"],
      "description": "The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA."},
     {"id": "regime", "code": "CSV-CONTEXT-REGIME", "columns": ["netting_set_id", "asset_class", "sub_class"],
