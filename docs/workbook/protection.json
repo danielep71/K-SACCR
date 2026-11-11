@@ -9,11 +9,11 @@
       "unlocked_cells": ["E6", "E7", "E23", "C58:E257"],
       "notes": "AsOfDate, ReportingCcy, Regime and the FX table, with rows below it for added currencies, are configuration. Every other value is a reference regulatory parameter, changed only after a maintenance unlock; a run on changed values stays WHAT-IF, except DaysPerYear and IRBucketOffset, conventions that do not change the run class."
     },
-    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:S", "first_row": 7}, "allow": ["sorting", "inserting_rows"]},
+    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:T", "first_row": 7}, "allow": ["sorting", "inserting_rows"]},
     "Trades": {"role": "Input", "unlocked_columns": {"columns": "C:AD", "first_row": 5}, "allow": ["sorting", "filtering", "inserting_rows"]},
     "Import_NettingSets": {
       "role": "Staging",
-      "unlocked_columns": {"columns": "D:T", "first_row": 10},
+      "unlocked_columns": {"columns": "D:U", "first_row": 10},
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },

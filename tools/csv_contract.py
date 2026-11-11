@@ -152,7 +152,17 @@ def parse(text: str) -> tuple[list[Record], list[Finding]]:
     return records, []
 
 
-def check_header(header: Record, names: list[str]) -> list[Finding]:
+def earlier_columns(spec: dict[str, Any]) -> list[list[str]]:
+    """The column sets of the earlier versions of a file that are still read: a column they lack reads as blank."""
+    return [list(version["columns"]) for version in spec.get("earlier_versions", [])]
+
+
+def check_header(header: Record, names: list[str], earlier: list[list[str]] | None = None) -> list[Finding]:
+    """The findings about a header against the contract's columns. A header that is exactly the column set of
+    an earlier version, each column once in any order, has none: the version is told by the whole set."""
+    if len(set(header.fields)) == len(header.fields) and \
+            any(set(header.fields) == set(columns) for columns in earlier or []):
+        return []
     if len(header.fields) == 1:
         # One field that holds another dialect's delimiter: a file of that dialect, not one unknown column.
         for other, shown in OTHER_DELIMITERS.items():
@@ -353,7 +363,7 @@ def validate_records(data: bytes, kind: str, contract: dict[str, Any],
         return [], findings or [Finding("CSV-EMPTY", 1, 0, "", "the file has no header record")]
     header, body = records[0], records[1:]
     # A header error stops reading: nothing found in the body is reported with it.
-    header_findings = check_header(header, names)
+    header_findings = check_header(header, names, earlier_columns(spec))
     if header_findings:
         return [], header_findings
     limit = spec["max_records"] if max_records is None else max_records
@@ -371,7 +381,8 @@ def validate_records(data: bytes, kind: str, contract: dict[str, Any],
             findings.append(Finding("CSV-FIELD-COUNT", record.line, index, "",
                                     f"{len(record.fields)} fields, the header has {len(header.fields)}"))
             continue
-        ordered = Record([dict(zip(header.fields, record.fields))[name] for name in names], record.line)
+        values = dict(zip(header.fields, record.fields))
+        ordered = Record([values.get(name, "") for name in names], record.line)
         findings += check_record(ordered, index, names, columns, spec, contract["types"])
         if any(ordered.fields):  # A blank record is reported, never kept (#467).
             rows.append((index, record, dict(zip(names, ordered.fields))))
@@ -636,6 +647,16 @@ def template_text(kind: str, contract: dict[str, Any]) -> str:
     return DELIMITER.join(column["name"] for column in contract["files"][kind]["columns"]) + "\n"
 
 
+def templates(contract: dict[str, Any]) -> list[tuple[str, str]]:
+    """Every blank template, (file name, text): each file's current one, and those of its earlier versions,
+    kept for the files written to them."""
+    found = [(spec["template"], template_text(kind, contract)) for kind, spec in contract["files"].items()]
+    for spec in contract["files"].values():
+        found += [(version["template"], DELIMITER.join(version["columns"]) + "\n")
+                  for version in spec.get("earlier_versions", [])]
+    return found
+
+
 def describe_type(column: dict[str, Any], types: dict[str, Any]) -> str:
     kind = str(column["type"])
     if kind == "code":
@@ -675,10 +696,10 @@ def with_tables(text: str, contract: dict[str, Any]) -> str:
 
 def template_findings(root: Path, contract: dict[str, Any]) -> list[str]:
     findings: list[str] = []
-    for kind, spec in contract["files"].items():
-        path = root / TEMPLATES / spec["template"]
-        if not path.is_file() or path.read_bytes() != template_text(kind, contract).encode("ascii"):
-            findings.append(f"{TEMPLATES}/{spec['template']} is not what the contract generates; "
+    for name, text in templates(contract):
+        path = root / TEMPLATES / name
+        if not path.is_file() or path.read_bytes() != text.encode("ascii"):
+            findings.append(f"{TEMPLATES}/{name} is not what the contract generates; "
                             "run python tools/csv_contract.py --write-templates")
     document = (root / DOCUMENT).read_text(encoding="utf-8")
     if with_tables(document, contract) != document:
@@ -696,10 +717,10 @@ def main() -> int:
     args = parser.parse_args()
     contract = load_contract(args.root)
     if args.write_templates:
-        for kind, spec in contract["files"].items():
-            path = args.root / TEMPLATES / spec["template"]
+        for name, text in templates(contract):
+            path = args.root / TEMPLATES / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(template_text(kind, contract).encode("ascii"))
+            path.write_bytes(text.encode("ascii"))
             print(f"wrote {path.relative_to(args.root).as_posix()}")
         document = args.root / DOCUMENT
         document.write_text(with_tables(document.read_text(encoding="utf-8"), contract), encoding="utf-8")

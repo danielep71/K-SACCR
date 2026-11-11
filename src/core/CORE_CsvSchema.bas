@@ -33,7 +33,7 @@ Attribute VB_Name = "CORE_CsvSchema"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Public Const CSV_CONTRACT_VERSION As Long = 1    'Contract version
+        Public Const CSV_CONTRACT_VERSION As Long = 2    'Contract version
         Public Const CSV_DELIMITER        As String = ";"    'Field separator
         Public Const CSV_MAX_BYTES        As Long = 134217728    'Largest file, in bytes
         Public Const CSV_MAX_DIGITS       As Long = 15    'Significant digits of a number
@@ -84,6 +84,8 @@ Attribute VB_Name = "CORE_CsvSchema"
             Key                 As String     'Column whose values must be unique
             ReservedKeys        As String     'Keys a record may not use
             MaxRecords          As Long       'Records per file
+            Version             As Long       'Version of the file: its column set
+            EarlierColumns      As String     'Earlier versions' column sets still read: "|"-joined, space-separated
             ColumnCount         As Long       'Number of columns
             RuleCount           As Long       'Number of rules
         End Type
@@ -110,8 +112,10 @@ Public Function CsvSpecOf( _
                 Spec.Key = "netting_set_id"
                 Spec.ReservedKeys = "TOTAL|TOTAL CRR|TOTAL BCBS"
                 Spec.MaxRecords = 10000
-                Spec.ColumnCount = 17
-                ReDim Columns(1 To 17)
+                Spec.Version = 2
+                Spec.EarlierColumns = "netting_set_id|counterparty|margined|clearing_role|remargin_period_business_days|large_or_illiquid|margin_disputes|mpor_override_business_days|variation_margin_net_amount|independent_collateral_net_amount|threshold_amount|minimum_transfer_amount|alpha_factor|regime_override|margin_agreements|qccp|ccp_retains_variation_margin"
+                Spec.ColumnCount = 18
+                ReDim Columns(1 To 18)
                 SetColumn Columns(1), "netting_set_id", "id", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(2), "counterparty", "text", False, "", False, 0, False, 0, False, 0
                 SetColumn Columns(3), "margined", "flag", False, "Y|N", False, 0, False, 0, False, 0
@@ -129,6 +133,7 @@ Public Function CsvSpecOf( _
                 SetColumn Columns(15), "margin_agreements", "code", False, "MIXED|SHARED", False, 0, False, 0, False, 0
                 SetColumn Columns(16), "qccp", "flag", False, "Y|N", False, 0, False, 0, False, 0
                 SetColumn Columns(17), "ccp_retains_variation_margin", "flag", False, "Y|N", False, 0, False, 0, False, 0
+                SetColumn Columns(18), "counterparty_sector", "code", False, "CB|GG|CI|OFC|NFC|HH", False, 0, False, 0, False, 0
                 Spec.RuleCount = 1
                 ReDim Rules(1 To 1)
                 SetRule Rules(1), "ccp-flags", "when", "clearing_role", "CCP", "qccp|ccp_retains_variation_margin", "qccp|ccp_retains_variation_margin", "", "", "clearing_role|qccp|ccp_retains_variation_margin"
@@ -139,6 +144,8 @@ Public Function CsvSpecOf( _
                 Spec.Key = "trade_id"
                 Spec.ReservedKeys = ""
                 Spec.MaxRecords = 100000
+                Spec.Version = 1
+                Spec.EarlierColumns = ""
                 Spec.ColumnCount = 28
                 ReDim Columns(1 To 28)
                 SetColumn Columns(1), "trade_id", "id", True, "", False, 0, False, 0, False, 0

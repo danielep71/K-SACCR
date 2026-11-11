@@ -124,8 +124,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 38                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 227                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 39                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 236                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const SPEC_FILE         As String = "K-SACCR_import_spec_test.html"   'Specification in TEMP
@@ -134,16 +134,17 @@ Attribute VB_Name = "TEST_Import"
         Private Const KIND_TR           As Long = 2                            'Import_Trades
     'Synthetic records: two netting sets, a third with the regime override
     'BCBS, and a trade leg of NS-T1 whose ID, notional and comment each
-    'case chooses.
-        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;"
-        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;"
-        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;"
+    'case chooses. The first and third have a counterparty sector (#674).
+        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;;CI"
+        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;;"
+        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;;NFC"
     'Table columns of the staging block: the CSV line, then the contract's.
         Private Const COL_LINE          As Long = 1     'CSV line
         Private Const COL_ID            As Long = 2     'trade_id or netting_set_id
         Private Const COL_TR_NS         As Long = 3     'netting_set_id of a leg
         Private Const COL_TR_CLASS      As Long = 4     'asset_class
         Private Const COL_NS_REMARGIN   As Long = 6     'remargin_period_business_days
+        Private Const COL_NS_SECTOR     As Long = 19    'counterparty_sector
         Private Const COL_TR_NOTIONAL   As Long = 12    'notional_amount
         Private Const COL_TR_NCCY       As Long = 13    'notional_currency
         Private Const COL_TR_MATURITY   As Long = 18    'maturity_date
@@ -276,6 +277,7 @@ Public Sub RunImportTests()
         CaseCommitTradesOnly
         CaseCommitTrailingFormula
         CaseCommitNettingSetsOnly
+        CaseCommitSector
         CaseSpecExport
         CaseSpecExamples
         CaseValidateRecalc
@@ -1464,7 +1466,7 @@ Private Sub CaseValidateLiveContext()
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "validate.live-context"
-        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;" & vbLf
+        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;;" & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
@@ -1917,6 +1919,110 @@ Unexpected:
         PutBackLive
 
 End Sub
+
+
+Private Sub CaseCommitSector()
+'
+'==============================================================================
+' PURPOSE
+'   The counterparty sector (#674). The page's example files are validated
+'   and committed: NettingSets has the example's sectors, CI and NFC, and
+'   none for the CCP. The NettingSets example is then written as a
+'   version 1 file, without the sector column: it is loaded with no
+'   finding and its staged sectors are blank; with a Trades file of its
+'   header only, the validation is VALID and the commit leaves every
+'   sector blank. The suite then puts the input sheets back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine    As String       'What a call returned
+    Dim Before        As String       'Input sheets and run names before
+    Dim NsSheet       As Worksheet    'NettingSets
+    Dim First         As Long         'First input row of NettingSets
+    Dim Sectors       As String       'The three sectors, joined
+
+'------------------------------------------------------------------------------
+' VERSION 2: THE SECTORS ARE COMMITTED
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "commit.netting-sets-sector"
+        Before = LiveInputsText()
+        Set NsSheet = GetSheet(SH_NS)
+        First = TableFirstRow(SH_NS)
+        WriteCsv CORE_ImportSpec.ImportSpecExample("NettingSets")
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CORE_ImportSpec.ImportSpecExample("Trades")
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=3; trades=5"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=3; trades=5"
+        Sectors = CStr(TableCell(NsSheet, First, NS_SECTOR).Value2) & "|" & _
+                  CStr(TableCell(NsSheet, First + 1, NS_SECTOR).Value2) & "|" & _
+                  CStr(TableCell(NsSheet, First + 2, NS_SECTOR).Value2)
+        CheckText "committed sectors", Sectors, "CI|NFC|"
+
+'------------------------------------------------------------------------------
+' VERSION 1: READ WITH THE SECTOR BLANK
+'------------------------------------------------------------------------------
+        WriteCsv WithoutLastColumn(CORE_ImportSpec.ImportSpecExample("NettingSets"))
+        ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
+        CheckText "version 1 load", ResultLine, "RESULT=LOADED; records=3; findings=0; file=" & mTestFile
+        Sectors = CStr(CellValue(KIND_NS, 1, COL_NS_SECTOR)) & "|" & CStr(CellValue(KIND_NS, 2, COL_NS_SECTOR)) & _
+                  "|" & CStr(CellValue(KIND_NS, 3, COL_NS_SECTOR))
+        CheckText "staged sectors", Sectors, "||"
+        WriteCsv CSV_TR_HEADER & vbLf
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "version 1 validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=3; trades=0"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "version 1 commit", ResultLine, "RESULT=COMMITTED; nettingsets=3; trades=0"
+        Sectors = CStr(TableCell(NsSheet, First, NS_SECTOR).Value2) & "|" & _
+                  CStr(TableCell(NsSheet, First + 1, NS_SECTOR).Value2) & "|" & _
+                  CStr(TableCell(NsSheet, First + 2, NS_SECTOR).Value2)
+        CheckText "sectors after the version 1 commit", Sectors, "||"
+        PutBackLive
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Function WithoutLastColumn( _
+    ByVal Text As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Text, a CSV file whose last column is never quoted, without that
+'   column: each line up to its last semicolon.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Lines   As Variant    'The lines of Text
+    Dim i       As Long       'Line counter
+
+'------------------------------------------------------------------------------
+' CUT
+'------------------------------------------------------------------------------
+        Lines = Split(Text, vbLf)
+        For i = 0 To UBound(Lines)
+            If InStr(1, Lines(i), ";", vbBinaryCompare) > 0 Then
+                Lines(i) = Left$(Lines(i), InStrRev(Lines(i), ";") - 1)
+            End If
+        Next i
+        WithoutLastColumn = Join(Lines, vbLf)
+
+End Function
 
 
 Private Sub CaseCommitNettingSetsOnly()

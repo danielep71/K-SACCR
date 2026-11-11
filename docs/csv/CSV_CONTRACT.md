@@ -1,10 +1,12 @@
 # CSV input contract
 
-This document specifies version 1 of the two CSV files that carry the inputs of
-the `NettingSets` and `Trades` sheets: what a file must contain, how each field
-is written and read, and how a file is rejected. It is the contract for the
-CSV import of v1.1.0 (#206). Parsing, staging, validation and commit are built
-on it in #207 to #211.
+This document specifies version 2 of the contract for the two CSV files that
+carry the inputs of the `NettingSets` and `Trades` sheets: what a file must
+contain, how each field is written and read, and how a file is rejected. It
+covers NettingSets files of version 2, which still reads version 1 files, and
+Trades files of version 1. The contract came with the CSV import of v1.1.0
+(#206); parsing, staging, validation and commit are built on it in #207 to
+#211, and NettingSets version 2 adds the counterparty sector (#674).
 
 The machine-readable contract is [`contract.json`](contract.json). The field
 tables below are generated from it, and
@@ -17,12 +19,14 @@ workbook exports, this document's tables and the
 
 ## 📄 Files and templates
 
-| File | Sheet | Key | Blank template |
-| --- | --- | --- | --- |
-| NettingSets | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv) |
-| Trades | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| File | Version | Sheet | Key | Blank template |
+| --- | --- | --- | --- | --- |
+| NettingSets | 2 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv) |
+| Trades | 1 | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
 
-A template is the header record alone. Each CSV column maps to exactly one
+A template is the header record alone. The version 1 NettingSets template,
+[`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv), is kept
+for the files written to it, which are still read. Each CSV column maps to exactly one
 column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
@@ -76,10 +80,26 @@ CSV dialect, such as Excel's comma-separated save: it gets one
 There are no optional columns: an optional field is a column whose value may
 be blank.
 
-The column set is the schema version. These are the version 1 files, and the
-templates carry `_v1` in their name. A later version that adds, removes or
-renames a column is a new contract with its own templates; a file is never
-mapped to a contract by guessing what a column means.
+The column set is the file's schema version, and a template carries its
+version in its name. A later version that adds, removes or renames a column is
+a new version with its own template; a file is never mapped to a version by
+guessing what a column means.
+
+| File | Version | Change |
+| --- | --- | --- |
+| NettingSets | 1 | The 17 columns from `netting_set_id` to `ccp_retains_variation_margin` (v1.1.0) |
+| NettingSets | 2 | Adds `counterparty_sector`, last (#674) |
+| Trades | 1 | The 28 columns (v1.1.0) |
+
+A file is read as an earlier version only when its header is exactly that
+version's column set, each column once, in any order. Version 1 NettingSets
+files are still read in this way: `counterparty_sector` is blank in each of
+their records, as if the column were present and empty. Any other header is
+judged against the current version, so a version 1 header with a column
+missing or added reports `counterparty_sector` as missing too. The contract
+lists each earlier version that is still read, with its columns and template
+(`earlier_versions` in `contract.json`); `CORE_CsvReader` and
+`tools/csv_contract.py` accept the same sets.
 
 ## 🔤 Value types
 
@@ -165,6 +185,7 @@ been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 | `margin_agreements` | Margin agreements (blank / MIXED / SHARED) | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
 | `qccp` | QCCP (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
 | `ccp_retains_variation_margin` | CCP retains VM, collateral not protected (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
+| `counterparty_sector` | Counterparty sector (CB / GG / CI / OFC / NFC / HH) | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
 <!-- END GENERATED: NettingSets -->
 
 Reserved keys: `TOTAL`, `TOTAL CRR` and `TOTAL BCBS`, in any case, label the

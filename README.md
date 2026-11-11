@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-472_cases_%C2%B7_2013_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-483_cases_%C2%B7_2053_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -173,7 +173,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (472 cases, 2013 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (483 cases, 2053 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -342,12 +342,12 @@ SACCR TEST SUMMARY 2026-11-09 22:53:57
   PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
   PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (28,3 s)
   PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (5,5 s)
-  PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (25,0 s)
+  PASS  TEST_InputValidation  cases=183; checks=321; failures=0; restore=PASS  (25,0 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
   PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (9,5 s)
-  PASS  TEST_CsvReader        cases=124; checks=317; failures=0; restore=PASS  (2,0 s)
-  PASS  TEST_Import           cases=38; checks=227; failures=0; restore=PASS  (30,2 s)
+  PASS  TEST_CsvReader        cases=132; checks=345; failures=0; restore=PASS  (2,0 s)
+  PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (30,2 s)
 RESULT=PASS; suites=10; passed=10; failed=0; seconds=105,3
 ```
 
@@ -385,7 +385,9 @@ BankNettingSets · BankTrades ────────────────�
    currency, or a broken name stops the run; a missing numeric parameter takes
    its regulatory default with a warning.
 2. **Netting sets.** Margining, collateral, threshold, MTA, clearing role and
-   MPOR inputs are read and checked.
+   MPOR inputs are read and checked, and so is the optional counterparty
+   sector (FINREP: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH`), which no SA-CCR
+   rule uses.
 3. **Trades.** Each trade gets its dates in years (S, E, M, T), adjusted
    notional, supervisory delta, maturity factor and effective notional. An
    invalid trade is excluded with all its reasons.
@@ -663,13 +665,13 @@ cross-check with a registered external implementation stays open in #100
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
 | `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 40 | 602 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 39 | 243 |
-| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 181 | 318 |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 183 | 321 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 124 | 317 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, and the output tables of committed rows against the same rows typed by hand | 38 | 227 |
-| **Total** | | **472** | **2013** |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 132 | 345 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
+| **Total** | | **483** | **2053** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -883,7 +885,7 @@ contracts for the derived expected values (#537) and new screenshots
 | [Wiki](https://github.com/danielep71/K-SACCR/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
-| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, its blank templates and the import through the staging sheets (since v1.1.0) |
+| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 2 (NettingSets version 2, Trades version 1), its blank templates and the import through the staging sheets (since v1.1.0) |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |

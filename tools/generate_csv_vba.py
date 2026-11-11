@@ -180,6 +180,8 @@ SCHEMA_TYPES = '''
             Key                 As String     'Column whose values must be unique
             ReservedKeys        As String     'Keys a record may not use
             MaxRecords          As Long       'Records per file
+            Version             As Long       'Version of the file: its column set
+            EarlierColumns      As String     'Earlier versions' column sets still read: "|"-joined, space-separated
             ColumnCount         As Long       'Number of columns
             RuleCount           As Long       'Number of rules
         End Type
@@ -286,6 +288,9 @@ def schema_module(contract: dict[str, Any]) -> str:
                   f'                Spec.Key = {vba_string(spec["key"])}',
                   f'                Spec.ReservedKeys = {vba_string(joined(spec.get("reserved_keys", [])))}',
                   f'                Spec.MaxRecords = {spec["max_records"]}',
+                  f'                Spec.Version = {spec["version"]}',
+                  f'                Spec.EarlierColumns = '
+                  f'{vba_string(" ".join(joined(v["columns"]) for v in spec.get("earlier_versions", [])))}',
                   f'                Spec.ColumnCount = {len(columns)}',
                   f'                ReDim Columns(1 To {len(columns)})']
         for index, column in enumerate(columns, start=1):

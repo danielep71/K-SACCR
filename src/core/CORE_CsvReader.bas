@@ -1849,13 +1849,15 @@ Private Function HeaderAccepted( _
 '   repeated or unknown name in header order, then each missing column in
 '   contract order. A header of one field that contains a comma or a tab
 '   is a file of another CSV dialect: it gets one CSV-DELIMITER finding
-'   instead.
+'   instead. A header that is exactly the column set of an earlier
+'   version of the file, each column once in any order, is accepted
+'   (#674): the version is told by the whole set, never by guessing.
 '
 ' RETURNS
 '   True when the header has no finding.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-11-11
 '==============================================================================
 '
 
@@ -1883,6 +1885,10 @@ Private Function HeaderAccepted( _
                 HeaderAccepted = False
                 Exit Function
             End If
+        End If
+        If IsEarlierHeader(Header, Spec) Then
+            HeaderAccepted = True
+            Exit Function
         End If
         ReDim Seen(1 To Spec.ColumnCount)
         For h = 0 To UBound(Header)
@@ -1916,6 +1922,71 @@ Private Function HeaderAccepted( _
 End Function
 
 
+Private Function IsEarlierHeader( _
+    ByRef Header As Variant, _
+    ByRef Spec As CsvSpec) _
+    As Boolean
+'
+'==============================================================================
+'                               IsEarlierHeader
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether the header names exactly the columns of an earlier version of
+'   the file (Spec.EarlierColumns), each once, in any order (#674).
+'
+' UPDATED
+'   2026-11-11
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Versions    As Variant    'The column sets of the earlier versions
+    Dim Names       As Variant    'The columns of one of them
+    Dim v           As Long       'Version counter
+    Dim h           As Long       'Header field counter
+    Dim Other       As Long       'Header field or name counter
+    Dim Matched     As Boolean    'Every field so far is one of Names, once
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        If Len(Spec.EarlierColumns) = 0 Then
+            Exit Function
+        End If
+        Versions = Split(Spec.EarlierColumns, " ")
+        For v = 0 To UBound(Versions)
+            Names = Split(Versions(v), "|")
+            Matched = (UBound(Names) = UBound(Header))
+            For h = 0 To UBound(Header)
+                If Not Matched Then
+                    Exit For
+                End If
+                For Other = 0 To h - 1
+                    If StrComp(Header(Other), Header(h), vbBinaryCompare) = 0 Then
+                        Matched = False
+                    End If
+                Next Other
+                If Matched Then
+                    Matched = False
+                    For Other = 0 To UBound(Names)
+                        If StrComp(Names(Other), Header(h), vbBinaryCompare) = 0 Then
+                            Matched = True
+                            Exit For
+                        End If
+                    Next Other
+                End If
+            Next h
+            If Matched Then
+                IsEarlierHeader = True
+                Exit Function
+            End If
+        Next v
+
+End Function
+
+
 Private Sub CheckBody( _
     ByRef RecordFields() As Variant, _
     ByRef RecordLines() As Long, _
@@ -1936,10 +2007,11 @@ Private Sub CheckBody( _
 '   then each field and the rules between fields (CheckRecord); then the
 '   keys across the records. Keeps each record with the header's field
 '   count in Values and Lines, in contract column order, except a record
-'   whose fields are all blank (#467).
+'   whose fields are all blank (#467). A column the header of an earlier
+'   version lacks is blank in every record (#674).
 '
 ' UPDATED
-'   2026-10-26
+'   2026-11-11
 '==============================================================================
 '
 
@@ -1947,7 +2019,7 @@ Private Sub CheckBody( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim Header      As Variant    'Header fields
-    Dim Position()  As Long       'Header position of each contract column
+    Dim Position()  As Long       'Header position of each contract column; -1 when absent
     Dim Fields      As Variant    'Fields of a record
     Dim Row()       As String     'One record in contract order
     Dim RowCount    As Long       'Records kept
@@ -1961,6 +2033,7 @@ Private Sub CheckBody( _
         Header = RecordFields(1)
         ReDim Position(1 To Spec.ColumnCount)
         For c = 1 To Spec.ColumnCount
+            Position(c) = -1
             For r = 0 To UBound(Header)
                 If StrComp(Header(r), Columns(c).ColumnName, vbBinaryCompare) = 0 Then
                     Position(c) = r
@@ -1987,7 +2060,11 @@ Private Sub CheckBody( _
                            (UBound(Fields) + 1) & " fields, the header has " & (UBound(Header) + 1)
             Else
                 For c = 1 To Spec.ColumnCount
-                    Row(c) = Fields(Position(c))
+                    If Position(c) < 0 Then
+                        Row(c) = ""
+                    Else
+                        Row(c) = Fields(Position(c))
+                    End If
                 Next c
                 If CheckRecord(Row, RecordLines(r), r - 1, Spec, Columns, Rules, Result, Findings) Then
                     RowCount = RowCount + 1
