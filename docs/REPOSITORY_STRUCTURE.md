@@ -61,6 +61,7 @@ tests/              verification source and test data
   expected/         expected results with their reference class
   csv/              synthetic CSV input files and their expected findings
   derivations/      separate Python derivations of illustrative expected values
+  accuracy-contracts.json  accuracy claimed per quantity family
 tools/              static checks, case generator, VBA synchronizer and
                     exporter, one-command Excel certification, Excel
                     evidence writer and validator
@@ -113,6 +114,7 @@ documents govern.
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
 | `tests/derivations/` | Separate implementations that compute expected values, cited in their `derivation` |
+| `tests/accuracy-contracts.json` | The [accuracy contracts](methodology/TEST_CASES.md#accuracy-contracts) of the quantity families |
 | `tests/csv/` | Synthetic CSV input files and their expected findings under the [CSV contract](csv/CSV_CONTRACT.md) |
 | `examples/modules/` | Example modules calling the public facade; created with the first example |
 

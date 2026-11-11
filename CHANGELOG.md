@@ -117,6 +117,21 @@ Use only the categories needed by a release.
   link of every sheet's bar with macros disabled, and counts only the cell
   links of Home. The Home sheet mentions the bar.
 
+- Run the derivations in `tests/derivations/` in `python tools/check.py`
+  (#537): the new `check_derivations` gate runs every script's `expected()`
+  and fails when a script and the expected file it produced disagree, when a
+  derived output is not recorded, when an output cites a script that does not
+  derive it, and when an illustrative output names no derivation. The
+  client-clearing script no longer returns its potential future exposure,
+  which no expected file records; the three scripts also return the
+  netting-set status their files record.
+
+- Add accuracy contracts for EAD, RC, PFE and the add-ons (#537) in
+  `tests/accuracy-contracts.json`: each states the claimed tolerance and
+  splits the cases that test it into calibration and held-out cases. The new
+  `check_accuracy_contracts` gate checks them against the expected files'
+  tolerances. See [accuracy contracts](docs/methodology/TEST_CASES.md#accuracy-contracts).
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
