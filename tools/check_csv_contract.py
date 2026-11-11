@@ -163,6 +163,28 @@ class Workbook:
         return found
 
 
+def version_findings(kind: str, spec: dict[str, Any], names: list[str]) -> list[str]:
+    """A file's version and template name, and each earlier version still read (#674): earlier, with its
+    own template, and a set of current columns that keeps every required one."""
+    findings: list[str] = []
+    if not isinstance(spec.get("version"), int) or spec["version"] < 1:
+        findings.append(f"{kind}: version must be a whole number from 1")
+    if not spec["template"].endswith(f"_v{spec.get('version')}.csv"):
+        findings.append(f"{kind}: template {spec['template']!r} does not end in _v{spec.get('version')}.csv")
+    for version in spec.get("earlier_versions", []):
+        label = f"{kind} version {version['version']}"
+        if not isinstance(version["version"], int) or not 1 <= version["version"] < spec.get("version", 0):
+            findings.append(f"{label}: not an earlier version")
+        if not version["template"].endswith(f"_v{version['version']}.csv"):
+            findings.append(f"{label}: template {version['template']!r} does not end in _v{version['version']}.csv")
+        if len(set(version["columns"])) != len(version["columns"]):
+            findings.append(f"{label}: a column repeats")
+        findings += [f"{label}: column {n!r} is not a current column" for n in version["columns"] if n not in names]
+        findings += [f"{label}: required column {c['name']!r} is missing" for c in spec["columns"]
+                     if c["required"] and c["name"] not in version["columns"]]
+    return findings
+
+
 def check_shape(contract: dict[str, Any]) -> list[str]:
     findings: list[str] = []
     if contract["format"]["delimiter"] != DELIMITER:
@@ -178,21 +200,7 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
                 findings.append(f"{kind}.{column['name']}: a code column needs allowed values")
         if spec["key"] not in names:
             findings.append(f"{kind}: key {spec['key']!r} is not a column")
-        if not isinstance(spec.get("version"), int) or spec["version"] < 1:
-            findings.append(f"{kind}: version must be a whole number from 1")
-        if not spec["template"].endswith(f"_v{spec.get('version')}.csv"):
-            findings.append(f"{kind}: template {spec['template']!r} does not end in _v{spec.get('version')}.csv")
-        for version in spec.get("earlier_versions", []):
-            label = f"{kind} version {version['version']}"
-            if not isinstance(version["version"], int) or not 1 <= version["version"] < spec.get("version", 0):
-                findings.append(f"{label}: not an earlier version")
-            if not version["template"].endswith(f"_v{version['version']}.csv"):
-                findings.append(f"{label}: template {version['template']!r} does not end in _v{version['version']}.csv")
-            if len(set(version["columns"])) != len(version["columns"]):
-                findings.append(f"{label}: a column repeats")
-            findings += [f"{label}: column {n!r} is not a current column" for n in version["columns"] if n not in names]
-            findings += [f"{label}: required column {c['name']!r} is missing" for c in spec["columns"]
-                         if c["required"] and c["name"] not in version["columns"]]
+        findings += version_findings(kind, spec, names)
         for rule in spec.get("row_rules", []):
             findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
                          for n in sorted(rule_columns(rule)) if n not in names]

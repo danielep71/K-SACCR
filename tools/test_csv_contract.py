@@ -341,6 +341,21 @@ class GateTests(unittest.TestCase):
         self.assertIn("context rule expired names unknown column 'no_such_column'", findings)
         self.assertIn("context rule 'currency' repeats", findings)
 
+    def test_versions_must_be_consistent(self) -> None:
+        def change(contract: dict[str, Any]) -> None:
+            netting_sets = contract["files"]["NettingSets"]
+            earlier = netting_sets["earlier_versions"][0]
+            earlier["columns"] = [n for n in earlier["columns"] if n != "netting_set_id"] + ["no_such_column"]
+            earlier["version"] = 2
+            contract["files"]["Trades"]["version"] = 3
+        self.edit_contract(change)
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("NettingSets version 2: not an earlier version", findings)
+        self.assertIn("NettingSets version 2: template 'K-SACCR_NettingSets_v1.csv' does not end in _v2.csv", findings)
+        self.assertIn("NettingSets version 2: column 'no_such_column' is not a current column", findings)
+        self.assertIn("NettingSets version 2: required column 'netting_set_id' is missing", findings)
+        self.assertIn("Trades: template 'K-SACCR_Trades_v1.csv' does not end in _v3.csv", findings)
+
     def test_allowed_values_must_match_the_template(self) -> None:
         self.edit_contract(lambda c: c["files"]["Trades"]["columns"][5]["allowed"].append("Swap"))
         self.assertTrue(any("instrument: allowed values" in f for f in gate.run_check(self.root)["findings"]))
