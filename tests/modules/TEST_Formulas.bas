@@ -18,8 +18,8 @@ Attribute VB_Name = "TEST_Formulas"
 '
 ' DEPENDENCIES
 '   SACCR_Formulas; M_Main.ProtectWorkbook, which protects the workbook
-'   structure again when the last case could not; and TEST_Suite.Say for
-'   the log lines. Expected values are hand calculations from the formulas
+'   structure again when the last case could not; and TEST_Kit for the
+'   suite lifecycle and the log lines (#536). Expected values are hand calculations from the formulas
 '   in the functions' headers; they check the contract, not the regulation.
 '
 ' WORKSHEET SAFETY
@@ -36,7 +36,7 @@ Attribute VB_Name = "TEST_Formulas"
 ' USAGE
 '   Import with the production modules, compile, then run
 '   TEST_Formulas.RunFormulaTests from the Immediate window. It ends with
-'   RESULT=PASS; cases=...; checks=...; failures=0.
+'   RESULT=PASS; cases=...; checks=...; failures=0; restore=PASS.
 '
 ' REFERENCE
 '   docs/PUBLIC_API.txt; CRE52.23, 52.34, 52.48, 52.52, 52.57, 52.61;
@@ -68,14 +68,6 @@ Attribute VB_Name = "TEST_Formulas"
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
-'------------------------------------------------------------------------------
-' MODULE STATE
-'------------------------------------------------------------------------------
-        Private mCaseCount      As Long      'Cases started
-        Private mCheckCount     As Long      'Checks evaluated
-        Private mFailureCount   As Long      'Failed checks and unexpected errors
-        Private mCurrentCase    As String    'Case being run, for messages
-
 
 '
 '------------------------------------------------------------------------------
@@ -98,10 +90,7 @@ Public Sub RunFormulaTests()
 '   2026-10-17
 '==============================================================================
 '
-        mCaseCount = 0
-        mCheckCount = 0
-        mFailureCount = 0
-        TEST_Suite.Say "SACCR FORMULA CONTRACT TESTS"
+        If Not TEST_Kit.BeginSuite("TEST_Formulas", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
 
         CaseSupervisoryDuration
         CaseMaturityFactor
@@ -113,15 +102,7 @@ Public Sub RunFormulaTests()
         CaseAggregationElements
         CaseWorksheetCells
 
-        If mCaseCount <> EXPECTED_CASES Then
-            Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
-        End If
-        If mCheckCount <> EXPECTED_CHECKS Then
-            Fail "suite", "expected " & EXPECTED_CHECKS & " checks, ran " & mCheckCount
-        End If
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
-                    "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount
+        TEST_Kit.EndSuite
 
 End Sub
 
@@ -143,7 +124,7 @@ Private Sub CaseSupervisoryDuration()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "supervisory-duration.domain"
+        TEST_Kit.BeginCase "supervisory-duration.domain"
         CheckError "E before S", xlErrNum, SACCR_SupervisoryDuration(2#, 1#)
         CheckError "E before S after the floor of S", xlErrNum, SACCR_SupervisoryDuration(-1#, -0.5)
         CheckError "negative floor", xlErrNum, SACCR_SupervisoryDuration(0#, 5#, -0.01)
@@ -153,7 +134,7 @@ Private Sub CaseSupervisoryDuration()
         CheckNear "E = S, floor 10/250", 0.04, SACCR_SupervisoryDuration(1#, 1#, 0.04), TOL
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -169,7 +150,7 @@ Private Sub CaseMaturityFactor()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "maturity-factor.domain"
+        TEST_Kit.BeginCase "maturity-factor.domain"
         CheckError "BDPerYear 0, unmargined", xlErrNum, SACCR_MaturityFactor(0.5, False, 10#, 10#, 0#)
         CheckError "BDPerYear negative, margined", xlErrNum, SACCR_MaturityFactor(0#, True, 10#, 10#, -250#)
         CheckError "MPOR 0, margined", xlErrNum, SACCR_MaturityFactor(0#, True, 0#)
@@ -183,7 +164,7 @@ Private Sub CaseMaturityFactor()
         CheckError "overflow of MinBD / BDPerYear", xlErrNum, SACCR_MaturityFactor(0.5, False, 10#, 1E+300, 1E-300)
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -197,7 +178,7 @@ Private Sub CaseLambdaThreshold()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "lambda-crr.threshold"
+        TEST_Kit.BeginCase "lambda-crr.threshold"
         CheckError "text threshold", xlErrValue, SACCR_LambdaCRR(-0.002, 0.001, True, "abc")
         CheckError "Boolean threshold", xlErrValue, SACCR_LambdaCRR(-0.002, 0.001, True, True)
         CheckError "negative threshold", xlErrNum, SACCR_LambdaCRR(-0.002, 0.001, True, -0.001)
@@ -211,7 +192,7 @@ Private Sub CaseLambdaThreshold()
 #End If
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -229,7 +210,7 @@ Private Sub CaseIREffectiveNotional()
     Dim EffectiveNotional   As Variant    'A result checked for being a small number
 
         On Error GoTo Unexpected
-        BeginCase "ir-effective-notional.correlations"
+        TEST_Kit.BeginCase "ir-effective-notional.correlations"
         CheckError "rho12 above 1", xlErrNum, SACCR_IREffectiveNotional(1#, 1#, 1#, 1.1, 0.7, 0.3)
         CheckError "rho13 below 0", xlErrNum, SACCR_IREffectiveNotional(1#, 1#, 1#, 0.7, 0.7, -0.1)
         CheckError "not a correlation matrix", xlErrNum, SACCR_IREffectiveNotional(1#, -1#, 1#, 1#, 1#, 0#)
@@ -240,16 +221,16 @@ Private Sub CaseIREffectiveNotional()
     'With all correlations 1 the form is (D1 + D2 + D3)^2, here 0 in exact
     'arithmetic but slightly negative in double precision.
         EffectiveNotional = SACCR_IREffectiveNotional(100000.1, 2.2, -100002.3, 1#, 1#, 1#)
-        Check Not IsError(EffectiveNotional), "rounding residual returned an error"
+        TEST_Kit.Check Not IsError(EffectiveNotional), "rounding residual returned an error"
         If Not IsError(EffectiveNotional) Then
-            Check CDbl(EffectiveNotional) >= 0# And CDbl(EffectiveNotional) < 0.01, _
-                  "rounding residual gave " & CStr(EffectiveNotional)
+            TEST_Kit.Check CDbl(EffectiveNotional) >= 0# And CDbl(EffectiveNotional) < 0.01, _
+                           "rounding residual gave " & CStr(EffectiveNotional)
         Else
-            Check False, "rounding residual gave no number"
+            TEST_Kit.Check False, "rounding residual gave no number"
         End If
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -263,7 +244,7 @@ Private Sub CaseMultiplier()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "multiplier.domain"
+        TEST_Kit.BeginCase "multiplier.domain"
         CheckError "floor 1", xlErrNum, SACCR_Multiplier(-20#, 282#, 1#)
         CheckError "floor above 1", xlErrNum, SACCR_Multiplier(-20#, 282#, 1.5)
         CheckError "negative floor", xlErrNum, SACCR_Multiplier(-20#, 282#, -0.01)
@@ -276,7 +257,7 @@ Private Sub CaseMultiplier()
         CheckNear "tiny add-on, V - C above 0: 1, no overflow", 1#, SACCR_Multiplier(1E+300, 1E-300), TOL
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -290,7 +271,7 @@ Private Sub CaseReplacementCost()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "replacement-cost.domain"
+        TEST_Kit.BeginCase "replacement-cost.domain"
         CheckError "margined, negative TH", xlErrNum, SACCR_ReplacementCost(5#, 10#, True, -1#, 10#, 2#)
         CheckError "margined, negative MTA", xlErrNum, SACCR_ReplacementCost(5#, 10#, True, 0#, -10#, 2#)
         CheckNear "unmargined ignores a negative TH", 70#, SACCR_ReplacementCost(100#, 30#, False, -1#, -1#), TOL
@@ -299,7 +280,7 @@ Private Sub CaseReplacementCost()
         CheckError "overflow of V - C", xlErrNum, SACCR_ReplacementCost(1E+308, -1E+308)
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -319,7 +300,7 @@ Private Sub CaseAggregationShapes()
     Dim CubeAddOns           As Variant    '1 x 1 x 1 array
 
         On Error GoTo Unexpected
-        BeginCase "factor-aggregation.shapes"
+        TEST_Kit.BeginCase "factor-aggregation.shapes"
         ReDim RowAddOns(1 To 1, 1 To 2)
         RowAddOns(1, 1) = 100#
         RowAddOns(1, 2) = 50#
@@ -351,7 +332,7 @@ Private Sub CaseAggregationShapes()
         CheckError "three dimensions", xlErrRef, SACCR_FactorAggregation(CubeAddOns, 0.5)
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -366,7 +347,7 @@ Private Sub CaseAggregationElements()
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "factor-aggregation.elements"
+        TEST_Kit.BeginCase "factor-aggregation.elements"
         CheckError "text add-on", xlErrValue, SACCR_FactorAggregation(Array(100#, "50"), Array(0.5, 0.8))
         CheckError "Boolean add-on", xlErrValue, SACCR_FactorAggregation(Array(100#, True), Array(0.5, 0.8))
         CheckError "text correlation", xlErrValue, SACCR_FactorAggregation(Array(100#, 50#), Array(0.5, "x"))
@@ -390,7 +371,7 @@ Private Sub CaseAggregationElements()
 #End If
         Exit Sub
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
 
@@ -410,7 +391,7 @@ Private Sub CaseWorksheetCells()
     Dim Structure      As Boolean      'The workbook structure was protected (#421)
 
         On Error GoTo Unexpected
-        BeginCase "worksheet.cells"
+        TEST_Kit.BeginCase "worksheet.cells"
         CallerAlerts = Application.DisplayAlerts
         CallerEvents = Application.EnableEvents
         Set CallerActive = ThisWorkbook.ActiveSheet
@@ -455,7 +436,7 @@ Private Sub CaseWorksheetCells()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RemoveTemporarySheet TempSheet, CallerAlerts, CallerEvents, CallerActive, Structure
 
 End Sub
@@ -492,7 +473,7 @@ Private Sub RemoveTemporarySheet( _
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not remove the temporary sheet: " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "could not remove the temporary sheet: " & Err.Description
         Application.DisplayAlerts = CallerAlerts
         Application.EnableEvents = CallerEvents
         If Structure Then M_Main.ProtectWorkbook
@@ -520,10 +501,10 @@ Private Sub CheckError( _
 '
     'Compare error with error: comparing a number with an error value raises.
         If IsError(Actual) Then
-            Check Actual = CVErr(ExpectedCode), CheckName & ": expected error " & ExpectedCode & _
-                  ", found " & CStr(Actual)
+            TEST_Kit.Check Actual = CVErr(ExpectedCode), CheckName & ": expected error " & ExpectedCode & _
+                           ", found " & CStr(Actual)
         Else
-            Check False, CheckName & ": expected error " & ExpectedCode & ", found " & DescribeResult(Actual)
+            TEST_Kit.Check False, CheckName & ": expected error " & ExpectedCode & ", found " & DescribeResult(Actual)
         End If
 
 End Sub
@@ -541,10 +522,10 @@ Private Sub CheckNear( _
 '==============================================================================
 '
         If IsError(Actual) Or Not IsNumeric(Actual) Or VarType(Actual) = vbBoolean Or IsEmpty(Actual) Then
-            Check False, CheckName & ": expected " & CStr(Expected) & ", found " & DescribeResult(Actual)
+            TEST_Kit.Check False, CheckName & ": expected " & CStr(Expected) & ", found " & DescribeResult(Actual)
         Else
-            Check Abs(CDbl(Actual) - Expected) <= Tolerance, CheckName & ": expected " & CStr(Expected) & _
-                  ", found " & CStr(Actual)
+            TEST_Kit.Check Abs(CDbl(Actual) - Expected) <= Tolerance, CheckName & ": expected " & CStr(Expected) & _
+                           ", found " & CStr(Actual)
         End If
 
 End Sub
@@ -568,50 +549,3 @@ Private Function DescribeResult( _
         End If
 
 End Function
-
-
-Private Sub BeginCase( _
-    ByVal CaseName As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a case and print its CASE line.
-'==============================================================================
-'
-        mCaseCount = mCaseCount + 1
-        mCurrentCase = CaseName
-        TEST_Suite.Say "CASE=" & CaseName
-
-End Sub
-
-
-Private Sub Check( _
-    ByVal Passed As Boolean, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count one check and record it when it fails.
-'==============================================================================
-'
-        mCheckCount = mCheckCount + 1
-        If Not Passed Then
-            Fail mCurrentCase, Detail
-        End If
-
-End Sub
-
-
-Private Sub Fail( _
-    ByVal CaseName As String, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a failure and print it.
-'==============================================================================
-'
-        mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
-
-End Sub

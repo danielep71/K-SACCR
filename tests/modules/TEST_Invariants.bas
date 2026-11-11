@@ -143,7 +143,7 @@ Public Sub RunInvariantTests()
 '------------------------------------------------------------------------------
 ' RELATIONS ON THE DEMO PORTFOLIO
 '------------------------------------------------------------------------------
-        TEST_CaseRunner.BeginSuite CASES, CHECKS
+        If Not TEST_CaseRunner.BeginSuite("TEST_Invariants", CASES, CHECKS) Then Exit Sub
         On Error GoTo Failed
 
         TEST_CaseRunner.BeginCase "invariants-demo", "CRR", VALUATION, "EUR"

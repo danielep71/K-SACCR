@@ -150,7 +150,7 @@ Public Sub RunInputValidationTests()
 '------------------------------------------------------------------------------
 ' RUN CASES
 '------------------------------------------------------------------------------
-        TEST_CaseRunner.BeginSuite CASES, CHECKS
+        If Not TEST_CaseRunner.BeginSuite("TEST_InputValidation", CASES, CHECKS) Then Exit Sub
         On Error GoTo Failed
 
     'Trade rows.

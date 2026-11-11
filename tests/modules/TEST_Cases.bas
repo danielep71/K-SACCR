@@ -37,7 +37,7 @@ Public Sub RunCaseTests()
 '   Run the 39 expected files in file-name order, then restore the workbook.
 '==============================================================================
 '
-        TEST_CaseRunner.BeginSuite 39, 243
+        If Not TEST_CaseRunner.BeginSuite("TEST_Cases", 39, 243) Then Exit Sub
         On Error GoTo Failed
         Case01
         Case02
