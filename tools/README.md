@@ -150,8 +150,12 @@ not that either is right. The package models the margin period of risk as
 `10 + remargining period - 1` business days only, has no commodity, credit or
 FX options and no maturity apart from the end date; such fixtures are not run.
 Its commodity add-on takes the absolute value of the running sum after each
-trade, so with three or more trades on one commodity its result can depend on
-their order.
+trade of a commodity type, so a long and a short on one commodity do not
+offset, the add-ons of the types enter their hedging set without their signs,
+and with three or more trades the result can depend on their order. Its
+multiplier uses min(V − C, V), so collateral the bank posted does not raise
+it, where the engine applies V − C. The workbook comparison of #352 shows all
+three (record in [`docs/methodology/README.md`](../docs/methodology/README.md)).
 
 `rsaccr_portfolio.py` compares a workbook run with the package, netting set by
 netting set, on a larger synthetic portfolio (#352). `generate` draws a
