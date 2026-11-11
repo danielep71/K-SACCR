@@ -21,8 +21,14 @@ multiplier, PFE and EAD, with the full-precision tolerance of
 docs/methodology/TEST_CASES.md. It writes ``comparison.csv`` with an empty
 classification column for each difference.
 
-Agreement between two implementations is evidence about agreement, not about
-correctness; this is not a gate of tools/check.py and needs R.
+``cases`` writes netting sets of the portfolio as numerical test cases of
+class ``independent`` (#100): their expected values are the package's, the
+external implementation registered as ``IMPL-R-SACCR``. It takes only netting
+sets on which the comparison agreed on every figure.
+
+    python tools/rsaccr_portfolio.py cases --out DIR --netting-sets RS-004,RS-010
+
+This is not a gate of tools/check.py and needs R.
 """
 
 from __future__ import annotations
@@ -49,6 +55,13 @@ CURRENCY = "EUR"
 REGIME = "CRR"
 NS_FILE = "K-SACCR_NettingSets_v1.csv"
 TR_FILE = "K-SACCR_Trades_v1.csv"
+# The external implementation, as the source register names it (#100).
+SOURCE = "IMPL-R-SACCR"
+CASE_PREFIX = "rsaccr-portfolio-"
+# Add-on of each asset class: the package's key, the quantity and the rule.
+CLASS_OUTPUTS = (("IRD", "add_on.interest_rate", "CRR.280a"), ("FX", "add_on.foreign_exchange", "CRR.280b"),
+                 ("Credit", "add_on.credit", "CRR.280c"), ("EQ", "add_on.equity", "CRR.280d"),
+                 ("Commodity", "add_on.commodity", "CRR.280e"), ("OtherExposure", "add_on.other", "CRR.280f"))
 # What run and compare write from a portfolio; generate removes them.
 DOWNSTREAM = ("rsaccr-inputs.json", "rsaccr-results.json", "comparison.csv")
 # Full precision, docs/methodology/TEST_CASES.md: currency amounts and factors.
@@ -395,6 +408,87 @@ def summary(portfolio: dict[str, Any], package: dict[str, Any], rows: list[dict[
 
 
 # ---------------------------------------------------------------------------
+# Independent test cases
+# ---------------------------------------------------------------------------
+
+def case_id(ns_id: str) -> str:
+    return CASE_PREFIX + ns_id.lower()
+
+
+def case_fixture(fixture: dict[str, Any], seed: int) -> dict[str, Any]:
+    """The netting set as a fixture of tests/fixtures."""
+    case: dict[str, Any] = json.loads(json.dumps(fixture))
+    case["id"] = case_id(fixture["id"])
+    case["description"] = (f"Synthetic netting set {fixture['id']} of the #352 portfolio (seed {seed}); "
+                           "its expected values come from the R package SACCR")
+    for trade in case["trades"]:
+        trade["description"] = f"Synthetic {trade['asset_class'].replace('_', ' ')} trade of the #352 portfolio"
+    return case
+
+
+def independent(value: float, quantity: str, rule: str, unit: str, ns_id: str,
+                versions: dict[str, str], seed: int, today: str) -> dict[str, Any]:
+    tolerance = FACTOR_TOLERANCE if unit == "1" else AMOUNT_TOLERANCE
+    return {"quantity": quantity, "rule": rule, "value": value, "unit": unit,
+            "tolerance": {"absolute": tolerance[0], "relative": tolerance[1]},
+            "reference": {"class": "independent", "source": SOURCE,
+                          "locator": f"runExampleCalcs, netting set {ns_id}",
+                          "derivation": f"tools/rsaccr_portfolio.py run, seed {seed}: tools/rsaccr_run.R runs the "
+                                        "package on the netting set as tools/rsaccr_crosscheck.py translates it; "
+                                        "the workbook run of the same netting set agreed on every figure",
+                          "derived_by": ", ".join(f"{k} {v}" for k, v in versions.items()
+                                                  if k in ("SACCR", "Trading", "R")),
+                          "reviewed_by": None, "date": today}}
+
+
+def case_expected(fixture: dict[str, Any], result: dict[str, Any], versions: dict[str, str],
+                  seed: int, today: str) -> dict[str, Any]:
+    """The expected file of the case: the package's figures, under CRR, the package's regime."""
+    ns_id = fixture["id"]
+    margined = fixture["netting_set"]["margined"]
+
+    def out(value: Any, quantity: str, rule: str, unit: str = CURRENCY) -> dict[str, Any]:
+        return independent(float(value), quantity, rule, unit, ns_id, versions, seed, today)
+
+    outputs = [out(result["RC"], "replacement_cost", "CRR.275.2" if margined else "CRR.275.1")]
+    by_class = result.get("add_on_by_class") or {}
+    outputs += [out(by_class[key], quantity, rule) for key, quantity, rule in CLASS_OUTPUTS if key in by_class]
+    outputs += [out(result["add_on"], "aggregate_add_on", "CRR.278.1"),
+                out(result["multiplier"], "multiplier", "CRR.278.3", "1"),
+                out(result["PFE"], "potential_future_exposure", "CRR.278.1"),
+                out(result["EAD"], "exposure_value", "CRR.274.2")]
+    return {"schema_version": 1, "kind": "saccr-expected", "fixture": case_id(ns_id), "regime": REGIME,
+            "outputs": outputs}
+
+
+def agreed(comparison: str, ns_id: str) -> bool:
+    rows = [r for r in csv.DictReader(io.StringIO(comparison), delimiter=";") if r["netting_set"] == ns_id]
+    return bool(rows) and all(r["agrees"] == "Y" for r in rows)
+
+
+def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, chosen: list[str],
+          today: str) -> dict[str, dict[str, Any]]:
+    """The fixture and expected file of each chosen netting set, by repository path."""
+    if package.get("portfolio_sha256") != fingerprint(portfolio):
+        raise EvidenceError("the package results are of another portfolio: run the package again")
+    fixtures = {f["id"]: f for f in portfolio["netting_sets"]}
+    results = {r["netting_set"]: r for r in package["results"]}
+    files: dict[str, dict[str, Any]] = {}
+    for ns_id in chosen:
+        if ns_id not in fixtures:
+            raise EvidenceError(f"{ns_id} is not a netting set of the portfolio")
+        if not agreed(comparison, ns_id):
+            raise EvidenceError(f"{ns_id}: the workbook and the package did not agree on every figure")
+        if results[ns_id].get("cap_applied"):
+            raise EvidenceError(f"{ns_id}: the cap binds, and the cap is rebuilt outside the package")
+        name = case_id(ns_id)
+        files[f"tests/fixtures/{name}.json"] = case_fixture(fixtures[ns_id], portfolio["seed"])
+        files[f"tests/expected/{name}.crr.json"] = case_expected(fixtures[ns_id], results[ns_id],
+                                                                 package["versions"], portfolio["seed"], today)
+    return files
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -442,6 +536,23 @@ def command_compare(options: argparse.Namespace) -> int:
     return 1 if any(not row["agrees"] for row in rows) else 0
 
 
+def command_cases(options: argparse.Namespace) -> int:
+    portfolio = json.loads((options.out / "portfolio.json").read_text(encoding="utf-8"))
+    package = json.loads((options.out / "rsaccr-results.json").read_text(encoding="utf-8"))
+    comparison = (options.out / "comparison.csv").read_text(encoding="utf-8")
+    chosen = [n.strip() for n in options.netting_sets.split(",") if n.strip()]
+    try:
+        files = cases(portfolio, package, comparison, chosen, options.date)
+    except EvidenceError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
+    for name, data in files.items():
+        path = options.root / name
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"RESULT=WRITTEN; cases={len(chosen)}; files={len(files)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=ROOT)
@@ -456,8 +567,13 @@ def main(argv: list[str] | None = None) -> int:
     cmp = commands.add_parser("compare", help="compare the workbook's evidence with the package")
     cmp.add_argument("--out", type=Path, required=True)
     cmp.add_argument("--evidence", type=Path, required=True)
+    cas = commands.add_parser("cases", help="write agreeing netting sets as independent test cases")
+    cas.add_argument("--out", type=Path, required=True)
+    cas.add_argument("--netting-sets", required=True, help="comma-separated netting-set IDs")
+    cas.add_argument("--date", default=dt.date.today().isoformat(), help="date of the reference")
     options = parser.parse_args(argv)
-    handlers = {"generate": command_generate, "run": command_run, "compare": command_compare}
+    handlers = {"generate": command_generate, "run": command_run, "compare": command_compare,
+                "cases": command_cases}
     return handlers[options.command](options)
 
 
