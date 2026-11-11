@@ -211,11 +211,12 @@ def section(anchor: str, title: str, body: str) -> str:
 
 
 def overview(contract: dict[str, Any]) -> str:
-    rows = ["<table>", "<thead><tr><th>File</th><th>Sheet</th><th>Key column</th><th>Records per file</th>"
-            "<th>Blank template</th></tr></thead>", "<tbody>"]
+    rows = ["<table>", "<thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th>"
+            "<th>Records per file</th><th>Blank template</th></tr></thead>", "<tbody>"]
     for kind, spec in contract["files"].items():
-        rows.append(f"<tr><td>{esc(kind)}</td><td>{esc(spec['sheet'])}</td><td>{code(spec['key'])}</td>"
-                    f'<td class="num">{spec["max_records"]:,}</td><td>{code(spec["template"])}</td></tr>')
+        rows.append(f'<tr><td>{esc(kind)}</td><td class="num">{spec["version"]}</td><td>{esc(spec["sheet"])}</td>'
+                    f'<td>{code(spec["key"])}</td><td class="num">{spec["max_records"]:,}</td>'
+                    f'<td>{code(spec["template"])}</td></tr>')
     rows += ["</tbody>", "</table>"]
     return "\n".join([
         "<p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a "
@@ -265,12 +266,19 @@ def file_format(contract: dict[str, Any]) -> str:
     ])
 
 
-def header_rules() -> str:
+def header_rules(contract: dict[str, Any]) -> str:
+    earlier = []
+    for kind, spec in contract["files"].items():
+        for version in spec.get("earlier_versions", []):
+            added = [column["name"] for column in spec["columns"] if column["name"] not in version["columns"]]
+            earlier.append(f"A {esc(kind)} file whose header is exactly the column set of version "
+                           f"{version['version']}, the template {code(version['template'])}, is still read: "
+                           f"{listed(added)} {'is' if len(added) == 1 else 'are'} blank in each of its records.")
     return ("<p>The first record is the header. It names every column of the file exactly once, in any order, with "
             "the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column rejects "
             "the file before any record is read. There are no optional columns: an optional field is a column whose "
-            "value may be blank. The column set is the contract version: a file of another version is never mapped by "
-            "guessing what a column means.</p>")
+            "value may be blank. The column set is the file's version: a file is never mapped to a version by "
+            "guessing what a column means.</p>" + "".join(f"\n<p>{text}</p>" for text in earlier))
 
 
 def value_types(contract: dict[str, Any]) -> str:
@@ -392,7 +400,7 @@ def render(contract: dict[str, Any]) -> str:
     sections = [
         ("files", "Files", overview(contract)),
         ("format", "File format", file_format(contract)),
-        ("header", "Header", header_rules()),
+        ("header", "Header", header_rules(contract)),
         ("types", "Value types", value_types(contract)),
         ("blanks", "Blank fields, empty files and limits", blanks_and_limits(contract)),
         ("nettingsets", "NettingSets file", netting_sets_section(contract)),
@@ -414,9 +422,11 @@ def render(contract: dict[str, Any]) -> str:
         "<body>",
         "<header>",
         "<h1>K-SACCR CSV import specification</h1>",
-        f'<p class="lead">CSV contract version {version}, for the NettingSets and Trades files whose blank templates '
-        f"end in <code>_v{version}</code>. The contract version changes only when a column is added, removed or "
-        "renamed, not with each K-SACCR release.</p>",
+        f'<p class="lead">CSV contract version {version}, for '
+        + ", and ".join(f"{esc(kind)} files of version {spec['version']}, whose blank template is "
+                       f"{code(spec['template'])}" for kind, spec in contract["files"].items())
+        + ". A file's version changes only when a column is added, removed or renamed, not with each K-SACCR "
+        "release.</p>",
         "</header>",
         f"<nav><ol>{navigation}</ol></nav>",
         "<main>",

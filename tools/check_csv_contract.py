@@ -37,6 +37,7 @@ CASES = "tests/csv/cases.json"
 PORTFOLIO = "tests/csv/portfolio.json"
 STAGED = "tests/csv/staged.json"
 ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
+ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
 KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
 # Staging sheet and its header anchor per file (#208); the header row starts with the CSV line column.
@@ -57,6 +58,15 @@ def vba_string(root: Path, constant: str) -> str:
     if not match:
         raise ValueError(f"{CONFIG}: {constant} not found")
     return "".join(re.findall(r'"((?:[^"]|"")*)"', match.group(1))).replace('""', '"')
+
+
+def vba_long(root: Path, constant: str) -> int:
+    """The value of a VBA Long constant in CORE_Config."""
+    text = (root / CONFIG).read_text(encoding="cp1252")
+    match = re.search(rf"Public Const {constant}\s+As Long = (\d+)\b", text)
+    if not match:
+        raise ValueError(f"{CONFIG}: {constant} not found")
+    return int(match.group(1))
 
 
 def engine_headers(root: Path, constant: str) -> list[str]:
@@ -168,6 +178,21 @@ def check_shape(contract: dict[str, Any]) -> list[str]:
                 findings.append(f"{kind}.{column['name']}: a code column needs allowed values")
         if spec["key"] not in names:
             findings.append(f"{kind}: key {spec['key']!r} is not a column")
+        if not isinstance(spec.get("version"), int) or spec["version"] < 1:
+            findings.append(f"{kind}: version must be a whole number from 1")
+        if not spec["template"].endswith(f"_v{spec.get('version')}.csv"):
+            findings.append(f"{kind}: template {spec['template']!r} does not end in _v{spec.get('version')}.csv")
+        for version in spec.get("earlier_versions", []):
+            label = f"{kind} version {version['version']}"
+            if not isinstance(version["version"], int) or not 1 <= version["version"] < spec.get("version", 0):
+                findings.append(f"{label}: not an earlier version")
+            if not version["template"].endswith(f"_v{version['version']}.csv"):
+                findings.append(f"{label}: template {version['template']!r} does not end in _v{version['version']}.csv")
+            if len(set(version["columns"])) != len(version["columns"]):
+                findings.append(f"{label}: a column repeats")
+            findings += [f"{label}: column {n!r} is not a current column" for n in version["columns"] if n not in names]
+            findings += [f"{label}: required column {c['name']!r} is missing" for c in spec["columns"]
+                         if c["required"] and c["name"] not in version["columns"]]
         for rule in spec.get("row_rules", []):
             findings += [f"{kind}: row rule {rule['id']} names unknown column {n!r}"
                          for n in sorted(rule_columns(rule)) if n not in names]
@@ -190,8 +215,10 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
         headers = [header_key(c["sheet_header"]) for c in spec["columns"]]
         engine = [header_key(h) for h in engine_headers(root, ENGINE_HEADERS[kind])]
         read = [h for h in engine if h]
-        if headers[:len(read)] != read or any(engine[len(read):]):
+        if headers[:len(read)] != read or any(engine[len(read):]) or len(engine) != len(headers):
             findings.append(f"{kind}: sheet headers differ from {ENGINE_HEADERS[kind]} in {CONFIG}")
+        if vba_long(root, ENGINE_WIDTH[kind]) != len(headers):
+            findings.append(f"{kind}: {ENGINE_WIDTH[kind]} in {CONFIG} is not the contract's {len(headers)} columns")
         sheet = workbook.sheet(spec["sheet"])
         first, template = workbook.header(sheet, KEY_COLUMN[kind])
         if [header_key(h) for h in template] != headers:

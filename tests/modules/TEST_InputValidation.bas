@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 181               'Cases in a complete run
-        Private Const CHECKS      As Long = 318               'Checks in a complete run
+        Private Const CASES       As Long = 183               'Cases in a complete run
+        Private Const CHECKS      As Long = 321               'Checks in a complete run
 
 
 '
@@ -219,6 +219,19 @@ Public Sub RunInputValidationTests()
         StartCase "netting-set-blank-flags-take-defaults", ""
         AddSwap "T1"
         ExpectStatus "VALID"
+
+    'Counterparty sector (#674): a FINREP code or blank; any other value
+    'makes the netting set INVALID. No figure depends on it.
+        StartCase "netting-set-sector", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_SECTOR, "OFC"
+        AddSwap "T1"
+        ExpectStatus "VALID"
+
+        StartCase "netting-set-unknown-sector", "N"
+        TEST_CaseRunner.SetInputCell SH_NS, 1, NS_SECTOR, "BANK"
+        AddSwap "T1"
+        ExpectStatus "INVALID: 1 input error(s)"
+        TEST_CaseRunner.ExpectChecksCode "unknown-sector", SEV_ERROR, DIAG_NS_CODE, "illustrative", "Counterparty sector"
 
         StartCase "netting-set-duplicate-id", "N"
         AddSwap "T1"

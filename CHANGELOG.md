@@ -102,6 +102,41 @@ Use only the categories needed by a release.
   silent run/validation results. Add a registry gate and code-based validation
   assertions; see [diagnostic compatibility notes](docs/DIAGNOSTICS.md).
 
+- Add an optional counterparty sector to NettingSets (#674), for the run's
+  breakdown of exposure by sector in the Dashboard (#675) and the run report
+  (#259). The new last column T, **Counterparty sector**, takes the FINREP
+  counterparty sectors `CB` (central banks), `GG` (general governments), `CI`
+  (credit institutions), `OFC` (other financial corporations), `NFC`
+  (non-financial corporations) and `HH` (households); blank means not
+  classified, and a CCP, recognised from its clearing role, needs none. No
+  SA-CCR rule reads it, so no figure changes. A run rejects any other value
+  with `NS-CODE` on the field `Counterparty sector`, as for the other coded
+  fields, and the CSV checks with `CSV-ALLOWED`. The template has the column
+  with its validation list and input message, unlocked for input, and a
+  sector for each netting set of the demonstration portfolio; the NettingSets
+  note and the README sheet describe it, and the status formulas of Results,
+  Reconciliation and TradeReconciliation C5 watch `NettingSets!$C:$T`.
+  `Import_NettingSets` stages it in column U. CSV: the column makes
+  NettingSets files version 2, with the template `K-SACCR_NettingSets_v2.csv`,
+  and the contract version 2; Trades files stay version 1. A NettingSets file
+  whose header is exactly the version 1 column set, in any order, is still
+  read, with the sector blank; any other header is judged against version 2.
+  The contract lists the version 1 columns and template (`earlier_versions`),
+  and `tools/csv_contract.py`, `CORE_CsvReader` and the import specification
+  follow; the `check_csv_contract` gate also checks each file's version, its
+  earlier versions and that `NS_NCOLS` and `TR_NCOLS` are the contract's column
+  counts. The input fingerprint covers the new column, so the demonstration
+  portfolio's `inputs=` changes. Tests: the fixture `valid/netting-sets.csv`
+  is version 2, with sectors, and `valid/netting-sets-v1.csv` keeps the version
+  1 file; five CSV cases cover the sector codes and version 1 headers
+  (`TEST_CsvReader` 132 cases, 345 checks); `TEST_Import` gains
+  `commit.netting-sets-sector` (39 cases, 236 checks) and
+  `TEST_InputValidation` the cases `netting-set-sector` and
+  `netting-set-unknown-sector` (183 cases, 321 checks). Upgrade: a workbook
+  built from an earlier template stops at the NettingSets header check until
+  it is rebuilt from the new template; NettingSets CSV files of version 1 need
+  no change.
+
 - Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
   now, is widened, frozen and filled with the title band's colour, and holds
   a bar of linked shapes that opens every sheet, also with macros disabled

@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT: dict[str, Any] = csv.load_contract(ROOT)
 NS_HEADER = csv.template_text("NettingSets", CONTRACT).rstrip("\n")
 TR_HEADER = csv.template_text("Trades", CONTRACT).rstrip("\n")
-NS_ROW = "NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;"
+NS_ROW = "NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;"
+NS_V1_COLUMNS: list[str] = CONTRACT["files"]["NettingSets"]["earlier_versions"][0]["columns"]
 TR_ROW = "T1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;"
 
 
@@ -148,6 +149,35 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(NS_HEADER.replace("margined", "Margined") + "\n"),
                          [("CSV-HEADER-UNKNOWN", 1, 0, "Margined"), ("CSV-HEADER-MISSING", 1, 0, "margined")])
 
+    def test_a_version_1_netting_sets_file_reads_with_the_sector_blank(self) -> None:
+        values = NS_ROW.split(";")[:-1]
+        text = ";".join(NS_V1_COLUMNS) + "\n" + ";".join(values) + "\n"
+        rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT)
+        self.assertEqual((findings, rows[0]["netting_set_id"], rows[0]["counterparty_sector"]), ([], "NS-1", ""))
+        reordered = ";".join(reversed(NS_V1_COLUMNS)) + "\n" + ";".join(reversed(values)) + "\n"
+        self.assertEqual(csv.validate(reordered.encode(), "NettingSets", CONTRACT), (rows, []))
+        self.assertEqual(csv.validate(";".join(NS_V1_COLUMNS).encode() + b"\n", "NettingSets", CONTRACT), ([], []))
+
+    def test_only_a_whole_version_1_header_is_version_1(self) -> None:
+        short = ";".join(NS_V1_COLUMNS[:-1])
+        self.assertEqual(codes(short + "\n"), [("CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"),
+                                              ("CSV-HEADER-MISSING", 1, 0, "counterparty_sector")])
+        repeated = ";".join(NS_V1_COLUMNS + ["qccp"])
+        self.assertEqual(codes(repeated + "\n"), [("CSV-HEADER-DUPLICATE", 1, 0, "qccp"),
+                                                 ("CSV-HEADER-MISSING", 1, 0, "counterparty_sector")])
+        self.assertEqual(codes(";".join(NS_V1_COLUMNS) + "\n", kind="NettingSets"), [])
+        self.assertEqual(codes(TR_HEADER.replace(";comment", "") + "\n", kind="Trades"),
+                         [("CSV-HEADER-MISSING", 1, 0, "comment")])
+
+    def test_the_sector_takes_the_finrep_codes(self) -> None:
+        for sector in ("", "CB", "GG", "CI", "OFC", "NFC", "HH"):
+            with self.subTest(sector=sector):
+                self.assertEqual(codes(NS_HEADER + "\n" + NS_ROW[:-1] + ";" + sector + "\n"), [])
+        for sector in ("ci", "BANK", "CCP"):
+            with self.subTest(sector=sector):
+                self.assertEqual(codes(NS_HEADER + "\n" + NS_ROW[:-1] + ";" + sector + "\n"),
+                                 [("CSV-ALLOWED", 2, 1, "counterparty_sector")])
+
     def test_record_limit_rejects_the_whole_file(self) -> None:
         text = NS_HEADER + "\n" + "\n".join(NS_ROW.replace("NS-1", f"NS-{i}") for i in range(3)) + "\n"
         self.assertEqual(codes(text, max_records=2), [("CSV-TOO-MANY-RECORDS", 4, 3, "")])
@@ -211,7 +241,7 @@ class FieldTests(unittest.TestCase):
 
 def netting_set(role: str, qccp: str = "", retains: str = "") -> str:
     values = NS_ROW.split(";")
-    values[3], values[-2], values[-1] = role, qccp, retains
+    values[3], values[-3], values[-2] = role, qccp, retains
     return NS_HEADER + "\n" + ";".join(values) + "\n"
 
 
