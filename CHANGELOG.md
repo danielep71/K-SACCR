@@ -117,6 +117,14 @@ Use only the categories needed by a release.
   link of every sheet's bar with macros disabled, and counts only the cell
   links of Home. The Home sheet mentions the bar.
 
+- Compare a workbook run with the R package `SACCR` 3.4 on a larger synthetic
+  portfolio (#352): `tools/rsaccr_portfolio.py` draws a deterministic portfolio
+  of netting sets the package represents as the engine does, writes it as the
+  two CSV files of the input contract, runs the package on it, and compares
+  each netting set's Results in the workbook's evidence export with the
+  package's figures, listing every difference for classification. It is not a
+  gate and needs R.
+
 - Run the derivations in `tests/derivations/` in `python tools/check.py`
   (#537): the new `check_derivations` gate runs every script's `expected()`
   and fails when a script and the expected file it produced disagree, when a

@@ -18,7 +18,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
@@ -152,6 +152,37 @@ FX options and no maturity apart from the end date; such fixtures are not run.
 Its commodity add-on takes the absolute value of the running sum after each
 trade, so with three or more trades on one commodity its result can depend on
 their order.
+
+`rsaccr_portfolio.py` compares a workbook run with the package, netting set by
+netting set, on a larger synthetic portfolio (#352). `generate` draws a
+deterministic portfolio from a seed, by default 40 netting sets with about 380
+trades in every asset class, at the reporting date 2026-09-30, in EUR and
+under CRR. It keeps to what the package represents as the engine does: every
+netting set passes the translation above; options are interest-rate swaptions
+whose expiry is their start and equity options whose expiry is their
+maturity; no maturity is under 30 days; no interest-rate trade ends at exactly
+one year; at most two trades share one commodity. It writes the portfolio in
+the fixture format and the two CSV files of the input contract, checked with
+its reference validator. `run` runs the package on the portfolio. After the
+workbook has imported the two files and run, with AsOfDate 2026-09-30,
+ReportingCcy EUR and DaysPerYear 365, `compare` reads the file Export evidence
+writes and compares each netting set's regime, status, trades used, RC,
+add-on per asset class, aggregate add-on, multiplier, PFE and EAD with the
+package, within the full-precision tolerance of
+[`TEST_CASES.md`](../docs/methodology/TEST_CASES.md#tolerance). It refuses
+evidence of another reporting date or currency, or of results out of date,
+and writes `comparison.csv` with a classification column for each
+difference:
+
+```bash
+python tools/rsaccr_portfolio.py generate --out <folder> [--seed 352] [--netting-sets 40]
+python tools/rsaccr_portfolio.py run --out <folder> --rscript Rscript
+python tools/rsaccr_portfolio.py compare --out <folder> --evidence <evidence.csv>
+```
+
+Exit status is 0 when every figure agrees, 1 when one differs and 2 when the
+evidence is not a current run of the portfolio. Its tests run in `tool-tests`
+without R or Excel.
 
 The gates are static checks only. None of them compiles VBA, opens Excel, runs a
 test harness or validates any SA-CCR number, and a pass is never evidence that
