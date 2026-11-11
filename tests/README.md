@@ -9,7 +9,8 @@
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, `expected.json` with the findings of each, `cases.json`, inline cases with their findings, `portfolio.json`, Trades files with the netting sets their legs may refer to and the findings between their records, `staged.json`, rows as a staging sheet holds them with their findings, and `context.json`, Trades records with the Params context they are checked against and their findings (#209); `tools/generate_csv_vba.py` turns all of them into `TEST_CsvReader` |
-| `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root |
+| `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root. Each defines `expected()`, which `tools/check_derivations.py` compares with the expected files |
+| `accuracy-contracts.json` | The accuracy claimed for each quantity family, with its calibration and held-out cases ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md#accuracy-contracts)) |
 
 `TEST_Suite.Test_RunAll` runs the harness and every suite and prints a
 summary. In the order it runs them, the entry points of the single suites are

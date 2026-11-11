@@ -21,6 +21,8 @@ A case is one input file and one expected-result file per regime:
 | --- | --- |
 | `tests/fixtures/<case-id>.json` | Synthetic inputs: netting set, trades, collateral |
 | `tests/expected/<case-id>.<regime>.json` | Expected results for one regime (`crr` or `bcbs`), each with its provenance |
+| `tests/derivations/<name>.py` | A separate implementation that computes illustrative expected values; its `expected()` returns them by fixture and regime |
+| `tests/accuracy-contracts.json` | The [accuracy contracts](#accuracy-contracts) of the quantity families |
 
 Separating them lets the same inputs carry a `CRR` and a `BCBS` result. Case IDs
 are lowercase kebab-case and never reused. A case whose expected values are all
@@ -309,6 +311,44 @@ vanishes, so an expected `0` is matched within `absolute` only. Domain rules
 apply before tolerance: a quantity that must be non-negative, such as
 `exposure_value`, fails if it is negative, however small.
 
+<a id="accuracy-contracts"></a>
+
+### Accuracy contracts
+
+A contract states, for one quantity family, the accuracy K-SACCR claims and
+the cases that test it. The contracts are in `tests/accuracy-contracts.json`:
+
+| Family | Quantities | Claimed tolerance |
+| --- | --- | --- |
+| EAD | `exposure_value` | `1e-6` currency units, `1e-9` relative |
+| RC | `replacement_cost` | `1e-6` currency units, `1e-9` relative |
+| PFE | `potential_future_exposure`; `multiplier` | `1e-6` currency units, `1e-9` relative; `1e-9`, `1e-9` relative |
+| Add-ons | `aggregate_add_on`, `add_on.*` | `1e-6` currency units, `1e-9` relative |
+
+The claimed tolerance is the convention above for full precision. Each case
+with an output of the family is in exactly one of two lists:
+
+- **Calibration** cases are those the engine was developed and debugged
+  against, so their results were seen while its rules took shape: the CRE99
+  examples, `published` and in their CRR form, and the cases ported from the
+  prototype catalogue.
+- **Held-out** cases were added later, with values from a separate
+  derivation (a script in `tests/derivations/` or a hand calculation) and the
+  convention's tolerance. They test the claim without having shaped it.
+
+A case whose expected value is rounded, such as a printed figure or a hand
+calculation to the cent, is listed under `rounded` with the rounding as its
+bound: it tests the claim only down to that rounding. Every family has at
+least one held-out case at full precision.
+
+`tools/check_accuracy_contracts.py`, part of `python tools/check.py`, fails
+when an output's tolerance is looser than its contract's bound, when a case
+with an output of the family is in neither list or in both, when a listed
+case has no such output, when a `rounded` entry is not needed, and when no
+held-out case tests the claim at full precision. A new case therefore needs
+a decision on its role. The contracts claim what the expected files allow;
+the differences an Excel run actually measures are not recorded yet (#537).
+
 <a id="categories"></a>
 
 ## 🗂️ Case categories
@@ -399,3 +439,11 @@ required fields, sources from the register, the `illustrative-` naming rule,
 unique catalogue IDs, and the settlement and CCP inputs above together with
 the rejection their expected files declare. It does not check any value
 against the engine.
+
+`tools/check_derivations.py`, also part of `python tools/check.py`, runs every
+script in `tests/derivations/` and compares what its `expected()` returns with
+the expected files it produced: values to within four units in the last
+place, the most the platform's math library moves a result, and text
+exactly. It fails when a script cannot run, when a derived file or output is
+missing, when a value differs, when an output cites a script that does not
+derive it, and when an `illustrative` output names no derivation.

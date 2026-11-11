@@ -88,11 +88,24 @@ def outputs(role: str, regime: str) -> dict:
         "replacement_cost": rc_margined,
         "add_on.equity": margined_add_on,
         "multiplier": multiplier,
-        "potential_future_exposure": pfe_margined,
         "exposure_value": min(ead_margined, ead_cap),
         "cap_applied": "Y" if ead_cap < ead_margined else "N",
         "supervisory_delta T2": delta(TRADES[1]),
+        # Every trade is valid under the cited rules, so the netting set is.
+        "netting_set_status": "VALID",
     }
+
+
+# The expected files this script derives: fixture -> role.
+FIXTURES = {"illustrative-clearing-member-listed": "clearing_member",
+            "illustrative-clearing-client-listed": "client"}
+
+
+def expected() -> dict:
+    """The outputs of each expected file, keyed by (fixture, regime);
+    tools/check_derivations.py compares them with the committed files."""
+    return {(fixture, regime): outputs(role, regime)
+            for fixture, role in FIXTURES.items() for regime in ("CRR", "BCBS")}
 
 
 if __name__ == "__main__":

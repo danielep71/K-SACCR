@@ -136,12 +136,26 @@ def outputs(case: str) -> dict:
         "potential_future_exposure": pfe_margined,
         "exposure_value": min(ead_margined, ead_cap),
         "cap_applied": "Y" if ead_cap < ead_margined else "N",
+        # Every trade is valid under the cited rules, so the netting set is.
+        "netting_set_status": "VALID",
     }
     for t in trades:
         result[f"maturity_factor_margined {t[0]}"] = mf_margined(t, retained)
         if t[1] == "call":
             result[f"supervisory_delta {t[0]}"] = delta(t)
     return result
+
+
+# The regimes with an expected file for each case.
+REGIMES = {"illustrative-ccp-trade-exposure": ("CRR", "BCBS"),
+           "illustrative-ccp-retained-vm": ("CRR", "BCBS"),
+           "illustrative-ccp-non-qualifying": ("CRR",)}
+
+
+def expected() -> dict:
+    """The outputs of each expected file, keyed by (fixture, regime);
+    tools/check_derivations.py compares them with the committed files."""
+    return {(case, regime): outputs(case) for case in CASES for regime in REGIMES[case]}
 
 
 if __name__ == "__main__":
