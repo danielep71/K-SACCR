@@ -4,7 +4,9 @@ from __future__ import annotations
 import copy
 import datetime as dt
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from typing import Any
 
 import csv_contract
@@ -21,7 +23,8 @@ def package_results(generated: dict[str, Any]) -> dict[str, Any]:
                         "add_on": 2500.5 * index, "multiplier": 0.987654321, "PFE": 2469.75 * index,
                         "EAD": 1.4 * (1000.0 + 2469.75) * index,
                         "add_on_by_class": {"IRD": 1500.5 * index, "FX": 1000.0 * index}})
-    return {"versions": {"R": "4.3.3", "SACCR": "3.4"}, "results": results}
+    return {"versions": {"R": "4.3.3", "SACCR": "3.4"}, "results": results,
+            "portfolio_sha256": portfolio.fingerprint(generated)}
 
 
 def evidence(generated: dict[str, Any], package: dict[str, Any], **changes: str) -> str:
@@ -156,6 +159,30 @@ class ComparisonTests(unittest.TestCase):
                 self.rows(evidence(self.generated, self.package, **change))
         with self.assertRaisesRegex(portfolio.EvidenceError, "no RESULTS"):
             self.rows("RUN;format;K-SACCR evidence 1\n")
+
+    def test_package_results_of_another_portfolio_are_refused(self) -> None:
+        # Seeds 352 and 361 both give RS-001 five trades with one netting set:
+        # only the fingerprint tells the two portfolios apart.
+        other = portfolio.generate(361, 1)
+        mine = portfolio.generate(352, 1)
+        self.assertEqual([f["id"] for f in other["netting_sets"]], [f["id"] for f in mine["netting_sets"]])
+        package = package_results(mine)
+        text = evidence(mine, package)
+        self.assertTrue(all(r["agrees"] for r in portfolio.compare(mine, package, text)))
+        with self.assertRaisesRegex(portfolio.EvidenceError, "another portfolio"):
+            portfolio.compare(other, package, text)
+        del package["portfolio_sha256"]
+        with self.assertRaisesRegex(portfolio.EvidenceError, "another portfolio"):
+            portfolio.compare(mine, package, text)
+
+    def test_generate_removes_earlier_results(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp)
+            for name in portfolio.DOWNSTREAM:
+                (out / name).write_text("stale", encoding="utf-8")
+            self.assertEqual(portfolio.main(["generate", "--out", temp, "--netting-sets", "2"]), 0)
+            self.assertEqual(sorted(p.name for p in out.iterdir()),
+                             sorted(["portfolio.json", portfolio.NS_FILE, portfolio.TR_FILE]))
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import hashlib
 import io
 import json
 import math
@@ -48,6 +49,8 @@ CURRENCY = "EUR"
 REGIME = "CRR"
 NS_FILE = "K-SACCR_NettingSets_v1.csv"
 TR_FILE = "K-SACCR_Trades_v1.csv"
+# What run and compare write from a portfolio; generate removes them.
+DOWNSTREAM = ("rsaccr-inputs.json", "rsaccr-results.json", "comparison.csv")
 # Full precision, docs/methodology/TEST_CASES.md: currency amounts and factors.
 AMOUNT_TOLERANCE = (1e-6, 1e-9)
 FACTOR_TOLERANCE = (1e-9, 1e-9)
@@ -343,8 +346,15 @@ def compare_netting_set(fixture: dict[str, Any], row: dict[str, str] | None,
     return rows
 
 
+def fingerprint(portfolio: dict[str, Any]) -> str:
+    """SHA-256 of the portfolio, which run records with the package's results."""
+    return hashlib.sha256(json.dumps(portfolio, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def compare(portfolio: dict[str, Any], package: dict[str, Any], evidence: str) -> list[dict[str, Any]]:
     """One row per compared figure of every netting set, and one per unexpected workbook row."""
+    if package.get("portfolio_sha256") != fingerprint(portfolio):
+        raise EvidenceError("the package results are of another portfolio: run the package again")
     run, results = read_evidence(evidence)
     check_run(run, portfolio)
     by_id = {r["netting_set"]: r for r in package["results"]}
@@ -390,6 +400,9 @@ def command_generate(options: argparse.Namespace) -> int:
     portfolio = generate(options.seed, options.netting_sets)
     files = csv_files(portfolio, csv_contract.load_contract(options.root))
     options.out.mkdir(parents=True, exist_ok=True)
+    # Results of an earlier portfolio must not survive into a comparison of this one.
+    for name in DOWNSTREAM:
+        (options.out / name).unlink(missing_ok=True)
     (options.out / "portfolio.json").write_text(json.dumps(portfolio, indent=2) + "\n", encoding="utf-8")
     for name, text in files.items():
         (options.out / name).write_bytes(text.encode("utf-8"))
@@ -406,6 +419,8 @@ def command_run(options: argparse.Namespace) -> int:
     (options.out / "rsaccr-inputs.json").write_text(json.dumps(inputs, indent=2), encoding="utf-8")
     package = crosscheck.run_package(options.rscript, options.out / "rsaccr-inputs.json",
                                      options.out / "rsaccr-results.json")
+    package["portfolio_sha256"] = fingerprint(portfolio)
+    (options.out / "rsaccr-results.json").write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
     print(f"RESULT=RUN; netting_sets={len(package['results'])}; versions=" +
           ", ".join(f"{k} {v}" for k, v in package["versions"].items()))
     return 0

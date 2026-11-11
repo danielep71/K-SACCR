@@ -180,8 +180,11 @@ python tools/rsaccr_portfolio.py run --out <folder> --rscript Rscript
 python tools/rsaccr_portfolio.py compare --out <folder> --evidence <evidence.csv>
 ```
 
-Exit status is 0 when every figure agrees, 1 when one differs and 2 when the
-evidence is not a current run of the portfolio. Its tests run in `tool-tests`
+`generate` removes the results of an earlier portfolio from the folder, and
+`run` records the portfolio's SHA-256 with the package's results, which
+`compare` checks. Exit status is 0 when every figure agrees, 1 when one
+differs and 2 when the package results or the evidence are not of this
+portfolio. Its tests run in `tool-tests`
 without R or Excel.
 
 The gates are static checks only. None of them compiles VBA, opens Excel, runs a
