@@ -117,6 +117,51 @@ Use only the categories needed by a release.
   link of every sheet's bar with macros disabled, and counts only the cell
   links of Home. The Home sheet mentions the bar.
 
+- Compare a workbook run with the R package `SACCR` 3.4 on a larger synthetic
+  portfolio (#352): `tools/rsaccr_portfolio.py` draws a deterministic portfolio
+  of netting sets the package represents as the engine does, writes it as the
+  two CSV files of the input contract, runs the package on it, and compares
+  each netting set's Results in the workbook's evidence export with the
+  package's figures, listing every difference for classification. It is not a
+  gate and needs R. Every FX pair of the portfolio contains EUR, the notional
+  currency: the engine rejects an FX trade whose notional currency is not a
+  currency of its pair.
+
+- Register the R package `SACCR` 3.4 as an independent implementation,
+  `IMPL-R-SACCR`, and add six test cases of class `independent` (#100):
+  `rsaccr-portfolio-rs-004`, `-010`, `-011`, `-014`, `-018` and `-024`,
+  netting sets of the #352 portfolio on which a workbook run agreed with the
+  package on every figure. Together they cover every asset class, interest
+  rate and equity options, and margined netting sets with threshold, MTA and
+  NICA. `tools/rsaccr_portfolio.py cases` writes them. The traceability table
+  now counts an `independent` value as validation, as the completeness policy
+  already did, and gives the CRR rules these cases exercise the status
+  "validated by an independent implementation"; credit, commodity (without
+  the offset of opposite positions) and other risks are validated under CRR
+  for the first time. `TEST_Cases` has 39 cases and 243 checks.
+
+- Record the comparison with the R package `SACCR` 3.4 in the methodology
+  (#352): the 24 fixture values it computes agree; on a workbook run of the
+  seed-352 portfolio, 37 of 40 netting sets agree on every figure and the 13
+  differences come from the package's commodity add-on and its multiplier
+  with posted collateral. No K-SACCR defect was found. Six of the netting
+  sets that agree are the independent test cases of #100.
+
+- Run the derivations in `tests/derivations/` in `python tools/check.py`
+  (#537): the new `check_derivations` gate runs every script's `expected()`
+  and fails when a script and the expected file it produced disagree, when a
+  derived output is not recorded, when an output cites a script that does not
+  derive it, and when an illustrative output names no derivation. The
+  client-clearing script no longer returns its potential future exposure,
+  which no expected file records; the three scripts also return the
+  netting-set status their files record.
+
+- Add accuracy contracts for EAD, RC, PFE and the add-ons (#537) in
+  `tests/accuracy-contracts.json`: each states the claimed tolerance and
+  splits the cases that test it into calibration and held-out cases. The new
+  `check_accuracy_contracts` gate checks them against the expected files'
+  tolerances. See [accuracy contracts](docs/methodology/TEST_CASES.md#accuracy-contracts).
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
@@ -135,6 +180,29 @@ Use only the categories needed by a release.
   `navigation.bar-toggle`.
 
 ### Changed
+
+- Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
+  case, check and failure counts, the completeness check against the
+  expected counts, and one log format: every suite prints `SUITE=` with its
+  module name, `MODE=`, its `CASE` and `FAILURE` lines and
+  `RESULT=...; cases=...; checks=...; failures=...; restore=...`.
+  `TEST_Formulas`, `TEST_MainState`, `TEST_Reconcile`, `TEST_CsvReader` and
+  `TEST_Import` no longer define their own `Check` and `Fail`, and the case
+  runner counts through `TEST_Kit` too. At the end of every suite `TEST_Kit`
+  checks that the Excel settings and the test seams are as the suite found
+  them, puts back any that differ and reports `restore=FAIL`;
+  `caller_state=RESTORED` of `TEST_MainState` becomes `restore=PASS`, and
+  `TEST_Formulas`, `TEST_Reconcile`, `TEST_CsvReader` and `TEST_Import` now
+  report a restoration too. A suite refuses to start on a dirty workbook: a
+  hidden name marks the suite running and is removed at its end, so a mark
+  left by a run that did not finish, an unfinished suite or an armed test
+  seam stops the next suite with the reason and
+  `RESULT=FAIL; ...; restore=NOT_RUN`; `TEST_Kit.ClearAbortedRun` removes
+  the mark once the workbook has been checked. `TEST_MainState` gains the
+  case `suite.dirty-workbook-refused` (40 cases, 602 checks). The evidence
+  policy (schema 3) identifies suites by their `SUITE` line and drops
+  `header`, `mode_line`, `restoration` and `first_case`;
+  `check_excel_evidence.py` and its tests follow.
 
 - Set `release/1.3.0` as the active development branch and the target for
   Dependabot updates; `release/1.2.0` is closed and takes no new work.
@@ -174,6 +242,20 @@ Use only the categories needed by a release.
   `credit-step-under-bcbs`; the cases on one reference with two sub-classes,
   `TEST_Aggregation` and the benchmark portfolio, all under CRR, use credit
   quality steps with the same factors.
+
+- Reject in the CSV checks an FX trade whose notional currency is not a
+  currency of its pair (#678). A run rejects such a trade (`TR-FX-NOTIONAL`),
+  but the CSV checks did not know the rule, so the trade passed the import,
+  the staging validation and the commit, and failed only at the run. The new
+  context rule `fx-notional`, code `CSV-CONTEXT-FX-NOTIONAL`, reports it on
+  `notional_currency` once both currencies of the pair have a rate; a blank
+  notional currency is the reporting currency, and the pair is read as the
+  engine reads it, in either order. `tools/csv_contract.py`, the workbook's
+  reader and so the staging validation judge it alike, with the engine's
+  message, now held in `CORE_Engine.FxNotionalText`. The engine rule and its
+  message do not change. `tests/csv/context.json` gains the case
+  `context-fx-notional` (`TEST_CsvReader` has 124 cases and 317 checks), and
+  the `validate.context` case of `TEST_Import` stages such a trade.
 
 ### Documentation
 

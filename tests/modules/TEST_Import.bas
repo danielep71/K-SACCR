@@ -66,8 +66,8 @@ Attribute VB_Name = "TEST_Import"
 '   for BlockText, InputFingerprint and the run counters; CORE_Util for the cells and TextHash;
 '   CORE_CsvSchema for the contract's column types; CORE_Export for the UTF-8 bytes; CORE_ImportSpec for the import
 '   specification page and its example files; CORE_Config for the sheet and name
-'   constants, the CSV header lines and the error numbers; TEST_Suite.Say
-'   for the log lines. Needs a workbook built from the current template,
+'   constants, the CSV header lines and the error numbers; TEST_Kit for
+'   the suite lifecycle and the log lines (#536). Needs a workbook built from the current template,
 '   with the two staging sheets. Every record is synthetic.
 '
 ' WORKSHEET SAFETY
@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_Import"
 ' USAGE
 '   Import with the production modules, compile, then run
 '   TEST_Import.RunImportTests from the Immediate window. It ends with
-'   RESULT=PASS; cases=...; checks=...; failures=0.
+'   RESULT=PASS; cases=...; checks=...; failures=0; restore=PASS.
 '
 ' UPDATED
 '   2026-11-04
@@ -160,10 +160,6 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
-        Private mCaseCount      As Long      'Cases started
-        Private mCheckCount     As Long      'Checks evaluated
-        Private mFailureCount   As Long      'Failed checks and unexpected errors
-        Private mCurrentCase    As String    'Case being run, for messages
         Private mTestFile       As String    'Path of the test file
         Private mNsLoaded       As String    'Import_NettingSets block after the first case
     'Each staging sheet as the suite found it, put back at the end.
@@ -222,13 +218,10 @@ Public Sub RunImportTests()
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        mCaseCount = 0
-        mCheckCount = 0
-        mFailureCount = 0
-        TEST_Suite.Say "SACCR CSV IMPORT TESTS"
+        If Not TEST_Kit.BeginSuite("TEST_Import", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
         If NamedCell(IMPORT_NS_HEADER_NAME) Is Nothing Or NamedCell(IMPORT_TR_HEADER_NAME) Is Nothing Then
-            Fail "suite", "Import_NettingSets or Import_Trades is missing: build the workbook from the current template"
-            TEST_Suite.Say "RESULT=FAIL; cases=0; checks=0; failures=" & mFailureCount
+            TEST_Kit.Fail "suite", "Import_NettingSets or Import_Trades is missing: build the workbook from the current template"
+            TEST_Kit.EndSuite
             Exit Sub
         End If
         CallerCalculation = Application.Calculation
@@ -302,15 +295,7 @@ Public Sub RunImportTests()
         Application.EnableEvents = CallerEvents
         M_Main.gSilent = CallerSilent
         M_Main.gQuietLog = CallerQuiet
-        If mCaseCount <> EXPECTED_CASES Then
-            Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
-        End If
-        If mCheckCount <> EXPECTED_CHECKS Then
-            Fail "suite", "expected " & EXPECTED_CHECKS & " checks, ran " & mCheckCount
-        End If
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
-                    "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount
+        TEST_Kit.EndSuite
 
 End Sub
 
@@ -341,24 +326,24 @@ Private Sub CaseNettingSetsAccepted()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.netting-sets-accepted"
+        TEST_Kit.BeginCase "import.netting-sets-accepted"
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "result", ResultLine, "RESULT=LOADED; records=2; findings=0; file=" & mTestFile
         CheckText "status", Meta(KIND_NS, 4), STAGING_LOADED
         CheckText "records", Meta(KIND_NS, 3), "2"
         CheckText "file", Meta(KIND_NS, 1), mTestFile
-        Check Len(Meta(KIND_NS, 2)) = 19, "load time '" & Meta(KIND_NS, 2) & "'"
-        Check CellValue(KIND_NS, 1, COL_LINE) = 2 And CellValue(KIND_NS, 2, COL_LINE) = 3, "CSV lines"
+        TEST_Kit.Check Len(Meta(KIND_NS, 2)) = 19, "load time '" & Meta(KIND_NS, 2) & "'"
+        TEST_Kit.Check CellValue(KIND_NS, 1, COL_LINE) = 2 And CellValue(KIND_NS, 2, COL_LINE) = 3, "CSV lines"
         CheckText "first ID", CStr(CellValue(KIND_NS, 1, COL_ID)), "NS-T1"
-        Check VarType(CellValue(KIND_NS, 1, COL_NS_REMARGIN)) = vbString, "a number field was not kept as text"
-        Check IsEmpty(CellValue(KIND_NS, 3, COL_LINE)) And IsEmpty(CellValue(KIND_NS, 3, COL_ID)), "a third row"
+        TEST_Kit.Check VarType(CellValue(KIND_NS, 1, COL_NS_REMARGIN)) = vbString, "a number field was not kept as text"
+        TEST_Kit.Check IsEmpty(CellValue(KIND_NS, 3, COL_LINE)) And IsEmpty(CellValue(KIND_NS, 3, COL_ID)), "a third row"
         CheckText "stored fingerprint", NameText(STAGED_NS_NAME), "=""" & StagedFingerprint(KIND_NS) & """"
         mNsLoaded = BlockState(KIND_NS)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -387,29 +372,29 @@ Private Sub CaseTradesValueFindings()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.trades-value-findings"
+        TEST_Kit.BeginCase "import.trades-value-findings"
         WriteCsv CSV_TR_HEADER & vbCrLf & TradeRow("00123", "abc", "=1+1") & vbCrLf & vbCrLf & _
                  String$(UBound(Split(CSV_TR_HEADER, ";")), ";") & vbCrLf & _
                  TradeRow("T3", "1000", """two" & vbCrLf & "lines""") & vbCrLf & TradeRow("T4", "2000", "") & vbCrLf
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
         CheckText "result", ResultLine, "RESULT=LOADED; records=3; findings=4; file=" & mTestFile
-        Check CellValue(KIND_TR, 1, COL_LINE) = 2 And CellValue(KIND_TR, 2, COL_LINE) = 5 And _
-              CellValue(KIND_TR, 3, COL_LINE) = 7, "CSV lines"
+        TEST_Kit.Check CellValue(KIND_TR, 1, COL_LINE) = 2 And CellValue(KIND_TR, 2, COL_LINE) = 5 And _
+                       CellValue(KIND_TR, 3, COL_LINE) = 7, "CSV lines"
         CheckText "leading zeros", CStr(CellValue(KIND_TR, 1, COL_ID)), "00123"
         CheckText "notional that is not a number", CStr(CellValue(KIND_TR, 1, COL_TR_NOTIONAL)), "abc"
         CheckText "formula-like comment", CStr(CellValue(KIND_TR, 1, COL_TR_COMMENT)), "=1+1"
-        Check Not StagingCell(KIND_TR, 1, COL_TR_COMMENT).HasFormula, "the comment became a formula"
+        TEST_Kit.Check Not StagingCell(KIND_TR, 1, COL_TR_COMMENT).HasFormula, "the comment became a formula"
         Comment = CStr(CellValue(KIND_TR, 2, COL_TR_COMMENT))
-        Check Left$(Comment, 3) = "two" And Right$(Comment, 5) = "lines" And InStr(Comment, vbLf) > 0, _
-              "the quoted line break was not kept: '" & Comment & "'"
+        TEST_Kit.Check Left$(Comment, 3) = "two" And Right$(Comment, 5) = "lines" And InStr(Comment, vbLf) > 0, _
+                       "the quoted line break was not kept: '" & Comment & "'"
         CheckText "formula search", M_Main.StagingFormulaCell("Trades"), ""
         CheckText "status", Meta(KIND_TR, 4), STAGING_LOADED
-        Check IsEmpty(CellValue(KIND_TR, 4, COL_LINE)), "a fourth row"
-        Check BlockState(KIND_NS) = mNsLoaded, "Import_NettingSets changed"
+        TEST_Kit.Check IsEmpty(CellValue(KIND_TR, 4, COL_LINE)), "a fourth row"
+        TEST_Kit.Check BlockState(KIND_NS) = mNsLoaded, "Import_NettingSets changed"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -434,18 +419,18 @@ Private Sub CaseStructuralRejected()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.structural-rejected"
+        TEST_Kit.BeginCase "import.structural-rejected"
         Before = BlockState(KIND_TR)
         MetaBefore = MetaText(KIND_TR)
         WriteCsv Replace(CSV_TR_HEADER, ";", ",") & vbLf & Replace(TradeRow("T1", "1", ""), ";", ",") & vbLf
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
         CheckText "result", ResultLine, "RESULT=REJECTED; findings=1; first=CSV-DELIMITER|1|0|; file=" & mTestFile
-        Check BlockState(KIND_TR) = Before, "the block changed"
+        TEST_Kit.Check BlockState(KIND_TR) = Before, "the block changed"
         CheckText "metadata", MetaText(KIND_TR), MetaBefore
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -471,7 +456,7 @@ Private Sub CaseMissingFile()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.missing-file"
+        TEST_Kit.BeginCase "import.missing-file"
         Before = BlockState(KIND_TR)
         MissingPath = Left$(mTestFile, Len(mTestFile) - Len(TEST_FILE)) & MISSING_FILE
         RemoveFile MissingPath
@@ -479,18 +464,18 @@ Private Sub CaseMissingFile()
         ResultLine = M_Main.ImportCsv_Silent("Trades", MissingPath, True)
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
-        Check ErrorNumber = ERR_CSV_READ, "missing file: error " & ErrorNumber
-        Check BlockState(KIND_TR) = Before, "missing file: the block changed"
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "missing file: error " & ErrorNumber
+        TEST_Kit.Check BlockState(KIND_TR) = Before, "missing file: the block changed"
         ErrorNumber = 0
         On Error Resume Next
         ResultLine = M_Main.ImportCsv_Silent("Other", mTestFile, True)
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
-        Check ErrorNumber = ERR_CSV_READ, "unknown kind: error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "unknown kind: error " & ErrorNumber
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -517,7 +502,7 @@ Private Sub CaseEdits()
 ' EDIT AND LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.edits"
+        TEST_Kit.BeginCase "import.edits"
         Saved = Application.EnableEvents
         Application.EnableEvents = False
         StagingCell(KIND_TR, 1, COL_ID).Value2 = "EDITED-1"
@@ -534,16 +519,16 @@ Private Sub CaseEdits()
         CheckText "replaced", ResultLine, "RESULT=LOADED; records=1; findings=0; file=" & mTestFile
         CheckText "status after the load", Meta(KIND_TR, 4), STAGING_LOADED
         CheckText "first ID", CStr(CellValue(KIND_TR, 1, COL_ID)), "T9"
-        Check IsEmpty(CellValue(KIND_TR, 2, COL_LINE)) And IsEmpty(CellValue(KIND_TR, 2, COL_ID)) And _
-              IsEmpty(CellValue(KIND_TR, 3, COL_ID)), "the old rows were not cleared"
-        Check StagingCell(KIND_TR, 1, COL_LINE).Locked And Not StagingCell(KIND_TR, 1, COL_ID).Locked And _
-              Not StagingCell(KIND_TR, 2, COL_ID).Locked, "the CSV line must stay locked, the staged and cleared values unlocked"
+        TEST_Kit.Check IsEmpty(CellValue(KIND_TR, 2, COL_LINE)) And IsEmpty(CellValue(KIND_TR, 2, COL_ID)) And _
+                       IsEmpty(CellValue(KIND_TR, 3, COL_ID)), "the old rows were not cleared"
+        TEST_Kit.Check StagingCell(KIND_TR, 1, COL_LINE).Locked And Not StagingCell(KIND_TR, 1, COL_ID).Locked And _
+                       Not StagingCell(KIND_TR, 2, COL_ID).Locked, "the CSV line must stay locked, the staged and cleared values unlocked"
         CheckText "records", Meta(KIND_TR, 3), "1"
         Application.EnableEvents = Saved
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Saved
 
 End Sub
@@ -572,7 +557,7 @@ Private Sub CaseWriteFailure()
 ' LOAD WITH A FAILURE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.write-failure"
+        TEST_Kit.BeginCase "import.write-failure"
         Before = BlockState(KIND_TR)
         MetaBefore = MetaText(KIND_TR)
         NameBefore = NameText(STAGED_TR_NAME)
@@ -584,15 +569,15 @@ Private Sub CaseWriteFailure()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check ErrorNumber = ERR_INJECTED_FAULT, "error " & ErrorNumber
-        Check BlockState(KIND_TR) = Before, "the block was not put back"
+        TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT, "error " & ErrorNumber
+        TEST_Kit.Check BlockState(KIND_TR) = Before, "the block was not put back"
         CheckText "metadata", MetaText(KIND_TR), MetaBefore
         CheckText "fingerprint name", NameText(STAGED_TR_NAME), NameBefore
-        Check Application.EnableEvents = EventsBefore, "events were not restored"
+        TEST_Kit.Check Application.EnableEvents = EventsBefore, "events were not restored"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
 
 End Sub
@@ -618,19 +603,19 @@ Private Sub CaseCellLimit()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.cell-limit"
+        TEST_Kit.BeginCase "import.cell-limit"
         Before = BlockState(KIND_TR)
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("TL", "1", String$(40000, "x")) & vbLf
         On Error Resume Next
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
-        Check ErrorNumber = ERR_STAGING_WRITE, "error " & ErrorNumber
-        Check BlockState(KIND_TR) = Before, "the block changed"
+        TEST_Kit.Check ErrorNumber = ERR_STAGING_WRITE, "error " & ErrorNumber
+        TEST_Kit.Check BlockState(KIND_TR) = Before, "the block changed"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -658,7 +643,7 @@ Private Sub CaseFormulaCell()
 ' WRITE A FORMULA, FAIL A LOAD, REMOVE IT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.formula-cell"
+        TEST_Kit.BeginCase "import.formula-cell"
         Events = Application.EnableEvents
         Application.EnableEvents = False
         Set Target = StagingCell(KIND_TR, 1, COL_TR_NOTIONAL)
@@ -673,7 +658,7 @@ Private Sub CaseFormulaCell()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check ErrorNumber = ERR_INJECTED_FAULT, "failed load: error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT, "failed load: error " & ErrorNumber
         CheckText "formula after the failed load", M_Main.StagingFormulaCell("Trades"), Target.Address(False, False)
         Target.NumberFormat = "@"
         Target.Value2 = Saved
@@ -682,7 +667,7 @@ Private Sub CaseFormulaCell()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         Application.EnableEvents = Events
 
@@ -711,7 +696,7 @@ Private Sub CaseFormulaEqualValue()
 ' LOAD, REPLACE A VALUE WITH AN EQUAL FORMULA, LOAD AGAIN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.formula-equal-value"
+        TEST_Kit.BeginCase "import.formula-equal-value"
         Events = Application.EnableEvents
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
@@ -724,7 +709,7 @@ Private Sub CaseFormulaEqualValue()
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile)
         CheckText "refused", ResultLine, "RESULT=REFUSED; reason=" & SH_IMPORT_TR & _
                   " has changes since its last load; file=" & mTestFile
-        Check Target.HasFormula, "the formula was not kept"
+        TEST_Kit.Check Target.HasFormula, "the formula was not kept"
         Application.EnableEvents = False
         Target.NumberFormat = "@"
         Target.Value2 = "T1"
@@ -734,7 +719,7 @@ Private Sub CaseFormulaEqualValue()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -758,17 +743,17 @@ Private Sub CaseHeaderOnly()
 ' LOAD
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.header-only"
+        TEST_Kit.BeginCase "import.header-only"
         WriteCsv CSV_NS_HEADER & vbLf
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "result", ResultLine, "RESULT=LOADED; records=0; findings=0; file=" & mTestFile
-        Check Len(BlockState(KIND_NS)) = 0, "the block was not cleared"
+        TEST_Kit.Check Len(BlockState(KIND_NS)) = 0, "the block was not cleared"
         CheckText "records", Meta(KIND_NS, 3), "0"
         CheckText "stored fingerprint", NameText(STAGED_NS_NAME), "="""""
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -798,7 +783,7 @@ Private Sub CaseImportState()
 ' LOAD, REFUSE, LOAD AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "import.state"
+        TEST_Kit.BeginCase "import.state"
         Calculation = Application.Calculation
         Events = Application.EnableEvents
         Screen = Application.ScreenUpdating
@@ -808,26 +793,26 @@ Private Sub CaseImportState()
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "netting sets", ResultLine, "RESULT=LOADED; records=2; findings=0; file=" & mTestFile
-        Check SettingsOn(), "Excel settings after the load: " & SettingsText()
+        TEST_Kit.Check SettingsOn(), "Excel settings after the load: " & SettingsText()
         WriteCsv Replace(CSV_TR_HEADER, ";", ",") & vbLf & Replace(TradeRow("T1", "1", ""), ";", ",") & vbLf
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
-        Check Left$(ResultLine, 16) = "RESULT=REJECTED;", "the comma-separated file: " & ResultLine
-        Check SettingsOn(), "Excel settings after the refused load: " & SettingsText()
+        TEST_Kit.Check Left$(ResultLine, 16) = "RESULT=REJECTED;", "the comma-separated file: " & ResultLine
+        TEST_Kit.Check SettingsOn(), "Excel settings after the refused load: " & SettingsText()
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
         CheckText "trades", ResultLine, "RESULT=LOADED; records=1; findings=0; file=" & mTestFile
-        Check SettingsOn(), "Excel settings after the second load: " & SettingsText()
+        TEST_Kit.Check SettingsOn(), "Excel settings after the second load: " & SettingsText()
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_LOADED & "|" & STAGING_LOADED
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
-        Check SettingsOn(), "Excel settings after the validation: " & SettingsText()
+        TEST_Kit.Check SettingsOn(), "Excel settings after the validation: " & SettingsText()
         Application.Calculation = Calculation
         Application.EnableEvents = Events
         Application.ScreenUpdating = Screen
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.Calculation = Calculation
         Application.EnableEvents = Events
         Application.ScreenUpdating = Screen
@@ -860,7 +845,7 @@ Private Sub CaseValidateStaged()
 ' LOAD AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.staged-rows"
+        TEST_Kit.BeginCase "validate.staged-rows"
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & _
@@ -878,22 +863,22 @@ Private Sub CaseValidateStaged()
         CheckText "first finding", ChecksValue(2, 1) & "|" & ChecksValue(2, 2) & "|" & ChecksValue(2, 3) & "|" & _
                   ChecksValue(2, 4) & "|" & ChecksValue(2, CK_ORIGIN_COL), SEV_ERROR & "|" & SH_IMPORT_TR & "|" & _
                   Notional.Row & "|" & Notional.Address(False, False) & "|" & ORIGIN_IMPORT
-        Check ChecksCell(2, 4).HasFormula And InStr(1, ChecksCell(2, 4).Formula, "=HYPERLINK(""#'" & SH_IMPORT_TR & _
-              "'!" & Notional.Address(False, False) & """,", vbTextCompare) = 1, _
-              "the Reference cell is not a link to the notional: " & ChecksCell(2, 4).Formula
-        Check Left$(ChecksValue(2, 5), 26) = "CSV-TYPE: notional_amount:" And InStr(ChecksValue(2, 5), "(CSV line 4)") > 0 And _
-              ChecksValue(2, CK_CODE_COL) = CSV_TYPE And ChecksValue(2, CK_FIELD_COL) = "notional_amount", _
-              "first message: " & ChecksValue(2, 5)
+        TEST_Kit.Check ChecksCell(2, 4).HasFormula And InStr(1, ChecksCell(2, 4).Formula, "=HYPERLINK(""#'" & SH_IMPORT_TR & _
+                       "'!" & Notional.Address(False, False) & """,", vbTextCompare) = 1, _
+                       "the Reference cell is not a link to the notional: " & ChecksCell(2, 4).Formula
+        TEST_Kit.Check Left$(ChecksValue(2, 5), 26) = "CSV-TYPE: notional_amount:" And InStr(ChecksValue(2, 5), "(CSV line 4)") > 0 And _
+                       ChecksValue(2, CK_CODE_COL) = CSV_TYPE And ChecksValue(2, CK_FIELD_COL) = "notional_amount", _
+                       "first message: " & ChecksValue(2, 5)
         CheckText "second finding", ChecksValue(3, CK_CODE_COL) & "|" & ChecksValue(3, CK_FIELD_COL) & "|" & ChecksValue(3, 4), _
                   "CSV-NETTING-SET-UNKNOWN|netting_set_id|" & NettingSet.Address(False, False)
-        Check Len(ChecksValue(4, 1)) = 0, "a fourth Checks line: " & ChecksValue(4, 5)
-        Check Notional.Interior.Color = ERROR_FILL And NettingSet.Interior.Color = ERROR_FILL, "the cells are not marked"
-        Check StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "a cell without a finding is marked"
+        TEST_Kit.Check Len(ChecksValue(4, 1)) = 0, "a fourth Checks line: " & ChecksValue(4, 5)
+        TEST_Kit.Check Notional.Interior.Color = ERROR_FILL And NettingSet.Interior.Color = ERROR_FILL, "the cells are not marked"
+        TEST_Kit.Check StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "a cell without a finding is marked"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -917,19 +902,19 @@ Private Sub CaseValidateRepeated()
 ' VALIDATE AGAIN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.repeated"
+        TEST_Kit.BeginCase "validate.repeated"
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "result", ResultLine, "RESULT=INVALID; errors=2; nettingsets=2; trades=3; first=CSV-TYPE|" & _
                   SH_IMPORT_TR & "!" & StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Address(False, False)
-        Check ChecksValue(3, 1) = SEV_ERROR And Len(ChecksValue(4, 1)) = 0, "Checks lines: " & ChecksValue(4, 5)
-        Check StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Interior.Color = ERROR_FILL And _
-              StagingCell(KIND_TR, 2, COL_TR_NS).Interior.Color = ERROR_FILL And _
-              StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "the marks changed"
+        TEST_Kit.Check ChecksValue(3, 1) = SEV_ERROR And Len(ChecksValue(4, 1)) = 0, "Checks lines: " & ChecksValue(4, 5)
+        TEST_Kit.Check StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Interior.Color = ERROR_FILL And _
+                       StagingCell(KIND_TR, 2, COL_TR_NS).Interior.Color = ERROR_FILL And _
+                       StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL, "the marks changed"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -957,7 +942,7 @@ Private Sub CaseValidateCorrected()
 ' CORRECT AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.corrected"
+        TEST_Kit.BeginCase "validate.corrected"
         Events = Application.EnableEvents
         Application.EnableEvents = True
         StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Value2 = "1000"
@@ -966,21 +951,21 @@ Private Sub CaseValidateCorrected()
         CheckText "status after the corrections", Meta(KIND_TR, 4), STAGING_EDITED
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=3"
-        Check StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL And _
-              StagingCell(KIND_TR, 2, COL_TR_NS).Interior.Color = VALUE_FILL, "a mark was left"
+        TEST_Kit.Check StagingCell(KIND_TR, 3, COL_TR_NOTIONAL).Interior.Color = VALUE_FILL And _
+                       StagingCell(KIND_TR, 2, COL_TR_NS).Interior.Color = VALUE_FILL, "a mark was left"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
-        Check InStr(ChecksValue(1, 5), "No issues found.") > 0 And Len(ChecksValue(2, 1)) = 0, _
-              "Checks: " & ChecksValue(1, 5) & " / " & ChecksValue(2, 5)
-        Check Not ChecksCell(2, 4).HasFormula, "a link was left on Checks"
+        TEST_Kit.Check InStr(ChecksValue(1, 5), "No issues found.") > 0 And Len(ChecksValue(2, 1)) = 0, _
+                       "Checks: " & ChecksValue(1, 5) & " / " & ChecksValue(2, 5)
+        TEST_Kit.Check Not ChecksCell(2, 4).HasFormula, "a link was left on Checks"
         Set Model = TableCell(GetSheet(SH_CHECKS), GetSheet(SH_CHECKS).Rows.Count, 4)
         With ChecksCell(2, 4).Font
-            Check .Name = Model.Font.Name And .Size = Model.Font.Size And .Color = Model.Font.Color And _
-                  .Underline = Model.Font.Underline, "the link's font was left: " & .Name & " " & .Size
+            TEST_Kit.Check Model.Font.Name = .Name And Model.Font.Size = .Size And Model.Font.Color = .Color And _
+                           Model.Font.Underline = .Underline, "the link's font was left: " & .Name & " " & .Size
         End With
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -1004,15 +989,15 @@ Private Sub CaseValidateEvidence()
 ' EXPORT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.evidence-refused"
+        TEST_Kit.BeginCase "validate.evidence-refused"
         RemoveFile mTestFile
         ResultLine = M_Main.ExportEvidence_Silent(mTestFile)
         CheckText "export", ResultLine, EVIDENCE_REFUSED
-        Check Len(Dir$(mTestFile)) = 0, "the export wrote a file"
+        TEST_Kit.Check Len(Dir$(mTestFile)) = 0, "the export wrote a file"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1040,7 +1025,7 @@ Private Sub CaseValidateLiveTrades()
 ' VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.live-trades"
+        TEST_Kit.BeginCase "validate.live-trades"
         WriteCsv CSV_TR_HEADER & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         Outside = LegsOutside("NS-T1|NS-T2", FirstCell)
@@ -1051,7 +1036,7 @@ Private Sub CaseValidateLiveTrades()
         If Outside = 0 Then
             CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=0"
             CheckText "status", Meta(KIND_NS, 4), STAGING_VALID
-            Check Len(ChecksValue(2, 1)) = 0, "a finding without a leg outside"
+            TEST_Kit.Check Len(ChecksValue(2, 1)) = 0, "a finding without a leg outside"
         Else
             CheckText "result", ResultLine, "RESULT=INVALID; errors=" & Outside & "; nettingsets=2; trades=0; " & _
                       "first=CSV-NETTING-SET-UNKNOWN|" & SH_TRADES & "!" & FirstCell
@@ -1063,7 +1048,7 @@ Private Sub CaseValidateLiveTrades()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1089,7 +1074,7 @@ Private Sub CaseValidateRefused()
 ' REFUSE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.refused"
+        TEST_Kit.BeginCase "validate.refused"
         Before = ChecksText()
         Events = Application.EnableEvents
         Application.EnableEvents = False
@@ -1110,7 +1095,7 @@ Private Sub CaseValidateRefused()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -1142,7 +1127,7 @@ Private Sub CaseValidateErrorValues()
 ' STAGE, PUT ERROR VALUES IN, VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.error-values"
+        TEST_Kit.BeginCase "validate.error-values"
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1156,23 +1141,23 @@ Private Sub CaseValidateErrorValues()
         Notional2.Value = CVErr(xlErrValue)
         StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value = CVErr(xlErrNA)
         Application.EnableEvents = Events
-        Check IsError(Notional.Value2) And IsError(StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2) And _
-              IsError(Notional2.Value2) And IsError(StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value2), _
-              "the cells do not hold error values"
+        TEST_Kit.Check IsError(Notional.Value2) And IsError(StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2) And _
+                       IsError(Notional2.Value2) And IsError(StagingCell(KIND_TR, 2, COL_TR_COMMENT).Value2), _
+                       "the cells do not hold error values"
         On Error Resume Next
         ResultLine = M_Main.ValidateStaging_Silent()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
-        Check ErrorNumber = 0, "the validation raised error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber = 0, "the validation raised error " & ErrorNumber
         CheckText "result", ResultLine, "RESULT=INVALID; errors=2; nettingsets=2; trades=2; first=CSV-TYPE|" & _
                   SH_IMPORT_TR & "!" & Notional.Address(False, False)
-        Check InStr(1, ChecksValue(2, 5), "#N/A", vbBinaryCompare) > 0, "the finding does not name #N/A: " & ChecksValue(2, 5)
-        Check InStr(1, ChecksValue(3, 5), "#VALUE!", vbBinaryCompare) > 0, "the finding does not name #VALUE!: " & ChecksValue(3, 5)
+        TEST_Kit.Check InStr(1, ChecksValue(2, 5), "#N/A", vbBinaryCompare) > 0, "the finding does not name #N/A: " & ChecksValue(2, 5)
+        TEST_Kit.Check InStr(1, ChecksValue(3, 5), "#VALUE!", vbBinaryCompare) > 0, "the finding does not name #VALUE!: " & ChecksValue(3, 5)
         CheckText "status", Meta(KIND_TR, 4), STAGING_INVALID
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -1185,8 +1170,9 @@ Private Sub CaseValidateContext()
 '   Staged legs judged against Params (#209): T1 is valid; T2 has
 '   matured, its maturity not after the reporting date; T3 is in SEK,
 '   which has no FX rate; T4 is an OT leg of NS-T3, whose override is
-'   BCBS. The validation is INVALID with three findings, in that order,
-'   each on its staged cell, which is marked; Import_NettingSets is VALID
+'   BCBS; T5 is an FX leg on USD/GBP with its notional in EUR, outside the
+'   pair (#678). The validation is INVALID with four findings, in that
+'   order, each on its staged cell, which is marked; Import_NettingSets is VALID
 '   and Import_Trades INVALID; the counters of the last run are as they
 '   were; and an INVALID validation does not read as current.
 '==============================================================================
@@ -1199,41 +1185,46 @@ Private Sub CaseValidateContext()
     Dim Maturity        As Range     'Maturity of T2
     Dim NotionalCcy     As Range     'Notional currency of T3
     Dim AssetClass      As Range     'Asset class of T4
+    Dim FxNotionalCcy   As Range     'Notional currency of T5
     Dim CountersBefore  As String    'Errors, warnings and trades read of the last run
 
 '------------------------------------------------------------------------------
 ' LOAD AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.context"
+        TEST_Kit.BeginCase "validate.context"
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf & NS_ROW_BCBS & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & _
                  Replace(TradeRow("T2", "1000", ""), ";2031-01-02;2031-01-02;", ";2026-01-02;2026-01-02;") & vbLf & _
                  Replace(TradeRow("T3", "1000", ""), ";1000;EUR;", ";1000;SEK;") & vbLf & _
-                 Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf
+                 Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf & _
+                 Replace(TradeRow("T5", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T1;FX;;USD/GBP;") & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         Set Maturity = StagingCell(KIND_TR, 2, COL_TR_MATURITY)
         Set NotionalCcy = StagingCell(KIND_TR, 3, COL_TR_NCCY)
         Set AssetClass = StagingCell(KIND_TR, 4, COL_TR_CLASS)
+        Set FxNotionalCcy = StagingCell(KIND_TR, 5, COL_TR_NCCY)
         CountersBefore = RunCounters()
         ResultLine = M_Main.ValidateStaging_Silent()
-        CheckText "result", ResultLine, "RESULT=INVALID; errors=3; nettingsets=3; trades=4; first=CSV-CONTEXT-MATURED|" & _
+        CheckText "result", ResultLine, "RESULT=INVALID; errors=4; nettingsets=3; trades=5; first=CSV-CONTEXT-MATURED|" & _
                   SH_IMPORT_TR & "!" & Maturity.Address(False, False)
         CheckText "findings", FindingCode(2) & "|" & ChecksValue(2, 4) & "|" & FindingCode(3) & "|" & ChecksValue(3, 4) & _
-                  "|" & FindingCode(4) & "|" & ChecksValue(4, 4), "CSV-CONTEXT-MATURED|" & Maturity.Address(False, False) & _
+                  "|" & FindingCode(4) & "|" & ChecksValue(4, 4) & "|" & FindingCode(5) & "|" & ChecksValue(5, 4), _
+                  "CSV-CONTEXT-MATURED|" & Maturity.Address(False, False) & _
                   "|CSV-CONTEXT-CURRENCY|" & NotionalCcy.Address(False, False) & "|CSV-CONTEXT-REGIME|" & _
-                  AssetClass.Address(False, False)
-        Check Len(ChecksValue(5, 1)) = 0, "a fifth Checks line: " & ChecksValue(5, 5)
-        Check Maturity.Interior.Color = ERROR_FILL And NotionalCcy.Interior.Color = ERROR_FILL And _
-              AssetClass.Interior.Color = ERROR_FILL, "the cells are not marked"
+                  AssetClass.Address(False, False) & "|CSV-CONTEXT-FX-NOTIONAL|" & FxNotionalCcy.Address(False, False)
+        TEST_Kit.Check Len(ChecksValue(6, 1)) = 0, "a sixth Checks line: " & ChecksValue(6, 5)
+        TEST_Kit.Check Maturity.Interior.Color = ERROR_FILL And NotionalCcy.Interior.Color = ERROR_FILL And _
+                       AssetClass.Interior.Color = ERROR_FILL And FxNotionalCcy.Interior.Color = ERROR_FILL, _
+                       "the cells are not marked"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_INVALID
         CheckText "counters of the last run", RunCounters(), CountersBefore
-        Check Not M_Main.StagingValidationCurrent(), "an INVALID validation reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "an INVALID validation reads as current"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1263,7 +1254,7 @@ Private Sub CaseValidateParams()
 ' CLEAR THE DATE AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.params-invalid"
+        TEST_Kit.BeginCase "validate.params-invalid"
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf
@@ -1281,13 +1272,13 @@ Private Sub CaseValidateParams()
         CheckText "finding", FindingCode(2) & "|" & ChecksValue(2, 2) & "|" & ChecksValue(2, 4) & "|" & _
                   AsOfCell.Interior.Color, "CSV-CONTEXT-PARAMS|" & SH_PARAMS & "|" & AsOfCell.Address(False, False) & _
                   "|" & FillBefore
-        Check InStr(1, ChecksValue(2, 5), PRM_ASOF, vbBinaryCompare) > 0, "the finding does not name " & PRM_ASOF & _
-              ": " & ChecksValue(2, 5)
+        TEST_Kit.Check InStr(1, ChecksValue(2, 5), PRM_ASOF, vbBinaryCompare) > 0, "the finding does not name " & PRM_ASOF & _
+                       ": " & ChecksValue(2, 5)
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_INVALID & "|" & STAGING_INVALID
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         If Cleared Then
             AsOfCell.Formula = SavedFormula
         End If
@@ -1320,7 +1311,7 @@ Private Sub CaseValidateCurrent()
 ' VALIDATE, CHANGE AND PUT BACK
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.current"
+        TEST_Kit.BeginCase "validate.current"
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1328,28 +1319,28 @@ Private Sub CaseValidateCurrent()
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "result", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
-        Check M_Main.StagingValidationCurrent(), "a VALID validation does not read as current"
+        TEST_Kit.Check M_Main.StagingValidationCurrent(), "a VALID validation does not read as current"
         Application.EnableEvents = False
         StagingCell(KIND_TR, 1, COL_TR_COMMENT).Value2 = "edited"
-        Check Not M_Main.StagingValidationCurrent(), "an edit with events off reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "an edit with events off reads as current"
         StagingCell(KIND_TR, 1, COL_TR_COMMENT).ClearContents
-        Check M_Main.StagingValidationCurrent(), "the edit put back does not read as current"
+        TEST_Kit.Check M_Main.StagingValidationCurrent(), "the edit put back does not read as current"
         Set AlphaCell = NamedCell(PRM_ALPHA)
         SavedFormula = AlphaCell.Formula
         Changed = True
         AlphaCell.Value2 = 1.5
-        Check Not M_Main.StagingValidationCurrent(), "a changed Params value reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "a changed Params value reads as current"
         AlphaCell.Formula = SavedFormula
         Changed = False
         StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "abc"
         ResultLine = M_Main.ValidateStaging_Silent()
         StagingCell(KIND_TR, 1, COL_TR_NOTIONAL).Value2 = "1000"
         Application.EnableEvents = Events
-        Check Not M_Main.StagingValidationCurrent(), "after an INVALID validation, its cause put back, it reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "after an INVALID validation, its cause put back, it reads as current"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         If Changed Then
             AlphaCell.Formula = SavedFormula
         End If
@@ -1387,7 +1378,7 @@ Private Sub CaseValidateLiveChanges()
 ' VALIDATE, CHANGE AND PUT BACK
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.live-changes"
+        TEST_Kit.BeginCase "validate.live-changes"
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1399,23 +1390,23 @@ Private Sub CaseValidateLiveChanges()
         Set TrSheet = GetSheet(SH_TRADES)
         Set TrCell = TableCell(TrSheet, LastLiveRow(TrSheet, TableFirstRow(SH_TRADES), TR_NCOLS) + 1, TR_ID)
         TrCell.Value2 = "T-EDIT"
-        Check Not M_Main.StagingValidationCurrent(), "a trade ID typed on Trades reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "a trade ID typed on Trades reads as current"
         TrCell.ClearContents
-        Check M_Main.StagingValidationCurrent(), "the Trades cell cleared again does not read as current"
+        TEST_Kit.Check M_Main.StagingValidationCurrent(), "the Trades cell cleared again does not read as current"
         Set RateCell = NamedCell(NM_FX_TABLE).Offset(1, 2)
         SavedRate = RateCell.Value2
         If RateCell.HasFormula Then RateFormula = RateCell.Formula
         Changed = True
         RateCell.Value2 = 2 * CDbl(SavedRate) + 1
-        Check Not M_Main.StagingValidationCurrent(), "a changed FX rate reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "a changed FX rate reads as current"
         PutRateBack RateCell, SavedRate, RateFormula
         Changed = False
-        Check M_Main.StagingValidationCurrent(), "the FX rate put back does not read as current"
+        TEST_Kit.Check M_Main.StagingValidationCurrent(), "the FX rate put back does not read as current"
         Application.EnableEvents = Events
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
         If Not TrCell Is Nothing Then TrCell.ClearContents
         If Changed Then PutRateBack RateCell, SavedRate, RateFormula
@@ -1472,14 +1463,14 @@ Private Sub CaseValidateLiveContext()
 ' VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.live-context"
+        TEST_Kit.BeginCase "validate.live-context"
         WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;" & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
         Outside = LegsOutside("CRR-OTHER", FirstCell)
         OtLegs = LegsOfClass("CRR-OTHER", "OT", OtCell)
-        Check OtLegs > 0, "Trades has no OT leg of CRR-OTHER: build the workbook from the current template"
+        TEST_Kit.Check OtLegs > 0, "Trades has no OT leg of CRR-OTHER: build the workbook from the current template"
         If OtLegs > 0 Then
             FillBefore = GetSheet(SH_TRADES).Range(OtCell).Interior.Color
         End If
@@ -1492,17 +1483,17 @@ Private Sub CaseValidateLiveContext()
                 Exit For
             End If
         Next i
-        Check FoundLine > 0 And ChecksValue(FoundLine, 2) = SH_TRADES, "no CSV-CONTEXT-REGIME finding on " & _
-              SH_TRADES & "!" & OtCell
+        TEST_Kit.Check FoundLine > 0 And ChecksValue(FoundLine, 2) = SH_TRADES, "no CSV-CONTEXT-REGIME finding on " & _
+                       SH_TRADES & "!" & OtCell
         If OtLegs > 0 Then
-            Check GetSheet(SH_TRADES).Range(OtCell).Interior.Color = FillBefore, "the Trades cell is marked"
+            TEST_Kit.Check GetSheet(SH_TRADES).Range(OtCell).Interior.Color = FillBefore, "the Trades cell is marked"
         Else
-            Check False, "no OT leg whose cell could be checked"
+            TEST_Kit.Check False, "no OT leg whose cell could be checked"
         End If
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1535,7 +1526,7 @@ Private Sub CaseValidateOutOfDate()
 ' VALIDATE, CHANGE, REFRESH
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.out-of-date"
+        TEST_Kit.BeginCase "validate.out-of-date"
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1574,7 +1565,7 @@ Private Sub CaseValidateOutOfDate()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         If Changed Then
             AlphaCell.Formula = SavedFormula
         End If
@@ -1605,7 +1596,7 @@ Private Sub CaseCommitRefused()
 ' REFUSE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.refused"
+        TEST_Kit.BeginCase "commit.refused"
         Events = Application.EnableEvents
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1622,11 +1613,11 @@ Private Sub CaseCommitRefused()
         StagingCell(KIND_TR, 1, COL_TR_COMMENT).ClearContents
         Application.EnableEvents = Events
         CheckText "after an edit with events off", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
-        Check LiveInputsText() = Before, "the input sheets or the run's names changed"
+        TEST_Kit.Check LiveInputsText() = Before, "the input sheets or the run's names changed"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -1658,7 +1649,7 @@ Private Sub CaseCommitFailures()
 ' FAIL AND PUT BACK
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.failures"
+        TEST_Kit.BeginCase "commit.failures"
         Events = Application.EnableEvents
         Application.EnableEvents = False
         Set Counterparty = TableCell(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_CPTY)
@@ -1671,17 +1662,17 @@ Private Sub CaseCommitFailures()
         ResultLine = M_Main.CommitStaging_Silent()
         M_Main.gTestFault = ""
         CheckText "write failure", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=VERIFIED"
-        Check LiveInputsText() = Before, "write failure: the input sheets were not put back"
+        TEST_Kit.Check LiveInputsText() = Before, "write failure: the input sheets were not put back"
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
-        Check M_Main.StagingValidationCurrent(), "write failure: the validation no longer reads as current"
+        TEST_Kit.Check M_Main.StagingValidationCurrent(), "write failure: the validation no longer reads as current"
         M_Main.gTestFault = "commit-verify"
         ResultLine = M_Main.CommitStaging_Silent()
         M_Main.gTestFault = ""
         CheckText "read-back failure", ResultLine, _
                   "RESULT=FAILED; error=Injected read-back difference on " & SH_NS & "; rollback=VERIFIED"
-        Check LiveInputsText() = Before, "read-back failure: the input sheets were not put back"
-        Check Not Counterparty.HasFormula And SafeStr(Counterparty.Value2) = "=1+1", _
-              "the text =1+1 did not stay text: " & Counterparty.Formula
+        TEST_Kit.Check LiveInputsText() = Before, "read-back failure: the input sheets were not put back"
+        TEST_Kit.Check Not Counterparty.HasFormula And SafeStr(Counterparty.Value2) = "=1+1", _
+                       "the text =1+1 did not stay text: " & Counterparty.Formula
         PutBackLive
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "validation again", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=1"
@@ -1690,7 +1681,7 @@ Private Sub CaseCommitFailures()
 Unexpected:
         M_Main.gTestFault = ""
         Application.EnableEvents = Events
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
 
 End Sub
@@ -1717,7 +1708,7 @@ Private Sub CaseCommitRollbackFailed()
 ' FAIL TWICE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.rollback-failed"
+        TEST_Kit.BeginCase "commit.rollback-failed"
         Before = LiveInputsText()
         M_Main.gTestFault = "commit-rollback"
         ResultLine = M_Main.CommitStaging_Silent()
@@ -1726,12 +1717,12 @@ Private Sub CaseCommitRollbackFailed()
                   SH_NS & ": Injected write-back failure."
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_VALID & "|" & STAGING_VALID
         PutBackLive
-        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub
 
 Unexpected:
         M_Main.gTestFault = ""
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1768,7 +1759,7 @@ Private Sub CaseCommitBoth()
 ' VALIDATE AND COMMIT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.both"
+        TEST_Kit.BeginCase "commit.both"
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("00123", "1000", "007") & vbLf & TradeRow("T2", "2500.5", "") & vbLf & _
@@ -1778,9 +1769,9 @@ Private Sub CaseCommitBoth()
         CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=2; trades=3"
         Before = LiveInputsText()
         M_Main.CommitImport
-        Check InStr(1, M_Main.gLastMessage, "A commit is confirmed in a dialog, which silent mode does not show", _
-                    vbBinaryCompare) > 0, "the button in silent mode: " & M_Main.gLastMessage
-        Check LiveInputsText() = Before And M_Main.StagingValidationCurrent(), "the button in silent mode changed something"
+        TEST_Kit.Check InStr(1, M_Main.gLastMessage, "A commit is confirmed in a dialog, which silent mode does not show", _
+                             vbBinaryCompare) > 0, "the button in silent mode: " & M_Main.gLastMessage
+        TEST_Kit.Check LiveInputsText() = Before And M_Main.StagingValidationCurrent(), "the button in silent mode changed something"
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=3"
 
@@ -1791,34 +1782,34 @@ Private Sub CaseCommitBoth()
         Set TrSheet = GetSheet(SH_TRADES)
         NsFirst = TableFirstRow(SH_NS)
         TrFirst = TableFirstRow(SH_TRADES)
-        Check LastLiveRow(NsSheet, NsFirst, NS_NCOLS) = NsFirst + 1, "NettingSets: not exactly two rows"
+        TEST_Kit.Check LastLiveRow(NsSheet, NsFirst, NS_NCOLS) = NsFirst + 1, "NettingSets: not exactly two rows"
         CheckText "first netting set", CStr(TableCell(NsSheet, NsFirst, NS_ID).Value2), "NS-T1"
         Value = TableCell(TrSheet, TrFirst, TR_ID).Value2
-        Check SameText(Value, "00123"), "the ID with leading zeros: " & CStr(Value)
+        TEST_Kit.Check SameText(Value, "00123"), "the ID with leading zeros: " & CStr(Value)
         Value = TableCell(TrSheet, TrFirst + 1, TR_NOTIONAL).Value2
-        Check SameNumber(Value, 2500.5), "the notional: " & CStr(Value)
+        TEST_Kit.Check SameNumber(Value, 2500.5), "the notional: " & CStr(Value)
         Value = TableCell(TrSheet, TrFirst, TR_MAT).Value2
-        Check SameNumber(Value, CDbl(DateSerial(2031, 1, 2))), "the maturity: " & CStr(Value)
+        TEST_Kit.Check SameNumber(Value, CDbl(DateSerial(2031, 1, 2))), "the maturity: " & CStr(Value)
         Value = TableCell(TrSheet, TrFirst, TR_COMMENT).Value2
-        Check SameText(Value, "007"), "the comment: " & CStr(Value)
-        Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 2, "Trades: not exactly three rows"
-        Check NsSheet.ProtectContents And TrSheet.ProtectContents And Not TableCell(NsSheet, NsFirst, NS_ID).Locked And _
-              Not TableCell(TrSheet, TrFirst + 2, TR_COMMENT).Locked And TableCell(TrSheet, TrFirst - 1, TR_ID).Locked, _
-              "the committed input sheets are not protected as the editability matrix says"
+        TEST_Kit.Check SameText(Value, "007"), "the comment: " & CStr(Value)
+        TEST_Kit.Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 2, "Trades: not exactly three rows"
+        TEST_Kit.Check NsSheet.ProtectContents And TrSheet.ProtectContents And Not TableCell(NsSheet, NsFirst, NS_ID).Locked And _
+                       Not TableCell(TrSheet, TrFirst + 2, TR_COMMENT).Locked And TableCell(TrSheet, TrFirst - 1, TR_ID).Locked, _
+                       "the committed input sheets are not protected as the editability matrix says"
 
 '------------------------------------------------------------------------------
 ' AFTER THE COMMIT
 '------------------------------------------------------------------------------
         CheckText "statuses", Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4), STAGING_COMMITTED & "|" & STAGING_COMMITTED
-        Check Not M_Main.StagingValidationCurrent(), "the validation still reads as current"
+        TEST_Kit.Check Not M_Main.StagingValidationCurrent(), "the validation still reads as current"
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "second commit", ResultLine, "RESULT=REFUSED; reason=no current VALID staging validation"
         PutBackLive
-        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
 
 End Sub
@@ -1848,7 +1839,7 @@ Private Sub CaseCommitTradesOnly()
 ' STAGE, VALIDATE AND COMMIT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.trades-only"
+        TEST_Kit.BeginCase "commit.trades-only"
         LiveSet = CStr(TableCell(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_ID).Value2)
         WriteCsv CSV_NS_HEADER & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
@@ -1860,14 +1851,14 @@ Private Sub CaseCommitTradesOnly()
         NsBefore = CORE_Engine.BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS)
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=0; trades=1"
-        Check CORE_Engine.BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS) = NsBefore, "NettingSets changed"
+        TEST_Kit.Check CORE_Engine.BlockText(GetSheet(SH_NS), TableFirstRow(SH_NS), NS_NCOLS) = NsBefore, "NettingSets changed"
         CheckText "Import_Trades status", Meta(KIND_TR, 4), STAGING_COMMITTED
         PutBackLive
-        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
 
 End Sub
@@ -1898,7 +1889,7 @@ Private Sub CaseCommitTrailingFormula()
 ' STAGE, VALIDATE AND COMMIT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.trailing-formula"
+        TEST_Kit.BeginCase "commit.trailing-formula"
         Set TrSheet = GetSheet(SH_TRADES)
         TrFirst = TableFirstRow(SH_TRADES)
         Before = LiveInputsText()
@@ -1912,15 +1903,15 @@ Private Sub CaseCommitTrailingFormula()
         ResultLine = M_Main.ValidateStaging_Silent()
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
-        Check Not FormulaCell.HasFormula And IsEmpty(FormulaCell.Value2), _
-              "the formula below the data was left in place: " & FormulaCell.Formula
-        Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 1, "Trades: not exactly two rows"
+        TEST_Kit.Check Not FormulaCell.HasFormula And IsEmpty(FormulaCell.Value2), _
+                       "the formula below the data was left in place: " & FormulaCell.Formula
+        TEST_Kit.Check LastLiveRow(TrSheet, TrFirst, TR_NCOLS) = TrFirst + 1, "Trades: not exactly two rows"
         PutBackLive
-        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
         If Not FormulaCell Is Nothing Then FormulaCell.ClearContents
         PutBackLive
@@ -1959,7 +1950,7 @@ Private Sub CaseCommitNettingSetsOnly()
 ' COMMIT BOTH, A 15-DIGIT NOTIONAL
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.netting-sets-only"
+        TEST_Kit.BeginCase "commit.netting-sets-only"
         Before = LiveInputsText()
         Set NsSheet = GetSheet(SH_NS)
         Set TrSheet = GetSheet(SH_TRADES)
@@ -1974,7 +1965,7 @@ Private Sub CaseCommitNettingSetsOnly()
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=3; trades=5"
         Value = TableCell(TrSheet, TableFirstRow(SH_TRADES), TR_NOTIONAL).Value2
-        Check SameNumber(Value, 123456789012345#), "the 15-digit notional: " & CStr(Value)
+        TEST_Kit.Check SameNumber(Value, 123456789012345#), "the 15-digit notional: " & CStr(Value)
 
 '------------------------------------------------------------------------------
 ' COMMIT NETTING SETS ONLY
@@ -1989,16 +1980,16 @@ Private Sub CaseCommitNettingSetsOnly()
         CheckText "validation of netting sets only", ResultLine, "RESULT=VALID; errors=0; nettingsets=3; trades=0"
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit of netting sets only", ResultLine, "RESULT=COMMITTED; nettingsets=3; trades=0"
-        Check CORE_Engine.BlockText(TrSheet, TableFirstRow(SH_TRADES), TR_NCOLS) = TrBefore, "Trades changed"
+        TEST_Kit.Check CORE_Engine.BlockText(TrSheet, TableFirstRow(SH_TRADES), TR_NCOLS) = TrBefore, "Trades changed"
         Value = TableCell(NsSheet, TableFirstRow(SH_NS) + 2, NS_CPTY).Value2
-        Check SameText(Value, "Example CCP Ltd"), "the changed counterparty: " & CStr(Value)
+        TEST_Kit.Check SameText(Value, "Example CCP Ltd"), "the changed counterparty: " & CStr(Value)
         CheckText "Import_NettingSets status", Meta(KIND_NS, 4), STAGING_COMMITTED
         PutBackLive
-        Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
 
 End Sub
@@ -2037,14 +2028,14 @@ Private Sub CaseCommitState()
 ' A CURRENT RUN, THEN A FAILED AND A SUCCESSFUL COMMIT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.state"
+        TEST_Kit.BeginCase "commit.state"
         SavedInputs = CORE_Engine.InputFingerprint()
         HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
         Calculation = Application.Calculation
         Events = Application.EnableEvents
         Screen = Application.ScreenUpdating
         M_Main.RunSACCR_Silent
-        Check M_Main.ResultsStatus() = "CURRENT", "results before the commit: " & M_Main.ResultsStatus()
+        TEST_Kit.Check M_Main.ResultsStatus() = "CURRENT", "results before the commit: " & M_Main.ResultsStatus()
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & TradeRow("T2", "2500.5", "") & vbLf
@@ -2058,11 +2049,11 @@ Private Sub CaseCommitState()
         ResultLine = M_Main.CommitStaging_Silent()
         M_Main.gTestFault = ""
         CheckText "failed commit", ResultLine, "RESULT=FAILED; error=Injected commit write failure.; rollback=VERIFIED"
-        Check SettingsOn(), "Excel settings after the failed commit: " & SettingsText()
+        TEST_Kit.Check SettingsOn(), "Excel settings after the failed commit: " & SettingsText()
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
-        Check SettingsOn(), "Excel settings after the commit: " & SettingsText()
-        Check M_Main.ResultsStatus() = "STALE", "results after the commit: " & M_Main.ResultsStatus()
+        TEST_Kit.Check SettingsOn(), "Excel settings after the commit: " & SettingsText()
+        TEST_Kit.Check M_Main.ResultsStatus() = "STALE", "results after the commit: " & M_Main.ResultsStatus()
 
 '------------------------------------------------------------------------------
 ' A COMMIT WHOSE CLEANUP FAILS STAYS DONE
@@ -2076,12 +2067,12 @@ Private Sub CaseCommitState()
         ErrorText = Err.Description
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check ErrorNumber = ERR_CLEANUP_FAILED And InStr(1, ErrorText, "were committed", vbBinaryCompare) > 0 And _
-              InStr(1, ErrorText, "Calculation:", vbBinaryCompare) > 0, _
-              "expected the cleanup error, got " & ErrorNumber & ": " & ErrorText
-        Check Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4) = STAGING_COMMITTED & "|" & STAGING_COMMITTED And _
-              Not M_Main.StagingValidationCurrent(), _
-              "after the cleanup error: " & Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4)
+        TEST_Kit.Check ErrorNumber = ERR_CLEANUP_FAILED And InStr(1, ErrorText, "were committed", vbBinaryCompare) > 0 And _
+                       InStr(1, ErrorText, "Calculation:", vbBinaryCompare) > 0, _
+                       "expected the cleanup error, got " & ErrorNumber & ": " & ErrorText
+        TEST_Kit.Check Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4) = STAGING_COMMITTED & "|" & STAGING_COMMITTED And _
+                       Not M_Main.StagingValidationCurrent(), _
+                       "after the cleanup error: " & Meta(KIND_NS, 4) & "|" & Meta(KIND_TR, 4)
 
 '------------------------------------------------------------------------------
 ' PUT BACK
@@ -2091,13 +2082,13 @@ Private Sub CaseCommitState()
         Application.ScreenUpdating = Screen
         PutBackLive
         PutRunBack HadRun
-        Check CORE_Engine.InputFingerprint() = SavedInputs And _
-              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
-              "inputs and results after the case: " & M_Main.ResultsStatus()
+        TEST_Kit.Check CORE_Engine.InputFingerprint() = SavedInputs And _
+                       M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+                       "inputs and results after the case: " & M_Main.ResultsStatus()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         On Error Resume Next
         M_Main.gTestFault = ""
         Application.Calculation = Calculation
@@ -2166,7 +2157,7 @@ Private Sub CaseCommitEquivalentRun()
 ' COMMIT AND RUN, THEN TYPE AND RUN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.equivalent-run"
+        TEST_Kit.BeginCase "commit.equivalent-run"
         SavedInputs = CORE_Engine.InputFingerprint()
         HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
         WriteCsv CSV_NS_HEADER & vbLf & NS_ROW_1 & vbLf & NS_ROW_2 & vbLf
@@ -2178,21 +2169,21 @@ Private Sub CaseCommitEquivalentRun()
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=2; trades=2"
         Committed = M_Main.RunSACCR_Silent()
-        Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0, _
-              "the run on the committed rows: " & Committed
+        TEST_Kit.Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0, _
+                       "the run on the committed rows: " & Committed
         TypeRows SH_NS, NS_NCOLS, Array(NS_ROW_1, NS_ROW_2)
         TypeRows SH_TRADES, TR_NCOLS, Array(TradeRow("T1", "1000", ""), TradeRow("T2", "2500.5", ""))
         Typed = M_Main.RunSACCR_Silent()
-        Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
+        TEST_Kit.Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
         PutBackLive
         PutRunBack HadRun
-        Check CORE_Engine.InputFingerprint() = SavedInputs And _
-              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
-              "inputs and results after the case: " & M_Main.ResultsStatus()
+        TEST_Kit.Check CORE_Engine.InputFingerprint() = SavedInputs And _
+                       M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+                       "inputs and results after the case: " & M_Main.ResultsStatus()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
         PutRunBack HadRun
 
@@ -2275,7 +2266,7 @@ Private Sub PutRunBack( _
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not put the run back: " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "could not put the run back: " & Err.Description
 
 End Sub
 
@@ -2312,7 +2303,7 @@ Private Sub CaseCommitEquivalentSheets()
 ' COMMIT AND RUN, THEN TYPE AND RUN
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "commit.equivalent-sheets"
+        TEST_Kit.BeginCase "commit.equivalent-sheets"
         SavedInputs = CORE_Engine.InputFingerprint()
         HadRun = Len(NameText(RUN_INPUTS_NAME)) > 0
         WriteCsv CORE_ImportSpec.ImportSpecExample("NettingSets")
@@ -2326,23 +2317,23 @@ Private Sub CaseCommitEquivalentSheets()
         ResultLine = M_Main.CommitStaging_Silent()
         CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=3; trades=5"
         Committed = M_Main.RunSACCR_Silent()
-        Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0 And _
-              InStr(1, Committed, "; trades_used=5;", vbBinaryCompare) > 0, "the run on the committed rows: " & Committed
+        TEST_Kit.Check Left$(Committed, 9) = "RESULT=OK" And InStr(1, Committed, "; errors=0;", vbBinaryCompare) > 0 And _
+                       InStr(1, Committed, "; trades_used=5;", vbBinaryCompare) > 0, "the run on the committed rows: " & Committed
         Outputs = OutputTablesText()
         TypeStaged SH_NS, NS_NCOLS, "NettingSets", NsValues
         TypeStaged SH_TRADES, TR_NCOLS, "Trades", TrValues
         Typed = M_Main.RunSACCR_Silent()
-        Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
-        Check OutputTablesText() = Outputs, "the output tables differ: " & FirstDifference(OutputTablesText(), Outputs)
+        TEST_Kit.Check Typed = Committed, "typed by hand: " & Typed & " | committed: " & Committed
+        TEST_Kit.Check OutputTablesText() = Outputs, "the output tables differ: " & FirstDifference(OutputTablesText(), Outputs)
         PutBackLive
         PutRunBack HadRun
-        Check CORE_Engine.InputFingerprint() = SavedInputs And _
-              M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
-              "inputs and results after the case: " & M_Main.ResultsStatus()
+        TEST_Kit.Check CORE_Engine.InputFingerprint() = SavedInputs And _
+                       M_Main.ResultsStatus() = IIf(HadRun, "CURRENT", "NONE"), _
+                       "inputs and results after the case: " & M_Main.ResultsStatus()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutBackLive
         PutRunBack HadRun
 
@@ -2518,7 +2509,7 @@ Private Sub CaseSpecExport()
 ' WRITE, REFUSE, REPLACE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "spec.export"
+        TEST_Kit.BeginCase "spec.export"
         SpecPath = Left$(mTestFile, InStrRev(mTestFile, Application.PathSeparator)) & SPEC_FILE
         MissingPath = Left$(mTestFile, InStrRev(mTestFile, Application.PathSeparator)) & _
                       "K-SACCR_no_such_folder" & Application.PathSeparator & SPEC_FILE
@@ -2529,17 +2520,17 @@ Private Sub CaseSpecExport()
         Expected = CORE_Export.Utf8Bytes(Page)
         ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath)
         CheckText "export", ResultLine, "RESULT=OK; bytes=" & IMPORT_SPEC_BYTES & "; file=" & SpecPath
-        Check SameBytes(FileBytes(SpecPath), Expected) And UBound(Expected) + 1 = IMPORT_SPEC_BYTES, _
-              "the file is not the page, byte for byte"
-        Check Left$(Page, 15) = "<!DOCTYPE html>" And InStr(1, Page, "<script", vbTextCompare) = 0 And _
-              InStr(1, Page, "id=""example-trades""", vbBinaryCompare) > 0, "the page is not the specification"
+        TEST_Kit.Check SameBytes(FileBytes(SpecPath), Expected) And UBound(Expected) + 1 = IMPORT_SPEC_BYTES, _
+                       "the file is not the page, byte for byte"
+        TEST_Kit.Check Left$(Page, 15) = "<!DOCTYPE html>" And InStr(1, Page, "<script", vbTextCompare) = 0 And _
+                       InStr(1, Page, "id=""example-trades""", vbBinaryCompare) > 0, "the page is not the specification"
         WritePage SpecPath, OLDER_PAGE
         ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath)
-        Check ResultLine = "RESULT=REFUSED; reason=the file exists; file=" & SpecPath And _
-              PageText(SpecPath) = OLDER_PAGE, "an existing file: " & ResultLine
+        TEST_Kit.Check ResultLine = "RESULT=REFUSED; reason=the file exists; file=" & SpecPath And _
+                       PageText(SpecPath) = OLDER_PAGE, "an existing file: " & ResultLine
         ResultLine = M_Main.ExportImportSpecification_Silent(SpecPath, True)
-        Check Left$(ResultLine, 9) = "RESULT=OK" And SameBytes(FileBytes(SpecPath), Expected), _
-              "the replacement: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK" And SameBytes(FileBytes(SpecPath), Expected), _
+                       "the replacement: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' FAIL AND KEEP THE OLDER FILE
@@ -2552,8 +2543,8 @@ Private Sub CaseSpecExport()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check ErrorNumber = ERR_INJECTED_FAULT And PageText(SpecPath) = OLDER_PAGE, _
-              "a failed write: error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT And PageText(SpecPath) = OLDER_PAGE, _
+                       "a failed write: error " & ErrorNumber
         SetAttr SpecPath, vbReadOnly
         ErrorNumber = 0
         On Error Resume Next
@@ -2561,26 +2552,26 @@ Private Sub CaseSpecExport()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         SetAttr SpecPath, vbNormal
-        Check ErrorNumber = ERR_EXPORT_WRITE And PageText(SpecPath) = OLDER_PAGE, _
-              "a read-only file: error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber = ERR_EXPORT_WRITE And PageText(SpecPath) = OLDER_PAGE, _
+                       "a read-only file: error " & ErrorNumber
         ErrorNumber = 0
         On Error Resume Next
         ResultLine = M_Main.ExportImportSpecification_Silent(MissingPath)
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
-        Check ErrorNumber <> 0 And Len(Dir$(MissingPath, vbHidden)) = 0, "a missing folder: error " & ErrorNumber
+        TEST_Kit.Check ErrorNumber <> 0 And Len(Dir$(MissingPath, vbHidden)) = 0, "a missing folder: error " & ErrorNumber
 
 '------------------------------------------------------------------------------
 ' THE WORKBOOK IS UNCHANGED
 '------------------------------------------------------------------------------
-        Check LiveInputsText() = LiveBefore And BlockState(KIND_NS) & "|" & BlockState(KIND_TR) = StagingBefore And _
-              GetSheet(SH_NS).ProtectContents And GetSheet(SH_TRADES).ProtectContents, _
-              "the export changed the workbook"
+        TEST_Kit.Check LiveInputsText() = LiveBefore And BlockState(KIND_NS) & "|" & BlockState(KIND_TR) = StagingBefore And _
+                       GetSheet(SH_NS).ProtectContents And GetSheet(SH_TRADES).ProtectContents, _
+                       "the export changed the workbook"
         RemoveFile SpecPath
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         On Error Resume Next
         SetAttr SpecPath, vbNormal
@@ -2613,27 +2604,27 @@ Private Sub CaseSpecExamples()
 ' LOAD AND VALIDATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "spec.examples"
+        TEST_Kit.BeginCase "spec.examples"
         NsExample = CORE_ImportSpec.ImportSpecExample("NettingSets")
         TrExample = CORE_ImportSpec.ImportSpecExample("Trades")
-        Check Left$(NsExample, Len(CSV_NS_HEADER) + 1) = CSV_NS_HEADER & vbLf And _
-              Left$(TrExample, Len(CSV_TR_HEADER) + 1) = CSV_TR_HEADER & vbLf And _
-              Len(CORE_ImportSpec.ImportSpecExample("Other")) = 0, "the example files"
+        TEST_Kit.Check Left$(NsExample, Len(CSV_NS_HEADER) + 1) = CSV_NS_HEADER & vbLf And _
+                       Left$(TrExample, Len(CSV_TR_HEADER) + 1) = CSV_TR_HEADER & vbLf And _
+                       Len(CORE_ImportSpec.ImportSpecExample("Other")) = 0, "the example files"
         WriteCsv NsExample
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "netting sets", ResultLine, "RESULT=LOADED; records=3; findings=0; file=" & mTestFile
         WriteCsv TrExample
         ResultLine = M_Main.ImportCsv_Silent("Trades", mTestFile, True)
         CheckText "trades", ResultLine, "RESULT=LOADED; records=5; findings=0; file=" & mTestFile
-        Check CStr(CellValue(KIND_NS, 2, COL_ID)) = "00731" And _
-              CStr(CellValue(KIND_NS, 2, COL_ID + 1)) = "M" & ChrW(252) & "ller & S" & ChrW(248) & _
-              "n ""Nord""; <Example> AG", "the staged text: " & CStr(CellValue(KIND_NS, 2, COL_ID + 1))
+        TEST_Kit.Check CStr(CellValue(KIND_NS, 2, COL_ID)) = "00731" And _
+                       CStr(CellValue(KIND_NS, 2, COL_ID + 1)) = "M" & ChrW(252) & "ller & S" & ChrW(248) & _
+                       "n ""Nord""; <Example> AG", "the staged text: " & CStr(CellValue(KIND_NS, 2, COL_ID + 1))
         ResultLine = M_Main.ValidateStaging_Silent()
         CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=3; trades=5"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -2797,7 +2788,7 @@ Private Sub CaseValidateRecalc()
 ' STAGE, CHANGE THE DATE, VALIDATE AND COMMIT
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "validate.recalc"
+        TEST_Kit.BeginCase "validate.recalc"
         SavedCalc = Application.Calculation
         Set DateCell = NamedCell("AsOfDate")
         Set Precedent = DateCell.Offset(0, 8)
@@ -2814,8 +2805,8 @@ Private Sub CaseValidateRecalc()
         Application.Calculate
         Precedent.Value2 = CDbl(DateSerial(2031, 6, 30))
         ResultLine = M_Main.ValidateStaging_Silent()
-        Check Left$(ResultLine, 14) = "RESULT=INVALID" And InStr(1, ResultLine, "CSV-CONTEXT-MATURED", _
-              vbBinaryCompare) > 0, "the validation judged the reporting date Excel had kept: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=INVALID" And InStr(1, ResultLine, "CSV-CONTEXT-MATURED", _
+                       vbBinaryCompare) > 0, "the validation judged the reporting date Excel had kept: " & ResultLine
         Precedent.Value2 = CDbl(DateSerial(2026, 9, 30))
         Application.Calculate
         ResultLine = M_Main.ValidateStaging_Silent()
@@ -2827,7 +2818,7 @@ Private Sub CaseValidateRecalc()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutDateBack DateCell, Precedent, SavedValue, SavedFormula, HadFormula, SavedCalc
 
 End Sub
@@ -2865,7 +2856,7 @@ Private Sub PutDateBack( _
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not put AsOfDate back: " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "could not put AsOfDate back: " & Err.Description
         Application.Calculation = SavedCalc
 
 End Sub
@@ -2882,13 +2873,13 @@ Private Sub CaseLiveSheets( _
 '==============================================================================
 '
         On Error GoTo Unexpected
-        BeginCase "import.live-sheets"
+        TEST_Kit.BeginCase "import.live-sheets"
         CheckText "live inputs and run fingerprints", LiveInputsText(), LiveBefore
         CheckText "Checks put back", ChecksText(), mChecksBefore
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -3289,7 +3280,7 @@ Private Sub PutStagingBack( _
         Exit Sub
 
 Failed:
-        Fail "suite", "staging sheet " & KindIndex & " not put back: " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail "suite", "staging sheet " & KindIndex & " not put back: " & Err.Number & ": " & Err.Description
         Application.EnableEvents = Events
 
 End Sub
@@ -3320,7 +3311,7 @@ Private Sub PutValidatedBack()
         Exit Sub
 
 Failed:
-        Fail "suite", "the staging validation fingerprint not put back: " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail "suite", "the staging validation fingerprint not put back: " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -3562,7 +3553,7 @@ Private Sub PutChecksBack()
         Exit Sub
 
 Failed:
-        Fail "suite", "Checks not put back: " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail "suite", "Checks not put back: " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -3577,54 +3568,7 @@ Private Sub CheckText( _
 '   Check that a text equals the expected one.
 '==============================================================================
 '
-        Check Actual = Expected, CheckLabel & ": expected " & Expected & ", found " & Actual
-
-End Sub
-
-
-Private Sub BeginCase( _
-    ByVal CaseName As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a case and print its CASE line.
-'==============================================================================
-'
-        mCaseCount = mCaseCount + 1
-        mCurrentCase = CaseName
-        TEST_Suite.Say "CASE=" & CaseName
-
-End Sub
-
-
-Private Sub Check( _
-    ByVal Passed As Boolean, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count one check and record it when it fails.
-'==============================================================================
-'
-        mCheckCount = mCheckCount + 1
-        If Not Passed Then
-            Fail mCurrentCase, Detail
-        End If
-
-End Sub
-
-
-Private Sub Fail( _
-    ByVal CaseName As String, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a failure and print it.
-'==============================================================================
-'
-        mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
+        TEST_Kit.Check Actual = Expected, CheckLabel & ": expected " & Expected & ", found " & Actual
 
 End Sub
 
@@ -3750,7 +3694,7 @@ Private Sub PutBackLive()
 
 Failed:
         Application.EnableEvents = Events
-        Fail "suite", "the input sheets not put back: " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail "suite", "the input sheets not put back: " & Err.Number & ": " & Err.Description
 
 End Sub
 

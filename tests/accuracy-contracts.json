@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-accuracy-contracts",
+  "description": "The accuracy K-SACCR claims for each quantity family and the cases that test it; see docs/methodology/TEST_CASES.md#accuracy-contracts.",
+  "contracts": [
+    {
+      "family": "EAD",
+      "description": "Exposure value",
+      "quantities": {
+        "exposure_value": {
+          "absolute": 1e-06,
+          "relative": 1e-09
+        }
+      },
+      "calibration": [
+        "cre99-example-1.bcbs",
+        "cre99-example-2.bcbs",
+        "cre99-example-3.bcbs",
+        "cre99-example-4.bcbs",
+        "cre99-example-5.bcbs",
+        "cre99-example-5.crr",
+        "illustrative-other-risks.crr",
+        "illustrative-posted-vm-cap.bcbs",
+        "illustrative-posted-vm-cap.crr",
+        "illustrative-swaption-forward-1pct.crr"
+      ],
+      "held_out": [
+        "illustrative-ccp-non-qualifying.crr",
+        "illustrative-ccp-retained-vm.bcbs",
+        "illustrative-ccp-retained-vm.crr",
+        "illustrative-ccp-trade-exposure.bcbs",
+        "illustrative-ccp-trade-exposure.crr",
+        "illustrative-clearing-client-listed.bcbs",
+        "illustrative-clearing-client-listed.crr",
+        "illustrative-clearing-member-listed.bcbs",
+        "illustrative-clearing-member-listed.crr",
+        "illustrative-ir-sum-of-absolutes.bcbs",
+        "illustrative-settled-to-market-daily.bcbs",
+        "illustrative-settled-to-market-daily.crr",
+        "illustrative-settled-to-market-periodic.bcbs",
+        "illustrative-settled-to-market-periodic.crr",
+        "rsaccr-portfolio-rs-004.crr",
+        "rsaccr-portfolio-rs-010.crr",
+        "rsaccr-portfolio-rs-011.crr",
+        "rsaccr-portfolio-rs-014.crr",
+        "rsaccr-portfolio-rs-018.crr",
+        "rsaccr-portfolio-rs-024.crr"
+      ],
+      "rounded": {
+        "cre99-example-1.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-2.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-3.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-4.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-5.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-5.crr": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "illustrative-ir-sum-of-absolutes.bcbs": {
+          "absolute": 0.01,
+          "relative": 1e-09
+        }
+      }
+    },
+    {
+      "family": "RC",
+      "description": "Replacement cost",
+      "quantities": {
+        "replacement_cost": {
+          "absolute": 1e-06,
+          "relative": 1e-09
+        }
+      },
+      "calibration": [
+        "cre99-example-4.bcbs"
+      ],
+      "held_out": [
+        "illustrative-ccp-non-qualifying.crr",
+        "illustrative-ccp-retained-vm.bcbs",
+        "illustrative-ccp-retained-vm.crr",
+        "illustrative-ccp-trade-exposure.bcbs",
+        "illustrative-ccp-trade-exposure.crr",
+        "illustrative-clearing-client-listed.bcbs",
+        "illustrative-clearing-client-listed.crr",
+        "illustrative-clearing-member-listed.bcbs",
+        "illustrative-clearing-member-listed.crr",
+        "illustrative-ir-swap-unmargined.bcbs",
+        "illustrative-ir-swap-unmargined.crr",
+        "illustrative-settled-to-market-daily.bcbs",
+        "illustrative-settled-to-market-daily.crr",
+        "illustrative-settled-to-market-periodic.bcbs",
+        "illustrative-settled-to-market-periodic.crr",
+        "rsaccr-portfolio-rs-004.crr",
+        "rsaccr-portfolio-rs-010.crr",
+        "rsaccr-portfolio-rs-011.crr",
+        "rsaccr-portfolio-rs-014.crr",
+        "rsaccr-portfolio-rs-018.crr",
+        "rsaccr-portfolio-rs-024.crr"
+      ],
+      "rounded": {
+        "cre99-example-4.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        }
+      }
+    },
+    {
+      "family": "PFE",
+      "description": "Potential future exposure and its multiplier",
+      "quantities": {
+        "potential_future_exposure": {
+          "absolute": 1e-06,
+          "relative": 1e-09
+        },
+        "multiplier": {
+          "absolute": 1e-09,
+          "relative": 1e-09
+        }
+      },
+      "calibration": [
+        "cre99-example-2.bcbs",
+        "cre99-example-5.bcbs"
+      ],
+      "held_out": [
+        "illustrative-ccp-non-qualifying.crr",
+        "illustrative-ccp-retained-vm.bcbs",
+        "illustrative-ccp-retained-vm.crr",
+        "illustrative-ccp-trade-exposure.bcbs",
+        "illustrative-ccp-trade-exposure.crr",
+        "illustrative-clearing-client-listed.bcbs",
+        "illustrative-clearing-client-listed.crr",
+        "illustrative-clearing-member-listed.bcbs",
+        "illustrative-clearing-member-listed.crr",
+        "illustrative-settled-to-market-daily.bcbs",
+        "illustrative-settled-to-market-daily.crr",
+        "illustrative-settled-to-market-periodic.bcbs",
+        "illustrative-settled-to-market-periodic.crr",
+        "rsaccr-portfolio-rs-004.crr",
+        "rsaccr-portfolio-rs-010.crr",
+        "rsaccr-portfolio-rs-011.crr",
+        "rsaccr-portfolio-rs-014.crr",
+        "rsaccr-portfolio-rs-018.crr",
+        "rsaccr-portfolio-rs-024.crr"
+      ],
+      "rounded": {
+        "cre99-example-2.bcbs": {
+          "absolute": 0.0005,
+          "relative": 0
+        },
+        "cre99-example-5.bcbs": {
+          "absolute": 0.0005,
+          "relative": 0
+        }
+      }
+    },
+    {
+      "family": "add-ons",
+      "description": "Aggregate add-on and the add-on of each asset class",
+      "quantities": {
+        "aggregate_add_on": {
+          "absolute": 1e-06,
+          "relative": 1e-09
+        },
+        "add_on.*": {
+          "absolute": 1e-06,
+          "relative": 1e-09
+        }
+      },
+      "calibration": [
+        "cre99-example-1.bcbs",
+        "cre99-example-4.bcbs",
+        "cre99-example-5.bcbs",
+        "illustrative-other-risks.crr"
+      ],
+      "held_out": [
+        "illustrative-ccp-non-qualifying.crr",
+        "illustrative-ccp-retained-vm.bcbs",
+        "illustrative-ccp-retained-vm.crr",
+        "illustrative-ccp-trade-exposure.bcbs",
+        "illustrative-ccp-trade-exposure.crr",
+        "illustrative-clearing-client-listed.bcbs",
+        "illustrative-clearing-client-listed.crr",
+        "illustrative-clearing-member-listed.bcbs",
+        "illustrative-clearing-member-listed.crr",
+        "illustrative-ir-sum-of-absolutes.bcbs",
+        "illustrative-settled-to-market-daily.bcbs",
+        "illustrative-settled-to-market-daily.crr",
+        "illustrative-settled-to-market-periodic.bcbs",
+        "illustrative-settled-to-market-periodic.crr",
+        "rsaccr-portfolio-rs-004.crr",
+        "rsaccr-portfolio-rs-010.crr",
+        "rsaccr-portfolio-rs-011.crr",
+        "rsaccr-portfolio-rs-014.crr",
+        "rsaccr-portfolio-rs-018.crr",
+        "rsaccr-portfolio-rs-024.crr"
+      ],
+      "rounded": {
+        "cre99-example-1.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-4.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "cre99-example-5.bcbs": {
+          "absolute": 500,
+          "relative": 0
+        },
+        "illustrative-ir-sum-of-absolutes.bcbs": {
+          "absolute": 0.01,
+          "relative": 1e-09
+        }
+      }
+    }
+  ]
+}

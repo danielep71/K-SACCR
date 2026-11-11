@@ -5,11 +5,12 @@
 
 | Location | Contents |
 | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import` suite, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
+| `modules/` | The harness `TEST_Harness.bas`, the shared suite lifecycle `TEST_Kit.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import` suite, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, `expected.json` with the findings of each, `cases.json`, inline cases with their findings, `portfolio.json`, Trades files with the netting sets their legs may refer to and the findings between their records, `staged.json`, rows as a staging sheet holds them with their findings, and `context.json`, Trades records with the Params context they are checked against and their findings (#209); `tools/generate_csv_vba.py` turns all of them into `TEST_CsvReader` |
-| `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root |
+| `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root. Each defines `expected()`, which `tools/check_derivations.py` compares with the expected files |
+| `accuracy-contracts.json` | The accuracy claimed for each quantity family, with its calibration and held-out cases ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md#accuracy-contracts)) |
 
 `TEST_Suite.Test_RunAll` runs the harness and every suite and prints a
 summary. In the order it runs them, the entry points of the single suites are
@@ -101,6 +102,13 @@ that do not come from the catalogue; each records its own derivation:
   `illustrative-clearing-*` and the four settled-to-market files
   `illustrative-settled-to-market-*`: the scripts in
   [`derivations/`](derivations/), which share no code with the engine.
+
+The six expected files `rsaccr-portfolio-*.crr` are `independent` cases
+(#100): netting sets of the synthetic portfolio of #352 (seed 352) whose
+values come from the R package `SACCR` 3.4, the registered source
+`IMPL-R-SACCR`, and on which a workbook run agreed on every figure.
+`python tools/rsaccr_portfolio.py cases` writes them
+([tools](../tools/README.md)).
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text

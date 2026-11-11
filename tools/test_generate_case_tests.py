@@ -32,7 +32,8 @@ class GenerateCaseTestsTests(unittest.TestCase):
         module = generator.generate(ROOT)
         expected_files = sorted((ROOT / generator.EXPECTED).glob("*.json"))
         outputs = sum(len(json.loads(p.read_text())["outputs"]) for p in expected_files)
-        self.assertIn(f"TEST_CaseRunner.BeginSuite {len(expected_files)}, {outputs}\r\n", module)
+        self.assertIn(f'If Not TEST_CaseRunner.BeginSuite("TEST_Cases", {len(expected_files)}, {outputs}) '
+                      'Then Exit Sub\r\n', module)
         self.assertEqual(module.count("TEST_CaseRunner.Expect"), outputs)
         self.assertNotIn("\n", module.replace("\r\n", ""))
 

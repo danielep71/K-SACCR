@@ -75,6 +75,7 @@
         "tests/modules/TEST_Import.bas",
         "tests/modules/TEST_InputValidation.bas",
         "tests/modules/TEST_Invariants.bas",
+        "tests/modules/TEST_Kit.bas",
         "tests/modules/TEST_MainState.bas",
         "tests/modules/TEST_Reconcile.bas",
         "tests/modules/TEST_Suite.bas"

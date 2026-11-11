@@ -558,7 +558,7 @@ def check_context(trades: list[tuple[int, dict[str, str]]], netting_sets: dict[s
 
         if not factor_only:
             check_dates(position, usable, as_of, context["as_of"], add)
-            check_currencies(position, usable, currencies, context["reporting_currency"], add)
+            check_currencies(position, usable, has_flawed, currencies, fold(context["reporting_currency"]), add)
         check_factor(position, usable, has_flawed, factors, regimes, fold(context["regime"]), add)
     findings.sort(key=lambda f: (f.record, f.line, f.column, f.code))
     return findings
@@ -585,9 +585,11 @@ def check_dates(position: int, usable: Callable[[str], str], as_of: date, as_of_
                                                   f"reporting date {as_of_text}")
 
 
-def check_currencies(position: int, usable: Callable[[str], str], currencies: set[str], reporting: str,
-                     add: Adder) -> None:
-    """The notional and MtM currencies, and an FX pair's currencies, against the FX table."""
+def check_currencies(position: int, usable: Callable[[str], str], has_flawed: Callable[[str], bool],
+                     currencies: set[str], reporting: str, add: Adder) -> None:
+    """The notional and MtM currencies, and an FX pair's currencies, against the FX table; then, as
+    CORE_Engine does once both currencies of the pair have a rate, the notional currency, or the reporting
+    currency for a blank one, against the pair."""
     notional = fold(usable("notional_currency"))
     if notional and notional not in currencies:
         add("currency", position, "notional_currency", f"no FX rate for notional currency '{notional}'")
@@ -595,10 +597,14 @@ def check_currencies(position: int, usable: Callable[[str], str], currencies: se
     if mtm and mtm not in currencies:
         add("currency", position, "market_value_currency", f"no FX rate for MtM currency '{mtm}'")
     pair = normalize_pair(usable("risk_factor")) if fold(usable("asset_class")) == "FX" else None
-    if pair:
-        missing = [code for code in pair if code not in currencies]
-        if missing:
-            add("pair", position, "risk_factor", f"no FX rate for currency '{missing[0]}' of the pair {'/'.join(pair)}")
+    if not pair:
+        return
+    missing = [code for code in pair if code not in currencies]
+    if missing:
+        add("pair", position, "risk_factor", f"no FX rate for currency '{missing[0]}' of the pair {'/'.join(pair)}")
+    elif not has_flawed("notional_currency") and (notional or reporting) not in pair:
+        add("fx-notional", position, "notional_currency",
+            f"notional currency '{notional or reporting}' is not a currency of the pair {'/'.join(pair)}")
 
 
 def check_factor(position: int, usable: Callable[[str], str], has_flawed: Callable[[str], bool],

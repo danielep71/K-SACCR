@@ -118,7 +118,9 @@ def outputs(case: str) -> dict:
     rc = max(value - collateral, 0.0)
     result = {"replacement_cost": rc, "aggregate_add_on": aggregate, "multiplier": multiplier,
               "potential_future_exposure": multiplier * aggregate,
-              "exposure_value": ALPHA * (rc + multiplier * aggregate)}
+              "exposure_value": ALPHA * (rc + multiplier * aggregate),
+              # Every trade is valid under the cited rules, so the netting set is.
+              "netting_set_status": "VALID"}
     result.update({f"add_on.{k}": v for k, v in add_ons.items() if any(
         t[1] == {"interest_rate": "IR", "equity": "EQ", "commodity": "CO"}[k] for t in trades)})
     for t in trades:
@@ -130,6 +132,12 @@ def outputs(case: str) -> dict:
             result[f"adjusted_notional {t[0]}"] = adjusted_notional(t)
             result[f"bucket {t[0]}"] = bucket(t)
     return result
+
+
+def expected() -> dict:
+    """The outputs of each expected file, keyed by (fixture, regime);
+    tools/check_derivations.py compares them with the committed files."""
+    return {(case, regime): outputs(case) for case in CASES for regime in ("CRR", "BCBS")}
 
 
 if __name__ == "__main__":

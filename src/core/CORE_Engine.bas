@@ -2483,6 +2483,22 @@ Public Function NoPairRateText( _
 End Function
 
 
+Public Function FxNotionalText( _
+    ByVal CurrencyCode As String, _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   Why an FX trade is rejected when its notional currency is not a
+'   currency of its pair (#678).
+'==============================================================================
+'
+        FxNotionalText = "notional currency '" & CurrencyCode & "' is not a currency of the pair " & Pair
+
+End Function
+
+
 Public Function RegulatoryFactorRows() As Variant
 '
 '==============================================================================
@@ -4527,7 +4543,7 @@ Private Sub TradeHedgingSet( _
                     ElseIf FXRate(Right$(Trade.rf, 3)) < 0# Then
                         AddErr DIAG_TR_FX_PAIR_RATE, "Risk factor", Trade.ok, Trade.msg, NoPairRateText(Right$(Trade.rf, 3), Trade.rf)
                     ElseIf Trade.nccy <> Left$(Trade.rf, 3) And Trade.nccy <> Right$(Trade.rf, 3) Then
-                        AddErr DIAG_TR_FX_NOTIONAL, "Notional currency", Trade.ok, Trade.msg, "notional currency '" & Trade.nccy & "' is not a currency of the pair " & Trade.rf
+                        AddErr DIAG_TR_FX_NOTIONAL, "Notional currency", Trade.ok, Trade.msg, FxNotionalText(Trade.nccy, Trade.rf)
                     ElseIf Trade.instType = "OPTION" And Trade.pairSign * MarketSign(Trade.rf) < 0# Then
                         AddErr DIAG_TR_FX_QUOTE, "Risk factor", Trade.ok, Trade.msg, "FX option must be entered in market quote order as " & MarketPair(Trade.rf) & _
                                ", with price and strike in " & Right$(MarketPair(Trade.rf), 3) & " per " & _

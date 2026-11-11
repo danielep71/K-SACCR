@@ -204,7 +204,8 @@ Public Sub RunBenchmark( _
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        TEST_CaseRunner.BeginSuite ScenarioCount, ScenarioCount * CHECKS_PER_CASE + STRAY_CHECKS
+        If Not TEST_CaseRunner.BeginSuite("TEST_Benchmark", ScenarioCount, _
+                                          ScenarioCount * CHECKS_PER_CASE + STRAY_CHECKS) Then Exit Sub
         On Error GoTo Failed
         TEST_Suite.Say "BENCH sizes=" & SizesListed & "; used_range_legs=" & USED_RANGE_LEGS & _
                        "; legs_per_netting_set=" & LEGS_PER_SET

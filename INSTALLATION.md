@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, nine suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`), the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, nine suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -286,9 +286,10 @@ The layout and file conventions are defined in
    | 19 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
    | 20 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
    | 21 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 22 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 23 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 24 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 22 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
+   | 23 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 24 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 25 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The K-SACCR Ribbon tab of the template calls every command through
    `M_Ribbon`, and the buttons of the two staging sheets call
