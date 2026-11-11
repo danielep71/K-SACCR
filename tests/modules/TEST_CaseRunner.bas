@@ -189,9 +189,13 @@ Public Function BeginSuite( _
 '------------------------------------------------------------------------------
 ' GUARD AND RESET
 '------------------------------------------------------------------------------
-        If mSuiteActive Then
+    'A runner suite is still running only while TEST_Kit runs a suite: a
+    'flag left by a suite that was abandoned and cleared with
+    'TEST_Kit.ClearAbortedRun is stale, and is set again below.
+        If mSuiteActive And TEST_Kit.SuiteActive() Then
             Err.Raise ERR_RUN_ACTIVE, "TEST_CaseRunner.BeginSuite", "A case suite is already running."
         End If
+        mSuiteActive = False
         mInjectFailure = mInjectArmed
         mInjectArmed = False
         mInjectedAt = ""

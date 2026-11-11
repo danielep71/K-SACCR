@@ -12,8 +12,8 @@ Attribute VB_Name = "TEST_Kit"
 '   dirty, instead of testing on top of it.
 '
 ' PUBLIC SURFACE
-'   BeginSuite, BeginCase, Check, Fail, CurrentCase, CheckCount and
-'   EndSuite for the suites and TEST_CaseRunner; Refusal and RunningSuite
+'   BeginSuite, BeginCase, Check, Fail, CurrentCase, CheckCount,
+'   SuiteActive and EndSuite for the suites and TEST_CaseRunner; Refusal and RunningSuite
 '   for the suite that tests the refusal; ClearAbortedRun, a recovery
 '   command for a workbook whose last run did not finish. Option Private
 '   Module keeps them out of the external workbook automation API.
@@ -276,6 +276,19 @@ Public Function CurrentCase() As String
 End Function
 
 
+Public Function SuiteActive() As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   True between BeginSuite and EndSuite. ClearAbortedRun ends an
+'   abandoned suite, so TEST_CaseRunner reads its own flag through this.
+'==============================================================================
+'
+        SuiteActive = mActive
+
+End Function
+
+
 Public Function CheckCount() As Long
 '
 '==============================================================================
@@ -367,7 +380,8 @@ Public Sub ClearAbortedRun()
 ' PURPOSE
 '   Recovery command for a workbook whose last run did not finish, once
 '   it has been checked: remove the run mark, disarm the test seams and
-'   forget the unfinished suite, so that the next suite may start. Type
+'   forget the unfinished suite, also a TEST_CaseRunner suite, whose own
+'   flag follows SuiteActive, so that the next suite may start. Type
 '   TEST_Kit.ClearAbortedRun in the Immediate window.
 '
 ' UPDATED
