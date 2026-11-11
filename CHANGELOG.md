@@ -127,6 +127,13 @@ Use only the categories needed by a release.
   currency: the engine rejects an FX trade whose notional currency is not a
   currency of its pair.
 
+- Record the comparison with the R package `SACCR` 3.4 in the methodology
+  (#352): the 24 fixture values it computes agree; on a workbook run of the
+  seed-352 portfolio, 37 of 40 netting sets agree on every figure and the 13
+  differences come from the package's commodity add-on and its multiplier
+  with posted collateral. No K-SACCR defect was found; agreement with a
+  second implementation validates no rule.
+
 - Run the derivations in `tests/derivations/` in `python tools/check.py`
   (#537): the new `check_derivations` gate runs every script's `expected()`
   and fails when a script and the expected file it produced disagree, when a
