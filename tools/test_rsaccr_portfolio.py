@@ -79,6 +79,9 @@ class GenerationTests(unittest.TestCase):
                 self.assertGreaterEqual(days, 30, trade["id"])
                 if trade["asset_class"] == "interest_rate":
                     self.assertNotEqual(days, 365, trade["id"])
+                if trade["asset_class"] == "foreign_exchange":
+                    # The engine rejects a notional currency that is not in the pair.
+                    self.assertIn("EUR", trade["risk_factor"].split("/"), trade["id"])
                 if trade["instrument"] == "option":
                     self.assertGreaterEqual(min(trade["underlying_price"], trade["strike_price"]), 0.01)
         # Every asset class appears, with options for interest rates and equity.
