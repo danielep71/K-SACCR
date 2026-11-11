@@ -10,8 +10,9 @@ is listed with the reason and not run.
     python tools/rsaccr_crosscheck.py [--rscript Rscript] [--out DIR] [--json]
 
 Needs R with SACCR 3.4 and Trading 3.2 installed. It is not part of
-tools/check.py, which needs only Python. Its output compares two
-implementations; it is evidence about agreement, not about correctness.
+tools/check.py, which needs only Python. The package is the registered source
+IMPL-R-SACCR (#100); its figures become independent evidence through the cases
+that tools/rsaccr_portfolio.py writes.
 """
 
 from __future__ import annotations

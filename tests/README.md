@@ -103,6 +103,13 @@ that do not come from the catalogue; each records its own derivation:
   `illustrative-settled-to-market-*`: the scripts in
   [`derivations/`](derivations/), which share no code with the engine.
 
+The six expected files `rsaccr-portfolio-*.crr` are `independent` cases
+(#100): netting sets of the synthetic portfolio of #352 (seed 352) whose
+values come from the R package `SACCR` 3.4, the registered source
+`IMPL-R-SACCR`, and on which a workbook run agreed on every figure.
+`python tools/rsaccr_portfolio.py cases` writes them
+([tools](../tools/README.md)).
+
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
 on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,

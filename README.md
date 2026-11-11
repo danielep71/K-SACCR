@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-465_cases_%C2%B7_1955_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-471_cases_%C2%B7_2012_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 
 <br>
@@ -173,7 +173,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (465 cases, 1955 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Ten Excel suites (471 cases, 2012 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -341,7 +341,7 @@ SACCR TEST SUMMARY 2026-11-09 22:53:57
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
   PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (28,3 s)
-  PASS  TEST_Cases            cases=33; checks=186; failures=0; restore=PASS  (5,5 s)
+  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (5,5 s)
   PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (25,0 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
@@ -599,11 +599,18 @@ them in the workbook.
 | Class | Meaning | Used for |
 | --- | --- | --- |
 | `published` | Printed in Basel CRE99 (BCBS 279 Annex 4a), checked against the text | T01–T14: validates Basel rules |
+| `independent` | Computed by an external implementation by another author, registered as a source: the R package `SACCR` 3.4 (`IMPL-R-SACCR`) | The six `rsaccr-portfolio-*` cases: validates CRR rules (#100, #352) |
 | `illustrative` | A derivation separate from the code under test, a hand calculation or a format example | Every other expected value; never counted as validation |
 | `production-reconciliation` | A comparison with a bank's production SA-CCR engine on the bank's own portfolio, recorded in an issue without naming the bank or publishing its data | #667: validates the CRR rules a real portfolio exercises |
 
-There are no `independent` values yet: they can come only from an external
-implementation registered as a source (#100). No independent review is
+The `independent` values come from the R package `SACCR` 3.4, an external
+implementation registered as a source. On a synthetic portfolio of 40
+netting sets and 384 trades in every asset class, a workbook run agreed with
+it on every figure of 37 netting sets; the 13 differences in the other three
+come from the package (its commodity add-on and its multiplier with posted
+collateral). Six of the agreeing netting sets, which together cover every
+asset class, options, and margined netting sets with threshold, MTA and NICA,
+are test cases of class `independent` (#100, #352). No independent review is
 required; the project has no separate reviewer.
 
 ## Production reconciliation (CRR)
@@ -655,14 +662,14 @@ cross-check with a registered external implementation stays open in #100
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
 | `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 40 | 602 |
-| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 33 | 186 |
+| `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 39 | 243 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 181 | 318 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
 | `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 123 | 316 |
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, and the output tables of committed rows against the same rows typed by hand | 38 | 227 |
-| **Total** | | **465** | **1955** |
+| **Total** | | **471** | **2012** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
@@ -749,12 +756,15 @@ and the VBA references are listed in `INSTALLATION.md`.
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
   next release; use the `v1.2.0` tag or its workbook for stable results.
-- **CRR validation covers what a real portfolio exercises.** The only
-  published reference values are Basel examples. The CRR calculation is
-  validated by a production reconciliation on a real bank portfolio (#667).
-  The CRR rules that portfolio does not exercise are tested against
-  illustrative values only: the cap of margined netting sets, credit,
-  commodity, other risks, CDO, basis, volatility and settled-to-market.
+- **CRR validation covers what two sources exercise.** The only published
+  reference values are Basel examples. The CRR calculation is validated by a
+  production reconciliation on a real bank portfolio (#667) and by an
+  independent implementation, the R package `SACCR` (#100), which adds
+  credit, commodity (without the offset of opposite positions) and other
+  risks. The CRR rules neither exercises are tested against illustrative
+  values only: the cap of margined netting sets, the offset of opposite
+  commodity positions, CDO, basis, volatility, settled-to-market trades,
+  clearing roles and CCP trade exposures.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
   the leg when both are foreign is the user's.
 - **FX options use a fixed quote order.** An FX option is rejected unless its

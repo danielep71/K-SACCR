@@ -31,8 +31,8 @@
     },
     {
       "entry_point": "TEST_Cases.RunCaseTests",
-      "cases": 33,
-      "checks": {"32-bit": 186, "64-bit": 186}
+      "cases": 39,
+      "checks": {"32-bit": 243, "64-bit": 243}
     },
     {
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
