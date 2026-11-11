@@ -199,6 +199,23 @@ Use only the categories needed by a release.
   order; the rows below move down three rows, and the reference card picture
   with them.
 
+- Recognise a production reconciliation as validation evidence (#668).
+  - **The evidence.** The comparison with a bank's production SA-CCR engine on
+    the bank's own portfolio is recorded in an issue, without naming the bank or
+    publishing its data. It validates, for its regime, each rule the portfolio
+    exercises once every difference on that rule is explained.
+    `docs/methodology/TEST_CASES.md` defines it.
+  - **The first one.** #667 covers CRR at 30 June 2026: about 900 netting sets,
+    about 4,300 trades. The traceability table marks the CRR rules it exercises
+    as validated by production reconciliation: EAD and alpha, RC, multiplier,
+    PFE, supervisory duration, option delta and the lambda shift of
+    interest-rate options, maturity factors and MPOR, interest-rate, FX and
+    equity aggregation, and their supervisory factors.
+  - **The rest.** The cap of margined netting sets and the rules the portfolio
+    does not exercise keep their status. The README and the methodology state
+    the CRR evidence accordingly; the statements about the released v1.2.0 are
+    unchanged.
+
 ### Maintenance
 
 - Add a quick, unattended mode to the branch verification for pull-request
