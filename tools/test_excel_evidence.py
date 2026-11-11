@@ -102,16 +102,11 @@ class ExcelEvidenceTests(unittest.TestCase):
         """A report as the suite prints it, with the operator's CANDIDATE line first."""
         cases = spec["cases"] if cases is None else cases
         checks = spec["checks"]["64-bit"] if checks is None else checks
-        result = f"RESULT={verdict}; cases={cases}; checks={checks}; failures={failures}"
-        if spec["restoration"]:
-            key, value = spec["restoration"].split("=")
-            result += f"; {key}={value if restored else 'FAIL'}"
+        result = (f"RESULT={verdict}; cases={cases}; checks={checks}; failures={failures}; "
+                  f"restore={'PASS' if restored else 'FAIL'}")
         names = [f"case-{index}" for index in range(cases)]
-        if spec["first_case"] and names:
-            names[0] = spec["first_case"] + ".crr"
-        return "\n".join([f"CANDIDATE={candidate or self.sha}", spec["header"],
-                          *(["MODE=" + mode] if spec["mode_line"] else []),
-                          *(f"CASE={name}" for name in names), result, ""])
+        return "\n".join([f"CANDIDATE={candidate or self.sha}", "SUITE=" + spec["entry_point"].split(".")[0],
+                          "MODE=" + mode, *(f"CASE={name}" for name in names), result, ""])
 
     def suite(self, spec: dict[str, Any], log: str | None = None, *, status: str = "PASS",
               **counts: int) -> dict[str, Any]:
@@ -408,16 +403,41 @@ class ExcelEvidenceTests(unittest.TestCase):
     def test_suite_log_must_be_one_normal_run(self) -> None:
         spec = self.spec("TEST_Cases")
         position = self.index("TEST_Cases")
-        for log in (self.suite_log(spec, mode="INJECTED_FAILURE"), self.suite_log(spec) * 2,
-                    self.suite_log(spec).replace(spec["header"], "SACCR TESTS")):
-            self.record["suites"][position] = self.suite(spec, log)
-            self.assertInvalid(spec["entry_point"])
+        for log, message in ((self.suite_log(spec, mode="INJECTED_FAILURE"), "not a normal-mode run"),
+                             (self.suite_log(spec) + self.suite_log(spec).split("\n", 1)[1], "exactly one run"),
+                             (self.suite_log(spec).replace("SUITE=TEST_Cases", "SUITE=TEST_Invariants"),
+                              "the run of another suite"),
+                             (self.suite_log(spec).replace("SUITE=TEST_Cases\n", ""), "exactly one run"),
+                             (self.suite_log(spec).replace("MODE=NORMAL\n", ""), "not a normal-mode run"),
+                             (self.suite_log(spec).replace("; restore=PASS", ""), "fields differ")):
+            with self.subTest(message=message):
+                self.record["suites"][position] = self.suite(spec, log)
+                self.assertInvalid(message)
 
     def test_restoration_failure_cannot_pass(self) -> None:
-        spec = self.spec("TEST_MainState")
-        log = self.suite_log(spec, restored=False)
-        self.record["suites"][self.index("TEST_MainState")] = self.suite(spec, log)
-        self.assertInvalid("did not restore")
+        # Every suite reports its restoration, also those that once reported none.
+        for module in ("TEST_MainState", "TEST_Formulas", "TEST_Cases"):
+            with self.subTest(module=module):
+                spec = self.spec(module)
+                log = self.suite_log(spec, restored=False)
+                self.record["suites"][self.index(module)] = self.suite(spec, log)
+                self.assertInvalid("did not restore")
+                self.record["suites"][self.index(module)] = self.suite(spec)
+
+    def test_refused_dirty_start_is_a_failed_run(self) -> None:
+        # The refusal TEST_Kit prints on a dirty workbook (#536): no case ran.
+        self.record["stages"]["regression"]["status"] = "FAIL"
+        spec = self.spec("TEST_Import")
+        log = self.suite_log(spec, verdict="FAIL", cases=0, checks=0, failures=1, restored=False).replace(
+            "restore=FAIL", "restore=NOT_RUN").replace(
+            "MODE=NORMAL\n", "MODE=NORMAL\nFAILURE=suite: refused, the workbook is dirty: x\n")
+        self.assertIn("restore=NOT_RUN", log)
+        self.record["suites"][self.index("TEST_Import")] = self.suite(
+            spec, log, status="FAIL", cases=0, checks=0, failures=1)
+        self.assertEqual(self.evaluate()["outcomes"], ["TEST_FAILED"])
+        self.record["stages"]["regression"]["status"] = "PASS"
+        self.record["suites"][self.index("TEST_Import")] = self.suite(spec, log, cases=0, checks=0, failures=1)
+        self.assertInvalid("TEST_Import.RunImportTests PASS contradicts its report")
 
     def test_failed_suite(self) -> None:
         spec = self.spec("TEST_InputValidation")
@@ -438,18 +458,20 @@ class ExcelEvidenceTests(unittest.TestCase):
     def test_one_failed_log_cannot_serve_two_suites(self) -> None:
         self.record["stages"]["regression"]["status"] = "FAIL"
         failed = self.suite_log(self.spec("TEST_Cases"), verdict="FAIL", cases=3, checks=5, failures=1)
-        # A copy padded with blank lines is still TEST_Cases' report: its first case says so.
+        # A copy padded with blank lines is still TEST_Cases' report: its SUITE line says so.
         for module, padding in (("TEST_Cases", ""), ("TEST_Invariants", "\n\n")):
             self.record["suites"][self.index(module)] = self.suite(
                 self.spec(module), failed + padding, status="FAIL", cases=3, checks=5, failures=1)
-        self.assertInvalid("TEST_Invariants.RunInvariantTests log starts with another suite's case")
-        # A run that stopped before its first case names no case; a padded copy is still one run.
+        self.assertInvalid("TEST_Invariants.RunInvariantTests log is the run of another suite")
+        # A run that stopped before its first case names no case, but its SUITE line
+        # still names its suite, also in a padded copy.
         empty = self.suite_log(self.spec("TEST_Cases"), verdict="FAIL", cases=0, checks=0, failures=1)
         padded = empty.replace("\n", " \n", 1) + "\n \n"
         for module, log in (("TEST_Cases", empty), ("TEST_Invariants", padded)):
             self.record["suites"][self.index(module)] = self.suite(
                 self.spec(module), log, status="FAIL", cases=0, checks=0, failures=1)
-        self.assertInvalid("the same log is cited for two test runs")
+        self.assertInvalid("TEST_Invariants.RunInvariantTests log is the run of another suite")
+        self.record["suites"][self.index("TEST_Invariants")] = self.suite(self.spec("TEST_Invariants"))
         too_many = self.suite_log(self.spec("TEST_Invariants"), verdict="FAIL", cases=5, failures=1)
         self.record["suites"][self.index("TEST_Invariants")] = self.suite(
             self.spec("TEST_Invariants"), too_many, status="FAIL", cases=5, failures=1)
@@ -505,50 +527,35 @@ class ExcelEvidenceTests(unittest.TestCase):
         del policy["suites"][1]
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         self.assertIn("not the policy suites", " ".join(evidence.policy_problems(copy_root)))
+        # Each module starts one suite under its own name, directly through TEST_Kit or
+        # through TEST_CaseRunner; its SUITE line then names it (#536).
+        (copy_root / evidence.POLICY).write_text(json.dumps(self.policy))
+        self.assertEqual(evidence.policy_problems(copy_root), [])
+        for module, old in (("TEST_Formulas", 'TEST_Kit.BeginSuite("TEST_Formulas"'),
+                            ("TEST_Invariants", 'TEST_CaseRunner.BeginSuite("TEST_Invariants"'),
+                            ("TEST_Cases", 'TEST_CaseRunner.BeginSuite("TEST_Cases"')):
+            path = copy_root / "tests" / "modules" / f"{module}.bas"
+            source = path.read_text(encoding="cp1252")
+            self.assertIn(old, source)
+            # Another suite's name, no suite started, and two suites started.
+            again = "\r\nPrivate Sub Again()\r\n        If Not " + old + ", 1, 1) Then Exit Sub\r\nEnd Sub\r\n"
+            for label, changed in (("other name", source.replace(old, old.replace(module, "TEST_Other"))),
+                                   ("none", source.replace(old, "' " + old)),
+                                   ("two", source + again)):
+                with self.subTest(module=module, case=label):
+                    path.write_text(changed, encoding="cp1252")
+                    self.assertIn(f"must start one suite named '{module}'",
+                                  " ".join(evidence.policy_problems(copy_root)))
+            path.write_text(source, encoding="cp1252")
         policy = copy.deepcopy(self.policy)
-        policy["suites"][self.index("TEST_Invariants")]["first_case"] = "invariants-demo-repeat"
-        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
-        self.assertIn("TEST_Invariants.RunInvariantTests: policy first_case differs",
-                      " ".join(evidence.policy_problems(copy_root)))
-        policy["suites"][self.index("TEST_Aggregation")]["first_case"] = None
-        with self.assertRaisesRegex(ValueError, "share a header need their first case"):
+        policy["suites"][1]["entry_point"] = policy["suites"][0]["entry_point"].split(".")[0] + ".Other"
+        with self.assertRaisesRegex(ValueError, "distinct modules"):
             evidence.parse_policy(json.dumps(policy).encode())
-        policy["suites"][self.index("TEST_Aggregation")]["first_case"] = "invariants-demo-repeat"
-        with self.assertRaisesRegex(ValueError, "distinct first cases"):
-            evidence.parse_policy(json.dumps(policy).encode())
-        # TEST_InputValidation prints its first case behind StartCase's "input-" prefix.
-        policy = copy.deepcopy(self.policy)
-        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "trade-middle-row-without-id"
-        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
-        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
-                      " ".join(evidence.policy_problems(copy_root)))
-        policy["suites"][self.index("TEST_InputValidation")]["first_case"] = "input-trade-middle-row-without-id"
-        (copy_root / evidence.POLICY).write_text(json.dumps(policy))
-        self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
-        # The prefix is read from StartCase's own body, not from another helper.
-        module = copy_root / "tests" / "modules" / "TEST_InputValidation.bas"
-        source = module.read_text(encoding="cp1252")
-        start = source.index("Sub StartCase(")
-        end = source.index("End Sub", start)
-        for old, new in (('"input-" & CaseId', "CaseId"), ('"input-" & CaseId', '"input-" & CaseId & "-x"')):
-            changed = source[:start] + source[start:end].replace(old, new) + source[end:]
-            self.assertNotEqual(changed, source)
-            module.write_text(changed, encoding="cp1252")
-            self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
-                          " ".join(evidence.policy_problems(copy_root)), new)
-        # The parameter's name does not matter, nor its letter case.
-        body = source[start:end].replace("ByVal CaseId", "ByVal FixtureName").replace("& CaseId,", "& fixturename,")
-        renamed = source[:start] + body + source[end:]
-        self.assertNotEqual(renamed, source)
-        module.write_text(renamed, encoding="cp1252")
-        self.assertNotIn("first_case", " ".join(evidence.policy_problems(copy_root)))
-        # The first call's argument must end with its literal, too.
-        call = 'StartCase "trade-middle-row-without-id", "N"'
-        self.assertIn(call, source)
-        module.write_text(source.replace(call, 'StartCase "trade-middle-row-without-id" & "-x", "N"', 1),
-                          encoding="cp1252")
-        self.assertIn("TEST_InputValidation.RunInputValidationTests: policy first_case differs",
-                      " ".join(evidence.policy_problems(copy_root)))
+        for key in ("header", "first_case"):
+            policy = copy.deepcopy(self.policy)
+            policy["suites"][0][key] = None
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "policy suite"):
+                evidence.parse_policy(json.dumps(policy).encode())
 
     def test_readme_counts_match_the_policy(self) -> None:
         copy_root = self.area / "copy"
@@ -586,7 +593,7 @@ class ExcelEvidenceTests(unittest.TestCase):
                 ("| `TEST_Formulas` |", "   | `TEST_Formulas` | stale | **9** | **80** |\n| `TEST_Formulas` |",
                  "suite table rows differ"),
                 ("  PASS  TEST_MainState", "  PASS  TEST_MainState        cases=20; checks=381; failures=0; "
-                 "caller_state=RESTORED\n  PASS  TEST_MainState", "lines all parse"),
+                 "restore=PASS\n  PASS  TEST_MainState", "lines all parse"),
                 ("SACCR TEST SUMMARY 2026", "SACCR TEST SUMMARY 2026-10-13 08:28:48\nSACCR TEST SUMMARY 2026",
                  "lines all parse")):
             with self.subTest(message=message):

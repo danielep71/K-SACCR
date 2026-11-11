@@ -29,7 +29,8 @@ Attribute VB_Name = "TEST_Suite"
 '   TEST_InputValidation, TEST_Aggregation, TEST_Invariants,
 '   TEST_Reconcile, TEST_CsvReader and TEST_Import, with TEST_CaseRunner
 '   for TEST_Cases, TEST_InputValidation, TEST_Aggregation and
-'   TEST_Invariants;
+'   TEST_Invariants, and TEST_Kit, the lifecycle every suite shares
+'   (#536), which prints through Say;
 '   M_Main.gQuietLog, set while a suite runs, so that the macros'
 '   silent-mode messages are not printed either.
 '
@@ -39,7 +40,9 @@ Attribute VB_Name = "TEST_Suite"
 '
 ' ERROR POLICY
 '   An error raised by a suite is recorded as that suite's failure and the
-'   remaining suites still run. Certify writes it to the suite's log as an
+'   remaining suites still run; a suite that raised leaves its run mark,
+'   so each later suite refuses the dirty workbook (TEST_Kit) and fails
+'   with the reason. Certify writes it to the suite's log as an
 '   ERROR= line, without a RESULT line, and goes on; a log line it cannot
 '   write is counted and reported in its result.
 '

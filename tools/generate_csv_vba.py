@@ -366,14 +366,6 @@ TESTS_HEADER = """Attribute VB_Name = "TEST_CsvReader"
 """
 
 TESTS_RUNNER = """
-'------------------------------------------------------------------------------
-' MODULE STATE
-'------------------------------------------------------------------------------
-        Private mCaseCount      As Long      'Cases started
-        Private mCheckCount     As Long      'Checks evaluated
-        Private mFailureCount   As Long      'Failed checks and unexpected errors
-        Private mCurrentCase    As String    'Case being run, for messages
-
 
 '
 '------------------------------------------------------------------------------
@@ -384,10 +376,7 @@ TESTS_RUNNER = """
 '
 
 Public Sub RunCsvReaderTests()
-        mCaseCount = 0
-        mCheckCount = 0
-        mFailureCount = 0
-        TEST_Suite.Say "SACCR CSV READER TESTS"
+        If Not TEST_Kit.BeginSuite("TEST_CsvReader", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
 """
 
 TESTS_FOOTER = r"""        CaseUnknownKind
@@ -396,15 +385,7 @@ TESTS_FOOTER = r"""        CaseUnknownKind
         CaseFileTooLarge
         CaseMalformedPath
         CaseSilentEntry
-        If mCaseCount <> EXPECTED_CASES Then
-            Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
-        End If
-        If mCheckCount <> EXPECTED_CHECKS Then
-            Fail "suite", "expected " & EXPECTED_CHECKS & " checks, ran " & mCheckCount
-        End If
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
-                    "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount
+        TEST_Kit.EndSuite
 
 End Sub
 
@@ -487,22 +468,22 @@ Private Sub RunRead( _
     Dim Findings()  As CsvFinding       'The findings
     Dim Actual      As String           'The findings, one per line
         On Error GoTo Unexpected
-        BeginCase CaseName
+        TEST_Kit.BeginCase CaseName
         ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, MaxRecords, MaxBytes
         Actual = FindingsText(Result, Findings)
-        Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
-        Check Result.RecordCount = ExpectedRecords, Result.RecordCount & " records, expected " & ExpectedRecords
+        TEST_Kit.Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
+        TEST_Kit.Check Result.RecordCount = ExpectedRecords, Result.RecordCount & " records, expected " & ExpectedRecords
         If Len(ExpectedValues) > 0 Then
-            Check ValuesText(Result, Values) = ExpectedValues, "values differ from the file"
+            TEST_Kit.Check ValuesText(Result, Values) = ExpectedValues, "values differ from the file"
         End If
         ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, MaxRecords, MaxBytes, True
-        Check Result.Readable = ExpectedReadable And Result.RecordCount = ExpectedKept, _
-              "kept records: readable " & Result.Readable & ", " & Result.RecordCount & " records, expected " & _
-              ExpectedReadable & ", " & ExpectedKept
+        TEST_Kit.Check Result.Readable = ExpectedReadable And Result.RecordCount = ExpectedKept, _
+                       "kept records: readable " & Result.Readable & ", " & Result.RecordCount & " records, expected " & _
+                       ExpectedReadable & ", " & ExpectedKept
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -528,7 +509,7 @@ Private Sub RunPortfolio( _
     Dim Actual          As String           'The findings, one per line
     Dim n               As Long             'Netting-set counter
         On Error GoTo Unexpected
-        BeginCase "portfolio." & CaseName
+        TEST_Kit.BeginCase "portfolio." & CaseName
         ByteCount = HexToBytes(HexText, Bytes)
         ReadCsvBytes Bytes, ByteCount, "Trades", Result, Values, Lines, Findings, 0, 0, True
         Parts = Split(NettingSets, "|")
@@ -538,11 +519,11 @@ Private Sub RunPortfolio( _
         Next n
         CheckPortfolio Values, Lines, Result.RecordCount, IDs, UBound(Parts) + 1, Portfolio, Between
         Actual = FindingsText(Portfolio, Between)
-        Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
+        TEST_Kit.Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -568,7 +549,7 @@ Private Sub RunStaged( _
     Dim r           As Long             'Row counter
     Dim c           As Long             'Field counter
         On Error GoTo Unexpected
-        BeginCase "staged." & CaseName
+        TEST_Kit.BeginCase "staged." & CaseName
         RowParts = Split(RowText, ChrW(30))
         LineParts = Split(LineText, "|")
         Fields = Split(RowParts(0), ChrW(31))
@@ -583,11 +564,11 @@ Private Sub RunStaged( _
         Next r
         CheckStagedRecords Kind, Values, Lines, UBound(RowParts) + 1, Result, Findings, MaxRecords
         Actual = FindingsText(Result, Findings)
-        Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
+        TEST_Kit.Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -624,7 +605,7 @@ Private Sub RunContextCase( _
     Dim Between()       As CsvFinding       'Its findings
     Dim Actual          As String           'The findings, one per line
         On Error GoTo Unexpected
-        BeginCase "context." & CaseName
+        TEST_Kit.BeginCase "context." & CaseName
         ByteCount = HexToBytes(HexText, Bytes)
         ReadCsvBytes Bytes, ByteCount, "Trades", Result, Values, Lines, Findings, 0, 0, True
         Context.AsOf = DateSerial(CLng(Left$(AsOfText, 4)), CLng(Mid$(AsOfText, 6, 2)), CLng(Right$(AsOfText, 2)))
@@ -639,11 +620,11 @@ Private Sub RunContextCase( _
         CheckContext Values, Lines, Result.RecordCount, Context, SetIDs, SetRegimes, SetCount, FactorOnly, _
                      Checked, Between
         Actual = FindingsText(Checked, Between)
-        Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
+        TEST_Kit.Check Actual = Expected, "findings [" & Replace(Actual, vbLf, ", ") & "], expected [" & Replace(Expected, vbLf, ", ") & "]"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -691,14 +672,14 @@ Private Sub CaseUnknownKind()
     Dim Lines()     As Long             'Not filled
     Dim Findings()  As CsvFinding       'Not filled
     Dim ErrorNumber As Long             'Error raised
-        BeginCase "reader.unknown-kind"
+        TEST_Kit.BeginCase "reader.unknown-kind"
         ReDim Bytes(0 To 0)
         Bytes(0) = 65
         On Error Resume Next
         ReadCsvBytes Bytes, 1, "Other", Result, Values, Lines, Findings
         ErrorNumber = Err.Number
         On Error GoTo 0
-        Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
 
 End Sub
 
@@ -710,12 +691,12 @@ Private Sub CaseMissingFile()
     Dim Lines()     As Long             'Not filled
     Dim Findings()  As CsvFinding       'Not filled
     Dim ErrorNumber As Long             'Error raised
-        BeginCase "reader.missing-file"
+        TEST_Kit.BeginCase "reader.missing-file"
         On Error Resume Next
         ReadCsvFile TestFolder() & Application.PathSeparator & "K-SACCR_csv_reader_missing.csv", "Trades", Result, Values, Lines, Findings
         ErrorNumber = Err.Number
         On Error GoTo 0
-        Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
 
 End Sub
 
@@ -730,19 +711,19 @@ Private Sub CaseFileRoundTrip()
     Dim Lines()     As Long             'Their lines
     Dim Findings()  As CsvFinding       'The findings
         On Error GoTo Unexpected
-        BeginCase "reader.file-round-trip"
+        TEST_Kit.BeginCase "reader.file-round-trip"
         TargetFile = TestFolder() & Application.PathSeparator & "K-SACCR_csv_reader_test.csv"
         ByteCount = HexToBytes(RoundTripHex(), Bytes)
         WriteTestFile TargetFile, Bytes, ByteCount
         ReadCsvFile TargetFile, "Trades", Result, Values, Lines, Findings
-        Check Result.Accepted, "the file was not accepted: " & FindingsText(Result, Findings)
-        Check ValuesText(Result, Values) = RoundTripValues(), "values differ from the file"
-        Check Lines(Result.RecordCount) = ROUND_TRIP_LAST_LINE, "last record on line " & Lines(Result.RecordCount)
+        TEST_Kit.Check Result.Accepted, "the file was not accepted: " & FindingsText(Result, Findings)
+        TEST_Kit.Check ValuesText(Result, Values) = RoundTripValues(), "values differ from the file"
+        TEST_Kit.Check Lines(Result.RecordCount) = ROUND_TRIP_LAST_LINE, "last record on line " & Lines(Result.RecordCount)
         RemoveTestFile TargetFile
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RemoveTestFile TargetFile
 
 End Sub
@@ -758,18 +739,18 @@ Private Sub CaseFileTooLarge()
     Dim Lines()     As Long             'Not filled
     Dim Findings()  As CsvFinding       'The findings
         On Error GoTo Unexpected
-        BeginCase "reader.file-too-large"
+        TEST_Kit.BeginCase "reader.file-too-large"
         TargetFile = TestFolder() & Application.PathSeparator & "K-SACCR_csv_reader_test.csv"
         ByteCount = HexToBytes(RoundTripHex(), Bytes)
         WriteTestFile TargetFile, Bytes, ByteCount
         ReadCsvFile TargetFile, "Trades", Result, Values, Lines, Findings, ByteCount - 1
-        Check FindingsText(Result, Findings) = "CSV-TOO-LARGE|0|0|", "findings [" & FindingsText(Result, Findings) & "]"
-        Check Not Result.Accepted And Result.RecordCount = 0, "a file too large was accepted"
+        TEST_Kit.Check FindingsText(Result, Findings) = "CSV-TOO-LARGE|0|0|", "findings [" & FindingsText(Result, Findings) & "]"
+        TEST_Kit.Check Not Result.Accepted And Result.RecordCount = 0, "a file too large was accepted"
         RemoveTestFile TargetFile
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RemoveTestFile TargetFile
 
 End Sub
@@ -782,12 +763,12 @@ Private Sub CaseMalformedPath()
     Dim Lines()     As Long             'Not filled
     Dim Findings()  As CsvFinding       'Not filled
     Dim ErrorNumber As Long             'Error raised
-        BeginCase "reader.malformed-path"
+        TEST_Kit.BeginCase "reader.malformed-path"
         On Error Resume Next
         ReadCsvFile TestFolder() & Application.PathSeparator & "K-SACCR|<bad>?.csv", "Trades", Result, Values, Lines, Findings
         ErrorNumber = Err.Number
         On Error GoTo 0
-        Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "error " & ErrorNumber & ", expected ERR_CSV_READ"
 
 End Sub
 
@@ -798,21 +779,21 @@ Private Sub CaseSilentEntry()
     Dim ByteCount   As Long             'Its length
     Dim TargetFile  As String           'The test file
         On Error GoTo Unexpected
-        BeginCase "main.read-csv-silent"
+        TEST_Kit.BeginCase "main.read-csv-silent"
         TargetFile = TestFolder() & Application.PathSeparator & "K-SACCR_csv_reader_test.csv"
         ByteCount = HexToBytes(RoundTripHex(), Bytes)
         WriteTestFile TargetFile, Bytes, ByteCount
-        Check M_Main.ReadCsv_Silent("Trades", TargetFile) = ROUND_TRIP_RESULT & "; file=" & TargetFile, _
-              "accepted file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
+        TEST_Kit.Check M_Main.ReadCsv_Silent("Trades", TargetFile) = ROUND_TRIP_RESULT & "; file=" & TargetFile, _
+                       "accepted file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
         ByteCount = HexToBytes(RejectedHex(), Bytes)
         WriteTestFile TargetFile, Bytes, ByteCount
-        Check M_Main.ReadCsv_Silent("Trades", TargetFile) = REJECTED_RESULT & "; file=" & TargetFile, _
-              "rejected file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
+        TEST_Kit.Check M_Main.ReadCsv_Silent("Trades", TargetFile) = REJECTED_RESULT & "; file=" & TargetFile, _
+                       "rejected file: " & M_Main.ReadCsv_Silent("Trades", TargetFile)
         RemoveTestFile TargetFile
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RemoveTestFile TargetFile
 
 End Sub
@@ -964,34 +945,6 @@ Private Sub RemoveTestFile( _
 
 End Sub
 
-
-Private Sub BeginCase( _
-    ByVal CaseName As String)
-        mCaseCount = mCaseCount + 1
-        mCurrentCase = CaseName
-        TEST_Suite.Say "CASE=" & CaseName
-
-End Sub
-
-
-Private Sub Check( _
-    ByVal Passed As Boolean, _
-    ByVal Detail As String)
-        mCheckCount = mCheckCount + 1
-        If Not Passed Then
-            Fail mCurrentCase, Detail
-        End If
-
-End Sub
-
-
-Private Sub Fail( _
-    ByVal CaseName As String, _
-    ByVal Detail As String)
-        mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
-
-End Sub
 """
 
 def hex_lines(variable: str, data: bytes) -> list[str]:

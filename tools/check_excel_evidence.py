@@ -43,7 +43,7 @@ RECORD_KEYS = ("schema_version repository candidate_sha execution availability_r
                "started_at finished_at operator environment sources stages harness suites summary")
 POLICY_KEYS = ("schema_version repository entry_point cases assertions expected_error_cases "
                "required_references suites summary_entry_point")
-SUITE_POLICY_KEYS = "entry_point header mode_line cases checks restoration first_case"
+SUITE_POLICY_KEYS = "entry_point cases checks"
 SUITE_RECORD_KEYS = "entry_point status cases checks failures log"
 BITNESS = ("32-bit", "64-bit")
 STATUSES = ("PASS", "FAIL", "NOT_RUN", "TIMEOUT")
@@ -133,27 +133,18 @@ def count(value: Any, label: str) -> int:
 
 def parse_suite_policy(value: Any) -> dict[str, Any]:
     suite = object_keys(value, SUITE_POLICY_KEYS, "policy suite")
-    require(nonempty(suite["entry_point"]) and "." in suite["entry_point"]
-            and nonempty(suite["header"]), "policy suite needs an entry point and a header")
-    require(isinstance(suite["mode_line"], bool), "policy suite mode_line must be true or false")
+    require(nonempty(suite["entry_point"]) and re.fullmatch(r"TEST_\w+\.\w+", suite["entry_point"]) is not None,
+            "policy suite needs an entry point Module.Procedure")
     require(count(suite["cases"], "policy suite cases") > 0, "policy suite needs cases")
     checks = object_keys(suite["checks"], " ".join(BITNESS), "policy suite checks")
     require(all(count(checks[key], "policy suite checks") > 0 for key in BITNESS),
             "policy suite needs checks for each bitness")
-    require(suite["restoration"] is None
-            or (isinstance(suite["restoration"], str)
-                and re.fullmatch(r"\w+=\w+", suite["restoration"]) is not None),
-            "policy suite restoration must be null or key=value")
-    require(suite["first_case"] is None
-            or (isinstance(suite["first_case"], str)
-                and re.fullmatch(r"[\w.-]+", suite["first_case"]) is not None),
-            "policy suite first_case must be null or a case name")
     return suite
 
 
 def parse_policy(raw: bytes) -> dict[str, Any]:
     policy = object_keys(decode(raw), POLICY_KEYS, "evidence policy")
-    require(type(policy["schema_version"]) is int and policy["schema_version"] == 2,
+    require(type(policy["schema_version"]) is int and policy["schema_version"] == 3,
             "unsupported evidence policy schema")
     require(nonempty(policy["repository"]) and nonempty(policy["entry_point"]),
             "policy needs a repository and an entry point")
@@ -169,13 +160,9 @@ def parse_policy(raw: bytes) -> dict[str, Any]:
     entries = [suite["entry_point"] for suite in suites]
     require(len(set(entries + [policy["entry_point"]])) == len(entries) + 1,
             "policy entry points must be distinct")
-    # Suites that print the same header are told apart by the first case they run.
-    headers = [suite["header"] for suite in suites]
-    shared = [suite for suite in suites if headers.count(suite["header"]) > 1]
-    require(all(suite["first_case"] is not None for suite in shared),
-            "suites that share a header need their first case")
-    firsts = [suite["first_case"] for suite in shared]
-    require(len(set(firsts)) == len(firsts), "suites that share a header need distinct first cases")
+    # A suite prints its module name on its SUITE line, so each module runs one suite.
+    modules = [module_name(entry) for entry in entries]
+    require(len(set(modules)) == len(modules), "policy suites must be in distinct modules")
     require(nonempty(policy["summary_entry_point"]), "policy needs the summary entry point")
     return policy
 
@@ -347,6 +334,10 @@ def validate_harness(record: dict[str, Any], policy: dict[str, Any], log: str) -
     validate_report(record, policy, log)
 
 
+def module_name(entry_point: str) -> str:
+    return entry_point.partition(".")[0]
+
+
 def result_fields(result: str, keys: list[str], label: str) -> tuple[str, list[str]]:
     """Split a RESULT line into its verdict and the values of ``keys``, in that order."""
     verdict, *fields = result.split("; ")
@@ -361,18 +352,15 @@ def validate_suite_log(spec: dict[str, Any], item: dict[str, Any], log: str,
     """Bind one suite record to a single normal-mode report of that suite."""
     label = spec["entry_point"]
     require_candidate(log, record["candidate_sha"], label)
-    require(re.findall(rf"^{re.escape(spec['header'])}[ \t]*$", log, re.MULTILINE) == [spec["header"]],
-            f"{label} log must contain exactly one run")
+    # Every suite names itself on its SUITE line (TEST_Kit, #536).
+    suites = [name.strip() for name in re.findall(r"^SUITE=(.*)$", log, re.MULTILINE)]
+    require(len(suites) == 1, f"{label} log must contain exactly one run")
+    require(suites == [module_name(label)], f"{label} log is the run of another suite")
     modes = [mode.strip() for mode in re.findall(r"^MODE=(.*)$", log, re.MULTILINE)]
-    require(modes == (["NORMAL"] if spec["mode_line"] else []), f"{label} log is not a normal-mode run")
+    require(modes == ["NORMAL"], f"{label} log is not a normal-mode run")
     cases = [case.strip() for case in re.findall(r"^CASE=(.*)$", log, re.MULTILINE)]
     require(len(cases) == item["cases"], f"{label} CASE lines differ from the record")
-    # A shared header does not say which suite ran; its first case does (regime suffix aside).
-    first = spec["first_case"]
-    require(first is None or not cases or cases[0] == first or cases[0].startswith(first + "."),
-            f"{label} log starts with another suite's case")
-    restoration = spec["restoration"].split("=") if spec["restoration"] else None
-    keys = ["cases", "checks", "failures"] + ([restoration[0]] if restoration else [])
+    keys = ["cases", "checks", "failures", "restore"]
     verdict, values = result_fields(single(log, "RESULT", label), keys, label)
     require(values[:3] == [str(item[key]) for key in ("cases", "checks", "failures")],
             f"{label} RESULT counts differ from the record")
@@ -385,7 +373,7 @@ def validate_suite_log(spec: dict[str, Any], item: dict[str, Any], log: str,
     require(verdict == "PASS" and item["failures"] == 0, f"{label} PASS contradicts its report")
     require(item["cases"] == spec["cases"] and item["checks"] == checks,
             f"{label} counts differ from the policy ({spec['cases']} cases, {checks} checks)")
-    require(restoration is None or values[3] == restoration[1], f"{label} did not restore its state")
+    require(values[3] == "PASS", f"{label} did not restore its state")
 
 
 def validate_suite(spec: dict[str, Any], value: Any, record: dict[str, Any],
@@ -510,9 +498,9 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
 
 
 def declared(text: str, names: str, position: int) -> set[int]:
-    """Counts a test module declares: Const <names> As Long = n, or BeginSuite n, m."""
+    """Counts a test module declares: Const <names> As Long = n, or BeginSuite("Name", n, m)."""
     values = {int(value) for value in re.findall(rf"Const (?:{names})\s+As Long = (\d+)", text)}
-    begin = re.findall(r"BeginSuite (\d+), (\d+)", text)
+    begin = re.findall(r'BeginSuite\("\w+", (\d+), (\d+)\)', text)
     return values | {int(pair[position]) for pair in begin}
 
 
@@ -548,7 +536,7 @@ def module_text(root: Path, entry_point: str) -> str:
 
 def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     """The policy counts of one suite against the counts its module declares."""
-    text = module = module_text(root, spec["entry_point"])
+    text = module_text(root, spec["entry_point"])
     problems = []
     if declared(text, "EXPECTED_CASES|CASES", 0) != {spec["cases"]}:
         problems.append(f"{spec['entry_point']}: policy cases differ from the module")
@@ -556,34 +544,13 @@ def suite_problems(root: Path, spec: dict[str, Any]) -> list[str]:
     for bits, checks in checks_by_bitness(text).items():
         if checks and checks != {spec["checks"][bits]}:
             problems.append(f"{spec['entry_point']}: policy {bits} checks differ from the module")
-    # The case-runner suites print the runner's header and MODE line.
-    runner = "TEST_CaseRunner.BeginSuite" in text
-    if runner:
-        text += (root / "tests" / "modules" / "TEST_CaseRunner.bas").read_text(encoding="cp1252")
-    if f'"{spec["header"]}"' not in text:
-        problems.append(f"{spec['entry_point']}: header {spec['header']!r} not printed by the module")
-    if spec["mode_line"] != runner:
-        problems.append(f"{spec['entry_point']}: policy mode_line differs from the module")
-    # The first case a case-runner module starts in its source is the first it runs.
-    # A StartCase helper prints its argument behind the prefix its own body gives
-    # BeginCase (TEST_InputValidation: "input-" & caseId), as the log shows it.
-    first = re.search(r'\b(BeginCase|StartCase)\s+"([^"]+)"\s*,', module)
-    printed = None
-    if first is not None and first.group(1) == "BeginCase":
-        printed = first.group(2)
-    elif first is not None:
-        body = re.search(r'\bSub\s+StartCase\b(.*?)^\s*End\s+Sub\b', module, re.S | re.M)
-        # The case ID is StartCase's first parameter, whatever its name (VBA
-        # names are case-insensitive).
-        call = None
-        if body is not None:
-            param = re.match(r'\s*\(\s*(?:_\s*)?(?:ByVal\s+)?(\w+)', body.group(1))
-            if param is not None:
-                call = re.search(r'\bBeginCase\s+(?:"([^"]*)"\s*&\s*)?' + re.escape(param.group(1)) + r'\s*,',
-                                 body.group(1), re.IGNORECASE)
-        printed = (call.group(1) or "") + first.group(2) if call else None
-    if spec["first_case"] is not None and printed != spec["first_case"]:
-        problems.append(f"{spec['entry_point']}: policy first_case differs from the module")
+    # Every suite starts through TEST_Kit.BeginSuite, directly or through
+    # TEST_CaseRunner.BeginSuite, with its own module name, which its SUITE line prints.
+    module = module_name(spec["entry_point"])
+    starts = re.findall(r'^[^\'\n]*\b(?:TEST_Kit|TEST_CaseRunner)\.BeginSuite\("(\w+)"', text, re.MULTILINE)
+    if starts != [module]:
+        problems.append(f"{spec['entry_point']}: the module must start one suite named {module!r}, "
+                        f"not {starts}")
     return problems
 
 

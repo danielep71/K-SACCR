@@ -380,16 +380,19 @@ Rules the validator applies:
 - `suites` lists every suite of the policy once, in its order. A suite that
   ran is `PASS` or `FAIL` with the counts its `RESULT` line shows, and as many
   `CASE` lines as cases. A `PASS` needs the policy's case count and its check
-  count for the recorded bitness, no failure and, where the policy names one,
-  the restoration field (`restore=PASS`, `caller_state=RESTORED`); counts of an
+  count for the recorded bitness, no failure and `restore=PASS`; counts of an
   older commit fail. A suite that did not run is `NOT_RUN` with `null` counts
   and log; one abandoned as hung is `TIMEOUT` with `null` counts and a log
   without a `RESULT=` line. A failed suite may stop early, but cannot report
   more cases than the policy gives it.
-- The four case-runner suites print the same header, so the policy gives each
-  its first case (`first_case`), and a log whose first `CASE` line names
-  another suite's case fails. The policy gate checks `first_case` against the
-  first case each module starts.
+- Every suite starts through the shared lifecycle `TEST_Kit` (#536) and
+  prints `SUITE=` with its module name, then `MODE=NORMAL`. A suite log needs
+  exactly one `SUITE` line, naming its own suite, and exactly one `MODE=NORMAL`
+  line; a log of another suite fails. The policy gate checks that each module
+  starts one suite under its own name. A suite refused on a dirty workbook
+  prints its `SUITE` and `MODE` lines, the reason as a `FAILURE` line and
+  `RESULT=FAIL; cases=0; checks=0; failures=1; restore=NOT_RUN`: it is a
+  failed suite.
 - Each test run has its own log: the same log cannot be cited for two suites,
   even with blank lines or trailing spaces added to a copy.
 - The regression stage is `FAIL` when the harness or a suite failed, and

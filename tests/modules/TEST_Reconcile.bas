@@ -35,7 +35,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '   workbook and export cases, which need a workbook built from the
 '   template with the full source and its demonstration inputs; CORE_Util
 '   and CORE_Config for sheet access, the column layout and the CSV
-'   template header lines; TEST_Suite.Say for the log lines. Every figure
+'   template header lines; TEST_Kit for the suite lifecycle and the log
+'   lines (#536). Every figure
 '   is synthetic.
 '
 ' WORKSHEET SAFETY
@@ -63,7 +64,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' USAGE
 '   Import with the production modules, compile, then run
 '   TEST_Reconcile.RunReconcileTests from the Immediate window. It ends
-'   with RESULT=PASS; cases=...; checks=...; failures=0.
+'   with RESULT=PASS; cases=...; checks=...; failures=0; restore=PASS.
 '
 ' UPDATED
 '   2026-10-23
@@ -89,10 +90,6 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
-        Private mCaseCount      As Long      'Cases started
-        Private mCheckCount     As Long      'Checks evaluated
-        Private mFailureCount   As Long      'Failed checks and unexpected errors
-        Private mCurrentCase    As String    'Case being run, for messages
         Private mCounts()       As Long      'Counts of the last comparison
 
 
@@ -128,14 +125,11 @@ Public Sub RunReconcileTests()
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        mCaseCount = 0
-        mCheckCount = 0
-        mFailureCount = 0
+        If Not TEST_Kit.BeginSuite("TEST_Reconcile", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
         CallerCalculation = Application.Calculation
         CallerSilent = M_Main.gSilent
         CallerQuiet = M_Main.gQuietLog
         M_Main.gQuietLog = True
-        TEST_Suite.Say "SACCR RECONCILIATION TESTS"
 
         CaseTolerances
         CaseScale
@@ -162,15 +156,7 @@ Public Sub RunReconcileTests()
         Application.Calculation = CallerCalculation
         M_Main.gSilent = CallerSilent
         M_Main.gQuietLog = CallerQuiet
-        If mCaseCount <> EXPECTED_CASES Then
-            Fail "suite", "expected " & EXPECTED_CASES & " cases, ran " & mCaseCount
-        End If
-        If mCheckCount <> EXPECTED_CHECKS Then
-            Fail "suite", "expected " & EXPECTED_CHECKS & " checks, ran " & mCheckCount
-        End If
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0, "PASS", "FAIL") & _
-                    "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount
+        TEST_Kit.EndSuite
 
 End Sub
 
@@ -204,7 +190,7 @@ Private Sub CaseTolerances()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.tolerances"
+        TEST_Kit.BeginCase "compare.tolerances"
         BankRows = NewBlock(1, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "CRR", 1000, 1000000, 500
         CalcRows = NewBlock(1, RS_NCOLS)
@@ -215,13 +201,13 @@ Private Sub CaseTolerances()
         CheckText "PFE outside both", ResultOf(ComparedRows, "NS1", "PFE"), RES_DIFF
         CheckNear "PFE difference", CellOf(ComparedRows, "NS1", "PFE", RC_DIFF), 100#
         CheckNear "PFE relative difference", CellOf(ComparedRows, "NS1", "PFE", RC_REL), 0.2
-        Check mCounts(RCN_COMPARED) = 3 And mCounts(RCN_MATCH) = 2 And mCounts(RCN_DIFF) = 1, _
-              "counts compared/match/difference: " & mCounts(RCN_COMPARED) & "/" & mCounts(RCN_MATCH) & "/" & _
-              mCounts(RCN_DIFF)
+        TEST_Kit.Check mCounts(RCN_COMPARED) = 3 And mCounts(RCN_MATCH) = 2 And mCounts(RCN_DIFF) = 1, _
+                       "counts compared/match/difference: " & mCounts(RCN_COMPARED) & "/" & mCounts(RCN_MATCH) & "/" & _
+                       mCounts(RCN_DIFF)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -246,7 +232,7 @@ Private Sub CaseScale()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.scale"
+        TEST_Kit.BeginCase "compare.scale"
         BankRows = NewBlock(1, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "BCBS", 48.6, 12.002
         CalcRows = NewBlock(1, RS_NCOLS)
@@ -259,7 +245,7 @@ Private Sub CaseScale()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -284,7 +270,7 @@ Private Sub CaseMultiplier()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.multiplier"
+        TEST_Kit.BeginCase "compare.multiplier"
         BankRows = NewBlock(2, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "CRR"
         BankRows(1, BN_MULT) = 0.5
@@ -300,7 +286,7 @@ Private Sub CaseMultiplier()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -325,7 +311,7 @@ Private Sub CaseZeroBankFigure()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.zero-bank-figure"
+        TEST_Kit.BeginCase "compare.zero-bank-figure"
         BankRows = NewBlock(1, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "CRR", Empty, 0, 0
         CalcRows = NewBlock(1, RS_NCOLS)
@@ -333,12 +319,12 @@ Private Sub CaseZeroBankFigure()
         ComparedRows = Compare(BankRows, CalcRows, 1#, 1#, 0.5)
         CheckText "zero within the absolute tolerance", ResultOf(ComparedRows, "NS1", "RC"), RES_MATCH
         CheckText "zero outside it", ResultOf(ComparedRows, "NS1", "PFE"), RES_DIFF
-        Check IsEmpty(CellOf(ComparedRows, "NS1", "PFE", RC_REL)), "relative difference of a zero bank figure is not empty"
-        Check RowOf(ComparedRows, "NS1", "EAD") = 0, "a blank bank figure is compared"
+        TEST_Kit.Check IsEmpty(CellOf(ComparedRows, "NS1", "PFE", RC_REL)), "relative difference of a zero bank figure is not empty"
+        TEST_Kit.Check RowOf(ComparedRows, "NS1", "EAD") = 0, "a blank bank figure is compared"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -364,7 +350,7 @@ Private Sub CaseMissingAndNotInBank()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.missing-and-not-in-bank"
+        TEST_Kit.BeginCase "compare.missing-and-not-in-bank"
         BankRows = NewBlock(2, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "CRR", 100
         SetBankRow BankRows, 2, "NS9", "CRR", 900
@@ -376,13 +362,13 @@ Private Sub CaseMissingAndNotInBank()
         CheckNear "its bank EAD", CellOf(ComparedRows, "NS9", "EAD", RC_BANK), 900#
         CheckText "Results netting set not in the bank file", ResultOf(ComparedRows, "NS2", "EAD"), RES_NOTINBANK
         CheckNear "its Results EAD", CellOf(ComparedRows, "NS2", "EAD", RC_CALC), 250#
-        Check IsEmpty(CellOf(ComparedRows, "NS2", "EAD", RC_BANKROW)), "a netting set not in the bank file has a bank row"
-        Check mCounts(RCN_MISSING) = 1 And mCounts(RCN_NOTINBANK) = 1, _
-              "counts missing/not in bank: " & mCounts(RCN_MISSING) & "/" & mCounts(RCN_NOTINBANK)
+        TEST_Kit.Check IsEmpty(CellOf(ComparedRows, "NS2", "EAD", RC_BANKROW)), "a netting set not in the bank file has a bank row"
+        TEST_Kit.Check mCounts(RCN_MISSING) = 1 And mCounts(RCN_NOTINBANK) = 1, _
+                       "counts missing/not in bank: " & mCounts(RCN_MISSING) & "/" & mCounts(RCN_NOTINBANK)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -408,23 +394,23 @@ Private Sub CaseDuplicate()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.duplicate"
+        TEST_Kit.BeginCase "compare.duplicate"
         BankRows = NewBlock(2, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "CRR", 100
         SetBankRow BankRows, 2, "ns1", "CRR", 100
         CalcRows = NewBlock(1, RS_NCOLS)
         SetCalcRow CalcRows, 1, "NS1", "CRR", "VALID", 100, 0, 0, 0
         ComparedRows = Compare(BankRows, CalcRows, 1#, 0#, 0#)
-        Check RowCount(ComparedRows) = 2, "rows: " & RowCount(ComparedRows)
+        TEST_Kit.Check RowCount(ComparedRows) = 2, "rows: " & RowCount(ComparedRows)
         CheckText "first row", CStr(ComparedRows(1, RC_RESULT)), RES_DUPLICATE
         CheckText "second row", CStr(ComparedRows(2, RC_RESULT)), RES_DUPLICATE
-        Check mCounts(RCN_COMPARED) = 0 And mCounts(RCN_NOTINBANK) = 0 And mCounts(RCN_DUPLICATE) = 2, _
-              "counts compared/not in bank/duplicate: " & mCounts(RCN_COMPARED) & "/" & mCounts(RCN_NOTINBANK) & _
-              "/" & mCounts(RCN_DUPLICATE)
+        TEST_Kit.Check mCounts(RCN_COMPARED) = 0 And mCounts(RCN_NOTINBANK) = 0 And mCounts(RCN_DUPLICATE) = 2, _
+                       "counts compared/not in bank/duplicate: " & mCounts(RCN_COMPARED) & "/" & mCounts(RCN_NOTINBANK) & _
+                       "/" & mCounts(RCN_DUPLICATE)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -449,7 +435,7 @@ Private Sub CaseRegimeAndWithheld()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.regime-and-withheld"
+        TEST_Kit.BeginCase "compare.regime-and-withheld"
         BankRows = NewBlock(2, BN_NCOLS)
         SetBankRow BankRows, 1, "NS1", "BCBS", 100, 10
         SetBankRow BankRows, 2, "NS2", "CRR", 200, 20
@@ -457,7 +443,7 @@ Private Sub CaseRegimeAndWithheld()
         SetCalcRow CalcRows, 1, "NS1", "CRR", "VALID", 100, 10, 0, 0
         SetCalcRow CalcRows, 2, "NS2", "CRR", "INCOMPLETE: 1 of 3 trade(s) rejected", Empty, Empty, Empty, Empty
         ComparedRows = Compare(BankRows, CalcRows, 1#, 0#, 0#)
-        Check RowCount(ComparedRows) = 2, "rows: " & RowCount(ComparedRows)
+        TEST_Kit.Check RowCount(ComparedRows) = 2, "rows: " & RowCount(ComparedRows)
         CheckText "other regime", ResultOf(ComparedRows, "NS1", ""), RES_REGIME
         CheckText "withheld netting set", ResultOf(ComparedRows, "NS2", ""), RES_WITHHELD
         CheckText "its Results status", CStr(CellOf(ComparedRows, "NS2", "", RC_CALCSTATUS)), _
@@ -465,7 +451,7 @@ Private Sub CaseRegimeAndWithheld()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -491,7 +477,7 @@ Private Sub CaseInvalidInput()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.invalid-input"
+        TEST_Kit.BeginCase "compare.invalid-input"
         BankRows = NewBlock(5, BN_NCOLS)
         SetBankRow BankRows, 1, "", "CRR", 100
         SetBankRow BankRows, 2, "NS2", "", 100
@@ -511,13 +497,13 @@ Private Sub CaseInvalidInput()
         CheckText "error value", ResultOf(ComparedRows, "NS4", "RC"), RES_INVALID
         CheckText "logical value", ResultOf(ComparedRows, "NS4", "PFE"), RES_INVALID
         CheckText "usable figure on the same row", ResultOf(ComparedRows, "NS4", "AddOn aggregate"), RES_MATCH
-        Check mCounts(RCN_INVALID) = 6 And RowCount(ComparedRows) = 7, _
-              "invalid count " & mCounts(RCN_INVALID) & ", rows " & RowCount(ComparedRows)
-        Check CLng(CellOf(ComparedRows, "NS4", "EAD", RC_BANKROW)) = 4, "bank row of NS4: " & CellOf(ComparedRows, "NS4", "EAD", RC_BANKROW)
+        TEST_Kit.Check mCounts(RCN_INVALID) = 6 And RowCount(ComparedRows) = 7, _
+                       "invalid count " & mCounts(RCN_INVALID) & ", rows " & RowCount(ComparedRows)
+        TEST_Kit.Check CLng(CellOf(ComparedRows, "NS4", "EAD", RC_BANKROW)) = 4, "bank row of NS4: " & CellOf(ComparedRows, "NS4", "EAD", RC_BANKROW)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -543,7 +529,7 @@ Private Sub CaseIdsAndTotals()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "compare.ids-and-totals"
+        TEST_Kit.BeginCase "compare.ids-and-totals"
         BankRows = NewBlock(2, BN_NCOLS)
         SetBankRow BankRows, 1, " ns1 ", "crr", 100
         SetBankRow BankRows, 2, "TOTAL DESK", "CRR", 50
@@ -555,15 +541,15 @@ Private Sub CaseIdsAndTotals()
         ComparedRows = Compare(BankRows, CalcRows, 1#, 0#, 0#)
         CheckText "ID and regime in another case", ResultOf(ComparedRows, "NS1", "EAD"), RES_MATCH
         CheckText "netting set named TOTAL DESK", ResultOf(ComparedRows, "TOTAL DESK", "EAD"), RES_MATCH
-        Check RowCount(ComparedRows) = 2, "TOTAL rows reported: " & RowCount(ComparedRows)
+        TEST_Kit.Check RowCount(ComparedRows) = 2, "TOTAL rows reported: " & RowCount(ComparedRows)
         BankRows = NewBlock(2, BN_NCOLS)
         BankRows(2, BN_COMMENT) = "comment"
-        Check Not CORE_Reconcile.HasBankRows(BankRows), "a table with a comment only has bank rows"
-        Check Not CORE_Reconcile.HasBankRows(Empty), "no table has bank rows"
+        TEST_Kit.Check Not CORE_Reconcile.HasBankRows(BankRows), "a table with a comment only has bank rows"
+        TEST_Kit.Check Not CORE_Reconcile.HasBankRows(Empty), "no table has bank rows"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -588,25 +574,25 @@ Private Sub CaseSettingsAndHeaders()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "settings-and-headers"
-        Check CORE_Reconcile.SettingsProblem(1000#, 1#, 0.0001) = "", "valid settings rejected"
-        Check InStr(CORE_Reconcile.SettingsProblem(0#, 1#, 0#), NM_BN_SCALE) > 0, "zero scale accepted"
-        Check InStr(CORE_Reconcile.SettingsProblem("1000", 1#, 0#), NM_BN_SCALE) > 0, "scale as text accepted"
-        Check InStr(CORE_Reconcile.SettingsProblem(1#, -1#, 0#), NM_BN_ABSTOL) > 0, "negative tolerance accepted"
-        Check InStr(CORE_Reconcile.SettingsProblem(1#, 0#, Empty), NM_BN_RELTOL) > 0, "blank tolerance accepted"
+        TEST_Kit.BeginCase "settings-and-headers"
+        TEST_Kit.Check CORE_Reconcile.SettingsProblem(1000#, 1#, 0.0001) = "", "valid settings rejected"
+        TEST_Kit.Check InStr(CORE_Reconcile.SettingsProblem(0#, 1#, 0#), NM_BN_SCALE) > 0, "zero scale accepted"
+        TEST_Kit.Check InStr(CORE_Reconcile.SettingsProblem("1000", 1#, 0#), NM_BN_SCALE) > 0, "scale as text accepted"
+        TEST_Kit.Check InStr(CORE_Reconcile.SettingsProblem(1#, -1#, 0#), NM_BN_ABSTOL) > 0, "negative tolerance accepted"
+        TEST_Kit.Check InStr(CORE_Reconcile.SettingsProblem(1#, 0#, Empty), NM_BN_RELTOL) > 0, "blank tolerance accepted"
         ExpectedHeaders = Split(BN_HEADERS, "|")
         Headers = NewBlock(1, BN_NCOLS)
         For c = 0 To UBound(ExpectedHeaders)
             Headers(1, c + 1) = UCase$(Replace(ExpectedHeaders(c), " ", "  "))
         Next c
-        Check CORE_Reconcile.HeadersProblem(Headers, BN_HEADERS) = "", "headers in another case rejected"
+        TEST_Kit.Check CORE_Reconcile.HeadersProblem(Headers, BN_HEADERS) = "", "headers in another case rejected"
         Headers(1, 4) = ExpectedHeaders(4)
         Headers(1, 5) = ExpectedHeaders(3)
-        Check InStr(CORE_Reconcile.HeadersProblem(Headers, BN_HEADERS), "column 4") > 0, "swapped columns accepted"
+        TEST_Kit.Check InStr(CORE_Reconcile.HeadersProblem(Headers, BN_HEADERS), "column 4") > 0, "swapped columns accepted"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -630,22 +616,22 @@ Private Sub CaseSummary()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "summary"
+        TEST_Kit.BeginCase "summary"
         ReDim Counts(1 To RCN_COUNT)
         For i = 1 To RCN_COUNT
             Counts(i) = 10 + i
         Next i
         Summary = CORE_Reconcile.SummaryText(Counts, 1000#, 1#, 0.0001)
-        Check InStr(Summary, "bank netting sets 11") > 0 And InStr(Summary, "figures compared 12") > 0 And _
-              InStr(Summary, "MATCH 13") > 0 And InStr(Summary, "DIFFERENCE 14") > 0, "compared counts: " & Summary
-        Check InStr(Summary, "missing in calculator 15") > 0 And InStr(Summary, "not in bank file 16") > 0 And _
-              InStr(Summary, "duplicate rows 17") > 0 And InStr(Summary, "regime mismatch 18") > 0 And _
-              InStr(Summary, "withheld 19") > 0 And InStr(Summary, "invalid input 20") > 0, "other counts: " & Summary
-        Check InStr(Summary, "scale 1000") > 0 And InStr(Summary, "tolerance 1 or ") > 0, "settings: " & Summary
+        TEST_Kit.Check InStr(Summary, "bank netting sets 11") > 0 And InStr(Summary, "figures compared 12") > 0 And _
+                       InStr(Summary, "MATCH 13") > 0 And InStr(Summary, "DIFFERENCE 14") > 0, "compared counts: " & Summary
+        TEST_Kit.Check InStr(Summary, "missing in calculator 15") > 0 And InStr(Summary, "not in bank file 16") > 0 And _
+                       InStr(Summary, "duplicate rows 17") > 0 And InStr(Summary, "regime mismatch 18") > 0 And _
+                       InStr(Summary, "withheld 19") > 0 And InStr(Summary, "invalid input 20") > 0, "other counts: " & Summary
+        TEST_Kit.Check InStr(Summary, "scale 1000") > 0 And InStr(Summary, "tolerance 1 or ") > 0, "settings: " & Summary
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -695,7 +681,7 @@ Private Sub CaseWorkbook()
 ' SAVE THE BANK TABLE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "workbook.run-edit-validate"
+        TEST_Kit.BeginCase "workbook.run-edit-validate"
         Application.Calculation = xlCalculationAutomatic
         M_Main.gSilent = True
         Set BankSheet = GetSheet(SH_BANK_NS)
@@ -711,9 +697,9 @@ Private Sub CaseWorkbook()
 '------------------------------------------------------------------------------
         TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).ClearContents
         ResultLine = M_Main.RunSACCR_Silent()
-        Check InStr(ResultLine, "; reconciliation=NONE;") > 0, "run without bank figures: " & ResultLine
-        Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "No bank figures") = 1, _
-              "summary without bank figures: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=NONE;") > 0, "run without bank figures: " & ResultLine
+        TEST_Kit.Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "No bank figures") = 1, _
+                       "summary without bank figures: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
 
 '------------------------------------------------------------------------------
 ' FIGURES TAKEN FROM RESULTS
@@ -727,7 +713,7 @@ Private Sub CaseWorkbook()
                 ValidRow = i
             End If
         Next i
-        Check ValidRow > 0, "no VALID netting set on Results: build the workbook from the template"
+        TEST_Kit.Check ValidRow > 0, "no VALID netting set on Results: build the workbook from the template"
         ValidSetId = SafeStr(TableCell(ResultsSheet, ValidRow, RS_ID).Value)
         NamedCell(NM_BN_SCALE).Value = 1
         NamedCell(NM_BN_ABSTOL).Value = 1
@@ -740,17 +726,17 @@ Private Sub CaseWorkbook()
         TableCell(BankSheet, FirstRow + 1, BN_REGIME).Value = TableCell(ResultsSheet, ValidRow, RS_REGIME).Value
         TableCell(BankSheet, FirstRow + 1, BN_EAD).Value = 1000
         ResultLine = M_Main.RunSACCR_Silent()
-        Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run with bank figures: " & ResultLine
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run with bank figures: " & ResultLine
         ReconRows = ReconciliationRows(ReconSheet)
         CheckText "EAD as on Results", ResultOf(ReconRows, ValidSetId, "EAD"), RES_MATCH
         CheckText "RC ten percent higher", ResultOf(ReconRows, ValidSetId, "RC"), RES_DIFF
         CheckText "ID not on Results", ResultOf(ReconRows, "NOT-ON-RESULTS", "EAD"), RES_MISSING
     'Every other netting set on Results is not in the bank file: all the
     'rows from the first data row but the TOTAL rows and the one compared.
-        Check CountResult(ReconRows, RES_NOTINBANK) = LastDataRow(ResultsSheet, OutputFirstRow(SH_RESULTS), RS_ID) - OutputFirstRow(SH_RESULTS) - _
-              CountTotals(ResultsSheet), "NOT IN BANK FILE rows: " & CountResult(ReconRows, RES_NOTINBANK)
-        Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "Last reconciliation") = 1, _
-              "summary: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
+        TEST_Kit.Check CountResult(ReconRows, RES_NOTINBANK) = LastDataRow(ResultsSheet, OutputFirstRow(SH_RESULTS), RS_ID) - OutputFirstRow(SH_RESULTS) - _
+                       CountTotals(ResultsSheet), "NOT IN BANK FILE rows: " & CountResult(ReconRows, RES_NOTINBANK)
+        TEST_Kit.Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "Last reconciliation") = 1, _
+                       "summary: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
         CheckStatus ReconSheet, "Reconciliation current", "after the run"
 
 '------------------------------------------------------------------------------
@@ -762,13 +748,13 @@ Private Sub CaseWorkbook()
         M_Main.gLastMessage = ""
         ResultLine = M_Main.RunSACCR_Silent()
         M_Main.gTestFault = ""
-        Check InStr(ResultLine, "; reconciliation=FAILED;") > 0, "run with a failed reconciliation: " & ResultLine
-        Check InStr(M_Main.gLastMessage, "Reconciliation failed: Injected reconciliation failure.") > 0, _
-              "run message after a failed reconciliation: " & M_Main.gLastMessage
-        Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "Injected reconciliation failure.") > 0, _
-              "summary after a failed reconciliation: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=FAILED;") > 0, "run with a failed reconciliation: " & ResultLine
+        TEST_Kit.Check InStr(M_Main.gLastMessage, "Reconciliation failed: Injected reconciliation failure.") > 0, _
+                       "run message after a failed reconciliation: " & M_Main.gLastMessage
+        TEST_Kit.Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "Injected reconciliation failure.") > 0, _
+                       "summary after a failed reconciliation: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
         ResultLine = M_Main.RunSACCR_Silent()
-        Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the failed reconciliation: " & ResultLine
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the failed reconciliation: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' EDITED BANK FIGURE, STOPPED RUN, THEN VALIDATION
@@ -783,11 +769,11 @@ Private Sub CaseWorkbook()
         Err.Clear
         On Error GoTo Unexpected
         M_Main.gTestFault = ""
-        Check RowCount(ReconciliationRows(ReconSheet)) = 0, "rows left after a run whose recalculation did not finish"
+        TEST_Kit.Check RowCount(ReconciliationRows(ReconSheet)) = 0, "rows left after a run whose recalculation did not finish"
         ResultLine = M_Main.RunSACCR_Silent()
-        Check RowCount(ReconciliationRows(ReconSheet)) > 0, "no rows after a new run: " & ResultLine
+        TEST_Kit.Check RowCount(ReconciliationRows(ReconSheet)) > 0, "no rows after a new run: " & ResultLine
         M_Main.ValidateInputs
-        Check RowCount(ReconciliationRows(ReconSheet)) = 0, "rows left after validation"
+        TEST_Kit.Check RowCount(ReconciliationRows(ReconSheet)) = 0, "rows left after validation"
         CheckStatus ReconSheet, "No reconciliation", "after validation"
 
 '------------------------------------------------------------------------------
@@ -795,11 +781,11 @@ Private Sub CaseWorkbook()
 '------------------------------------------------------------------------------
         RestoreBankTable BankSheet, FirstRow, BN_NCOLS, SavedTable, SavedSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
         ResultLine = M_Main.RunSACCR_Silent()
-        Check Left$(ResultLine, 9) = "RESULT=OK", "closing run: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "closing run: " & ResultLine
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         RestoreBankTable BankSheet, FirstRow, BN_NCOLS, SavedTable, SavedSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
 
@@ -835,7 +821,7 @@ Private Sub RestoreBankTable( _
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not restore " & BankSheet.Name & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "could not restore " & BankSheet.Name & ": " & Err.Description
 
 End Sub
 
@@ -870,7 +856,7 @@ Private Sub CaseTradeFigures()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "trade.figures"
+        TEST_Kit.BeginCase "trade.figures"
         BankRows = NewBlock(1, BT_NCOLS)
         BankRows(1, BT_ID) = "T1"
         BankRows(1, BT_NOTIONAL) = 10
@@ -886,12 +872,12 @@ Private Sub CaseTradeFigures()
         CheckText "equal maturity factor", ResultOf(ComparedRows, "T1", "MF unmargined"), RES_MATCH
         CheckText "no margined maturity factor", ResultOf(ComparedRows, "T1", "MF margined"), RES_NA
         CheckText "netting set shown", CStr(CellOf(ComparedRows, "T1", "Notional", TRC_NS)), "NS1"
-        Check mCounts(RCN_NA) = 1 And mCounts(RCN_COMPARED) = 3, _
-              "counts not applicable/compared: " & mCounts(RCN_NA) & "/" & mCounts(RCN_COMPARED)
+        TEST_Kit.Check mCounts(RCN_NA) = 1 And mCounts(RCN_COMPARED) = 3, _
+                       "counts not applicable/compared: " & mCounts(RCN_NA) & "/" & mCounts(RCN_COMPARED)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -918,7 +904,7 @@ Private Sub CaseTradePopulations()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "trade.populations"
+        TEST_Kit.BeginCase "trade.populations"
         BankRows = NewBlock(5, BT_NCOLS)
         BankRows(1, BT_ID) = "T2"
         BankRows(1, BT_NOTIONAL) = 100
@@ -938,16 +924,16 @@ Private Sub CaseTradePopulations()
         CheckText "TradeCalc leg not in the bank file", ResultOf(ComparedRows, "T3", "Notional"), RES_NOTINBANK
         CheckNear "its notional", CellOf(ComparedRows, "T3", "Notional", RC_CALC), 300#
         CheckText "excluded leg", ResultOf(ComparedRows, "T4", ""), RES_EXCLUDED
-        Check InStr(SafeStr(CellOf(ComparedRows, "T4", "", RC_NOTE)), "Maturity date missing") > 0, _
-              "reasons of the excluded leg: " & SafeStr(CellOf(ComparedRows, "T4", "", RC_NOTE))
+        TEST_Kit.Check InStr(SafeStr(CellOf(ComparedRows, "T4", "", RC_NOTE)), "Maturity date missing") > 0, _
+                       "reasons of the excluded leg: " & SafeStr(CellOf(ComparedRows, "T4", "", RC_NOTE))
         CheckText "leg listed twice", ResultOf(ComparedRows, "T5", ""), RES_DUPLICATE
         CheckText "row without TradeID", ResultOf(ComparedRows, "", ""), RES_INVALID
-        Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_EXCLUDED) = 1 And RowCount(ComparedRows) = 6, _
-              "duplicate/excluded/rows: " & mCounts(RCN_DUPLICATE) & "/" & mCounts(RCN_EXCLUDED) & "/" & RowCount(ComparedRows)
+        TEST_Kit.Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_EXCLUDED) = 1 And RowCount(ComparedRows) = 6, _
+                       "duplicate/excluded/rows: " & mCounts(RCN_DUPLICATE) & "/" & mCounts(RCN_EXCLUDED) & "/" & RowCount(ComparedRows)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -973,7 +959,7 @@ Private Sub CaseTradeCalcDuplicates()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "trade.calc-duplicates"
+        TEST_Kit.BeginCase "trade.calc-duplicates"
         BankRows = NewBlock(1, BT_NCOLS)
         BankRows(1, BT_ID) = "T7"
         BankRows(1, BT_NOTIONAL) = 100
@@ -985,13 +971,13 @@ Private Sub CaseTradeCalcDuplicates()
         ComparedRows = CompareT(BankRows, CalcRows, 1#, 0#, 0#)
         CheckText "bank leg listed twice on TradeCalc", ResultOf(ComparedRows, "T7", ""), RES_DUPLICATE
         CheckText "leg listed twice on TradeCalc, not in the bank file", ResultOf(ComparedRows, "T8", ""), RES_DUPLICATE
-        Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_NOTINBANK) = 0 And mCounts(RCN_COMPARED) = 0 And _
-              RowCount(ComparedRows) = 2, "duplicate/not in bank/compared/rows: " & mCounts(RCN_DUPLICATE) & "/" & _
-              mCounts(RCN_NOTINBANK) & "/" & mCounts(RCN_COMPARED) & "/" & RowCount(ComparedRows)
+        TEST_Kit.Check mCounts(RCN_DUPLICATE) = 2 And mCounts(RCN_NOTINBANK) = 0 And mCounts(RCN_COMPARED) = 0 And _
+                       RowCount(ComparedRows) = 2, "duplicate/not in bank/compared/rows: " & mCounts(RCN_DUPLICATE) & "/" & _
+                       mCounts(RCN_NOTINBANK) & "/" & mCounts(RCN_COMPARED) & "/" & RowCount(ComparedRows)
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1016,20 +1002,20 @@ Private Sub CaseTradeSummary()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "trade.summary"
+        TEST_Kit.BeginCase "trade.summary"
         ReDim Counts(1 To RCN_COUNT)
         For i = 1 To RCN_COUNT
             Counts(i) = 10 + i
         Next i
         Summary = CORE_Reconcile.TradeSummaryText(Counts, 1#, 1#, 0#)
-        Check InStr(Summary, "bank trade legs 11") > 0 And InStr(Summary, "excluded 21") > 0 And _
-              InStr(Summary, "not applicable 22") > 0 And InStr(Summary, "not in bank file 16") > 0, "summary: " & Summary
-        Check InStr(CORE_Reconcile.SettingsProblem(0#, 1#, 0#, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL), _
-                    NM_BT_SCALE) > 0, "zero BankTrades scale accepted"
+        TEST_Kit.Check InStr(Summary, "bank trade legs 11") > 0 And InStr(Summary, "excluded 21") > 0 And _
+                       InStr(Summary, "not applicable 22") > 0 And InStr(Summary, "not in bank file 16") > 0, "summary: " & Summary
+        TEST_Kit.Check InStr(CORE_Reconcile.SettingsProblem(0#, 1#, 0#, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL), _
+                             NM_BT_SCALE) > 0, "zero BankTrades scale accepted"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1075,7 +1061,7 @@ Private Sub CaseTradeWorkbook()
 ' SAVE THE BANK TABLE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "trade.workbook-run-edit"
+        TEST_Kit.BeginCase "trade.workbook-run-edit"
         Application.Calculation = xlCalculationAutomatic
         M_Main.gSilent = True
         Set BankSheet = GetSheet(SH_BANK_TR)
@@ -1096,7 +1082,7 @@ Private Sub CaseTradeWorkbook()
                 OkRow = i
             End If
         Next i
-        Check OkRow > 0, "no OK leg on TradeCalc: build the workbook from the template"
+        TEST_Kit.Check OkRow > 0, "no OK leg on TradeCalc: build the workbook from the template"
         LegId = SafeStr(TableCell(CalcSheet, OkRow, TC_ID).Value)
         NamedCell(NM_BT_SCALE).Value = 1
         NamedCell(NM_BT_ABSTOL).Value = 1
@@ -1107,7 +1093,7 @@ Private Sub CaseTradeWorkbook()
         TableCell(BankSheet, FirstRow + 1, BT_ID).Value = "NO-SUCH-LEG"
         TableCell(BankSheet, FirstRow + 1, BT_NOTIONAL).Value = 1000
         ResultLine = M_Main.RunSACCR_Silent()
-        Check InStr(ResultLine, "; trade_reconciliation=DONE;") > 0, "run with bank trade figures: " & ResultLine
+        TEST_Kit.Check InStr(ResultLine, "; trade_reconciliation=DONE;") > 0, "run with bank trade figures: " & ResultLine
         ReconRows = ReconciliationRows(ReconSheet)
         CheckText "notional as on TradeCalc", ResultOf(ReconRows, LegId, "Notional"), RES_MATCH
         CheckText "delta 0.1 higher", ResultOf(ReconRows, LegId, "Supervisory delta"), RES_DIFF
@@ -1127,7 +1113,7 @@ Private Sub CaseTradeWorkbook()
                 TradeRow = i
             End If
         Next i
-        Check TradeRow > 0, "leg " & LegId & " not found on Trades"
+        TEST_Kit.Check TradeRow > 0, "leg " & LegId & " not found on Trades"
         If TradeRow > 0 Then
             Set EconomicIdCell = TableCell(TradesSheet, TradeRow, TR_ECON)
             Set MtmLegCell = TableCell(TradesSheet, TradeRow, TR_MTMLEG)
@@ -1142,8 +1128,8 @@ Private Sub CaseTradeWorkbook()
                       SafeStr(CellOf(ReconRows, "NO-SUCH-LEG", "Notional", TRC_ECON)), ""
             EconomicIdCell.Formula = SavedEconomicId
             MtmLegCell.Formula = SavedMtmLeg
-            Check UBound(ColumnValues(TradesSheet, TradeRow, TradeRow, TR_ID), 1) = 1, _
-                  "a one-row Trades column is not read as an array"
+            TEST_Kit.Check UBound(ColumnValues(TradesSheet, TradeRow, TradeRow, TR_ID), 1) = 1, _
+                           "a one-row Trades column is not read as an array"
         End If
 
 '------------------------------------------------------------------------------
@@ -1151,11 +1137,11 @@ Private Sub CaseTradeWorkbook()
 '------------------------------------------------------------------------------
         RestoreBankTable BankSheet, FirstRow, BT_NCOLS, SavedTable, SavedSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
         ResultLine = M_Main.RunSACCR_Silent()
-        Check Left$(ResultLine, 9) = "RESULT=OK", "closing run: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "closing run: " & ResultLine
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         RestoreCell EconomicIdCell, SavedEconomicId
         RestoreCell MtmLegCell, SavedMtmLeg
         RestoreBankTable BankSheet, FirstRow, BT_NCOLS, SavedTable, SavedSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
@@ -1192,7 +1178,7 @@ Private Sub CaseExportFields()
 ' RUN CASE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "export.fields"
+        TEST_Kit.BeginCase "export.fields"
         CheckText "number", CORE_Export.NumberText(48595558.5), "48595558.5"
         CheckText "number below one", CORE_Export.NumberText(0.0001), "0.0001"
         CheckText "negative number below one", CORE_Export.NumberText(-0.5), "-0.5"
@@ -1207,15 +1193,15 @@ Private Sub CaseExportFields()
         CheckText "empty cell", CORE_Export.CsvField(Empty), ""
         CheckText "line", CORE_Export.CsvLine("RUN", Array("alpha", 1.4)), "RUN;alpha;1.4" & vbCrLf
         Bytes = CORE_Export.Utf8Bytes("A" & ChrW(&HE9) & ChrW(&H20AC))
-        Check UBound(Bytes) = 5 And Bytes(0) = &H41 And Bytes(1) = &HC3 And Bytes(2) = &HA9 And Bytes(3) = &HE2 And Bytes(4) = &H82 And _
-              Bytes(5) = &HAC, "UTF-8 of A, e acute and the euro sign"
+        TEST_Kit.Check UBound(Bytes) = 5 And Bytes(0) = &H41 And Bytes(1) = &HC3 And Bytes(2) = &HA9 And Bytes(3) = &HE2 And Bytes(4) = &H82 And _
+                       Bytes(5) = &HAC, "UTF-8 of A, e acute and the euro sign"
         Bytes = CORE_Export.Utf8Bytes(ChrW(&HD83D) & ChrW(&HDE00))
-        Check UBound(Bytes) = 3 And Bytes(0) = &HF0 And Bytes(1) = &H9F And Bytes(2) = &H98 And Bytes(3) = &H80, _
-              "UTF-8 of a character outside the BMP"
+        TEST_Kit.Check UBound(Bytes) = 3 And Bytes(0) = &HF0 And Bytes(1) = &H9F And Bytes(2) = &H98 And Bytes(3) = &H80, _
+                       "UTF-8 of a character outside the BMP"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1264,7 +1250,7 @@ Private Sub CaseExportWorkbook()
 ' EXPORT TWICE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "export.workbook"
+        TEST_Kit.BeginCase "export.workbook"
         Application.Calculation = xlCalculationAutomatic
         M_Main.gSilent = True
         TempFolder = Environ$("TEMP")
@@ -1275,31 +1261,31 @@ Private Sub CaseExportWorkbook()
         SecondFile = TempFolder & Application.PathSeparator & "K-SACCR_evidence_test_b.csv"
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(FirstFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "first export: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "first export: " & ResultLine
         FirstText = FileText(FirstFile)
-        Check Left$(FirstText, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(FirstText, 40)
-        Check InStr(FirstText, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
-        Check InStr(FirstText, vbCrLf & "RUN;reference_parameter_set;") > 0 And InStr(FirstText, "RUN;workbook;") = 0, _
-              "run identity lines"
-        Check InStr(FirstText, vbCrLf & "RUN;reconciliation;NOT MADE" & vbCrLf) > 0 And _
-              InStr(FirstText, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
-        Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
-              "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
-        Check InStr(FirstText, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
-        Check InStr(FirstText, vbCrLf & "TRADE_RECONCILIATION;TradeID;") > 0 And _
-              InStr(FirstText, ";Note;Economic trade ID" & vbCrLf) > 0, "trade reconciliation header line"
-        Check InStr(FirstText, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(FirstText, vbCrLf & "CHECKS;Severity;Sheet;Row;Reference;Message;Origin;Code;Field" & vbCrLf) > 0 And _
-              InStr(FirstText, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
+        TEST_Kit.Check Left$(FirstText, 31) = "RUN;format;K-SACCR evidence 1" & vbCrLf, "first line: " & Left$(FirstText, 40)
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;reference_parameter_set;") > 0 And InStr(FirstText, "RUN;workbook;") = 0, _
+                       "run identity lines"
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;reconciliation;NOT MADE" & vbCrLf) > 0 And _
+                       InStr(FirstText, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
+        TEST_Kit.Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _
+                       "run time with a decimal comma: " & SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "PARAMS;Alpha;1.4" & vbCrLf) > 0, "Alpha line missing or not invariant"
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "TRADE_RECONCILIATION;TradeID;") > 0 And _
+                       InStr(FirstText, ";Note;Economic trade ID" & vbCrLf) > 0, "trade reconciliation header line"
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "RESULTS;NettingSetID;") > 0 And InStr(FirstText, vbCrLf & "CHECKS;Severity;Sheet;Row;Reference;Message;Origin;Code;Field" & vbCrLf) > 0 And _
+                       InStr(FirstText, vbCrLf & "LIMITATIONS;1;") > 0, "a section is missing"
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check FileText(SecondFile) = FirstText, "a second export of the same run differs"
+        TEST_Kit.Check FileText(SecondFile) = FirstText, "a second export of the same run differs"
         FileNumber = FreeFile
         Open SecondFile For Output As #FileNumber
         Print #FileNumber, String$(Len(FirstText) + 100, "x")
         Close #FileNumber
         SetAttr SecondFile, vbHidden
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK" And FileText(SecondFile) = FirstText, _
-              "a longer hidden file is not replaced whole: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK" And FileText(SecondFile) = FirstText, _
+                       "a longer hidden file is not replaced whole: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' REFUSE WHEN NOT CURRENT
@@ -1308,35 +1294,35 @@ Private Sub CaseExportWorkbook()
         SavedMtm = MtmCell.Formula
         MtmCell.Value = ToDbl(MtmCell.Value, 0#) + 1#
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED", "export after an input edit: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED", "export after an input edit: " & ResultLine
         MtmCell.Formula = SavedMtm
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "export after undoing the edit: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "export after undoing the edit: " & ResultLine
     'In manual calculation the same value written again leaves the status
     'formulas to recalculate: the export waits for F9.
         Application.Calculation = xlCalculationManual
         MtmCell.Formula = SavedMtm
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, "recalculating") > 0, _
-              "export with a recalculation pending: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, "recalculating") > 0, _
+                       "export with a recalculation pending: " & ResultLine
         Application.Calculate
         Application.Calculation = xlCalculationAutomatic
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "export after the recalculation: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "export after the recalculation: " & ResultLine
         Set BankCell = TableCell(GetSheet(SH_BANK_NS), NamedRow(NM_BN_HEADER) + 1, BN_ID)
         SavedBank = BankCell.Formula
         BankCell.Value = "NEW-AFTER-RUN"
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, SH_BANK_NS) > 0, _
-              "export with bank figures entered after the run: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, SH_BANK_NS) > 0, _
+                       "export with bank figures entered after the run: " & ResultLine
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "export with a reconciliation: " & ResultLine
-        Check InStr(FileText(SecondFile), vbCrLf & "RUN;reconciliation_scale;") > 0, "settings of the reconciliation missing"
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "export with a reconciliation: " & ResultLine
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "RUN;reconciliation_scale;") > 0, "settings of the reconciliation missing"
         BankCell.Formula = SavedBank
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, SH_BANK_NS) > 0, _
-              "export after every bank figure was removed: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, SH_BANK_NS) > 0, _
+                       "export after every bank figure was removed: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' REFUSE AN EDITED OUTPUT
@@ -1346,11 +1332,11 @@ Private Sub CaseExportWorkbook()
         SavedOutput = OutputCell.Value2
         OutputCell.Value2 = ToDbl(SavedOutput, 0#) + 1#
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, "output cell") > 0, _
-              "export after an output cell was edited: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, "output cell") > 0, _
+                       "export after an output cell was edited: " & ResultLine
         OutputCell.Value2 = SavedOutput
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "export after restoring the output cell: " & ResultLine
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "export after restoring the output cell: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' EXPORT A CURRENCY ADDED BELOW THE FX TABLE
@@ -1369,8 +1355,8 @@ Private Sub CaseExportWorkbook()
         FxCells.Value = Array("ZZX", "Test currency", 2)
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        Check InStr(FileText(SecondFile), vbCrLf & "FX_TABLE;ZZX;Test currency;2" & vbCrLf) > 0, _
-              "a currency added below the FX table is missing from the report: " & ResultLine
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "FX_TABLE;ZZX;Test currency;2" & vbCrLf) > 0, _
+                       "a currency added below the FX table is missing from the report: " & ResultLine
         FxCells.Formula = SavedFx
         ResultLine = M_Main.RunSACCR_Silent()
 
@@ -1382,7 +1368,7 @@ Private Sub CaseExportWorkbook()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         Application.Calculation = xlCalculationAutomatic
         RestoreCell MtmCell, SavedMtm
         RestoreCell BankCell, SavedBank
@@ -1430,7 +1416,7 @@ Private Sub CaseExportReplaceFailure()
 ' WRITE AN OLDER FILE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "export.replace-failure"
+        TEST_Kit.BeginCase "export.replace-failure"
         M_Main.gSilent = True
         TempFolder = Environ$("TEMP")
         If Len(TempFolder) = 0 Then
@@ -1458,10 +1444,10 @@ Private Sub CaseExportReplaceFailure()
             ErrorNumber = Err.Number
             On Error GoTo Unexpected
             M_Main.gTestFault = ""
-            Check ErrorNumber = ERR_INJECTED_FAULT, Fault & ": error " & ErrorNumber
-            Check FileText(TargetFile) = OlderText, Fault & ": the older file changed"
-            Check (GetAttr(TargetFile) And vbHidden) <> 0, Fault & ": the older file is no longer hidden"
-            Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Fault & ": a file was left beside it"
+            TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT, Fault & ": error " & ErrorNumber
+            TEST_Kit.Check FileText(TargetFile) = OlderText, Fault & ": the older file changed"
+            TEST_Kit.Check (GetAttr(TargetFile) And vbHidden) <> 0, Fault & ": the older file is no longer hidden"
+            TEST_Kit.Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Fault & ": a file was left beside it"
         Next Fault
         SetAttr TargetFile, vbReadOnly
         ErrorNumber = 0
@@ -1470,17 +1456,17 @@ Private Sub CaseExportReplaceFailure()
         ErrorNumber = Err.Number
         On Error GoTo Unexpected
         SetAttr TargetFile, vbNormal
-        Check ErrorNumber = ERR_EXPORT_WRITE, "read-only file: error " & ErrorNumber
-        Check FileText(TargetFile) = OlderText, "read-only file: it changed"
-        Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, "read-only file: a file was left beside it"
+        TEST_Kit.Check ErrorNumber = ERR_EXPORT_WRITE, "read-only file: error " & ErrorNumber
+        TEST_Kit.Check FileText(TargetFile) = OlderText, "read-only file: it changed"
+        TEST_Kit.Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, "read-only file: a file was left beside it"
 
 '------------------------------------------------------------------------------
 ' REPLACE IT WITHOUT A FAILURE
 '------------------------------------------------------------------------------
         ResultLine = M_Main.ExportEvidence_Silent(TargetFile)
-        Check Left$(ResultLine, 9) = "RESULT=OK", "export without a failure: " & ResultLine
-        Check Left$(FileText(TargetFile), 29) = "RUN;format;K-SACCR evidence 1", "the report did not replace the older file"
-        Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, "a file was left beside the report"
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "export without a failure: " & ResultLine
+        TEST_Kit.Check Left$(FileText(TargetFile), 29) = "RUN;format;K-SACCR evidence 1", "the report did not replace the older file"
+        TEST_Kit.Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, "a file was left beside the report"
 
 '------------------------------------------------------------------------------
 ' CLEAN UP
@@ -1489,7 +1475,7 @@ Private Sub CaseExportReplaceFailure()
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         On Error Resume Next
         SetAttr TargetFile, vbNormal
@@ -1530,7 +1516,7 @@ Private Sub CaseExportCsvTemplates()
 ' EXPORT EACH TEMPLATE
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
-        BeginCase "export.csv-templates"
+        TEST_Kit.BeginCase "export.csv-templates"
         M_Main.gSilent = True
         TempFolder = Environ$("TEMP")
         If Len(TempFolder) = 0 Then
@@ -1554,17 +1540,17 @@ Private Sub CaseExportCsvTemplates()
             ErrorNumber = Err.Number
             On Error GoTo Unexpected
             M_Main.gTestFault = ""
-            Check ErrorNumber = ERR_INJECTED_FAULT, Kind & " with a failure: error " & ErrorNumber
-            Check FileText(TargetFile) = OlderText, Kind & " with a failure: the older file changed"
-            Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & " with a failure: a file was left beside it"
+            TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT, Kind & " with a failure: error " & ErrorNumber
+            TEST_Kit.Check FileText(TargetFile) = OlderText, Kind & " with a failure: the older file changed"
+            TEST_Kit.Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & " with a failure: a file was left beside it"
 
             ResultLine = M_Main.ExportCsvTemplate_Silent(CStr(Kind), TargetFile)
-            Check ResultLine = "RESULT=OK; file=" & TargetFile, Kind & ": " & ResultLine
-            Check FileText(TargetFile) = Expected, Kind & ": the file is not the header line and a line feed"
+            TEST_Kit.Check ResultLine = "RESULT=OK; file=" & TargetFile, Kind & ": " & ResultLine
+            TEST_Kit.Check FileText(TargetFile) = Expected, Kind & ": the file is not the header line and a line feed"
             ResultLine = M_Main.ExportCsvTemplate_Silent(CStr(Kind), TargetFile)
-            Check Left$(ResultLine, 9) = "RESULT=OK", Kind & " exported again: " & ResultLine
-            Check FileText(TargetFile) = Expected, Kind & " exported again: the file changed"
-            Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & ": a file was left beside the template"
+            TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", Kind & " exported again: " & ResultLine
+            TEST_Kit.Check FileText(TargetFile) = Expected, Kind & " exported again: the file changed"
+            TEST_Kit.Check Len(Dir$(TargetFile & ".saccr-*", vbHidden Or vbSystem)) = 0, Kind & ": a file was left beside the template"
             RemoveFile TargetFile
         Next Kind
 
@@ -1574,12 +1560,12 @@ Private Sub CaseExportCsvTemplates()
         TargetFile = TempFolder & Application.PathSeparator & "K-SACCR_template_test_Other.csv"
         RemoveFile TargetFile
         ResultLine = M_Main.ExportCsvTemplate_Silent("Other", TargetFile)
-        Check Left$(ResultLine, 14) = "RESULT=REFUSED", "unknown kind: " & ResultLine
-        Check Len(Dir$(TargetFile, vbHidden Or vbSystem)) = 0, "unknown kind: a file was written"
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED", "unknown kind: " & ResultLine
+        TEST_Kit.Check Len(Dir$(TargetFile, vbHidden Or vbSystem)) = 0, "unknown kind: a file was written"
         Exit Sub
 
 Unexpected:
-        Fail mCurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         On Error Resume Next
         RemoveFile TargetFile
@@ -1661,7 +1647,7 @@ Private Sub RestoreCell( _
         Exit Sub
 
 Failed:
-        Fail mCurrentCase, "could not restore an edited cell: " & Err.Description
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "could not restore an edited cell: " & Err.Description
 
 End Sub
 
@@ -2030,8 +2016,8 @@ Private Sub CheckStatus( _
         DoEvents
         Application.Calculate
         Shown = SafeStr(ReconSheet.Range(RECON_STATUS_CELL).Value)
-        Check Left$(Shown, Len(ExpectedStart)) = ExpectedStart, _
-              "Reconciliation C5 " & Moment & ": expected """ & ExpectedStart & "..."", found """ & Shown & """"
+        TEST_Kit.Check Left$(Shown, Len(ExpectedStart)) = ExpectedStart, _
+                       "Reconciliation C5 " & Moment & ": expected """ & ExpectedStart & "..."", found """ & Shown & """"
 
 End Sub
 
@@ -2046,7 +2032,7 @@ Private Sub CheckText( _
 '   Check that a text equals the expected one.
 '==============================================================================
 '
-        Check Actual = Expected, CheckLabel & ": expected " & Expected & ", found " & Actual
+        TEST_Kit.Check Actual = Expected, CheckLabel & ": expected " & Expected & ", found " & Actual
 
 End Sub
 
@@ -2062,57 +2048,10 @@ Private Sub CheckNear( _
 '==============================================================================
 '
         If IsError(Actual) Or IsEmpty(Actual) Or Not IsNumeric(Actual) Then
-            Check False, CheckLabel & ": expected " & CStr(Expected) & ", found no number"
+            TEST_Kit.Check False, CheckLabel & ": expected " & CStr(Expected) & ", found no number"
         Else
-            Check Abs(CDbl(Actual) - Expected) <= TOL, CheckLabel & ": expected " & CStr(Expected) & ", found " & _
-                  CStr(Actual)
+            TEST_Kit.Check Abs(CDbl(Actual) - Expected) <= TOL, CheckLabel & ": expected " & CStr(Expected) & ", found " & _
+                           CStr(Actual)
         End If
-
-End Sub
-
-
-Private Sub BeginCase( _
-    ByVal CaseName As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a case and print its CASE line.
-'==============================================================================
-'
-        mCaseCount = mCaseCount + 1
-        mCurrentCase = CaseName
-        TEST_Suite.Say "CASE=" & CaseName
-
-End Sub
-
-
-Private Sub Check( _
-    ByVal Passed As Boolean, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count one check and record it when it fails.
-'==============================================================================
-'
-        mCheckCount = mCheckCount + 1
-        If Not Passed Then
-            Fail mCurrentCase, Detail
-        End If
-
-End Sub
-
-
-Private Sub Fail( _
-    ByVal CaseName As String, _
-    ByVal Detail As String)
-'
-'==============================================================================
-' PURPOSE
-'   Count a failure and print it.
-'==============================================================================
-'
-        mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & CaseName & ": " & Detail
 
 End Sub

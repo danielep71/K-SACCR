@@ -93,7 +93,7 @@ Public Sub RunAggregationTests()
 '------------------------------------------------------------------------------
 ' ROW ORDER
 '------------------------------------------------------------------------------
-        TEST_CaseRunner.BeginSuite CASES, CHECKS
+        If Not TEST_CaseRunner.BeginSuite("TEST_Aggregation", CASES, CHECKS) Then Exit Sub
         On Error GoTo Failed
 
         TEST_CaseRunner.BeginCase "aggregation-demo-original-order", "CRR", VALUATION, "EUR"

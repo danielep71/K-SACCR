@@ -78,14 +78,9 @@ class WriteEvidenceTests(unittest.TestCase):
 
     def suite_log(self, spec: dict[str, Any], verdict: str = "PASS", failures: int = 0) -> str:
         result = (f"RESULT={verdict}; cases={spec['cases']}; checks={spec['checks']['64-bit']}; "
-                  f"failures={failures}")
-        if spec["restoration"]:
-            result += "; " + spec["restoration"]
+                  f"failures={failures}; restore=PASS")
         names = [f"case-{index}" for index in range(spec["cases"])]
-        if spec["first_case"] and names:
-            names[0] = spec["first_case"] + ".crr"
-        return "\n".join([f"CANDIDATE={self.sha}", spec["header"],
-                          *(["MODE=NORMAL"] if spec["mode_line"] else []),
+        return "\n".join([f"CANDIDATE={self.sha}", "SUITE=" + spec["entry_point"].split(".")[0], "MODE=NORMAL",
                           *(f"CASE={name}" for name in names), result, ""])
 
     def summary_log(self) -> str:
@@ -157,7 +152,7 @@ class WriteEvidenceTests(unittest.TestCase):
     def test_suite_stopped_by_an_error_is_a_timeout(self) -> None:
         spec = self.policy["suites"][0]
         self.write(writer.log_name(spec["entry_point"]),
-                   f"CANDIDATE={self.sha}\n{spec['header']}\nERROR=91: Object variable not set\n")
+                   f"CANDIDATE={self.sha}\nSUITE={spec['entry_point'].split('.')[0]}\nERROR=91: Object variable not set\n")
         code, record = self.run_writer()
         self.assertEqual((code, record["suites"][0]["status"]), (1, "TIMEOUT"))
         self.assertEqual(self.outcomes(), ["EXECUTION_TIMEOUT"])

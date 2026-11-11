@@ -20,7 +20,9 @@ Attribute VB_Name = "TEST_CaseRunner"
 '
 ' DEPENDENCIES
 '   CORE_Engine.Calculate; CORE_Util for sheet access; CORE_Config for the
-'   layout; TEST_Suite.Say for the log lines. The workbook must be built
+'   layout; TEST_Kit for the counts, the SUITE, MODE, CASE, FAILURE and
+'   RESULT lines and the dirty-workbook refusal (#536); TEST_Suite.Say for
+'   the other log lines. The workbook must be built
 '   from the template, because the engine reads its input sheets and
 '   Params.
 '
@@ -35,8 +37,9 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   by EndSuite. Use a development workbook.
 '
 ' STATE OWNERSHIP
-'   Owns the counters and saved inputs below. BeginSuite captures and
-'   EndSuite restores calculation mode, events and screen updating.
+'   Owns the per-class counters and saved inputs below; TEST_Kit owns the
+'   case, check and failure counts. BeginSuite captures and EndSuite
+'   restores calculation mode, events and screen updating.
 '
 ' ERROR POLICY
 '   A failed engine run is a failure of the case and a missing output a
@@ -77,11 +80,6 @@ Attribute VB_Name = "TEST_CaseRunner"
 '------------------------------------------------------------------------------
     'Suite progress.
         Private mSuiteActive     As Boolean    'Between BeginSuite and EndSuite
-        Private mExpectedCases   As Long       'Cases the calling suite will run
-        Private mExpectedChecks  As Long       'Checks the calling suite will run
-        Private mCaseCount       As Long       'Cases started
-        Private mCheckCount      As Long       'Checks evaluated
-        Private mFailureCount    As Long       'Failed checks, runs and restorations
         Private mPassed(0 To 2)  As Long       'Passed checks per reference class
         Private mFailed(0 To 2)  As Long       'Failed checks per reference class
 
@@ -154,27 +152,37 @@ Public Sub InjectFailure()
 End Sub
 
 
-Public Sub BeginSuite( _
+Public Function BeginSuite( _
+    ByVal SuiteName As String, _
     ByVal ExpectedCases As Long, _
-    ByVal ExpectedChecks As Long)
+    ByVal ExpectedChecks As Long) _
+    As Boolean
 '
 '==============================================================================
 '                                  BeginSuite
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Save everything the cases will overwrite, then prepare Excel.
+'   Save everything the cases will overwrite, start the suite in TEST_Kit,
+'   then prepare Excel.
 '
 ' INPUTS
+'   SuiteName: the calling suite's module name, which its SUITE line
+'   prints.
 '   ExpectedCases, ExpectedChecks: numbers of cases and checks the calling
 '   suite will run; a different count fails the suite, so a stale or edited
 '   suite module, such as TEST_Cases, cannot pass with checks missing.
+'
+' RETURNS
+'   True when the suite may run. False when TEST_Kit refused a dirty
+'   workbook: the refusal is printed, nothing has been changed, and the
+'   caller must return without calling EndSuite.
 '
 ' ERROR POLICY
 '   Raises if a suite is already active or the inputs cannot be saved;
 '   nothing has been changed at that point.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-11
 '==============================================================================
 '
 
@@ -184,14 +192,9 @@ Public Sub BeginSuite( _
         If mSuiteActive Then
             Err.Raise ERR_RUN_ACTIVE, "TEST_CaseRunner.BeginSuite", "A case suite is already running."
         End If
-        mExpectedCases = ExpectedCases
-        mExpectedChecks = ExpectedChecks
         mInjectFailure = mInjectArmed
         mInjectArmed = False
         mInjectedAt = ""
-        mCaseCount = 0
-        mCheckCount = 0
-        mFailureCount = 0
         mPatchCount = 0
         Erase mPassed
         Erase mFailed
@@ -200,6 +203,7 @@ Public Sub BeginSuite( _
 ' SAVE INPUTS AND SETTINGS
 '------------------------------------------------------------------------------
     'Formulas, not values, so that any formula in an input cell comes back.
+    'Saving only reads the workbook, so a refusal below changes nothing.
         mSavedCalculation = Application.Calculation
         mSavedEvents = Application.EnableEvents
         mSavedScreen = Application.ScreenUpdating
@@ -211,16 +215,20 @@ Public Sub BeginSuite( _
         mSavedCcy = mCcyCell.Formula
 
 '------------------------------------------------------------------------------
-' PREPARE EXCEL
+' START THE SUITE AND PREPARE EXCEL
 '------------------------------------------------------------------------------
+        If Not TEST_Kit.BeginSuite(SuiteName, ExpectedCases, ExpectedChecks, _
+                                   IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")) Then
+            mInjectFailure = False
+            Exit Function
+        End If
         mSuiteActive = True
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
-        TEST_Suite.Say "SACCR CASE TESTS"
-        TEST_Suite.Say "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
+        BeginSuite = True
 
-End Sub
+End Function
 
 
 Public Sub EndSuite( _
@@ -230,8 +238,9 @@ Public Sub EndSuite( _
 '                                   EndSuite
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Restore the inputs, parameters, outputs and Excel settings, and print
-'   the summary and the RESULT line.
+'   Restore the inputs, parameters, outputs and Excel settings, print the
+'   summary per reference class, and end the suite in TEST_Kit, which
+'   checks completeness and prints the RESULT line.
 '
 ' INPUTS
 '   AbortReason: why the calling suite stopped early; empty after a
@@ -250,7 +259,6 @@ Public Sub EndSuite( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim Restored   As Boolean    'Every restoration step succeeded
-    Dim Complete   As Boolean    'Every expected case ran
 
 '------------------------------------------------------------------------------
 ' RESTORE
@@ -258,8 +266,7 @@ Public Sub EndSuite( _
     'The engine is run once more on the restored inputs so the output
     'sheets match them again.
         If Len(AbortReason) > 0 Then
-            mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=suite: " & AbortReason
+            TEST_Kit.Fail "suite", AbortReason
         End If
         Restored = True
         Restored = RestoreStep("inputs", 1) And Restored
@@ -274,23 +281,14 @@ Public Sub EndSuite( _
 ' REPORT
 '------------------------------------------------------------------------------
         If mInjectFailure And Len(mInjectedAt) = 0 Then
-            mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=suite: injected failure requested, but the suite ran no numeric check"
+            TEST_Kit.Fail "suite", "injected failure requested, but the suite ran no numeric check"
         End If
         mInjectFailure = False
-        Complete = (mCaseCount = mExpectedCases) And (mCheckCount = mExpectedChecks)
-        If Not Complete Then
-            mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=suite: expected " & mExpectedCases & " cases and " & mExpectedChecks & _
-                        " checks, ran " & mCaseCount & " and " & mCheckCount
-        End If
         TEST_Suite.Say "PUBLISHED: passed=" & mPassed(CLASS_PUBLISHED) & "; failed=" & mFailed(CLASS_PUBLISHED)
         TEST_Suite.Say "INDEPENDENT: passed=" & mPassed(CLASS_INDEPENDENT) & "; failed=" & mFailed(CLASS_INDEPENDENT)
         TEST_Suite.Say "ILLUSTRATIVE: passed=" & mPassed(CLASS_ILLUSTRATIVE) & "; failed=" & _
                     mFailed(CLASS_ILLUSTRATIVE) & " (validates nothing)"
-        TEST_Suite.Say "RESULT=" & IIf(mFailureCount = 0 And Restored And Complete, "PASS", "FAIL") & _
-                    "; cases=" & mCaseCount & "; checks=" & mCheckCount & _
-                    "; failures=" & mFailureCount & "; restore=" & IIf(Restored, "PASS", "FAIL")
+        TEST_Kit.EndSuite Restored
 
 End Sub
 
@@ -335,8 +333,8 @@ Public Sub BeginCase( _
 ' RESET INPUTS
 '------------------------------------------------------------------------------
         RestorePatches
-        mCaseCount = mCaseCount + 1
         mCase = CaseId & "." & LCase$(RegimeCode)
+        TEST_Kit.BeginCase mCase
         mRegime = RegimeCode
         mCurrency = CalculationCurrency
         mNettingSetId = ""
@@ -346,7 +344,6 @@ Public Sub BeginCase( _
         mAsOfCell.Value = IsoDate(ValuationDate)
         mCcyCell.Value = CalculationCurrency
         UnitFxRate CalculationCurrency
-        TEST_Suite.Say "CASE=" & mCase
 
 End Sub
 
@@ -684,8 +681,7 @@ Public Sub RunCase()
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         If Not CORE_Engine.Calculate(True) Then
-            mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=" & mCase & ": engine run stopped; see the Checks sheet"
+            TEST_Kit.Fail mCase, "engine run stopped; see the Checks sheet"
         End If
         Exit Sub
 
@@ -693,8 +689,7 @@ Public Sub RunCase()
 ' HANDLE ERROR
 '------------------------------------------------------------------------------
 Failed:
-        mFailureCount = mFailureCount + 1
-        TEST_Suite.Say "FAILURE=" & mCase & ": engine error " & Err.Number & ": " & Err.Description
+        TEST_Kit.Fail mCase, "engine error " & Err.Number & ": " & Err.Description
 
 End Sub
 
@@ -1186,14 +1181,13 @@ Private Sub Record( _
             Case Else
                 ClassIndex = CLASS_ILLUSTRATIVE
         End Select
-        mCheckCount = mCheckCount + 1
         If Passed Then
             mPassed(ClassIndex) = mPassed(ClassIndex) + 1
         Else
             mFailed(ClassIndex) = mFailed(ClassIndex) + 1
-            mFailureCount = mFailureCount + 1
-            TEST_Suite.Say "FAILURE=" & mCase & " " & Label & " (" & ReferenceClass & "): " & Detail
         End If
+        TEST_Kit.Check Passed, Detail, mCase & " " & Label & " (" & ReferenceClass & ")"
+
 
 End Sub
 

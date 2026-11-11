@@ -151,6 +151,29 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
+  case, check and failure counts, the completeness check against the
+  expected counts, and one log format: every suite prints `SUITE=` with its
+  module name, `MODE=`, its `CASE` and `FAILURE` lines and
+  `RESULT=...; cases=...; checks=...; failures=...; restore=...`.
+  `TEST_Formulas`, `TEST_MainState`, `TEST_Reconcile`, `TEST_CsvReader` and
+  `TEST_Import` no longer define their own `Check` and `Fail`, and the case
+  runner counts through `TEST_Kit` too. At the end of every suite `TEST_Kit`
+  checks that the Excel settings and the test seams are as the suite found
+  them, puts back any that differ and reports `restore=FAIL`;
+  `caller_state=RESTORED` of `TEST_MainState` becomes `restore=PASS`, and
+  `TEST_Formulas`, `TEST_Reconcile`, `TEST_CsvReader` and `TEST_Import` now
+  report a restoration too. A suite refuses to start on a dirty workbook: a
+  hidden name marks the suite running and is removed at its end, so a mark
+  left by a run that did not finish, an unfinished suite or an armed test
+  seam stops the next suite with the reason and
+  `RESULT=FAIL; ...; restore=NOT_RUN`; `TEST_Kit.ClearAbortedRun` removes
+  the mark once the workbook has been checked. `TEST_MainState` gains the
+  case `suite.dirty-workbook-refused` (40 cases, 602 checks). The evidence
+  policy (schema 3) identifies suites by their `SUITE` line and drops
+  `header`, `mode_line`, `restoration` and `first_case`;
+  `check_excel_evidence.py` and its tests follow.
+
 - Set `release/1.3.0` as the active development branch and the target for
   Dependabot updates; `release/1.2.0` is closed and takes no new work.
 - Record in GOVERNANCE that `release/1.1.0` and `release/1.2.0` were deleted
