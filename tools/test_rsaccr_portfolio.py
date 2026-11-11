@@ -188,5 +188,66 @@ class ComparisonTests(unittest.TestCase):
                              sorted(["portfolio.json", portfolio.NS_FILE, portfolio.TR_FILE]))
 
 
+class CaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.generated = portfolio.generate(352, 4)
+        self.package = package_results(self.generated)
+        rows = portfolio.compare(self.generated, self.package, evidence(self.generated, self.package))
+        self.comparison = portfolio.comparison_csv(rows)
+        self.ids = [f["id"] for f in self.generated["netting_sets"]]
+
+    def test_agreeing_netting_sets_become_independent_cases(self) -> None:
+        files = portfolio.cases(self.generated, self.package, self.comparison, self.ids[:2], "2026-11-11")
+        self.assertEqual(sorted(files), sorted(
+            [f"tests/fixtures/rsaccr-portfolio-{i.lower()}.json" for i in self.ids[:2]] +
+            [f"tests/expected/rsaccr-portfolio-{i.lower()}.crr.json" for i in self.ids[:2]]))
+        expected = files[f"tests/expected/rsaccr-portfolio-{self.ids[0].lower()}.crr.json"]
+        self.assertEqual(expected["regime"], "CRR")
+        self.assertEqual({o["reference"]["class"] for o in expected["outputs"]}, {"independent"})
+        self.assertEqual({o["reference"]["source"] for o in expected["outputs"]}, {"IMPL-R-SACCR"})
+        quantities = [o["quantity"] for o in expected["outputs"]]
+        self.assertEqual(quantities, ["replacement_cost", "add_on.interest_rate", "add_on.foreign_exchange",
+                                      "aggregate_add_on", "multiplier", "potential_future_exposure",
+                                      "exposure_value"])
+        self.assertEqual(next(o for o in expected["outputs"] if o["quantity"] == "multiplier")["unit"], "1")
+        fixture = files[f"tests/fixtures/rsaccr-portfolio-{self.ids[0].lower()}.json"]
+        self.assertEqual(fixture["id"], f"rsaccr-portfolio-{self.ids[0].lower()}")
+        self.assertEqual(fixture["netting_set"]["id"], self.ids[0])
+
+    def test_refusals(self) -> None:
+        first = self.ids[0]
+        differing = self.comparison.replace(f"{first};EAD;", f"{first};EAD;x", 1)
+        rows = [r.split(";") for r in differing.splitlines()]
+        rows = [r[:5] + ["N"] + r[6:] if r[0] == first and r[1] == "EAD" else r for r in rows]
+        differing = "\n".join(";".join(r) for r in rows) + "\n"
+        capped = copy.deepcopy(self.package)
+        capped["results"][0]["cap_applied"] = True
+        stale = copy.deepcopy(self.package)
+        stale["portfolio_sha256"] = "0" * 64
+        rerun = copy.deepcopy(self.package)
+        rerun["results"][0]["RC"] += 1.0
+        for package, comparison, chosen, message in (
+                (self.package, differing, [first], "does not show"),
+                (rerun, self.comparison, [first], "does not show"),
+                (capped, self.comparison, [first], "cap binds"),
+                (stale, self.comparison, [first], "another portfolio"),
+                (self.package, self.comparison, ["RS-999"], "not a netting set")):
+            with self.subTest(message=message), self.assertRaisesRegex(portfolio.EvidenceError, message):
+                portfolio.cases(self.generated, package, comparison, chosen, "2026-11-11")
+
+    def test_committed_cases_are_the_generated_netting_sets(self) -> None:
+        generated = {f["id"]: f for f in portfolio.generate(352, 40)["netting_sets"]}
+        committed = sorted((ROOT / "tests" / "fixtures").glob("rsaccr-portfolio-*.json"))
+        self.assertTrue(committed)
+        for path in committed:
+            with self.subTest(case=path.stem):
+                data = json.loads(path.read_text(encoding="utf-8"))
+                ns_id = data["netting_set"]["id"]
+                self.assertEqual(data, portfolio.case_fixture(generated[ns_id], 352))
+                expected = json.loads((ROOT / "tests" / "expected" / f"{path.stem}.crr.json")
+                                      .read_text(encoding="utf-8"))
+                self.assertEqual({o["reference"]["class"] for o in expected["outputs"]}, {"independent"})
+
+
 if __name__ == "__main__":
     unittest.main()

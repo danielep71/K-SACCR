@@ -41,8 +41,8 @@
       "entry_point": "TEST_Cases.RunCaseTests",
       "header": "SACCR CASE TESTS",
       "mode_line": true,
-      "cases": 33,
-      "checks": {"32-bit": 186, "64-bit": 186},
+      "cases": 39,
+      "checks": {"32-bit": 243, "64-bit": 243},
       "restoration": "restore=PASS",
       "first_case": "cre99-example-1"
     },

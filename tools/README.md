@@ -144,9 +144,10 @@ commodity option priced near or below zero or with an entered lambda, or an
 interest-rate trade ending exactly at one year.
 
 It needs R with those packages installed, so `check.py` does not run it; its
-translation and comparison tests run in `tool-tests` without R. Agreement
-shows that two implementations compute the same figures from the same inputs,
-not that either is right. The package models the margin period of risk as
+translation and comparison tests run in `tool-tests` without R. The package is
+registered as the source `IMPL-R-SACCR`; its figures validate a rule once they
+are recorded as `independent` cases (`rsaccr_portfolio.py cases`), where the
+engine must keep matching them. The package models the margin period of risk as
 `10 + remargining period - 1` business days only, has no commodity, credit or
 FX options and no maturity apart from the end date; such fixtures are not run.
 Its commodity add-on takes the absolute value of the running sum after each
@@ -188,7 +189,13 @@ python tools/rsaccr_portfolio.py compare --out <folder> --evidence <evidence.csv
 `run` records the portfolio's SHA-256 with the package's results, which
 `compare` checks. Exit status is 0 when every figure agrees, 1 when one
 differs and 2 when the package results or the evidence are not of this
-portfolio. Its tests run in `tool-tests`
+portfolio. `cases` writes netting sets on which the comparison agreed on
+every figure, and whose cap does not bind, as test cases of class
+`independent` with the package's values (#100):
+
+```bash
+python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010
+``` Its tests run in `tool-tests`
 without R or Excel.
 
 The gates are static checks only. None of them compiles VBA, opens Excel, runs a

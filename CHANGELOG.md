@@ -127,6 +127,19 @@ Use only the categories needed by a release.
   currency: the engine rejects an FX trade whose notional currency is not a
   currency of its pair.
 
+- Register the R package `SACCR` 3.4 as an independent implementation,
+  `IMPL-R-SACCR`, and add six test cases of class `independent` (#100):
+  `rsaccr-portfolio-rs-004`, `-010`, `-011`, `-014`, `-018` and `-024`,
+  netting sets of the #352 portfolio on which a workbook run agreed with the
+  package on every figure. Together they cover every asset class, interest
+  rate and equity options, and margined netting sets with threshold, MTA and
+  NICA. `tools/rsaccr_portfolio.py cases` writes them. The traceability table
+  now counts an `independent` value as validation, as the completeness policy
+  already did, and gives the CRR rules these cases exercise the status
+  "validated by an independent implementation"; credit, commodity (without
+  the offset of opposite positions) and other risks are validated under CRR
+  for the first time. `TEST_Cases` has 39 cases and 243 checks.
+
 - Record the comparison with the R package `SACCR` 3.4 in the methodology
   (#352): the 24 fixture values it computes agree; on a workbook run of the
   seed-352 portfolio, 37 of 40 netting sets agree on every figure and the 13

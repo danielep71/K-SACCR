@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "rsaccr-portfolio-rs-004",
+  "regime": "CRR",
+  "outputs": [
+    {
+      "quantity": "replacement_cost",
+      "rule": "CRR.275.2",
+      "value": 1168543.07,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "add_on.interest_rate",
+      "rule": "CRR.280a",
+      "value": 563058.126607704,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "add_on.foreign_exchange",
+      "rule": "CRR.280b",
+      "value": 1030548.0,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "add_on.equity",
+      "rule": "CRR.280d",
+      "value": 1511311.22140213,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "add_on.commodity",
+      "rule": "CRR.280e",
+      "value": 3774694.89603347,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "aggregate_add_on",
+      "rule": "CRR.278.1",
+      "value": 6879612.2440433,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "multiplier",
+      "rule": "CRR.278.3",
+      "value": 1.0,
+      "unit": "1",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "potential_future_exposure",
+      "rule": "CRR.278.1",
+      "value": 6879612.2440433,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    },
+    {
+      "quantity": "exposure_value",
+      "rule": "CRR.274.2",
+      "value": 11267417.4396606,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-06,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, netting set RS-004",
+        "derivation": "tools/rsaccr_portfolio.py run, seed 352: tools/rsaccr_run.R runs the package on the netting set as tools/rsaccr_crosscheck.py translates it; the workbook run of the same netting set agreed on every figure",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-11"
+      }
+    }
+  ]
+}
