@@ -250,6 +250,39 @@ values where a registered source prints them, and otherwise for
 tolerances; they do not ask for independent review. Test output reports
 illustrative results separately and never as validation.
 
+<a id="production-reconciliation"></a>
+
+### Production reconciliation
+
+A `production-reconciliation` is a comparison of K-SACCR with a bank's
+production SA-CCR engine on the bank's own portfolio. The two engines run on
+the same inputs; the comparison covers every netting set and every trade. It is
+the strongest evidence of agreement on real data, but it cannot be a test case:
+the portfolio, the engine and its figures are confidential, so the engine
+cannot be registered as a source and no expected value can be committed. It is
+therefore a class of evidence, not a reference class of expected values.
+
+It is recorded in a closed issue, which gives:
+
+- the reporting date and the regime;
+- the size and the product mix;
+- the method;
+- the results;
+- the cause of every difference;
+- the rules it covers and its limits.
+
+The issue gives no name of the bank, its engine or its counterparties, and no
+amount that could identify them. The data stay with the maintainer, outside
+the repository.
+
+A rule is validated by a production reconciliation, for its regime, when the
+portfolio exercises it and every difference on it is traced and explained by
+a recorded convention or by the comparison engine's own treatment.
+
+A production reconciliation is a check at one date: unlike a `published` or
+`independent` case, it does not run again on later changes. It does not replace
+the reproducible evidence of #100; the two complement each other.
+
 <a id="tolerance"></a>
 
 ## 📏 Tolerance
@@ -295,7 +328,9 @@ Each fixture declares one `category`:
 
 - A rule in the [traceability table](README.md#traceability) is **validated**
   for a regime only when at least one `published` or `independent` case passes
-  for it in that regime.
+  for it in that regime, or when a recorded
+  [production reconciliation](#production-reconciliation) validates it for that
+  regime.
 - Each implemented rule also needs at least one boundary case, and each public
   input domain at least one invalid case. Such a case is a fixture or a case
   of a VBA test suite, mostly `TEST_InputValidation`, which also covers inputs
@@ -317,6 +352,9 @@ Each fixture declares one `category`:
   ([evidence for v1.2.0](README.md#assumptions-and-scope)); `independent` values
   can come only from an external implementation registered as a source, such
   as the R package SACCR of #352, not from a reviewer.
+- Since v1.3.0 (unreleased), the CRR rules that the production reconciliation
+  of #667 exercises are validated by it: a real portfolio at 30 June 2026, about
+  900 netting sets and 4,300 trades, against a bank's production SA-CCR engine.
 
 Where each [regime difference](README.md#regime-differences) is covered:
 

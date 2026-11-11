@@ -71,6 +71,9 @@ Part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Ris
 > implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
 > v1.2.0, by the published CRE99 examples. CRR rules are implemented and tested
 > against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
+> Since then, on the active release branch, the CRR calculation has been
+> validated against a bank's production SA-CCR engine on a real portfolio
+> ([#667](https://github.com/danielep71/K-SACCR/issues/667)): see [Validation](#validation).
 
 > [!NOTE]
 > The workbook is **not stored in the repository as a macro-enabled file**. It
@@ -596,10 +599,43 @@ them in the workbook.
 | --- | --- | --- |
 | `published` | Printed in Basel CRE99 (BCBS 279 Annex 4a), checked against the text | T01–T14: validates Basel rules |
 | `illustrative` | A derivation separate from the code under test, a hand calculation or a format example | Every other expected value; never counted as validation |
+| `production-reconciliation` | A comparison with a bank's production SA-CCR engine on the bank's own portfolio, recorded in an issue without naming the bank or publishing its data | #667: validates the CRR rules a real portfolio exercises |
 
 There are no `independent` values yet: they can come only from an external
 implementation registered as a source (#100). No independent review is
 required; the project has no separate reviewer.
+
+## Production reconciliation (CRR)
+
+K-SACCR has been compared with a bank's production SA-CCR engine on the
+bank's portfolio, under the CRR, at the reporting date of 30 June 2026
+([#667](https://github.com/danielep71/K-SACCR/issues/667)):
+
+- **Portfolio:** about 900 netting sets, margined and unmargined, some
+  client-cleared, and about 4,300 trades in about 39,000 legs.
+- **Products:** interest-rate, inflation and OIS swaps; caps and floors
+  decomposed into caplets and floorlets; bond options and futures; FX forwards,
+  swaps and options; equity options.
+- **Comparison:** netting set by netting set (EAD, RC, PFE, add-on by asset
+  class, multiplier) and trade by trade (supervisory duration, delta,
+  maturity factor, bucket).
+- **Result:** every difference is traced. The day-count convention (business
+  days of 252 a year at the bank, calendar days of 365 and 250 business days in
+  K-SACCR) explains those of the add-ons; the remaining ones come from
+  treatments of the comparison engine. No defect was found in K-SACCR.
+- **Not covered:**
+  - the cap of margined netting sets;
+  - credit, commodity and other risks;
+  - CDO, basis and volatility transactions, settled-to-market trades;
+  - every rule under BCBS.
+
+  The [traceability table](docs/methodology/README.md#traceability) gives the
+  status of each rule.
+
+The bank, its engine and its data are confidential and are not in the
+repository. The evidence is a check at one date; the reproducible
+cross-check with a registered external implementation stays open in #100
+([evidence policy](docs/methodology/TEST_CASES.md#production-reconciliation)).
 
 ## Published CRE99 examples
 
@@ -712,8 +748,12 @@ and the VBA references are listed in `INSTALLATION.md`.
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
   next release; use the `v1.2.0` tag or its workbook for stable results.
-- **CRR is implemented, not validated.** The only published reference values
-  are Basel examples; CRR results are tested against illustrative values.
+- **CRR validation covers what a real portfolio exercises.** The only
+  published reference values are Basel examples. The CRR calculation is
+  validated by a production reconciliation on a real bank portfolio (#667).
+  The CRR rules that portfolio does not exercise are tested against
+  illustrative values only: the cap of margined netting sets, credit,
+  commodity, other risks, CDO, basis, volatility and settled-to-market.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
   the leg when both are foreign is the user's.
 - **FX options use a fixed quote order.** An FX option is rejected unless its
