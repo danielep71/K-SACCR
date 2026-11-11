@@ -597,6 +597,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const CSV_CONTEXT_CURRENCY As String = "CSV-CONTEXT-CURRENCY"    'active
         Public Const CSV_CONTEXT_EXPIRED As String = "CSV-CONTEXT-EXPIRED"    'active
         Public Const CSV_CONTEXT_FACTOR As String = "CSV-CONTEXT-FACTOR"    'active
+        Public Const CSV_CONTEXT_FX_NOTIONAL As String = "CSV-CONTEXT-FX-NOTIONAL"    'active
         Public Const CSV_CONTEXT_MATURED As String = "CSV-CONTEXT-MATURED"    'active
         Public Const CSV_CONTEXT_PAIR As String = "CSV-CONTEXT-PAIR"    'active
         Public Const STAGING_PARAMS_CODE As String = "CSV-CONTEXT-PARAMS"    'active

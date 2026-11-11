@@ -68,6 +68,7 @@ Excel before merge, including compilation, all suites and protection checks.
 | `CSV-CONTEXT-CURRENCY` | active | Existing CSV contract diagnostic; meaning unchanged. |
 | `CSV-CONTEXT-EXPIRED` | active | Existing CSV contract diagnostic; meaning unchanged. |
 | `CSV-CONTEXT-FACTOR` | active | Existing CSV contract diagnostic; meaning unchanged. |
+| `CSV-CONTEXT-FX-NOTIONAL` | active | The notional currency of an FX trade, or the reporting currency when it is blank, is not a currency of its pair (#678). |
 | `CSV-CONTEXT-MATURED` | active | Existing CSV contract diagnostic; meaning unchanged. |
 | `CSV-CONTEXT-PAIR` | active | Existing CSV contract diagnostic; meaning unchanged. |
 | `CSV-CONTEXT-PARAMS` | active | Existing CSV contract diagnostic; meaning unchanged. |

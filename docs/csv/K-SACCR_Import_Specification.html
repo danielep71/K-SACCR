@@ -204,6 +204,7 @@ NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N
 <tr><td><code>reset</code></td><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is after the reporting date.</td></tr>
 <tr><td><code>currency</code></td><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the notional currency.</td></tr>
 <tr><td><code>pair</code></td><td><code>CSV-CONTEXT-PAIR</code></td><td>Both currencies of an FX pair have a rate in the FX table.</td></tr>
+<tr><td><code>fx-notional</code></td><td><code>CSV-CONTEXT-FX-NOTIONAL</code></td><td>Once both currencies of an FX pair have a rate, the notional currency, or the reporting currency when it is blank, is one of them.</td></tr>
 <tr><td><code>factor</code></td><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has a row for the trade: IR, FX or OT, or the asset class and sub-class, such as CR_AAA.</td></tr>
 <tr><td><code>regime</code></td><td><code>CSV-CONTEXT-REGIME</code></td><td>Under the netting set&#x27;s regime, its override or else the Params regime, OT is CRR-only and a factor row limited to a regime is that regime.</td></tr>
 </tbody>
@@ -260,6 +261,7 @@ TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;
 <tr><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is not after the reporting date.</td></tr>
 <tr><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional or MtM currency has no rate in the FX table.</td></tr>
 <tr><td><code>CSV-CONTEXT-PAIR</code></td><td>A currency of the FX pair has no rate in the FX table.</td></tr>
+<tr><td><code>CSV-CONTEXT-FX-NOTIONAL</code></td><td>The notional currency, or the reporting currency when it is blank, is not a currency of the FX pair.</td></tr>
 <tr><td><code>CSV-CONTEXT-FACTOR</code></td><td>The supervisory-factor table has no row for the asset class and sub-class.</td></tr>
 <tr><td><code>CSV-CONTEXT-REGIME</code></td><td>The asset class or its supervisory factor is not available under the netting set&#x27;s regime.</td></tr>
 </tbody>
