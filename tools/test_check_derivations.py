@@ -6,7 +6,9 @@ import math
 import shutil
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from check_derivations import run_check
 
@@ -29,7 +31,7 @@ class DerivationGateTests(unittest.TestCase):
         self.assertIn(old, text)
         path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-    def edit_json(self, name: str, change) -> None:
+    def edit_json(self, name: str, change: Callable[[list[dict[str, Any]]], object]) -> None:
         path = self.root / name
         data = json.loads(path.read_text(encoding="utf-8"))
         change(data["outputs"])
@@ -37,14 +39,16 @@ class DerivationGateTests(unittest.TestCase):
 
     def findings(self) -> list[str]:
         report = run_check(self.root)
-        self.assertEqual(report["status"], "fail" if report["findings"] else "pass")
-        return report["findings"]
+        findings: list[str] = report["findings"]
+        self.assertEqual(report["status"], "fail" if findings else "pass")
+        return findings
 
     def assertFinding(self, text: str) -> None:
         findings = self.findings()
         self.assertTrue(any(text in item for item in findings), findings)
 
-    def output(self, outputs: list[dict], quantity: str, trade: str | None = None) -> dict:
+    def output(self, outputs: list[dict[str, Any]], quantity: str,
+               trade: str | None = None) -> dict[str, Any]:
         return next(o for o in outputs if o["quantity"] == quantity and o.get("trade") == trade)
 
     def test_committed_files_pass(self) -> None:
@@ -60,7 +64,7 @@ class DerivationGateTests(unittest.TestCase):
         self.assertFinding("illustrative-settled-to-market-periodic.bcbs.json: add_on.commodity")
 
     def test_changed_expected_value(self) -> None:
-        def change(outputs):
+        def change(outputs: list[dict[str, Any]]) -> None:
             self.output(outputs, "maturity_factor_margined", "T2")["value"] *= 1 + 1e-12
         self.edit_json(CCP_FILE, change)
         self.assertFinding(f"{CCP_FILE}: maturity_factor_margined T2: {CCP} gives")
@@ -70,7 +74,7 @@ class DerivationGateTests(unittest.TestCase):
         self.assertFinding(f"{CCP_FILE}: cap_applied: {CCP} gives 'Y', the file 'N'")
 
     def test_last_place_rounding_is_tolerated(self) -> None:
-        def change(outputs):
+        def change(outputs: list[dict[str, Any]]) -> None:
             output = self.output(outputs, "exposure_value")
             output["value"] = math.nextafter(output["value"], math.inf)
         self.edit_json(CCP_FILE, change)
@@ -85,7 +89,7 @@ class DerivationGateTests(unittest.TestCase):
         self.assertFinding(f"{CCP}: derives {CCP_FILE}, which does not exist")
 
     def test_citation_without_derivation(self) -> None:
-        def change(outputs):
+        def change(outputs: list[dict[str, Any]]) -> None:
             extra = json.loads(json.dumps(self.output(outputs, "multiplier")))
             extra["quantity"] = "aggregate_add_on"
             outputs.append(extra)
@@ -93,7 +97,7 @@ class DerivationGateTests(unittest.TestCase):
         self.assertFinding(f"{CCP_FILE}: aggregate_add_on: cites {CCP}, which does not derive it")
 
     def test_citation_of_unknown_script(self) -> None:
-        def change(outputs):
+        def change(outputs: list[dict[str, Any]]) -> None:
             reference = self.output(outputs, "netting_set_status")["reference"]
             reference["derivation"] = "tests/derivations/missing.py, a script"
         self.edit_json(CCP_FILE, change)

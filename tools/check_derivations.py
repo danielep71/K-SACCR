@@ -45,6 +45,9 @@ def load_derivations(root: Path) -> tuple[dict[str, dict[tuple[str, str], dict[s
     for path in sorted((root / DERIVATIONS).glob("*.py")):
         name = path.relative_to(root).as_posix()
         spec = importlib.util.spec_from_file_location(f"derivation_{path.stem}", path)
+        if spec is None or spec.loader is None:
+            findings.append(f"{name}: cannot be loaded")
+            continue
         try:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -72,7 +75,7 @@ def same(derived: Any, output: dict[str, Any]) -> bool:
     if isinstance(committed, bool) or not isinstance(committed, (int, float)):
         return False
     derived, committed = float(derived), float(committed)
-    return abs(derived - committed) <= ULPS * math.ulp(max(abs(derived), abs(committed)))
+    return bool(abs(derived - committed) <= ULPS * math.ulp(max(abs(derived), abs(committed))))
 
 
 def shown(output: dict[str, Any]) -> str:
@@ -121,11 +124,11 @@ def check(derived: dict[str, dict[tuple[str, str], dict[str, Any]]],
             key = output.get("quantity") + (f" {output['trade']}" if output.get("trade") else "")
             if reference.get("class") == "illustrative" and not str(reference.get("derivation") or "").strip():
                 findings.append(f"{name}: {key}: illustrative output names no derivation")
-            script = cited_script(output)
-            if script and script not in scripts:
-                findings.append(f"{name}: {key}: cites {script}, which does not exist")
-            elif script in derived and (name, output.get("quantity"), output.get("trade"), script) not in claimed:
-                findings.append(f"{name}: {key}: cites {script}, which does not derive it")
+            cited = cited_script(output)
+            if cited and cited not in scripts:
+                findings.append(f"{name}: {key}: cites {cited}, which does not exist")
+            elif cited in derived and (name, output.get("quantity"), output.get("trade"), cited) not in claimed:
+                findings.append(f"{name}: {key}: cites {cited}, which does not derive it")
     return findings
 
 

@@ -5,6 +5,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from typing import Any
 
 from check_accuracy_contracts import CONTRACTS, check, run_check
 
@@ -17,10 +18,10 @@ class AccuracyContractTests(unittest.TestCase):
         self.expected = {path.stem: json.loads(path.read_text(encoding="utf-8"))
                          for path in sorted((ROOT / "tests/expected").glob("*.json"))}
 
-    def contract(self, family: str) -> dict:
+    def contract(self, family: str) -> dict[str, Any]:
         return next(c for c in self.document["contracts"] if c["family"] == family)
 
-    def output(self, case: str, quantity: str) -> dict:
+    def output(self, case: str, quantity: str) -> dict[str, Any]:
         return next(o for o in self.expected[case]["outputs"] if o["quantity"] == quantity)
 
     def assertFinding(self, text: str) -> None:

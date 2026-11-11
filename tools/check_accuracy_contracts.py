@@ -42,7 +42,76 @@ def tolerance_errors(where: str, tolerance: Any) -> list[str]:
 
 
 def within(tolerance: dict[str, Any], bound: dict[str, Any]) -> bool:
-    return tolerance["absolute"] <= bound["absolute"] and tolerance["relative"] <= bound["relative"]
+    return bool(tolerance["absolute"] <= bound["absolute"] and tolerance["relative"] <= bound["relative"])
+
+
+def format_errors(contract: dict[str, Any], owner: dict[str, str]) -> list[str]:
+    """Check one contract's fields; record the quantity patterns it claims."""
+    family = contract["family"]
+    quantities, rounded = contract["quantities"], contract["rounded"]
+    if not (isinstance(quantities, dict) and quantities and isinstance(rounded, dict)
+            and isinstance(contract["calibration"], list) and isinstance(contract["held_out"], list)):
+        return [f"{family}: quantities and rounded must be objects, the case lists lists"]
+    findings: list[str] = []
+    for pattern, bound in quantities.items():
+        findings += tolerance_errors(f"{family}: {pattern}", bound)
+        for other, name in owner.items():
+            if matches(pattern, other) or matches(other, pattern):
+                findings.append(f"{family}: {pattern} is already claimed by {name}")
+        owner[pattern] = family
+    for case, bound in rounded.items():
+        findings += tolerance_errors(f"{family}: rounded {case}", bound)
+    return findings
+
+
+def family_outputs(quantities: dict[str, Any],
+                   expected: dict[str, dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """The numerical outputs of the family in each case that has any."""
+    tested: dict[str, list[dict[str, Any]]] = {}
+    for case, data in expected.items():
+        outputs = [o for o in data.get("outputs", [])
+                   if any(matches(o.get("quantity", ""), p) for p in quantities) and "tolerance" in o]
+        if outputs:
+            tested[case] = outputs
+    return tested
+
+
+def listing_errors(contract: dict[str, Any], tested: dict[str, list[dict[str, Any]]],
+                   expected: dict[str, dict[str, Any]]) -> list[str]:
+    family = contract["family"]
+    listed = contract["calibration"] + contract["held_out"]
+    findings = [f"{family}: {case} is listed more than once"
+                for case in sorted({c for c in listed if listed.count(c) > 1})]
+    findings += [f"{family}: {case} has no expected file" for case in sorted(set(listed) - set(expected))]
+    findings += [f"{family}: {case} has no output of the family"
+                 for case in sorted(set(listed) & set(expected) - set(tested))]
+    findings += [f"{family}: {case} is neither a calibration nor a held-out case"
+                 for case in sorted(set(tested) - set(listed))]
+    findings += [f"{family}: rounded {case} is not a listed case"
+                 for case in sorted(set(contract["rounded"]) - set(listed))]
+    if not any(case in tested and case not in contract["rounded"] for case in contract["held_out"]):
+        findings.append(f"{family}: no held-out case tests the claimed tolerance at full precision")
+    return findings
+
+
+def tolerance_findings(contract: dict[str, Any], case: str, outputs: list[dict[str, Any]]) -> list[str]:
+    """Each output of one case against the claim, or the case's rounding."""
+    family, quantities, rounded = contract["family"], contract["quantities"], contract["rounded"]
+    findings: list[str] = []
+    loose = False
+    for output in outputs:
+        claimed = quantities[next(p for p in quantities if matches(output["quantity"], p))]
+        tolerance = output["tolerance"]
+        loose |= not within(tolerance, claimed)
+        bound = rounded.get(case, claimed)
+        if not within(tolerance, bound):
+            kind = "rounding" if case in rounded else "claimed tolerance"
+            trade = f" {output['trade']}" if output.get("trade") else ""
+            findings.append(f"{family}: {case} {output['quantity']}{trade}: tolerance "
+                            f"{tolerance} is looser than the {kind} {bound}")
+    if case in rounded and not loose:
+        findings.append(f"{family}: rounded {case} is not needed: every output meets the claimed tolerance")
+    return findings
 
 
 def check(document: dict[str, Any], expected: dict[str, dict[str, Any]]) -> list[str]:
@@ -58,57 +127,14 @@ def check(document: dict[str, Any], expected: dict[str, dict[str, Any]]) -> list
         if not isinstance(contract, dict) or set(contract) != CONTRACT_KEYS:
             findings.append(f"{CONTRACTS}: a contract must have exactly {sorted(CONTRACT_KEYS)}")
             continue
-        family, before = contract["family"], len(findings)
-        quantities, rounded = contract["quantities"], contract["rounded"]
-        calibration, held_out = contract["calibration"], contract["held_out"]
-        if not (isinstance(quantities, dict) and quantities and isinstance(rounded, dict)
-                and isinstance(calibration, list) and isinstance(held_out, list)):
-            findings.append(f"{family}: quantities and rounded must be objects, the case lists lists")
+        errors = format_errors(contract, owner)
+        findings += errors
+        if errors:
             continue
-        for pattern, bound in quantities.items():
-            findings += tolerance_errors(f"{family}: {pattern}", bound)
-            for other, name in owner.items():
-                if matches(pattern, other) or matches(other, pattern):
-                    findings.append(f"{family}: {pattern} is already claimed by {name}")
-            owner[pattern] = family
-        for case, bound in rounded.items():
-            findings += tolerance_errors(f"{family}: rounded {case}", bound)
-        if len(findings) > before:
-            continue
-        listed = calibration + held_out
-        for case in sorted({c for c in listed if listed.count(c) > 1}):
-            findings.append(f"{family}: {case} is listed more than once")
-        tested: dict[str, list[dict[str, Any]]] = {}
-        for case, data in expected.items():
-            outputs = [o for o in data.get("outputs", [])
-                       if any(matches(o.get("quantity", ""), p) for p in quantities) and "tolerance" in o]
-            if outputs:
-                tested[case] = outputs
-        for case in sorted(set(listed) - set(expected)):
-            findings.append(f"{family}: {case} has no expected file")
-        for case in sorted(set(listed) & set(expected) - set(tested)):
-            findings.append(f"{family}: {case} has no output of the family")
-        for case in sorted(set(tested) - set(listed)):
-            findings.append(f"{family}: {case} is neither a calibration nor a held-out case")
-        for case in sorted(set(rounded) - set(listed)):
-            findings.append(f"{family}: rounded {case} is not a listed case")
+        tested = family_outputs(contract["quantities"], expected)
+        findings += listing_errors(contract, tested, expected)
         for case, outputs in sorted(tested.items()):
-            loose = False
-            for output in outputs:
-                pattern = next(p for p in quantities if matches(output["quantity"], p))
-                claimed = quantities[pattern]
-                tolerance = output["tolerance"]
-                loose |= not within(tolerance, claimed)
-                bound = rounded.get(case, claimed)
-                if not within(tolerance, bound):
-                    kind = "rounding" if case in rounded else "claimed tolerance"
-                    trade = f" {output['trade']}" if output.get("trade") else ""
-                    findings.append(f"{family}: {case} {output['quantity']}{trade}: tolerance "
-                                    f"{tolerance} is looser than the {kind} {bound}")
-            if case in rounded and not loose:
-                findings.append(f"{family}: rounded {case} is not needed: every output meets the claimed tolerance")
-        if not any(case in tested and case not in rounded for case in held_out):
-            findings.append(f"{family}: no held-out case tests the claimed tolerance at full precision")
+            findings += tolerance_findings(contract, case, outputs)
     return findings
 
 
