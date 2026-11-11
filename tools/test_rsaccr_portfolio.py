@@ -224,8 +224,11 @@ class CaseTests(unittest.TestCase):
         capped["results"][0]["cap_applied"] = True
         stale = copy.deepcopy(self.package)
         stale["portfolio_sha256"] = "0" * 64
+        rerun = copy.deepcopy(self.package)
+        rerun["results"][0]["RC"] += 1.0
         for package, comparison, chosen, message in (
-                (self.package, differing, [first], "did not agree"),
+                (self.package, differing, [first], "does not show"),
+                (rerun, self.comparison, [first], "does not show"),
                 (capped, self.comparison, [first], "cap binds"),
                 (stale, self.comparison, [first], "another portfolio"),
                 (self.package, self.comparison, ["RS-999"], "not a netting set")):

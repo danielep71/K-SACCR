@@ -461,9 +461,22 @@ def case_expected(fixture: dict[str, Any], result: dict[str, Any], versions: dic
             "outputs": outputs}
 
 
-def agreed(comparison: str, ns_id: str) -> bool:
+def package_figures(result: dict[str, Any]) -> dict[str, float]:
+    """The package's figures as compare labels them."""
+    figures = {label: float(result[key]) for label, key, _ in RESULT_FIGURES}
+    by_class = result.get("add_on_by_class") or {}
+    figures.update({label: float(by_class.get(key, 0.0)) for label, key in CLASS_FIGURES})
+    return figures
+
+
+def agreed(comparison: str, ns_id: str, result: dict[str, Any]) -> bool:
+    """Every figure of the netting set agreed, and the comparison holds exactly the
+    package figures being exported, not those of an earlier run of the package."""
     rows = [r for r in csv.DictReader(io.StringIO(comparison), delimiter=";") if r["netting_set"] == ns_id]
-    return bool(rows) and all(r["agrees"] == "Y" for r in rows)
+    figures = package_figures(result)
+    compared = {r["quantity"]: r["package"] for r in rows if r["quantity"] in figures}
+    return (bool(rows) and all(r["agrees"] == "Y" for r in rows) and set(compared) == set(figures)
+            and all(number(text) == figures[label] for label, text in compared.items()))
 
 
 def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, chosen: list[str],
@@ -477,8 +490,9 @@ def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, c
     for ns_id in chosen:
         if ns_id not in fixtures:
             raise EvidenceError(f"{ns_id} is not a netting set of the portfolio")
-        if not agreed(comparison, ns_id):
-            raise EvidenceError(f"{ns_id}: the workbook and the package did not agree on every figure")
+        if not agreed(comparison, ns_id, results[ns_id]):
+            raise EvidenceError(f"{ns_id}: the comparison does not show these package figures agreeing "
+                                "with the workbook on every figure; compare again")
         if results[ns_id].get("cap_applied"):
             raise EvidenceError(f"{ns_id}: the cap binds, and the cap is rebuilt outside the package")
         name = case_id(ns_id)
@@ -511,6 +525,8 @@ def command_generate(options: argparse.Namespace) -> int:
 
 def command_run(options: argparse.Namespace) -> int:
     portfolio = json.loads((options.out / "portfolio.json").read_text(encoding="utf-8"))
+    # A comparison made with earlier package results must not survive into cases.
+    (options.out / "comparison.csv").unlink(missing_ok=True)
     inputs = {"netting_sets": [crosscheck.translate_fixture(f) for f in portfolio["netting_sets"]], "skipped": []}
     (options.out / "rsaccr-inputs.json").write_text(json.dumps(inputs, indent=2), encoding="utf-8")
     package = crosscheck.run_package(options.rscript, options.out / "rsaccr-inputs.json",
