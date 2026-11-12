@@ -92,23 +92,31 @@ candidate.
 
 ### Continuity
 
-K-SACCR has one maintainer. So that the project can go on if the owner can no
-longer act:
+K-SACCR has one maintainer. So that the project can go on without the owner:
 
 - A successor is designated in the owner's GitHub account (**Settings →
-  Account → Successor settings**). The successor has no access until GitHub
-  confirms that the owner can no longer act; GitHub then lets them administer
-  the owner's public repositories, this one included: triage issues, merge
-  pull requests and publish releases.
+  Account → Successor settings**) and has accepted. The successor has no
+  access while the owner can act. GitHub's process covers the owner's death:
+  the successor contacts GitHub Support with a death certificate and, after
+  seven days (21 with an obituary), can transfer this public repository to
+  their own account or to an organization, or archive it. The successor
+  cannot sign in to the owner's account; once the repository is transferred,
+  they administer it there: triage issues, merge pull requests and publish
+  releases. GitHub redirects the old repository address to the new one.
+- A lasting incapacity of the owner is not covered by GitHub's process, and
+  no one else holds the owner's credentials. In that case the project can
+  only continue as a fork, which its licence allows.
 - The successor can also edit the project's
   [OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605)
   entry.
 - Nothing else has to be handed over. Releases are signed by the release
-  workflow with Sigstore keyless signing, so there is no signing key; the
-  website is GitHub Pages at the repository's own address, with no custom
-  domain; the one repository secret serves only the
-  [traffic history](../tools/README.md#traffic-history), never CI, and a
-  successor can replace it with an App of their own.
+  workflow with Sigstore keyless signing, so there is no signing key; after a
+  transfer, its signatures name the new repository, and the verification
+  command in [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) must
+  name it too. The website is GitHub Pages, with no custom domain, and moves
+  with the repository. The one repository secret serves only the
+  [traffic history](../tools/README.md#traffic-history), never CI; a
+  successor replaces it with an App of their own.
 - Releasing needs Excel on Windows and follows
   [`RELEASING.md`](../RELEASING.md); nothing in it depends on the owner's
   machine.
