@@ -897,6 +897,7 @@ contracts for the derived expected values (#537) and new screenshots
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
 | [`RELEASING.md`](RELEASING.md) | Release steps: versioning, release invariants and current status |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |
+| [`docs/ASSURANCE_CASE.md`](docs/ASSURANCE_CASE.md) | Security assurance case: requirements, threats, trust boundaries, design principles and the weaknesses countered |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behaviour and conduct reporting |
 | [`CHANGELOG.md`](CHANGELOG.md) | Change history |
 
