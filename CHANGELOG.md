@@ -261,6 +261,9 @@ Use only the categories needed by a release.
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
 
+- Add the OpenSSF Best Practices badge to the README: the project
+  (bestpractices.dev, project 16605) meets the passing level.
+
 - Correct the Markdown files found wrong or stale in a review of all of them
   against the code on 2026-11-11. The traceability table no longer calls five
   CRR rules validated by an independent implementation when no output of the
