@@ -105,8 +105,10 @@ exposure figure, which are reported as issues.
   Nothing is installed, registered or loaded beyond `kernel32`, which every
   Windows process has.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1`, `tools/Export-SACCR-VBA.ps1`
-  and `tools/Certify-SACCR.ps1` need Excel's **Trust access to the VBA project
-  object model** setting, which none of them changes. `Certify-SACCR.ps1` and
+  and the scripts that build workbooks through the first
+  (`tools/Certify-SACCR.ps1`, `tools/Check-SACCR-Protection.ps1` and
+  `tools/Verify-SACCR-Branch.ps1`) need Excel's **Trust access to the VBA
+  project object model** setting, which none of them changes. `Certify-SACCR.ps1` and
   `Check-SACCR-Protection.ps1`, which it runs, open their workbooks following
   the Trust Center macro setting and ask the operator to enable content; the
   protection checks also open the production workbook with its macros

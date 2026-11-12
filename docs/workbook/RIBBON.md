@@ -33,7 +33,8 @@ the user. They never replace those gates.
   touched.
 - **Macros disabled:** the tab still shows, but no callback runs: commands,
   states and navigation are unavailable. The workbook stays readable, and
-  the links on Home (#330) and the sheet tabs reach every sheet.
+  the links on Home (#330), the navigation bar of every sheet (#615) and
+  the sheet tabs reach every sheet.
 
 ## 🧭 The tab
 

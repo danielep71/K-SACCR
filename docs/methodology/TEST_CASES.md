@@ -12,6 +12,8 @@ the suite counts as complete. Sources and rule IDs come from the
 > ([consumption](#consumption)). Which rules they validate, and for which
 > regime, is in the [traceability](README.md#traceability) table. The mapping
 > is in [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
+> Since v1.3.0 (unreleased), six `independent` CRR cases, `rsaccr-portfolio-*`,
+> carry values from the R package `SACCR` (`IMPL-R-SACCR`, #100).
 
 ## 📁 Files
 
@@ -333,8 +335,9 @@ with an output of the family is in exactly one of two lists:
   examples, `published` and in their CRR form, and the cases ported from the
   prototype catalogue.
 - **Held-out** cases were added later, with values from a separate
-  derivation (a script in `tests/derivations/` or a hand calculation) and the
-  convention's tolerance. They test the claim without having shaped it.
+  derivation (a script in `tests/derivations/`, a hand calculation, or the
+  registered external implementation `IMPL-R-SACCR`) and the convention's
+  tolerance. They test the claim without having shaped it.
 
 A case whose expected value is rounded, such as a printed figure or a hand
 calculation to the cent, is listed under `rounded` with the rounding as its
@@ -395,6 +398,9 @@ Each fixture declares one `category`:
 - Since v1.3.0 (unreleased), the CRR rules that the production reconciliation
   of #667 exercises are validated by it: a real portfolio at 30 June 2026, about
   900 netting sets and 4,300 trades, against a bank's production SA-CCR engine.
+- Since v1.3.0 (unreleased), the CRR rules named by the outputs of the six
+  `independent` cases `rsaccr-portfolio-*` (source `IMPL-R-SACCR`, #100) are
+  validated by them.
 
 Where each [regime difference](README.md#regime-differences) is covered:
 

@@ -3,12 +3,12 @@
   "codes": {
     "RUN-ERROR": {
       "constant": "DIAG_RUN_ERROR",
-      "description": "Run stopped by error  :",
+      "description": "The run stopped on an unexpected error; the message gives its number and description.",
       "status": "active"
     },
     "PRM-NAME": {
       "constant": "DIAG_PRM_NAME",
-      "description": "Workbook name '",
+      "description": "A Params workbook name is missing or no longer refers to a cell (#REF!); every parameter is read through its name.",
       "status": "active"
     },
     "PRM-DUP-SAME": {
@@ -23,27 +23,27 @@
     },
     "LAYOUT-SHEET": {
       "constant": "DIAG_LAYOUT_SHEET",
-      "description": "Sheet ' ' not found.",
+      "description": "A sheet the run needs is missing.",
       "status": "active"
     },
     "LAYOUT-PARAM-NAME": {
       "constant": "DIAG_LAYOUT_PARAM_NAME",
-      "description": "Workbook name '",
+      "description": "A workbook name of the Params layout is missing or no longer refers to a cell.",
       "status": "active"
     },
     "LAYOUT-PARAM-POSITION": {
       "constant": "DIAG_LAYOUT_PARAM_POSITION",
-      "description": "Workbook name '",
+      "description": "A workbook name of the Params layout refers to a cell on another sheet.",
       "status": "active"
     },
     "LAYOUT-PARAM-ROW": {
       "constant": "DIAG_LAYOUT_PARAM_ROW",
-      "description": "Workbook names ' ' and '",
+      "description": "The Params code and value names are not on the same row.",
       "status": "active"
     },
     "LAYOUT-HEADER-NAME": {
       "constant": "DIAG_LAYOUT_HEADER_NAME",
-      "description": "Workbook name '",
+      "description": "The workbook name of an input table's header is missing or no longer refers to its first header cell.",
       "status": "active"
     },
     "LAYOUT-HEADER": {
@@ -53,7 +53,7 @@
     },
     "PRM-RANGE": {
       "constant": "DIAG_PRM_RANGE",
-      "description": "must be   (found  ).",
+      "description": "A Params value is outside its allowed range; the message gives the range and the value found.",
       "status": "active"
     },
     "PRM-DEFAULT": {
@@ -113,12 +113,12 @@
     },
     "PRM-READ": {
       "constant": "DIAG_PRM_READ",
-      "description": "Cannot read parameters:",
+      "description": "Params cannot be read; the message gives the reason.",
       "status": "active"
     },
     "SF-TABLE": {
       "constant": "DIAG_SF_TABLE",
-      "description": "Supervisory factor table not found (workbook name '",
+      "description": "The supervisory-factor table is not found through its workbook name.",
       "status": "active"
     },
     "SF-NUMBER": {
@@ -183,7 +183,7 @@
     },
     "RUN-WHATIF": {
       "constant": "DIAG_RUN_WHATIF",
-      "description": "What-if:",
+      "description": "WARNING: a regulatory parameter differs from the regulatory set, so the run is WHAT-IF; the message names it.",
       "status": "active"
     },
     "NS-EMPTY": {
@@ -213,7 +213,7 @@
     },
     "NS-REMARGIN-FLOOR": {
       "constant": "DIAG_NS_REMARGIN_FLOOR",
-      "description": "Remargin frequency",
+      "description": "A remargining frequency below 1 business day; daily remargining is used.",
       "status": "active"
     },
     "NS-TH": {
@@ -288,12 +288,12 @@
     },
     "NS-MPOR-INFO": {
       "constant": "DIAG_NS_MPOR_INFO",
-      "description": ".",
+      "description": "INFO: the MPOR floor, the rule and the clearing role applied to a margined netting set.",
       "status": "active"
     },
     "NS-MPOR-FLOOR": {
       "constant": "DIAG_NS_MPOR_FLOOR",
-      "description": "MPOR override",
+      "description": "An MPOR override below the regulatory floor; the floor is applied.",
       "status": "active"
     },
     "NS-CLEARING-UNMARGINED": {
@@ -323,7 +323,7 @@
     },
     "NS-CODE": {
       "constant": "DIAG_NS_CODE",
-      "description": "must be  / ,",
+      "description": "A coded netting-set field holds a value outside its list; the message names the field and the allowed codes.",
       "status": "active"
     },
     "NS-NUMBER": {
@@ -333,7 +333,7 @@
     },
     "TR-DATE": {
       "constant": "DIAG_TR_DATE",
-      "description": "is not a date (found  )",
+      "description": "A trade date field holds a value that is not a date.",
       "status": "active"
     },
     "TR-TEXT": {
@@ -403,7 +403,7 @@
     },
     "TR-NETTING-SET": {
       "constant": "DIAG_TR_NETTING_SET",
-      "description": "unknown netting set ' '",
+      "description": "A trade refers to a netting set that is not on NettingSets.",
       "status": "active"
     },
     "TR-ASSET-CLASS": {
@@ -493,7 +493,7 @@
     },
     "TR-NOTIONAL-CURRENCY": {
       "constant": "DIAG_TR_NOTIONAL_CURRENCY",
-      "description": "notional",
+      "description": "The notional currency has no FX rate.",
       "status": "active"
     },
     "TR-MTM-MISSING": {
@@ -508,7 +508,7 @@
     },
     "TR-MTM-CURRENCY": {
       "constant": "DIAG_TR_MTM_CURRENCY",
-      "description": "MtM",
+      "description": "The MtM currency has no FX rate.",
       "status": "active"
     },
     "TR-MATURITY-MISSING": {
@@ -603,7 +603,7 @@
     },
     "TR-VOLATILITY": {
       "constant": "DIAG_TR_VOLATILITY",
-      "description": "supervisory volatility missing for ' '",
+      "description": "No supervisory option volatility for the trade's factor key.",
       "status": "active"
     },
     "TR-CDO-POINTS": {
@@ -638,7 +638,7 @@
     },
     "TR-COMMODITY-GROUP": {
       "constant": "DIAG_TR_COMMODITY_GROUP",
-      "description": "commodity hedging group missing for ' '",
+      "description": "No commodity hedging set for the trade's factor key.",
       "status": "active"
     },
     "TR-REFERENCE-CONFLICT": {
@@ -653,17 +653,17 @@
     },
     "NS-LARGE": {
       "constant": "DIAG_NS_LARGE",
-      "description": "Netting set has",
+      "description": "WARNING: a netting set with more than 5,000 trades; the large-netting-set flag may apply (20-day MPOR floor).",
       "status": "active"
     },
     "NS-INPUT-INCOMPLETE": {
       "constant": "DIAG_NS_INPUT_INCOMPLETE",
-      "description": "EAD withheld:",
+      "description": "The EAD of a netting set is withheld because of invalid netting-set fields.",
       "status": "active"
     },
     "NS-TRADE-INCOMPLETE": {
       "constant": "DIAG_NS_TRADE_INCOMPLETE",
-      "description": "EAD withheld:",
+      "description": "The EAD of a netting set is withheld because some of its trades were rejected.",
       "status": "active"
     },
     "NS-NO-TRADES": {
@@ -673,7 +673,7 @@
     },
     "RUN-TOTAL": {
       "constant": "DIAG_RUN_TOTAL",
-      "description": "TOTAL",
+      "description": "INFO: the trade exposures to CCPs in a regime's total, with their EAD; risk weights are not applied.",
       "status": "active"
     },
     "RUN-CLEAN": {

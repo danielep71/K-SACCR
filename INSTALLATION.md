@@ -373,7 +373,10 @@ report `PASS`, and it raises an error after printing a failed result.
 deliberately wrong expectation, in `replacement-cost.exact`, and must print
 `MODE=INJECTED_FAILURE` and a `RESULT=FAIL` line with `failures=1`, followed
 by the suite failure error. If a run is interrupted, run
-`TEST_Harness.ResetTests` before running again.
+`TEST_Harness.ResetTests` before running again. If another suite was
+interrupted, the next suite refuses the workbook (`restore=NOT_RUN`): close
+it without saving or rebuild it, or, once it is checked, run
+`TEST_Kit.ClearAbortedRun`.
 
 The harness never changes Excel settings. It checks that `Calculation`,
 `DisplayAlerts`, `EnableEvents` and `ScreenUpdating` are the same after the run
@@ -540,7 +543,9 @@ malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
 returns for an accepted and a rejected file. The portfolio cases of
 `tests/csv/portfolio.json` go through `CheckPortfolio`, and the staged cases
 of `tests/csv/staged.json`, rows as a staging sheet holds them, through
-`CheckStagedRecords`. It touches no sheet.
+`CheckStagedRecords`, and the context cases of `tests/csv/context.json`,
+records judged against a Params context, through `CheckContext`. It touches
+no sheet.
 
 ### CSV import tests
 
