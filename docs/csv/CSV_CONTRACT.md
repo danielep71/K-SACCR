@@ -276,11 +276,11 @@ against Params check them against the reporting date, the two tables and
 the regime. The engine's validation still applies, unchanged, at the next
 run to what the contract does not judge:
 
-- the sub-class required by an asset class and regime;
+- the supervisory volatility of an option and the commodity hedging set of a
+  commodity trade, which its factor row must give;
 - an option's type and price and strike, and its expiry relative to the
-  maturity, the FX pair's form and quote order, and whether the notional
-  currency is a currency of the pair, the hedging-set label of a basis or
-  volatility trade;
+  maturity, the FX pair's form and quote order, the hedging-set label of a
+  basis or volatility trade;
 - the reset date relative to the maturity, an `STM` trade in a margined
   netting set;
 - the netting sets' own rules that depend on Params.
