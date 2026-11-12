@@ -15,6 +15,7 @@
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
 [![Regression](https://img.shields.io/badge/Regression-472_cases_%C2%B7_2013_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
+[![OpenSSF Best Practices](https://img.shields.io/cii/level/16605?style=for-the-badge&label=OpenSSF%20best%20practices)](https://www.bestpractices.dev/projects/16605)
 
 <br>
 
