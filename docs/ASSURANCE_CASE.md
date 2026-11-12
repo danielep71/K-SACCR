@@ -25,7 +25,7 @@ What a user can expect from the workbook and its releases:
 | R4 | **Result integrity.** Results that no longer match their inputs are shown as out of date, and the evidence export refuses them, so stale or hand-edited results are not exported as a run. |
 | R5 | **Bounded resources.** A malformed or oversized file is rejected before it can exhaust memory or time. |
 | R6 | **Host settings.** The workbook changes no Excel Trust Center setting, installs nothing and loads no library beyond the one Windows function it declares. |
-| R7 | **Delivery integrity.** Releases are delivered over HTTPS with published SHA-256 sums; the source is public and every change reaches it through a reviewed pull request with required checks. |
+| R7 | **Delivery integrity.** Releases are delivered over HTTPS with published SHA-256 sums and a Sigstore signature of every file; the source is public and every change reaches it through a reviewed pull request with required checks. |
 | R8 | **No secrets in the repository.** The repository and the releases hold no credentials and no real portfolio data. |
 
 ## 🧭 Assets, threats and trust boundaries
@@ -67,7 +67,9 @@ model is the boundary there, and K-SACCR does not try to replace it.
    access to pull requests (`pr-milestones.yml`, `pull_request_target`) never
    checks out or runs the pull request's code.
 5. **Release to user.** Releases leave the repository through GitHub over
-   HTTPS, with `SHA256SUMS.txt` for each asset.
+   HTTPS, with `SHA256SUMS.txt` and a Sigstore signature of each file, which
+   the release workflow makes only after checking the files against the
+   sums.
 
 ## 🧱 Secure design principles
 
@@ -96,6 +98,7 @@ The principles of Saltzer and Schroeder, as applied here:
 | Path manipulation (CWE-22, CWE-73) | No file path comes from data: every file is chosen in an Excel open or save dialog; the test suites write their own files to `%TEMP%` under names they choose | [`SECURITY.md`](../SECURITY.md#runtime-risk-surface) |
 | Memory safety (CWE-119) | VBA and Python are memory-safe. The one Windows call, `RtlMoveMemory`, copies only a pointer the same Excel session stored, checked against that session's window handle | `M_Ribbon.CurrentRibbon`; `TEST_MainState` case `ribbon.pointer` |
 | Integrity of results (CWE-345) | An input fingerprint binds results to their inputs; out-of-date or edited results are flagged and refused by the evidence export; the evidence record binds logs to a commit with SHA-256 digests | `CORE_Engine.InputFingerprint`, `M_Main.ResultsStatus`; [`docs/EXCEL_EVIDENCE.md`](EXCEL_EVIDENCE.md) |
+| Download without an integrity check (CWE-494) | Each release file has a SHA-256 in `SHA256SUMS.txt` and a Sigstore signature, `<file>.sigstore.json`, bound to the repository's signing workflow and recorded in Sigstore's public transparency log; the user checks both before unblocking the workbook | `.github/workflows/release-signing.yml`; [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) |
 | Untrusted code in CI and the supply chain (CWE-494, CWE-829) | Actions pinned by full commit SHA with version comments; Python tools installed from hash-locked requirements; Dependabot alerts and updates; actionlint and CodeQL on the workflows; `pull_request_target` never runs PR code | `tools/check_workflows.py`; `tools/requirements-quality-ci.txt`; [`docs/GOVERNANCE.md`](GOVERNANCE.md) |
 | Credentials in the repository (CWE-798, CWE-522) | No credential is stored in the repository; secret scanning and push protection are enabled; the only automation key is an environment secret, rotated as `SECURITY.md` prescribes | [`SECURITY.md`](../SECURITY.md#runtime-risk-surface); [`docs/GOVERNANCE.md`](GOVERNANCE.md) |
 | Static analysis gaps | CodeQL covers the Python tooling and the workflows; VBA, which CodeQL does not support, is covered by the repository's own gates: undeclared identifiers, call resolution, dependency direction, jump targets, conditional compilation and public API | [`tools/README.md`](../tools/README.md#gates) |
@@ -105,11 +108,16 @@ The principles of Saltzer and Schroeder, as applied here:
 - **Macros must be enabled.** The workbook is VBA: enabling its macros
   trusts the file. A modified copy is outside this case; users should obtain
   the workbook from the GitHub release and check it against
-  `SHA256SUMS.txt`.
+  `SHA256SUMS.txt` and its signature.
 - **Protection is not a security boundary.** The sheets are protected
   without a password, against accidental edits only.
-- **Releases are not yet signed.** They are delivered over HTTPS with
-  SHA-256 sums; a cryptographic signature of the release assets is planned.
+- **The workflow signs, not the builder.** The workbook is built and
+  certified on the owner's machine; the release workflow signs the files
+  attached to the release after checking them against `SHA256SUMS.txt`. A
+  signature shows that a file is the one this repository's workflow signed
+  for the release, not who built it: anyone able to publish a release here
+  could have it signed. A release published before the workflow existed is
+  signed only when the workflow is run for it by hand.
 - **One maintainer.** Every change is reviewed by automated checks and by
   the owner, not by a second person.
 - **No dynamic analysis tool.** There is no fuzzer; the CSV cases and the

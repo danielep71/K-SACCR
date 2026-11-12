@@ -1,0 +1,60 @@
+name: Sign release assets
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release to sign, such as v1.2.0
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: release-signing-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  sign:
+    # A manual run signs a release only from the default branch's workflow.
+    if: github.event_name == 'release' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Check, sign and attach the release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/release-signing.yml@${{ github.ref }}
+          ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$TAG' is not a release tag vX.Y.Z"
+          mkdir assets
+          cd assets
+          gh release download "$TAG"
+          if compgen -G '*.sigstore.json' > /dev/null; then
+            fail "$TAG already carries signatures; release assets are never replaced"
+          fi
+          [ -f SHA256SUMS.txt ] || fail "$TAG has no SHA256SUMS.txt: attach every asset before publishing"
+          # Sums written on Windows end their lines with CRLF.
+          sums=$(tr -d '\r' < SHA256SUMS.txt)
+          sha256sum --check --strict <<< "$sums"
+          listed=$(sed -E 's/^[0-9a-f]{64} [ *]//' <<< "$sums" | sort)
+          present=$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' | sort)
+          [ "$listed" = "$present" ] || fail "SHA256SUMS.txt does not list exactly the assets of $TAG"
+          files=$(find . -maxdepth 1 -type f -printf '%f\n' | sort)
+          while IFS= read -r file; do
+            cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+            cosign verify-blob --bundle "$file.sigstore.json" \
+              --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" "$file"
+          done <<< "$files"
+          gh release upload "$TAG" ./*.sigstore.json
+          echo "Signed $TAG as $IDENTITY:" >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r file; do
+            echo "- $file" >> "$GITHUB_STEP_SUMMARY"
+          done <<< "$files"

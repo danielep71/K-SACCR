@@ -142,6 +142,22 @@ holds the demonstration portfolio of the template.
 
    The hash must equal the line for `K-SACCR_1.2.0.xlsm` in `SHA256SUMS.txt`
    (letter case aside). If it differs, delete the file.
+
+   The hash shows the file is the one the release lists; the signature also
+   shows the release was signed by this repository. Each file of the release
+   has a Sigstore signature, `<file>.sigstore.json`, made by the workflow
+   **Sign release assets** with no long-lived key. To check it, install
+   [cosign](https://docs.sigstore.dev/cosign/system_config/installation/),
+   download `K-SACCR_1.2.0.xlsm.sigstore.json` and run, in PowerShell:
+
+   ```powershell
+   cosign verify-blob .\K-SACCR_1.2.0.xlsm --bundle .\K-SACCR_1.2.0.xlsm.sigstore.json `
+     --certificate-oidc-issuer https://token.actions.githubusercontent.com `
+     --certificate-identity-regexp '^https://github\.com/danielep71/K-SACCR/\.github/workflows/release-signing\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
+   ```
+
+   It must print `Verified OK`; otherwise delete the file. The same command
+   checks the user manual and `SHA256SUMS.txt` with their own bundles.
 3. Windows marks a downloaded file as coming from the internet, and Office
    then blocks its macros. If your organization's macro policy allows it,
    right-click the file → **Properties** → tick **Unblock** → **OK**, or run

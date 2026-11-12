@@ -13,13 +13,19 @@
 
 The active release branch is named in
 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches). A fix to a released version
-is published as a new patch release; a published release is never changed. Modified copies and unofficial mirrors are unsupported
+is published as a new patch release; a published release is never changed, apart
+from the Sigstore signatures of its files, which the release workflow attaches.
+Modified copies and unofficial mirrors are unsupported
 unless the problem is reproduced in this repository. Reports must identify a
 full commit SHA.
 
 The [security assurance case](docs/ASSURANCE_CASE.md) states the security
 requirements, threats and trust boundaries, and argues how the design and the
 code meet them.
+
+Every file of a release has a Sigstore signature, `<file>.sigstore.json`,
+made by the repository's release workflow;
+[`INSTALLATION.md`](INSTALLATION.md#released-workbook) shows how to verify it.
 
 ## Reporting a vulnerability
 

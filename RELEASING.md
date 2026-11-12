@@ -250,14 +250,27 @@ delete and recreate a published tag.
 
 ### 8. Publish and verify
 
-Publish the GitHub Release from the tag, attach only certified artifacts with
-their hashes, and verify that a fresh clone of the tag passes the static checks
-and imports cleanly.
+Create the GitHub Release from the tag as a **draft**, attach the certified
+artifacts and `SHA256SUMS.txt`, and only then publish it. Publishing starts
+**Sign release assets** (`.github/workflows/release-signing.yml`). It
+downloads the assets and refuses them unless `SHA256SUMS.txt` lists exactly
+the other assets, every hash matches and no signature is attached yet. It
+then signs each file with Sigstore keyless signing under the workflow's
+GitHub identity, verifies each signature and attaches `<file>.sigstore.json`
+for each: three bundles. Check that the run passed and that the release lists
+the bundles. If it failed because an asset was attached after publication,
+run the workflow by hand: **Actions → Sign release assets → Run workflow**,
+from `main`, with the tag. Do not turn on GitHub's immutable releases: an
+immutable release accepts no file after publication, so the signatures could
+not be attached.
+
+Verify that a fresh clone of the tag passes the static checks and imports
+cleanly.
 
 Then use the **published workbook as a user would**, on a copy downloaded
 from the release page:
 
-1. Check it against `SHA256SUMS.txt` and unblock it, as
+1. Check it against `SHA256SUMS.txt` and its signature, and unblock it, as
    [`INSTALLATION.md`](INSTALLATION.md#released-workbook) describes.
 2. Open it and enable macros: it opens on Home and the K-SACCR tab is on
    the Ribbon. **Data → Edit Links** lists no external links, and
@@ -290,7 +303,8 @@ public page names the new release and starts its downloads.
 Retain at least: candidate SHA, previous tag, static-check result, Excel
 version and bitness, the compile result and the validated evidence bundle for
 every suite, the production and development round trips, the check of the
-published workbook, artifact names, sizes and SHA-256 hashes, the integration PR,
+published workbook, artifact names, sizes and SHA-256 hashes, the signing run,
+the integration PR,
 validation timestamps and any deviations. A release note summarizes evidence;
 it does not replace it.
 
@@ -300,7 +314,8 @@ it does not replace it.
   affected gates.
 - **After tagging, before publishing:** pause and document the correction;
   prefer a new patch version if the tag may have propagated.
-- **After publishing:** do not replace assets or move the tag. Publish a
+- **After publishing:** do not replace assets or move the tag; the only
+  files added are the signatures. Publish a
   corrected patch, record the problem in the changelog, and use
   [`SECURITY.md`](SECURITY.md) for vulnerabilities.
 
@@ -318,5 +333,5 @@ it does not replace it.
 | 7a | [Ribbon walk-through](#ribbon-walk-through) done on the certified development workbook and recorded | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
-| 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |
+| 10 | GitHub Release published, its assets signed by the signing workflow and verified, and its workbook used as a user would | ☐ |
 | 11 | Website change integrated into `main`, Pages deployed, and the public page names and downloads the published release | ☐ |

@@ -927,8 +927,8 @@ rejected.
 on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18 and 1.0.0 on
 2026-10-17. Its
 [GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
-carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF and
-their SHA-256 sums. The release notes and the tag message record the Excel
+carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF,
+their SHA-256 sums and a Sigstore signature of each. The release notes and the tag message record the Excel
 certification of the tagged source: compile, the harness and the nine suites
 each run on its own, the evidence validator and the 14 protection checks.
 

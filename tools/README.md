@@ -440,6 +440,17 @@ Before `check.py`, the job installs the hash-locked packages of
 `tools/requirements-quality-ci.txt`, PyYAML among them, which the workflow
 invariants test reads the workflows with.
 
+`.github/workflows/release-signing.yml`, **Sign release assets**, runs when a
+release is published, or by hand from the default branch with a tag. It
+checks the release's assets against its `SHA256SUMS.txt`, signs each file
+with cosign keyless signing, verifies each signature and attaches
+`<file>.sigstore.json`. Its one job holds `contents: write`, to attach the
+bundles, and `id-token: write`, for the short-lived signing certificate; it
+checks out no code and refuses a release that already carries signatures.
+[`RELEASING.md`](../RELEASING.md#8-publish-and-verify) gives its place in a
+release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
+verification.
+
 <a id="workflow-invariants"></a>
 
 `check_workflows.py` holds those invariants; `test_check_workflows.py` runs
@@ -449,7 +460,7 @@ them against the repository and against a deliberate violation of each:
 | --- | --- |
 | Pins | A `uses:` is not pinned to a 40-character commit SHA, or an `actions/checkout` lacks `persist-credentials: false` |
 | Limits | A workflow declares no top-level `permissions`, or a job has no `timeout-minutes` |
-| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, or `pull-requests` in `pr-milestones.yml`/`reconcile`; or a workflow grants one at its top level |
+| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, `pull-requests` in `pr-milestones.yml`/`reconcile`, or `contents` and `id-token` in `release-signing.yml`/`sign`; or a workflow grants one at its top level |
 | Repository integrity | The `static-checks.yml` job has an `if` or a `strategy`, another name, `pull_request` or `push` filters other than branches `main` and `release/**`, or `docs/GOVERNANCE.md` no longer names it as the required check |
 | Label sync | The `reconcile` job of `labels-sync.yml` is not limited to the default branch |
 | Milestones | `pr-milestones.yml` changes its events, its permissions, its concurrency (one group per pull request and one for the full scan) or its condition, or is not one inline step whose script contains no `${{` |
