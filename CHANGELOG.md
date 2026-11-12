@@ -262,6 +262,9 @@ Use only the categories needed by a release.
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
 
+- Add the OpenSSF Best Practices badge to the README: the project
+  (bestpractices.dev, project 16605) meets the passing level.
+
 - Correct documentation that no longer matched the workbook or the tooling:
   the `RunSACCR_Silent` example line and its `codes` field, the event handlers
   of `ThisWorkbook`, the macros, entry points and Ribbon callbacks listed in
