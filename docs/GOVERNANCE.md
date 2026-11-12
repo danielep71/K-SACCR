@@ -88,6 +88,31 @@ fails after a merge, record the failure and fix or revert it through a new PR
 before closing the issue. Never rewrite shared history to conceal the failed
 candidate.
 
+<a id="continuity"></a>
+
+### Continuity
+
+K-SACCR has one maintainer. So that the project can go on if the owner can no
+longer act:
+
+- A successor is designated in the owner's GitHub account (**Settings →
+  Account → Successor settings**). The successor has no access until GitHub
+  confirms that the owner can no longer act; GitHub then lets them administer
+  the owner's public repositories, this one included: triage issues, merge
+  pull requests and publish releases.
+- The successor can also edit the project's
+  [OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605)
+  entry.
+- Nothing else has to be handed over. Releases are signed by the release
+  workflow with Sigstore keyless signing, so there is no signing key; the
+  website is GitHub Pages at the repository's own address, with no custom
+  domain; the one repository secret serves only the
+  [traffic history](../tools/README.md#traffic-history), never CI, and a
+  successor can replace it with an App of their own.
+- Releasing needs Excel on Windows and follows
+  [`RELEASING.md`](../RELEASING.md); nothing in it depends on the owner's
+  machine.
+
 <a id="issue-metadata-and-completion"></a>
 
 ## Issue metadata and completion

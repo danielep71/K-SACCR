@@ -267,6 +267,11 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Describe in GOVERNANCE how the project continues if its one maintainer can
+  no longer act: a successor designated in the owner's GitHub account, who
+  can also edit the OpenSSF Best Practices entry, and nothing else to hand
+  over (no signing key, no custom domain, one analytics-only secret).
+
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
 
