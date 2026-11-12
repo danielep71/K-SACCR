@@ -183,6 +183,15 @@ Use only the categories needed by a release.
   by the contract tests; `TEST_MainState` gains the case
   `navigation.bar-toggle`.
 
+- Sign every release file. Publishing a release starts the workflow **Sign
+  release assets** (`.github/workflows/release-signing.yml`): it checks the
+  assets against `SHA256SUMS.txt`, signs each file with Sigstore keyless
+  signing under the workflow's GitHub identity and attaches
+  `<file>.sigstore.json`; it can also be run by hand for a published release.
+  INSTALLATION shows how a user verifies a signature with cosign, RELEASING
+  attaches the assets before publishing, and SECURITY and the assurance case
+  say what a signature proves.
+
 ### Changed
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the

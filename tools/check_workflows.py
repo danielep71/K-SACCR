@@ -29,6 +29,7 @@ WRITE_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("daily-traffic.yml", "traffic"): {"contents"},
     ("daily-traffic.yml", "alert"): {"issues"},
     ("pr-milestones.yml", "reconcile"): {"pull-requests"},
+    ("release-signing.yml", "sign"): {"contents", "id-token"},
 }
 INTEGRITY_FILE = "static-checks.yml"
 INTEGRITY_JOB = "repository-integrity"
