@@ -277,6 +277,12 @@ Use only the categories needed by a release.
   the diagnostic registry that held a fragment of their message now state
   their meaning.
 
+- Add a security assurance case, `docs/ASSURANCE_CASE.md`: the security
+  requirements, the threats and trust boundaries, how secure design
+  principles are applied and how the common weaknesses of this software are
+  countered, with the evidence for each, and the residual risks. SECURITY.md
+  and the README link it.
+
 - Correct documentation that no longer matched the workbook or the tooling:
   the `RunSACCR_Silent` example line and its `codes` field, the event handlers
   of `ThisWorkbook`, the macros, entry points and Ribbon callbacks listed in

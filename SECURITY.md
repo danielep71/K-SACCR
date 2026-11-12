@@ -17,6 +17,10 @@ is published as a new patch release; a published release is never changed. Modif
 unless the problem is reproduced in this repository. Reports must identify a
 full commit SHA.
 
+The [security assurance case](docs/ASSURANCE_CASE.md) states the security
+requirements, threats and trust boundaries, and argues how the design and the
+code meet them.
+
 ## Reporting a vulnerability
 
 Do **not** disclose a suspected vulnerability in an issue, pull request, commit
