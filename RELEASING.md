@@ -117,15 +117,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Certify-SACCR.ps
 
 It builds a development workbook from the candidate, compiles it, runs the
 harness and the nine suites listed in `.github/excel-evidence-policy.json`,
-each on its own, and `Test_RunAll`, writes every log and `host.json` into a new
-bundle next to the checkout and validates it
+each on its own, and `Test_RunAll`, writing every log into a new bundle next
+to the checkout. It then runs the
+[manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
+on a production workbook built from the candidate, writes each outcome to
+`protection-checks.txt` in the bundle, and finally writes `host.json` and
+validates the bundle
 ([one-command certification](docs/EXCEL_EVIDENCE.md#one-command-certification);
 the [manual procedure](docs/EXCEL_EVIDENCE.md#manual-procedure) remains the
-fallback). It then runs the
-[manual protection checks](docs/workbook/WORKBOOK_PROTECTION.md#manual-checks)
-on a production workbook built from the candidate and writes each outcome to
-`protection-checks.txt` in the bundle; its exit code is 0 only when the bundle
-validates and the 14 checks pass. To validate the bundle again later:
+fallback). Its exit code is 0 only when the bundle validates and the 14 checks
+pass. To validate the bundle again later:
 
 ```sh
 python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../saccr-evidence-SHORTSHA/host.json
@@ -156,36 +157,40 @@ the following and record each result with the release evidence
    Validate inputs opens Checks, Clear outputs keeps the sheet.
 3. **Go to.** The primary click opens Home, and every menu entry opens its
    sheet, in six sections in tab order, README last.
-4. **Enabled states and labels.** With both staging sheets `EMPTY`, Validate
+4. **Navigation bar.** The toggle hides column A and the bar on every sheet,
+   and shows them again, without marking the workbook changed; a save while
+   the bar is hidden still saves it shown.
+5. **Enabled states and labels.** With both staging sheets `EMPTY`, Validate
    staging and Commit import are disabled; after an import Validate staging
    is enabled; Commit import only once a staging sheet reads `VALID`. Export
    evidence is disabled before a run and while Results reads `OUT OF DATE`,
    and enabled again when an input edit is undone. The three Status labels
    follow a load, an edit of a staged cell, a validation, a commit, a run, a
    clear and Restore parameters, also when started from the staging buttons.
-5. **After a VBA reset.** Reset the project in the Visual Basic editor
+6. **After a VBA reset.** Reset the project in the Visual Basic editor
    (Run > Reset), then run an operation: the labels and states still follow.
-6. **Restore parameters.** After a maintenance unlock change `Alpha` and one
+7. **Restore parameters.** After a maintenance unlock change `Alpha` and one
    factor: the confirmation lists both, Cancel changes nothing, OK restores
    them and Results reads `OUT OF DATE`; the next run is `REGULATORY`; a
    second restore says nothing changed.
-7. **CSV workflow from the Ribbon.** Import both example files of the import
+8. **CSV workflow from the Ribbon.** Import both example files of the import
    specification, correct a staged value, validate until both sheets read
    `VALID`, commit and run: the run uses all 5 legs of the 3 netting sets.
    Commit import refuses after a staged edit, from the tab and from the
    staging button.
-8. **Buttons.** Only the 8 buttons of `Import_NettingSets` and
+9. **Buttons.** Only the 8 buttons of `Import_NettingSets` and
    `Import_Trades` remain on the sheets.
-9. **Saving.** Open the workbook and close it without changes: Excel asks
-   nothing. Save it and close it: the saved file holds no name
-   `ksRibbonPointer`. In PowerShell this prints `False`:
+10. **Saving.** Open the workbook and close it without changes: Excel asks
+    nothing, apart from the prompt outside K-SACCR that the CHANGELOG records
+    under #620. Save it and close it: the saved file holds no name
+    `ksRibbonPointer`. In PowerShell this prints `False`:
 
-   ```powershell
-   Add-Type -AssemblyName System.IO.Compression.FileSystem
-   $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path .\K-SACCR_Certification.xlsm))
-   (New-Object IO.StreamReader($zip.GetEntry("xl/workbook.xml").Open())).ReadToEnd() -match "ksRibbonPointer"
-   $zip.Dispose()
-   ```
+    ```powershell
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path .\K-SACCR_Certification.xlsm))
+    (New-Object IO.StreamReader($zip.GetEntry("xl/workbook.xml").Open())).ReadToEnd() -match "ksRibbonPointer"
+    $zip.Dispose()
+    ```
 
 The protection, the evidence export, the Home links with macros disabled and
 every automation entry point are covered by the certification above and its
@@ -245,14 +250,27 @@ delete and recreate a published tag.
 
 ### 8. Publish and verify
 
-Publish the GitHub Release from the tag, attach only certified artifacts with
-their hashes, and verify that a fresh clone of the tag passes the static checks
-and imports cleanly.
+Create the GitHub Release from the tag as a **draft**, attach the certified
+artifacts and `SHA256SUMS.txt`, and only then publish it. Publishing starts
+**Sign release assets** (`.github/workflows/release-signing.yml`). It
+downloads the assets and refuses them unless `SHA256SUMS.txt` lists exactly
+the other assets, every hash matches and no signature is attached yet. It
+then signs each file with Sigstore keyless signing under the workflow's
+GitHub identity, verifies each signature and attaches `<file>.sigstore.json`
+for each: three bundles. Check that the run passed and that the release lists
+the bundles. If it failed because an asset was attached after publication,
+run the workflow by hand: **Actions → Sign release assets → Run workflow**,
+from `main`, with the tag. Do not turn on GitHub's immutable releases: an
+immutable release accepts no file after publication, so the signatures could
+not be attached.
+
+Verify that a fresh clone of the tag passes the static checks and imports
+cleanly.
 
 Then use the **published workbook as a user would**, on a copy downloaded
 from the release page:
 
-1. Check it against `SHA256SUMS.txt` and unblock it, as
+1. Check it against `SHA256SUMS.txt` and its signature, and unblock it, as
    [`INSTALLATION.md`](INSTALLATION.md#released-workbook) describes.
 2. Open it and enable macros: it opens on Home and the K-SACCR tab is on
    the Ribbon. **Data → Edit Links** lists no external links, and
@@ -285,7 +303,8 @@ public page names the new release and starts its downloads.
 Retain at least: candidate SHA, previous tag, static-check result, Excel
 version and bitness, the compile result and the validated evidence bundle for
 every suite, the production and development round trips, the check of the
-published workbook, artifact names, sizes and SHA-256 hashes, the integration PR,
+published workbook, artifact names, sizes and SHA-256 hashes, the signing run,
+the integration PR,
 validation timestamps and any deviations. A release note summarizes evidence;
 it does not replace it.
 
@@ -295,7 +314,8 @@ it does not replace it.
   affected gates.
 - **After tagging, before publishing:** pause and document the correction;
   prefer a new patch version if the tag may have propagated.
-- **After publishing:** do not replace assets or move the tag. Publish a
+- **After publishing:** do not replace assets or move the tag; the only
+  files added are the signatures. Publish a
   corrected patch, record the problem in the changelog, and use
   [`SECURITY.md`](SECURITY.md) for vulnerabilities.
 
@@ -313,5 +333,5 @@ it does not replace it.
 | 7a | [Ribbon walk-through](#ribbon-walk-through) done on the certified development workbook and recorded | ☐ |
 | 8 | Artifacts built from the candidate, tested and hashed; production and development round trips `PASS` with `binding=VERIFIED` | ☐ |
 | 9 | Annotated tag targets the candidate | ☐ |
-| 10 | GitHub Release published and verified, and its workbook used as a user would | ☐ |
+| 10 | GitHub Release published, its assets signed by the signing workflow and verified, and its workbook used as a user would | ☐ |
 | 11 | Website change integrated into `main`, Pages deployed, and the public page names and downloads the published release | ☐ |

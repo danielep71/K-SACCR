@@ -33,11 +33,11 @@ the logs it cites. The record binds:
 | --- | --- |
 | Candidate | Full 40-character commit SHA; the import log must name it |
 | Sources | Every `.bas`, `.cls` and `.frm` under `src/` and `tests/` at that commit, plus each form's `.frx` and the workbook template `src/workbook/SACCR_Template.xlsx`, with the SHA-256 of the exact bytes stored in Git. `examples/` is not imported |
-| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, the harness entry point, ordered cases, assertion count and expected-error cases, the required references, and every other suite with its header, case count, check count per bitness, restoration field and, where suites share a header, first case |
+| Policy | `.github/excel-evidence-policy.json` **at that commit**: repository, the harness entry point, ordered cases, assertion count and expected-error cases, the required references, and every other suite with its entry point, case count and check count per bitness |
 | Environment | Excel version and build, Office bitness, Windows version and architecture, VBA runtime, references, macro policy and VBA-project access as found, and `trust_changes: false` |
 | Logs | Each cited log's SHA-256; a log changed after the record was written fails |
 | Harness | For a passing or failed regression: exactly one normal-mode `TEST_Harness.RunTests` report whose `CANDIDATE`, `ENVIRONMENT`, `CASE`, count, `CLEANUP` and `RESULT` lines agree with the record and the policy |
-| Suites | Every other suite the policy lists, in its order, each run on its own: one normal-mode report whose `CANDIDATE`, header, `CASE` and `RESULT` lines agree with the record and, for a pass, with the policy's counts and restoration field |
+| Suites | Every other suite the policy lists, in its order, each run on its own: one normal-mode report whose `CANDIDATE`, `SUITE`, `MODE`, `CASE` and `RESULT` lines agree with the record and, for a pass, with the policy's counts and `restore=PASS` |
 | Summary | Optional: one `TEST_Suite.Test_RunAll` summary whose line for each suite agrees with that suite's own report |
 
 Source digests are of the bytes **stored in Git (LF)**, not of the CRLF files
@@ -464,17 +464,12 @@ Keep non-passing bundles too until the finding is resolved.
 - Source and log digests are identity controls. They do not prove what a
   workbook contained or authenticate the operator.
 - A pass covers the suites on the recorded host only. It validates SA-CCR
-  numbers only as far as the cases do (published values; illustrative ones
-  validate nothing), and no other Excel version or bitness.
+  numbers only as far as the cases do (published and independent values;
+  illustrative ones validate nothing), and no other Excel version or bitness.
 - The `CANDIDATE=` line is typed by the operator in the manual procedure, and
   written by `TEST_Suite.Certify` from the SHA Git reports in the one-command
   certification: either way it stops a log of one commit from being cited, by
   mistake, for another, not a deliberate forgery.
-- A case-runner suite that fails before its first case prints no case name,
-  so its log does not say which of the four suites ran. A copy of such a log
-  with an added line passes as another suite's failed run. The record is then
-  `TEST_FAILED` either way, never a pass, and telling the suites apart would
-  need each log to name its suite.
 - The summary of `TEST_Suite.Test_RunAll` is an index, not a report: it is
   checked against the suites' own logs and never replaces them.
 - In the manual procedure, logs are copied from the VBE Immediate window,

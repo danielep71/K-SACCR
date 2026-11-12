@@ -13,9 +13,19 @@
 
 The active release branch is named in
 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches). A fix to a released version
-is published as a new patch release; a published release is never changed. Modified copies and unofficial mirrors are unsupported
+is published as a new patch release; a published release is never changed, apart
+from the Sigstore signatures of its files, which the release workflow attaches.
+Modified copies and unofficial mirrors are unsupported
 unless the problem is reproduced in this repository. Reports must identify a
 full commit SHA.
+
+The [security assurance case](docs/ASSURANCE_CASE.md) states the security
+requirements, threats and trust boundaries, and argues how the design and the
+code meet them.
+
+Every file of a release has a Sigstore signature, `<file>.sigstore.json`,
+made by the repository's release workflow;
+[`INSTALLATION.md`](INSTALLATION.md#released-workbook) shows how to verify it.
 
 ## Reporting a vulnerability
 
@@ -101,8 +111,10 @@ exposure figure, which are reported as issues.
   Nothing is installed, registered or loaded beyond `kernel32`, which every
   Windows process has.
 - **Local tooling.** `tools/Sync-SACCR-VBA.ps1`, `tools/Export-SACCR-VBA.ps1`
-  and `tools/Certify-SACCR.ps1` need Excel's **Trust access to the VBA project
-  object model** setting, which none of them changes. `Certify-SACCR.ps1` and
+  and the scripts that build workbooks through the first
+  (`tools/Certify-SACCR.ps1`, `tools/Check-SACCR-Protection.ps1` and
+  `tools/Verify-SACCR-Branch.ps1`) need Excel's **Trust access to the VBA
+  project object model** setting, which none of them changes. `Certify-SACCR.ps1` and
   `Check-SACCR-Protection.ps1`, which it runs, open their workbooks following
   the Trust Center macro setting and ask the operator to enable content; the
   protection checks also open the production workbook with its macros

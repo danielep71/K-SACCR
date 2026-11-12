@@ -174,9 +174,9 @@ and is excluded from that total.
   The risk weights of its CCP table and the Basel citation of the QCCP cap
   are a summary, not checked against the CRR text for this picture.
 - **Rendering:** the SVG is the source, shown by the README.
-  `CCR_framework.png` is rendered from it with headless Chromium at a device
-  scale factor of 2 (3200 x 3056 px), then quantized to 256 colours as the
-  screenshots above. Render it again whenever the SVG changes.
+  `CCR_framework.png` is rendered from it with headless Chromium at
+  1600 x 1528 px, the size of the SVG's view box, as an RGBA image. Render it
+  again whenever the SVG changes.
 
 <a id="sa-ccr-explainers"></a>
 

@@ -15,6 +15,7 @@
 [![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
 [![Regression](https://img.shields.io/badge/Regression-472_cases_%C2%B7_2013_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
 <br>
 
@@ -73,7 +74,9 @@ Part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Ris
 > against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
 > Since then, on the active release branch, the CRR calculation has been
 > validated against a bank's production SA-CCR engine on a real portfolio
-> ([#667](https://github.com/danielep71/K-SACCR/issues/667)): see [Validation](#validation).
+> ([#667](https://github.com/danielep71/K-SACCR/issues/667)) and by an
+> independent implementation, the R package `SACCR`
+> ([#100](https://github.com/danielep71/K-SACCR/issues/100)): see [Validation](#validation).
 
 > [!NOTE]
 > The workbook is **not stored in the repository as a macro-enabled file**. It
@@ -221,7 +224,10 @@ catalogue.
    to replace the code of the worksheet and `ThisWorkbook` modules as well;
    answer **Y** when building from the template. They hold only
    `Option Explicit`, except the two staging sheets', which show `EDITED`
-   after a manual change and refresh their status when activated. The tests write to the input and output sheets:
+   after a manual change and refresh their status when activated, and
+   `ThisWorkbook`'s, which refreshes the Ribbon tab and keeps the navigation
+   bar and the Ribbon's pointer right across a save. The tests write to the
+   input and output sheets:
    never run them on real data.
 4. Open the VBE (**Alt+F11**) and run **Debug → Compile VBAProject**.
 
@@ -641,8 +647,8 @@ bank's portfolio, under the CRR, at the reporting date of 30 June 2026
   status of each rule.
 
 The bank, its engine and its data are confidential and are not in the
-repository. The evidence is a check at one date; the reproducible
-cross-check with a registered external implementation stays open in #100
+repository. The evidence is a check at one date; it complements the
+reproducible cross-check with the registered R package `SACCR` (#100)
 ([evidence policy](docs/methodology/TEST_CASES.md#production-reconciliation)).
 
 ## Published CRE99 examples
@@ -763,8 +769,9 @@ and the VBA references are listed in `INSTALLATION.md`.
   credit, commodity (without the offset of opposite positions) and other
   risks. The CRR rules neither exercises are tested against illustrative
   values only: the cap of margined netting sets, the offset of opposite
-  commodity positions, CDO, basis, volatility, settled-to-market trades,
-  clearing roles and CCP trade exposures.
+  commodity positions, the climatic commodity hedging set, the lambda shift
+  of commodity options, CDO, basis, volatility, settled-to-market trades, the
+  MPOR for margin disputes, clearing roles and CCP trade exposures.
 - **One leg per FX trade.** The notional is the leg the user enters; choosing
   the leg when both are foreign is the user's.
 - **FX options use a fixed quote order.** An FX option is rejected unless its
@@ -821,7 +828,7 @@ commitments.
 
 ```mermaid
 gantt
-    title K-SACCR release plan (release dates; planned due dates as of 2026-10-28)
+    title K-SACCR release plan (release dates; planned due dates as of 2026-11-11)
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     todayMarker on
@@ -833,7 +840,8 @@ gantt
     v1.2.0 Excel Ribbon interface            :done, v12, 2026-11-07, 1d
     section Planned
     v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
-    v1.4.0 Advanced products, FX provenance  :v14, after v13, 2027-04-18
+    v1.3.5 COREP C 34 templates              :v135, after v13, 2027-03-21
+    v1.4.0 Advanced products, FX provenance  :v14, after v135, 2027-04-18
     v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
     v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
     v1.7.0 Standalone Python engine          :v17, after v16, 2027-09-12
@@ -846,8 +854,9 @@ gantt
 | v1.0.2 | Clearing coverage and CCP completeness: coverage matrix and regulatory contract (#358), listed futures and options across client-clearing roles (#359), settlement and reset inputs (#360), CCP trade exposures (#112), reconciliation evidence and published perimeter (#361) |
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
-| v1.3.0 | Diagnostics and independent validation: engine separated from Excel I/O (#220), stable Checks codes (#81), independent cross-check (#100, #352), randomised FormulaTest inputs (#165), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), a navigation bar on every sheet (#615, #620) and new screenshots (#616) |
-| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), TARGET holiday calendar (#328) |
+| v1.3.0 | Diagnostics and independent validation: stable Checks codes (#81), independent cross-check (#100, #352), production reconciliation evidence (#667, #668), randomised FormulaTest inputs (#165), counterparty sector (#674), a Dashboard sheet (#675), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), each regime's credit scale (#659), the FX notional rule in the CSV checks (#678), a navigation bar on every sheet (#615, #620, #664), new screenshots (#616) and the user manual (#686) |
+| v1.3.5 | COREP C 34 templates fed by the SA-CCR results (#666) |
+| v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), engine separated from Excel I/O (#220), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
 | v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
@@ -862,17 +871,25 @@ risk are outside K-SACCR and on no milestone of its roadmap.
 In development on `release/1.3.0`; nothing of it is released. Delivered so
 far: a stable code and field on every Checks line, reported by the silent
 entry points (#81); a navigation bar on every sheet that works without
-macros (#615), with a Ribbon toggle that hides it for the session (#620);
-a quick, unattended branch verification for pull requests (#618); and
-repository checks of VBA identifiers, dependency direction and ASCII source
-(#538), issue planning dates (#539), labels and pull-request milestones
-(#540, #541, #591), workflow pins and runtimes (#542), local and external
+macros (#615), with a Ribbon toggle that hides it for the session (#620)
+and its description on the README sheet (#664); a quick, unattended branch
+verification for pull requests (#618); one shared lifecycle for the Excel
+suites (#536); the R package `SACCR` registered as an independent
+implementation, with six `independent` CRR cases (#352, #100); a CRR
+production reconciliation recorded as validation evidence (#667, #668); the
+derivation and accuracy-contract gates (#537); each regime's own credit
+scale (#659); the FX notional rule in the CSV checks (#678); and repository
+checks of VBA identifiers, dependency direction and ASCII source (#538),
+issue planning dates (#539), labels and pull-request milestones (#540,
+#541, #591), workflow pins and runtimes (#542), local and external
 documentation links (#592, #649) and the traffic workflow (#593). Still
-open: the engine separated from Excel I/O (#220), an independent
-cross-check (#100, #352), randomised FormulaTest inputs (#165), a formatted
-run report (#259), one shared harness for the suites (#536), accuracy
-contracts for the derived expected values (#537) and new screenshots
-(#616). The calculation methodology is unchanged so far.
+open: the counterparty sector (#674), randomised FormulaTest inputs (#165),
+the measured differences of the accuracy contracts (#537), a Dashboard sheet
+(#675), a formatted run report (#259), the rest of the independent
+cross-check (#100), new screenshots (#616) and the user manual (#686). The
+engine separation (#220) moved to v1.4.0. One calculation rule changed:
+since #659, a single-name credit trade on the other regime's scale is
+rejected.
 
 ---
 
@@ -896,6 +913,7 @@ contracts for the derived expected values (#537) and new screenshots
 | [`tools/README.md`](tools/README.md) | Static checks, CI, evidence validator, VBA synchronizer and traffic export |
 | [`RELEASING.md`](RELEASING.md) | Release steps: versioning, release invariants and current status |
 | [`SECURITY.md`](SECURITY.md) | Private vulnerability reporting and data handling |
+| [`docs/ASSURANCE_CASE.md`](docs/ASSURANCE_CASE.md) | Security assurance case: requirements, threats, trust boundaries, design principles and the weaknesses countered |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Participant behaviour and conduct reporting |
 | [`CHANGELOG.md`](CHANGELOG.md) | Change history |
 
@@ -909,8 +927,8 @@ contracts for the derived expected values (#537) and new screenshots
 on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18 and 1.0.0 on
 2026-10-17. Its
 [GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
-carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF and
-their SHA-256 sums. The release notes and the tag message record the Excel
+carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF,
+their SHA-256 sums and a Sigstore signature of each. The release notes and the tag message record the Excel
 certification of the tagged source: compile, the harness and the nine suites
 each run on its own, the evidence validator and the 14 protection checks.
 

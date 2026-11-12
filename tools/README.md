@@ -19,27 +19,27 @@ pull request's whole range.
 | Gate | Checks |
 | --- | --- |
 | `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
-| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one |
+| `*-fixtures` | The whitespace gate and the jump, conditional and public-API checkers run their own positive and negative self-tests first |
+| `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one; VBA source outside string literals, comments included, is ASCII |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
 | `check_vba_jumps` | Every `GoTo`, `GoSub`, `Resume` and `On Error GoTo` target is a label in the same procedure |
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
-| `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; settlement, reset and CCP inputs that the engine rejects are declared in every expected file of the fixture (`trade_status` `EXCLUDED` for a trade, a `netting_set_status` starting with `INVALID` for the netting set); a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose (`EBA Q&A 2023_6962` or `EBA Single Rulebook Q&A 2023_6962`), in the expected files, the VBA source and the methodology; only the source register's row that defines the ID may use the full name. It does not run any case |
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
-| `excel-evidence-policy` | `.github/excel-evidence-policy.json` matches the test modules: the harness's case and assertion counts, each suite's case and check counts (`EXPECTED_CASES`, `EXPECTED_CHECKS`, `CASES`, `CHECKS` or `BeginSuite`; a check count under `#If Win64` is the 64-bit one and under its `#Else` the 32-bit one; a module without a check count is held by its evidence log only), each module starting one suite under its own name through `TEST_Kit.BeginSuite` or `TEST_CaseRunner.BeginSuite`, so that its `SUITE` line names it, and the suites `TEST_Suite.Test_RunAll` runs, with `SUITE_COUNT`; and the root `README.md` shows the same suites and 64-bit counts in its Excel suites and Regression badges, the Testing capability, the suite table with its total, and the `Test_RunAll` output |
+| `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; settlement, reset and CCP inputs that the engine rejects are declared in every expected file of the fixture (`trade_status` `EXCLUDED` for a trade, a `netting_set_status` starting with `INVALID` for the netting set); a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose (`EBA Q&A 2023_6962` or `EBA Single Rulebook Q&A 2023_6962`), in the expected files, the VBA source and the methodology; only the source register's row that defines the ID may use the full name. It does not run any case |
 | `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS` in `CORE_Config` and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates, the field tables of `docs/csv/CSV_CONTRACT.md` and the import specification `docs/csv/K-SACCR_Import_Specification.html` are what the contract generates (`csv_contract.py --write-templates`, `import_spec.py --write`); the contract's example records, three to five per file, import together: each file is accepted and the Trades example has no finding between records or against the template's Params; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
 | `check_workbook_protection` | Every sheet of the template is in the editability matrix `docs/workbook/protection.json` and nothing else is; each cell is locked or unlocked as the matrix says, judged by its own format, else its row's, else its column's, so a cell the template does not store yet counts too; the input columns are unlocked to the last row and no other column is; no row format is unlocked; no locked cell has the yellow input fill; every sheet and the workbook structure are saved protected without a password, each sheet allowing sorting, filtering and inserting rows exactly as the matrix says, filtering only with an AutoFilter; the `PROTECT_` lists of `CORE_Config` name the same sheets |
-| `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
-| `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
-| `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
-| `ribbon-template` | The template `src/workbook/SACCR_Template.xlsx` carries the Ribbon source `src/workbook/customUI14.xml` byte for byte as its `customUI/customUI14.xml` part, with exactly one Ribbon relationship and no other customUI part (`tools/ribbon_template.py`; `--write` embeds the source) |
-| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
 | `check_links` | Every relative link and anchor in tracked Markdown reaches an existing, non-empty file inside the repository and a heading or explicit anchor in it; code blocks, code spans and remote URLs are excluded; `check_external_links.py` checks those weekly, outside the gates |
 | `check_vba_identifiers` | Advisory: an inventory of the identifiers each VBA project configuration uses, with the names it cannot resolve; its findings never fail the run, an analysis failure does ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
-| `check_vba_dependencies` | Every reference between VBA modules follows the layer direction, apart from the reviewed #220 exceptions, and source outside string literals is ASCII ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
+| `check_vba_dependencies` | Every reference between VBA modules follows the layer direction, apart from the reviewed #220 exceptions ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
 | `check_diagnostics` | The Checks diagnostic registry `docs/diagnostics.json` matches the codes `CORE_Config` declares and the engine emits: every emission site passes a declared, active code, the Checks layout constants fit, and no retired code is reused ([contract](../docs/DIAGNOSTICS.md)) |
 | `check_derivations` | Every script in `tests/derivations/` runs, and its `expected()` matches the expected files it produced: values to within four units in the last place, text exactly; every derived output is in its file, every output citing a script is derived by it, and every `illustrative` output names a derivation ([details](../docs/methodology/TEST_CASES.md#consumption)) |
 | `check_accuracy_contracts` | The accuracy contracts in `tests/accuracy-contracts.json` agree with the expected files: no output's tolerance is looser than its family's claim or its recorded rounding, every case with an output of the family is either a calibration or a held-out case, and each family has a held-out case at full precision ([contracts](../docs/methodology/TEST_CASES.md#accuracy-contracts)) |
-| `*-fixtures` | The whitespace gate and the jump, conditional and public-API checkers run their own positive and negative self-tests first |
+| `excel-evidence-policy` | `.github/excel-evidence-policy.json` matches the test modules: the harness's case and assertion counts, each suite's case and check counts (`EXPECTED_CASES`, `EXPECTED_CHECKS`, `CASES`, `CHECKS` or `BeginSuite`; a check count under `#If Win64` is the 64-bit one and under its `#Else` the 32-bit one; a module without a check count is held by its evidence log only), each module starting one suite under its own name through `TEST_Kit.BeginSuite` or `TEST_CaseRunner.BeginSuite`, so that its `SUITE` line names it, and the suites `TEST_Suite.Test_RunAll` runs, with `SUITE_COUNT`; and the root `README.md` shows the same suites and 64-bit counts in its Excel suites and Regression badges, the Testing capability, the suite table with its total, and the `Test_RunAll` output |
+| `generated-case-tests` | `tests/modules/TEST_Cases.bas` is exactly what `tools/generate_case_tests.py` generates from the current fixtures and expected files |
+| `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
+| `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
+| `ribbon-template` | The template `src/workbook/SACCR_Template.xlsx` carries the Ribbon source `src/workbook/customUI14.xml` byte for byte as its `customUI/customUI14.xml` part, with exactly one Ribbon relationship and no other customUI part (`tools/ribbon_template.py`; `--write` embeds the source) |
+| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
 
 `check_excel_evidence.py` validates a manual Excel evidence bundle against a
 candidate commit: the harness and every other suite the policy lists, each with
@@ -195,8 +195,9 @@ every figure, and whose cap does not bind, as test cases of class
 
 ```bash
 python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010
-``` Its tests run in `tool-tests`
-without R or Excel.
+```
+
+Its tests run in `tool-tests` without R or Excel.
 
 The gates are static checks only. None of them compiles VBA, opens Excel, runs a
 test harness or validates any SA-CCR number, and a pass is never evidence that
@@ -266,10 +267,11 @@ built from a newer template; the standard modules are imported either way.
 `-IncludeSheets` or `-SkipSheets` gives the answer in advance. When N leaves
 nothing to import, the script exits with code 2 and the workbook is not
 changed. The repository's sheet modules hold only `Option Explicit` and
-comments, except the two staging sheets', whose change handler shows
+comments, except the two staging sheets'. Their change handler shows
 `EDITED` on a staging sheet changed by hand: without it the status cell
 stays as the last import left it, while the import still refuses to
-replace changed records, because it compares their fingerprint.
+replace changed records, because it compares their fingerprint. Their
+activation handler refreshes the status.
 
 To test modules received outside the repository, for example downloaded
 during a review, without copying them into the working tree, drag the
@@ -395,7 +397,7 @@ Anything else is reported as *unknown*, never as a defect.
 | Configuration | Modules |
 | --- | --- |
 | `production` | The eleven standard modules of a workbook built from the template |
-| `development` | Those plus the thirteen test modules of `tests/modules/`, as in INSTALLATION.md |
+| `development` | Those plus the fourteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
 `document_modules` and are not analysed. This key is a K-SACCR addition.
@@ -438,6 +440,17 @@ Before `check.py`, the job installs the hash-locked packages of
 `tools/requirements-quality-ci.txt`, PyYAML among them, which the workflow
 invariants test reads the workflows with.
 
+`.github/workflows/release-signing.yml`, **Sign release assets**, runs when a
+release is published, or by hand from the default branch with a tag. It
+checks the release's assets against its `SHA256SUMS.txt`, signs each file
+with cosign keyless signing, verifies each signature and attaches
+`<file>.sigstore.json`. Its one job holds `contents: write`, to attach the
+bundles, and `id-token: write`, for the short-lived signing certificate; it
+checks out no code and refuses a release that already carries signatures.
+[`RELEASING.md`](../RELEASING.md#8-publish-and-verify) gives its place in a
+release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
+verification.
+
 <a id="workflow-invariants"></a>
 
 `check_workflows.py` holds those invariants; `test_check_workflows.py` runs
@@ -447,7 +460,7 @@ them against the repository and against a deliberate violation of each:
 | --- | --- |
 | Pins | A `uses:` is not pinned to a 40-character commit SHA, or an `actions/checkout` lacks `persist-credentials: false` |
 | Limits | A workflow declares no top-level `permissions`, or a job has no `timeout-minutes` |
-| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, or `pull-requests` in `pr-milestones.yml`/`reconcile`; or a workflow grants one at its top level |
+| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, `pull-requests` in `pr-milestones.yml`/`reconcile`, or `contents` and `id-token` in `release-signing.yml`/`sign`; or a workflow grants one at its top level |
 | Repository integrity | The `static-checks.yml` job has an `if` or a `strategy`, another name, `pull_request` or `push` filters other than branches `main` and `release/**`, or `docs/GOVERNANCE.md` no longer names it as the required check |
 | Label sync | The `reconcile` job of `labels-sync.yml` is not limited to the default branch |
 | Milestones | `pr-milestones.yml` changes its events, its permissions, its concurrency (one group per pull request and one for the full scan) or its condition, or is not one inline step whose script contains no `${{` |
@@ -560,13 +573,13 @@ API calls have five bounded retries, a 300-second retry window and 60-second
 request timeout; all responses must succeed and validate before history is pushed.
 History pushes have three attempts: a rejection fetches the complete remote branch
 and rebuilds CSVs from the frozen snapshot before retrying. A newer remote snapshot
-wins. No force push is used. The collection and alert jobs must both succeed on a
-manual main dispatch before this hardening is considered live-verified.
-The migration does not change the CSV layout or collection semantics.
+wins. No force push is used. The move to the App, in 1.1.0 (#502), did not
+change the CSV layout or the collection semantics.
 
-### App setup and migration
+### App setup
 
-I configure the App and credentials before integrating the workflow into `main`:
+The App and its credentials are in place. These steps set them up again, for a
+new App, a new key or a re-installation:
 
 1. In the owning account's **Settings → Developer settings → GitHub Apps**,
    create or use the dedicated traffic App, with its webhook disabled and
@@ -579,15 +592,13 @@ I configure the App and credentials before integrating the workflow into `main`:
    with the complete PEM. Do not use repository secrets; an environment secret
    overrides a repository secret of the same name. Remove the downloaded key
    after securely saving it in the environment; never attach it to a PR or chat.
-3. Confirm setup before authorizing the integration into `main`. A merge into
-   the release branch alone does not activate the scheduled workflow.
-4. After integration, run **Actions → Daily traffic export → Run workflow**
-   on `main`. Check the configuration, token, fetch and push steps, then verify
-   a new commit on `traffic-history` with the expected updated `data/` CSVs.
-   Record the run URL and data commit in the tracking issue.
-5. Only after that successful verification, delete the old `TRAFFIC_TOKEN`
-   secret from `analytics` and revoke the personal token. These setup and
-   retirement steps are performed by the owner.
+3. The scheduled workflow runs from `main`: a change to it on the release
+   branch is not active until it is integrated.
+4. Run **Actions → Daily traffic export → Run workflow** on `main`. Check the
+   configuration, token, fetch and push steps, then verify a new commit on
+   `traffic-history` with the expected updated `data/` CSVs.
+5. Delete any replaced key or personal token, such as an old `TRAFFIC_TOKEN`
+   secret in `analytics`. These steps are performed by the owner.
 
 Missing credentials fail with an error naming the `analytics` environment.
 Token creation failures require checking the Client ID, private key and App

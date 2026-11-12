@@ -100,7 +100,10 @@ Use only the categories needed by a release.
 - Checks diagnostics (#81): append stable Code/Field columns, preserve CSV staging
   identifiers, emit one row per trade violation, and include distinct codes in
   silent run/validation results. Add a registry gate and code-based validation
-  assertions; see [diagnostic compatibility notes](docs/DIAGNOSTICS.md).
+  assertions; see [diagnostic compatibility notes](docs/DIAGNOSTICS.md). The
+  template ships the Code and Field headers, and the description of Checks
+  explains both; a workbook with the older six-column Checks is upgraded in
+  place at its first run.
 
 - Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
   now, is widened, frozen and filled with the title band's colour, and holds
@@ -135,8 +138,9 @@ Use only the categories needed by a release.
   rate and equity options, and margined netting sets with threshold, MTA and
   NICA. `tools/rsaccr_portfolio.py cases` writes them. The traceability table
   now counts an `independent` value as validation, as the completeness policy
-  already did, and gives the CRR rules these cases exercise the status
-  "validated by an independent implementation"; credit, commodity (without
+  already did, and gives the CRR rules their outputs name the status
+  "validated by an independent implementation", and those they only depend
+  on, "exercised by an independent implementation"; credit, commodity (without
   the offset of opposite positions) and other risks are validated under CRR
   for the first time. `TEST_Cases` has 39 cases and 243 checks.
 
@@ -179,6 +183,15 @@ Use only the categories needed by a release.
   by the contract tests; `TEST_MainState` gains the case
   `navigation.bar-toggle`.
 
+- Sign every release file. Publishing a release starts the workflow **Sign
+  release assets** (`.github/workflows/release-signing.yml`): it checks the
+  assets against `SHA256SUMS.txt`, signs each file with Sigstore keyless
+  signing under the workflow's GitHub identity and attaches
+  `<file>.sigstore.json`; it can also be run by hand for a published release.
+  INSTALLATION shows how a user verifies a signature with cosign, RELEASING
+  attaches the assets before publishing, and SECURITY and the assurance case
+  say what a signature proves.
+
 ### Changed
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
@@ -205,17 +218,12 @@ Use only the categories needed by a release.
   `check_excel_evidence.py` and its tests follow.
 
 - Set `release/1.3.0` as the active development branch and the target for
-  Dependabot updates; `release/1.2.0` is closed and takes no new work.
+  Dependabot updates.
 - Record in GOVERNANCE that `release/1.1.0` and `release/1.2.0` were deleted
   after owner-authorized cleanup; their tags, releases and assets remain, and
   their content is in `main`.
 
 ### Fixed
-
-- Ship the Code and Field headers of Checks (#81) in the template: a workbook
-  built from current sources showed them only after its first run, which
-  upgraded the six-column sheet in place. The description of Checks
-  explains both columns; the in-place upgrade stays for older workbooks.
 
 - Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
   again (#620): `Auto_Open` runs it at every opening with macros enabled, and
@@ -261,6 +269,28 @@ Use only the categories needed by a release.
 
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
+
+- Add the OpenSSF Best Practices badge to the README: the project
+  (bestpractices.dev, project 16605) meets the passing level.
+
+- Correct the Markdown files found wrong or stale in a review of all of them
+  against the code on 2026-11-11. The traceability table no longer calls five
+  CRR rules validated by an independent implementation when no output of the
+  `rsaccr-portfolio-*` cases names them: supervisory duration and delta, the
+  maturity factor, the MPOR and the supervisory factors are exercised by it,
+  and keep their validation by the production reconciliation. The README's
+  roadmap and v1.3.0 progress follow the milestones (#220 in v1.4.0, the new
+  v1.3.5), and the Excel evidence, test-case, clearing-coverage, CSV
+  contract, Ribbon, release, security, repository-structure, tooling and
+  third-party documents say what the code does now. Twenty-five entries of
+  the diagnostic registry that held a fragment of their message now state
+  their meaning.
+
+- Add a security assurance case, `docs/ASSURANCE_CASE.md`: the security
+  requirements, the threats and trust boundaries, how secure design
+  principles are applied and how the common weaknesses of this software are
+  countered, with the evidence for each, and the residual risks. SECURITY.md
+  and the README link it.
 
 - Correct documentation that no longer matched the workbook or the tooling:
   the `RunSACCR_Silent` example line and its `codes` field, the event handlers
@@ -329,7 +359,7 @@ Use only the categories needed by a release.
 - Harden the R cross-check translator and comparison (#352): reject distinct
   electricity references and incomplete options, normalize credit subclasses,
   report missing mapped results as errors, and return failure on differences.
-  This tooling change does not establish independent workbook validation.
+  The validation it supports is recorded under #100.
 
 - Add advisory VBA identifier checks, a dependency-direction gate with explicit
   #220 exceptions, and ASCII checks outside string literals (#538). Share lexer
