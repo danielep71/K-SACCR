@@ -267,6 +267,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Add a slide guide to SA-CCR, `docs/assets/SACCR_Counterparty_Credit_Risk.pptx`:
+  76 slides with speaker notes, from the nature of counterparty risk and the
+  rulebook through the workbook's calculation chain, with worked examples, to
+  the other uses of the exposure, calibration and limitations. The assets
+  README describes it and the methodology links it.
+
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
 

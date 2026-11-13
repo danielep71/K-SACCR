@@ -30,6 +30,12 @@ picture summarises them and is not a source (select it to open it full size):
   </a>
 </p>
 
+For a teaching introduction to SA-CCR, from the nature of the risk to the
+uses of the exposure, see the
+[slide guide](../assets/README.md#sa-ccr-guide)
+(`docs/assets/SACCR_Counterparty_Credit_Risk.pptx`); like the picture, it
+summarises and is not a source.
+
 <a id="regulatory-basis"></a>
 
 ## ⚖️ Regulatory basis
