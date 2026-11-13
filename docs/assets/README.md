@@ -1,6 +1,6 @@
 # 🖼️ Documentation images
 
-The images in this directory illustrate K-SACCR. They do not certify the
+The images and the slide guide in this directory illustrate K-SACCR. They do not certify the
 engine or replace the [methodology](../methodology/README.md), which holds the
 regulatory sources, the support matrix and the traceability of each rule. Each
 section below says what its images show, how they were made and when to update
@@ -203,6 +203,33 @@ source; the card holds the parameters and the full formulas.
   colours as the screenshots above. Render them again whenever an SVG
   changes, and update the pictures when a formula or a supervisory parameter
   they show changes.
+
+<a id="sa-ccr-guide"></a>
+
+## 🎓 SA-CCR guide (slides)
+
+`SACCR_Counterparty_Credit_Risk.pptx` is a 76-slide guide to the theory behind
+the workbook, with speaker notes on every slide. It covers why derivative
+exposure differs from a loan, the Basel and EU rulebook, the move from CEM to
+SA-CCR, the calculation chain in the workbook's order (replacement cost, the
+multiplier, trade-level inputs, the add-on of each asset class, margined
+netting sets and a full worked example), the simplified methods, the other
+uses of the exposure (CVA, CCPs, leverage ratio, large exposures, output
+floor), calibration and limitations, and CCR management beyond capital.
+
+- **Status:** the regulatory status is the one stated on the slides, November
+  2026. Like the pictures above, the guide summarises and is not a source: the
+  [methodology](../methodology/README.md) holds the authoritative texts, the
+  support matrix and the traceability.
+- **Figures:** the worked examples are the guide's own calculations on an
+  illustrative portfolio, in EUR millions; they are neither the CRE99 examples
+  nor test cases of the workbook. Market figures cite the BIS statistics named
+  on their slide.
+- **Origin:** written for this project; its five charts are generated from the
+  formulas they show. The text uses IBM Plex Sans, which the file does not
+  embed: without the font, PowerPoint substitutes another.
+- **Update** the guide when a rule, a supervisory parameter or a sheet name it
+  cites changes.
 
 <a id="website-banner"></a>
 
