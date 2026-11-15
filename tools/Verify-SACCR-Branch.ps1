@@ -24,7 +24,11 @@ For the branch of a pull request, with one command on the Windows host:
    session only (AutomationSecurity Low; the Trust Center is not changed),
    runs its Auto_Open as Excel does for a user, compiles it, runs
    Test_RunAll once (TEST_Suite.Verify, into summary.log)
-   and runs the 14 protection checks with
+   reviews every sheet (#706): Clear outputs, a picture of every sheet, a run
+   of the demonstration portfolio, a second picture, and in both states the
+   checks of tools\Review-SACCR-Sheets.ps1 against
+   docs\workbook\sheet-style.json, into sheet-review.txt and the folder
+   sheets; and runs the 14 protection checks with
    tools\Check-SACCR-Protection.ps1 -Unattended. No prompt is shown; a step
    that would need one stops the run. A compile error opens a dialog in the
    VBE, which the compile command waits on: a watchdog closes the Excel of
@@ -34,12 +38,12 @@ For the branch of a pull request, with one command on the Windows host:
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
 4. writes verify-summary.txt in the bundle and prints it: the branch, the
-   commit, the mode, the duration, the Test_RunAll summary, the 14
-   protection checks and the result.
+   commit, the mode, the duration, the Test_RunAll summary, the sheet review
+   (quick run), the 14 protection checks and the result.
 Without -Quick the exit code is that of Certify-SACCR.ps1: 0 only when the
 bundle validates and the 14 protection checks pass. With -Quick it is 0 only
-when the project compiled, Test_RunAll printed RESULT=PASS and the 14
-protection checks pass. The script never pushes and never changes the macro
+when the project compiled, Test_RunAll printed RESULT=PASS, the sheet review
+passed and the 14 protection checks pass. The script never pushes and never changes the macro
 setting or the access to the VBA project. Checks a person makes by eye, such
 as the Ribbon's labels, stay with the person. A quick run needs the branch to
 carry TEST_Suite.Verify and the -Unattended switch of
@@ -170,6 +174,7 @@ function Invoke-QuickRun {
     New-Item -ItemType Directory -Path $Bundle | Out-Null
     $script:verifyLog = Join-Path $Bundle "verify.log"
     $script:compileLine = "Compile: NOT RUN"
+    $script:reviewLine = "Sheet review: NOT RUN"
     Write-Log "K-SACCR quick verification of ${Sha}: a pull-request check, not a release certification"
     Write-Log "Started at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')); folder $Bundle"
     $workbookPath = Join-Path $Bundle "K-SACCR_Verification.xlsm"
@@ -285,6 +290,26 @@ function Invoke-QuickRun {
         if (-not $suitesRan) {
             throw "The suites did not run: $verifyResult"
         }
+
+        # The sheet review (#706), in the same Excel session: Clear outputs,
+        # pictures, a run of the demonstration portfolio, pictures, checks.
+        $reviewScript = Join-Path $RepoRoot "tools\Review-SACCR-Sheets.ps1"
+        if (Test-Path -LiteralPath $reviewScript) {
+            . $reviewScript
+            Write-Log "Reviewing the sheets: Clear outputs, pictures, a run, pictures; into sheet-review.txt"
+            try {
+                $script:reviewLine = "Sheet review: " + (Invoke-SheetReview -Excel $excel -Workbook $workbook `
+                    -Bundle $Bundle -RepoRoot $RepoRoot -Sha $Sha)
+            }
+            catch {
+                $script:reviewLine = "Sheet review: RESULT=FAIL; stopped: " + $_.Exception.Message
+            }
+            Write-Log $script:reviewLine
+        }
+        else {
+            $script:reviewLine = "Sheet review: RESULT=FAIL; this branch has no tools\Review-SACCR-Sheets.ps1"
+            Write-Log $script:reviewLine
+        }
     }
     catch {
         Write-Log ("Stopped: " + $_.Exception.Message)
@@ -338,7 +363,8 @@ function Invoke-QuickRun {
     }
     $summaryPassed = (Get-FileText (Join-Path $Bundle "summary.log")) -match '(?m)^RESULT=PASS; suites='
     Write-Log "Finished at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz'))"
-    if ($suitesRan -and $summaryPassed -and $protectionCode -eq 0) {
+    $reviewPassed = $script:reviewLine.StartsWith("Sheet review: RESULT=PASS;")
+    if ($suitesRan -and $summaryPassed -and $reviewPassed -and $protectionCode -eq 0) {
         return 0
     }
     return 1
@@ -422,7 +448,7 @@ $title = "K-SACCR branch verification"
 $resultLine = "Result: " + $verdict + " (Certify-SACCR exit code " + $code + ")"
 if ($Quick) {
     $title = "K-SACCR branch verification (quick): a pull-request check, not a release certification"
-    $resultLine = "Result: " + $verdict + " (quick run; compile, Test_RunAll and the 14 protection checks)"
+    $resultLine = "Result: " + $verdict + " (quick run; compile, Test_RunAll, the sheet review and the 14 protection checks)"
 }
 $lines = @(
     $title,
@@ -434,7 +460,7 @@ $lines = @(
     $resultLine
 )
 if ($Quick) {
-    $lines += @($script:compileLine)
+    $lines += @($script:compileLine, $script:reviewLine)
 }
 $lines += @(
     "",
@@ -444,6 +470,12 @@ $lines += @(
     "Protection checks (protection-checks.txt):",
     (Get-FileText (Join-Path $bundle "protection-checks.txt"))
 )
+if ($Quick) {
+    # The review's failing lines, their details and its result line.
+    $review = Get-FileText (Join-Path $bundle "sheet-review.txt")
+    $failing = @($review -split "\r?\n" | Where-Object { $_ -match 'FAIL' -or $_ -match '^  [a-z]+: [0-9]' -or $_ -match '^  (gridlines|tab):' })
+    $lines += @("", "Sheet review (sheet-review.txt; pictures in the folder sheets):") + $failing
+}
 $summary = ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 if (Test-Path -LiteralPath $bundle) {
     [System.IO.File]::WriteAllText((Join-Path $bundle "verify-summary.txt"), $summary, $utf8NoBom)

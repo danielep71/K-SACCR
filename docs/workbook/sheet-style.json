@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "description": "Style rules of the workbook's sheets (#706). check_sheet_style.py checks the template against them, and the sheet review of the quick Excel run (tools/Verify-SACCR-Branch.ps1 -Quick) checks the workbook Excel shows, after Clear outputs and after a run. Each role of docs/workbook/protection.json has one tab color, as RRGGBB.",
+  "font": "Aptos",
+  "vertical_alignment": "center",
+  "date_format": "yyyy-mm-dd",
+  "gridlines": false,
+  "tab_colors": {
+    "Instructions": "1F3864",
+    "Reference": "1F3864",
+    "Run configuration and reference regulatory parameters": "BF9000",
+    "Input": "BF9000",
+    "Bank figures": "BF9000",
+    "Staging": "7030A0",
+    "Output": "2E75B6",
+    "Test": "548235"
+  }
+}

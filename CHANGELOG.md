@@ -192,6 +192,16 @@ Use only the categories needed by a release.
   attaches the assets before publishing, and SECURITY and the assurance case
   say what a signature proves.
 
+- Review every sheet in the quick Excel run (#706). After `Test_RunAll`,
+  `tools/Review-SACCR-Sheets.ps1` runs Clear outputs and pictures every sheet,
+  runs the demonstration portfolio and pictures every sheet again, into the
+  bundle's `sheets` folder, and checks both states against the new
+  `docs/workbook/sheet-style.json`: Aptos and vertical centering in every
+  cell, no `####`, no date without the `yyyy-mm-dd` format, gridlines off and
+  the tab color of the sheet's role. `sheet-review.txt` records the result,
+  which is part of the quick run's. The gate `check_sheet_style` checks the
+  style file and the template's tabs without Excel.
+
 ### Changed
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the

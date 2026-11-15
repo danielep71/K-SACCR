@@ -127,9 +127,35 @@ unattended, in `saccr-verify-SHORTSHA` next to the checkout. It builds the
 development workbook, opens it with its macros enabled for that Excel
 session only (the Trust Center is not changed), compiles it, runs
 `Test_RunAll` once, into `summary.log` with the `CANDIDATE=` line
-(`TEST_Suite.Verify`), and runs the 14 protection checks with
-`Check-SACCR-Protection.ps1 -Unattended`. Its `verify-summary.txt` says so
-in its first line. A compile error opens a dialog in the VBE, which the
+(`TEST_Suite.Verify`), reviews every sheet, and runs the 14 protection
+checks with `Check-SACCR-Protection.ps1 -Unattended`. Its
+`verify-summary.txt` says so in its first line.
+
+The sheet review (#706), `tools/Review-SACCR-Sheets.ps1`, runs in the same
+Excel session after `Test_RunAll`:
+
+1. It runs **Clear outputs** and takes a picture of every sheet,
+   `sheets/NN-Sheet-cleared.png`.
+2. It runs the demonstration portfolio and takes a second picture,
+   `sheets/NN-Sheet-run.png`.
+
+In both states it checks every sheet against
+[`docs/workbook/sheet-style.json`](workbook/sheet-style.json):
+
+- every cell of the used range has the style's font and is vertically
+  centered;
+- no cell displays `####`;
+- no cell holds a date unless it has the date format `yyyy-mm-dd`, so a code
+  or reference that Excel turned into a date is caught;
+- gridlines are off;
+- the tab has the color of the sheet's role in
+  [`protection.json`](workbook/protection.json).
+
+A picture covers at most the first 60 rows and 40 columns that hold content.
+It is pasted into a chart of a separate temporary workbook, the paste is
+retried until the chart holds a shape, and a picture of one color only does
+not count. `sheet-review.txt` lists each check by sheet and state, and its
+last line, `RESULT=PASS` or `RESULT=FAIL`, is part of the run's result. A compile error opens a dialog in the VBE, which the
 compile command waits on: a watchdog closes that run's Excel after 60
 seconds, and the run fails with that reason; run it without `-Quick` to see
 the error. The suites do not run on their own, and no `session.json`
