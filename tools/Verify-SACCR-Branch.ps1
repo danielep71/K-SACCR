@@ -185,14 +185,22 @@ function Invoke-QuickRun {
         # Build the development workbook from the template and the source.
         Write-Log "Building the development workbook: tools\Sync-SACCR-VBA.ps1 -Mode Development -FromTemplate"
         $syncScript = Join-Path $RepoRoot "tools\Sync-SACCR-VBA.ps1"
-        $syncOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncScript `
-            -WorkbookPath $workbookPath -Mode Development -FromTemplate -NoBackup -RepoRoot $RepoRoot 2>&1
+        # Under the script's "Stop" preference, Windows PowerShell 5.1 turns the first line the child
+        # writes to stderr into a terminating error, cut at the console width; read every line as text
+        # instead, and quote the whole message with its whitespace normalised (#708).
+        $syncOutput = @(& {
+            $ErrorActionPreference = "Continue"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncScript `
+                -WorkbookPath $workbookPath -Mode Development -FromTemplate -NoBackup -RepoRoot $RepoRoot 2>&1 |
+                ForEach-Object { [string]$_ }
+        })
         $syncCode = $LASTEXITCODE
         foreach ($line in $syncOutput) {
             Write-Log ("  sync: " + $line)
         }
         if ($syncCode -ne 0 -or -not (Test-Path -LiteralPath $workbookPath)) {
-            throw "The workbook could not be built (Sync-SACCR-VBA exited with code $syncCode); see verify.log."
+            $message = (($syncOutput | Select-Object -Last 12) -join " ") -replace '\s+', ' '
+            throw ("The workbook could not be built (Sync-SACCR-VBA exited with code $syncCode): " + $message.Trim())
         }
 
         # Open it with its macros enabled for this Excel session only. The
