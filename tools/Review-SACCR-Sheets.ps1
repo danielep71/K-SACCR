@@ -251,13 +251,13 @@ function Invoke-SheetState {
         $results = New-Object System.Collections.Generic.List[string]
         $details = New-Object System.Collections.Generic.List[string]
 
-        $style = Test-CellStyle $sheet $Style.font
-        $values = Test-CellValue $sheet $Style.date_format
+        $cellStyle = Test-CellStyle $sheet $Style.font
+        $cellValues = Test-CellValue $sheet $Style.date_format
         $checks = @(
-            @("font", $style.Fonts, ("not " + $Style.font)),
-            @("valign", $style.Aligns, "not vertically centered"),
-            @("hashes", $values.Hashes, "shows ####"),
-            @("dates", $values.Dates, ("a date not formatted " + $Style.date_format))
+            @("font", $cellStyle.Fonts, ("not " + $Style.font)),
+            @("valign", $cellStyle.Aligns, "not vertically centered"),
+            @("hashes", $cellValues.Hashes, "shows ####"),
+            @("dates", $cellValues.Dates, ("a date not formatted " + $Style.date_format))
         )
         foreach ($check in $checks) {
             if ($check[1].Count -eq 0) {
@@ -337,7 +337,7 @@ function Invoke-SheetReview {
     # The sheet review of the quick run; writes sheet-review.txt and the
     # pictures, and returns the last line of sheet-review.txt.
     param($Excel, $Workbook, [string]$Bundle, [string]$RepoRoot, [string]$Sha)
-    $style = Get-Content -LiteralPath (Join-Path $RepoRoot "docs\workbook\sheet-style.json") -Raw -Encoding UTF8 |
+    $styleRules = Get-Content -LiteralPath (Join-Path $RepoRoot "docs\workbook\sheet-style.json") -Raw -Encoding UTF8 |
         ConvertFrom-Json
     $roles = (Get-Content -LiteralPath (Join-Path $RepoRoot "docs\workbook\protection.json") -Raw -Encoding UTF8 |
         ConvertFrom-Json).sheets
@@ -354,12 +354,16 @@ function Invoke-SheetReview {
         $pictureBook = $Excel.Workbooks.Add()
         $pictureSheet = $pictureBook.Worksheets.Item(1)
         foreach ($step in @(@("cleared", "M_Main.ClearOutputs_Silent"), @("run", "M_Main.RunSACCR_Silent"))) {
+            # Only a completed operation gives a state worth reviewing: a run
+            # that stopped (RESULT=STOPPED) leaves no results to picture.
             $outcome = [string]$Excel.Run($qualified + $step[1])
             $report.Add(($step[1] + ": " + $outcome))
-            if (-not $outcome.StartsWith("RESULT=")) {
+            if (-not $outcome.StartsWith("RESULT=OK;")) {
+                $report.Add(("Stopped: " + $step[1] + " did not complete; the " + $step[0] + " state is not reviewed"))
                 $failed++
+                break
             }
-            $state = Invoke-SheetState $Excel $Workbook $step[0] $style $roles $pictureSheet $folder
+            $state = Invoke-SheetState $Excel $Workbook $step[0] $styleRules $roles $pictureSheet $folder
             foreach ($line in $state.Lines) {
                 $report.Add($line)
             }
