@@ -267,6 +267,12 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- State in GOVERNANCE when the PR that brings `main` back into the release
+  branch needs no new automated review: its head is the integration merge
+  commit, its diff against the release branch is empty and the integration
+  PR's review covered the same tree. Repository integrity still runs, and a
+  sync that changes any file is reviewed as usual (#704).
+
 - Add a slide guide to SA-CCR, `docs/assets/SACCR_Counterparty_Credit_Risk.pptx`:
   76 slides with speaker notes, from the nature of counterparty risk and the
   rulebook through the workbook's calculation chain, with worked examples, to
