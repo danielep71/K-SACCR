@@ -200,6 +200,12 @@ function Save-SheetPicture {
         try {
             [void]$Sheet.Parent.Activate()
             [void]$Sheet.Activate()
+            # A1 holds no list, so no dropdown arrow of a selected cell shows in the picture (#708).
+            try {
+                [void]$Sheet.Range("A1").Select()
+            }
+            catch {
+            }
             $format = $script:xlBitmap
             if ($attempt -gt 3) {
                 $format = $script:xlPicture

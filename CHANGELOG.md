@@ -235,6 +235,34 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Correct the formatting the first sheet review found (#708), with the owner's
+  decisions of 2026-11-15:
+  - column A, the navigation bar, is vertically centered like every other
+    cell; `tools/navigation_bar.py` writes its style that way;
+  - every table header is bold white 11 pt on navy (`1F3864`); the output
+    sheets' headers were blue, and NettingSets, Params and two single headers
+    had other sizes;
+  - header rows are as tall as their wrapped text, so no header line is cut
+    (HedgingSets, Buckets, TradeCalc and the taller 11 pt headers);
+  - Params shows the day counts as integers and the IR bucket correlations as
+    percentages, like every other correlation;
+  - on TradeCalc a commodity option's lambda, a price shift, is a number, not
+    a percentage;
+  - long text wraps: the counterparty descriptions of NettingSets and Results
+    (Results rows take the height of their text after a run), the CSV field
+    names of the staging sheets and the Checks note, now across its table;
+  - the title bands of NettingSets and Results reach the end of their table;
+  - BankNettingSets and BankTrades center the absolute tolerance like the
+    other two parameters;
+  - after Clear outputs the test catalogue reads NOT RUN, with no color, and
+    its summary says the tests have not run;
+  - the README sheet's title reads README.
+
+  `check_sheet_style` now checks every font, the vertical alignment of every
+  cell format, and the look and height of every header row; the source gate
+  rejects module-level code after the first procedure, which Excel refuses;
+  the sheet review selects `A1` before each picture.
+
 - Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
   again (#620): `Auto_Open` runs it at every opening with macros enabled, and
   protecting again marked the workbook changed. This removes one reason for
