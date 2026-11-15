@@ -372,10 +372,18 @@ def build(package: Package, contract: str) -> list[str]:
     styles = package.text("xl/styles.xml")
     fills = re.findall(r"<fill>.*?</fill>|<fill/>", need(r"<fills[^>]*>(.*?)</fills>", styles, re.S).group(1))
     band = next(i for i, f in enumerate(fills) if '<fgColor theme="1"/>' in f)
-    style_xml = '<xf numFmtId="0" fontId="0" fillId="%d" borderId="0" xfId="0" applyFill="1"/>' % band
+    # The bar's column format is vertically centered like every other cell (#708); a template
+    # written before that keeps the style's index and gains the alignment.
+    style_xml = ('<xf numFmtId="0" fontId="0" fillId="%d" borderId="0" xfId="0" applyFill="1" '
+                 'applyAlignment="1"><alignment vertical="center"/></xf>') % band
+    old_style = '<xf numFmtId="0" fontId="0" fillId="%d" borderId="0" xfId="0" applyFill="1"/>' % band
     xfs = need(r'<cellXfs count="(\d+)">(.*?)</cellXfs>', styles, re.S)
     existing = re.findall(r"<xf\b[^>]*?(?:/>|>.*?</xf>)", xfs.group(2), re.S)
-    if style_xml in existing:
+    if old_style in existing and style_xml not in existing:
+        nav_style = existing.index(old_style)
+        styles = styles.replace(xfs.group(0), xfs.group(0).replace(old_style, style_xml, 1), 1)
+        package.put("xl/styles.xml", styles)
+    elif style_xml in existing:
         nav_style = existing.index(style_xml)
     else:
         nav_style = len(existing)

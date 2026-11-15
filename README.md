@@ -339,22 +339,23 @@ Test_RunAll
 ```
 
 Expected summary in Windows Excel 64-bit. The format and counts are those of
-the shared suite lifecycle (#536); the timings, which vary, are from the quick
-verification of `release/1.3.0` at 47c5a4b:
+the shared suite lifecycle (#536); the timings, which vary, are from the
+[quick run of 2026-11-15](docs/excel-runs/2026-11-15-quick-369abf4.md) at
+369abf4:
 
 ```text
-SACCR TEST SUMMARY 2026-11-09 22:53:57
+SACCR TEST SUMMARY 2026-11-15 20:33:20
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
-  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (28,3 s)
-  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (5,5 s)
-  PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (25,0 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (9,5 s)
-  PASS  TEST_CsvReader        cases=124; checks=317; failures=0; restore=PASS  (2,0 s)
-  PASS  TEST_Import           cases=38; checks=227; failures=0; restore=PASS  (30,2 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=105,3
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,2 s)
+  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (27,3 s)
+  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (6,5 s)
+  PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (23,7 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,0 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,7 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (9,2 s)
+  PASS  TEST_CsvReader        cases=124; checks=317; failures=0; restore=PASS  (0,3 s)
+  PASS  TEST_Import           cases=38; checks=227; failures=0; restore=PASS  (30,4 s)
+RESULT=PASS; suites=10; passed=10; failed=0; seconds=102,2
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
@@ -936,6 +937,44 @@ Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches) through task branches and
 pull requests; `main` receives it on the owner's instruction, and only a
 release is versioned and tagged.
+
+The latest Excel run of unreleased work is the
+[quick run of 2026-11-15](docs/excel-runs/2026-11-15-quick-369abf4.md) at
+369abf4 (#707), a pull-request check and not a certification: compile,
+`Test_RunAll` 10 of 10, the sheet review of 19 sheets in two states and the 14
+protection checks, all passing. Four of its pictures, after the run of the
+demonstration portfolio:
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Results after the demonstration run: one row per netting set from regime and margining to EAD and status, two INCOMPLETE rows in light red, and the TOTAL CRR and TOTAL BCBS rows"
+         src="docs/assets/screenshots/check-369abf4-Results.png"></a><br>
+      <sub>Results</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Checks after the demonstration run: six ERROR lines with sheet, row, reference, message, origin, code and field"
+         src="docs/assets/screenshots/check-369abf4-Checks.png"></a><br>
+      <sub>Checks</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="NettingSets input sheet: one row per demonstration netting set with margining, clearing role, collateral, threshold, MTA and regime override, under navy headers"
+         src="docs/assets/screenshots/check-369abf4-NettingSets.png"></a><br>
+      <sub>NettingSets (input)</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Params sheet: reporting date, currency and regime in yellow, the grey regulatory parameters, and the supervisory-factor table"
+         src="docs/assets/screenshots/check-369abf4-Params.png"></a><br>
+      <sub>Params (parameters)</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 

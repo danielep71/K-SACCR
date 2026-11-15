@@ -3896,7 +3896,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules.
 '
 ' UPDATED
-'   2026-10-20
+'   2026-11-15
 '==============================================================================
 '
 
@@ -3918,6 +3918,7 @@ Private Sub ProcessTrades( _
     Dim NSPosition       As Long          'Netting set of a row without a trade ID
     Dim Trade            As tTrade        'The trade being processed
     Dim FreshTrade       As tTrade        'Every field at its default, to reset Trade
+    Dim OutputRow        As Long          'Row of OutputBlock, when formatting
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
@@ -3998,6 +3999,12 @@ NextTrade:
             WriteBlock TradeCalcSheet, OutputTop, OutputBlock, OutputCount, TC_NCOLS
             FormatColumns TradeCalcSheet, OutputTop, OutputCount, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
+            'A commodity lambda shifts a price, not a rate: it is a number (#708).
+            For OutputRow = 1 To OutputCount
+                If OutputBlock(OutputRow, TC_AC) = "CO" Then
+                    TableCell(TradeCalcSheet, OutputTop + OutputRow - 1, TC_LAMBDA).NumberFormat = "0.0000"
+                End If
+            Next OutputRow
         End If
 
 End Sub
@@ -5270,7 +5277,7 @@ Private Sub ComputeNettingSets( _
 '   with their share on Checks (#112).
 '
 ' UPDATED
-'   2026-10-22
+'   2026-11-15
 '==============================================================================
 '
 
@@ -5514,6 +5521,8 @@ NextNS:
                 FormatColumns ResultsSheet, OutputTop, OutputCount, _
                     "@|@|@|@|0|0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|#,##0|0.0000|#,##0|0.00|#,##0|#,##0|#,##0|@|#,##0|#,##0|#,##0|0.0000|@"
                 TableRange(ResultsSheet, OutputTop + FirstTotalRow - 1, 1, OutputTop + OutputCount - 1, RS_NCOLS).Font.Bold = True
+                'The counterparty column wraps; the rows take the height of their text (#708).
+                TableRange(ResultsSheet, OutputTop, 1, OutputTop + OutputCount - 1, RS_NCOLS).Rows.AutoFit
             End If
         End If
 

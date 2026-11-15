@@ -103,6 +103,8 @@ def check_component(root: Path, path: str, tracked: set[str], names: dict[str, s
         if path.startswith(home) and path.lower().endswith(".bas") and not Path(path).stem.startswith(prefix):
             findings.append(f"{path}: standard modules in {home} must be named {prefix}<subject>")
     findings.extend(f"{path}:{number}: string literal not closed" for number in unclosed_literals(text))
+    findings.extend(f"{path}:{number}: module-level code after the first procedure; Excel allows only comments there"
+                    for number in declarations_after_procedures(text))
     findings.extend(f"{path}:{line}:{column}: non-ASCII outside string literal"
                     for line, column in non_ascii_outside_strings(text))
     if path.lower().endswith(".frm"):
@@ -159,6 +161,40 @@ def unclosed_literals(text: str) -> list[int]:
         if quoted:
             lines.append(number)
     return lines
+
+
+PROCEDURE_START = re.compile(r"^(?:(?:Public|Private|Friend)\s+)?(?:Static\s+)?"
+                             r"(?:Sub|Function|Property\s+(?:Get|Let|Set))\s+\w", re.IGNORECASE)
+PROCEDURE_END = re.compile(r"^End\s+(?:Sub|Function|Property)\b", re.IGNORECASE)
+
+
+def declarations_after_procedures(text: str) -> list[int]:
+    """Lines of module-level code after the first procedure (#708).
+
+    Excel rejects them on import or compile ("Only comments may appear after End Sub, End Function,
+    or End Property"), while other hosts accept them. Between and after procedures only comments,
+    blank lines and conditional-compilation directives may appear."""
+    found = []
+    seen = inside = False
+    lines = text.split("\n")
+    number = 0
+    while number < len(lines):
+        start = number
+        logical = lines[number]
+        while logical.rstrip().endswith(" _") and number + 1 < len(lines):
+            number += 1
+            logical = logical.rstrip()[:-1] + lines[number]
+        number += 1
+        stripped = logical.strip()
+        if not stripped or stripped.startswith("'") or re.match(r"Rem\b", stripped, re.IGNORECASE):
+            continue
+        if inside:
+            inside = not PROCEDURE_END.match(stripped)
+        elif PROCEDURE_START.match(stripped):
+            seen = inside = True
+        elif seen and not stripped.startswith(("#", "Attribute ")):
+            found.append(start + 1)
+    return found
 
 
 def check_workbook(root: Path, path: str) -> list[str]:

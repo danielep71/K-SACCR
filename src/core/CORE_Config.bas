@@ -444,6 +444,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const TC_ENU         As Long = 19    'Effective notional, unmargined
         Public Const TC_ENM         As Long = 20    'Effective notional, margined
         Public Const TC_ADDON       As Long = 22    'Stand-alone add-on
+        Public Const TC_LAMBDA      As Long = 23    'Lambda shift: a rate for IR, a price for CO
         Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
 
 '------------------------------------------------------------------------------

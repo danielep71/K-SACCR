@@ -192,6 +192,19 @@ Use only the categories needed by a release.
   attaches the assets before publishing, and SECURITY and the assurance case
   say what a signature proves.
 
+- Review every sheet in the quick Excel run (#706). After `Test_RunAll`,
+  `tools/Review-SACCR-Sheets.ps1` runs Clear outputs and pictures every sheet,
+  runs the demonstration portfolio and pictures every sheet again, into the
+  bundle's `sheets` folder, and checks both states against the new
+  `docs/workbook/sheet-style.json`: Aptos and vertical centering in every
+  cell, no `####`, no date without the `yyyy-mm-dd` format, gridlines off and
+  the tab color of the sheet's role. `sheet-review.txt` records the result,
+  which is part of the quick run's. The gate `check_sheet_style` checks the
+  style file and the template's tabs without Excel.
+  The quick run of 2026-11-15 at `369abf4`, which passed with the review, has
+  a dated record in the new `docs/excel-runs/`; four of its pictures are in
+  `docs/assets/screenshots/` and in a gallery of the root README's status.
+
 ### Changed
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
@@ -224,6 +237,37 @@ Use only the categories needed by a release.
   their content is in `main`.
 
 ### Fixed
+
+- Correct the formatting the first sheet review found (#708), with the owner's
+  decisions of 2026-11-15:
+  - column A, the navigation bar, is vertically centered like every other
+    cell; `tools/navigation_bar.py` writes its style that way;
+  - every table header is bold white 11 pt on navy (`1F3864`); the output
+    sheets' headers were blue, and NettingSets, Params and two single headers
+    had other sizes;
+  - header rows are as tall as their wrapped text, so no header line is cut
+    (HedgingSets, Buckets, TradeCalc and the taller 11 pt headers);
+  - Params shows the day counts as integers and the IR bucket correlations as
+    percentages, like every other correlation;
+  - on TradeCalc a commodity option's lambda, a price shift, is a number, not
+    a percentage;
+  - long text wraps: the counterparty descriptions of NettingSets and Results
+    (Results rows take the height of their text after a run), the CSV field
+    names of the staging sheets and the Checks note, now across its table;
+  - the title bands of NettingSets and Results reach the end of their table;
+  - the effective supervisory factor column of Buckets is wide enough for its
+    header, which broke inside a word;
+  - BankNettingSets and BankTrades center the absolute tolerance like the
+    other two parameters;
+  - after Clear outputs the test catalogue reads NOT RUN, with no color, and
+    its summary says the tests have not run;
+  - the README sheet's title reads README.
+
+  `check_sheet_style` now checks every font, the vertical alignment of every
+  cell format, the look and height of every header row, and that no shared
+  formula refers to another sheet, which Excel refuses to open; the source gate
+  rejects module-level code after the first procedure, which Excel refuses;
+  the sheet review selects `A1` before each picture.
 
 - Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
   again (#620): `Auto_Open` runs it at every opening with macros enabled, and

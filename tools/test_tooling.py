@@ -65,6 +65,20 @@ class SourceGateTests(unittest.TestCase):
         self.write("src/modules/SACCR_Test.bas", MODULE.replace("Option Explicit", "' Option Explicit"))
         self.assertIn("src/modules/SACCR_Test.bas: missing Option Explicit", self.findings())
 
+    def test_declaration_after_a_procedure_is_reported(self) -> None:
+        # Excel: "Only comments may appear after End Sub, End Function, or End Property" (#708).
+        tail = "\r\n' a comment is fine\r\n#If VBA7 Then\r\n#End If\r\nPrivate mLate As Long\r\n"
+        self.write("src/modules/SACCR_Test.bas", MODULE + tail)
+        findings = [f for f in self.findings() if "after the first procedure" in f]
+        self.assertEqual(len(findings), 1, findings)
+        self.assertIn("SACCR_Test.bas:", findings[0])
+
+    def test_declarations_before_procedures_and_continued_headers_pass(self) -> None:
+        text = MODULE.replace("Option Explicit", "Option Explicit\r\nPrivate mEarly As Long")
+        text += "\r\nPublic Function Twice( _\r\n    ByVal X As Long) As Long\r\n    Twice = 2 * X\r\nEnd Function\r\n"
+        self.write("src/modules/SACCR_Test.bas", text)
+        self.assertFalse([f for f in self.findings() if "after the first procedure" in f])
+
     def test_unclosed_string_literal_is_reported_with_its_line(self) -> None:
         body = '    x = "=""" & y & """""\r\n'
         self.write("src/modules/SACCR_Test.bas", MODULE.replace("End Sub", body + "End Sub"))
