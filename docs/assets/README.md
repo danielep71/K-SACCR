@@ -53,6 +53,30 @@ screenshot. The output sheets show a run of that portfolio on that day.
 Retake a screenshot when the layout or content of its sheet changes, and keep
 the same processing.
 
+<a id="run-pictures"></a>
+
+## 🧪 Pictures of an Excel run
+
+`screenshots/` holds pictures written by the sheet review of a quick Excel run
+(#706), `tools/Review-SACCR-Sheets.ps1`, named `check-SHORTSHA-Sheet.png`
+after the commit the run checked. Unlike the screenshots above they are the
+original PNGs as the review wrote them: not cropped, palette-reduced or
+otherwise edited, and taken after the run of the demonstration portfolio.
+Each set is described and linked by its dated record in
+[`docs/excel-runs/`](../excel-runs/README.md); the paths and names of the host
+appear in no picture.
+
+| Image | Shows | Record |
+| --- | --- | --- |
+| `screenshots/check-369abf4-Results.png` | Results after the run: run summary, one row per netting set from V and C to EAD and status, the TOTAL rows | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-Checks.png` | Checks after the run: the six ERROR lines of the demonstration portfolio | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-NettingSets.png` | The NettingSets input sheet with the demonstration netting sets | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-Params.png` | Params: the run parameters and the supervisory-factor table (first 60 rows) | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+
+The root README shows these four in its [status](../../README.md#status).
+Keep only the pictures a page shows: a quick run writes 38 of about 18 MB,
+and the others stay in its run folder.
+
 <a id="ead-reference-card"></a>
 
 ## 🧮 EAD reference card

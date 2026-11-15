@@ -201,6 +201,9 @@ Use only the categories needed by a release.
   the tab color of the sheet's role. `sheet-review.txt` records the result,
   which is part of the quick run's. The gate `check_sheet_style` checks the
   style file and the template's tabs without Excel.
+  The quick run of 2026-11-15 at `369abf4`, which passed with the review, has
+  a dated record in the new `docs/excel-runs/`; four of its pictures are in
+  `docs/assets/screenshots/` and in a gallery of the root README's status.
 
 ### Changed
 
