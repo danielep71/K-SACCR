@@ -8,7 +8,9 @@ turned off. Every font of the template is the style's font and every cell
 format is vertically centered. Every cell of a table-header row of the style
 file is bold, white, of the header font size, on the header fill, and the row
 is tall enough for the header's wrapped text, by a line count that is the same
-on every host (wrapped_lines). What Excel displays after a run or Clear
+on every host (wrapped_lines). No shared formula of the template refers to
+another sheet: Excel never writes one and refuses to open a file that holds
+one (#708). What Excel displays after a run or Clear
 outputs (cells showing ####, dates) is checked by the sheet review of the
 quick Excel run, tools/Verify-SACCR-Branch.ps1 -Quick."""
 from __future__ import annotations
@@ -31,6 +33,7 @@ KEYS = {"schema_version", "description", "font", "vertical_alignment", "date_for
 COLOR = re.compile(r"^[0-9A-F]{6}$")
 CELL = re.compile(r"^([A-Z]{1,3})([1-9][0-9]*)$")
 WHITE = "FFFFFF"
+STRING_LITERAL = re.compile(r'"(?:[^"]|"")*"')
 # Points of row height per line of text, per point of font size, and the padding of a row: 11 pt text
 # takes 15 pt a line, as Excel's default row. Generous on purpose: a row a little too tall costs nothing,
 # one too short cuts its last line.
@@ -154,6 +157,11 @@ def sheet_findings(name: str, part: bytes, expected: str | None) -> list[str]:
     views = root.findall("m:sheetViews/m:sheetView", NS)
     if not views or any(view.get("showGridLines") not in ("0", "false") for view in views):
         findings.append(f"{TEMPLATE}: {name}: gridlines are not turned off")
+    for cell in root.iterfind("m:sheetData/m:row/m:c", NS):
+        formula = cell.find("m:f", NS)
+        if formula is not None and formula.get("t") == "shared" and "!" in STRING_LITERAL.sub("", formula.text or ""):
+            findings.append(f"{TEMPLATE}: {name}!{cell.get('r', '')}: shared formula refers to another sheet, "
+                            "which Excel refuses to open; give each cell its own formula")
     return findings
 
 

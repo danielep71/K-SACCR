@@ -259,7 +259,8 @@ Use only the categories needed by a release.
   - the README sheet's title reads README.
 
   `check_sheet_style` now checks every font, the vertical alignment of every
-  cell format, and the look and height of every header row; the source gate
+  cell format, the look and height of every header row, and that no shared
+  formula refers to another sheet, which Excel refuses to open; the source gate
   rejects module-level code after the first procedure, which Excel refuses;
   the sheet review selects `A1` before each picture.
 

@@ -26,8 +26,9 @@ STYLES = (f'<styleSheet xmlns="{MAIN}"><fonts count="3"><font><sz val="11"/><nam
 
 
 def sheet(tab: str = '<sheetPr><tabColor rgb="FFBF9000"/></sheetPr>',
-          view: str = '<sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews>') -> bytes:
-    return f'<worksheet xmlns="{MAIN}">{tab}{view}<sheetData/></worksheet>'.encode()
+          view: str = '<sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews>',
+          data: str = "") -> bytes:
+    return f'<worksheet xmlns="{MAIN}">{tab}{view}<sheetData>{data}</sheetData></worksheet>'.encode()
 
 
 class SheetStyleTests(unittest.TestCase):
@@ -61,6 +62,15 @@ class SheetStyleTests(unittest.TestCase):
         findings = gate.sheet_findings("S", sheet(view='<sheetViews><sheetView workbookViewId="0"/></sheetViews>'),
                                        "BF9000")
         self.assertTrue(any("gridlines" in f for f in findings), findings)
+
+    def test_shared_formula_stays_on_its_sheet(self) -> None:
+        local = '<row r="1"><c r="A1"><f t="shared" ref="A1:A2" si="0">IF(B1="x!y",1,0)</f></c></row>'
+        other = '<row r="1"><c r="A1"><f t="shared" ref="A1:A2" si="0">COUNTA(T!$C$6:$C$9)</f></c></row>'
+        single = '<row r="1"><c r="A1"><f>COUNTA(T!$C$6:$C$9)</f></c></row>'
+        self.assertEqual(gate.sheet_findings("S", sheet(data=local), "BF9000"), [])
+        self.assertEqual(gate.sheet_findings("S", sheet(data=single), "BF9000"), [])
+        findings = gate.sheet_findings("S", sheet(data=other), "BF9000")
+        self.assertTrue(any("S!A1: shared formula refers to another sheet" in f for f in findings), findings)
 
 
 class LineCountTests(unittest.TestCase):
