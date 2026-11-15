@@ -252,6 +252,8 @@ Use only the categories needed by a release.
     (Results rows take the height of their text after a run), the CSV field
     names of the staging sheets and the Checks note, now across its table;
   - the title bands of NettingSets and Results reach the end of their table;
+  - the effective supervisory factor column of Buckets is wide enough for its
+    header, which broke inside a word;
   - BankNettingSets and BankTrades center the absolute tolerance like the
     other two parameters;
   - after Clear outputs the test catalogue reads NOT RUN, with no color, and
