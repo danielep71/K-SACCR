@@ -60,6 +60,16 @@ not opened just to record progress.
    owner-approved milestone transition, retain the completed branch and
    create the next `release/X.Y.Z` from the integration commit, then update
    [Branches](#branches) and Dependabot's `target-branch`.
+
+   The sync PR needs no new automated review when all of these hold:
+   - its head is the integration merge commit;
+   - its diff against the release branch is empty;
+   - the integration PR's review of its final head covered the same tree.
+
+   Its description then names that review. **Repository integrity** still
+   runs and must be green. If the automated review runs anyway and comments,
+   its conversations are resolved as on any PR. A sync that changes any file
+   is reviewed as usual.
 5. Verify that the release branch contains the integration merge commit and
    that CI passed on both branches.
 

@@ -142,6 +142,22 @@ holds the demonstration portfolio of the template.
 
    The hash must equal the line for `K-SACCR_1.2.0.xlsm` in `SHA256SUMS.txt`
    (letter case aside). If it differs, delete the file.
+
+   The hash shows the file is the one the release lists; the signature also
+   shows the release was signed by this repository. Each file of the release
+   has a Sigstore signature, `<file>.sigstore.json`, made by the workflow
+   **Sign release assets** with no long-lived key. To check it, install
+   [cosign](https://docs.sigstore.dev/cosign/system_config/installation/),
+   download `K-SACCR_1.2.0.xlsm.sigstore.json` and run, in PowerShell:
+
+   ```powershell
+   cosign verify-blob .\K-SACCR_1.2.0.xlsm --bundle .\K-SACCR_1.2.0.xlsm.sigstore.json `
+     --certificate-oidc-issuer https://token.actions.githubusercontent.com `
+     --certificate-identity-regexp '^https://github\.com/danielep71/K-SACCR/\.github/workflows/release-signing\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
+   ```
+
+   It must print `Verified OK`; otherwise delete the file. The same command
+   checks the user manual and `SHA256SUMS.txt` with their own bundles.
 3. Windows marks a downloaded file as coming from the internet, and Office
    then blocks its macros. If your organization's macro policy allows it,
    right-click the file → **Properties** → tick **Unblock** → **OK**, or run
@@ -373,7 +389,10 @@ report `PASS`, and it raises an error after printing a failed result.
 deliberately wrong expectation, in `replacement-cost.exact`, and must print
 `MODE=INJECTED_FAILURE` and a `RESULT=FAIL` line with `failures=1`, followed
 by the suite failure error. If a run is interrupted, run
-`TEST_Harness.ResetTests` before running again.
+`TEST_Harness.ResetTests` before running again. If another suite was
+interrupted, the next suite refuses the workbook (`restore=NOT_RUN`): close
+it without saving or rebuild it, or, once it is checked, run
+`TEST_Kit.ClearAbortedRun`.
 
 The harness never changes Excel settings. It checks that `Calculation`,
 `DisplayAlerts`, `EnableEvents` and `ScreenUpdating` are the same after the run
@@ -540,7 +559,9 @@ malformed path and an unknown kind, and check what `M_Main.ReadCsv_Silent`
 returns for an accepted and a rejected file. The portfolio cases of
 `tests/csv/portfolio.json` go through `CheckPortfolio`, and the staged cases
 of `tests/csv/staged.json`, rows as a staging sheet holds them, through
-`CheckStagedRecords`. It touches no sheet.
+`CheckStagedRecords`, and the context cases of `tests/csv/context.json`,
+records judged against a Params context, through `CheckContext`. It touches
+no sheet.
 
 ### CSV import tests
 

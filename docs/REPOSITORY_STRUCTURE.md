@@ -46,6 +46,8 @@ docs/               contracts, architecture, governance, evidence record
   index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
   licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
+    screenshots/    pictures of a quick Excel run, named after its commit
+  excel-runs/       dated records of quick Excel runs (pull-request checks)
   csv/              CSV input contract, its specification and blank templates
   workbook/         Ribbon contract and protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
@@ -56,7 +58,7 @@ src/                production VBA source: the only input to the workbook
   modules/          public worksheet functions
   workbook/         template, Ribbon source, M_Main, M_Ribbon and the document modules
 tests/              verification source and test data
-  modules/          harness, case runner, suites and Test_RunAll
+  modules/          harness, shared suite kit, case runner, suites and Test_RunAll
   fixtures/         synthetic case inputs
   expected/         expected results with their reference class
   csv/              synthetic CSV input files and their expected findings
@@ -84,7 +86,7 @@ is created with its first file.
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
 `src/`, `tests/` and `tools/` each have a `README.md`, as do `docs/assets/`,
-`docs/methodology/`, `docs/methodology/sources/` and each version folder of
+`docs/excel-runs/`, `docs/methodology/`, `docs/methodology/sources/` and each version folder of
 `docs/user-manual/`.
 Subdirectories are created with their first real file, never empty.
 
@@ -110,7 +112,7 @@ documents govern.
 
 | Location | Holds |
 | --- | --- |
-| `tests/modules/` | The harness, the case runner, the suites, `TEST_Suite` and the benchmark |
+| `tests/modules/` | The harness, `TEST_Kit`, the case runner, the suites, `TEST_Suite` and the benchmark |
 | `tests/fixtures/` | Synthetic inputs: trades, netting sets, collateral terms |
 | `tests/expected/` | Expected values per regime with their provenance ([test cases](methodology/TEST_CASES.md)) |
 | `tests/derivations/` | Separate implementations that compute expected values, cited in their `derivation` |
@@ -166,7 +168,7 @@ its original structure until it is refactored:
 | Rule | Deviation |
 | --- | --- |
 | `src/core` never touches Excel | `CORE_Engine` and `CORE_Util` read the input sheets and write the output sheets |
-| `src/workbook` holds document modules | `M_Main`, a standard module, holds the command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
+| `src/workbook` holds document modules | `M_Main`, a standard module, holds the command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification`, `RestoreRegulatoryParameters`, `CheckTradesCsv`, `CheckNettingSetsCsv` and `ToggleNavigationBar`, and reads and writes the reconciliation and staging sheets; `M_Ribbon`, a standard module, holds the Ribbon callbacks, which call `M_Main` |
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |

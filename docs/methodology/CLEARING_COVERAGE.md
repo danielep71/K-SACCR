@@ -25,8 +25,9 @@ against the registered texts.
 | Not supported | Nothing is calculated for it. Where it cannot be told apart from a supported case, this page says so |
 
 No clearing rule is validated. Every published value of the register (CRE99,
-Examples 1–5) is a bilateral netting set, and no `independent` value exists
-yet. The clearing tests are all `illustrative`, including the expected values
+Examples 1–5) is a bilateral netting set, and so are the `independent`
+values of `IMPL-R-SACCR` (`rsaccr-portfolio-*`, #100), whose package does not
+cover clearing roles. The clearing tests are all `illustrative`, including the expected values
 of the `illustrative-clearing-*-listed` cases, computed by
 [`tests/derivations/clearing_listed.py`](../../tests/derivations/clearing_listed.py),
 a derivation separate from the engine.
@@ -44,7 +45,7 @@ remaining maturity whatever the role.
 
 | Arrangement | Entered as | MPOR floor, CRR | MPOR floor, BCBS | Coverage |
 | --- | --- | --- | --- | --- |
-| Bilateral, no clearing | Role `N` | 10 business days (Art. 285(2)(b)) | 10 business days with daily margining, 9 + N otherwise (CRE52.50(1)–(2)) | Implemented; exercised; validated under BCBS through CRE99 (MPOR with remargining) |
+| Bilateral, no clearing | Role `N` | 10 business days (Art. 285(2)(b)) | 10 business days with daily margining, 9 + N otherwise (CRE52.50(1)–(2)) | Implemented; exercised; validated under BCBS through CRE99 (MPOR with remargining); under CRR, exercised by an independent implementation (#100) and validated by production reconciliation for daily remargining (#667) |
 | Clearing member facing its client | Role `CM` | 5 business days (Art. 279c(1), last subparagraph; Art. 304(3)(a)) | 5 business days (CRE54.12) | Implemented; exercised, also with a listed future and option (`illustrative-clearing-member-listed`, both regimes) |
 | Bank as client facing its clearing member | Role `CLIENT` | 5 business days (Art. 279c(1), last subparagraph) | 10 business days: the CCP treatment where CRE54.15 is met (CRE54.14; 10 days for OTC derivatives, CRE54.8(2)), with a 4% risk weight instead of 2% where only the joint-default protection is missing (CRE54.16); a bilateral trade otherwise (CRE54.17; CRE52.50) | Implemented; exercised, also with a listed future and option and weekly remargining: MPOR 9 under CRR, 14 under BCBS (`illustrative-clearing-client-listed`). The conditions of CRE54.15 and CRR Art. 305(2)–(3) are the user's. They set the risk weight and, under BCBS, whether the 5,000-trade floor applies (CRE54.8(1), not implemented); the MPOR floor stays as shown |
 | Bank facing a CCP: a clearing member's trade exposure, for itself or for clients, or a client's exposure to the CCP guaranteed by its clearing member (CRE54.14(2)) | Role `CCP` for the clearing member's trade exposure; a client enters its exposure as `CLIENT` | At least 10 business days (Art. 304(3)(b)); the 20-day floor for more than 5,000 trades does not apply to trade exposures (Art. 285(3)(a)); VM retained by the CCP without protection of the member's collateral: the lesser of one year and the remaining maturity, floored at 10 business days (Art. 304(3)(d)) | 10 days for OTC derivatives (CRE54.8(2)); the 5,000-trade floor does not apply (CRE54.8(1)); VM retained by the CCP: as CRR (CRE54.8(3)) | Implemented for the clearing member's trade exposure (#112), per the [CCP trade-exposure input contract](#ccp-trade-exposure-input-contract): the 10-day floor in both regimes, the retained-VM horizon per trade, the QCCP status and the risk-weight rule stated on Checks. Exercised by `illustrative-ccp-trade-exposure`, `illustrative-ccp-retained-vm`, `illustrative-ccp-non-qualifying` and the `netting-set-ccp-*` cases. The large or illiquid flag still sets 20 days ([decision 12](#decisions)). A CCP entered as the counterparty of a role-`N` netting set still cannot be told apart from a bilateral one and gets the bilateral floors |
