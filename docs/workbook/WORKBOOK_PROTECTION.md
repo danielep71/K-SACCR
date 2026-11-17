@@ -58,9 +58,9 @@ not compare. The freshness status and the evidence checks work as before.
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
 | `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) | — |
-| `NettingSets` | Input | Columns `C:S` from row 7 down | Sorting, inserting rows |
+| `NettingSets` | Input | Columns `C:T` from row 7 down | Sorting, inserting rows |
 | `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
-| `Import_NettingSets` | Staging | Columns `D:T` from row 10 down | Inserting rows |
+| `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
 | `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |

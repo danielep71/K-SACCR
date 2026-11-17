@@ -224,6 +224,11 @@ Attribute VB_Name = "CORE_Config"
     'is rejected: the engine does not model them.
         Public Const MS_MIXED    As String = "MIXED"     'Several agreements, or margined and unmargined trades
         Public Const MS_SHARED   As String = "SHARED"    'One agreement over several netting sets
+    'Counterparty sectors of a netting set, the FINREP counterparty sectors
+    '(#674): central banks, general governments, credit institutions, other
+    'financial corporations, non-financial corporations and households. A
+    'blank sector is not classified. No SA-CCR rule reads it.
+        Public Const SECTOR_CODES As String = "CB|GG|CI|OFC|NFC|HH"    'Allowed counterparty sectors
     'Trades in a netting set above which the 20-day MPOR floor applies in the
     'following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
         Public Const LARGE_NS_TRADES As Long = 5000
@@ -267,7 +272,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_STRUCT     As Long = 15    'Margin-agreement structure: blank, MIXED or SHARED
         Public Const NS_QCCP       As Long = 16    'QCCP (Y/N): role CCP only (#112)
         Public Const NS_RETAINVM   As Long = 17    'CCP retains VM, collateral not protected (Y/N): role CCP only
-        Public Const NS_NCOLS      As Long = 17    'Number of input columns
+        Public Const NS_SECTOR     As Long = 18    'Counterparty sector: blank, CB, GG, CI, OFC, NFC or HH (#674)
+        Public Const NS_NCOLS      As Long = 18    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -323,7 +329,8 @@ Attribute VB_Name = "CORE_Config"
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
             "Margin agreements (blank / MIXED / SHARED)|QCCP (Y/N)|" & _
-            "CCP retains VM, collateral not protected (Y/N)"
+            "CCP retains VM, collateral not protected (Y/N)|" & _
+            "Counterparty sector (CB / GG / CI / OFC / NFC / HH)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
@@ -345,12 +352,13 @@ Attribute VB_Name = "CORE_Config"
     'feed, which makes the file the template in docs/csv/templates byte for
     'byte; tools/check_csv_contract.py checks these constants against the
     'contract.
-        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v1.csv"
+        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v2.csv"
         Public Const CSV_NS_HEADER As String = "netting_set_id;counterparty;margined;clearing_role;" & _
             "remargin_period_business_days;large_or_illiquid;margin_disputes;" & _
             "mpor_override_business_days;variation_margin_net_amount;" & _
             "independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;" & _
-            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin"
+            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;" & _
+            "counterparty_sector"
         Public Const CSV_TR_FILE As String = "K-SACCR_Trades_v1.csv"
         Public Const CSV_TR_HEADER As String = "trade_id;netting_set_id;asset_class;sub_class;" & _
             "risk_factor;instrument;direction;option_type;nature;hedging_set_label;" & _

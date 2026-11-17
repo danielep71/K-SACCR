@@ -28,7 +28,8 @@
       "findings": [
         ["CSV-HEADER-DUPLICATE", 1, 0, "qccp"],
         ["CSV-HEADER-UNKNOWN", 1, 0, "cpty_rating"],
-        ["CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"]
+        ["CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"],
+        ["CSV-HEADER-MISSING", 1, 0, "counterparty_sector"]
       ]
     },
     "invalid/netting-sets-keys-and-rules.csv": {
@@ -92,6 +93,11 @@
     "valid/netting-sets-reordered.csv": {
       "kind": "NettingSets",
       "records": 2,
+      "findings": []
+    },
+    "valid/netting-sets-v1.csv": {
+      "kind": "NettingSets",
+      "records": 8,
       "findings": []
     },
     "valid/netting-sets.csv": {

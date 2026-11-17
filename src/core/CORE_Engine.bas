@@ -164,6 +164,7 @@ Attribute VB_Name = "CORE_Engine"
         MarginedSTM       As Boolean    'Margined, with a settled-to-market trade: INVALID (#360)
         QCCP              As Boolean    'Role CCP: the CCP is qualifying (#112)
         RetainedVM        As Boolean    'Role CCP: the CCP retains VM, collateral not protected
+        Sector            As String     'Counterparty sector: blank, CB, GG, CI, OFC, NFC or HH (#674)
     End Type
 
     'One row of the supervisory-factor table on Params.
@@ -3098,6 +3099,11 @@ Private Function LoadNettingSets() As Boolean
                         LogMsg DIAG_NS_MARGIN_SHARED, "Margin agreement ID", SEV_ERROR, SH_NS, NettingSetRef, "One margin agreement over several netting sets is not " & _
                                "supported (CRE52.75; CRR Art. 275(3), 278(2)).", RowNumber
                 End Select
+
+    'Counterparty sector (#674): input only, read by no SA-CCR rule. A code
+    'outside the list makes the netting set INVALID, as any other code.
+                .Sector = NsCode(InputBlock(i, NS_SECTOR), "", SECTOR_CODES, "Counterparty sector", _
+                                 NettingSetRef, RowNumber, FieldErrors)
                 .V = 0#
                 .Trades = 0
                 .Rejected = 0

@@ -726,7 +726,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$S, Trades!$C:$AC,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$T, Trades!$C:$AC,
 '                        Params!$1:$1048576)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -807,7 +807,7 @@ Public Function ReconciliationStatusText( _
 ' PURPOSE
 '   Worksheet function for the status cell in Reconciliation C5 (#45):
 '     =ReconciliationStatusText(SACCR_ReconInputs, SACCR_RunInputs,
-'        BankNettingSets!$1:$1048576, NettingSets!$C:$S, Trades!$C:$AC,
+'        BankNettingSets!$1:$1048576, NettingSets!$C:$T, Trades!$C:$AC,
 '        Params!$1:$1048576)
 '   As ResultsStatusText: a run changes the hidden names and an edit
 '   changes a watched range, and either makes Excel recalculate the cell.
@@ -848,7 +848,7 @@ Public Function TradeReconciliationStatusText( _
 '   Worksheet function for the status cell in TradeReconciliation C5
 '   (#45), as ReconciliationStatusText:
 '     =TradeReconciliationStatusText(SACCR_TradeReconInputs,
-'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$S,
+'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$T,
 '        Trades!$C:$AC, Params!$1:$1048576)
 '
 ' INPUTS
