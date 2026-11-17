@@ -1,7 +1,7 @@
 {
   "schema": "ksaccr-csv-contract",
-  "contract_version": 1,
-  "description": "Field-level contract of the K-SACCR Trades and NettingSets CSV input files, version 1. CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
+  "contract_version": 2,
+  "description": "Field-level contract of the K-SACCR Trades and NettingSets CSV input files, version 2: NettingSets version 2, which still reads its version 1 files, and Trades version 1. CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
   "format": {
     "encoding": "UTF-8, with or without a byte-order mark",
     "delimiter": ";",
@@ -24,14 +24,19 @@
   },
   "files": {
     "NettingSets": {
-      "template": "K-SACCR_NettingSets_v1.csv",
+      "version": 2,
+      "template": "K-SACCR_NettingSets_v2.csv",
+      "earlier_versions": [
+        {"version": 1, "template": "K-SACCR_NettingSets_v1.csv",
+         "columns": ["netting_set_id", "counterparty", "margined", "clearing_role", "remargin_period_business_days", "large_or_illiquid", "margin_disputes", "mpor_override_business_days", "variation_margin_net_amount", "independent_collateral_net_amount", "threshold_amount", "minimum_transfer_amount", "alpha_factor", "regime_override", "margin_agreements", "qccp", "ccp_retains_variation_margin"]}
+      ],
       "sheet": "NettingSets",
       "key": "netting_set_id",
       "reserved_keys": ["TOTAL", "TOTAL CRR", "TOTAL BCBS"],
       "max_records": 10000,
       "examples": [
-        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
-        {"netting_set_id": "00731", "counterparty": "Müller & Søn \"Nord\"; <Example> AG", "margined": "N", "regime_override": "BCBS"},
+        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "counterparty_sector": "CI", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
+        {"netting_set_id": "00731", "counterparty": "Müller & Søn \"Nord\"; <Example> AG", "counterparty_sector": "NFC", "margined": "N", "regime_override": "BCBS"},
         {"netting_set_id": "NS-CCP", "counterparty": "Example CCP", "margined": "Y", "clearing_role": "CCP", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "0", "independent_collateral_net_amount": "0", "threshold_amount": "0", "minimum_transfer_amount": "0", "qccp": "Y", "ccp_retains_variation_margin": "N"}
       ],
       "columns": [
@@ -78,7 +83,12 @@
         {"name": "ccp_retains_variation_margin", "sheet_header": "CCP retains VM, collateral not protected (Y/N)",
          "type": "flag", "required": false,
          "description": "Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected.",
-         "example": ""}
+         "example": ""},
+        {"name": "counterparty_sector", "sheet_header": "Counterparty sector (CB / GG / CI / OFC / NFC / HH)",
+         "type": "code", "allowed": ["CB", "GG", "CI", "OFC", "NFC", "HH"], "required": false,
+         "blank": "Not classified",
+         "description": "FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role.",
+         "example": "CI"}
       ],
       "row_rules": [
         {"id": "ccp-flags", "when": {"clearing_role": "CCP"}, "required": ["qccp", "ccp_retains_variation_margin"],
@@ -86,6 +96,7 @@
       ]
     },
     "Trades": {
+      "version": 1,
       "template": "K-SACCR_Trades_v1.csv",
       "sheet": "Trades",
       "key": "trade_id",

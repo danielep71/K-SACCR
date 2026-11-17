@@ -36,8 +36,8 @@
     },
     {
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
-      "cases": 181,
-      "checks": {"32-bit": 318, "64-bit": 318}
+      "cases": 183,
+      "checks": {"32-bit": 321, "64-bit": 321}
     },
     {
       "entry_point": "TEST_Aggregation.RunAggregationTests",
@@ -56,13 +56,13 @@
     },
     {
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
-      "cases": 124,
-      "checks": {"32-bit": 317, "64-bit": 317}
+      "cases": 132,
+      "checks": {"32-bit": 345, "64-bit": 345}
     },
     {
       "entry_point": "TEST_Import.RunImportTests",
-      "cases": 38,
-      "checks": {"32-bit": 227, "64-bit": 227}
+      "cases": 39,
+      "checks": {"32-bit": 236, "64-bit": 236}
     }
   ],
   "summary_entry_point": "TEST_Suite.Test_RunAll"

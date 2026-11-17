@@ -105,6 +105,41 @@ Use only the categories needed by a release.
   explains both; a workbook with the older six-column Checks is upgraded in
   place at its first run.
 
+- Add an optional counterparty sector to NettingSets (#674), for the run's
+  breakdown of exposure by sector in the Dashboard (#675) and the run report
+  (#259). The new last column T, **Counterparty sector**, takes the FINREP
+  counterparty sectors `CB` (central banks), `GG` (general governments), `CI`
+  (credit institutions), `OFC` (other financial corporations), `NFC`
+  (non-financial corporations) and `HH` (households); blank means not
+  classified, and a CCP, recognised from its clearing role, needs none. No
+  SA-CCR rule reads it, so no figure changes. A run rejects any other value
+  with `NS-CODE` on the field `Counterparty sector`, as for the other coded
+  fields, and the CSV checks with `CSV-ALLOWED`. The template has the column
+  with its validation list and input message, unlocked for input, and a
+  sector for each netting set of the demonstration portfolio; the NettingSets
+  note and the README sheet describe it, and the status formulas of Results,
+  Reconciliation and TradeReconciliation C5 watch `NettingSets!$C:$T`.
+  `Import_NettingSets` stages it in column U. CSV: the column makes
+  NettingSets files version 2, with the template `K-SACCR_NettingSets_v2.csv`,
+  and the contract version 2; Trades files stay version 1. A NettingSets file
+  whose header is exactly the version 1 column set, in any order, is still
+  read, with the sector blank; any other header is judged against version 2.
+  The contract lists the version 1 columns and template (`earlier_versions`),
+  and `tools/csv_contract.py`, `CORE_CsvReader` and the import specification
+  follow; the `check_csv_contract` gate also checks each file's version, its
+  earlier versions and that `NS_NCOLS` and `TR_NCOLS` are the contract's column
+  counts. The input fingerprint covers the new column, so the demonstration
+  portfolio's `inputs=` changes. Tests: the fixture `valid/netting-sets.csv`
+  is version 2, with sectors, and `valid/netting-sets-v1.csv` keeps the version
+  1 file; five CSV cases cover the sector codes and version 1 headers
+  (`TEST_CsvReader` 132 cases, 345 checks); `TEST_Import` gains
+  `commit.netting-sets-sector` (39 cases, 236 checks) and
+  `TEST_InputValidation` the cases `netting-set-sector` and
+  `netting-set-unknown-sector` (183 cases, 321 checks). Upgrade: a workbook
+  built from an earlier template stops at the NettingSets header check until
+  it is rebuilt from the new template; NettingSets CSV files of version 1 need
+  no change.
+
 - Add a navigation bar to every sheet (#615): column A, a 4-wide margin until
   now, is widened, frozen and filled with the title band's colour, and holds
   a bar of linked shapes that opens every sheet, also with macros disabled
@@ -192,6 +227,19 @@ Use only the categories needed by a release.
   attaches the assets before publishing, and SECURITY and the assurance case
   say what a signature proves.
 
+- Review every sheet in the quick Excel run (#706). After `Test_RunAll`,
+  `tools/Review-SACCR-Sheets.ps1` runs Clear outputs and pictures every sheet,
+  runs the demonstration portfolio and pictures every sheet again, into the
+  bundle's `sheets` folder, and checks both states against the new
+  `docs/workbook/sheet-style.json`: Aptos and vertical centering in every
+  cell, no `####`, no date without the `yyyy-mm-dd` format, gridlines off and
+  the tab color of the sheet's role. `sheet-review.txt` records the result,
+  which is part of the quick run's. The gate `check_sheet_style` checks the
+  style file and the template's tabs without Excel.
+  The quick run of 2026-11-15 at `369abf4`, which passed with the review, has
+  a dated record in the new `docs/excel-runs/`; four of its pictures are in
+  `docs/assets/screenshots/` and in a gallery of the root README's status.
+
 ### Changed
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
@@ -224,6 +272,37 @@ Use only the categories needed by a release.
   their content is in `main`.
 
 ### Fixed
+
+- Correct the formatting the first sheet review found (#708), with the owner's
+  decisions of 2026-11-15:
+  - column A, the navigation bar, is vertically centered like every other
+    cell; `tools/navigation_bar.py` writes its style that way;
+  - every table header is bold white 11 pt on navy (`1F3864`); the output
+    sheets' headers were blue, and NettingSets, Params and two single headers
+    had other sizes;
+  - header rows are as tall as their wrapped text, so no header line is cut
+    (HedgingSets, Buckets, TradeCalc and the taller 11 pt headers);
+  - Params shows the day counts as integers and the IR bucket correlations as
+    percentages, like every other correlation;
+  - on TradeCalc a commodity option's lambda, a price shift, is a number, not
+    a percentage;
+  - long text wraps: the counterparty descriptions of NettingSets and Results
+    (Results rows take the height of their text after a run), the CSV field
+    names of the staging sheets and the Checks note, now across its table;
+  - the title bands of NettingSets and Results reach the end of their table;
+  - the effective supervisory factor column of Buckets is wide enough for its
+    header, which broke inside a word;
+  - BankNettingSets and BankTrades center the absolute tolerance like the
+    other two parameters;
+  - after Clear outputs the test catalogue reads NOT RUN, with no color, and
+    its summary says the tests have not run;
+  - the README sheet's title reads README.
+
+  `check_sheet_style` now checks every font, the vertical alignment of every
+  cell format, the look and height of every header row, and that no shared
+  formula refers to another sheet, which Excel refuses to open; the source gate
+  rejects module-level code after the first procedure, which Excel refuses;
+  the sheet review selects `A1` before each picture.
 
 - Keep the workbook's Saved flag when `ProtectWorkbook` protects the sheets
   again (#620): `Auto_Open` runs it at every opening with macros enabled, and
@@ -266,6 +345,12 @@ Use only the categories needed by a release.
   the `validate.context` case of `TEST_Import` stages such a trade.
 
 ### Documentation
+
+- State in GOVERNANCE when the PR that brings `main` back into the release
+  branch needs no new automated review: its head is the integration merge
+  commit, its diff against the release branch is empty and the integration
+  PR's review covered the same tree. Repository integrity still runs, and a
+  sync that changes any file is reviewed as usual (#704).
 
 - Add a slide guide to SA-CCR, `docs/assets/SACCR_Counterparty_Credit_Risk.pptx`:
   76 slides with speaker notes, from the nature of counterparty risk and the

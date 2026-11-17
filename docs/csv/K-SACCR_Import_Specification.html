@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>K-SACCR CSV import specification, contract version 1</title>
+<title>K-SACCR CSV import specification, contract version 2</title>
 <style>
 :root { --ink: #1b2733; --muted: #4a5a68; --line: #c9d3dd; --head: #e8f0fa; --accent: #1f5aa6; --code: #f4f6f8; }
 * { box-sizing: border-box; }
@@ -43,7 +43,7 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <body>
 <header>
 <h1>K-SACCR CSV import specification</h1>
-<p class="lead">CSV contract version 1, for the NettingSets and Trades files whose blank templates end in <code>_v1</code>. The contract version changes only when a column is added, removed or renamed, not with each K-SACCR release.</p>
+<p class="lead">CSV contract version 2, for NettingSets files of version 2, whose blank template is <code>K-SACCR_NettingSets_v2.csv</code>, and Trades files of version 1, whose blank template is <code>K-SACCR_Trades_v1.csv</code>. A file's version changes only when a column is added, removed or renamed, not with each K-SACCR release.</p>
 </header>
 <nav><ol><li><a href="#files">Files</a></li><li><a href="#format">File format</a></li><li><a href="#header">Header</a></li><li><a href="#types">Value types</a></li><li><a href="#blanks">Blank fields, empty files and limits</a></li><li><a href="#nettingsets">NettingSets file</a></li><li><a href="#trades">Trades file</a></li><li><a href="#examples">Using the examples</a></li><li><a href="#findings">Findings</a></li></ol></nav>
 <main>
@@ -51,10 +51,10 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <h2>Files</h2>
 <p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet <code>Import_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and <code>Trades</code> writes the blank template, the header alone.</p>
 <table>
-<thead><tr><th>File</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>
+<thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>
 <tbody>
-<tr><td>NettingSets</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class="num">10,000</td><td><code>K-SACCR_NettingSets_v1.csv</code></td></tr>
-<tr><td>Trades</td><td>Trades</td><td><code>trade_id</code></td><td class="num">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>
+<tr><td>NettingSets</td><td class="num">2</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class="num">10,000</td><td><code>K-SACCR_NettingSets_v2.csv</code></td></tr>
+<tr><td>Trades</td><td class="num">1</td><td>Trades</td><td><code>trade_id</code></td><td class="num">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>
 </tbody>
 </table>
 </section>
@@ -75,7 +75,8 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 </section>
 <section id="header">
 <h2>Header</h2>
-<p>The first record is the header. It names every column of the file exactly once, in any order, with the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column rejects the file before any record is read. There are no optional columns: an optional field is a column whose value may be blank. The column set is the contract version: a file of another version is never mapped by guessing what a column means.</p>
+<p>The first record is the header. It names every column of the file exactly once, in any order, with the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column rejects the file before any record is read. There are no optional columns: an optional field is a column whose value may be blank. The column set is the file's version: a file is never mapped to a version by guessing what a column means.</p>
+<p>A NettingSets file whose header is exactly the column set of version 1, the template <code>K-SACCR_NettingSets_v1.csv</code>, is still read: <code>counterparty_sector</code> is blank in each of its records.</p>
 </section>
 <section id="types">
 <h2>Value types</h2>
@@ -128,16 +129,17 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <tr><td class="num">15</td><td><code>margin_agreements</code></td><td>Margin agreements (blank / MIXED / SHARED)</td><td>MIXED or SHARED declares an unsupported structure, which the engine rejects.</td><td>code</td><td>no</td><td><code>MIXED</code>, <code>SHARED</code></td><td>a single agreement or none</td><td></td></tr>
 <tr><td class="num">16</td><td><code>qccp</code></td><td>QCCP (Y/N)</td><td>Role CCP only, and then required: Y if the CCP is qualifying.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td></td><td></td></tr>
 <tr><td class="num">17</td><td><code>ccp_retains_variation_margin</code></td><td>CCP retains VM, collateral not protected (Y/N)</td><td>Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><td></td><td></td></tr>
+<tr><td class="num">18</td><td><code>counterparty_sector</code></td><td>Counterparty sector (CB / GG / CI / OFC / NFC / HH)</td><td>FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role.</td><td>code</td><td>no</td><td><code>CB</code>, <code>GG</code>, <code>CI</code>, <code>OFC</code>, <code>NFC</code>, <code>HH</code></td><td>Not classified</td><td><code>CI</code></td></tr>
 </tbody>
 </table></div>
 <h3>Rules between the fields of a record</h3>
 <ul><li>When <code>clearing_role</code> is <code>CCP</code>, <code>qccp</code>, <code>ccp_retains_variation_margin</code> are required; otherwise <code>qccp</code>, <code>ccp_retains_variation_margin</code> are blank.</li></ul>
 <p>A clearing member's trade exposure to a central counterparty is a netting set with <code>clearing_role</code> <code>CCP</code>; a client of a clearing member enters <code>CLIENT</code>, and a clearing member facing its client <code>CM</code>. <code>MULTI</code> declares a multi-level client structure, which the file accepts and the calculation rejects.</p>
 <h3>Example</h3>
-<pre class="csv" id="example-nettingsets">netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin
-NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;
-00731;&quot;Müller &amp; Søn &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;
-NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N
+<pre class="csv" id="example-nettingsets">netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector
+NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;;CI
+00731;&quot;Müller &amp; Søn &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;;NFC
+NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N;
 </pre>
 </section>
 <section id="trades">
