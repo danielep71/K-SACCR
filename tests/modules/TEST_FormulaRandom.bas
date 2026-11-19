@@ -68,7 +68,7 @@ Attribute VB_Name = "TEST_FormulaRandom"
         Private Const LAST_INPUT_COL   As Long = 11            'Column of Input 7
         Private Const COL_EXPECTED     As Long = 12            'Column of Expected
         Private Const COL_RESULT       As Long = 15            'Column of Result
-        Private Const INPUTS           As Long = 7             'Inputs of a test
+        Private Const INPUT_COUNT           As Long = 7             'Inputs of a test
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -189,7 +189,7 @@ Private Sub CaseRestoreDefaults()
 '==============================================================================
 '
     Dim Mismatch    As Long        'Input cells that differ from the table
-    Dim Passing     As Long        'Tests that pass
+    Dim Passed     As Long        'Tests that pass
 
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "restore-defaults"
@@ -198,8 +198,8 @@ Private Sub CaseRestoreDefaults()
         mSheet.Calculate
         Mismatch = DefaultsMismatch()
         TEST_Kit.Check Mismatch = 0, Mismatch & " input cells differ from the defaults table"
-        Passing = PassingTests()
-        TEST_Kit.Check Passing = mTests, Passing & " of " & mTests & " shipped tests pass"
+        Passed = PassingTests()
+        TEST_Kit.Check Passed = mTests, Passed & " of " & mTests & " shipped tests pass"
         TEST_Kit.Check CStr(ThisWorkbook.Names("FormulaTest_DrawnSeed").RefersToRange.Value2) = "defaults", _
                        "the seed shown is not ""defaults"""
         Exit Sub
@@ -231,7 +231,7 @@ Private Sub CaseSeedReplay()
         First = InputValues()
         Filled = FilledCells(Wanted)
         TEST_Kit.Check Filled = Wanted And Wanted > 0, Filled & " of " & Wanted & " input cells hold a drawn value"
-        Passed = Passing()
+        Passed = PassingNow()
         TEST_Kit.Check Passed = mTests, Passed & " of " & mTests & " drawn tests pass"
         TEST_Kit.Check ThisWorkbook.Names("FormulaTest_Seed").RefersToRange.Value2 = SUITE_SEED + 1 And _
                        ThisWorkbook.Names("FormulaTest_DrawnSeed").RefersToRange.Value2 = SUITE_SEED + 1, "the seed cells do not show the seed"
@@ -355,7 +355,7 @@ Private Sub CaseRange( _
         Seed = SUITE_SEED + 100 + Ordinal
         State = M_FormulaTest.FormulaTestSeedState(Seed)
         For Draw = 1 To DRAWS
-            ReDim Inputs(1 To INPUTS)
+            ReDim Inputs(1 To INPUT_COUNT)
             If Not M_FormulaTest.FormulaTestDrawInputs(Family, State, Inputs, Problem) Then
                 Failures = Failures + 1
                 If Len(First) = 0 Then First = "draw " & Draw & ": " & Problem
@@ -406,7 +406,7 @@ Private Sub CaseInjectedDivergence( _
         Target.Formula = "=(" & Mid$(Original, 2) & ")*1.01"
         State = M_FormulaTest.FormulaTestSeedState(SUITE_SEED + 500)
         For Draw = 1 To INJECTED_DRAWS
-            ReDim Inputs(1 To INPUTS)
+            ReDim Inputs(1 To INPUT_COUNT)
             If M_FormulaTest.FormulaTestDrawInputs(Family, State, Inputs, Problem) Then
                 If Not RunDraw(SheetRow, Inputs, Detail) Then
                     Failures = Failures + 1
@@ -465,8 +465,8 @@ Private Function RunDraw( _
 '------------------------------------------------------------------------------
 ' WRITE AND CALCULATE
 '------------------------------------------------------------------------------
-        ReDim Block(1 To 1, 1 To INPUTS)
-        For K = 1 To INPUTS
+        ReDim Block(1 To 1, 1 To INPUT_COUNT)
+        For K = 1 To INPUT_COUNT
             Block(1, K) = Inputs(K)
         Next K
         mSheet.Range(mSheet.Cells(SheetRow, FIRST_INPUT_COL), mSheet.Cells(SheetRow, LAST_INPUT_COL)).Value2 = Block
@@ -532,11 +532,11 @@ Private Sub BoundaryDraws( _
 '------------------------------------------------------------------------------
 ' AROUND EACH BOUNDARY
 '------------------------------------------------------------------------------
-        For K = 1 To INPUTS
+        For K = 1 To INPUT_COUNT
             Count = M_FormulaTest.FormulaTestBoundaries(Family, K, Values)
             For B = 1 To Count
                 For Side = -1 To 1
-                    ReDim Inputs(1 To INPUTS)
+                    ReDim Inputs(1 To INPUT_COUNT)
                     If M_FormulaTest.FormulaTestDrawInputs(Family, State, Inputs, Problem) Then
                         If VarType(Inputs(K)) = vbLong Then
                             Distance = 1#
@@ -562,7 +562,7 @@ Private Sub BoundaryDraws( _
 '------------------------------------------------------------------------------
         If Family = "RC" Then
             For Side = -1 To 1
-                ReDim Inputs(1 To INPUTS)
+                ReDim Inputs(1 To INPUT_COUNT)
                 If M_FormulaTest.FormulaTestDrawInputs(Family, State, Inputs, Problem) Then
                     Inputs(3) = True
                     Inputs(1) = Inputs(2) + Inputs(4) + Inputs(5) - Inputs(6) + Side * BOUNDARY_STEP * 1000#
@@ -622,7 +622,7 @@ Private Function InputsText( _
 '
     Dim K   As Long     'Input
 
-        For K = 1 To INPUTS
+        For K = 1 To INPUT_COUNT
             If Not IsEmpty(Inputs(K)) Then
                 If VarType(Inputs(K)) = vbBoolean Then
                     InputsText = InputsText & IIf(Inputs(K), "TRUE", "FALSE") & "; "
@@ -719,9 +719,9 @@ Private Function PassingTests() As Long
 End Function
 
 
-Private Function Passing() As Long
+Private Function PassingNow() As Long
         mSheet.Calculate
-        Passing = PassingTests()
+        PassingNow = PassingTests()
 End Function
 
 
@@ -754,7 +754,7 @@ Private Function DefaultsMismatch() As Long
 '------------------------------------------------------------------------------
         Table = ThisWorkbook.Names("FormulaTest_Defaults").RefersToRange.Value2
         For R = 1 To mTests
-            For K = 1 To INPUTS
+            For K = 1 To INPUT_COUNT
                 Set Cell = mSheet.Cells(mFirstRow + R - 1, FIRST_INPUT_COL + K - 1)
                 Wanted = Table(R, 2 + K)
                 If IsEmpty(Wanted) Then
@@ -792,7 +792,7 @@ Private Function FilledCells( _
         Table = ThisWorkbook.Names("FormulaTest_Defaults").RefersToRange.Value2
         Wanted = 0
         For R = 1 To mTests
-            For K = 1 To INPUTS
+            For K = 1 To INPUT_COUNT
                 If Not IsEmpty(Table(R, 2 + K)) Then
                     Wanted = Wanted + 1
                     If Not IsEmpty(mSheet.Cells(mFirstRow + R - 1, FIRST_INPUT_COL + K - 1).Value2) Then FilledCells = FilledCells + 1
@@ -916,11 +916,11 @@ Private Sub Save()
         Set mSheet = ThisWorkbook.Names("FormulaTest_Tests").RefersToRange.Worksheet
         mTests = ThisWorkbook.Names("FormulaTest_Tests").RefersToRange.Rows.Count
         mFirstRow = ThisWorkbook.Names("FormulaTest_Tests").RefersToRange.Row
-        ReDim Saved(1 To mTests, 1 To INPUTS)
-        ReDim IsFormula(1 To mTests, 1 To INPUTS)
+        ReDim Saved(1 To mTests, 1 To INPUT_COUNT)
+        ReDim IsFormula(1 To mTests, 1 To INPUT_COUNT)
         ReDim Expected(1 To mTests, 1 To 1)
         For R = 1 To mTests
-            For C = 1 To INPUTS
+            For C = 1 To INPUT_COUNT
                 Set Cell = mSheet.Cells(mFirstRow + R - 1, FIRST_INPUT_COL + C - 1)
                 IsFormula(R, C) = Cell.HasFormula
                 If Cell.HasFormula Then Saved(R, C) = Cell.Formula Else Saved(R, C) = Cell.Value2
@@ -979,7 +979,7 @@ Private Function Restore() As Boolean
         On Error GoTo Failed
         For R = 1 To mTests
             mSheet.Cells(mFirstRow + R - 1, COL_EXPECTED).Formula = mSavedExpected(R, 1)
-            For C = 1 To INPUTS
+            For C = 1 To INPUT_COUNT
                 Set Cell = mSheet.Cells(mFirstRow + R - 1, FIRST_INPUT_COL + C - 1)
                 If mSavedIsFormula(R, C) Then
                     Cell.Formula = mSavedInputs(R, C)
@@ -1002,7 +1002,7 @@ Private Function Restore() As Boolean
 '------------------------------------------------------------------------------
         For R = 1 To mTests
             If mSheet.Cells(mFirstRow + R - 1, COL_EXPECTED).Formula <> mSavedExpected(R, 1) Then Wrong = Wrong + 1
-            For C = 1 To INPUTS
+            For C = 1 To INPUT_COUNT
                 Set Cell = mSheet.Cells(mFirstRow + R - 1, FIRST_INPUT_COL + C - 1)
                 If mSavedIsFormula(R, C) Then
                     If Cell.Formula <> mSavedInputs(R, C) Then Wrong = Wrong + 1

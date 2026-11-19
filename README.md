@@ -431,7 +431,7 @@ the exposure value (select it to open it full size):
 | `Checks` | Errors, warnings and what-if differences |
 | `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results |
 | `BankTrades` · `TradeReconciliation` | The same per trade leg, against TradeCalc |
-| `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
+| `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples, with a seed, a range table and buttons to randomize their inputs reproducibly |
 | `Basel_vs_CRR` | The two regimes side by side |
 | `README` | In-workbook guide: conventions, methodology summary, worksheet functions and the reference card; the last tab |
 
