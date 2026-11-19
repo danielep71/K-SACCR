@@ -89,6 +89,17 @@ class ReconciliationSheetTests(unittest.TestCase):
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
         self.assertIn("> RECON_FILTER_LAST_ROW Then", main)
 
+    def test_the_factor_measures_of_the_macros_are_those_of_the_template(self) -> None:
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
+        for name, constant in (("Reconciliation", "RECON_FACTOR_MEASURES_NS"),
+                               ("TradeReconciliation", "RECON_FACTOR_MEASURES_TR")):
+            match = re.search(rf'{constant}\s+As String = "([^"]*)"', config)
+            self.assertIsNotNone(match, constant)
+            assert match is not None
+            self.assertEqual({item for item in match.group(1).split("|") if item}, SHEETS[name][1], name)
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
+        self.assertIn("FormatFactorRows ReconSheet, ReconKind, ReconRows, ReconFirstRow, RowsToWrite", main)
+
     def test_the_sheets_are_listed_as_never_protected(self) -> None:
         config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
         match = re.search(r'PROTECT_NONE\s+As String = "([^"]*)"', config)
