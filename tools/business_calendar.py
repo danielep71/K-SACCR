@@ -105,7 +105,9 @@ class Calendar:
         return rule | {day for day in self.table if day.year == year}
 
     def is_business_day(self, day: dt.date) -> bool:
-        return day.weekday() < 5 and day not in self.holidays_in(day.year)
+        # The holidays come first, so that a date outside the range is refused on a weekend too.
+        holidays = self.holidays_in(day.year)
+        return day.weekday() < 5 and day not in holidays
 
     def business_days(self, start: dt.date, end: dt.date) -> int:
         """Business days in (start, end]; negative when ``end`` is before ``start``."""

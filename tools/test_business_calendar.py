@@ -97,6 +97,11 @@ class HolidayTests(unittest.TestCase):
     def test_before_the_first_year_is_refused(self) -> None:
         with self.assertRaises(CalendarError):
             bc.target_holidays(1998)
+        # A Saturday and a Friday of 1998 are refused alike.
+        for day in (dt.date(1998, 12, 26), dt.date(1998, 12, 25)):
+            with self.assertRaises(CalendarError):
+                Calendar.target().is_business_day(day)
+        self.assertTrue(Calendar.from_table(()).is_business_day(dt.date(1998, 12, 25)))
         with self.assertRaises(CalendarError):
             Calendar.target().business_days(dt.date(1998, 12, 1), dt.date(1999, 2, 1))
 
