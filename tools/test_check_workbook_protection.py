@@ -20,10 +20,11 @@ STYLES = (f'<styleSheet xmlns="{MAIN}"><fills count="2"><fill><patternFill patte
 # Input sheet: header in row 1, C:D unlocked from row 2 through the column styles.
 OPEN_COLUMNS = '<cols><col min="3" max="4" width="9" style="1"/></cols>'
 GOOD_ROWS = '<row r="1"><c r="C1" s="0"/><c r="D1" s="0"/></row><row r="2"><c r="B2"/><c r="C2" s="1"/></row>'
+LOCKED_ROWS = GOOD_ROWS.replace('s="1"', 's="0"')
 SPEC = {"role": "Input", "unlocked_columns": {"columns": "C:D", "first_row": 2}}
 PROTECTED = '<sheetProtection sheet="1" objects="1" scenarios="1"/>'
 STRUCTURE = '<workbookProtection lockStructure="1"/>'
-LISTS = ("PROTECT_SORTING", "PROTECT_FILTERING", "PROTECT_INSERTING_ROWS", "PROTECT_OUTLINING")
+LISTS = ("PROTECT_SORTING", "PROTECT_FILTERING", "PROTECT_INSERTING_ROWS", "PROTECT_OUTLINING", "PROTECT_NONE")
 
 
 def write_template(path: Path, sheet: str, name: str = "Sheet", structure: str = STRUCTURE) -> None:
@@ -115,6 +116,29 @@ class ProtectionGateTests(unittest.TestCase):
     def test_sheet_saved_unprotected(self) -> None:
         findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", protection="")
         self.assertEqual(findings, ["Sheet: the sheet is not saved protected"])
+
+    def test_working_sheet_is_saved_unprotected_and_listed(self) -> None:
+        # A sheet of the role Working is never protected (#720): the template saves it open and
+        # CORE_Config lists it in PROTECT_NONE.
+        spec = {"role": "Working"}
+        sheet = f"<sheetData>{LOCKED_ROWS}</sheetData>"
+        self.assertEqual(run(sheet, spec, protection="", listed=("PROTECT_NONE",)), [])
+
+    def test_working_sheet_saved_protected(self) -> None:
+        spec = {"role": "Working"}
+        sheet = f"<sheetData>{LOCKED_ROWS}</sheetData>"
+        findings = run(sheet, spec, listed=("PROTECT_NONE",))
+        self.assertEqual(findings, ["Sheet: a sheet of the role Working must not be saved protected"])
+
+    def test_working_sheet_must_be_in_protect_none(self) -> None:
+        spec = {"role": "Working"}
+        sheet = f"<sheetData>{LOCKED_ROWS}</sheetData>"
+        findings = run(sheet, spec, protection="")
+        self.assertEqual(findings, [f"{gate.CONFIG}: PROTECT_NONE lists [], the matrix ['Sheet']"])
+
+    def test_protect_none_must_not_list_a_protected_sheet(self) -> None:
+        findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", listed=("PROTECT_NONE",))
+        self.assertEqual(findings, [f"{gate.CONFIG}: PROTECT_NONE lists ['Sheet'], the matrix []"])
 
     def test_sheet_protection_password(self) -> None:
         protection = PROTECTED.replace("/>", ' algorithmName="SHA-512" hashValue="x" saltValue="y" spinCount="1"/>')

@@ -1872,7 +1872,7 @@ Private Sub CaseNavigationBar()
         TEST_Kit.Check Result = "RESULT=HIDDEN; sheets=" & SheetCount, "hide: " & Result
         TEST_Kit.Check Not M_Main.NavigationBarShown(), "NavigationBarShown after the hide"
         TEST_Kit.Check BarSheets(False) = SheetCount, "sheets with the bar hidden: " & BarSheets(False) & " of " & SheetCount
-        TEST_Kit.Check ProtectedSheets() = SheetCount, "sheets protected after the hide: " & ProtectedSheets() & " of " & SheetCount
+        TEST_Kit.Check ProtectedSheets() = SheetCount - NeverProtected(), "sheets protected after the hide: " & ProtectedSheets() & " of " & SheetCount - NeverProtected()
         TEST_Kit.Check ThisWorkbook.Saved = WasSaved, "the hide changed the Saved flag"
 
 '------------------------------------------------------------------------------
@@ -1892,7 +1892,7 @@ Private Sub CaseNavigationBar()
         TEST_Kit.Check Result = "RESULT=SHOWN; sheets=" & SheetCount, "show: " & Result
         TEST_Kit.Check M_Main.NavigationBarShown(), "NavigationBarShown after the show"
         TEST_Kit.Check BarSheets(True) = SheetCount, "sheets with the bar shown: " & BarSheets(True) & " of " & SheetCount
-        TEST_Kit.Check ProtectedSheets() = SheetCount, "sheets protected after the show: " & ProtectedSheets() & " of " & SheetCount
+        TEST_Kit.Check ProtectedSheets() = SheetCount - NeverProtected(), "sheets protected after the show: " & ProtectedSheets() & " of " & SheetCount - NeverProtected()
         M_Main.NavigationBarBeforeSave
         M_Main.NavigationBarAfterSave
         TEST_Kit.Check BarSheets(True) = SheetCount, "a save with the bar shown left it on " & BarSheets(True) & " of " & SheetCount
@@ -2013,6 +2013,27 @@ Private Function BarSheets( _
             Next Item
             If Groups = 2 And Sheet.Columns(1).Hidden = Not Shown Then
                 BarSheets = BarSheets + 1
+            End If
+        Next Sheet
+
+End Function
+
+
+Private Function NeverProtected() As Long
+'
+'==============================================================================
+'                               NeverProtected
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The number of sheets that PROTECT_NONE lists: they are never protected
+'   (#720), so the protected sheets are the others.
+'==============================================================================
+'
+    Dim Sheet   As Worksheet    'Each worksheet
+
+        For Each Sheet In ThisWorkbook.Worksheets
+            If InStr(1, PROTECT_NONE, "|" & Sheet.Name & "|") > 0 Then
+                NeverProtected = NeverProtected + 1
             End If
         Next Sheet
 
@@ -2607,7 +2628,8 @@ Private Sub CaseProtectionApplied()
 '                            CaseProtectionApplied
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   After ProtectWorkbook every worksheet is protected for the user
+'   After ProtectWorkbook every worksheet, except those PROTECT_NONE lists,
+'   which stay unprotected (#720), is protected for the user
 '   interface only, with its drawing objects and scenarios, and allows
 '   sorting, filtering, inserting rows and opening row groups exactly as
 '   the PROTECT_ lists of CORE_Config say; the structure is protected
@@ -2637,7 +2659,11 @@ Private Sub CaseProtectionApplied()
         M_Main.ProtectWorkbook
         For Each Sheet In ThisWorkbook.Worksheets
             Listed = "|" & Sheet.Name & "|"
-            If Not SheetProtected(Sheet.Name) Then
+            If InStr(1, PROTECT_NONE, Listed) > 0 Then
+                If Sheet.ProtectContents Then
+                    Wrong = Wrong & " " & Sheet.Name
+                End If
+            ElseIf Not SheetProtected(Sheet.Name) Then
                 Wrong = Wrong & " " & Sheet.Name
             ElseIf Sheet.Protection.AllowSorting <> (InStr(1, PROTECT_SORTING, Listed) > 0) Or _
                    Sheet.Protection.AllowFiltering <> (InStr(1, PROTECT_FILTERING, Listed) > 0) Or _

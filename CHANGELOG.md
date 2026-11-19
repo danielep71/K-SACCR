@@ -295,6 +295,23 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Make the two reconciliation sheets easier to read and to work on (#720).
+  Bank figure, Calculator figure and the difference are shown in one number
+  format with two decimals (they were `#,##0.00########`, which displayed the
+  calculator's unrounded value next to the bank's two decimals), and the factor
+  rows (the multiplier on Reconciliation, M, the supervisory duration, the delta and the
+  maturity factors on TradeReconciliation) in a format with six, chosen by the
+  `Measure` column through a conditional format, so that a sort or a filter keeps it.
+  The difference column is the absolute difference, `|calculator - bank|`, and the
+  relative difference keeps the sign; a bank figure of 0 has no relative difference, so
+  its direction is not shown. Both sheets carry an AutoFilter on the header row
+  (C6 to row 100,000), and a run applies a filter the user set to the new rows. The
+  sheets are never protected (role Working in the editability matrix, `PROTECT_NONE`
+  in `CORE_Config`): the user can sort, filter, add columns and write notes, and a
+  run or Clear outputs rewrites only the table. The gate of the matrix knows the
+  role, and `test_reconciliation_sheets.py` checks the template. The summary block of the
+  same issue follows in its own change.
+
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
   case, check and failure counts, the completeness check against the
   expected counts, and one log format: every suite prints `SUITE=` with its

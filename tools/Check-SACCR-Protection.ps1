@@ -97,7 +97,8 @@ function Add-Stop {
 function Get-SheetNames {
     $matrix = [System.IO.File]::ReadAllText((Join-Path $RepoRoot "docs\workbook\protection.json"), $utf8NoBom) |
         ConvertFrom-Json
-    return @($matrix.sheets.PSObject.Properties | ForEach-Object { $_.Name })
+    # The sheets that must be protected: a sheet of the role Working is never protected (#720).
+    return @($matrix.sheets.PSObject.Properties | Where-Object { $_.Value.role -ne "Working" } | ForEach-Object { $_.Name })
 }
 
 function Get-BarLinks {

@@ -17,7 +17,9 @@ lists of `CORE_Config` that the macros apply.
 ## 🔒 How it works
 
 - **Saved protected.** The template, and so every workbook built from it, is
-  saved with every sheet and the structure protected. The protection holds
+  saved with every sheet protected except `Reconciliation` and
+  `TradeReconciliation` (role Working, #720), which are never protected, and
+  with the structure protected. The protection holds
   with macros disabled too; the macros themselves need macros enabled.
 - **Macros write, users edit inputs.** When the workbook opens with macros
   enabled, `Auto_Open` runs `M_Main.ProtectWorkbook`, which protects every
@@ -64,9 +66,9 @@ not compare. The freshness status and the evidence checks work as before.
 | `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
 | `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |
-| `Reconciliation` | Output | — | — |
+| `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |
 | `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
-| `TradeReconciliation` | Output | — | — |
+| `TradeReconciliation` | Working | — | Never protected, as `Reconciliation` |
 | `TestCatalogue` | Test | `L7:L34` | — |
 | `FormulaTest` | Test | `E4`, `H4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15`, `G33:H81`, `K33:L81` | — |
 | `Basel_vs_CRR` | Reference | — | Filtering |

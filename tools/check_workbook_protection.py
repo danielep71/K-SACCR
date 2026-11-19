@@ -28,10 +28,13 @@ from _gatelib import parse_report_args, run_gate
 
 MATRIX = "docs/workbook/protection.json"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
-ROLES = {"Instructions", "Input", "Staging", "Output", "Bank figures", "Test", "Reference",
+ROLES = {"Instructions", "Input", "Staging", "Output", "Working", "Bank figures", "Test", "Reference",
          "Run configuration and reference regulatory parameters"}
 KEYS = {"role", "unlocked_cells", "unlocked_columns", "allow", "notes"}
 CONFIG = "src/core/CORE_Config.bas"
+# A sheet of this role is never protected: the template saves it without protection and CORE_Config lists it
+# in PROTECT_NONE, so that M_Main.ProtectWorkbook leaves it open (#720).
+WORKING = "Working"
 # What a protected sheet may allow: the sheetProtection flag the template saves ("0" = allowed) and the
 # CORE_Config list M_Main.ProtectWorkbook applies. Outlining is not saved with the file.
 ALLOW = {"sorting": ("sort", "PROTECT_SORTING"), "filtering": ("autoFilter", "PROTECT_FILTERING"),
@@ -249,6 +252,10 @@ def vba_list(root: Path, constant: str) -> set[str]:
 
 def check_config(root: Path, sheets: dict[str, Any]) -> list[str]:
     findings = []
+    working = {name for name, spec in sheets.items() if spec.get("role") == WORKING}
+    unprotected = vba_list(root, "PROTECT_NONE")
+    if unprotected != working:
+        findings.append(f"{CONFIG}: PROTECT_NONE lists {sorted(unprotected)}, the matrix {sorted(working)}")
     for item, (_, constant) in ALLOW.items():
         expected = {name for name, spec in sheets.items() if item in spec.get("allow", [])}
         actual = vba_list(root, constant)
@@ -260,6 +267,8 @@ def check_config(root: Path, sheets: dict[str, Any]) -> list[str]:
 def check_saved_protection(name: str, xml: bytes, spec: dict[str, Any]) -> list[str]:
     """The sheet is saved protected, without a password, allowing exactly what the matrix allows."""
     protection = ET.fromstring(xml).find("m:sheetProtection", NS)
+    if spec.get("role") == WORKING:
+        return [f"{name}: a sheet of the role {WORKING} must not be saved protected"] if protection is not None else []
     if protection is None:
         return [f"{name}: the sheet is not saved protected"]
     findings = [f"{name}: the protection has a password" for key in PASSWORD_ATTRIBUTES if protection.get(key)][:1]
