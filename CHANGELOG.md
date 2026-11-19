@@ -97,6 +97,22 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Run the quick Excel check of a pull request automatically (#713). The workflow
+  `excel-quick.yml` runs `Verify-SACCR-Branch.ps1 -Quick` on the owner's
+  self-hosted Windows runner for a pull request from a branch of this repository,
+  or by hand, and posts the result in the pull request, one comment per commit.
+  The sheet pictures and the text results go into an artifact, kept for 14 days,
+  without the workbooks and with the machine's paths replaced. It is a
+  pull-request check, never release evidence; the certification stays manual.
+  `tools/Run-SACCR-QuickCheck.ps1` takes an Excel mutex so that two runs never
+  drive Excel at once, and verifies the commit the workflow checked out
+  (`Verify-SACCR-Branch.ps1 -Commit`), so that a branch that moves on while a
+  run waits cannot give a commit a result it did not earn. The workflow invariants gain a rule: only this workflow
+  may run on a self-hosted runner, and only for branches of this repository or
+  by hand, and its steps run with the execution policy `Bypass` of their own
+  process, which a Windows desktop's default policy would otherwise block.
+  `docs/EXCEL_EVIDENCE.md` and `docs/GOVERNANCE.md` describe it.
+
 - Checks diagnostics (#81): append stable Code/Field columns, preserve CSV staging
   identifiers, emit one row per trade violation, and include distinct codes in
   silent run/validation results. Add a registry gate and code-based validation

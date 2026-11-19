@@ -30,6 +30,7 @@ WRITE_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("daily-traffic.yml", "alert"): {"issues"},
     ("pr-milestones.yml", "reconcile"): {"pull-requests"},
     ("release-signing.yml", "sign"): {"contents", "id-token"},
+    ("excel-quick.yml", "quick"): {"pull-requests"},
 }
 INTEGRITY_FILE = "static-checks.yml"
 INTEGRITY_JOB = "repository-integrity"
@@ -49,6 +50,15 @@ MILESTONE_EVENTS: dict[str, Any] = {
 LABEL_SYNC_GUARD = "github.event_name != 'pull_request' && " + DEFAULT_BRANCH_GUARD
 MILESTONE_GUARD = ("github.event_name == 'pull_request_target' || "
                    "github.event_name == 'schedule' || " + DEFAULT_BRANCH_GUARD)
+# The one job that may run on a self-hosted runner, and what keeps it safe (#713): the owner's machine
+# runs the code of the branch, so only a branch of this repository, or a run started by hand, may start it.
+SELF_HOSTED_FILE = "excel-quick.yml"
+SELF_HOSTED_JOB = "quick"
+SELF_HOSTED_EVENTS = {"pull_request", "workflow_dispatch"}
+SELF_HOSTED_GUARD = ("github.event_name == 'workflow_dispatch' || "
+                     "github.event.pull_request.head.repo.full_name == github.repository")
+SELF_HOSTED_PERMISSIONS = {"contents": "read", "pull-requests": "write"}
+SELF_HOSTED_MAX_MINUTES = 120
 # Every ecosystem whose versions the repository pins.
 PINNED_ECOSYSTEMS = ("github-actions", "pip")
 PRIORITIES = ("P1", "P2", "P3")
@@ -203,6 +213,79 @@ def check_milestones(workflows: Docs) -> list[str]:
     return findings
 
 
+def runs_on_self_hosted(job: Mapping[str, Any]) -> bool:
+    """True when the job may run on a self-hosted runner; an expression or a group counts as one."""
+    runs_on = job.get("runs-on")
+    labels = runs_on if isinstance(runs_on, list) else [runs_on]
+    return any(not isinstance(label, str) or label.lower() == "self-hosted" or "${{" in label for label in labels)
+
+
+def check_self_hosted_workflow(workflow: Mapping[str, Any]) -> list[str]:
+    """The events, permissions, concurrency and secrets of excel-quick.yml."""
+    findings = []
+    where = SELF_HOSTED_FILE
+    on = events(workflow)
+    if not isinstance(on, dict):
+        findings.append(f"{where}: the events must be a mapping")
+        on = {}
+    for event in sorted(set(on) - SELF_HOSTED_EVENTS):
+        findings.append(f"{where}: event '{event}' may start it; only pull_request and workflow_dispatch may")
+    if not (on.get("pull_request") or {}).get("branches"):
+        findings.append(f"{where}: pull_request has no branches filter")
+    if workflow.get("permissions") != {}:
+        findings.append(f"{where}: top-level permissions are not {{}}")
+    concurrency = workflow.get("concurrency")
+    if not isinstance(concurrency, dict) or concurrency.get("cancel-in-progress") is not False \
+            or not concurrency.get("group"):
+        findings.append(f"{where}: needs a concurrency group with cancel-in-progress: false")
+    if "secrets." in repr(workflow):
+        findings.append(f"{where}: uses a secret; the job's token is the only credential")
+    return findings
+
+
+def check_self_hosted_job(job: Mapping[str, Any]) -> list[str]:
+    """The condition, permissions, time limit and run steps of the job on the self-hosted runner."""
+    findings = []
+    where = f"{SELF_HOSTED_FILE}/{SELF_HOSTED_JOB}"
+    if " ".join(str(job.get("if", "")).split()) != SELF_HOSTED_GUARD:
+        findings.append(f"{where}: the condition does not limit it to this repository's branches and runs by hand")
+    if job.get("permissions") != SELF_HOSTED_PERMISSIONS:
+        findings.append(f"{where}: permissions must be contents: read and pull-requests: write only")
+    minutes = job.get("timeout-minutes")
+    if not isinstance(minutes, int) or isinstance(minutes, bool) or minutes > SELF_HOSTED_MAX_MINUTES:
+        findings.append(f"{where}: timeout-minutes must be at most {SELF_HOSTED_MAX_MINUTES}")
+    for step in steps(job):
+        if "${{" in str(step.get("run", "")):
+            findings.append(f"{where}: a run step contains '${{{{'; pass it through env")
+        if "run" in step and "-ExecutionPolicy Bypass" not in str(step.get("shell", "")):
+            findings.append(f"{where}: a run step needs a shell with -ExecutionPolicy Bypass, as a Windows desktop's "
+                            "default policy blocks the runner's step script")
+    return findings
+
+
+def check_self_hosted(workflows: Docs) -> list[str]:
+    """Only excel-quick.yml/quick runs on a self-hosted runner, and it stays guarded.
+
+    The job starts for a branch of this repository or by hand, never for a fork, from no event that
+    runs with the base's secrets; it holds only contents: read and pull-requests: write, cannot be
+    cancelled in the middle of an Excel run, has a bounded time, uses no secret, never writes
+    an expression into a command and runs its steps with the execution policy Bypass of the process."""
+    findings = []
+    for name, workflow in workflows.items():
+        for job_id, job in jobs(workflow).items():
+            if runs_on_self_hosted(job) and (name, job_id) != (SELF_HOSTED_FILE, SELF_HOSTED_JOB):
+                findings.append(f"{name}/{job_id}: runs on a self-hosted runner; only "
+                                f"{SELF_HOSTED_FILE}/{SELF_HOSTED_JOB} may")
+    workflow = workflows.get(SELF_HOSTED_FILE)
+    if not isinstance(workflow, dict):
+        return findings + [f"{SELF_HOSTED_FILE} is missing"]
+    findings += check_self_hosted_workflow(workflow)
+    job = jobs(workflow).get(SELF_HOSTED_JOB)
+    if not isinstance(job, dict):
+        return findings + [f"{SELF_HOSTED_FILE}: job '{SELF_HOSTED_JOB}' is missing"]
+    return findings + check_self_hosted_job(job)
+
+
 def configured_assignee(bug_form: str) -> str:
     match = re.search(r"^assignees:\s*\[\s*\"?([^\"\],]+)\"?\s*\]", bug_form, re.M)
     return match.group(1).strip() if match else ""
@@ -294,6 +377,7 @@ def all_findings(root: Path = ROOT) -> list[str]:
         lambda: check_integrity_job(workflows, governance),
         lambda: check_label_sync(workflows),
         lambda: check_milestones(workflows),
+        lambda: check_self_hosted(workflows),
         lambda: check_triage_runtimes(workflows),
         lambda: check_supply_chain(workflows,
                                    {name: (root / ".github/workflows" / name).read_text(encoding="utf-8")
