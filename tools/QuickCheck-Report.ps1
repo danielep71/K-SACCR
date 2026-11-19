@@ -165,7 +165,13 @@ function Find-QuickReportComment {
     # Comments: objects with id and body, as the GitHub API returns them.
     param($Comments, [string]$Marker)
     foreach ($comment in @($Comments)) {
-        if ($null -ne $comment -and ([string]$comment.body).Contains($Marker)) {
+        # Windows PowerShell 5.1 turns an empty JSON array (a pull request with no comment yet) into
+        # an empty string, which has no body.
+        if ($null -eq $comment -or $comment -is [string]) {
+            continue
+        }
+        $body = $comment.PSObject.Properties["body"]
+        if ($null -ne $body -and ([string]$body.Value).Contains($Marker)) {
             return $comment.id
         }
     }
