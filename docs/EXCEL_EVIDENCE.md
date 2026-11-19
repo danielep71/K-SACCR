@@ -476,6 +476,15 @@ Rules the validator applies:
   prints its `SUITE` and `MODE` lines, the reason as a `FAILURE` line and
   `RESULT=FAIL; cases=0; checks=0; failures=1; restore=NOT_RUN`: it is a
   failed suite.
+- The log of a `PASS` of `TEST_Cases` carries the differences it measured
+  (#537): one `MEASURED=` line for every output of an accuracy contract
+  family, with the case, trade, quantity, expected value, actual value and
+  difference. The validator reads the contracts and the expected files of the
+  candidate commit and fails a missing or repeated line, an expected value that
+  is not the expected file's, a difference that the printed values do not give,
+  and a difference beyond the contract's bound
+  ([accuracy contracts](methodology/TEST_CASES.md#accuracy-contracts)). A failed
+  run makes no such claim.
 - Each test run has its own log: the same log cannot be cited for two suites,
   even with blank lines or trailing spaces added to a copy.
 - The regression stage is `FAIL` when the harness or a suite failed, and

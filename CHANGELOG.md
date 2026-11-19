@@ -217,6 +217,15 @@ Use only the categories needed by a release.
   `check_accuracy_contracts` gate checks them against the expected files'
   tolerances. See [accuracy contracts](docs/methodology/TEST_CASES.md#accuracy-contracts).
 
+- Record the differences an Excel run measures and check them against the
+  accuracy contracts (#537): the case runner prints a `MEASURED=` line for
+  each numeric comparison, and the evidence validator requires, for a passing
+  `TEST_Cases`, one line for every output of a contract family, with the
+  expected value of the expected file and a difference within the contract's
+  bound or the case's rounding. `tools/measured_differences.py` prints the
+  largest difference of each family from a log. The lines are printed by the
+  suite's own run, not by `Test_RunAll`.
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
