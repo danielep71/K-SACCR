@@ -1081,10 +1081,6 @@ Private Function ReconcileAfterRun( _
             WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
             FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00|#,##0.00|" & _
                           "#,##0.00|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
-        'Past the last row of the template's factor format, the factor rows get it here (#720).
-            If ReconFirstRow + RowsToWrite - 1 > RECON_FILTER_LAST_ROW Then
-                FormatFactorRows ReconSheet, ReconKind, ReconRows, ReconFirstRow, RowsToWrite
-            End If
         'The rows of a filter the user set stay filtered: the rule is applied to the new rows. The
         'template's filter ends at row 100,000: a reconciliation that goes beyond it gets a new filter
         'over all its rows, without the criteria of the old one (#720).
@@ -1124,56 +1120,6 @@ Failed:
         ReconcileAfterRun = "FAILED"
 
 End Function
-
-
-Private Sub FormatFactorRows( _
-    ByVal ReconSheet As Worksheet, _
-    ByVal ReconKind As Long, _
-    ByRef ReconRows() As Variant, _
-    ByVal ReconFirstRow As Long, _
-    ByVal RowsToWrite As Long)
-'
-'==============================================================================
-'                               FormatFactorRows
-'------------------------------------------------------------------------------
-' PURPOSE
-'   Show the factor rows (the multiplier, M, the supervisory duration, the
-'   delta and the maturity factors) with six decimals on the rows of a
-'   reconciliation that lie below the last row the template's conditional
-'   format covers (RECON_FILTER_LAST_ROW). Above it the template does this by
-'   the Measure column (#720).
-'
-' INPUTS
-'   ReconSheet: the reconciliation sheet.
-'   ReconKind: RECON_NS or RECON_TR.
-'   ReconRows: the rows written, one per measure.
-'   ReconFirstRow: the sheet row of the first of them.
-'   RowsToWrite: the number of rows written.
-'
-' UPDATED
-'   2026-11-19
-'==============================================================================
-'
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim Factors   As String    'The factor measures between bars
-    Dim r         As Long      'Row of ReconRows
-
-'------------------------------------------------------------------------------
-' FORMAT
-'------------------------------------------------------------------------------
-        Factors = IIf(ReconKind = RECON_NS, RECON_FACTOR_MEASURES_NS, RECON_FACTOR_MEASURES_TR)
-        For r = 1 To RowsToWrite
-            If ReconFirstRow + r - 1 > RECON_FILTER_LAST_ROW Then
-                If InStr(1, Factors, "|" & CStr(ReconRows(r, RC_MEASURE)) & "|", vbBinaryCompare) > 0 Then
-                    TableRange(ReconSheet, ReconFirstRow + r - 1, RC_BANK, ReconFirstRow + r - 1, RC_DIFF).NumberFormat = "#,##0.000000"
-                End If
-            End If
-        Next r
-
-End Sub
 
 
 Private Sub AddReconLine( _

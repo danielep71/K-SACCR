@@ -319,11 +319,11 @@ Use only the categories needed by a release.
   calculator's unrounded value next to the bank's two decimals), and the factor
   rows (the multiplier on Reconciliation, M, the supervisory duration, the delta and the
   maturity factors on TradeReconciliation) in a format with six, chosen by the
-  `Measure` column through a conditional format, so that a sort or a filter keeps it.
+  `Measure` column through a conditional format that covers the whole column, so that a sort, a filter or a long reconciliation keeps it.
   The difference column is the absolute difference, `|calculator - bank|`, and the
   relative difference keeps the sign; a bank figure of 0 has no relative difference, so
   its direction is not shown. Both sheets carry an AutoFilter on the header row
-  (C6 to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria, and the macro gives its factor rows below row 100,000 the six-decimal format the template's conditional format gives above it. The
+  (C6 to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria. The
   sheets are never protected (role Working in the editability matrix, `PROTECT_NONE`
   in `CORE_Config`): the user can sort, filter, add columns and write notes, and a
   run or Clear outputs rewrites only the table. The gate of the matrix knows the

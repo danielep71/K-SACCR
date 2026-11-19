@@ -55,7 +55,7 @@ class ReconciliationSheetTests(unittest.TestCase):
         assert dxfs is not None
         for name, (_, measures) in SHEETS.items():
             rules = [rule for block in self.sheet(name).findall(MAIN + "conditionalFormatting")
-                     if block.attrib["sqref"] == "I7:K100000" for rule in block.findall(MAIN + "cfRule")]
+                     if block.attrib["sqref"] == "I7:K1048576" for rule in block.findall(MAIN + "cfRule")]
             self.assertEqual(len(rules), 1, name)
             formula = rules[0].findtext(MAIN + "formula") or ""
             self.assertEqual(set(re.findall(r'\$H7="([^"]+)"', formula)), measures, name)
@@ -88,17 +88,7 @@ class ReconciliationSheetTests(unittest.TestCase):
             self.assertTrue(autofilter.attrib["ref"].endswith(match.group(1)), name)
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
         self.assertIn("> RECON_FILTER_LAST_ROW Then", main)
-
-    def test_the_factor_measures_of_the_macros_are_those_of_the_template(self) -> None:
-        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
-        for name, constant in (("Reconciliation", "RECON_FACTOR_MEASURES_NS"),
-                               ("TradeReconciliation", "RECON_FACTOR_MEASURES_TR")):
-            match = re.search(rf'{constant}\s+As String = "([^"]*)"', config)
-            self.assertIsNotNone(match, constant)
-            assert match is not None
-            self.assertEqual({item for item in match.group(1).split("|") if item}, SHEETS[name][1], name)
-        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
-        self.assertIn("FormatFactorRows ReconSheet, ReconKind, ReconRows, ReconFirstRow, RowsToWrite", main)
+        self.assertNotIn("FormatFactorRows", main)
 
     def test_the_sheets_are_listed_as_never_protected(self) -> None:
         config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
