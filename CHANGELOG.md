@@ -233,6 +233,15 @@ Use only the categories needed by a release.
   perturbed Expected. The evidence policy, the README counts and the component
   list of INSTALLATION.md follow (11 suites, 502 cases, 2,100 checks).
 
+- Record the differences an Excel run measures and check them against the
+  accuracy contracts (#537): the case runner prints a `MEASURED=` line for
+  each numeric comparison, and the evidence validator requires, for a passing
+  `TEST_Cases`, one line for every output of a contract family, with the
+  expected value of the expected file and a difference within the contract's
+  bound or the case's rounding. `tools/measured_differences.py` prints the
+  largest difference of each family from a log. The lines are printed by the
+  suite's own run, not by `Test_RunAll`.
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
@@ -304,6 +313,13 @@ Use only the categories needed by a release.
   their content is in `main`.
 
 ### Fixed
+
+- Post the report of the automatic quick Excel check on a pull request that has
+  no comment yet (#713): Windows PowerShell 5.1 returns an empty string for the
+  empty list of comments, which the upsert read as a comment without a body and
+  stopped with a warning, so the report reached the job summary and the
+  artifact but not the pull request. A test covers an empty string and a
+  comment without a body.
 
 - Correct the formatting the first sheet review found (#708), with the owner's
   decisions of 2026-11-15:

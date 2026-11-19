@@ -132,8 +132,12 @@ $comments = @(
 (Find-QuickReportComment -Comments $comments -Marker (Get-QuickMarker 'bbb'))
 [string]($null -eq (Find-QuickReportComment -Comments $comments -Marker (Get-QuickMarker 'ccc')))
 [string]($null -eq (Find-QuickReportComment -Comments @() -Marker (Get-QuickMarker 'aaa')))
+[string]($null -eq (Find-QuickReportComment -Comments @("") -Marker (Get-QuickMarker 'aaa')))
+[string]($null -eq (Find-QuickReportComment -Comments "" -Marker (Get-QuickMarker 'aaa')))
+[string]($null -eq (Find-QuickReportComment -Comments @([pscustomobject]@{ id = 1 }) -Marker (Get-QuickMarker 'aaa')))
 """
-        self.assertEqual(run(body).splitlines(), ["13", "True", "True"])
+        # A pull request with no comment yet: Windows PowerShell 5.1 returns "" for [], which has no body.
+        self.assertEqual(run(body).splitlines(), ["13", "True", "True", "True", "True", "True"])
 
     def test_only_old_quick_bundles_are_removed(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
