@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, nine suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, ten suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -269,8 +269,8 @@ The layout and file conventions are defined in
    1. every file in `src/core/`;
    2. every file in `src/classes/` (none at present);
    3. every file in `src/modules/`;
-   4. every standard module (`.bas`) in `src/workbook/`, currently `M_Main`
-      and `M_Ribbon`;
+   4. every standard module (`.bas`) in `src/workbook/`, currently
+      `M_FormulaTest`, `M_Main` and `M_Ribbon`;
       the `.cls` document modules there are pasted, not imported (step 5);
    5. every `.frm` in `src/forms/` (none at present; its `.frx` loads with it;
       never import a `.frx`);
@@ -290,28 +290,32 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
-   | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object, `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
-   | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
-   | 14 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
-   | 15 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 16 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
-   | 17 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 18 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 19 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
-   | 20 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 21 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 22 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
-   | 23 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 24 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 25 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 10 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
+   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object, `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
+   | 13 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 14 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 15 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 16 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 17 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
+   | 18 | `tests/modules/TEST_FormulaRandom.bas` | `TEST_FormulaRandom` | Test suite; the FormulaTest comparison at scale on reproducible random draws and at branch points; development workbook only |
+   | 19 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 20 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 21 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
+   | 22 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 23 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 24 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
+   | 25 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 26 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 27 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The K-SACCR Ribbon tab of the template calls every command through
    `M_Ribbon`, and the buttons of the two staging sheets call
    `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`,
-   `CommitImport` and `ExportImportSpecification`, so they work once
-   `M_Main` and `M_Ribbon` are imported; until then a click shows that Excel
+   `CommitImport` and `ExportImportSpecification`, and the two buttons of the
+   FormulaTest sheet call `RandomizeFormulaTestInputs` and
+   `RestoreFormulaTestDefaults` of `M_FormulaTest`, so they work once
+   `M_Main`, `M_Ribbon` and `M_FormulaTest` are imported; until then a click shows that Excel
    cannot find the macro.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
@@ -356,7 +360,7 @@ match the file name.
 To run every suite at once, type `Test_RunAll` in the Immediate window
 (**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`,
-`TEST_Reconcile`, `TEST_CsvReader` and `TEST_Import` in turn and prints only a
+`TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import` and `TEST_FormulaRandom` in turn and prints only a
 summary: one line per suite with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final `RESULT=` line with the number of suites passed and
 failed. An error raised by a suite counts as its failure and the next suite
@@ -600,6 +604,37 @@ and Trades alone, which leaves NettingSets as it was. The suite puts the
 input sheets back after each commit. The live inputs and the run fingerprints must
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
+
+### Randomized formula tests
+
+```text
+TEST_FormulaRandom.RunFormulaRandomTests
+```
+
+Runs the comparison of the **FormulaTest** sheet at scale (#165). For each range
+set of the sheet's range table (`FormulaTest_Ranges`) it draws 1,000 inputs from
+a fixed seed, writes them to a test row of that set, and lets the sheet judge
+them: `|Function - Expected| / max(1, |Expected|)` at most
+`FormulaTest_Tolerance`. It adds draws at and a step either side of each branch
+point the table lists, and for the replacement cost around both
+`TH + MTA - NICA` and 0. An error in Expected or Function is a failure. The
+suite also checks the two buttons' macros: the shipped inputs come back and
+pass, a seed replays its draw, a range table that cannot give a valid draw is
+refused with nothing written, no formula on the sheet is volatile, and a
+perturbed Expected formula is caught; the report names the seed and the first
+failing draw. The inputs, the seed cells, the range table, the tolerance and the
+Excel settings are put back, and `restore=` reports that apart from the
+comparison.
+
+On the sheet, **Randomize inputs** draws new inputs for every test, as values,
+and writes the seed beside the tolerance (cell `H4`); type a seed there and
+press the button to replay that draw, or press it again for a new one.
+**Restore defaults** writes the 22 shipped input sets back from the table of
+defaults on the sheet. The ranges, with the limits of each function's domain
+(#42) and the branch points, are visible and editable in the range table below
+the tests; a range that leaves a domain, a Min above a Max, or a joint
+constraint that no draw can meet (A below D, P and K above minus lambda, E after
+S) is refused with a message.
 
 ### Benchmark
 

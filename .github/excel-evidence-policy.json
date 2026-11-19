@@ -63,6 +63,11 @@
       "entry_point": "TEST_Import.RunImportTests",
       "cases": 39,
       "checks": {"32-bit": 236, "64-bit": 236}
+    },
+    {
+      "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",
+      "cases": 19,
+      "checks": {"32-bit": 47, "64-bit": 47}
     }
   ],
   "summary_entry_point": "TEST_Suite.Test_RunAll"

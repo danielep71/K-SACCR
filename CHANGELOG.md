@@ -217,6 +217,22 @@ Use only the categories needed by a release.
   `check_accuracy_contracts` gate checks them against the expected files'
   tolerances. See [accuracy contracts](docs/methodology/TEST_CASES.md#accuracy-contracts).
 
+- Add reproducible randomized inputs to the **FormulaTest** sheet (#165): a
+  **Randomize inputs** button draws every input of every test within its
+  range, as values, from a seed that is written beside the tolerance (type a
+  seed and press the button to replay the draw); **Restore defaults** writes
+  the 22 shipped input sets back from a table on the sheet. The ranges, with
+  the limits of each function's domain and the branch points, are in a named,
+  editable table (`FormulaTest_Ranges`); a range that leaves a domain or that
+  no joint constraint can meet is refused with a message. No formula on the
+  sheet is volatile. The generator is the new production module
+  `M_FormulaTest`, and the new suite `TEST_FormulaRandom` (19 cases, 47
+  checks), run by `Test_RunAll`, makes 1,000 draws of each of the 14 range
+  sets from a fixed seed and draws at and around their branch points, judged
+  by the sheet's own comparison, and checks the buttons, the refusals and a
+  perturbed Expected. The evidence policy, the README counts and the component
+  list of INSTALLATION.md follow (11 suites, 502 cases, 2,100 checks).
+
 - Record the differences an Excel run measures and check them against the
   accuracy contracts (#537): the case runner prints a `MEASURED=` line for
   each numeric comparison, and the evidence validator requires, for a passing
