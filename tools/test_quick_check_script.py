@@ -5,6 +5,7 @@ GitHub are needed."""
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -202,6 +203,17 @@ $lines | ForEach-Object { Write-Output $_ }
 exit [int]$env:FAKE_CODE
 """
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test"]
+
+
+def run_script(script: Path, arguments: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """Run a script in pwsh and print an exception's message as one plain line: pwsh's own error view wraps
+    the message at the terminal's width and colours it, which differs between machines."""
+    quoted = " ".join(argument if re.fullmatch(r"-[A-Za-z]+", argument) else "'" + argument.replace("'", "''") + "'"
+                      for argument in arguments)
+    command = (f"try {{ & '{script}' {quoted} }} catch {{ [Console]::Error.WriteLine('ERROR: ' + $_.Exception.Message); "
+               "exit 1 }; exit $LASTEXITCODE")
+    return subprocess.run([str(PWSH), "-NoProfile", "-NonInteractive", "-Command", command],
+                          capture_output=True, text=True, check=False, env=env)
 OTHER = "f" * 40
 
 
@@ -229,13 +241,12 @@ class QuickCheckRunnerTests(unittest.TestCase):
                        check=False, capture_output=True)
         summary = folder / "step-summary.md"
         head_sha = env.pop("HEAD_SHA", sha)
-        completed = subprocess.run(
-            [str(PWSH), "-NoProfile", "-NonInteractive", "-File", str(repo / "tools" / "Run-SACCR-QuickCheck.ps1"),
-             "-Branch", branch, "-Shell", str(PWSH), "-MutexName", "Local\\SACCR-Test-" + folder.name, "-WaitMinutes", "1"],
-            capture_output=True, text=True, check=False,
-            env={**os.environ, "GITHUB_STEP_SUMMARY": str(summary), "GITHUB_TOKEN": "", "GITHUB_WORKSPACE": str(repo),
-                 "RUN_URL": "https://example.test/run/7", "ARTIFACT_NAME": "excel-quick-check-7-1",
-                 "REPOSITORY": "danielep71/K-SACCR", "USERNAME": "", "HEAD_SHA": head_sha, **env})
+        completed = run_script(
+            repo / "tools" / "Run-SACCR-QuickCheck.ps1",
+            ["-Branch", branch, "-Shell", str(PWSH), "-MutexName", "Local\\SACCR-Test-" + folder.name, "-WaitMinutes", "1"],
+            {**os.environ, "GITHUB_STEP_SUMMARY": str(summary), "GITHUB_TOKEN": "", "GITHUB_WORKSPACE": str(repo),
+             "RUN_URL": "https://example.test/run/7", "ARTIFACT_NAME": "excel-quick-check-7-1",
+             "REPOSITORY": "danielep71/K-SACCR", "USERNAME": "", "HEAD_SHA": head_sha, **env})
         return completed, folder / "work", sha
 
     def test_a_branch_of_this_repository_is_run_and_reported(self) -> None:
@@ -298,10 +309,8 @@ class VerifyCommitTests(unittest.TestCase):
     """Verify-SACCR-Branch.ps1 -Commit verifies the checked-out commit and nothing else (#713)."""
 
     def verify(self, repo: Path, commit: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [str(PWSH), "-NoProfile", "-NonInteractive", "-File", str(repo / "tools" / "Verify-SACCR-Branch.ps1"),
-             "-Branch", "feat/713-x", "-Quick", "-Commit", commit],
-            capture_output=True, text=True, check=False)
+        return run_script(repo / "tools" / "Verify-SACCR-Branch.ps1",
+                          ["-Branch", "feat/713-x", "-Quick", "-Commit", commit], dict(os.environ))
 
     def test_another_commit_is_refused_before_anything_runs(self) -> None:
         with tempfile.TemporaryDirectory() as name:
