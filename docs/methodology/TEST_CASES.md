@@ -350,7 +350,20 @@ with an output of the family is in neither list or in both, when a listed
 case has no such output, when a `rounded` entry is not needed, and when no
 held-out case tests the claim at full precision. A new case therefore needs
 a decision on its role. The contracts claim what the expected files allow;
-the differences an Excel run actually measures are not recorded yet (#537).
+what an Excel run measures is recorded and checked as follows.
+
+The case runner prints, for each numeric comparison it makes, a line
+`MEASURED=case; trade=...; quantity=...; expected=...; actual=...;
+difference=...` in the log of its suite. For a run of `TEST_Cases` that
+passed, the evidence validator (`tools/check_excel_evidence.py`) requires one
+such line for every output of a contract family and checks it: the expected
+value is the expected file's, the difference is that of the printed values, and
+the difference is within the contract's bound, the claimed tolerance or the
+rounding of a `rounded` case. A line missing, printed twice or beyond its bound
+fails the record. `python tools/measured_differences.py --log TEST_Cases.log`
+prints the largest measured difference of each family. The lines are printed by
+the suite's own run, not during `Test_RunAll`, whose quiet mode keeps only the
+verdicts.
 
 <a id="categories"></a>
 

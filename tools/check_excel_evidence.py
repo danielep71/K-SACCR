@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import measured_differences
 from _gatelib import git_bytes, run_gate
 
 DESCRIPTION = "Validate a manual Excel evidence bundle against one exact candidate commit."
@@ -456,6 +457,14 @@ def validate_summary(record: dict[str, Any], policy: dict[str, Any], directory: 
             and verdict == ("FAIL" if failed else "PASS"), "summary RESULT contradicts its suite lines")
 
 
+def validate_measured(root: Path, sha: str, record: dict[str, Any], logs: dict[str, str]) -> None:
+    """A passing case suite's log must carry the differences it measured, within the accuracy
+    contracts of the candidate (#537). A failed or unfinished run makes no such claim."""
+    for item in record["suites"]:
+        if module_name(item["entry_point"]) == measured_differences.ACCURACY_SUITE and item["status"] == "PASS":
+            measured_differences.validate(root, sha, logs[item["entry_point"]])
+
+
 def validate_unavailable(record: dict[str, Any]) -> list[str]:
     require(nonempty(record["availability_reason"]), "unavailable needs a reason")
     require(all(record[key] is None for key in ("operator", "environment", "harness", "summary"))
@@ -490,6 +499,7 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
     if regression in ("PASS", "FAIL"):
         suite_logs[policy["entry_point"]] = logs["regression"]
     validate_summary(record, policy, directory, suite_logs)
+    validate_measured(root, sha, record, suite_logs)
     # One log cited for two runs is one run, whatever blank lines or trailing
     # spaces were added to a copy: the validator reads past both.
     runs = {normalized(log) for log in suite_logs.values()}
@@ -601,6 +611,18 @@ def readme_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     return problems
 
 
+def measured_problems(root: Path, policy: dict[str, Any]) -> list[str]:
+    """The measured differences are only checked if the case suite is one the policy lists and
+    the case runner prints them (#537)."""
+    suite = measured_differences.ACCURACY_SUITE
+    problems = []
+    if suite not in [module_name(spec["entry_point"]) for spec in policy["suites"]]:
+        problems.append(f"{suite} is not a policy suite: its measured differences would not be checked")
+    if 'TEST_Suite.Say "MEASURED=' not in module_text(root, "TEST_CaseRunner"):
+        problems.append("TEST_CaseRunner does not print MEASURED= lines (#537)")
+    return problems
+
+
 def policy_problems(root: Path) -> list[str]:
     """Check that the working tree's policy matches the test modules, Test_RunAll and README."""
     try:
@@ -612,6 +634,7 @@ def policy_problems(root: Path) -> list[str]:
             problems.append(f"{policy['entry_point']}: policy counts differ from the module")
         for spec in policy["suites"]:
             problems += suite_problems(root, spec)
+        problems += measured_problems(root, policy)
         runner = module_text(root, policy["summary_entry_point"])
         # VBA names are case-insensitive: the list may be named suites or Suites.
         array = re.split(r"suites = Array\(", runner, maxsplit=1, flags=re.IGNORECASE)[-1]
