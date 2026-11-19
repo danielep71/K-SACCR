@@ -349,15 +349,15 @@ try {
         }
     }
     $expectedLinks = [int]$workbook.Worksheets.Count - 1
-    $sheetNames = @(foreach ($sheet in $workbook.Worksheets) { [string]$sheet.Name })
+    $workbookSheetNames = @(foreach ($sheet in $workbook.Worksheets) { [string]$sheet.Name })
     $barWrong = New-Object System.Collections.Generic.List[string]
     $barBroken = New-Object System.Collections.Generic.List[string]
-    foreach ($sheetName in $sheetNames) {
+    foreach ($sheetName in $workbookSheetNames) {
         $barLinks = Get-BarLinks $workbook.Worksheets.Item($sheetName)
         $targets = @(foreach ($link in $barLinks) {
             ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
         })
-        $expected = @($sheetNames | Where-Object { $_ -ne $sheetName })
+        $expected = @($workbookSheetNames | Where-Object { $_ -ne $sheetName })
         if ((($targets | Sort-Object) -join "|") -ne (($expected | Sort-Object) -join "|")) {
             $barWrong.Add($sheetName)
         }
@@ -379,8 +379,8 @@ try {
                    $barWrong.Count -eq 0 -and $barBroken.Count -eq 0) `
         ("Opened with macros disabled: unprotected [" + ($open -join ", ") + "]; a macro ran: $macroRan; opens on " +
          $opensOn + "; Home links " + $linkCount + " of " + $expectedLinks + ", not reaching their sheet [" +
-         ($broken -join ", ") + "]; navigation bar on " + ($sheetNames.Count - $barWrong.Count) + " of " +
-         $sheetNames.Count + " sheets, wrong [" + ($barWrong -join ", ") + "], links not reaching their sheet [" +
+         ($broken -join ", ") + "]; navigation bar on " + ($workbookSheetNames.Count - $barWrong.Count) + " of " +
+         $workbookSheetNames.Count + " sheets, wrong [" + ($barWrong -join ", ") + "], links not reaching their sheet [" +
          ($barBroken -join ", ") + "]")
 
     # 2: typing into a header, a grey Params value, an output cell, a

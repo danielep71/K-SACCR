@@ -1,5 +1,6 @@
 """Tests of the editability-matrix and protection gate of the workbook template (#420, #421)."""
 import json
+import re
 import tempfile
 import unittest
 import zipfile
@@ -139,6 +140,14 @@ class ProtectionGateTests(unittest.TestCase):
     def test_protect_none_must_not_list_a_protected_sheet(self) -> None:
         findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", listed=("PROTECT_NONE",))
         self.assertEqual(findings, [f"{gate.CONFIG}: PROTECT_NONE lists ['Sheet'], the matrix []"])
+
+    def test_the_excel_script_keeps_the_protected_sheet_list(self) -> None:
+        # The list of the sheets that must be protected is assigned once, at the top of the script
+        # (#720): a later assignment of the same variable, for the sheets of the workbook, made the
+        # sheets of the role Working count as unprotected.
+        script = (ROOT / "tools" / "Check-SACCR-Protection.ps1").read_text(encoding="utf-8")
+        self.assertEqual(len(re.findall(r"\$(?:script:)?sheetNames\s*=", script)), 1)
+        self.assertIn('[string]$property.Value.role -eq "Working"', script)
 
     def test_sheet_protection_password(self) -> None:
         protection = PROTECTED.replace("/>", ' algorithmName="SHA-512" hashValue="x" saltValue="y" spinCount="1"/>')
