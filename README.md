@@ -254,7 +254,7 @@ also carry buttons for their own commands.
 | --- | --- | --- |
 | **Run** (Calculation) | `RunSACCR` | Validates the inputs, calculates, writes every output sheet and opens Results; a run that stops opens Checks |
 | **Validate inputs** (Run menu) | `ValidateInputs` | Checks the inputs and lists the findings on Checks, which it opens, without calculating |
-| **Clear outputs** (Run menu) | `ClearOutputs` | Empties the output sheets |
+| **Clear outputs** (Calculation, and on every output sheet) | `ClearOutputs` | Empties the output sheets; the inputs, Params and the evidence record stay |
 | **Export evidence** (Evidence) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **Restore parameters** (Parameters) | `RestoreRegulatoryParameters` | After a confirmation that lists what it overwrites, puts the reference parameters, the two conventions and the factor table on Params back to the regulatory set, so that the next run is `REGULATORY`; the reporting date, currency, regime, FX rates and alpha overrides are not changed ([scope](docs/workbook/RIBBON.md#-commands)) |
 | **NettingSets template**, **Trades template** (CSV import, Templates menu) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |

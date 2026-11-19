@@ -635,8 +635,8 @@ Public Sub ClearOutputs()
 '   the stored fingerprints, and stamp the time on the Results sheet.
 '
 ' USAGE
-'   Clear outputs on the K-SACCR Ribbon tab (Run menu), or the Macros
-'   dialog.
+'   Clear outputs on the K-SACCR Ribbon tab (Calculation group), the
+'   button of an output sheet, or the Macros dialog.
 '
 ' UPDATED
 '   2026-10-17

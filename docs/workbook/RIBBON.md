@@ -40,7 +40,7 @@ the user. They never replace those gates.
 
 | Group | Controls |
 | --- | --- |
-| Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR, Validate inputs and Clear outputs |
+| Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR and Validate inputs · **Clear outputs**, a button of its own beside it (#719) |
 | CSV import | Menu **Import CSV** (NettingSets file, Trades file) · **Validate staging** · **Commit import** · menu **Templates** (NettingSets template, Trades template, Import specification) |
 | Evidence | **Export evidence** |
 | Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |

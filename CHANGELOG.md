@@ -97,6 +97,18 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Make Clear outputs easy to find (#719). The command was only an item in the
+  drop-down menu of the Run split button, and no sheet had a button for it. It is
+  now a button of its own in the Calculation group of the K-SACCR tab, beside Run,
+  and every output sheet (Results, HedgingSets, Buckets, TradeCalc, Checks,
+  Reconciliation and TradeReconciliation) carries a Clear outputs button in its
+  title row, like the Import buttons of the staging sheets. Both call the same
+  macro as before and behave as before: the five output tables and both
+  reconciliations are emptied, and the inputs, Params and the evidence record stay.
+  `test_template_buttons.py` checks the template (a button and a shape of the
+  macro on each output sheet, shape identifiers unique in the workbook) and the
+  Ribbon source (a button of the Calculation group, mapped to the macro).
+
 - Run the quick Excel check of a pull request automatically (#713). The workflow
   `excel-quick.yml` runs `Verify-SACCR-Branch.ps1 -Quick` on the owner's
   self-hosted Windows runner for a pull request from a branch of this repository,
