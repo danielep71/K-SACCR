@@ -340,22 +340,22 @@ Test_RunAll
 
 Expected summary in Windows Excel 64-bit. The format and counts are those of
 the shared suite lifecycle (#536); the timings, which vary, are from the quick
-run of `feat/674-counterparty-sector` at 2fe6fd5 on 2026-11-17:
+run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19:
 
 ```text
-SACCR TEST SUMMARY 2026-11-17 07:40:45
+SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,6 s)
-  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (90,0 s)
-  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (23,1 s)
-  PASS  TEST_InputValidation  cases=183; checks=321; failures=0; restore=PASS  (107,1 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (12,1 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (5,6 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (33,3 s)
-  PASS  TEST_CsvReader        cases=132; checks=345; failures=0; restore=PASS  (2,2 s)
-  PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (121,6 s)
-  PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (0,0 s)
-RESULT=PASS; suites=11; passed=11; failed=0; seconds=395,5
+  PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
+  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (27,8 s)
+  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (7,4 s)
+  PASS  TEST_InputValidation  cases=183; checks=321; failures=0; restore=PASS  (28,4 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
+  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (10,7 s)
+  PASS  TEST_CsvReader        cases=132; checks=345; failures=0; restore=PASS  (0,3 s)
+  PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
+  PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
+RESULT=PASS; suites=11; passed=11; failed=0; seconds=120,1
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
