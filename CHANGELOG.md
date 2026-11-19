@@ -97,6 +97,24 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add the Python reference of a business-day count on the EUR TARGET calendar
+  (#721), the first step of an alternative to the calendar-day year. The module
+  `tools/business_calendar.py` gives the TARGET closing days of every year by
+  rule (1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December, with
+  Easter from the Gregorian computus, so that no yearly list has to be
+  extended), a table of extra closing days that can be added to it or used
+  alone, the count of business days between two dates (the first date excluded,
+  the last included), a fingerprint of the calendar for the evidence of a run,
+  and the two conventions that turn dates into years: `CAL365` (calendar days
+  over `DaysPerYear`, today's behaviour) and `BD250` (business days over
+  `BusinessDaysPerYear`). The rule is valid from 1 January 1999, when TARGET
+  opened; earlier dates are refused. Its tests, `test_business_calendar.py`, run
+  in `tool-tests`: the Easter dates against a second method and against known
+  dates, the closing days of 1999 to 2001 and of 2025 and 2026, the business days
+  of every year from 2000 to 2099 against a count made day by day, and a
+  weekend holiday counted once. Nothing in the workbook changes yet: the engine,
+  Params, the worksheet function and the evidence follow in the same issue.
+
 - Run the quick Excel check of a pull request automatically (#713). The workflow
   `excel-quick.yml` runs `Verify-SACCR-Branch.ps1 -Quick` on the owner's
   self-hosted Windows runner for a pull request from a branch of this repository,
