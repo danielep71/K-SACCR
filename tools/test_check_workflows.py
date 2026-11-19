@@ -183,6 +183,8 @@ class ViolationTests(unittest.TestCase):
                 "run", "echo ${{ github.event.pull_request.head.ref }}"), "a run step contains"),
             (lambda w: job(w, name, quick)["steps"][1]["env"].__setitem__("TOKEN", "${{ secrets.PAT }}"),
              "uses a secret"),
+            (lambda w: job(w, name, quick)["steps"][1].__setitem__("shell", "powershell"), "-ExecutionPolicy Bypass"),
+            (lambda w: job(w, name, quick)["steps"][1].pop("shell"), "-ExecutionPolicy Bypass"),
         ]
         for change, fragment in cases:
             with self.subTest(fragment=fragment):

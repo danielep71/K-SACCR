@@ -109,7 +109,9 @@ Use only the categories needed by a release.
   (`Verify-SACCR-Branch.ps1 -Commit`), so that a branch that moves on while a
   run waits cannot give a commit a result it did not earn. The workflow invariants gain a rule: only this workflow
   may run on a self-hosted runner, and only for branches of this repository or
-  by hand. `docs/EXCEL_EVIDENCE.md` and `docs/GOVERNANCE.md` describe it.
+  by hand, and its steps run with the execution policy `Bypass` of their own
+  process, which a Windows desktop's default policy would otherwise block.
+  `docs/EXCEL_EVIDENCE.md` and `docs/GOVERNANCE.md` describe it.
 
 - Checks diagnostics (#81): append stable Code/Field columns, preserve CSV staging
   identifiers, emit one row per trade violation, and include distinct codes in

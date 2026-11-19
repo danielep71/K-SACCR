@@ -215,7 +215,10 @@ The runner is a Windows 64-bit machine with desktop Excel, Git and Windows
 PowerShell 5.1, with trusted access to the VBA project object model in Excel's
 Trust Center. It is registered for this repository with the label `excel` and
 started with its run command **in a logged-in session, not as a service**: a service
-runs outside the session and Excel cannot be driven from it. Do not use Excel on that
+runs outside the session and Excel cannot be driven from it. The workflow runs its step
+with the execution policy `Bypass` for that process only, like every script of the
+repository, so the machine's policy, which a Windows desktop sets to block scripts by
+default, is not changed. Do not use Excel on that
 machine while a run is in progress; a script-started Excel is left alone, as
 described above.
 

@@ -257,6 +257,9 @@ def check_self_hosted_job(job: Mapping[str, Any]) -> list[str]:
     for step in steps(job):
         if "${{" in str(step.get("run", "")):
             findings.append(f"{where}: a run step contains '${{{{'; pass it through env")
+        if "run" in step and "-ExecutionPolicy Bypass" not in str(step.get("shell", "")):
+            findings.append(f"{where}: a run step needs a shell with -ExecutionPolicy Bypass, as a Windows desktop's "
+                            "default policy blocks the runner's step script")
     return findings
 
 
@@ -265,8 +268,8 @@ def check_self_hosted(workflows: Docs) -> list[str]:
 
     The job starts for a branch of this repository or by hand, never for a fork, from no event that
     runs with the base's secrets; it holds only contents: read and pull-requests: write, cannot be
-    cancelled in the middle of an Excel run, has a bounded time, uses no secret and never writes
-    an expression into a command."""
+    cancelled in the middle of an Excel run, has a bounded time, uses no secret, never writes
+    an expression into a command and runs its steps with the execution policy Bypass of the process."""
     findings = []
     for name, workflow in workflows.items():
         for job_id, job in jobs(workflow).items():

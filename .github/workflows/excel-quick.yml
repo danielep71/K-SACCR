@@ -51,9 +51,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || inputs.branch }}
           persist-credentials: false
       # Nothing of the event is written into the command: the branch and the rest reach the script
-      # as environment variables.
+      # as environment variables. The step file runs with the execution policy Bypass for this process
+      # only, as every script of the repository does, because the default policy of a Windows desktop
+      # blocks the runner's own temporary script (the machine's setting is not changed).
       - name: Run the quick check and report it
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
