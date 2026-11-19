@@ -98,7 +98,19 @@ function Get-SheetNames {
     $matrix = [System.IO.File]::ReadAllText((Join-Path $RepoRoot "docs\workbook\protection.json"), $utf8NoBom) |
         ConvertFrom-Json
     # The sheets that must be protected: a sheet of the role Working is never protected (#720).
-    return @($matrix.sheets.PSObject.Properties | Where-Object { $_.Value.role -ne "Working" } | ForEach-Object { $_.Name })
+    $names = New-Object System.Collections.Generic.List[string]
+    $never = New-Object System.Collections.Generic.List[string]
+    foreach ($property in $matrix.sheets.PSObject.Properties) {
+        if ([string]$property.Value.role -eq "Working") {
+            $never.Add([string]$property.Name)
+        }
+        else {
+            $names.Add([string]$property.Name)
+        }
+    }
+    Write-Host ("Sheets that must be protected: " + $names.Count + "; never protected (role Working): [" +
+        ($never -join ", ") + "]")
+    return , @($names.ToArray())
 }
 
 function Get-BarLinks {

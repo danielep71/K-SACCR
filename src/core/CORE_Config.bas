@@ -501,6 +501,7 @@ Attribute VB_Name = "CORE_Config"
     'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
     'figures and inputs it was made from; it is empty when there is none.
         Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
+        Public Const RECON_FILTER_LAST_ROW As Long = 100000   'Last row of the AutoFilter the template gives a reconciliation sheet (#720)
         Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
         Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
     'TradeReconciliation has the same layout, with its own hidden name,

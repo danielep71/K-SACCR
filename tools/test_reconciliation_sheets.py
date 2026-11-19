@@ -76,6 +76,19 @@ class ReconciliationSheetTests(unittest.TestCase):
         self.assertIn('"@|0|@|@|@|@|#,##0.00|#,##0.00|"', main)
         self.assertNotIn("0.00########", main)
 
+    def test_a_longer_reconciliation_gets_a_filter_over_all_its_rows(self) -> None:
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
+        match = re.search(r"RECON_FILTER_LAST_ROW\s+As Long = (\d+)", config)
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertEqual(int(match.group(1)), 100000)
+        for name in SHEETS:
+            autofilter = self.sheet(name).find(MAIN + "autoFilter")
+            assert autofilter is not None
+            self.assertTrue(autofilter.attrib["ref"].endswith(match.group(1)), name)
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
+        self.assertIn("> RECON_FILTER_LAST_ROW Then", main)
+
     def test_the_sheets_are_listed_as_never_protected(self) -> None:
         config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
         match = re.search(r'PROTECT_NONE\s+As String = "([^"]*)"', config)

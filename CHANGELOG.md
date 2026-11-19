@@ -305,7 +305,7 @@ Use only the categories needed by a release.
   The difference column is the absolute difference, `|calculator - bank|`, and the
   relative difference keeps the sign; a bank figure of 0 has no relative difference, so
   its direction is not shown. Both sheets carry an AutoFilter on the header row
-  (C6 to row 100,000), and a run applies a filter the user set to the new rows. The
+  (C6 to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria. The
   sheets are never protected (role Working in the editability matrix, `PROTECT_NONE`
   in `CORE_Config`): the user can sort, filter, add columns and write notes, and a
   run or Clear outputs rewrites only the table. The gate of the matrix knows the

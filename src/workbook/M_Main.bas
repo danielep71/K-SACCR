@@ -1081,9 +1081,14 @@ Private Function ReconcileAfterRun( _
             WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
             FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00|#,##0.00|" & _
                           "#,##0.00|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
-        'The rows of a filter the user set stay filtered: the rule is applied to the new rows (#720).
+        'The rows of a filter the user set stay filtered: the rule is applied to the new rows. The
+        'template's filter ends at row 100,000: a reconciliation that goes beyond it gets a new filter
+        'over all its rows, without the criteria of the old one (#720).
             If ReconSheet.AutoFilterMode Then
-                If ReconSheet.FilterMode Then
+                If ReconFirstRow + RowsToWrite - 1 > RECON_FILTER_LAST_ROW Then
+                    ReconSheet.AutoFilterMode = False
+                    TableRange(ReconSheet, ReconFirstRow - 1, 1, ReconFirstRow + RowsToWrite - 1, ReconColsOf(ReconKind)).AutoFilter
+                ElseIf ReconSheet.FilterMode Then
                     On Error Resume Next
                     ReconSheet.AutoFilter.ApplyFilter
                     On Error GoTo Failed
