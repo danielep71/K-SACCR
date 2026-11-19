@@ -1,0 +1,77 @@
+name: Excel quick check
+
+# The quick Excel check of a pull request (tools/Verify-SACCR-Branch.ps1 -Quick, #618, #706) on the
+# owner's self-hosted Windows runner (#713), reported as a comment of the pull request. It is a
+# pull-request check, never release evidence. Write access to this repository is write access to that
+# machine: the workflow starts only for branches of this repository, or by hand, and the invariants of
+# tools/check_workflows.py hold it to that. See docs/EXCEL_EVIDENCE.md#automatic-quick-check.
+on:
+  pull_request:
+    branches:
+      - main
+      - "release/**"
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "docs/workbook/**"
+      - "tools/Verify-SACCR-Branch.ps1"
+      - "tools/Review-SACCR-Sheets.ps1"
+      - "tools/Check-SACCR-Protection.ps1"
+      - "tools/Sync-SACCR-VBA.ps1"
+      - "tools/Run-SACCR-QuickCheck.ps1"
+      - "tools/QuickCheck-Report.ps1"
+      - ".github/workflows/excel-quick.yml"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch of this repository to check, as on GitHub
+        required: true
+        type: string
+
+permissions: {}
+
+# One run per pull request at a time; a push during a run waits behind it, and only the newest waiting
+# run is kept. A running Excel is never cancelled: it would be left open on the machine.
+concurrency:
+  group: excel-quick-${{ github.event.pull_request.number || inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  quick:
+    name: Excel quick check
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Windows, X64, excel]
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.branch }}
+          persist-credentials: false
+      # Nothing of the event is written into the command: the branch and the rest reach the script
+      # as environment variables.
+      - name: Run the quick check and report it
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.branch }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_NAME: excel-quick-check-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          & "$env:GITHUB_WORKSPACE\tools\Run-SACCR-QuickCheck.ps1" -Branch $env:HEAD_REF
+          exit $LASTEXITCODE
+      - name: Upload the pictures and the text results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: excel-quick-check-${{ github.run_id }}-${{ github.run_attempt }}
+          path: quick-run-artifact
+          if-no-files-found: ignore
+          retention-days: 14

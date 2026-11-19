@@ -151,6 +151,52 @@ class ViolationTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertFinds(cw.check_milestones(mutated(change)), fragment)
 
+    def test_self_hosted_job(self) -> None:
+        name, quick = "excel-quick.yml", "quick"
+
+        def events_of(w: dict[str, Any]) -> dict[str, Any]:
+            found: dict[str, Any] = cw.events(w[name])
+            return found
+
+        cases: list[tuple[Callable[[dict[str, Any]], None], str]] = [
+            (lambda w: job(w, "labels-sync.yml", "validate").__setitem__("runs-on", ["self-hosted", "excel"]),
+             "labels-sync.yml/validate: runs on a self-hosted runner"),
+            (lambda w: job(w, "labels-sync.yml", "validate").__setitem__("runs-on", "${{ inputs.runner }}"),
+             "labels-sync.yml/validate: runs on a self-hosted runner"),
+            (lambda w: events_of(w).__setitem__("pull_request_target", {"branches": ["main"]}),
+             "event 'pull_request_target'"),
+            (lambda w: events_of(w).__setitem__("push", {"branches": ["main"]}), "event 'push'"),
+            (lambda w: events_of(w).__setitem__("pull_request", {}), "no branches filter"),
+            (lambda w: w[name].__setitem__("permissions", {"contents": "read"}), "top-level permissions"),
+            (lambda w: w[name]["concurrency"].__setitem__("cancel-in-progress", True), "cancel-in-progress: false"),
+            (lambda w: w[name].pop("concurrency"), "cancel-in-progress: false"),
+            (lambda w: job(w, name, quick).__setitem__("if", "github.event_name == 'pull_request'"),
+             "condition does not limit"),
+            (lambda w: job(w, name, quick).pop("if"), "condition does not limit"),
+            (lambda w: job(w, name, quick)["permissions"].__setitem__("contents", "write"),
+             "permissions must be contents: read"),
+            (lambda w: job(w, name, quick)["permissions"].__setitem__("issues", "read"),
+             "permissions must be contents: read"),
+            (lambda w: job(w, name, quick).__setitem__("timeout-minutes", 600), "timeout-minutes must be at most"),
+            (lambda w: job(w, name, quick).pop("timeout-minutes"), "timeout-minutes must be at most"),
+            (lambda w: job(w, name, quick)["steps"][1].__setitem__(
+                "run", "echo ${{ github.event.pull_request.head.ref }}"), "a run step contains"),
+            (lambda w: job(w, name, quick)["steps"][1]["env"].__setitem__("TOKEN", "${{ secrets.PAT }}"),
+             "uses a secret"),
+        ]
+        for change, fragment in cases:
+            with self.subTest(fragment=fragment):
+                self.assertFinds(cw.check_self_hosted(mutated(change)), fragment)
+
+        def remove(w: dict[str, Any]) -> None:
+            del w[name]
+        self.assertFinds(cw.check_self_hosted(mutated(remove)), "excel-quick.yml is missing")
+
+    def test_self_hosted_write_permission_is_listed(self) -> None:
+        def change(w: dict[str, Any]) -> None:
+            job(w, "excel-quick.yml", "quick")["permissions"]["issues"] = "write"
+        self.assertFinds(cw.check_write_permissions(mutated(change)), "excel-quick.yml/quick: write permission ['issues']")
+
     def test_triage_runtimes_are_installed_and_exact(self) -> None:
         for name, job_id in (("issue-triage.yml", "audit"), (cw.INTEGRITY_FILE, cw.INTEGRITY_JOB)):
             for action, key in (("setup-node", "node-version"), ("setup-python", "python-version")):

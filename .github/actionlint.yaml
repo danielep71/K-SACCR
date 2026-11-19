@@ -1,0 +1,4 @@
+# Custom runner labels, so that actionlint accepts the self-hosted runner of excel-quick.yml (#713).
+self-hosted-runner:
+  labels:
+    - excel

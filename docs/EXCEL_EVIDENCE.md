@@ -18,9 +18,10 @@ when evidence is required is in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and
 > `UNAVAILABLE`, static checks and synthetic fixtures are never an Excel pass.
 
 Execution is **manual**: an operator runs Excel interactively on the Windows
-host, with one command or step by step. There is no self-hosted runner and no
-automated Excel job, and neither way changes macro security or Trust Center
-settings.
+host, with one command or step by step. The one automated Excel job is the quick
+check of a pull request on the owner's self-hosted runner
+([Automatic quick check](#automatic-quick-check)); it is not a certification and
+writes no record. Neither way changes macro security or Trust Center settings.
 
 <a id="what-a-record-binds"></a>
 
@@ -171,6 +172,53 @@ same. Do not click **Enable Content** there, and do not use the window: an
 add-in loaded, or a click in the sheet, during `Test_RunAll` can leave a
 recalculation pending or turn screen updating back on, which the suites
 report as failures.
+
+<a id="automatic-quick-check"></a>
+
+### Automatic quick check
+
+The workflow [`excel-quick.yml`](../.github/workflows/excel-quick.yml) (#713) runs
+the quick check on the owner's self-hosted Windows runner, so that a pull request
+carries its result without anyone running the script by hand. It starts:
+
+- for a pull request into `main` or `release/**` **from a branch of this
+  repository** that changes `src/`, `tests/`, `docs/workbook/` or the scripts of
+  the quick check itself;
+- by hand, from Actions, **Excel quick check**, **Run workflow**, with the branch.
+
+It never starts for the branch of a fork. `tools/Run-SACCR-QuickCheck.ps1` takes the
+machine's Excel mutex (`Local\SACCR-ExcelAutomation`, so that two runs never drive
+Excel at once; other Excel automation on the machine should take the same one), runs
+`Verify-SACCR-Branch.ps1 -Quick` on the branch, then:
+
+- posts the summary as a comment of the pull request, **one per commit**, updated
+  by a re-run of the same commit; the comment says which commit was checked;
+- uploads the sheet pictures and the text results as an artifact, kept for 14 days,
+  with the machine's paths and user name replaced and without any workbook;
+- fails the job when the quick check fails, so the pull request shows a red check.
+
+The comment is a pull-request check, as the quick run always is: it is not release
+evidence, `check_excel_evidence.py` does not validate it, and the release
+certification stays manual. Whether it counts as the owner's Excel verification
+before a VBA or template merge is the owner's call
+([`GOVERNANCE.md`](GOVERNANCE.md#ownership-authorization-and-review)). The check is not a
+required one: with the machine off the job waits in the queue and the pull request
+shows it as pending.
+
+The runner is a Windows 64-bit machine with desktop Excel, Git and Windows
+PowerShell 5.1, with trusted access to the VBA project object model in Excel's
+Trust Center. It is registered for this repository with the label `excel` and
+started with its run command **in a logged-in session, not as a service**: a service
+runs outside the session and Excel cannot be driven from it. Do not use Excel on that
+machine while a run is in progress; a script-started Excel is left alone, as
+described above.
+
+Write access to this repository is write access to that machine, since a branch
+runs its own code there. The workflow therefore starts only for branches of this
+repository or by hand, holds `contents: read` and `pull-requests: write` only, uses
+no secret, writes no part of the event into a command and cannot be cancelled in
+the middle of an Excel run. The invariants of `tools/check_workflows.py` hold it to
+that, and Actions requires approval for the workflows of outside collaborators.
 
 <a id="manual-procedure"></a>
 
