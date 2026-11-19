@@ -298,6 +298,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Post the report of the automatic quick Excel check on a pull request that has
+  no comment yet (#713): Windows PowerShell 5.1 returns an empty string for the
+  empty list of comments, which the upsert read as a comment without a body and
+  stopped with a warning, so the report reached the job summary and the
+  artifact but not the pull request. A test covers an empty string and a
+  comment without a body.
+
 - Correct the formatting the first sheet review found (#708), with the owner's
   decisions of 2026-11-15:
   - column A, the navigation bar, is vertically centered like every other
