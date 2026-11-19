@@ -149,8 +149,8 @@ the following and record each result with the release evidence
    prompt beyond Excel's own macro notification. The K-SACCR tab (**Alt, K,
    S**) shows its six groups: Calculation, CSV import, Evidence, Parameters,
    Status and Navigate.
-2. **Commands.** Each command runs its macro: Run, and Run SA-CCR, Validate
-   inputs and Clear outputs in its menu; Import CSV > NettingSets file... and
+2. **Commands.** Each command runs its macro: Run, and Run SA-CCR and Validate
+   inputs in its menu; Clear outputs; Import CSV > NettingSets file... and
    Trades file...; Validate staging; Commit import; Templates >
    NettingSets template..., Trades template... and Import specification...;
    Export evidence; Restore parameters. A completed run opens Results,

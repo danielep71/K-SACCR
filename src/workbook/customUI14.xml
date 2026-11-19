@@ -30,11 +30,12 @@
               <button id="ksValidateInputs" label="Validate inputs" imageMso="DataValidation" keytip="V"
                       supertip="Clear the outputs and check every input; the findings are listed on Checks. Nothing is calculated."
                       onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-              <button id="ksClearOutputs" label="Clear outputs" imageMso="ClearAll" keytip="C"
-                      supertip="Empty the five output tables and both reconciliations."
-                      onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             </menu>
           </splitButton>
+          <button id="ksClearOutputs" label="Clear outputs" size="large" imageMso="ClearAll" keytip="C"
+                  screentip="Clear outputs"
+                  supertip="Empty the five output tables and both reconciliations. The inputs, Params and the evidence record stay."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
         </group>
 
         <group id="ksGrpImport" label="CSV import">
