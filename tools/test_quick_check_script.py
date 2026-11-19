@@ -186,51 +186,67 @@ $found -join "`n"
 
 
 FAKE_VERIFY = r"""
-param([string]$Branch, [switch]$Quick, [string]$RepoRoot)
+param([string]$Branch, [switch]$Quick, [string]$RepoRoot, [string]$Commit)
 $parent = Split-Path -Parent $RepoRoot
-$sha = '0123456789abcdef0123456789abcdef01234567'
-$bundle = Join-Path $parent 'saccr-verify-0123456'
+$sha = $Commit
+$bundle = Join-Path $parent ('saccr-verify-' + $sha.Substring(0, 7))
 New-Item -ItemType Directory -Path (Join-Path $bundle 'sheets') -Force | Out-Null
-[System.IO.File]::WriteAllBytes((Join-Path $bundle 'sheets\01-Home-run.png'), [byte[]](1, 2, 3))
+[System.IO.File]::WriteAllBytes((Join-Path $bundle 'sheets\\01-Home-run.png'), [byte[]](1, 2, 3))
 [System.IO.File]::WriteAllBytes((Join-Path $bundle 'K-SACCR_Verification.xlsm'), [byte[]](9))
 Set-Content -LiteralPath (Join-Path $bundle 'summary.log') -Value 'RESULT=PASS'
 $lines = @('K-SACCR branch verification (quick): a pull-request check, not a release certification',
            "Branch: $Branch", "Commit: $sha", "Bundle: $bundle", 'Result: ' + $env:FAKE_RESULT,
-           '', 'Test_RunAll (summary.log):', 'RESULT=PASS; suites=10', 'see ' + $bundle + '\x')
+           '', 'Test_RunAll (summary.log):', 'RESULT=PASS; suites=10', 'see ' + $bundle + '\\x')
 Set-Content -LiteralPath (Join-Path $bundle 'verify-summary.txt') -Value $lines
 $lines | ForEach-Object { Write-Output $_ }
 exit [int]$env:FAKE_CODE
 """
+GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test"]
+OTHER = "f" * 40
 
 
-@unittest.skipUnless(PWSH, "PowerShell 7 (pwsh) is not installed")
+def make_repo(root: Path, *scripts: str) -> tuple[Path, str]:
+    """A git repository of the tools folder with one commit; returns it and the commit."""
+    repo = root / "work" / "K-SACCR"
+    (repo / "tools").mkdir(parents=True)
+    for name in scripts:
+        shutil.copy(TOOLS / name, repo / "tools" / name)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run([*GIT, "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run([*GIT, "-C", str(repo), "commit", "-q", "-m", "x"], check=True)
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+    return repo, sha.stdout.strip()
+
+
+@unittest.skipUnless(PWSH and shutil.which("git"), "PowerShell 7 (pwsh) or git is not installed")
 class QuickCheckRunnerTests(unittest.TestCase):
     """tools/Run-SACCR-QuickCheck.ps1 end to end, with a fake Verify-SACCR-Branch.ps1 in place of Excel."""
 
-    def run_runner(self, folder: Path, branch: str, **env: str) -> tuple[subprocess.CompletedProcess[str], Path]:
-        repo = folder / "work" / "K-SACCR"
-        (repo / "tools").mkdir(parents=True)
-        for name in ("Run-SACCR-QuickCheck.ps1", "QuickCheck-Report.ps1"):
-            shutil.copy(TOOLS / name, repo / "tools" / name)
+    def run_runner(self, folder: Path, branch: str, **env: str) -> tuple[subprocess.CompletedProcess[str], Path, str]:
+        repo, sha = make_repo(folder, "Run-SACCR-QuickCheck.ps1", "QuickCheck-Report.ps1")
         (repo / "tools" / "Verify-SACCR-Branch.ps1").write_text(FAKE_VERIFY, encoding="utf-8")
+        subprocess.run(["git", "-C", str(repo), "update-index", "--assume-unchanged", "tools/Verify-SACCR-Branch.ps1"],
+                       check=False, capture_output=True)
         summary = folder / "step-summary.md"
+        head_sha = env.pop("HEAD_SHA", sha)
         completed = subprocess.run(
             [str(PWSH), "-NoProfile", "-NonInteractive", "-File", str(repo / "tools" / "Run-SACCR-QuickCheck.ps1"),
              "-Branch", branch, "-Shell", str(PWSH), "-MutexName", "Local\\SACCR-Test-" + folder.name, "-WaitMinutes", "1"],
             capture_output=True, text=True, check=False,
             env={**os.environ, "GITHUB_STEP_SUMMARY": str(summary), "GITHUB_TOKEN": "", "GITHUB_WORKSPACE": str(repo),
                  "RUN_URL": "https://example.test/run/7", "ARTIFACT_NAME": "excel-quick-check-7-1",
-                 "REPOSITORY": "danielep71/K-SACCR", "USERNAME": "", **env})
-        return completed, folder / "work"
+                 "REPOSITORY": "danielep71/K-SACCR", "USERNAME": "", "HEAD_SHA": head_sha, **env})
+        return completed, folder / "work", sha
 
     def test_a_branch_of_this_repository_is_run_and_reported(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             folder = Path(name)
-            completed, work = self.run_runner(folder, "feat/713-x", EVENT_NAME="pull_request",
-                                              HEAD_REPO="danielep71/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0")
+            completed, work, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="pull_request",
+                                                   HEAD_REPO="danielep71/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0")
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             report = (folder / "step-summary.md").read_text(encoding="utf-8")
-            self.assertIn("### Excel quick check of `0123456`: PASS", report)
+            self.assertIn("### Excel quick check of `" + sha[:7] + "`: PASS", report)
+            self.assertIn("<!-- excel-quick-check:" + sha + " -->", report)
             self.assertNotIn("Bundle:", report)
             self.assertNotIn(str(work), report)
             artifact = work / "K-SACCR" / "quick-run-artifact"
@@ -241,20 +257,78 @@ class QuickCheckRunnerTests(unittest.TestCase):
     def test_a_failed_check_fails_the_step_and_says_so(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             folder = Path(name)
-            completed, _ = self.run_runner(folder, "feat/713-x", EVENT_NAME="workflow_dispatch", HEAD_REPO="",
-                                           FAKE_RESULT="FAIL", FAKE_CODE="1")
+            completed, _, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="workflow_dispatch", HEAD_REPO="",
+                                                FAKE_RESULT="FAIL", FAKE_CODE="1", HEAD_SHA="")
             self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
-            self.assertIn("### Excel quick check of `0123456`: FAIL", (folder / "step-summary.md").read_text(encoding="utf-8"))
+            self.assertIn("### Excel quick check of `" + sha[:7] + "`: FAIL",
+                          (folder / "step-summary.md").read_text(encoding="utf-8"))
 
     def test_the_branch_of_a_fork_is_refused_and_nothing_runs(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             folder = Path(name)
-            completed, work = self.run_runner(folder, "feat/713-x", EVENT_NAME="pull_request",
-                                              HEAD_REPO="someone/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0")
+            completed, work, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="pull_request",
+                                                   HEAD_REPO="someone/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0")
             self.assertNotEqual(completed.returncode, 0)
             self.assertIn("Refused", completed.stdout + completed.stderr)
-            self.assertFalse((work / "saccr-verify-0123456").exists())
+            self.assertFalse((work / ("saccr-verify-" + sha[:7])).exists())
             self.assertFalse((folder / "step-summary.md").exists())
+
+    def test_a_checkout_that_is_not_the_commit_of_the_event_is_refused(self) -> None:
+        # The branch moved on while the run waited: the check must not be attached to a commit that was not tested.
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name)
+            completed, work, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="pull_request",
+                                                   HEAD_REPO="danielep71/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0",
+                                                   HEAD_SHA=OTHER)
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("not at the commit of the event", completed.stdout + completed.stderr)
+            self.assertFalse((work / ("saccr-verify-" + sha[:7])).exists())
+
+    def test_the_commit_is_passed_to_the_quick_check(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name)
+            completed, _, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="workflow_dispatch", HEAD_REPO="",
+                                                FAKE_RESULT="PASS", FAKE_CODE="0", HEAD_SHA="")
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertIn("Commit: " + sha, completed.stdout)
+
+
+@unittest.skipUnless(PWSH and shutil.which("git"), "PowerShell 7 (pwsh) or git is not installed")
+class VerifyCommitTests(unittest.TestCase):
+    """Verify-SACCR-Branch.ps1 -Commit verifies the checked-out commit and nothing else (#713)."""
+
+    def verify(self, repo: Path, commit: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(PWSH), "-NoProfile", "-NonInteractive", "-File", str(repo / "tools" / "Verify-SACCR-Branch.ps1"),
+             "-Branch", "feat/713-x", "-Quick", "-Commit", commit],
+            capture_output=True, text=True, check=False)
+
+    def test_another_commit_is_refused_before_anything_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            repo, sha = make_repo(Path(name), "Verify-SACCR-Branch.ps1")
+            completed = self.verify(repo, OTHER)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("nothing was verified", output)
+            self.assertFalse(any(p.name.startswith("saccr-verify-") for p in repo.parent.iterdir()))
+
+    def test_a_short_or_upper_case_sha_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            repo, sha = make_repo(Path(name), "Verify-SACCR-Branch.ps1")
+            for bad in (sha[:7], sha.upper()):
+                completed = self.verify(repo, bad)
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("Not a full commit SHA", completed.stdout + completed.stderr)
+
+    def test_the_checked_out_commit_is_the_one_verified_and_nothing_is_fetched(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            repo, sha = make_repo(Path(name), "Verify-SACCR-Branch.ps1")
+            completed = self.verify(repo, sha)
+            output = completed.stdout + completed.stderr
+            # No Excel here, so the quick check itself fails; what matters is where it started.
+            self.assertIn("Verifying the checked-out commit " + sha, output)
+            self.assertNotIn("Fetching", output)
+            self.assertIn("Commit: " + sha, output)
 
 
 if __name__ == "__main__":

@@ -105,7 +105,9 @@ Use only the categories needed by a release.
   without the workbooks and with the machine's paths replaced. It is a
   pull-request check, never release evidence; the certification stays manual.
   `tools/Run-SACCR-QuickCheck.ps1` takes an Excel mutex so that two runs never
-  drive Excel at once. The workflow invariants gain a rule: only this workflow
+  drive Excel at once, and verifies the commit the workflow checked out
+  (`Verify-SACCR-Branch.ps1 -Commit`), so that a branch that moves on while a
+  run waits cannot give a commit a result it did not earn. The workflow invariants gain a rule: only this workflow
   may run on a self-hosted runner, and only for branches of this repository or
   by hand. `docs/EXCEL_EVIDENCE.md` and `docs/GOVERNANCE.md` describe it.
 

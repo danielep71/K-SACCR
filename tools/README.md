@@ -106,10 +106,12 @@ as the Ribbon's labels, stay with the operator.
 
 `Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
 owner's self-hosted runner (#713): it refuses a run that is not a branch of this
-repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Quick`
-and reports the result as a comment of the pull request and an artifact of the
-run. Its functions that need no Excel are in `QuickCheck-Report.ps1`, tested by
-`test_quick_check_script.py`; see the
+repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Quick
+-Commit SHA` on the commit the workflow checked out (that switch fetches and checks
+out nothing, and stops when HEAD is another commit) and reports the result as a
+comment of the pull request and an artifact of the run. Its functions that need no
+Excel are in `QuickCheck-Report.ps1`; `test_quick_check_script.py` tests them and
+runs the script end to end against a fake verification; see the
 [automatic quick check](../docs/EXCEL_EVIDENCE.md#automatic-quick-check).
 
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they

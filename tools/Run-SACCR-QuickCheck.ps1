@@ -5,12 +5,16 @@ in the pull request (#713).
 .DESCRIPTION
 The step of .github\workflows\excel-quick.yml that needs Excel. In order:
 1. refuses a run that is neither a branch of this repository nor started by
-   hand (Test-QuickRunAllowed), so no code of a fork runs on the machine;
+   hand (Test-QuickRunAllowed), so no code of a fork runs on the machine, and
+   a checkout that is not at the commit of the event;
 2. removes the bundles of runs older than 14 days next to the checkout;
 3. takes the machine's Excel mutex, so that two runs never drive Excel at once,
    and waits for it up to -WaitMinutes;
-4. runs tools\Verify-SACCR-Branch.ps1 -Quick on the branch, in its own
-   PowerShell, and releases the mutex;
+4. runs tools\Verify-SACCR-Branch.ps1 -Quick -Commit on the commit the
+   workflow checked out, in its own PowerShell, and releases the mutex. The
+   commit is fixed before the wait: a push that moves the branch while the run
+   waits changes nothing, so a result is never attached to a commit whose
+   workbook was not tested;
 5. builds the report from verify-summary.txt, with the machine's paths, user
    and computer name replaced, copies the text results and the sheet pictures
    to -ArtifactDir, writes the job summary and posts the report on the pull
@@ -65,6 +69,17 @@ if (-not (Test-QuickRunAllowed -EventName (Get-EnvText "EVENT_NAME") -HeadReposi
     throw "Refused: this run is neither a branch of this repository nor started by hand."
 }
 
+# The commit the workflow checked out is the one that is verified: the event's own for a pull
+# request, the branch tip at checkout for a run by hand.
+$pinned = (@(& git -C $repoRoot rev-parse HEAD 2>&1 | ForEach-Object { [string]$_ }) -join "").Trim()
+if ($LASTEXITCODE -ne 0 -or $pinned -cnotmatch '^[0-9a-f]{40}$') {
+    throw "Cannot read the checked-out commit: $pinned"
+}
+$expected = Get-EnvText "HEAD_SHA"
+if ($expected -and $pinned -ne $expected) {
+    throw "The checkout is at $pinned, not at the commit of the event ($expected); nothing was verified."
+}
+
 # 2. Old bundles.
 $parent = Split-Path -Parent $repoRoot
 $removed = @(Remove-OldQuickBundles -Parent $parent -KeepDays $KeepDays)
@@ -93,7 +108,7 @@ try {
     # Windows PowerShell 5.1 turns a child's stderr line into an error record under "Stop".
     $ErrorActionPreference = "Continue"
     $output = @(& $Shell -NoProfile -ExecutionPolicy Bypass -File $verify -Branch $Branch -Quick `
-        -RepoRoot $repoRoot 2>&1 | ForEach-Object { [string]$_ })
+        -Commit $pinned -RepoRoot $repoRoot 2>&1 | ForEach-Object { [string]$_ })
     $code = $LASTEXITCODE
     $ErrorActionPreference = "Stop"
     $output | ForEach-Object { Write-Host $_ }
@@ -120,14 +135,8 @@ try {
         $tail = @($output | Select-Object -Last 15) -join [Environment]::NewLine
         $summary = "The quick check wrote no summary. The end of its output:" + [Environment]::NewLine + $tail
     }
-    $sha = ""
-    $shaMatch = [regex]::Match($summary + [Environment]::NewLine + $text, '(?m)^Commit: ([0-9a-f]{40})\s*$')
-    if ($shaMatch.Success) {
-        $sha = $shaMatch.Groups[1].Value
-    }
-    else {
-        $sha = (Get-EnvText "HEAD_SHA")
-    }
+    # The report is of the commit that was pinned, which the quick check was told to verify.
+    $sha = $pinned
     $replacements = @{}
     foreach ($path in @($bundle, $repoRoot, $parent, (Get-EnvText "GITHUB_WORKSPACE"), (Get-EnvText "RUNNER_TEMP"))) {
         if (-not [string]::IsNullOrWhiteSpace($path)) {

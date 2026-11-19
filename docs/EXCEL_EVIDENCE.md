@@ -189,13 +189,19 @@ carries its result without anyone running the script by hand. It starts:
 It never starts for the branch of a fork. `tools/Run-SACCR-QuickCheck.ps1` takes the
 machine's Excel mutex (`Local\SACCR-ExcelAutomation`, so that two runs never drive
 Excel at once; other Excel automation on the machine should take the same one), runs
-`Verify-SACCR-Branch.ps1 -Quick` on the branch, then:
+`Verify-SACCR-Branch.ps1 -Quick -Commit` on the commit the workflow checked out (the
+pull request's head, or the branch tip when a run by hand starts), then:
 
 - posts the summary as a comment of the pull request, **one per commit**, updated
   by a re-run of the same commit; the comment says which commit was checked;
 - uploads the sheet pictures and the text results as an artifact, kept for 14 days,
   with the machine's paths and user name replaced and without any workbook;
 - fails the job when the quick check fails, so the pull request shows a red check.
+
+The commit is fixed before the wait for Excel: a push that moves the branch while the run
+is queued changes nothing, so a result is never attached to a commit whose workbook was
+not tested, and a re-run of an older run verifies that older commit. The new push has
+its own run.
 
 The comment is a pull-request check, as the quick run always is: it is not release
 evidence, `check_excel_evidence.py` does not validate it, and the release
