@@ -79,6 +79,7 @@ Attribute VB_Name = "TEST_FormulaRandom"
         Private mSavedIsFormula As Variant       'True where an input cell held a formula
         Private mSavedExpected  As Variant       'Expected formulas
         Private mSavedRanges    As Variant       'Range table values
+        Private mSavedRangeF    As Variant       'Range table formulas: Empty where a cell held none
         Private mSavedSeed      As Variant       'Seed cell
         Private mSavedDrawn     As Variant       'Cell of the seed shown
         Private mSavedTolerance As Variant       'Tolerance cell
@@ -886,6 +887,46 @@ End Sub
 '------------------------------------------------------------------------------
 '
 
+Private Function RangeFormulas() As Variant
+'
+'==============================================================================
+'                               RangeFormulas
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The formula of each cell of the range table that holds one, as a
+'   block the shape of the table; Empty for a cell that holds a value. The
+'   user may enter a formula such as =10/250 in a limit or a boundary.
+'
+' UPDATED
+'   2026-11-19
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Table       As Range       'The range table
+    Dim Block()     As Variant     'Its formulas
+    Dim R           As Long        'Row
+    Dim C           As Long        'Column
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Set Table = ThisWorkbook.Names("FormulaTest_Ranges").RefersToRange
+        ReDim Block(1 To Table.Rows.Count, 1 To Table.Columns.Count)
+        If IsNull(Table.HasFormula) Or Table.HasFormula = True Then
+            For R = 1 To Table.Rows.Count
+                For C = 1 To Table.Columns.Count
+                    If Table.Cells(R, C).HasFormula Then Block(R, C) = Table.Cells(R, C).Formula
+                Next C
+            Next R
+        End If
+        RangeFormulas = Block
+
+End Function
+
+
 Private Sub Save()
 '
 '==============================================================================
@@ -931,6 +972,7 @@ Private Sub Save()
         mSavedIsFormula = IsFormula
         mSavedExpected = Expected
         mSavedRanges = ThisWorkbook.Names("FormulaTest_Ranges").RefersToRange.Value2
+        mSavedRangeF = RangeFormulas()
         mSavedSeed = ThisWorkbook.Names("FormulaTest_Seed").RefersToRange.Formula
         mSavedDrawn = ThisWorkbook.Names("FormulaTest_DrawnSeed").RefersToRange.Formula
         mSavedTolerance = ThisWorkbook.Names("FormulaTest_Tolerance").RefersToRange.Formula
@@ -992,6 +1034,11 @@ Private Function Restore() As Boolean
         Next R
         Set Table = ThisWorkbook.Names("FormulaTest_Ranges").RefersToRange
         Table.Value2 = mSavedRanges
+        For R = 1 To UBound(mSavedRangeF, 1)
+            For C = 1 To UBound(mSavedRangeF, 2)
+                If Not IsEmpty(mSavedRangeF(R, C)) Then Table.Cells(R, C).Formula = mSavedRangeF(R, C)
+            Next C
+        Next R
         ThisWorkbook.Names("FormulaTest_Seed").RefersToRange.Formula = mSavedSeed
         ThisWorkbook.Names("FormulaTest_DrawnSeed").RefersToRange.Formula = mSavedDrawn
         ThisWorkbook.Names("FormulaTest_Tolerance").RefersToRange.Formula = mSavedTolerance
@@ -1020,6 +1067,13 @@ Private Function Restore() As Boolean
                     Wrong = Wrong + 1
                 ElseIf Not IsEmpty(Current(R, C)) Then
                     If Current(R, C) <> mSavedRanges(R, C) Then Wrong = Wrong + 1
+                End If
+            Next C
+        Next R
+        For R = 1 To UBound(mSavedRangeF, 1)
+            For C = 1 To UBound(mSavedRangeF, 2)
+                If Not IsEmpty(mSavedRangeF(R, C)) Then
+                    If Table.Cells(R, C).Formula <> mSavedRangeF(R, C) Then Wrong = Wrong + 1
                 End If
             Next C
         Next R
