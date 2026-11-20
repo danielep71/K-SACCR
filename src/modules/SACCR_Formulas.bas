@@ -8,7 +8,7 @@ Attribute VB_Name = "SACCR_Formulas"
 '   functions, so every intermediate figure can be checked independently.
 '
 ' PUBLIC SURFACE
-'   The ten SACCR_* functions, listed in docs/PUBLIC_API.txt. Their names,
+'   The eleven SACCR_* functions, listed in docs/PUBLIC_API.txt. Their names,
 '   arguments, defaults and results are a contract: changing one is a public
 '   API change.
 '
@@ -57,6 +57,14 @@ Attribute VB_Name = "SACCR_Formulas"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
+    'The calendar of SACCR_BusinessDays (#721): the serial numbers of 1 March
+    '1900, from which the day of the week is that of a real calendar, and of 31
+    'December 9999; the first year of the TARGET calendar, and the first with
+    'its full rule.
+        Private Const BD_FIRST_SERIAL      As Double = 61#
+        Private Const BD_LAST_SERIAL       As Double = 2958465#
+        Private Const TARGET_FIRST_YEAR    As Long = 1999
+        Private Const TARGET_FULL_RULE_YEAR As Long = 2000
     'VarType of a LongLong, vbLongLong; only 64-bit VBA produces it. The
     'value is used instead of the name so that 32-bit VBA compiles too.
         Private Const VT_LONGLONG As Long = 20
@@ -962,6 +970,141 @@ Overflowed:
 End Function
 
 
+Public Function SACCR_BusinessDays( _
+    ByVal StartDate As Double, _
+    ByVal EndDate As Double, _
+    Optional ByVal Holidays As Variant, _
+    Optional ByVal UseTarget As Boolean = True) _
+    As Variant
+'
+'==============================================================================
+'                             SACCR_BusinessDays
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Number of business days between two dates on a calendar (#721): the
+'   first date excluded and the last included, Saturday and Sunday never
+'   counted, and the closing days of the calendar left out. The calendar
+'   is the EUR TARGET rule, a table of closing days, or both. The count of
+'   business days over BusinessDaysPerYear (250) is the day-count
+'   convention BD250.
+'
+'   TARGET closes on 1 January, Good Friday, Easter Monday, 1 May, 25
+'   December and 26 December, with Good Friday and Easter Monday from the
+'   Gregorian Easter of the year. Its range of validity starts on 1
+'   January 1999: in 1999 it closed on 1 January, 25 December and 31
+'   December, in 2001 also on 31 December, and Good Friday, Easter Monday,
+'   1 May and 26 December closed it from 2000.
+'
+' INPUTS
+'   StartDate, EndDate: dates as serial numbers, from 1 March 1900 (a time
+'      of day is ignored). Either may be the later one.
+'   Holidays: optional closing days, a date, a range or an array of dates;
+'      blank cells are skipped, a date on a weekend or listed twice counts
+'      once, and a date outside the interval changes nothing.
+'   UseTarget: True (default) adds the TARGET rule to the table; False
+'      counts weekends and the table only, with no range of validity.
+'
+' RETURNS
+'   The business days in (StartDate, EndDate]: negative when EndDate is
+'   before StartDate, 0 for the same day. #NUM! for a date before 1 March
+'   1900 and, when UseTarget is True, for an interval that touches a year
+'   before 1999; #VALUE! for a table entry that is not a date; the error
+'   itself for an error value in the table; #REF! for an array of more than
+'   two dimensions.
+'
+' REFERENCE
+'   ECB TARGET closing days; the Anonymous Gregorian algorithm for Easter.
+'   The Python reference is tools/business_calendar.py.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim FirstDay    As Long          'The earlier date
+    Dim LastDay     As Long          'The later date
+    Dim Direction   As Long          '1, or -1 when EndDate is before StartDate
+    Dim Count       As Long          'Business days in (FirstDay, LastDay]
+    Dim Seen        As Collection    'Closing days already taken off, by date
+    Dim List        As Variant       'The table, flattened
+    Dim nRows       As Long          'Its rows
+    Dim nCols       As Long          'Its columns
+    Dim Item        As Variant       'One entry of the table
+    Dim y           As Long          'Year
+    Dim k           As Long          'Entry
+
+'------------------------------------------------------------------------------
+' VALIDATE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If StartDate < BD_FIRST_SERIAL Or EndDate < BD_FIRST_SERIAL Or StartDate > BD_LAST_SERIAL Or EndDate > BD_LAST_SERIAL Then
+            SACCR_BusinessDays = CVErr(xlErrNum)
+            Exit Function
+        End If
+        FirstDay = CLng(Int(StartDate))
+        LastDay = CLng(Int(EndDate))
+        Direction = 1
+        If LastDay < FirstDay Then
+            y = FirstDay
+            FirstDay = LastDay
+            LastDay = y
+            Direction = -1
+        End If
+        If UseTarget Then
+            If Year(FirstDay) < TARGET_FIRST_YEAR Then
+                SACCR_BusinessDays = CVErr(xlErrNum)
+                Exit Function
+            End If
+        End If
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+    'Every Monday to Friday of the interval, less each closing day that falls
+    'on one of them, once.
+        Count = BDWeekdaysThrough(LastDay) - BDWeekdaysThrough(FirstDay)
+        Set Seen = New Collection
+        If UseTarget Then
+            For y = Year(FirstDay) To Year(LastDay)
+                BDTakeOffTarget y, FirstDay, LastDay, Seen, Count
+            Next y
+        End If
+        If Not IsMissing(Holidays) Then
+            List = FlatList(CellValue(Holidays), nRows, nCols)
+            If nRows < 0 Then
+                SACCR_BusinessDays = CVErr(xlErrRef)
+                Exit Function
+            End If
+            For k = LBound(List) To UBound(List)
+                Item = List(k)
+                If IsError(Item) Then
+                    SACCR_BusinessDays = Item
+                    Exit Function
+                ElseIf IsNumberValue(Item) Then
+                    If Item >= BD_FIRST_SERIAL And Item <= BD_LAST_SERIAL Then
+                        BDTakeOff CLng(Int(Item)), FirstDay, LastDay, Seen, Count
+                    End If
+                ElseIf Not IsEmpty(Item) Then
+                    SACCR_BusinessDays = CVErr(xlErrValue)
+                    Exit Function
+                End If
+            Next k
+        End If
+        SACCR_BusinessDays = Direction * Count
+        Exit Function
+
+'------------------------------------------------------------------------------
+' HANDLE ERROR
+'------------------------------------------------------------------------------
+Failed:
+        SACCR_BusinessDays = CVErr(xlErrValue)
+
+End Function
+
+
 '
 '------------------------------------------------------------------------------
 '
@@ -1143,5 +1286,172 @@ Private Function IsVectorShape( _
 '==============================================================================
 '
         IsVectorShape = (nRows <= 1 Or nCols = 1)
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              CALENDAR HELPERS
+'
+'------------------------------------------------------------------------------
+'
+
+Private Function BDWeekdaysThrough( _
+    ByVal Serial As Long) _
+    As Long
+'
+'==============================================================================
+'                             BDWeekdaysThrough
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Number of Mondays to Fridays from a fixed Monday up to and including a
+'   date, so that the difference of two values is the number of weekdays
+'   between the dates. The day of the week of a serial number is
+'   (Serial - 2) Mod 7, with 0 for Monday, from 1 March 1900.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim Offset   As Long    'Days from the Monday that day 0 stands for
+    Dim Part     As Long    'Position in the week, 1 for Monday
+
+        Offset = Serial - 2
+        Part = (Offset Mod 7) + 1
+        If Part > 5 Then
+            Part = 5
+        End If
+        BDWeekdaysThrough = 5 * (Offset \ 7) + Part
+
+End Function
+
+
+Private Sub BDTakeOff( _
+    ByVal Serial As Long, _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long, _
+    ByVal Seen As Collection, _
+    ByRef Count As Long)
+'
+'==============================================================================
+'                                  BDTakeOff
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Take one closing day off the count when it lies in (FirstDay, LastDay],
+'   falls on a Monday to Friday and has not been taken off before.
+'
+' ERROR POLICY
+'   Contains the expected error of adding a duplicate key to the Collection.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+        If Serial <= FirstDay Or Serial > LastDay Then
+            Exit Sub
+        End If
+        If ((Serial - 2) Mod 7) > 4 Then
+            Exit Sub
+        End If
+        On Error Resume Next
+        Seen.Add Serial, CStr(Serial)
+        If Err.Number = 0 Then
+            Count = Count - 1
+        End If
+        Err.Clear
+
+End Sub
+
+
+Private Sub BDTakeOffTarget( _
+    ByVal TargetYear As Long, _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long, _
+    ByVal Seen As Collection, _
+    ByRef Count As Long)
+'
+'==============================================================================
+'                               BDTakeOffTarget
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Take the TARGET closing days of a year off the count: 1 January and 25
+'   December; from 2000 also Good Friday, Easter Monday, 1 May and 26
+'   December; and 31 December in 1999 and 2001. A year before 1999 takes
+'   none off (the caller refuses such an interval).
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim Easter   As Long    'Easter Sunday of the year
+
+        If TargetYear < TARGET_FIRST_YEAR Then
+            Exit Sub
+        End If
+        BDTakeOff CLng(DateSerial(TargetYear, 1, 1)), FirstDay, LastDay, Seen, Count
+        BDTakeOff CLng(DateSerial(TargetYear, 12, 25)), FirstDay, LastDay, Seen, Count
+        If TargetYear >= TARGET_FULL_RULE_YEAR Then
+            Easter = BDEasterSunday(TargetYear)
+            BDTakeOff Easter - 2, FirstDay, LastDay, Seen, Count
+            BDTakeOff Easter + 1, FirstDay, LastDay, Seen, Count
+            BDTakeOff CLng(DateSerial(TargetYear, 5, 1)), FirstDay, LastDay, Seen, Count
+            BDTakeOff CLng(DateSerial(TargetYear, 12, 26)), FirstDay, LastDay, Seen, Count
+        End If
+        If TargetYear = 1999 Or TargetYear = 2001 Then
+            BDTakeOff CLng(DateSerial(TargetYear, 12, 31)), FirstDay, LastDay, Seen, Count
+        End If
+
+End Sub
+
+
+Private Function BDEasterSunday( _
+    ByVal TargetYear As Long) _
+    As Long
+'
+'==============================================================================
+'                              BDEasterSunday
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The serial number of Easter Sunday of a year of the Gregorian calendar,
+'   by the Anonymous Gregorian algorithm (integer arithmetic only).
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim a   As Long
+    Dim b   As Long
+    Dim c   As Long
+    Dim d   As Long
+    Dim e   As Long
+    Dim f   As Long
+    Dim g   As Long
+    Dim h   As Long
+    Dim i   As Long
+    Dim k   As Long
+    Dim l   As Long
+    Dim m   As Long
+    Dim t   As Long    'Month and day in one number
+
+        a = TargetYear Mod 19
+        b = TargetYear \ 100
+        c = TargetYear Mod 100
+        d = b \ 4
+        e = b Mod 4
+        f = (b + 8) \ 25
+        g = (b - f + 1) \ 3
+        h = (19 * a + b - d - g + 15) Mod 30
+        i = c \ 4
+        k = c Mod 4
+        l = (32 + 2 * e + 2 * i - h - k) Mod 7
+        m = (a + 11 * h + 22 * l) \ 451
+        t = h + l - 7 * m + 114
+        BDEasterSunday = CLng(DateSerial(TargetYear, t \ 31, (t Mod 31) + 1))
 
 End Function
