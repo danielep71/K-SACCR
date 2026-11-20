@@ -393,12 +393,34 @@ Use only the categories needed by a release.
   The difference column is the absolute difference, `|calculator - bank|`, and the
   relative difference keeps the sign; a bank figure of 0 has no relative difference, so
   its direction is not shown. Both sheets carry an AutoFilter on the header row
-  (C6 to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria. The
+  (from the header row to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria. The
   sheets are never protected (role Working in the editability matrix, `PROTECT_NONE`
   in `CORE_Config`): the user can sort, filter, add columns and write notes, and a
   run or Clear outputs rewrites only the table. The gate of the matrix knows the
-  role, and `test_reconciliation_sheets.py` checks the template. The summary block of the
-  same issue follows in its own change.
+  role, and `test_reconciliation_sheets.py` checks the template. The summary tiles of the
+  same issue are in the next entry.
+
+- Show a summary of the reconciliation as tiles above the table of the two
+  reconciliation sheets (#720). Eight tiles in two rows (Last reconciliation, Rows
+  shown, Figures compared, Match, Difference, Not in bank file, Missing in
+  calculator and Duplicate rows) and a ninth for the other results (withheld, invalid
+  input, regime mismatch, and on TradeReconciliation excluded and not applicable,
+  with their counts, or None). Each tile is a navy label shape and a value shape
+  beside it, in the style of the sheet buttons (the value of Match green and that of
+  Difference red), as one group right of the frozen columns, free of the column
+  widths and row heights. A value shape is linked to a helper cell (`textlink`), and
+  the helper cells (columns Q to V of rows 1 to 5, hidden, name
+  `Reconciliation_Tiles` and `TradeReconciliation_Tiles`) hold the formulas: counts
+  of the visible rows with `SUBTOTAL(103, ...)` to the last row of the sheet (a
+  reconciliation longer than the AutoFilter limit is counted whole), so the tiles
+  follow a filter and need no macro, and `0` or `None` when the table is empty. The shapes are part of
+  the template, locked, and outside the navigation-bar group. The header row moved from
+  row 6 to row 10 to make room (the name `Reconciliation_Header`, the frozen panes, the
+  AutoFilter, the conditional formats and `sheet-style.json` follow; the macros find
+  the table by its name). The Rows shown tile counts the rows of the table that the
+  filter leaves, not the rows of the bank sheet: a distinct count of bank rows
+  would recalculate over the whole table at each edit. The per-measure table of
+  amounts of the issue is not part of this change.
 
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
   case, check and failure counts, the completeness check against the
