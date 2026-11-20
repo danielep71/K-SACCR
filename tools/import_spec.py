@@ -400,11 +400,11 @@ def bank_section(kind: str, contract: dict[str, Any]) -> str:
         f"it as {code('MISSING IN CALCULATOR')}.</p>",
         f"<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet "
         f"{code(spec['sheet'])}, and an amount in the file is written in that scale. A blank figure is not compared. "
-        f"The file holds at most {spec['max_records']:,} records, the rows of the sheet; a longer file is rejected "
-        "whole, never truncated.</p>",
+        f"The file holds at most {spec['max_records']:,} records; a longer file is rejected whole, never "
+        "truncated.</p>",
         "<h3>How a file is loaded</h3>",
         "<ul>"
-        "<li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a "
+        "<li>The file is accepted or rejected as a whole: a finding, a file with too many records or a "
         "header-only file changes nothing, and the findings are listed in a message.</li>"
         "<li>A sheet that already holds figures asks before they are replaced.</li>"
         f"<li>The identifier, the regime and the comment are written as text, so {code('00731')} keeps its leading "

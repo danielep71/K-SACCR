@@ -174,9 +174,16 @@ The two bank files hold figures a user compares with the workbook's, not inputs
 of a run, and carry no scale and no tolerance: both stay on the sheet (the amount
 scale in `D4`, the absolute tolerance in `D5` and the relative tolerance in `D6`).
 An amount in a bank file is written in the scale of the sheet. A blank figure is
-not compared. Their limits are the rows of the sheets, 200 netting sets (rows 9 to
-208 of `BankNettingSets`) and 500 legs (rows 9 to 508 of `BankTrades`): a file
-with more records is rejected whole (`CSV-TOO-MANY-RECORDS`), never truncated.
+not compared. Their limits are 10,000 netting sets (`BankNettingSets`) and 50,000
+legs (`BankTrades`): a file with more records is rejected whole
+(`CSV-TOO-MANY-RECORDS`), never truncated. The template formats and validates the
+first 200 rows of `BankNettingSets` and the first 500 of `BankTrades` (rows 9 to
+208 and 9 to 508: dropdowns, the warning on a repeated ID, the number formats);
+a load writes every record, and the rows below those have the number formats of
+the first row and no dropdown or warning, as the committed rows of the input
+sheets do. A reconciliation writes one row per figure, 11 for each trade leg, to a
+sheet that holds 1,048,576 rows: when the rows it needs do not fit, it is not made
+and the run message says how many it needs.
 A bank file has no rule against the other files: an ID that is not on
 `NettingSets` or on `Trades` is a row the reconciliation reports as
 `MISSING IN CALCULATOR`, not a finding of the file.

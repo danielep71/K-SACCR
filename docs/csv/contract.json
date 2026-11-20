@@ -188,7 +188,7 @@
       "sheet": "BankNettingSets",
       "key": "netting_set_id",
       "reserved_keys": [],
-      "max_records": 200,
+      "max_records": 10000,
       "examples": [
         {"netting_set_id": "NS-001", "regime": "BCBS", "ead": "350913.6", "rc": "120000", "pfe": "230913.6", "addon_aggregate": "225000", "addon_ir": "200000", "addon_fx": "25000", "multiplier": "1", "comment": "Month-end figures"},
         {"netting_set_id": "00731", "regime": "CRR", "ead": "1250000"},
@@ -217,7 +217,7 @@
       "sheet": "BankTrades",
       "key": "trade_id",
       "reserved_keys": [],
-      "max_records": 500,
+      "max_records": 50000,
       "examples": [
         {"trade_id": "TRD-101-IR", "notional": "5000000", "mtm": "-1200000", "maturity": "3", "supervisory_duration": "2.8", "adjusted_notional": "14000000", "supervisory_delta": "-1", "mf_unmargined": "1", "mf_margined": "0.3", "effective_notional_unmargined": "14000000", "effective_notional_margined": "4200000", "standalone_addon": "70000", "comment": "Month-end figures"},
         {"trade_id": "000245", "notional": "1000000"},

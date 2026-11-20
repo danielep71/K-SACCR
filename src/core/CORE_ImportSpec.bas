@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v3.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 46909    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 46875    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -185,8 +185,8 @@ Private Sub AppendPart2( _
         Page = Page & "<tbody>" & vbLf
         Page = Page & "<tr><td>NettingSets</td><td class=""num"">2</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_NettingSets_v2.csv</code></td></tr>" & vbLf
         Page = Page & "<tr><td>Trades</td><td class=""num"">1</td><td>Trades</td><td><code>trade_id</code></td><td class=""num"">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>" & vbLf
-        Page = Page & "<tr><td>BankNettingSets</td><td class=""num"">1</td><td>BankNettingSets</td><td><code>netting_set_id</code></td><td class=""num"">200</td><td><code>K-SACCR_BankNettingSets_v1.csv</code></td></tr>" & vbLf
-        Page = Page & "<tr><td>BankTrades</td><td class=""num"">1</td><td>BankTrades</td><td><code>trade_id</code></td><td class=""num"">500</td><td><code>K-SACCR_BankTrades_v1.csv</code></td></tr>" & vbLf
+        Page = Page & "<tr><td>BankNettingSets</td><td class=""num"">1</td><td>BankNettingSets</td><td><code>netting_set_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_BankNettingSets_v1.csv</code></td></tr>" & vbLf
+        Page = Page & "<tr><td>BankTrades</td><td class=""num"">1</td><td>BankTrades</td><td><code>trade_id</code></td><td class=""num"">50,000</td><td><code>K-SACCR_BankTrades_v1.csv</code></td></tr>" & vbLf
         Page = Page & "</tbody>" & vbLf
         Page = Page & "</table>" & vbLf
         Page = Page & "</section>" & vbLf
@@ -255,7 +255,7 @@ Private Sub AppendPart3( _
         Page = Page & "<li>A file is accepted or rejected <strong>as a whole</strong>: one finding rejects every record, and no record is dropped or truncated.</li>" & vbLf
         Page = Page & "</ul>" & vbLf
         Page = Page & "<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class=""num"">10,000</td></tr><tr><td>Trades</td><td class=""num"">100,000</td></tr><tr><td>BankNett"
-        Page = Page & "ingSets</td><td class=""num"">200</td></tr><tr><td>BankTrades</td><td class=""num"">500</td></tr></tbody></table>" & vbLf
+        Page = Page & "ingSets</td><td class=""num"">10,000</td></tr><tr><td>BankTrades</td><td class=""num"">50,000</td></tr></tbody></table>" & vbLf
         Page = Page & "<p>A file of more than 134,217,728 bytes (128 MiB), a byte-order mark included, is rejected from its size alone. These limits are the import's. The sheets' drop-down lists cover only the rows a user t"
         Page = Page & "ypes into, and the calculation reads every row of the input sheets, so they limit neither the import nor the calculation.</p>" & vbLf
         Page = Page & "</section>" & vbLf
@@ -468,11 +468,11 @@ Private Sub AppendPart6( _
         Page = Page & "<p>One record per netting set: the figures of the bank's own calculation that <code>Reconciliation</code> compares with the workbook's. <code>netting_set_id</code> is the key: unique in the file and c"
         Page = Page & "ompared case-insensitively, matched to the ID on <code>NettingSets</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
         Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankNettingSets</code>, and an amount in the file is written in that scale. A blank figure is"
-        Page = Page & " not compared. The file holds at most 200 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>" & vbLf
+        Page = Page & " not compared. The file holds at most 10,000 records; a longer file is rejected whole, never truncated.</p>" & vbLf
         Page = Page & "<h3>How a file is loaded</h3>" & vbLf
-        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that al"
-        Page = Page & "ready holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a numbe"
-        Page = Page & "r; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
+        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that alrea"
+        Page = Page & "dy holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; "
+        Page = Page & "a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
         Page = Page & "<h3>Columns</h3>" & vbLf
         Page = Page & "<div class=""wide""><table>" & vbLf
         Page = Page & "<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></t"
@@ -529,11 +529,11 @@ Private Sub AppendPart7( _
         Page = Page & "<p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and comp"
         Page = Page & "ared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
         Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not "
-        Page = Page & "compared. The file holds at most 500 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>" & vbLf
+        Page = Page & "compared. The file holds at most 50,000 records; a longer file is rejected whole, never truncated.</p>" & vbLf
         Page = Page & "<h3>How a file is loaded</h3>" & vbLf
-        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that al"
-        Page = Page & "ready holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a numbe"
-        Page = Page & "r; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
+        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that alrea"
+        Page = Page & "dy holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; "
+        Page = Page & "a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
         Page = Page & "<h3>Columns</h3>" & vbLf
         Page = Page & "<div class=""wide""><table>" & vbLf
         Page = Page & "<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></t"

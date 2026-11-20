@@ -97,6 +97,20 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Lift the limits of the bank files (#718, follow-up). The files were limited to the rows the template
+  formats, 200 netting sets and 500 legs; they now hold up to 10,000 netting sets (as `NettingSets`)
+  and 50,000 legs, the limits of the contract (`CSV-TOO-MANY-RECORDS` above them, as before). The
+  template is unchanged: its first 200 and 500 rows keep the dropdowns, the warning on a repeated ID
+  and the number formats; a load writes every record, text as text, with the number formats of the
+  first row in the rows below, which have no dropdown or warning, as the committed rows of the input
+  sheets. A reconciliation writes one row per figure, 11 per trade leg, to a sheet of 1,048,576 rows;
+  one that does not fit is not made and the run message says how many rows it needs. The contract,
+  the generated modules, the import specification page and the contract page follow. New checks:
+  a file of 250 records is written whole (`TEST_Reconcile`), the "too many records" cases use
+  10,001 and 50,001 records, and a reconciliation too long for its sheet (test seam
+  `reconcile-rows`); `TEST_Reconcile` is 23 cases and 237 checks. Loading and reconciling files of
+  these sizes has not been timed.
+
 - Choose the days of the year and the calendar on Params (#721, follow-up). The first parts of
   #721 offered a convention `CAL365` or `BD250`; it is replaced by the usual day counts. Years are
   the ACTUAL days between the reporting date and the date, counted on a calendar, over the days of a

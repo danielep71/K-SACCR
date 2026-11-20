@@ -127,7 +127,8 @@ Attribute VB_Name = "M_Main"
 '   restoration fail; gTestFault = "recalc" takes the path of a
 '   recalculation that did not finish (#195); gTestFault = "recalc-error"
 '   raises ERR_INJECTED_FAULT where the recalculation starts, as an error
-'   thrown by it would (#204); gTestFault = "reconcile" raises
+'   thrown by it would (#204); gTestFault = "reconcile-rows" makes the reconciliation need every row of its
+'   sheet and one more (#718); gTestFault = "reconcile" raises
 '   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
 '   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
@@ -250,7 +251,7 @@ Attribute VB_Name = "M_Main"
     'Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write", "commit-*" or "restore-*"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "reconcile-rows", "evidence-*", "staging-write", "commit-*" or "restore-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
@@ -1138,6 +1139,20 @@ Private Function ReconcileAfterRun( _
                 ReconRows = WithEconomicTradeIds(ComparedRows)
             End If
             RowsToWrite = UBound(ReconRows, 1)
+            If gTestFault = "reconcile-rows" Then
+                RowsToWrite = ReconSheet.Rows.Count
+            End If
+        'One row per figure, 11 per trade leg: a sheet holds 1,048,576 rows. A reconciliation that does not
+        'fit is not made, and the message says what it needs (#718).
+            If ReconFirstRow + RowsToWrite - 1 > ReconSheet.Rows.Count Then
+                Problem = "it needs " & RowsToWrite & " rows from row " & ReconFirstRow & " and " & ReconSheet.Name & _
+                          " holds " & ReconSheet.Rows.Count & ": use fewer bank rows"
+                ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & Problem & ".", _
+                                    ReconKind
+                AddReconLine ReconName & " not run: " & Problem & "."
+                ReconcileAfterRun = "FAILED"
+                Exit Function
+            End If
             WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
             FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00|#,##0.00|" & _
                           "#,##0.00|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
@@ -3956,9 +3971,14 @@ Private Sub LoadBank( _
         End If
         Cleared = True
         TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+    'The template formats the first rows of the sheet; a longer file is written
+    'with the format of the first row in every column (#718), text as text.
         For c = 1 To Width
             If Columns(c).Kind <> "number" Then
                 TableRange(Sheet, FirstRow, c, FirstRow + Result.RecordCount - 1, c).NumberFormat = "@"
+            Else
+                TableRange(Sheet, FirstRow, c, FirstRow + Result.RecordCount - 1, c).NumberFormat = _
+                    TableCell(Sheet, FirstRow, c).NumberFormat
             End If
         Next c
         TableRange(Sheet, FirstRow, 1, FirstRow + Result.RecordCount - 1, Width).Value2 = NewBlock

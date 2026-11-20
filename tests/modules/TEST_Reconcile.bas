@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 23              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 232              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 237              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -758,6 +758,17 @@ Private Sub CaseWorkbook()
                        "summary after a failed reconciliation: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
         ResultLine = M_Main.RunSACCR_Silent()
         TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the failed reconciliation: " & ResultLine
+
+    'A reconciliation that needs more rows than its sheet holds is not made, and
+    'its summary says so (#718). A normal run follows.
+        M_Main.gTestFault = "reconcile-rows"
+        ResultLine = M_Main.RunSACCR_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=FAILED;") > 0, "run with a reconciliation too long for its sheet: " & ResultLine
+        TEST_Kit.Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "holds " & ReconSheet.Rows.Count) > 0, _
+                       "summary of a reconciliation too long for its sheet: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the reconciliation too long: " & ResultLine
 
 '------------------------------------------------------------------------------
 ' EDITED BANK FIGURE, STOPPED RUN, THEN VALIDATION
@@ -1726,8 +1737,24 @@ Private Sub CaseBankImport()
         TEST_Kit.Check Abs(TableCell(BankSheet, FirstRow, BN_MULT).Value2 - 0.5) < TOL, "multiplier"
         TEST_Kit.Check IsEmpty(TableCell(BankSheet, FirstRow + 1, BN_ID).Value2), "the second row of the first load was not cleared"
 
+    'A file longer than the rows the template formats (200 here) is written
+    'whole (#718): the last record is there, and a figure column has the
+    'format of the first row.
+        ReDim Lines(1 To 251)
+        Lines(1) = CSV_BN_HEADER
+        For i = 1 To 250
+            Lines(i + 1) = BankNsLine("L" & Format$(i, "00000"), "CRR", CStr(i), "", "", "")
+        Next i
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check InStr(ResultLine, "RESULT=LOADED; records=250;") = 1, "import of 250 records: " & ResultLine
+        TEST_Kit.Check SafeStr(TableCell(BankSheet, FirstRow + 249, BN_ID).Value2) = "L00250" And _
+                       TableCell(BankSheet, FirstRow + 249, BN_EAD).NumberFormat = TableCell(BankSheet, FirstRow, BN_EAD).NumberFormat, _
+                       "the last of 250 records: " & SafeStr(TableCell(BankSheet, FirstRow + 249, BN_ID).Value2)
+        TableRange(BankSheet, FirstRow, 1, FirstRow + 249, BN_NCOLS).ClearContents
+
     'A file that does not follow the contract, one with more records than the
-    'sheet holds and one without a record change nothing.
+    'contract allows and one without a record change nothing.
         Before = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula
         ReDim Lines(1 To 2)
         Lines(1) = CSV_BN_HEADER
@@ -1735,15 +1762,15 @@ Private Sub CaseBankImport()
         WriteBankTestFile CsvFile, Lines
         ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
         TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-ALLOWED") > 0, "regime EUR: " & ResultLine
-        ReDim Lines(1 To 202)
+        ReDim Lines(1 To 10002)
         Lines(1) = CSV_BN_HEADER
-        For i = 1 To 201
+        For i = 1 To 10001
             Lines(i + 1) = BankNsLine("NS-" & i, "CRR", "1", "", "", "")
         Next i
         WriteBankTestFile CsvFile, Lines
         ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
         TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TOO-MANY-RECORDS") > 0, _
-                       "201 records: " & ResultLine
+                       "10001 records: " & ResultLine
         ReDim Lines(1 To 1)
         Lines(1) = CSV_BN_HEADER
         WriteBankTestFile CsvFile, Lines
@@ -1801,7 +1828,7 @@ Private Sub CaseBankTradesImport()
 ' PURPOSE
 '   The CSV import of BankTrades (#718): a trade ID keeps its leading zeros,
 '   the figures are numbers and a blank one is an empty cell, and a file
-'   that does not follow the contract or has more than 500 records changes
+'   that does not follow the contract or has more than 50,000 records changes
 '   nothing.
 '
 ' UPDATED
@@ -1849,15 +1876,15 @@ Private Sub CaseBankTradesImport()
         WriteBankTestFile CsvFile, Lines
         ResultLine = M_Main.ImportBankCsv_Silent("BankTrades", CsvFile, True)
         TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TYPE") > 0, "notional 1.000.000: " & ResultLine
-        ReDim Lines(1 To 502)
+        ReDim Lines(1 To 50002)
         Lines(1) = CSV_BT_HEADER
-        For i = 1 To 501
+        For i = 1 To 50001
             Lines(i + 1) = BankTrLine("T-" & i, "1", "", "", "")
         Next i
         WriteBankTestFile CsvFile, Lines
         ResultLine = M_Main.ImportBankCsv_Silent("BankTrades", CsvFile, True)
         TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TOO-MANY-RECORDS") > 0, _
-                       "501 records: " & ResultLine
+                       "50001 records: " & ResultLine
         TEST_Kit.Check SameBlock(Before, TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BT_NCOLS).Formula), _
                        "a rejected import changed the sheet"
 

@@ -56,8 +56,8 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <tbody>
 <tr><td>NettingSets</td><td class="num">2</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class="num">10,000</td><td><code>K-SACCR_NettingSets_v2.csv</code></td></tr>
 <tr><td>Trades</td><td class="num">1</td><td>Trades</td><td><code>trade_id</code></td><td class="num">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>
-<tr><td>BankNettingSets</td><td class="num">1</td><td>BankNettingSets</td><td><code>netting_set_id</code></td><td class="num">200</td><td><code>K-SACCR_BankNettingSets_v1.csv</code></td></tr>
-<tr><td>BankTrades</td><td class="num">1</td><td>BankTrades</td><td><code>trade_id</code></td><td class="num">500</td><td><code>K-SACCR_BankTrades_v1.csv</code></td></tr>
+<tr><td>BankNettingSets</td><td class="num">1</td><td>BankNettingSets</td><td><code>netting_set_id</code></td><td class="num">10,000</td><td><code>K-SACCR_BankNettingSets_v1.csv</code></td></tr>
+<tr><td>BankTrades</td><td class="num">1</td><td>BankTrades</td><td><code>trade_id</code></td><td class="num">50,000</td><td><code>K-SACCR_BankTrades_v1.csv</code></td></tr>
 </tbody>
 </table>
 </section>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <li>A <strong>header-only file</strong> is valid and holds no record. Committing it never clears the input sheet: a staging sheet without rows leaves its input sheet as it is.</li>
 <li>A file is accepted or rejected <strong>as a whole</strong>: one finding rejects every record, and no record is dropped or truncated.</li>
 </ul>
-<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class="num">10,000</td></tr><tr><td>Trades</td><td class="num">100,000</td></tr><tr><td>BankNettingSets</td><td class="num">200</td></tr><tr><td>BankTrades</td><td class="num">500</td></tr></tbody></table>
+<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class="num">10,000</td></tr><tr><td>Trades</td><td class="num">100,000</td></tr><tr><td>BankNettingSets</td><td class="num">10,000</td></tr><tr><td>BankTrades</td><td class="num">50,000</td></tr></tbody></table>
 <p>A file of more than 134,217,728 bytes (128 MiB), a byte-order mark included, is rejected from its size alone. These limits are the import's. The sheets' drop-down lists cover only the rows a user types into, and the calculation reads every row of the input sheets, so they limit neither the import nor the calculation.</p>
 </section>
 <section id="nettingsets">
@@ -227,9 +227,9 @@ TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;
 <section id="banknettingsets">
 <h2>BankNettingSets file</h2>
 <p>One record per netting set: the figures of the bank's own calculation that <code>Reconciliation</code> compares with the workbook's. <code>netting_set_id</code> is the key: unique in the file and compared case-insensitively, matched to the ID on <code>NettingSets</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>
-<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankNettingSets</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 200 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>
+<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankNettingSets</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 10,000 records; a longer file is rejected whole, never truncated.</p>
 <h3>How a file is loaded</h3>
-<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
+<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
 <h3>Columns</h3>
 <div class="wide"><table>
 <thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>
@@ -260,9 +260,9 @@ NS-CCP;CRR;0;;;;;;;;;;;&quot;Bank &quot;&quot;EAD&quot;&quot;; zero&quot;
 <section id="banktrades">
 <h2>BankTrades file</h2>
 <p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and compared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>
-<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 500 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>
+<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 50,000 records; a longer file is rejected whole, never truncated.</p>
 <h3>How a file is loaded</h3>
-<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
+<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
 <h3>Columns</h3>
 <div class="wide"><table>
 <thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>
