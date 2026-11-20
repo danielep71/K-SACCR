@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import datetime as dt
 import io
 import json
 import sys
@@ -15,6 +16,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import business_calendar as bc  # noqa: E402
 import rsaccr_crosscheck as xc  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,6 +61,42 @@ class TranslateTests(unittest.TestCase):
         first = netting_set["trades"][0]["args"]
         self.assertAlmostEqual(first["Ei"], 0.75)
         self.assertEqual((first["SubClass"], first["commodity_type"]), ("Energy", "CRUDE OIL"))
+
+    def test_bd250_counts_business_days_after_the_valuation_date(self) -> None:
+        valuation = dt.date(2026, 9, 30)
+        basis = xc.Basis(365.0, 250.0)
+        for date in ("2026-10-01", "2027-03-31", "2036-09-30"):
+            expected = bc.years_between(valuation, dt.date.fromisoformat(date), bc.BD250)
+            self.assertEqual(xc.years(date, valuation, basis), expected, date)
+            self.assertNotEqual(xc.years(date, valuation, basis), xc.years(date, valuation, 365.0), date)
+        # A date that is not after the valuation date, and a blank one, keep the calendar-day measure.
+        self.assertEqual(xc.years("2026-09-30", valuation, basis), 0.0)
+        self.assertEqual(xc.years("2026-08-31", valuation, basis), -30 / 365)
+        self.assertIsNone(xc.years(None, valuation, basis))
+        # CAL365 is unchanged, as a number or as a basis.
+        self.assertEqual(xc.years("2027-09-30", valuation, 365.0), 1.0)
+        self.assertEqual(xc.years("2027-09-30", valuation, xc.Basis()), 1.0)
+
+    def test_the_basis_comes_from_the_fixture_parameters(self) -> None:
+        self.assertEqual(xc.time_basis({}), xc.Basis(365.0, None))
+        self.assertEqual(xc.time_basis({"DaysPerYear": 360}), xc.Basis(360.0, None))
+        self.assertEqual(xc.time_basis({"DayCountConvention": "BD250", "Calendar": "TARGET"}), xc.Basis(365.0, 250.0))
+        with self.assertRaisesRegex(xc.Unsupported, "BD360"):
+            xc.time_basis({"DayCountConvention": "BD360"})
+        with self.assertRaisesRegex(xc.Unsupported, "calendar 'TABLE'"):
+            xc.time_basis({"DayCountConvention": "BD250", "Calendar": "TABLE"})
+        with self.assertRaisesRegex(xc.Unsupported, "Alpha=1.5"):
+            xc.time_basis({"Alpha": 1.5})
+
+    def test_a_bd250_fixture_is_translated_with_business_day_times(self) -> None:
+        data = fixture("cre99-example-3")
+        calendar_days = xc.translate_fixture(data)["trades"][0]["args"]["Ei"]
+        data["parameters"] = {"DayCountConvention": "BD250"}
+        first = xc.translate_fixture(data)["trades"][0]
+        valuation = dt.date.fromisoformat(data["valuation_date"])
+        end = dt.date.fromisoformat(data["trades"][0]["maturity_date"])
+        self.assertEqual(first["args"]["Ei"], bc.years_between(valuation, end, bc.BD250))
+        self.assertNotEqual(first["args"]["Ei"], calendar_days)
 
     def test_credit_quality_step_maps_to_rating_with_same_factor(self) -> None:
         netting_set = xc.translate_fixture(fixture("illustrative-credit-quality-step"))

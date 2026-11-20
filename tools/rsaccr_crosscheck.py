@@ -24,8 +24,11 @@ import math
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import business_calendar as bc
 
 ROOT = Path(__file__).resolve().parent.parent
 R_DRIVER = Path(__file__).resolve().parent / "rsaccr_run.R"
@@ -57,14 +60,45 @@ class ComparisonError(Exception):
     """A mapped package quantity is missing or is not a finite number."""
 
 
-def years(date: str | None, valuation: dt.date, days_per_year: float) -> float | None:
-    """Years from the valuation date, on the DaysPerYear basis, as the engine computes them."""
+@dataclass(frozen=True)
+class Basis:
+    """How the engine turns a date into years (#721): calendar days over DaysPerYear (CAL365), or with a
+    number of business days per year the business days of the EUR TARGET rule over it (BD250)."""
+
+    days_per_year: float = 365.0
+    business_days_per_year: float | None = None
+
+
+def time_basis(parameters: dict[str, Any]) -> Basis:
+    """The basis a fixture's parameters give; a parameter without a package counterpart is Unsupported."""
+    convention = parameters.get("DayCountConvention", bc.CAL365)
+    calendar = parameters.get("Calendar", "TARGET")
+    for name, value in parameters.items():
+        if name not in ("DaysPerYear", "DayCountConvention", "Calendar"):
+            raise Unsupported(f"parameter {name}={value} has no package counterpart")
+    if convention not in bc.CONVENTIONS:
+        raise Unsupported(f"day-count convention {convention!r} is not CAL365 or BD250")
+    if calendar != "TARGET":
+        raise Unsupported(f"calendar {calendar!r}: the package's times are the TARGET rule's or calendar days")
+    return Basis(float(parameters.get("DaysPerYear", 365)), 250.0 if convention == bc.BD250 else None)
+
+
+def years(date: str | None, valuation: dt.date, days_per_year: float | Basis) -> float | None:
+    """Years from the valuation date as the engine computes them: on the DaysPerYear basis, or with BD250 the
+    business days after the valuation date over the business days per year; a date that is not after the
+    valuation date takes the calendar-day measure on either basis."""
     if date is None:
         return None
-    return (dt.date.fromisoformat(date) - valuation).days / days_per_year
+    when = dt.date.fromisoformat(date)
+    if isinstance(days_per_year, Basis):
+        if days_per_year.business_days_per_year is not None and when > valuation:
+            return bc.years_between(valuation, when, bc.BD250,
+                                    business_days_per_year=days_per_year.business_days_per_year)
+        days_per_year = days_per_year.days_per_year
+    return (when - valuation).days / days_per_year
 
 
-def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float) -> tuple[float, float, float]:
+def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float | Basis) -> tuple[float, float, float]:
     """S, E and M as the engine fills them: maturity from the end date, then from the expiry."""
     end = years(trade["end_date"], valuation, days_per_year)
     maturity = years(trade["maturity_date"], valuation, days_per_year)
@@ -79,7 +113,7 @@ def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float)
     return max(0.0, start or 0.0), end, maturity
 
 
-def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, days_per_year: float) -> float:
+def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, days_per_year: float | Basis) -> float:
     """M as the engine uses it: for a settled-to-market trade, the time to its next reset date (#360).
 
     The engine rejects a reset date on an ordinary trade, a settled-to-market
@@ -180,7 +214,7 @@ def equity(trade: dict[str, Any], maturity: float, expiry: float | None) -> tupl
     return ("EquityOptionIndex" if index else "EquityOptionSingle"), {**args, **option_args(trade)}
 
 
-def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: float,
+def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: float | Basis,
                     currency: str) -> tuple[str, dict[str, Any]]:
     """The package's trade class and constructor arguments for one fixture trade."""
     if trade["nature"] != "standard":
@@ -252,10 +286,7 @@ def fixture_classes(fixture: dict[str, Any]) -> set[str]:
 def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
     """The package's netting set for one fixture."""
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
-    days_per_year = float(fixture["parameters"].get("DaysPerYear", 365))
-    for name, value in fixture["parameters"].items():
-        if name != "DaysPerYear":
-            raise Unsupported(f"parameter {name}={value} has no package counterpart")
+    days_per_year = time_basis(fixture["parameters"])
     if fixture["netting_set"]["alpha_factor"] not in (None, 1.4):
         raise Unsupported("the package's alpha is always 1.4")
     # The engine marks the netting set INVALID when one credit, equity or
@@ -343,7 +374,7 @@ def regime_difference(fixture: dict[str, Any]) -> str | None:
     #regime-differences) that a fixture the translator runs can still meet.
     """
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
-    days_per_year = float(fixture["parameters"].get("DaysPerYear", 365))
+    days_per_year = time_basis(fixture["parameters"])
     for trade in fixture["trades"]:
         asset_class = trade["asset_class"]
         sub_class = str(trade["sub_class"] or "").strip().upper()

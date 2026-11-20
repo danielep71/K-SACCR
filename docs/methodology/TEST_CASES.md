@@ -339,6 +339,17 @@ with an output of the family is in exactly one of two lists:
   registered external implementation `IMPL-R-SACCR`) and the convention's
   tolerance. They test the claim without having shaped it.
 
+The contracts are stated on the default day-count convention, `CAL365`. The
+published cases and the CRR fixtures stay on it, and no case of the catalogue
+runs on `BD250` (#721): the convention is tested by the VBA suites (the
+business-day count against a count made day by day, the maturity of a trade on
+each convention, the Params checks) and by the Python cross-check, which
+translates a fixture with `DayCountConvention` `BD250` into the package's
+times (`tools/rsaccr_crosscheck.py`). A `BD250` case with the package's
+figures as expected values needs a run of the workbook on its own convention,
+as the cases of `tools/rsaccr_portfolio.py` do; none is committed yet, so the
+accuracy contracts do not claim anything on `BD250`.
+
 A case whose expected value is rounded, such as a printed figure or a hand
 calculation to the cent, is listed under `rounded` with the rounding as its
 bound: it tests the claim only down to that rounding. Every family has at
