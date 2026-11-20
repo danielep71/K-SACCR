@@ -2346,12 +2346,16 @@ Private Sub SaveParams()
 '------------------------------------------------------------------------------
 ' KEEP
 '------------------------------------------------------------------------------
+    'The day count and the calendar are settings of the run, not in the
+    'restore (#721), and cases change them: they are kept too.
         Codes = CORE_Engine.RegulatoryParameterCodes()
-        ReDim Kept(LBound(Codes) To UBound(Codes) + 1)
+        ReDim Kept(LBound(Codes) To UBound(Codes) + 3)
         For i = LBound(Codes) To UBound(Codes)
             Kept(i) = NamedCell(CStr(Codes(i))).Formula
         Next i
-        Kept(UBound(Codes) + 1) = FactorBlock().Formula
+        Kept(UBound(Codes) + 1) = NamedCell(PRM_DAYCOUNT).Formula
+        Kept(UBound(Codes) + 2) = NamedCell(PRM_CALENDAR).Formula
+        Kept(UBound(Codes) + 3) = FactorBlock().Formula
         mSavedParams = Kept
         mParamsBefore = CORE_Engine.InputFingerprint()
 
@@ -2387,7 +2391,9 @@ Private Sub PutParamsBack()
         For i = LBound(Codes) To UBound(Codes)
             NamedCell(CStr(Codes(i))).Formula = mSavedParams(i)
         Next i
-        FactorBlock().Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_DAYCOUNT).Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_CALENDAR).Formula = mSavedParams(UBound(Codes) + 2)
+        FactorBlock().Formula = mSavedParams(UBound(Codes) + 3)
         TEST_Kit.Check CORE_Engine.InputFingerprint() = mParamsBefore, "Params was not put back as the case found it"
         Exit Sub
 
