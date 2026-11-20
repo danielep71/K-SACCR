@@ -64,10 +64,14 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksClearOutputs` | Clear outputs | C | `ClearOutputs` |
 | `ksImportNettingSets` | NettingSets file... | I, N | `ImportNettingSetsCsv` |
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
+| `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
+| `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
 | `ksValidateStaging` | Validate staging | V | `ValidateStaging` |
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |
 | `ksTemplateTrades` | Trades template... | P, T | `ExportTradesCsvTemplate` |
+| `ksTemplateBankNettingSets` | BankNettingSets template... | P, B | `ExportBankNettingSetsCsvTemplate` |
+| `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |

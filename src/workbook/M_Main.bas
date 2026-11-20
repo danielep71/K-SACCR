@@ -135,6 +135,8 @@ Attribute VB_Name = "M_Main"
 '   is written and while the older file is replaced (#312).
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
+'   gTestFault = "bank-write" raises ERR_INJECTED_FAULT in LoadBank once
+'   the bank records have been written (#718).
 '   gTestFault = "commit-write" raises ERR_INJECTED_FAULT in
 '   CommitStaging once the first input sheet has been written;
 '   "commit-verify" makes its read-back fail, and "commit-rollback" makes
@@ -2626,6 +2628,56 @@ Public Sub ExportTradesCsvTemplate()
 End Sub
 
 
+Public Sub ExportBankNettingSetsCsvTemplate()
+'
+'==============================================================================
+'                         ExportBankNettingSetsCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank BankNettingSets CSV template of the input contract
+'   (#718) to a file chosen by the user: its header line only.
+'
+' USAGE
+'   BankNettingSets template on the K-SACCR Ribbon tab (Templates menu), the
+'   Export CSV template button on BankNettingSets, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ExportCsvTemplate "BankNettingSets"
+
+End Sub
+
+
+Public Sub ExportBankTradesCsvTemplate()
+'
+'==============================================================================
+'                           ExportBankTradesCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank BankTrades CSV template of the input contract (#718) to
+'   a file chosen by the user: its header line only.
+'
+' USAGE
+'   BankTrades template on the K-SACCR Ribbon tab (Templates menu), the
+'   Export CSV template button on BankTrades, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ExportCsvTemplate "BankTrades"
+
+End Sub
+
+
 Public Function ExportCsvTemplate_Silent( _
     ByVal Kind As String, _
     ByVal FilePath As String) _
@@ -2734,6 +2786,10 @@ Private Function CsvTemplateText( _
                 CsvTemplateText = CSV_NS_HEADER & vbLf
             Case "Trades"
                 CsvTemplateText = CSV_TR_HEADER & vbLf
+            Case "BankNettingSets"
+                CsvTemplateText = CSV_BN_HEADER & vbLf
+            Case "BankTrades"
+                CsvTemplateText = CSV_BT_HEADER & vbLf
         End Select
 
 End Function
@@ -2759,6 +2815,10 @@ Private Function CsvTemplateFile( _
                 CsvTemplateFile = CSV_NS_FILE
             Case "Trades"
                 CsvTemplateFile = CSV_TR_FILE
+            Case "BankNettingSets"
+                CsvTemplateFile = CSV_BN_FILE
+            Case "BankTrades"
+                CsvTemplateFile = CSV_BT_FILE
         End Select
 
 End Function
@@ -3243,6 +3303,131 @@ Public Sub ImportTradesCsv()
 End Sub
 
 
+Public Sub ImportBankNettingSetsCsv()
+'
+'==============================================================================
+'                           ImportBankNettingSetsCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a BankNettingSets CSV file chosen by the user onto BankNettingSets
+'   (#718): the bank's figures replace those of the sheet when the whole
+'   file follows the CSV contract, and nothing changes otherwise.
+'
+' USAGE
+'   BankNettingSets file on the K-SACCR Ribbon tab (Import CSV menu), the
+'   Import CSV button on BankNettingSets, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportBankCsv; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ImportBankCsv "BankNettingSets"
+        RibbonStateChanged
+
+End Sub
+
+
+Public Sub ImportBankTradesCsv()
+'
+'==============================================================================
+'                             ImportBankTradesCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a BankTrades CSV file chosen by the user onto BankTrades (#718),
+'   as ImportBankNettingSetsCsv does for BankNettingSets.
+'
+' USAGE
+'   BankTrades file on the K-SACCR Ribbon tab (Import CSV menu), the Import
+'   CSV button on BankTrades, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportBankCsv; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ImportBankCsv "BankTrades"
+        RibbonStateChanged
+
+End Sub
+
+
+Public Function ImportBankCsv_Silent( _
+    ByVal Kind As String, _
+    ByVal FilePath As String, _
+    Optional ByVal ReplaceExisting As Boolean = False) _
+    As String
+'
+'==============================================================================
+'                             ImportBankCsv_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The bank-figure load for automation and tests (#718): read FilePath as a
+'   file of Kind ("BankNettingSets" or "BankTrades") and write its records
+'   onto the bank sheet without asking. A sheet that already holds bank
+'   figures is replaced only when ReplaceExisting is True.
+'
+' RETURNS
+'   "RESULT=LOADED; records=N; file=..." when the records were written;
+'   "RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=..."
+'   when the file does not follow the contract, a file with more records
+'   than the sheet holds included; "RESULT=REFUSED; reason=...; file=..."
+'   when the file has no record, or the sheet holds figures and
+'   ReplaceExisting is False. The sheet is changed only when the result is
+'   LOADED.
+'
+' ERROR POLICY
+'   An unknown kind and a file that cannot be read raise ERR_CSV_READ. An
+'   SA-CCR operation in progress raises ERR_RUN_ACTIVE, and a bank sheet
+'   or name that is missing, and a value longer than a cell holds, raise
+'   ERR_STAGING_WRITE, before the sheet changes; an error while the sheet
+'   is written is raised after the sheet has been put back as it was.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ReconKind   As Long             'The reconciliation the sheet belongs to
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' READ AND LOAD
+'------------------------------------------------------------------------------
+        ReconKind = BankReconKind(Kind)
+        ReadCsvFile FilePath, Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Accepted Then
+            ImportBankCsv_Silent = "RESULT=REJECTED; findings=" & Result.FindingCount & _
+                                   "; first=" & FindingText(Findings(1)) & "; file=" & FilePath
+            Exit Function
+        End If
+        If Result.RecordCount = 0 Then
+            ImportBankCsv_Silent = "RESULT=REFUSED; reason=the file has no record; file=" & FilePath
+            Exit Function
+        End If
+        If Not ReplaceExisting Then
+            If BankRowsEntered(ReconKind) Then
+                ImportBankCsv_Silent = "RESULT=REFUSED; reason=" & BankSheetOf(ReconKind) & _
+                                       " holds bank figures; file=" & FilePath
+                Exit Function
+            End If
+        End If
+        LoadBank ReconKind, Result, Values
+        ImportBankCsv_Silent = "RESULT=LOADED; records=" & Result.RecordCount & "; file=" & FilePath
+
+End Function
+
+
 Public Function ImportCsv_Silent( _
     ByVal Kind As String, _
     ByVal FilePath As String, _
@@ -3505,6 +3690,273 @@ Private Sub ImportCsv( _
 
 Failed:
         Notify Kind & " CSV import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Sub ImportBankCsv( _
+    ByVal Kind As String)
+'
+'==============================================================================
+'                                ImportBankCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The interactive load of a bank file (#718): ask for the file, read it,
+'   say what is wrong with it when it does not follow the contract, ask
+'   before replacing figures that are on the sheet, and write the records.
+'   The file is accepted or rejected as a whole; a record is never dropped
+'   or truncated, so a file with more records than the sheet holds is
+'   rejected.
+'
+' ERROR POLICY
+'   Reported to the user, never raised.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim ReconKind   As Long             'The reconciliation the sheet belongs to
+    Dim SheetName   As String           'The bank sheet
+    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+        On Error GoTo Failed
+        ReconKind = BankReconKind(Kind)
+        SheetName = BankSheetOf(ReconKind)
+        ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
+                                                 Title:="Import " & Kind & " CSV file into " & SheetName)
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Accepted Then
+            Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                                   "Nothing was loaded: " & SheetName & " is unchanged."), vbExclamation
+            Exit Sub
+        End If
+        If Result.RecordCount = 0 Then
+            Notify CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & vbLf & vbLf & _
+                   "The file holds no record. Nothing was loaded: " & SheetName & " is unchanged.", vbExclamation
+            Exit Sub
+        End If
+        If BankRowsEntered(ReconKind) Then
+            If Not gSilent Then
+                If MsgBox(SheetName & " holds bank figures." & vbLf & vbLf & "Replace them with the " & _
+                          Result.RecordCount & " records of " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & "?", _
+                          vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+                    Exit Sub
+                End If
+            End If
+        End If
+        LoadBank ReconKind, Result, Values
+        ThisWorkbook.Worksheets(SheetName).Activate
+        Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                               "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
+                               "The amount scale and the tolerances of the sheet are unchanged; press Run SA-CCR to reconcile."), _
+               vbInformation
+        Exit Sub
+
+Failed:
+        Notify Kind & " CSV import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function BankReconKind( _
+    ByVal Kind As String) _
+    As Long
+'
+'==============================================================================
+'                               BankReconKind
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reconciliation (RECON_NS or RECON_TR) of the bank file Kind.
+'
+' ERROR POLICY
+'   Raises ERR_CSV_READ for a kind that is not a bank file.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        Select Case Kind
+            Case "BankNettingSets"
+                BankReconKind = RECON_NS
+            Case "BankTrades"
+                BankReconKind = RECON_TR
+            Case Else
+                Err.Raise ERR_CSV_READ, "M_Main.BankReconKind", "unknown bank CSV kind '" & Kind & "'"
+        End Select
+
+End Function
+
+
+Private Sub LoadBank( _
+    ByVal ReconKind As Long, _
+    ByRef Result As CsvReadResult, _
+    ByRef Values() As String)
+'
+'==============================================================================
+'                                  LoadBank
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the records of an accepted bank file onto the bank sheet (#718),
+'   from the first row below the header: the identifiers, the regime and
+'   the comment as text, the figures as numbers, a blank figure as an empty
+'   cell. The figures and comments of the sheet are cleared first. The
+'   amount scale and the tolerances, above the table, are not touched.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, ERR_STAGING_WRITE for a
+'   missing bank header and a value longer than a cell holds, both before
+'   the sheet changes. An error while writing puts the sheet back as it
+'   was and is raised; settings that could not be restored are added to
+'   its description.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kind                As String          'BankNettingSets or BankTrades
+    Dim Sheet               As Worksheet       'The bank sheet
+    Dim HeaderRow           As Long            'Its header row
+    Dim FirstRow            As Long            'First row below the header
+    Dim Width               As Long            'Columns of the table
+    Dim Spec                As CsvSpec         'The file's contract
+    Dim Columns()           As CsvColumn       'Its columns
+    Dim Rules()             As CsvRule         'Its rules
+    Dim NewBlock()          As Variant         'The records as they will be written
+    Dim OldBlock            As Variant         'The block before the load, as formulas
+    Dim OldLast             As Long            'Its last used row; below FirstRow for none
+    Dim LastRow             As Long            'Last row written or cleared
+    Dim Cleared             As Boolean         'The old block has been cleared
+    Dim SavedCalculation    As XlCalculation   'Calculation mode before the load
+    Dim SavedEvents         As Boolean         'EnableEvents before the load
+    Dim SavedScreen         As Boolean         'ScreenUpdating before the load
+    Dim StateCaptured       As Boolean         'True once all three were read
+    Dim ErrorNumber         As Long            'Primary error number; 0 for none
+    Dim ErrorSource         As String          'Primary error source
+    Dim ErrorDescription    As String          'Primary error description
+    Dim CleanupDetails      As String          'Settings not restored
+    Dim r                   As Long            'Record
+    Dim c                   As Long            'Column
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.LoadBank", "An SA-CCR operation is already running."
+        End If
+        Kind = IIf(ReconKind = RECON_NS, "BankNettingSets", "BankTrades")
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                      "The name " & HeaderNameOf(ReconKind) & " is missing: build the workbook from the current template."
+        End If
+        Set Sheet = GetSheet(BankSheetOf(ReconKind))
+        FirstRow = HeaderRow + 1
+        Width = BankColsOf(ReconKind)
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "M_Main.LoadBank", "unknown CSV kind '" & Kind & "'"
+        End If
+        If Spec.ColumnCount <> Width Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                      "The CSV contract has " & Spec.ColumnCount & " columns and " & Sheet.Name & " has " & Width & "."
+        End If
+        ReDim NewBlock(1 To Result.RecordCount, 1 To Width)
+        For r = 1 To Result.RecordCount
+            For c = 1 To Width
+                If Len(Values(r, c)) > EXCEL_CELL_CHARS Then
+                    Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                              "The " & Columns(c).ColumnName & " value of record " & r & " has " & Len(Values(r, c)) & _
+                              " characters; a cell holds " & EXCEL_CELL_CHARS & ". Nothing was loaded."
+                End If
+                If Len(Values(r, c)) = 0 Then
+                    NewBlock(r, c) = Empty
+                ElseIf Columns(c).Kind = "number" Then
+                    NewBlock(r, c) = Val(Values(r, c))    'Val reads the "." of the file in every locale
+                Else
+                    NewBlock(r, c) = Values(r, c)
+                End If
+            Next c
+        Next r
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        mRunning = True
+        ProtectWorkbook
+        On Error GoTo Failed
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+
+        OldLast = UsedLastRow(Sheet)
+        If OldLast >= FirstRow Then
+            OldBlock = TableRange(Sheet, FirstRow, 1, OldLast, Width).Formula
+        End If
+        LastRow = FirstRow + Result.RecordCount - 1
+        If OldLast > LastRow Then
+            LastRow = OldLast
+        End If
+        Cleared = True
+        TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+        For c = 1 To Width
+            If Columns(c).Kind <> "number" Then
+                TableRange(Sheet, FirstRow, c, FirstRow + Result.RecordCount - 1, c).NumberFormat = "@"
+            End If
+        Next c
+        TableRange(Sheet, FirstRow, 1, FirstRow + Result.RecordCount - 1, Width).Value2 = NewBlock
+        If gTestFault = "bank-write" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.LoadBank", "Injected bank write failure."
+        End If
+
+CleanUp:
+        On Error GoTo 0
+        If ErrorNumber <> 0 And Cleared Then
+            On Error Resume Next
+            TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+            If OldLast >= FirstRow Then
+                TableRange(Sheet, FirstRow, 1, OldLast, Width).Formula = OldBlock
+            End If
+            If Err.Number <> 0 Then
+                ErrorDescription = ErrorDescription & " " & Sheet.Name & " could not be put back: " & Err.Description
+            End If
+            On Error GoTo 0
+        End If
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If ErrorNumber <> 0 Then
+            If Len(CleanupDetails) > 0 Then
+                ErrorDescription = ErrorDescription & " Excel settings not restored: " & CleanupDetails
+            End If
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.LoadBank", _
+                      "The records were loaded, but Excel settings were not restored: " & CleanupDetails
+        End If
+        Exit Sub
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
+        Resume CleanUp
 
 End Sub
 
