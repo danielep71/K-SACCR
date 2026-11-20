@@ -248,7 +248,7 @@ further illustrative netting sets.
 Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
 the status of the results and of both staging sheets and reaches every sheet
 through **Go to** ([Ribbon](docs/workbook/RIBBON.md)). The two staging sheets
-also carry buttons for their own commands.
+also carry rounded shapes that act as buttons for their own commands (#727).
 
 | Command | Macro | Does |
 | --- | --- | --- |
