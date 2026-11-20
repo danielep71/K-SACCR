@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 184               'Cases in a complete run
-        Private Const CHECKS      As Long = 323               'Checks in a complete run
+        Private Const CASES       As Long = 190               'Cases in a complete run
+        Private Const CHECKS      As Long = 329               'Checks in a complete run
 
 
 '
@@ -336,6 +336,43 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_BDYEAR), ParamsValueCol(), 250.5
         ExpectStop DIAG_PRM_RANGE
+
+        StartCase "params-day-count-unknown", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD360"
+        ExpectStop DIAG_PRM_DAYCOUNT
+
+        StartCase "params-calendar-unknown", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "NATIONAL"
+        ExpectStop DIAG_PRM_CALENDAR
+
+    'The TARGET calendar starts on 1 January 1999 (31 December 1998 is 36160).
+        StartCase "params-bd250-reporting-date-before-target", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ASOF), ParamsValueCol(), 36160#
+        ExpectStop DIAG_PRM_CALENDAR
+
+        StartCase "params-holiday-not-a-date", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), "soon"
+        ExpectStop DIAG_PRM_HOLIDAY
+
+        StartCase "params-bd250-valid", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        ExpectStatus "VALID"
+
+    'A table with a closing day (8 December 2026 is 46364) and the rule.
+        StartCase "params-bd250-table-valid", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46364#
+        ExpectStatus "VALID"
 
         StartCase "factor-table-negative-factor", "N"
         AddSwap "T1"

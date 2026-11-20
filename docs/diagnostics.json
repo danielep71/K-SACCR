@@ -96,6 +96,21 @@
       "description": "Parameter must be TRUE or FALSE (found",
       "status": "active"
     },
+    "PRM-DAYCOUNT": {
+      "constant": "DIAG_PRM_DAYCOUNT",
+      "description": "Day-count convention must be CAL365 or BD250 (found",
+      "status": "active"
+    },
+    "PRM-CALENDAR": {
+      "constant": "DIAG_PRM_CALENDAR",
+      "description": "Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier.",
+      "status": "active"
+    },
+    "PRM-HOLIDAY": {
+      "constant": "DIAG_PRM_HOLIDAY",
+      "description": "Closing day on a row of the Params table is not a date from 1 March 1900.",
+      "status": "active"
+    },
     "PRM-REGIME": {
       "constant": "DIAG_PRM_REGIME",
       "description": "Regime must be BCBS or CRR (found an error value).",
