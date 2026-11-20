@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 183               'Cases in a complete run
-        Private Const CHECKS      As Long = 321               'Checks in a complete run
+        Private Const CASES       As Long = 184               'Cases in a complete run
+        Private Const CHECKS      As Long = 323               'Checks in a complete run
 
 
 '
@@ -810,6 +810,18 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EUR"), TableCol(NM_FX_TABLE, 3), 0.9
         ExpectStop DIAG_FX_REPORTING_RATE
+
+    'FX rates are quoted as the market does (#725): units of the currency per
+    '1 unit of the reporting currency, so 10,000 USD at 1.25 USD per EUR is
+    '8,000 EUR. The five-year swap's adjusted notional is 44,261.18 for
+    '10,000 EUR and 44,261.18 / 1.25 = 35,408.94 for 10,000 USD.
+        StartCase "fx-rate-market-quote", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 1.25
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "35408.9431456818", _
+                                     "0.000001", "0", "illustrative"
 
     'Reporting currency format (#147): three letters A to Z, case and
     'surrounding spaces ignored. Written by VBA, so the worksheet validation

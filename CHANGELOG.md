@@ -323,6 +323,20 @@ Use only the categories needed by a release.
   value keeps it. `test_template_defaults.py` checks the template and the macro
   source, and `TEST_MainState` checks the zoom of every sheet after the opening view.
 
+- Quote the FX rates of Params as the market does (#725, behavior change). The rate
+  column of the FX table is now units of the currency per 1 unit of the reporting
+  currency, so that EUR/USD 1.16 is entered as 1.16 with a EUR reporting currency;
+  it was units of the reporting currency per unit, which asked for 0.86. The engine
+  divides a notional or an MtM by the rate where it multiplied. The header of the
+  column changed, so a workbook that still has the old one is refused by the layout
+  check, with a message that tells the user to invert every rate and rename the
+  header: the rates are never converted silently. The illustrative rates of the
+  template are market-style (USD 1.16, GBP 0.86, JPY 172, CHF 0.93). The case
+  `fx-rate-market-quote` of `TEST_InputValidation` runs a trade in USD at 1.25 and
+  checks the adjusted notional against the EUR one divided by 1.25, and
+  `test_fx_quote.py` checks the header, the rates and the division. Fixtures and
+  cases in their calculation currency keep the rate 1 and are unchanged.
+
 - Make the two reconciliation sheets easier to read and to work on (#720).
   Bank figure, Calculator figure and the difference are shown in one number
   format with two decimals (they were `#,##0.00########`, which displayed the
