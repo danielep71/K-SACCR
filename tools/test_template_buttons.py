@@ -124,6 +124,9 @@ class ShapeButtonTests(unittest.TestCase):
             column = int(anchor.findtext(f"{XDR}from/{XDR}col") or "0")
             offset = int(anchor.findtext(f"{XDR}from/{XDR}colOff") or "0") // EMU
             start = sum(widths.get(index, 64) for index in range(3, column + 1)) + offset
+            # They start after the frozen columns: a group across the freeze would be cut when the sheet scrolls.
+            frozen = int(re.search(r'<pane xSplit="(\d+)"', sheet).group(1))  # type: ignore[union-attr]
+            self.assertGreaterEqual(column, frozen, f"{name}: the shapes start in a frozen column")
             self.assertGreaterEqual(start, 12 * len(title) - 17, f"{name}: the shapes cover the title")
             self.assertLessEqual(start, LATEST_START_PX, name)
             # Inside the group the shapes follow one another with the same gap, whatever the column widths.

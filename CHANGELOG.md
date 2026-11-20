@@ -319,9 +319,10 @@ Use only the categories needed by a release.
   Restore defaults on FormulaTest, and Clear outputs on the seven output sheets are
   now shapes: navy with white bold text for the commands, light blue with navy text
   for the secondary one of a sheet, in the colors of the headers. Each sheet's shapes
-  are one group, anchored once in the title row right after the title, with an equal
-  gap whatever the column widths, so they sit further left than the buttons did and
-  never cover the title. The form controls, their VML drawings, control properties,
+  are one group, anchored once in the title row right after the title and after the
+  frozen columns of the sheet (a group across the freeze would be cut when the sheet
+  scrolls), with an equal gap whatever the column widths, so they sit further left
+  than the buttons did and never cover the title. The form controls, their VML drawings, control properties,
   relationships and content types are gone from the template, and so are the
   fallback shapes of the old buttons in the drawings. The shapes keep stable names
   (`btn_ImportCsv`, `btn_ValidateStaging`, ...), are locked with the sheet and run
