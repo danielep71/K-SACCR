@@ -2,7 +2,8 @@
 
 The two sheets are never protected, carry an AutoFilter on their header row, show the amount
 figures in one number format with a format of their own for the factor rows, and name the
-difference column an absolute difference.
+difference column an absolute difference. Above the table they show summary tiles: rounded-rectangle
+shapes whose values are linked to helper cells in hidden columns, the formulas of which follow the filter.
 """
 
 from __future__ import annotations
@@ -24,6 +25,24 @@ SHEETS = {
     "TradeReconciliation": ("O", {"M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined"}),
 }
 FACTOR_FORMAT = "#,##0.000000"
+HEADER, FIRST = 10, 11  # the header row and the first data row: three rows of tiles and a spacer sit above the header
+XDR = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+CONFIG = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
+# Tile: (shape, label, linked cell, result counted by the cell or None, fill of the value)
+TILES = (
+    ("tile_LastReconciliation", "Last reconciliation", "R3", None, "DDEBF7"),
+    ("tile_RowsShown", "Rows shown", "R2", None, "DDEBF7"),
+    ("tile_FiguresCompared", "Figures compared", "T1", None, "DDEBF7"),
+    ("tile_Match", "Match", "R4", "MATCH", "C6EFCE"),
+    ("tile_Difference", "Difference", "R5", "DIFFERENCE", "FFC7CE"),
+    ("tile_NotInBank", "Not in bank file", "T2", "NOT IN BANK FILE", "DDEBF7"),
+    ("tile_MissingInCalculator", "Missing in calculator", "T3", "MISSING IN CALCULATOR", "DDEBF7"),
+    ("tile_Duplicate", "Duplicate rows", "T4", "DUPLICATE", "DDEBF7"),
+    ("tile_OtherResults", "Other results", "T5", None, "DDEBF7"),
+)
+# The results the Other results tile counts, one helper cell each.
+OTHERS = {"V1": "WITHHELD", "V2": "INVALID INPUT", "V3": "REGIME MISMATCH", "V4": "EXCLUDED", "V5": "NOT APPLICABLE"}
 
 
 class ReconciliationSheetTests(unittest.TestCase):
@@ -44,10 +63,10 @@ class ReconciliationSheetTests(unittest.TestCase):
             autofilter = self.sheet(name).find(MAIN + "autoFilter")
             self.assertIsNotNone(autofilter, name)
             assert autofilter is not None
-            self.assertEqual(autofilter.attrib["ref"], f"C6:{last}100000", name)
+            self.assertEqual(autofilter.attrib["ref"], f"C{HEADER}:{last}100000", name)
             workbook = self.package.read("xl/workbook.xml").decode("utf-8")
             self.assertRegex(workbook, rf'<definedName name="_xlnm\._FilterDatabase" localSheetId="\d+" hidden="1">'
-                                       rf"{name}!\$C\$6:\${last}\$100000</definedName>")
+                                       rf"{name}!\$C\${HEADER}:\${last}\$100000</definedName>")
 
     def test_the_factor_rows_have_their_own_format(self) -> None:
         styles = ElementTree.fromstring(self.package.read("xl/styles.xml"))
@@ -55,10 +74,10 @@ class ReconciliationSheetTests(unittest.TestCase):
         assert dxfs is not None
         for name, (_, measures) in SHEETS.items():
             rules = [rule for block in self.sheet(name).findall(MAIN + "conditionalFormatting")
-                     if block.attrib["sqref"] == "I7:K1048576" for rule in block.findall(MAIN + "cfRule")]
+                     if block.attrib["sqref"] == f"I{FIRST}:K1048576" for rule in block.findall(MAIN + "cfRule")]
             self.assertEqual(len(rules), 1, name)
             formula = rules[0].findtext(MAIN + "formula") or ""
-            self.assertEqual(set(re.findall(r'\$H7="([^"]+)"', formula)), measures, name)
+            self.assertEqual(set(re.findall(rf'\$H{FIRST}="([^"]+)"', formula)), measures, name)
             dxf = list(dxfs)[int(rules[0].attrib["dxfId"])]
             numfmt = dxf.find(MAIN + "numFmt")
             assert numfmt is not None
@@ -89,6 +108,89 @@ class ReconciliationSheetTests(unittest.TestCase):
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
         self.assertIn("> RECON_FILTER_LAST_ROW Then", main)
         self.assertNotIn("FormatFactorRows", main)
+
+    def drawing(self, name: str) -> ElementTree.Element:
+        rels = self.package.read(self.parts[name].replace("worksheets/", "worksheets/_rels/") + ".rels").decode("utf-8")
+        match = re.search(r'Target="\.\./drawings/(drawing\d+\.xml)"', rels)
+        assert match is not None
+        return ElementTree.fromstring(self.package.read("xl/drawings/" + match.group(1)))
+
+    def helper_formulas(self, name: str) -> dict[str, str]:
+        """The formula of each helper cell of rows 1 to 5, columns R, T and V."""
+        out: dict[str, str] = {}
+        for cell in self.sheet(name).iter(MAIN + "c"):
+            if re.fullmatch(r"[RTV][1-5]", cell.attrib["r"]):
+                out[cell.attrib["r"]] = cell.findtext(MAIN + "f") or ""
+        return out
+
+    def test_the_header_row_moved_down_to_make_room_for_the_tiles(self) -> None:
+        workbook = self.package.read("xl/workbook.xml").decode("utf-8")
+        for name in SHEETS:
+            self.assertIn(f'<definedName name="{name}_Header">{name}!$C${HEADER}</definedName>', workbook)
+            pane = self.sheet(name).find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+            assert pane is not None
+            self.assertEqual((pane.attrib["ySplit"], pane.attrib["topLeftCell"]), (str(HEADER), f"D{FIRST}"), name)
+            rows = {row.attrib["r"]: row for row in self.sheet(name).iter(MAIN + "row")}
+            self.assertEqual([rows[str(r)].attrib["ht"] for r in (6, 7, 8, 9)], ["22.5", "22.5", "22.5", "6"], name)
+            self.assertIsNotNone(rows[str(HEADER)].find(f'{MAIN}c[@r="C{HEADER}"]'), name)
+
+    def test_every_tile_is_a_shape_linked_to_a_helper_cell(self) -> None:
+        for name in SHEETS:
+            groups = [anchor for anchor in self.drawing(name).iter(XDR + "oneCellAnchor")
+                      if anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr") is not None
+                      and anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr").attrib["name"] == "tile_Group"]  # type: ignore[union-attr]
+            self.assertEqual(len(groups), 1, name)
+            anchor = groups[0]
+            # Right of the frozen columns, from the first tile row, never moved or resized with the cells.
+            frozen = int(re.search(r'<pane xSplit="(\d+)"', self.package.read(self.parts[name]).decode("utf-8")).group(1))  # type: ignore[union-attr]
+            self.assertGreaterEqual(int(anchor.findtext(f"{XDR}from/{XDR}col") or "0"), frozen, name)
+            self.assertEqual(anchor.findtext(f"{XDR}from/{XDR}row"), "5", name)
+            self.assertEqual(anchor.find(XDR + "clientData").attrib["fLocksWithSheet"], "1", name)  # type: ignore[union-attr]
+            shapes = {item.find(f"{XDR}nvSpPr/{XDR}cNvPr").attrib["name"]: item  # type: ignore[union-attr]
+                      for item in anchor.iter(XDR + "sp")}
+            self.assertEqual(len(shapes), 2 * len(TILES), name)
+            for tile, label, cell, _, fill in TILES:
+                value, caption = shapes[tile], shapes[tile + "_Label"]
+                self.assertEqual("".join(item.text or "" for item in caption.iter(A + "t")), label, (name, tile))
+                self.assertEqual(caption.attrib["textlink"], "", (name, tile))
+                self.assertEqual(value.attrib["textlink"], f"${cell[0]}${cell[1:]}", (name, tile))
+                for shape in (value, caption):
+                    geometry = shape.find(f"{XDR}spPr/{A}prstGeom")
+                    assert geometry is not None
+                    self.assertEqual(geometry.attrib["prst"], "roundRect", (name, tile))
+                    self.assertEqual(shape.attrib["macro"], "", (name, tile))
+                color = value.find(f"{XDR}spPr/{A}solidFill/{A}srgbClr")
+                assert color is not None
+                self.assertEqual(color.attrib["val"], fill, (name, tile))
+            ids = [item.attrib["id"] for item in self.drawing(name).iter(XDR + "cNvPr")]
+            self.assertEqual(len(ids), len(set(ids)), name)
+
+    def test_the_helper_cells_follow_the_filter_and_count_the_results_of_the_calculator(self) -> None:
+        results = {value for value in re.findall(r'RES_\w+\s+As String = "([^"]+)"', CONFIG)}
+        for name in SHEETS:
+            formulas = self.helper_formulas(name)
+            self.assertEqual(set(formulas), {"R1", "R2", "R3", "R4", "R5", "T1", "T2", "T3", "T4", "T5"} | set(OTHERS), name)
+            self.assertEqual(formulas["R1"], f"COUNTA($M${FIRST}:$M$100000)", name)
+            self.assertEqual(formulas["R2"], f"SUBTOTAL(103,$M${FIRST}:$M$100000)", name)
+            self.assertEqual(formulas["T1"], "R4+R5", name)
+            for cell, result in ({tile[2]: tile[3] for tile in TILES if tile[3]} | OTHERS).items():
+                if cell == "T1":
+                    continue
+                self.assertIn(result, results, (name, cell))
+                # SUBTOTAL(103) of the visible rows, one by one, times the rows of that result; none when the table is empty.
+                self.assertTrue(formulas[cell].startswith("IF($R$1=0,0,SUMPRODUCT(SUBTOTAL(103,OFFSET("), (name, cell))
+                self.assertTrue(formulas[cell].endswith(f'="{result}")))'), (name, cell))
+            self.assertIn('LEFT($C$4,20)="Last reconciliation "', formulas["R3"])
+            self.assertIn('"None"', formulas["T5"])
+            workbook = self.package.read("xl/workbook.xml").decode("utf-8")
+            self.assertIn(f'<definedName name="{name}_Tiles">{name}!$Q$1:$V$5</definedName>', workbook)
+
+    def test_the_helper_cells_sit_in_hidden_columns_beyond_the_table(self) -> None:
+        for name, (last, _) in SHEETS.items():
+            hidden = [(int(col.attrib["min"]), int(col.attrib["max"])) for col in self.sheet(name).iter(MAIN + "col")
+                      if col.attrib.get("hidden") == "1"]
+            self.assertEqual(hidden, [(17, 22)], name)  # Q to V; the table ends at N or O
+            self.assertLess(ord(last), ord("Q"), name)
 
     def test_the_sheets_are_listed_as_never_protected(self) -> None:
         config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="utf-8")
