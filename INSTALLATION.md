@@ -825,6 +825,26 @@ sheet changes; while an operation is running it raises `ERR_RUN_ACTIVE`. The but
 **Import CSV** on the two staging sheets do the same for a file chosen in a
 dialog, list the findings, and ask before they replace changes.
 
+### ImportBankCsv_Silent
+
+`ImportBankCsv_Silent(kind, filePath, [replaceExisting])` loads a CSV file of
+the bank's own figures, `kind` `BankNettingSets` or `BankTrades`, onto its
+sheet without a dialog (#718). It returns `RESULT=LOADED; records=N; file=...`
+when the records were written; `RESULT=REJECTED; findings=N;
+first=CODE|line|record|column; file=...` when the file does not follow the
+[contract](docs/csv/CSV_CONTRACT.md#-the-bank-files), a file with more
+records than the sheet holds (200 netting sets, 500 legs) included; or
+`RESULT=REFUSED; reason=...; file=...` when the file has no record, or the
+sheet holds figures and `replaceExisting` is not True. The sheet changes only
+on `LOADED`; an error while it is written puts it back as it was, and
+settings that could not be restored are added to the error. An unknown kind,
+which includes `Trades` and `NettingSets`, and a file that cannot be read
+raise `ERR_CSV_READ`; a missing bank header and a value longer than a cell
+holds raise `ERR_STAGING_WRITE` before the sheet changes; while an operation
+is running it raises `ERR_RUN_ACTIVE`. The buttons **Import CSV** on the two
+bank sheets do the same for a file chosen in a dialog, list the findings and
+ask before they replace figures.
+
 ### ValidateStaging_Silent
 
 `ValidateStaging_Silent()` validates the staging sheets without a message, as

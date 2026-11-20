@@ -50,7 +50,7 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
 <section id="files">
 <h2>Files</h2>
 <p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet <code>Import_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and <code>Trades</code> writes the blank template, the header alone.</p>
-<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and <code>TradeReconciliation</code> compare with the workbook's results.</p>
+<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and <code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: <strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV menu, or <strong>Import CSV</strong> on the sheet, replace the figures of the sheet with the records of a file that follows the contract, and change nothing otherwise. <strong>BankNettingSets template...</strong> and <strong>BankTrades template...</strong> write the blank template.</p>
 <table>
 <thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>
 <tbody>
@@ -228,6 +228,8 @@ TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;
 <h2>BankNettingSets file</h2>
 <p>One record per netting set: the figures of the bank's own calculation that <code>Reconciliation</code> compares with the workbook's. <code>netting_set_id</code> is the key: unique in the file and compared case-insensitively, matched to the ID on <code>NettingSets</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>
 <p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankNettingSets</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 200 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>
+<h3>How a file is loaded</h3>
+<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
 <h3>Columns</h3>
 <div class="wide"><table>
 <thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>
@@ -259,6 +261,8 @@ NS-CCP;CRR;0;;;;;;;;;;;&quot;Bank &quot;&quot;EAD&quot;&quot;; zero&quot;
 <h2>BankTrades file</h2>
 <p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and compared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>
 <p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not compared. The file holds at most 500 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>
+<h3>How a file is loaded</h3>
+<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that already holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>
 <h3>Columns</h3>
 <div class="wide"><table>
 <thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></thead>

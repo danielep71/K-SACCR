@@ -227,7 +227,11 @@ def overview(contract: dict[str, Any]) -> str:
         "<code>Trades</code> writes the blank template, the header alone.</p>",
         "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets "
         "<code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
-        "<code>TradeReconciliation</code> compare with the workbook's results.</p>",
+        "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: "
+        "<strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV menu, "
+        "or <strong>Import CSV</strong> on the sheet, replace the figures of the sheet with the records of a file "
+        "that follows the contract, and change nothing otherwise. <strong>BankNettingSets template...</strong> and "
+        "<strong>BankTrades template...</strong> write the blank template.</p>",
         *rows,
     ])
 
@@ -398,6 +402,15 @@ def bank_section(kind: str, contract: dict[str, Any]) -> str:
         f"{code(spec['sheet'])}, and an amount in the file is written in that scale. A blank figure is not compared. "
         f"The file holds at most {spec['max_records']:,} records, the rows of the sheet; a longer file is rejected "
         "whole, never truncated.</p>",
+        "<h3>How a file is loaded</h3>",
+        "<ul>"
+        "<li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a "
+        "header-only file changes nothing, and the findings are listed in a message.</li>"
+        "<li>A sheet that already holds figures asks before they are replaced.</li>"
+        f"<li>The identifier, the regime and the comment are written as text, so {code('00731')} keeps its leading "
+        "zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li>"
+        "<li>The amount scale and the tolerances stay on the sheet and are not touched.</li>"
+        "</ul>",
         "<h3>Columns</h3>",
         field_table(kind, contract),
         "<h3>Example</h3>",
