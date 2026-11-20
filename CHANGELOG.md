@@ -391,8 +391,9 @@ Use only the categories needed by a release.
   widths and row heights. A value shape is linked to a helper cell (`textlink`), and
   the helper cells (columns Q to V of rows 1 to 5, hidden, name
   `Reconciliation_Tiles` and `TradeReconciliation_Tiles`) hold the formulas: counts
-  of the visible rows with `SUBTOTAL(103, ...)`, so the tiles follow a filter and
-  need no macro, and `0` or `None` when the table is empty. The shapes are part of
+  of the visible rows with `SUBTOTAL(103, ...)` to the last row of the sheet (a
+  reconciliation longer than the AutoFilter limit is counted whole), so the tiles
+  follow a filter and need no macro, and `0` or `None` when the table is empty. The shapes are part of
   the template, locked, and outside the navigation-bar group. The header row moved from
   row 6 to row 10 to make room (the name `Reconciliation_Header`, the frozen panes, the
   AutoFilter, the conditional formats and `sheet-style.json` follow; the macros find

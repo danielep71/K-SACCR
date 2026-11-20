@@ -25,6 +25,7 @@ SHEETS = {
     "TradeReconciliation": ("O", {"M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined"}),
 }
 FACTOR_FORMAT = "#,##0.000000"
+LAST_SHEET_ROW = 1048576
 HEADER, FIRST = 10, 11  # the header row and the first data row: three rows of tiles and a spacer sit above the header
 XDR = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
@@ -170,8 +171,10 @@ class ReconciliationSheetTests(unittest.TestCase):
         for name in SHEETS:
             formulas = self.helper_formulas(name)
             self.assertEqual(set(formulas), {"R1", "R2", "R3", "R4", "R5", "T1", "T2", "T3", "T4", "T5"} | set(OTHERS), name)
-            self.assertEqual(formulas["R1"], f"COUNTA($M${FIRST}:$M$100000)", name)
-            self.assertEqual(formulas["R2"], f"SUBTOTAL(103,$M${FIRST}:$M$100000)", name)
+            # To the last row of the sheet, not to the last row of the AutoFilter: a reconciliation of more rows
+            # than RECON_FILTER_LAST_ROW gets a filter over all of them, and the tiles must count them too.
+            self.assertEqual(formulas["R1"], f"COUNTA($M${FIRST}:$M${LAST_SHEET_ROW})", name)
+            self.assertEqual(formulas["R2"], f"SUBTOTAL(103,$M${FIRST}:$M${LAST_SHEET_ROW})", name)
             self.assertEqual(formulas["T1"], "R4+R5", name)
             for cell, result in ({tile[2]: tile[3] for tile in TILES if tile[3]} | OTHERS).items():
                 if cell == "T1":
