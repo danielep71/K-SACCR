@@ -44,6 +44,19 @@ class OpeningStateTests(unittest.TestCase):
             self.assertEqual(len(prompts), 1, name)
             self.assertIn("1% (0.01)", prompts[0], name)
 
+    def test_the_data_validation_messages_are_within_the_limits_of_excel(self) -> None:
+        # Excel refuses to open a file whose input message is over 255 characters, whose error message is
+        # over 255, or whose titles are over 32 (the quick check then stops with "Unable to get the Open
+        # property of the Workbooks class").
+        limits = {"prompt": 255, "error": 255, "promptTitle": 32, "errorTitle": 32}
+        for name, part in self.parts.items():
+            sheet = ElementTree.fromstring(self.package.read(part))
+            for item in sheet.iter(f"{MAIN}dataValidation"):
+                for attribute, limit in limits.items():
+                    text = item.attrib.get(attribute, "")
+                    self.assertLessEqual(len(text), limit,
+                                         f"{name} {item.attrib.get('sqref')}: {attribute} has {len(text)} characters")
+
     def test_the_tab_the_workbook_opens_on_is_the_k_saccr_tab(self) -> None:
         tree = ElementTree.parse(ROOT / "src" / "workbook" / "customUI14.xml").getroot()
         tabs = [item.attrib["id"] for item in tree.iter(UI + "tab")]
