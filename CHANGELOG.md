@@ -313,6 +313,16 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Open the workbook the way it is used (#726). Every sheet is saved at a zoom of
+  100% (three had 90%), and `Auto_Open` gives every visible sheet that zoom again
+  through `ApplyOpeningView`, so a copy saved at another zoom opens like the
+  template; the sheet that was active stays active, events are off meanwhile and
+  the Saved flag is kept. `RibbonOnLoad` selects the K-SACCR tab, so the commands
+  are in view when the workbook opens. The relative tolerance of `BankNettingSets`
+  and `BankTrades` defaults to 1% (0.01) instead of 0.01%; a workbook that holds a
+  value keeps it. `test_template_defaults.py` checks the template and the macro
+  source, and `TEST_MainState` checks the zoom of every sheet after the opening view.
+
 - Quote the FX rates of Params as the market does (#725, behavior change). The rate
   column of the FX table is now units of the currency per 1 unit of the reporting
   currency, so that EUR/USD 1.16 is entered as 1.16 with a EUR reporting currency;
