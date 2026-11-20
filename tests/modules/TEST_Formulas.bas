@@ -62,9 +62,9 @@ Attribute VB_Name = "TEST_Formulas"
         Private Const EXPECTED_CASES   As Long = 10                 'Cases in a complete run
     'Two checks of LongLong inputs run on 64-bit VBA only.
 #If Win64 Then
-        Private Const EXPECTED_CHECKS  As Long = 115                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 117                'Checks in a complete run
 #Else
-        Private Const EXPECTED_CHECKS  As Long = 113                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 115                'Checks in a complete run
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
@@ -467,6 +467,10 @@ Private Sub CaseBusinessDays()
                   SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), CDbl(DateSerial(2026, 12, 8)), False), TOL
         CheckNear "a table alone has no TARGET days", 2#, SACCR_BusinessDays(DateSerial(2026, 12, 24), DateSerial(2026, 12, 28), , False), TOL
         CheckNear "no range of validity without the rule", 5#, SACCR_BusinessDays(DateSerial(1990, 1, 1), DateSerial(1990, 1, 8), , False), TOL
+        CheckNear "a VBA Date as the table", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), DateSerial(2026, 12, 8), False), TOL
+        CheckNear "VBA Dates in an array", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), Array(DateSerial(2026, 12, 8), DateSerial(2026, 12, 8)), False), TOL
         CheckNear "a blank entry of the table is skipped", 1#, _
                   SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), Array(Empty, CDbl(DateSerial(2026, 12, 8))), False), TOL
 

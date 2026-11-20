@@ -998,8 +998,8 @@ Public Function SACCR_BusinessDays( _
 ' INPUTS
 '   StartDate, EndDate: dates as serial numbers, from 1 March 1900 (a time
 '      of day is ignored). Either may be the later one.
-'   Holidays: optional closing days, a date, a range or an array of dates;
-'      blank cells are skipped, a date on a weekend or listed twice counts
+'   Holidays: optional closing days, a date (a serial number or a VBA Date), a
+'      range or an array of dates; blank cells are skipped, a date on a weekend or listed twice counts
 '      once, and a date outside the interval changes nothing.
 '   UseTarget: True (default) adds the TARGET rule to the table; False
 '      counts weekends and the table only, with no range of validity.
@@ -1080,6 +1080,9 @@ Public Function SACCR_BusinessDays( _
             End If
             For k = LBound(List) To UBound(List)
                 Item = List(k)
+                If VarType(Item) = vbDate Then
+                    Item = CDbl(Item)    'A VBA Date, alone or in an array, is its serial number
+                End If
                 If IsError(Item) Then
                     SACCR_BusinessDays = Item
                     Exit Function

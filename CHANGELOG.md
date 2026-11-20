@@ -110,7 +110,8 @@ Use only the categories needed by a release.
   before 1 March 1900 and, under the rule, an interval that touches a year before 1999 are
   `#NUM!`; text in the table is `#VALUE!` and an error value in it is passed on. Nothing in the
   calculation reads it yet: the day-count convention `BD250`, the Params cells and the holiday
-  table follow in the next parts. `TEST_Formulas` gains a case (10 cases, 115 checks; 113 on
+  table follow in the next parts. A VBA `Date` is accepted in the table as a serial number, alone or in
+  an array. `TEST_Formulas` gains a case (10 cases, 117 checks; 115 on
   32-bit VBA) that repeats the Python reference's checks (Easter 2008, 2026 and 2038, the business
   days of 2024 to 2028, 2000 and 2001 and of ten years, a table with a Friday, a Saturday and a
   duplicate, dates before 1999 and the errors), every year from 2000 to 2099 and 300

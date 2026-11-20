@@ -22,7 +22,7 @@
     {
       "entry_point": "TEST_Formulas.RunFormulaTests",
       "cases": 10,
-      "checks": {"32-bit": 113, "64-bit": 115}
+      "checks": {"32-bit": 115, "64-bit": 117}
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",
