@@ -56,12 +56,41 @@ class ParserTests(unittest.TestCase):
 class EncodingTests(unittest.TestCase):
     def test_bom_and_crlf_variants_of_every_fixture_match_lf(self) -> None:
         for path in sorted((ROOT / gate.FIXTURES).glob("*/*.csv")):
-            kind = "Trades" if path.name.startswith("trades") else "NettingSets"
+            kind = {"trades": "Trades", "bank-netting-sets": "BankNettingSets", "bank-trades": "BankTrades"}.get(
+                path.name.rsplit("-fields", 1)[0].removesuffix(".csv"), "Trades" if path.name.startswith("trades") else "NettingSets")
             plain = path.read_bytes()
             with self.subTest(path=path.name):
                 expected = codes(plain, kind)
                 self.assertEqual(codes(csv.BOM + plain, kind), expected)
                 self.assertEqual(codes(plain.replace(b"\n", b"\r\n"), kind), expected)
+
+    def test_the_bank_files_are_read_as_the_contract_says(self) -> None:
+        names = [column["name"] for column in CONTRACT["files"]["BankNettingSets"]["columns"]]
+        header = ";".join(names)
+
+        def row(**fields: str) -> str:
+            return ";".join(fields.get(name, "") for name in names)
+
+        self.assertEqual(codes(f"{header}\n{row(netting_set_id='NS-1', regime='CRR')}\n", "BankNettingSets"), [])
+        # A blank figure is not compared and is no finding; the ID and the regime are required.
+        self.assertEqual(codes(f"{header}\n{row(ead='5')}\n", "BankNettingSets"),
+                         [("CSV-REQUIRED", 2, 1, "netting_set_id"), ("CSV-REQUIRED", 2, 1, "regime")])
+        self.assertEqual(codes(f"{header}\n{row(netting_set_id='N', regime='CRR', multiplier='-1')}\n", "BankNettingSets"),
+                         [("CSV-RANGE", 2, 1, "multiplier")])
+        # An ID absent from NettingSets is no finding of the file; a repeated one is.
+        self.assertEqual([code for code, *_ in codes(
+            f"{header}\n{row(netting_set_id='a', regime='CRR')}\n{row(netting_set_id='A', regime='BCBS')}\n",
+            "BankNettingSets")], ["CSV-DUPLICATE-KEY"])
+        # The limits are the rows of the sheets: a longer file is rejected whole.
+        for kind, limit in (("BankNettingSets", 200), ("BankTrades", 500)):
+            self.assertEqual(CONTRACT["files"][kind]["max_records"], limit)
+            columns = [column["name"] for column in CONTRACT["files"][kind]["columns"]]
+            key = columns.index(CONTRACT["files"][kind]["key"])
+            lines = [";".join(f"K{n}" if i == key else ("CRR" if columns[i] == "regime" else "") for i in range(len(columns)))
+                     for n in range(limit + 1)]
+            found = codes(";".join(columns) + "\n" + "\n".join(lines) + "\n", kind)
+            self.assertEqual([code for code, *_ in found], ["CSV-TOO-MANY-RECORDS"], kind)
+            self.assertEqual(codes(";".join(columns) + "\n" + "\n".join(lines[:limit]) + "\n", kind), [], kind)
 
     def test_invalid_utf8_and_nul(self) -> None:
         self.assertEqual(codes(NS_HEADER.encode() + b"\n\xff\n"), [("CSV-ENCODING", 0, 0, "")])
