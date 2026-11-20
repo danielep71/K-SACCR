@@ -26,7 +26,7 @@ SHEETS = {
 }
 FACTOR_FORMAT = "#,##0.000000"
 LAST_SHEET_ROW = 1048576
-HEADER, FIRST = 10, 11  # the header row and the first data row: three rows of tiles and a spacer sit above the header
+HEADER, FIRST = 11, 12  # the header row and the first data row: four rows of tiles and a spacer sit above the header
 XDR = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 CONFIG = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
@@ -41,7 +41,15 @@ TILES = (
     ("tile_MissingInCalculator", "Missing in calculator", "T3", "MISSING IN CALCULATOR", "DDEBF7"),
     ("tile_Duplicate", "Duplicate rows", "T4", "DUPLICATE", "DDEBF7"),
     ("tile_OtherResults", "Other results", "T5", None, "DDEBF7"),
+    ("tile_Measure", "Measure shown", "X4", None, "DDEBF7"),
+    ("tile_SumBank", "Sum of bank figures", "X5", None, "DDEBF7"),
+    ("tile_SumCalc", "Sum of calc. figures", "Z1", None, "DDEBF7"),
+    ("tile_SumAbsDiff", "Sum of abs. diff.", "Z2", None, "DDEBF7"),
+    ("tile_MaxAbsDiff", "Largest abs. diff.", "Z3", None, "DDEBF7"),
 )
+# The measures of each sheet that are factors, not amounts: no sum is shown for them.
+FACTORS = {"Reconciliation": ("Multiplier",),
+           "TradeReconciliation": ("M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined")}
 # The results the Other results tile counts, one helper cell each.
 OTHERS = {"V1": "WITHHELD", "V2": "INVALID INPUT", "V3": "REGIME MISMATCH", "V4": "EXCLUDED", "V5": "NOT APPLICABLE"}
 
@@ -117,10 +125,10 @@ class ReconciliationSheetTests(unittest.TestCase):
         return ElementTree.fromstring(self.package.read("xl/drawings/" + match.group(1)))
 
     def helper_formulas(self, name: str) -> dict[str, str]:
-        """The formula of each helper cell of rows 1 to 5, columns R, T and V."""
+        """The formula of each helper cell of rows 1 to 5, columns R, T, V, X and Z."""
         out: dict[str, str] = {}
         for cell in self.sheet(name).iter(MAIN + "c"):
-            if re.fullmatch(r"[RTV][1-5]", cell.attrib["r"]):
+            if re.fullmatch(r"[RTVXZ][1-5]", cell.attrib["r"]):
                 out[cell.attrib["r"]] = cell.findtext(MAIN + "f") or ""
         return out
 
@@ -132,7 +140,7 @@ class ReconciliationSheetTests(unittest.TestCase):
             assert pane is not None
             self.assertEqual((pane.attrib["ySplit"], pane.attrib["topLeftCell"]), (str(HEADER), f"D{FIRST}"), name)
             rows = {row.attrib["r"]: row for row in self.sheet(name).iter(MAIN + "row")}
-            self.assertEqual([rows[str(r)].attrib["ht"] for r in (6, 7, 8, 9)], ["22.5", "22.5", "22.5", "6"], name)
+            self.assertEqual([rows[str(r)].attrib["ht"] for r in (6, 7, 8, 9, 10)], ["22.5", "22.5", "22.5", "22.5", "6"], name)
             self.assertIsNotNone(rows[str(HEADER)].find(f'{MAIN}c[@r="C{HEADER}"]'), name)
 
     def test_every_tile_is_a_shape_linked_to_a_helper_cell(self) -> None:
@@ -170,7 +178,8 @@ class ReconciliationSheetTests(unittest.TestCase):
         results = {value for value in re.findall(r'RES_\w+\s+As String = "([^"]+)"', CONFIG)}
         for name in SHEETS:
             formulas = self.helper_formulas(name)
-            self.assertEqual(set(formulas), {"R1", "R2", "R3", "R4", "R5", "T1", "T2", "T3", "T4", "T5"} | set(OTHERS), name)
+            self.assertEqual(set(formulas), {"R1", "R2", "R3", "R4", "R5", "T1", "T2", "T3", "T4", "T5", "X1", "X2", "X3", "X4",
+                                             "X5", "Z1", "Z2", "Z3"} | set(OTHERS), name)
             # To the last row of the sheet, not to the last row of the AutoFilter: a reconciliation of more rows
             # than RECON_FILTER_LAST_ROW gets a filter over all of them, and the tiles must count them too.
             self.assertEqual(formulas["R1"], f"COUNTA($M${FIRST}:$M${LAST_SHEET_ROW})", name)
@@ -186,13 +195,33 @@ class ReconciliationSheetTests(unittest.TestCase):
             self.assertIn('LEFT($C$4,20)="Last reconciliation "', formulas["R3"])
             self.assertIn('"None"', formulas["T5"])
             workbook = self.package.read("xl/workbook.xml").decode("utf-8")
-            self.assertIn(f'<definedName name="{name}_Tiles">{name}!$Q$1:$V$5</definedName>', workbook)
+            self.assertIn(f'<definedName name="{name}_Tiles">{name}!$Q$1:$Z$5</definedName>', workbook)
+
+    def test_the_figures_of_one_measure_follow_the_filter_and_are_not_summed_across_measures(self) -> None:
+        for name in SHEETS:
+            formulas = self.helper_formulas(name)
+            visible = f"SUBTOTAL(103,OFFSET($M${FIRST},ROW(OFFSET($M${FIRST},0,0,$R$1,1))-ROW($M${FIRST}),0))"
+            # The first visible measure, and whether the filter leaves that measure alone.
+            self.assertIn(f"MATCH(1,{visible},0)", formulas["X1"], name)
+            self.assertIn(f"SUMPRODUCT({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1))=$R$2", formulas["X2"], name)
+            for measure in FACTORS[name]:
+                self.assertIn(f'$X$1="{measure}"', formulas["X3"], (name, measure))
+            self.assertEqual(formulas["X3"].count("$X$1="), len(FACTORS[name]), name)
+            # A sum is shown for one amount measure only; with several, a prompt; for a factor, none.
+            for cell, column in (("X5", "I"), ("Z1", "J"), ("Z2", "K")):
+                self.assertIn("IF($X$2=0,", formulas[cell], (name, cell))
+                self.assertIn('IF($X$3=1,"Factor",FIXED(SUMPRODUCT(', formulas[cell], (name, cell))
+                self.assertIn(f"*OFFSET(${column}${FIRST},0,0,$R$1,1)),2)", formulas[cell], (name, cell))
+            # The largest absolute difference is shown for a factor too, with six decimals instead of two.
+            self.assertIn(f"SUMPRODUCT(MAX({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1)*OFFSET($K${FIRST},0,0,$R$1,1)))", formulas["Z3"], name)
+            self.assertIn("IF($X$3=1,6,2)", formulas["Z3"], name)
+            self.assertIn('"Filter one measure"', formulas["X5"], name)
 
     def test_the_helper_cells_sit_in_hidden_columns_beyond_the_table(self) -> None:
         for name, (last, _) in SHEETS.items():
             hidden = [(int(col.attrib["min"]), int(col.attrib["max"])) for col in self.sheet(name).iter(MAIN + "col")
                       if col.attrib.get("hidden") == "1"]
-            self.assertEqual(hidden, [(17, 22)], name)  # Q to V; the table ends at N or O
+            self.assertEqual(hidden, [(17, 26)], name)  # Q to Z; the table ends at N or O
             self.assertLess(ord(last), ord("Q"), name)
 
     def test_the_sheets_are_listed_as_never_protected(self) -> None:

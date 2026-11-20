@@ -97,6 +97,22 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Show the figures of one measure on the reconciliation sheets (#720, third part). A fourth
+  row of tiles gives, for the rows the filter leaves, the Sum of bank figures, the Sum of
+  calc. figures, the Sum of abs. diff. and the Largest abs. diff., and a Measure shown tile
+  names the measure. An amount summed over EAD, PFE and the multiplier would mean nothing, so
+  the sums are shown only when the filter leaves **one** measure: with several, the tiles ask to
+  filter one (`Filter one measure`) and Measure shown reads `Several`; for a factor (the
+  multiplier on Reconciliation; M, the supervisory duration, the delta and the maturity
+  factors on TradeReconciliation) no sum is shown (`Factor`) and the largest absolute
+  difference has six decimals instead of two. The tiles are linked to helper cells in columns W
+  to Z (hidden, in the `Reconciliation_Tiles` and `TradeReconciliation_Tiles` names), whose
+  formulas follow the filter as those of the other tiles do; the numbers are written with
+  `FIXED`, so the separators are those of the user's locale. The header row moved from row 10
+  to row 11, and `test_reconciliation_sheets.py` checks the new tiles and formulas. This is
+  the owner's per-measure table as figures of the measure the filter shows, not a table of
+  every measure at once: that table would take much of the frozen rows above the header.
+
 - Add the business-day count to the worksheet functions (#721, first part of the
   engine). `SACCR_BusinessDays(StartDate, EndDate, [Holidays], [UseTarget])` counts the
   business days in (start, end], the first date excluded and the last included as in the
@@ -454,7 +470,7 @@ Use only the categories needed by a release.
   reconciliation longer than the AutoFilter limit is counted whole), so the tiles
   follow a filter and need no macro, and `0` or `None` when the table is empty. The shapes are part of
   the template, locked, and outside the navigation-bar group. The header row moved from
-  row 6 to row 10 to make room (the name `Reconciliation_Header`, the frozen panes, the
+  row 6 to row 10 (and later to row 11) to make room (the name `Reconciliation_Header`, the frozen panes, the
   AutoFilter, the conditional formats and `sheet-style.json` follow; the macros find
   the table by its name). The Rows shown tile counts the rows of the table that the
   filter leaves, not the rows of the bank sheet: a distinct count of bank rows
