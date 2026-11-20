@@ -2113,7 +2113,8 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Build the evidence report from the sheets as they are: RUN (the run
-'   identity), PARAMS, SF_TABLE and FX_TABLE (the parameter snapshot),
+'   identity), PARAMS, SF_TABLE, FX_TABLE and HOLIDAY_TABLE (the parameter
+'   snapshot),
 '   RESULTS, RECONCILIATION, TRADE_RECONCILIATION, CHECKS and LIMITATIONS.
 '   Everything is read from the workbook, so the report is the same after
 '   the workbook is closed and reopened.
@@ -2209,6 +2210,7 @@ Private Function EvidenceText() As String
         Next i
         Report = Report & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
         Report = Report & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
+        Report = Report & HolidayTableLines()
 
 '------------------------------------------------------------------------------
 ' TABLES
@@ -2266,6 +2268,47 @@ Private Function ParamsTableLines( _
         Loop
         ParamsTableLines = CORE_Export.TableLines(Section, TableRange(ParamsSheet, HeaderRow, KeyColumn, r - 1, _
                                                   KeyColumn + UBound(Split(Headers, "|"))).Value2)
+
+End Function
+
+
+Private Function HolidayTableLines() As String
+'
+'==============================================================================
+'                             HolidayTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The Holiday_Table of Params as the run reads it (#721): its header row,
+'   then every one of its HOLIDAY_ROWS rows with a closing day, also those
+'   below a blank row, as the engine reads them all.
+'
+' ERROR POLICY
+'   Raises when the name does not locate a header row.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row
+    Dim KeyColumn     As Long         'First column of the table
+    Dim Block         As Variant      'Header and rows
+    Dim r             As Long         'Row read
+
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_HOLIDAY_TABLE)
+        KeyColumn = NamedTableCol(NM_HOLIDAY_TABLE)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.HolidayTableLines", "The name " & NM_HOLIDAY_TABLE & " is missing."
+        End If
+        Block = TableRange(ParamsSheet, HeaderRow, KeyColumn, HeaderRow + HOLIDAY_ROWS, KeyColumn + 1).Value2
+        HolidayTableLines = CORE_Export.CsvLine("HOLIDAY_TABLE", Array(Block(1, 1), Block(1, 2)))
+        For r = 2 To HOLIDAY_ROWS + 1
+            If IsError(Block(r, 1)) Or Not IsBlankCell(Block(r, 1)) Then
+                HolidayTableLines = HolidayTableLines & CORE_Export.CsvLine("HOLIDAY_TABLE", Array(Block(r, 1), Block(r, 2)))
+            End If
+        Next r
 
 End Function
 

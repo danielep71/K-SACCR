@@ -156,11 +156,14 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `PRM-ALPHA` | active | Alpha must be greater than zero. |
 | `PRM-ASOF` | active | Reporting date missing or not a date (enter a date, |
 | `PRM-BOOLEAN` | active | Parameter must be TRUE or FALSE (found |
+| `PRM-CALENDAR` | active | Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier. |
 | `PRM-CURRENCY` | active | Reporting currency must be three letters A to Z, |
 | `PRM-CURRENCY-MISSING` | active | Reporting currency missing. |
+| `PRM-DAYCOUNT` | active | Day-count convention must be CAL365 or BD250 (found |
 | `PRM-DEFAULT` | active | Parameter missing - default   used. |
 | `PRM-DUP` | active | Parameter listed twice with different values (rows |
 | `PRM-DUP-SAME` | active | Parameter listed twice with the same value (rows |
+| `PRM-HOLIDAY` | active | Closing day on a row of the Params table is not a date from 1 March 1900. |
 | `PRM-IR-CORRELATION` | active | The IR bucket correlations  , |
 | `PRM-NAME` | active | A Params workbook name is missing or no longer refers to a cell (#REF!); every parameter is read through its name. |
 | `PRM-NUMBER` | active | Parameter must be a number (found  ). |

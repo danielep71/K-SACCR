@@ -97,6 +97,37 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Read the day-count convention and the calendar on Params and use them (#721, second part of
+  the engine). Two reference parameters below the others, `DayCountConvention` (`CAL365`, the default, or
+  `BD250`) and `Calendar` (`TARGET`, the default, `TARGET+TABLE` or `TABLE`), with a list validation,
+  the grey fill and workbook names; a table of closing days (`Holiday_Table`, 100 rows of date and
+  description, unlocked) at the right of the FX table. With `BD250`, S, E, M, T and the time to a reset
+  date are the business days after the reporting date, up to and including the date, over
+  `BusinessDaysPerYear` (`SACCR_BusinessDays`, with the whole years before the year of the date
+  kept for the run, so that a call spans one year at most); the floors in business days then apply to a
+  business-day count exactly, and a date that is not after the reporting date keeps the calendar-day
+  measure, which only the checks for a matured or expired trade and the floor of S read. The order
+  of start and end date is checked on the dates, not on the years (two dates can be the same number of
+  business days apart, and the floor of the supervisory duration then applies), and an option with no
+  business day left before its expiry is rejected with `TR-EXPIRED` instead of failing the option delta. With `CAL365`
+  nothing is read and every result is as before. The convention and the calendar do not change the class
+  of a run, are listed on the evidence export with the other parameters (the closing days in a new
+  `HOLIDAY_TABLE` section, every row with a date), are part of the fingerprint of
+  the inputs together with the table of closing days, and Restore parameters puts them back to `CAL365`
+  and `TARGET`. A convention or a calendar that is not allowed, a TARGET calendar with a reporting date
+  before 1 January 1999, and an entry of the table that is not a date from 1 March 1900 stop the run with
+  the new Checks codes `PRM-DAYCOUNT`, `PRM-CALENDAR` and `PRM-HOLIDAY`. The rows of Params from the
+  supervisory-factor table down moved by two, so the table of factors is at `C30:K56` and the FX table at
+  `C59:E64`; the protection matrix, `sheet-style.json`, the protection check and the FX test follow.
+  The suites gain cases: `TEST_InputValidation` nine (an unknown convention and calendar, a
+  reporting date before TARGET, an entry that is not a date, two valid BD250 runs, two dates the same
+  number of business days apart, an end date before the start date, and an option with no business day
+  left), `TEST_Reconcile` two checks (the holiday table in the evidence export), and
+  `TEST_MainState` one (the maturity of the first trade on each convention, and the class of the run) and
+  a Restore with the two conventions changed. The prompt of the FX rate cells, which still gave the
+  rate the other way round after #725, now reads units of the currency per 1 unit of the reporting
+  currency.
+
 - Show the figures of one measure on the reconciliation sheets (#720, third part). A fourth
   row of tiles gives, for the rows the filter leaves, the Sum of bank figures, the Sum of
   calc. figures, the Sum of abs. diff. and the Largest abs. diff., and a Measure shown tile

@@ -43,8 +43,8 @@ class FxQuoteTests(unittest.TestCase):
         parts = sheet_parts(self.package)
         sheet = ElementTree.fromstring(self.package.read(parts["Params"]))
         rates = {item.attrib["r"]: float(item.findtext(f"{MAIN}v") or "nan")
-                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in {"E58", "E59", "E60", "E61", "E62"}}
-        self.assertEqual(rates, {"E58": 1.0, "E59": 1.16, "E60": 0.86, "E61": 172.0, "E62": 0.93})
+                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in {"E60", "E61", "E62", "E63", "E64"}}
+        self.assertEqual(rates, {"E60": 1.0, "E61": 1.16, "E62": 0.86, "E63": 172.0, "E64": 0.93})
 
     def test_the_engine_divides_by_the_rate(self) -> None:
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")

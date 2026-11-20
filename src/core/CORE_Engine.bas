@@ -369,6 +369,12 @@ Attribute VB_Name = "CORE_Engine"
         Private pFloor        As Double     'Multiplier floor
         Private pDaysYear     As Double     'Calendar days per year
         Private pBDYear       As Double     'Business days per year
+        Private pDayCount     As String     'CAL365 or BD250 (#721)
+        Private pCalendar     As String     'TARGET, TARGET+TABLE or TABLE
+        Private pBusinessDays As Boolean    'BD250: S, E, M and T count business days
+        Private pUseTarget    As Boolean    'The calendar holds the TARGET rule
+        Private pHolidays     As Variant    'Closing days of the table, as serial numbers; Empty for none
+        Private mYearEnds     As Collection 'Business days from the reporting date to 31 December of a year, by year
         Private pMinMatBD     As Double     'Floor on M, business days
         Private pSDFloorBD    As Double     'Floor on supervisory duration, business days
         Private pMPORBil      As Double     'MPOR floor, bilateral
@@ -1145,7 +1151,7 @@ Public Function ParameterCodes() As Variant
         ParameterCodes = Array(PRM_ASOF, PRM_REPCCY, PRM_ALPHA, PRM_FLOOR, PRM_DAYSYEAR, PRM_BDYEAR, _
                       PRM_MINMAT, PRM_SDFLOOR, PRM_MPOR_BIL, PRM_MPOR_CLR, PRM_MPOR_LARGE, _
                       PRM_BASIS, PRM_VOLF, PRM_RHO12, PRM_RHO23, PRM_RHO13, PRM_IRFULL, _
-                      PRM_REGIME, PRM_LAMIR, PRM_LAMCO)
+                      PRM_REGIME, PRM_LAMIR, PRM_LAMCO, PRM_DAYCOUNT, PRM_CALENDAR)
 End Function
 
 
@@ -1237,7 +1243,7 @@ Private Function ParamsLayoutValid( _
 ' NAMES
 '------------------------------------------------------------------------------
         AllValid = True
-        LayoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        LayoutNames = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE, NM_HOLIDAY_TABLE)
         For i = LBound(LayoutNames) To UBound(LayoutNames)
             Set NameCell = NamedCell(CStr(LayoutNames(i)))
             If NameCell Is Nothing Then
@@ -1266,6 +1272,7 @@ Private Function ParamsLayoutValid( _
         AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_PRM_VALUE), PRM_VALUE_HEADER, ParamsValueCol()) And AllValid
         AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_SF_TABLE), SF_HEADERS, NamedTableCol(NM_SF_TABLE)) And AllValid
         AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_FX_TABLE), FX_HEADERS, NamedTableCol(NM_FX_TABLE)) And AllValid
+        AllValid = HeadersMatch(ParamsSheet, NamedRow(NM_HOLIDAY_TABLE), HOLIDAY_HEADERS, NamedTableCol(NM_HOLIDAY_TABLE)) And AllValid
         ParamsLayoutValid = AllValid
 
 End Function
@@ -1645,6 +1652,7 @@ Private Function LoadParams() As Boolean
         End If
         pLamThrIR = NumParam(PRM_LAMIR, 0.001)
         pLamThrCO = NumParam(PRM_LAMCO, 0.1)
+        ReadConvention
 
 '------------------------------------------------------------------------------
 ' RANGES
@@ -1691,6 +1699,273 @@ Fail:
         LogMsg DIAG_PRM_READ, "", SEV_ERROR, SH_PARAMS, "", "Cannot read parameters: " & Err.Description
 
 End Function
+
+
+Private Sub ReadConvention()
+'
+'==============================================================================
+'                               ReadConvention
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read the day-count convention and the calendar of Params (#721) and, for
+'   BD250 with a table of closing days, the table. CAL365, the default,
+'   leaves the dates read as calendar days over DaysPerYear and ignores the
+'   calendar and its table, so a workbook that does not choose BD250 is
+'   read exactly as before. A blank cell means the default.
+'
+' ERROR POLICY
+'   A value that is not allowed, a TARGET calendar with a reporting date
+'   before its first day (1 January 1999) and an entry of the table that is
+'   not a date are logged as errors and set mParamError.
+'
+' STATE OWNERSHIP
+'   Sets pDayCount, pCalendar, pBusinessDays, pUseTarget, pHolidays and
+'   mYearEnds.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim RawValue   As Variant    'Raw parameter value
+
+        pDayCount = DAYCOUNT_CAL365
+        pCalendar = CALENDAR_TARGET
+        pBusinessDays = False
+        pUseTarget = True
+        pHolidays = Empty
+        Set mYearEnds = New Collection
+
+        RawValue = GetParam(PRM_DAYCOUNT)
+        If IsError(RawValue) Then
+            mParamError = True
+            LogMsg DIAG_PRM_DAYCOUNT, PRM_DAYCOUNT, SEV_ERROR, SH_PARAMS, PRM_DAYCOUNT, "Day-count convention must be " & _
+                   DAYCOUNT_CAL365 & " or " & DAYCOUNT_BD250 & " (found an error value)."
+        ElseIf Len(Trim$(SafeStr(RawValue))) > 0 Then
+            pDayCount = UCase$(Trim$(SafeStr(RawValue)))
+            If pDayCount <> DAYCOUNT_CAL365 And pDayCount <> DAYCOUNT_BD250 Then
+                mParamError = True
+                LogMsg DIAG_PRM_DAYCOUNT, PRM_DAYCOUNT, SEV_ERROR, SH_PARAMS, PRM_DAYCOUNT, "Day-count convention must be " & _
+                       DAYCOUNT_CAL365 & " or " & DAYCOUNT_BD250 & " (found " & DescribeValue(RawValue) & ")."
+            End If
+        End If
+
+        RawValue = GetParam(PRM_CALENDAR)
+        If IsError(RawValue) Then
+            mParamError = True
+            LogMsg DIAG_PRM_CALENDAR, PRM_CALENDAR, SEV_ERROR, SH_PARAMS, PRM_CALENDAR, "Calendar must be " & CALENDAR_TARGET & _
+                   ", " & CALENDAR_BOTH & " or " & CALENDAR_TABLE & " (found an error value)."
+        ElseIf Len(Trim$(SafeStr(RawValue))) > 0 Then
+            pCalendar = UCase$(Trim$(SafeStr(RawValue)))
+            If pCalendar <> CALENDAR_TARGET And pCalendar <> CALENDAR_BOTH And pCalendar <> CALENDAR_TABLE Then
+                mParamError = True
+                LogMsg DIAG_PRM_CALENDAR, PRM_CALENDAR, SEV_ERROR, SH_PARAMS, PRM_CALENDAR, "Calendar must be " & CALENDAR_TARGET & _
+                       ", " & CALENDAR_BOTH & " or " & CALENDAR_TABLE & " (found " & DescribeValue(RawValue) & ")."
+            End If
+        End If
+
+    'Only BD250 reads the calendar.
+        If mParamError Or pDayCount <> DAYCOUNT_BD250 Then
+            Exit Sub
+        End If
+        pBusinessDays = True
+        pUseTarget = (pCalendar <> CALENDAR_TABLE)
+        If pUseTarget And pAsOf < CDbl(DateSerial(1999, 1, 1)) Then
+            mParamError = True
+            LogMsg DIAG_PRM_CALENDAR, PRM_CALENDAR, SEV_ERROR, SH_PARAMS, PRM_CALENDAR, "The TARGET calendar starts on 1 January 1999 " & _
+                   "and the reporting date is earlier: use the calendar " & CALENDAR_TABLE & " or the convention " & DAYCOUNT_CAL365 & "."
+            Exit Sub
+        End If
+        If pCalendar <> CALENDAR_TARGET Then
+            LoadHolidays
+        End If
+
+End Sub
+
+
+Private Sub LoadHolidays()
+'
+'==============================================================================
+'                                LoadHolidays
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read the closing days of the table on Params (#721): the cells below its
+'   header, HOLIDAY_ROWS of them, in its first column. A blank cell is
+'   skipped; a date (a number, a date or text in the form yyyy-mm-dd) from 1
+'   March 1900 is kept; anything else is an error. Only the days that were
+'   found are kept, in pHolidays.
+'
+' ERROR POLICY
+'   An entry that is not a date is logged with its row and sets mParamError.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the table
+    Dim Column        As Long         'Its first column
+    Dim Entries       As Variant      'The cells below the header
+    Dim Found()       As Double       'The closing days found
+    Dim FoundCount    As Long         'How many
+    Dim Serial        As Double       'One entry as a serial number
+    Dim r             As Long         'Entry
+
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_HOLIDAY_TABLE)
+        Column = NamedTableCol(NM_HOLIDAY_TABLE)
+        Entries = TableRange(ParamsSheet, HeaderRow + 1, Column, HeaderRow + HOLIDAY_ROWS, Column).Value2
+        ReDim Found(1 To HOLIDAY_ROWS)
+        For r = 1 To HOLIDAY_ROWS
+            If IsError(Entries(r, 1)) Then
+                mParamError = True
+                LogMsg DIAG_PRM_HOLIDAY, NM_HOLIDAY_TABLE, SEV_ERROR, SH_PARAMS, NM_HOLIDAY_TABLE, "Closing day on row " & _
+                       (HeaderRow + r) & " is an error value.", HeaderRow + r
+            ElseIf Not IsBlankCell(Entries(r, 1)) Then
+                Serial = ToSerial(Entries(r, 1))
+                If Serial < 61# Then
+                    mParamError = True
+                    LogMsg DIAG_PRM_HOLIDAY, NM_HOLIDAY_TABLE, SEV_ERROR, SH_PARAMS, NM_HOLIDAY_TABLE, "Closing day on row " & _
+                           (HeaderRow + r) & " is not a date from 1 March 1900 (found " & DescribeValue(Entries(r, 1)) & ").", HeaderRow + r
+                Else
+                    FoundCount = FoundCount + 1
+                    Found(FoundCount) = Int(Serial)
+                End If
+            End If
+        Next r
+        If FoundCount > 0 And Not mParamError Then
+            ReDim Preserve Found(1 To FoundCount)
+            pHolidays = Found
+        End If
+
+End Sub
+
+
+Private Function YearsTo( _
+    ByVal Target As Double) _
+    As Double
+'
+'==============================================================================
+'                                  YearsTo
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Years from the reporting date to a date (#721): calendar days over
+'   DaysPerYear, or with BD250 the business days after the reporting date up
+'   to and including the date, over BusinessDaysPerYear. A date that is not
+'   after the reporting date takes the calendar-day measure on either
+'   convention: it is zero or negative, and only the checks for a matured or
+'   expired trade and the floor of S read it.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        If pBusinessDays And Target > pAsOf Then
+            YearsTo = BusinessDaysTo(Target) / pBDYear
+        Else
+            YearsTo = (Target - pAsOf) / pDaysYear
+        End If
+
+End Function
+
+
+Private Function BusinessDaysTo( _
+    ByVal Target As Double) _
+    As Double
+'
+'==============================================================================
+'                              BusinessDaysTo
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The business days in (reporting date, Target] on the chosen calendar,
+'   from SACCR_BusinessDays: the whole years before the year of Target from
+'   a cache kept for the run, and the rest of that year by one call, so that
+'   a call spans at most one year however far the date is.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim TargetYear   As Long    'Year of the date
+
+        TargetYear = Year(Target)
+        If TargetYear = Year(pAsOf) Then
+            BusinessDaysTo = FormulaNumber(SACCR_BusinessDays(pAsOf, Target, pHolidays, pUseTarget), "SACCR_BusinessDays")
+        Else
+            BusinessDaysTo = YearEndCount(TargetYear - 1) + _
+                             FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(TargetYear - 1, 12, 31)), Target, pHolidays, pUseTarget), _
+                                           "SACCR_BusinessDays")
+        End If
+
+End Function
+
+
+Private Function YearEndCount( _
+    ByVal LastYear As Long) _
+    As Double
+'
+'==============================================================================
+'                              YearEndCount
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The business days in (reporting date, 31 December of LastYear], built
+'   from the years after the year of the reporting date and kept by year.
+'   LastYear is not before the year of the reporting date.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim Cached      As Variant    'The kept count; Empty when there is none
+    Dim Count       As Double     'Business days up to the end of the year
+    Dim FirstYear   As Long       'Year of the reporting date
+    Dim y           As Long       'Year
+
+        On Error Resume Next
+        Cached = mYearEnds(CStr(LastYear))
+        On Error GoTo 0
+        If Not IsEmpty(Cached) Then
+            YearEndCount = CDbl(Cached)
+            Exit Function
+        End If
+        FirstYear = Year(pAsOf)
+        Count = FormulaNumber(SACCR_BusinessDays(pAsOf, CDbl(DateSerial(FirstYear, 12, 31)), pHolidays, pUseTarget), "SACCR_BusinessDays")
+        KeepYearEnd FirstYear, Count
+        For y = FirstYear + 1 To LastYear
+            Count = Count + FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(y - 1, 12, 31)), CDbl(DateSerial(y, 12, 31)), _
+                                                            pHolidays, pUseTarget), "SACCR_BusinessDays")
+            KeepYearEnd y, Count
+        Next y
+        YearEndCount = Count
+
+End Function
+
+
+Private Sub KeepYearEnd( _
+    ByVal Yr As Long, _
+    ByVal Count As Double)
+'
+'==============================================================================
+'                                KeepYearEnd
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Keep the business days up to the end of a year, once.
+'
+' ERROR POLICY
+'   Contains the expected error of adding a key the Collection already has.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        On Error Resume Next
+        mYearEnds.Add Count, CStr(Yr)
+        Err.Clear
+
+End Sub
 
 
 Private Function LoadSFTable() As Boolean
@@ -2587,8 +2862,8 @@ Public Function RegulatoryParameterCodes() As Variant
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The Params codes that M_Main.RestoreRegulatoryParameters writes back
-'   (#357): the reference parameters ClassifyRun compares, then the two
-'   conventions DaysPerYear and IRBucketOffset. AsOfDate, ReportingCcy
+'   (#357): the reference parameters ClassifyRun compares, then the
+'   conventions DaysPerYear, IRBucketOffset, DayCountConvention and Calendar. AsOfDate, ReportingCcy
 '   and Regime are run settings and are not listed.
 '
 ' UPDATED
@@ -2597,7 +2872,7 @@ Public Function RegulatoryParameterCodes() As Variant
 '
         RegulatoryParameterCodes = Array(PRM_ALPHA, PRM_FLOOR, PRM_DAYSYEAR, PRM_BDYEAR, PRM_MINMAT, PRM_SDFLOOR, _
                                    PRM_MPOR_BIL, PRM_MPOR_CLR, PRM_MPOR_LARGE, PRM_BASIS, PRM_VOLF, PRM_RHO12, _
-                                   PRM_RHO23, PRM_RHO13, PRM_IRFULL, PRM_LAMIR, PRM_LAMCO)
+                                   PRM_RHO23, PRM_RHO13, PRM_IRFULL, PRM_LAMIR, PRM_LAMCO, PRM_DAYCOUNT, PRM_CALENDAR)
 
 End Function
 
@@ -2656,6 +2931,10 @@ Public Function RegulatoryParameterValue( _
                 RegulatoryParameterValue = REF_LAMIR
             Case PRM_LAMCO
                 RegulatoryParameterValue = REF_LAMCO
+            Case PRM_DAYCOUNT
+                RegulatoryParameterValue = DAYCOUNT_CAL365
+            Case PRM_CALENDAR
+                RegulatoryParameterValue = CALENDAR_TARGET
         End Select
 
 End Function
@@ -2671,8 +2950,8 @@ Private Sub ClassifyRun()
 '   REF_SET_ID (#41): the numeric parameters on Params, every row of the
 '   supervisory-factor table, and the alpha override of each netting set.
 '   Each difference is logged as a "What-if:" warning; the run is
-'   RUN_REGULATORY when there is none, RUN_WHATIF otherwise. DaysPerYear
-'   and IRBucketOffset are conventions and are not compared.
+'   RUN_REGULATORY when there is none, RUN_WHATIF otherwise. DaysPerYear,
+'   IRBucketOffset, DayCountConvention and Calendar are conventions and are not compared.
 '
 ' STATE OWNERSHIP
 '   Sets mRunClass and mDeviations.
@@ -4241,8 +4520,8 @@ Private Sub ReadTradeDates( _
     'A date that is present but cannot be read is an error (#35). Missing
     'dates are filled from each other: maturity from the end date,
     'then from the option expiry; the end date from the maturity. S, E and M
-    'are years from the reporting date on the DaysPerYear basis, with S
-    'floored at 0.
+    'are years from the reporting date on the DaysPerYear basis, or on the
+    'business-day basis of BD250 (YearsTo), with S floored at 0.
         Trade.dStart = TradeDate(InputBlock(DataRow, TR_START), "start date", Trade.ok, Trade.msg)
         Trade.dEnd = TradeDate(InputBlock(DataRow, TR_END), "end date", Trade.ok, Trade.msg)
         Trade.dMat = TradeDate(InputBlock(DataRow, TR_MAT), "maturity date", Trade.ok, Trade.msg)
@@ -4253,16 +4532,19 @@ Private Sub ReadTradeDates( _
         If Trade.dMat < 0# Then
             AddErr DIAG_TR_MATURITY_MISSING, "", Trade.ok, Trade.msg, "maturity / end date missing"
         Else
-            Trade.M = (Trade.dMat - pAsOf) / pDaysYear
-            Trade.E = (Trade.dEnd - pAsOf) / pDaysYear
+            Trade.M = YearsTo(Trade.dMat)
+            Trade.E = YearsTo(Trade.dEnd)
             If Trade.dStart >= 0# Then
-                Trade.S = Max2(0#, (Trade.dStart - pAsOf) / pDaysYear)
+                Trade.S = Max2(0#, YearsTo(Trade.dStart))
             Else
                 Trade.S = 0#
             End If
             If Len(MaturedText(Trade.dMat, pAsOf)) > 0 Then
                 AddErr DIAG_TR_MATURED, "", Trade.ok, Trade.msg, MaturedText(Trade.dMat, pAsOf)
-            ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.E <= Trade.S Then
+            ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.dEnd <= Max2(Trade.dStart, pAsOf) Then
+                'The order is that of the dates, not of the years: on BD250 two
+                'dates apart can be the same number of business days, and the
+                'floor of the supervisory duration is there for that case.
                 AddErr DIAG_TR_DATE_ORDER, "", Trade.ok, Trade.msg, "end date must be after start date"
             End If
         End If
@@ -4355,7 +4637,7 @@ Private Sub ReadTradeSettlement( _
         ElseIf Trade.dMat >= 0# And Trade.dReset > Trade.dMat Then
             AddErr DIAG_TR_RESET_MATURITY, "Next reset date", Trade.ok, Trade.msg, "next reset date is after the maturity date"
         Else
-            Trade.M = (Trade.dReset - pAsOf) / pDaysYear
+            Trade.M = YearsTo(Trade.dReset)
         End If
 
 '------------------------------------------------------------------------------
@@ -4434,9 +4716,13 @@ Private Sub TradeDelta( _
                     If Trade.dExp < 0# Then
                         AddErr DIAG_TR_EXPIRY_MISSING, "Option expiry", Trade.ok, Trade.msg, "option expiry missing"
                     Else
-                        Trade.T = (Trade.dExp - pAsOf) / pDaysYear
+                        Trade.T = YearsTo(Trade.dExp)
                         If Len(ExpiredText(Trade.dExp, pAsOf)) > 0 Then
                             AddErr DIAG_TR_EXPIRED, "Option expiry", Trade.ok, Trade.msg, ExpiredText(Trade.dExp, pAsOf)
+                        ElseIf Trade.T <= 0# Then
+                            'BD250: no business day lies between the reporting date and
+                            'the expiry, so the option has no time left to price.
+                            AddErr DIAG_TR_EXPIRED, "Option expiry", Trade.ok, Trade.msg, "option has no business day left before its expiry"
                         ElseIf Trade.dExp > Trade.dMat Then
                             AddErr DIAG_TR_EXPIRY_MATURITY, "Option expiry", Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
                                    "date the contract may still be active)"
@@ -5755,7 +6041,7 @@ Private Function ParamsText() As String
 ' CHECK THE LAYOUT NAMES
 '------------------------------------------------------------------------------
         Set ParamsSheet = GetSheet(SH_PARAMS)
-        NameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE)
+        NameList = Array(NM_PRM_CODE, NM_PRM_VALUE, NM_SF_TABLE, NM_FX_TABLE, NM_HOLIDAY_TABLE)
         For i = LBound(NameList) To UBound(NameList)
             Set TopLeftCell = NamedCell(CStr(NameList(i)))
             If TopLeftCell Is Nothing Then
@@ -5772,7 +6058,7 @@ Private Function ParamsText() As String
 '------------------------------------------------------------------------------
     'Code=value of each named cell, in the order of ParameterCodes.
         NameList = ParameterCodes()
-        ReDim Pieces(1 To UBound(NameList) - LBound(NameList) + 5)
+        ReDim Pieces(1 To UBound(NameList) - LBound(NameList) + 6)
         For i = LBound(NameList) To UBound(NameList)
             Set TopLeftCell = NamedCell(CStr(NameList(i)))
             If TopLeftCell Is Nothing Then
@@ -5802,6 +6088,8 @@ Private Function ParamsText() As String
                                   NamedTableCol(NM_SF_TABLE), SFLastRow)
         Pieces(PieceCount + 4) = BlockText(ParamsSheet, FXHeaderRow, UBound(Split(FX_HEADERS, "|")) + 1, _
                                   NamedTableCol(NM_FX_TABLE), FXLastRow)
+        Pieces(PieceCount + 5) = BlockText(ParamsSheet, NamedRow(NM_HOLIDAY_TABLE), UBound(Split(HOLIDAY_HEADERS, "|")) + 1, _
+                                  NamedTableCol(NM_HOLIDAY_TABLE), NamedRow(NM_HOLIDAY_TABLE) + HOLIDAY_ROWS)
         ParamsText = Join(Pieces, Chr$(30))
 
 End Function

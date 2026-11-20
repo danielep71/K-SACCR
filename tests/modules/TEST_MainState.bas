@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 40   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 41   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -197,6 +197,7 @@ Public Sub RunMainStateTests()
         CaseStaleParams False
         CaseStaleParams True
         CaseRestoreParams
+        CaseDayCountConvention
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1598,6 +1599,8 @@ Private Sub CaseRestoreParams()
         NamedCell(PRM_MPOR_LARGE).Value = 25
         NamedCell(PRM_DAYSYEAR).Value = 360
         NamedCell(PRM_IRFULL).Value = False
+        NamedCell(PRM_DAYCOUNT).Value = "BD250"
+        NamedCell(PRM_CALENDAR).Value = "TARGET+TABLE"
         FactorCell("CR_A", 4).Value = 0.005
         FactorCell("CO_CLIMATIC", 8).Value = "BOTH"
         FactorCell("EQ_INDEX", 1).Value = "EQ_IDX"
@@ -1611,7 +1614,7 @@ Private Sub CaseRestoreParams()
     'it, without a recalculation.
         SetState xlCalculationManual, True, True
         Result = M_Main.RestoreRegulatoryParameters_Silent()
-        TEST_Kit.Check Result = "RESULT=RESTORED; parameters=4; factor_rows=3", "restore: " & Result
+        TEST_Kit.Check Result = "RESULT=RESTORED; parameters=6; factor_rows=3", "restore: " & Result
         CheckState xlCalculationManual, True, True
         TEST_Kit.Check Left$(SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value), 11) = "OUT OF DATE", _
                        "Results C5 after the restore in manual calculation: " & _
@@ -1638,6 +1641,80 @@ Private Sub CaseRestoreParams()
         M_Main.RestoreRegulatoryParameters
         TEST_Kit.Check NamedCell(PRM_ALPHA).Value2 = 1.5, "the macro changed Alpha in silent mode"
         TEST_Kit.Check Left$(M_Main.gLastMessage, 21) = "Nothing was restored.", "message: " & M_Main.gLastMessage
+        PutParamsBack
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutParamsBack
+
+End Sub
+
+
+Private Sub CaseDayCountConvention()
+'
+'==============================================================================
+'                          CaseDayCountConvention
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The day-count convention of Params (#721): on CAL365 the maturity of the
+'   first trade is its calendar days over DaysPerYear, on BD250 the business
+'   days after the reporting date, as SACCR_BusinessDays counts them, over
+'   BusinessDaysPerYear; the convention does not change the class of the run.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim Result      As String    'What a call returned
+    Dim TradeSheet  As Worksheet 'TradeCalc
+    Dim Inputs      As Worksheet 'Trades
+    Dim FirstRow    As Long      'First TradeCalc row
+    Dim TradeId     As String    'Its trade
+    Dim InputRow    As Long      'The row of that trade on Trades
+    Dim LastInput   As Long      'Last row of Trades
+    Dim Maturity    As Double    'Its maturity date, or its end date
+    Dim AsOf        As Double    'Reporting date
+    Dim CalendarM   As Double    'M on CAL365
+    Dim BusinessM   As Double    'M on BD250
+    Dim BusinessDays As Variant  'The count of the function
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.day-count"
+        SetState xlCalculationAutomatic, True, True
+        SaveParams
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & Result
+        Set TradeSheet = GetSheet(SH_TRADECALC)
+        Set Inputs = GetSheet(SH_TRADES)
+        FirstRow = OutputFirstRow(SH_TRADECALC)
+        TradeId = SafeStr(TableCell(TradeSheet, FirstRow, TC_ID).Value2)
+        LastInput = LastDataRow(Inputs, TableFirstRow(SH_TRADES), TR_ID)
+        For InputRow = TableFirstRow(SH_TRADES) To LastInput
+            If StrComp(SafeStr(TableCell(Inputs, InputRow, TR_ID).Value2), TradeId, vbTextCompare) = 0 Then
+                Exit For
+            End If
+        Next InputRow
+        Maturity = Val(SafeStr(TableCell(Inputs, InputRow, TR_MAT).Value2))
+        If Maturity <= 0# Then
+            Maturity = Val(SafeStr(TableCell(Inputs, InputRow, TR_END).Value2))
+        End If
+        AsOf = CDbl(NamedCell(PRM_ASOF).Value2)
+        CalendarM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
+        TEST_Kit.Check Abs(CalendarM - (Maturity - AsOf) / CDbl(NamedCell(PRM_DAYSYEAR).Value2)) < 0.000000000001, _
+                       "M on CAL365 is not the calendar days over DaysPerYear: " & CStr(CalendarM)
+
+        NamedCell(PRM_DAYCOUNT).Value = "BD250"
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "BD250 changed the class of the run: " & Result
+        BusinessM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
+        BusinessDays = SACCR_BusinessDays(AsOf, Maturity)
+        TEST_Kit.Check Not IsError(BusinessDays), "SACCR_BusinessDays: " & CStr(BusinessDays)
+        TEST_Kit.Check Abs(BusinessM - CDbl(BusinessDays) / CDbl(NamedCell(PRM_BDYEAR).Value2)) < 0.000000000001, _
+                       "M on BD250 is not the business days over BusinessDaysPerYear: " & CStr(BusinessM)
+        TEST_Kit.Check Abs(BusinessM - CalendarM) > 0.000000001, "M is the same on both conventions: " & CStr(BusinessM)
         PutParamsBack
         Exit Sub
 
