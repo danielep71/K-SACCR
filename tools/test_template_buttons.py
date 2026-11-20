@@ -28,6 +28,8 @@ STAGING = (("btn_ImportCsv", "{import}", "Import CSV", NAVY),
            ("btn_ValidateStaging", "ValidateStaging", "Validate staging", NAVY),
            ("btn_CommitImport", "CommitImport", "Commit import", NAVY),
            ("btn_ExportImportSpecification", "ExportImportSpecification", "Export import specifications", BLUE))
+BANK_IMPORT = ("btn_ImportCsv", "{import}", "Import CSV", NAVY)
+BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLUE)
 # Sheet: (name, macro, label, fill) of each shape, in order from the left.
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
@@ -36,6 +38,10 @@ EXPECTED = {
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
     "Import_Trades": tuple((a, b.replace("{import}", "ImportTradesCsv"), c, d) for a, b, c, d in STAGING),
+    "BankNettingSets": tuple((a, b.replace("{import}", "ImportBankNettingSetsCsv").replace(
+        "{export}", "ExportBankNettingSetsCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
+    "BankTrades": tuple((a, b.replace("{import}", "ImportBankTradesCsv").replace(
+        "{export}", "ExportBankTradesCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
 }
 # The shapes start no further than this right of the left edge of column C, and clear of the title.
 NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)

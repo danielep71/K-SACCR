@@ -9,7 +9,7 @@ controls, callbacks and targets.
 
 The Ribbon reaches the existing macros; it is not a new implementation.
 Since #217 it is the only place for the calculation and export commands: the
-sheet buttons left are the rounded shapes of the staging sheets, of FormulaTest and the Clear outputs shapes of the output sheets (#727). Every command runs an `M_Main` macro, and that macro keeps
+sheet buttons left are the rounded shapes of the staging sheets, of FormulaTest, of the two bank sheets (Import CSV and Export CSV template, #718) and the Clear outputs shapes of the output sheets (#727). Every command runs an `M_Main` macro, and that macro keeps
 its protection, busy guard, error handling and every gate: staging
 validation, commit and export eligibility. The Ribbon's enabled states help
 the user. They never replace those gates.
@@ -64,10 +64,14 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksClearOutputs` | Clear outputs | C | `ClearOutputs` |
 | `ksImportNettingSets` | NettingSets file... | I, N | `ImportNettingSetsCsv` |
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
+| `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
+| `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
 | `ksValidateStaging` | Validate staging | V | `ValidateStaging` |
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |
 | `ksTemplateTrades` | Trades template... | P, T | `ExportTradesCsvTemplate` |
+| `ksTemplateBankNettingSets` | BankNettingSets template... | P, B | `ExportBankNettingSetsCsvTemplate` |
+| `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |

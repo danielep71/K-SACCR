@@ -41,13 +41,19 @@
         <group id="ksGrpImport" label="CSV import">
           <menu id="ksImportMenu" label="Import CSV" size="large" imageMso="ImportTextFile" keytip="I"
                 screentip="Import CSV"
-                supertip="Load a CSV file onto its staging sheet as text. The input sheets do not change until Commit import."
+                supertip="Load a NettingSets or Trades file onto its staging sheet as text: the input sheets do not change until Commit import. A bank file replaces the figures on BankNettingSets or BankTrades at once."
                 getEnabled="RibbonGetEnabled">
             <button id="ksImportNettingSets" label="NettingSets file..." keytip="N"
                     supertip="Load a NettingSets CSV file onto Import_NettingSets."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             <button id="ksImportTrades" label="Trades file..." keytip="T"
                     supertip="Load a Trades CSV file onto Import_Trades."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportBankNettingSets" label="BankNettingSets file..." keytip="B"
+                    supertip="Replace the figures on BankNettingSets with those of a CSV file that follows the contract; nothing changes if it does not."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportBankTrades" label="BankTrades file..." keytip="L"
+                    supertip="Replace the figures on BankTrades with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
           <button id="ksValidateStaging" label="Validate staging" imageMso="DataValidation" keytip="V"
@@ -65,8 +71,14 @@
             <button id="ksTemplateTrades" label="Trades template..." keytip="T"
                     supertip="Write the blank Trades CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksTemplateBankNettingSets" label="BankNettingSets template..." keytip="B"
+                    supertip="Write the blank BankNettingSets CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksTemplateBankTrades" label="BankTrades template..." keytip="L"
+                    supertip="Write the blank BankTrades CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             <button id="ksImportSpecification" label="Import specification..." keytip="S"
-                    supertip="Save one HTML page describing both CSV files, every column, rule and finding code, with an example of each file."
+                    supertip="Save one HTML page describing the four CSV files, every column, rule and finding code, with an example of each file."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
         </group>

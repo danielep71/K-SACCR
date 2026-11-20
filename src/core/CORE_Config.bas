@@ -371,6 +371,13 @@ Attribute VB_Name = "CORE_Config"
             "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
             "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
             "mtm_leg;settlement_type;next_reset_date;comment"
+        Public Const CSV_BN_FILE As String = "K-SACCR_BankNettingSets_v1.csv"
+        Public Const CSV_BN_HEADER As String = "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;" & _
+            "addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment"
+        Public Const CSV_BT_FILE As String = "K-SACCR_BankTrades_v1.csv"
+        Public Const CSV_BT_HEADER As String = "trade_id;notional;mtm;maturity;supervisory_duration;" & _
+            "adjusted_notional;supervisory_delta;mf_unmargined;mf_margined;" & _
+            "effective_notional_unmargined;effective_notional_margined;standalone_addon;comment"
 
 '------------------------------------------------------------------------------
 ' CSV STAGING

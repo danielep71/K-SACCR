@@ -176,6 +176,10 @@ Public Sub RibbonAction( _
                 M_Main.ImportNettingSetsCsv
             Case "ImportTradesCsv"
                 M_Main.ImportTradesCsv
+            Case "ImportBankNettingSetsCsv"
+                M_Main.ImportBankNettingSetsCsv
+            Case "ImportBankTradesCsv"
+                M_Main.ImportBankTradesCsv
             Case "ValidateStaging"
                 M_Main.ValidateStaging
             Case "CommitImport"
@@ -184,6 +188,10 @@ Public Sub RibbonAction( _
                 M_Main.ExportNettingSetsCsvTemplate
             Case "ExportTradesCsvTemplate"
                 M_Main.ExportTradesCsvTemplate
+            Case "ExportBankNettingSetsCsvTemplate"
+                M_Main.ExportBankNettingSetsCsvTemplate
+            Case "ExportBankTradesCsvTemplate"
+                M_Main.ExportBankTradesCsvTemplate
             Case "ExportImportSpecification"
                 M_Main.ExportImportSpecification
             Case "ExportEvidence"
@@ -438,6 +446,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ImportNettingSetsCsv"
             Case "ksImportTrades"
                 RibbonMacro = "ImportTradesCsv"
+            Case "ksImportBankNettingSets"
+                RibbonMacro = "ImportBankNettingSetsCsv"
+            Case "ksImportBankTrades"
+                RibbonMacro = "ImportBankTradesCsv"
             Case "ksValidateStaging"
                 RibbonMacro = "ValidateStaging"
             Case "ksCommitImport"
@@ -446,6 +458,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ExportNettingSetsCsvTemplate"
             Case "ksTemplateTrades"
                 RibbonMacro = "ExportTradesCsvTemplate"
+            Case "ksTemplateBankNettingSets"
+                RibbonMacro = "ExportBankNettingSetsCsvTemplate"
+            Case "ksTemplateBankTrades"
+                RibbonMacro = "ExportBankTradesCsvTemplate"
             Case "ksImportSpecification"
                 RibbonMacro = "ExportImportSpecification"
             Case "ksExportEvidence"

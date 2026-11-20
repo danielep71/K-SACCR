@@ -97,6 +97,25 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Load the bank's own figures from a CSV file (#718, second part). **BankNettingSets
+  file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and an
+  Import CSV button on each bank sheet, read a file against the contract of the first
+  part and replace the figures of the sheet with its records. There is no staging
+  sheet: the whole file is accepted or nothing changes. A file with a finding, one with
+  more records than the sheet holds (200 netting sets, 500 legs) and a header-only file
+  change nothing, and the dialog lists the findings; a sheet that holds figures asks
+  before they are replaced. An ID keeps its leading zeros (the cells are text), a figure
+  is read with the point of the file in every locale and written as a number, and a blank
+  figure is an empty cell, so the reconciliation does not compare it. The amount scale and
+  the tolerances above the table are not touched. A failure while the sheet is written puts
+  it back as it was (`gTestFault` `bank-write`). **BankNettingSets template...** and
+  **BankTrades template...** in the Templates menu, and an Export CSV template button on
+  each bank sheet, write the blank files. `ImportBankCsv_Silent` is the entry point for tests.
+  `TEST_Reconcile` gains two cases (23 cases, 230 checks): the figures of a file give
+  the same Reconciliation rows as the same figures typed, the leading zeros, the empty
+  cells, the rejected, oversized and empty files, the write failure and the four templates.
+  The Ribbon contract, the template buttons test and `check_csv_contract` follow.
+
 - Specify the CSV files of the bank's own figures (#718, first part). Version 3 of
   the CSV contract adds `BankNettingSets` and `BankTrades` (version 1 of each): one
   record per netting set or per trade leg, with an ID, for `BankNettingSets` the

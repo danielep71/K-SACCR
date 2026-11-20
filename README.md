@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-11%2F11_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-515_cases_%C2%B7_2143_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-517_cases_%C2%B7_2193_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -176,7 +176,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Eleven Excel suites (515 cases, 2143 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eleven Excel suites (517 cases, 2193 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -308,6 +308,12 @@ stand-alone add-on, with `EXCLUDED` legs and `NOT APPLICABLE` figures. Each
 leg's row also shows its Economic trade ID from Trades, so legs can be grouped
 as the bank groups its trades.
 
+The bank's figures can be typed on the two bank sheets or loaded from a CSV file:
+**BankNettingSets file...** and **BankTrades file...** in the Import CSV menu of the
+K-SACCR tab, or the Import CSV button of the sheet, replace the figures with those of a
+file that follows the [CSV contract](docs/csv/CSV_CONTRACT.md) (200 netting sets or 500
+legs at most), or change nothing and list what is wrong with the file.
+
 Both sheets show eight summary tiles above the table (the time of the last
 reconciliation, the rows shown, the figures compared and the count of `MATCH`,
 `DIFFERENCE`, `NOT IN BANK FILE`, `MISSING IN CALCULATOR` and `DUPLICATE`) and
@@ -357,7 +363,7 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_InputValidation  cases=184; checks=323; failures=0; restore=PASS  (28,4 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (10,7 s)
+  PASS  TEST_Reconcile        cases=23; checks=230; failures=0; restore=PASS  (10,7 s)
   PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
   PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
@@ -681,11 +687,11 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 184 | 323 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
-| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 23 | 230 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 144 | 385 |
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
 | `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
-| **Total** | | **515** | **2143** |
+| **Total** | | **517** | **2193** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
