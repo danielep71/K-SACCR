@@ -281,10 +281,11 @@ Public Sub Auto_Open()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run by Excel when a user opens the workbook with macros enabled:
-'   protect every sheet again for the user interface only (#421).
+'   protect every sheet again for the user interface only (#421), and give
+'   every sheet a zoom of 100% (#726).
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-20
 '==============================================================================
 '
 
@@ -292,6 +293,63 @@ Public Sub Auto_Open()
 ' PROTECT
 '------------------------------------------------------------------------------
         ProtectWorkbook
+        ApplyOpeningView
+
+End Sub
+
+
+Public Sub ApplyOpeningView()
+'
+'==============================================================================
+'                              ApplyOpeningView
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give every visible sheet of this workbook a zoom of 100%, so that a copy
+'   saved with another zoom opens as the template does (#726). The sheet that
+'   was active stays active. Events are off meanwhile, so that no sheet
+'   refreshes its status because it was visited, and the Saved flag is kept.
+'
+' ERROR POLICY
+'   Never raises and never stops the opening: nothing is done when this
+'   workbook is not the active one, or has no window.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet          As Worksheet    'Each worksheet
+    Dim Original       As Object       'The sheet that was active
+    Dim WasSaved       As Boolean      'The workbook's Saved flag before
+    Dim SavedEvents    As Boolean      'Application.EnableEvents before
+    Dim SavedScreen    As Boolean      'Application.ScreenUpdating before
+
+'------------------------------------------------------------------------------
+' ZOOM
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        If Not Application.ActiveWorkbook Is ThisWorkbook Then Exit Sub
+        If ThisWorkbook.Windows.Count = 0 Then Exit Sub
+        WasSaved = ThisWorkbook.Saved
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        Set Original = ThisWorkbook.ActiveSheet
+        Application.EnableEvents = False
+        Application.ScreenUpdating = False
+        For Each Sheet In ThisWorkbook.Worksheets
+            If Sheet.Visible = xlSheetVisible Then
+                Sheet.Activate
+                ThisWorkbook.Windows(1).Zoom = 100
+            End If
+        Next Sheet
+        If Not Original Is Nothing Then Original.Activate
+        Application.ScreenUpdating = SavedScreen
+        Application.EnableEvents = SavedEvents
+        ThisWorkbook.Saved = WasSaved
+        Err.Clear
 
 End Sub
 

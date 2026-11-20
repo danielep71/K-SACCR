@@ -47,7 +47,9 @@ the user. They never replace those gates.
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
 
-Labels on the large buttons are short, so that they wrap cleanly; the full
+The workbook opens with this tab selected: `RibbonOnLoad` calls
+`ActivateTab` for it (#726), and a failure never stops the load. Labels on the large
+buttons are short, so that they wrap cleanly; the full
 name is in the screentip. The tab's keytip is `KS`, so **Alt, K, S** opens it.
 
 ## 🔘 Commands

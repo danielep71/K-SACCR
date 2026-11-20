@@ -2019,6 +2019,43 @@ Private Function BarSheets( _
 End Function
 
 
+Private Function ZoomsAfterOpening() As String
+'
+'==============================================================================
+'                              ZoomsAfterOpening
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Set the zoom of the Results sheet to 80%, run ApplyOpeningView, and return
+'   the names of the sheets whose zoom is not 100% afterwards, or "" when
+'   every sheet is at 100% and the sheet that was active still is (#726).
+'==============================================================================
+'
+    Dim Sheet      As Worksheet    'Each worksheet
+    Dim Original   As Object       'The sheet that was active
+    Dim Wrong      As String       'Sheets not at 100%
+
+        Set Original = ThisWorkbook.ActiveSheet
+        ThisWorkbook.Worksheets(SH_RESULTS).Activate
+        ThisWorkbook.Windows(1).Zoom = 80
+        Original.Activate
+        M_Main.ApplyOpeningView
+        If Not ThisWorkbook.ActiveSheet Is Original Then
+            Wrong = Wrong & " (the active sheet changed)"
+        End If
+        For Each Sheet In ThisWorkbook.Worksheets
+            If Sheet.Visible = xlSheetVisible Then
+                Sheet.Activate
+                If ThisWorkbook.Windows(1).Zoom <> 100 Then
+                    Wrong = Wrong & " " & Sheet.Name
+                End If
+            End If
+        Next Sheet
+        Original.Activate
+        ZoomsAfterOpening = Wrong
+
+End Function
+
+
 Private Function NeverProtected() As Long
 '
 '==============================================================================
@@ -2650,6 +2687,7 @@ Private Sub CaseProtectionApplied()
     Dim Sheet   As Worksheet    'Each worksheet
     Dim Listed  As String       'Its name between bars
     Dim Wrong   As String       'Sheets protected otherwise
+    Dim ZoomWrong As String     'Sheets not at 100% after the opening view (#726)
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -2657,6 +2695,8 @@ Private Sub CaseProtectionApplied()
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "protection.applied"
         M_Main.ProtectWorkbook
+        ZoomWrong = ZoomsAfterOpening()
+        TEST_Kit.Check Len(ZoomWrong) = 0, "sheets not at 100% after ApplyOpeningView:" & ZoomWrong
         For Each Sheet In ThisWorkbook.Worksheets
             Listed = "|" & Sheet.Name & "|"
             If InStr(1, PROTECT_NONE, Listed) > 0 Then

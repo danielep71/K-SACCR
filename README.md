@@ -346,7 +346,7 @@ run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19:
 SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
-  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (27,8 s)
+  PASS  TEST_MainState        cases=40; checks=603; failures=0; restore=PASS  (27,8 s)
   PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (7,4 s)
   PASS  TEST_InputValidation  cases=183; checks=321; failures=0; restore=PASS  (28,4 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
@@ -670,7 +670,7 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 40 | 602 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 40 | 603 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 39 | 243 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 183 | 321 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |

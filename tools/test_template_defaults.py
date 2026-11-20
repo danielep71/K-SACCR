@@ -1,0 +1,65 @@
+"""Tests of the opening state of the workbook template (#726).
+
+Every sheet is saved at a zoom of 100%, the two bank sheets default to a relative tolerance of 1%, and
+the workbook opens on the K-SACCR Ribbon tab.
+"""
+
+from __future__ import annotations
+
+import re
+import unittest
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree
+
+from test_template_buttons import sheet_parts
+
+ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE = ROOT / "src" / "workbook" / "SACCR_Template.xlsx"
+MAIN = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+UI = "{http://schemas.microsoft.com/office/2009/07/customui}"
+
+
+class OpeningStateTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.package = zipfile.ZipFile(TEMPLATE)
+        self.addCleanup(self.package.close)
+        self.parts = sheet_parts(self.package)
+
+    def test_every_sheet_is_saved_at_100_percent(self) -> None:
+        self.assertEqual(len(self.parts), 19)
+        for name, part in self.parts.items():
+            view = ElementTree.fromstring(self.package.read(part)).find(f"{MAIN}sheetViews/{MAIN}sheetView")
+            assert view is not None
+            self.assertEqual(view.attrib.get("zoomScale"), "100", name)
+            self.assertEqual(view.attrib.get("zoomScaleNormal"), "100", name)
+
+    def test_the_bank_sheets_default_to_a_relative_tolerance_of_one_percent(self) -> None:
+        for name in ("BankNettingSets", "BankTrades"):
+            sheet = ElementTree.fromstring(self.package.read(self.parts[name]))
+            cell = next(item for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] == "D6")
+            self.assertEqual(float(cell.findtext(f"{MAIN}v") or "nan"), 0.01, name)
+            prompts = [item.attrib.get("prompt", "") for item in sheet.iter(f"{MAIN}dataValidation")
+                       if item.attrib.get("sqref") == "D6"]
+            self.assertEqual(len(prompts), 1, name)
+            self.assertIn("1% (0.01)", prompts[0], name)
+
+    def test_the_tab_the_workbook_opens_on_is_the_k_saccr_tab(self) -> None:
+        tree = ElementTree.parse(ROOT / "src" / "workbook" / "customUI14.xml").getroot()
+        tabs = [item.attrib["id"] for item in tree.iter(UI + "tab")]
+        ribbon = (ROOT / "src" / "workbook" / "M_Ribbon.bas").read_text(encoding="utf-8")
+        match = re.search(r'RIBBON_TAB_ID\s+As String = "([^"]+)"', ribbon)
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertEqual(tabs, [match.group(1)])
+        self.assertIn("Ribbon.ActivateTab RIBBON_TAB_ID", ribbon)
+
+    def test_the_opening_routine_applies_the_zoom(self) -> None:
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
+        auto_open = main[main.index("Public Sub Auto_Open()"):main.index("Public Sub ApplyOpeningView()")]
+        self.assertIn("ApplyOpeningView", auto_open)
+        self.assertIn("ThisWorkbook.Windows(1).Zoom = 100", main)
+
+
+if __name__ == "__main__":
+    unittest.main()
