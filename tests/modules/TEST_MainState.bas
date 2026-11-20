@@ -1597,10 +1597,8 @@ Private Sub CaseRestoreParams()
         TEST_Kit.Check InStr(1, BaseRun, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & BaseRun
         NamedCell(PRM_ALPHA).Value = 1.5
         NamedCell(PRM_MPOR_LARGE).Value = 25
-        NamedCell(PRM_DAYSYEAR).Value = 360
+        NamedCell(PRM_BDYEAR).Value = 252
         NamedCell(PRM_IRFULL).Value = False
-        NamedCell(PRM_DAYCOUNT).Value = "BD250"
-        NamedCell(PRM_CALENDAR).Value = "TARGET+TABLE"
         FactorCell("CR_A", 4).Value = 0.005
         FactorCell("CO_CLIMATIC", 8).Value = "BOTH"
         FactorCell("EQ_INDEX", 1).Value = "EQ_IDX"
@@ -1614,7 +1612,7 @@ Private Sub CaseRestoreParams()
     'it, without a recalculation.
         SetState xlCalculationManual, True, True
         Result = M_Main.RestoreRegulatoryParameters_Silent()
-        TEST_Kit.Check Result = "RESULT=RESTORED; parameters=6; factor_rows=3", "restore: " & Result
+        TEST_Kit.Check Result = "RESULT=RESTORED; parameters=4; factor_rows=3", "restore: " & Result
         CheckState xlCalculationManual, True, True
         TEST_Kit.Check Left$(SafeStr(GetSheet(SH_RESULTS).Range(RESULTS_STATUS_CELL).Value), 11) = "OUT OF DATE", _
                        "Results C5 after the restore in manual calculation: " & _
@@ -1657,10 +1655,11 @@ Private Sub CaseDayCountConvention()
 '                          CaseDayCountConvention
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The day-count convention of Params (#721): on CAL365 the maturity of the
-'   first trade is its calendar days over DaysPerYear, on BD250 the business
+'   The day count of Params (#721): with a year of 365 days and the calendar
+'   TABLE, empty, the maturity of the first trade is its calendar days over
+'   365; with a year of 250 days and the calendar TARGET it is the business
 '   days after the reporting date, as SACCR_BusinessDays counts them, over
-'   BusinessDaysPerYear; the convention does not change the class of the run.
+'   250; the day count does not change the class of the run.
 '
 ' UPDATED
 '   2026-11-20
@@ -1676,8 +1675,8 @@ Private Sub CaseDayCountConvention()
     Dim LastInput   As Long      'Last row of Trades
     Dim Maturity    As Double    'Its maturity date, or its end date
     Dim AsOf        As Double    'Reporting date
-    Dim CalendarM   As Double    'M on CAL365
-    Dim BusinessM   As Double    'M on BD250
+    Dim CalendarM   As Double    'M in calendar days over 365
+    Dim BusinessM   As Double    'M in business days over 250
     Dim BusinessDays As Variant  'The count of the function
 
         On Error GoTo Unexpected
@@ -1685,6 +1684,8 @@ Private Sub CaseDayCountConvention()
         SetState xlCalculationAutomatic, True, True
         SaveParams
         Result = M_Main.RestoreRegulatoryParameters_Silent()
+        NamedCell(PRM_DAYCOUNT).Value = 365
+        NamedCell(PRM_CALENDAR).Value = "TABLE"
         Result = M_Main.RunSACCR_Silent()
         TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & Result
         Set TradeSheet = GetSheet(SH_TRADECALC)
@@ -1703,17 +1704,18 @@ Private Sub CaseDayCountConvention()
         End If
         AsOf = CDbl(NamedCell(PRM_ASOF).Value2)
         CalendarM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
-        TEST_Kit.Check Abs(CalendarM - (Maturity - AsOf) / CDbl(NamedCell(PRM_DAYSYEAR).Value2)) < 0.000000000001, _
-                       "M on CAL365 is not the calendar days over DaysPerYear: " & CStr(CalendarM)
+        TEST_Kit.Check Abs(CalendarM - (Maturity - AsOf) / 365#) < 0.000000000001, _
+                       "M on 365 days and the empty table is not the calendar days over 365: " & CStr(CalendarM)
 
-        NamedCell(PRM_DAYCOUNT).Value = "BD250"
+        NamedCell(PRM_DAYCOUNT).Value = 250
+        NamedCell(PRM_CALENDAR).Value = "TARGET"
         Result = M_Main.RunSACCR_Silent()
-        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "BD250 changed the class of the run: " & Result
+        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "the day count changed the class of the run: " & Result
         BusinessM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
         BusinessDays = SACCR_BusinessDays(AsOf, Maturity)
         TEST_Kit.Check Not IsError(BusinessDays), "SACCR_BusinessDays: " & CStr(BusinessDays)
-        TEST_Kit.Check Abs(BusinessM - CDbl(BusinessDays) / CDbl(NamedCell(PRM_BDYEAR).Value2)) < 0.000000000001, _
-                       "M on BD250 is not the business days over BusinessDaysPerYear: " & CStr(BusinessM)
+        TEST_Kit.Check Abs(BusinessM - CDbl(BusinessDays) / 250#) < 0.000000000001, _
+                       "M on 250 days and TARGET is not the business days over 250: " & CStr(BusinessM)
         TEST_Kit.Check Abs(BusinessM - CalendarM) > 0.000000001, "M is the same on both conventions: " & CStr(BusinessM)
         PutParamsBack
         Exit Sub
@@ -2344,12 +2346,16 @@ Private Sub SaveParams()
 '------------------------------------------------------------------------------
 ' KEEP
 '------------------------------------------------------------------------------
+    'The day count and the calendar are settings of the run, not in the
+    'restore (#721), and cases change them: they are kept too.
         Codes = CORE_Engine.RegulatoryParameterCodes()
-        ReDim Kept(LBound(Codes) To UBound(Codes) + 1)
+        ReDim Kept(LBound(Codes) To UBound(Codes) + 3)
         For i = LBound(Codes) To UBound(Codes)
             Kept(i) = NamedCell(CStr(Codes(i))).Formula
         Next i
-        Kept(UBound(Codes) + 1) = FactorBlock().Formula
+        Kept(UBound(Codes) + 1) = NamedCell(PRM_DAYCOUNT).Formula
+        Kept(UBound(Codes) + 2) = NamedCell(PRM_CALENDAR).Formula
+        Kept(UBound(Codes) + 3) = FactorBlock().Formula
         mSavedParams = Kept
         mParamsBefore = CORE_Engine.InputFingerprint()
 
@@ -2385,7 +2391,9 @@ Private Sub PutParamsBack()
         For i = LBound(Codes) To UBound(Codes)
             NamedCell(CStr(Codes(i))).Formula = mSavedParams(i)
         Next i
-        FactorBlock().Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_DAYCOUNT).Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_CALENDAR).Formula = mSavedParams(UBound(Codes) + 2)
+        FactorBlock().Formula = mSavedParams(UBound(Codes) + 3)
         TEST_Kit.Check CORE_Engine.InputFingerprint() = mParamsBefore, "Params was not put back as the case found it"
         Exit Sub
 

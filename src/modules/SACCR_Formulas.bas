@@ -984,9 +984,9 @@ Public Function SACCR_BusinessDays( _
 '   Number of business days between two dates on a calendar (#721): the
 '   first date excluded and the last included, Saturday and Sunday never
 '   counted, and the closing days of the calendar left out. The calendar
-'   is the EUR TARGET rule, a table of closing days, or both. The count of
-'   business days over BusinessDaysPerYear (250) is the day-count
-'   convention BD250.
+'   is the EUR TARGET rule, a table of closing days, or both. The engine
+'   counts the days of its Calendar parameter (TARGET, TARGET+TABLE) with
+'   it, over the days of the conventional year of DayCountConvention.
 '
 '   TARGET closes on 1 January, Good Friday, Easter Monday, 1 May, 25
 '   December and 26 December, with Good Friday and Easter Monday from the

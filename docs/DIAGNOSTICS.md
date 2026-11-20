@@ -159,7 +159,7 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `PRM-CALENDAR` | active | Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier. |
 | `PRM-CURRENCY` | active | Reporting currency must be three letters A to Z, |
 | `PRM-CURRENCY-MISSING` | active | Reporting currency missing. |
-| `PRM-DAYCOUNT` | active | Day-count convention must be CAL365 or BD250 (found |
+| `PRM-DAYCOUNT` | active | Day-count convention must be 366, 365, 365.25, 264, 360, 252 or 250, or the day-count numerator ACTUAL (found |
 | `PRM-DEFAULT` | active | Parameter missing - default   used. |
 | `PRM-DUP` | active | Parameter listed twice with different values (rows |
 | `PRM-DUP-SAME` | active | Parameter listed twice with the same value (rows |
@@ -194,7 +194,7 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `TR-DIRECTION` | active | direction must be Long or Short |
 | `TR-DUP-ID` | active | duplicate Trade ID (first used on row  ) |
 | `TR-EMPTY` | active | No trades found. |
-| `TR-EXPIRED` | active | The option has expired on or before the reporting date. |
+| `TR-EXPIRED` | active | The option has expired on or before the reporting date, or no counted day is left before its expiry on the calendar. |
 | `TR-EXPIRY-MATURITY` | active | option expiry is after the maturity date (M is the latest |
 | `TR-EXPIRY-MISSING` | active | option expiry missing |
 | `TR-FACTOR` | active | No supervisory-factor row exists for the asset class/sub-class. |

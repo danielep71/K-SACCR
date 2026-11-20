@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Business-day count on the EUR TARGET calendar, with a table of extra closing days (#721).
 
-The Python reference of the day-count convention that the workbook will offer next to the
-calendar-day year. It holds three things:
+The Python reference of the day count of the workbook (Params: DayCountNumerator,
+DayCountConvention, Calendar). It holds three things:
 
 - the TARGET closing days of a year, by rule, so that no yearly list has to be extended:
   1 January, Good Friday, Easter Monday, 1 May, 25 December and 26 December, with Good Friday
   and Easter Monday from the Gregorian Easter. Saturday and Sunday are not business days;
 - the count of business days between two dates: the first date is excluded, the last is
   included, and an interval that runs backwards counts negative;
-- the two conventions that turn a pair of dates into years: ``CAL365`` (calendar days over
-  ``DaysPerYear``, the behaviour of today) and ``BD250`` (business days over
-  ``BusinessDaysPerYear``).
+- the day count that turns a pair of dates into years: the ACTUAL days between them, counted
+  on the workbook's calendar (``TARGET``, ``TARGET+TABLE`` or ``TABLE``), over the days of the
+  conventional year (366, 365, 365.25, 264, 360, 252 or 250). ``TABLE`` counts every day
+  except those of the table, so calendar days while the table is empty.
 
 A :class:`Calendar` is either the TARGET rule, optionally with extra closing days, or a table
 of closing days alone. Weekends are never counted twice, so a table may list a holiday that
@@ -31,9 +32,12 @@ import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-CAL365 = "CAL365"
-BD250 = "BD250"
-CONVENTIONS = (CAL365, BD250)
+# The days of the conventional year that DayCountConvention allows.
+YEAR_BASES = (366.0, 365.0, 365.25, 264.0, 360.0, 252.0, 250.0)
+CALENDAR_TARGET = "TARGET"
+CALENDAR_BOTH = "TARGET+TABLE"
+CALENDAR_TABLE = "TABLE"
+CALENDARS = (CALENDAR_TARGET, CALENDAR_BOTH, CALENDAR_TABLE)
 
 # The first year of the TARGET calendar.
 FIRST_YEAR = 1999
@@ -126,12 +130,27 @@ class Calendar:
         return hashlib.sha256(text.encode("ascii")).hexdigest()[:8].upper()
 
 
-def years_between(start: dt.date, end: dt.date, convention: str = CAL365,
-                  calendar: Calendar | None = None, days_per_year: float = 365,
-                  business_days_per_year: float = 250) -> float:
-    """The time from ``start`` to ``end`` in years on one of the two conventions."""
-    if convention == CAL365:
-        return (end - start).days / days_per_year
-    if convention == BD250:
-        return (calendar or Calendar.target()).business_days(start, end) / business_days_per_year
-    raise CalendarError(f"unknown day-count convention {convention!r}: use one of {CONVENTIONS}")
+def counted_days(start: dt.date, end: dt.date, calendar: str = CALENDAR_TABLE,
+                 table: Iterable[dt.date] = ()) -> int:
+    """The ACTUAL days in (start, end] that the workbook's calendar counts; negative when reversed.
+
+    ``TARGET`` and ``TARGET+TABLE`` count business days (the weekend and the closing days are not
+    counted). ``TABLE`` counts every day except those of the table, each once, weekends included.
+    """
+    if calendar not in CALENDARS:
+        raise CalendarError(f"unknown calendar {calendar!r}: use one of {CALENDARS}")
+    if end < start:
+        return -counted_days(end, start, calendar, table)
+    if calendar == CALENDAR_TARGET:
+        return Calendar.target().business_days(start, end)
+    if calendar == CALENDAR_BOTH:
+        return Calendar.target(table).business_days(start, end)
+    return (end - start).days - sum(1 for day in set(table) if start < day <= end)
+
+
+def years_between(start: dt.date, end: dt.date, year_days: float = 365.0,
+                  calendar: str = CALENDAR_TABLE, table: Iterable[dt.date] = ()) -> float:
+    """The time from ``start`` to ``end`` in years: the counted days over the days of the year."""
+    if year_days not in YEAR_BASES:
+        raise CalendarError(f"unknown day-count convention {year_days!r}: use one of {YEAR_BASES}")
+    return counted_days(start, end, calendar, table) / year_days

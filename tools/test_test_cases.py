@@ -150,33 +150,33 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding("cite EBA Q&A 2023_6962", self.findings())
 
     def test_parameters(self) -> None:
-        self.fixture["parameters"] = {"DaysPerYear": 360}
+        self.fixture["parameters"] = {"DayCountConvention": 360}
         self.assertEqual(self.findings(), [])
-        self.fixture["parameters"] = {"DaysPerYear": 360, "IRBucketOffset": False}
+        self.fixture["parameters"] = {"DayCountConvention": 360, "IRBucketOffset": False}
         self.assertEqual(self.findings(), [])
         self.fixture["parameters"] = {"IRBucketOffset": "FALSE"}
         self.assertFinding("parameters.IRBucketOffset", self.findings())
-        self.fixture["parameters"] = {"Alpha": 1, "DaysPerYear": 0}
+        self.fixture["parameters"] = {"Alpha": 1, "DayCountConvention": 0}
         findings = self.findings()
         self.assertFinding("unknown parameter 'Alpha'", findings)
-        self.assertFinding("parameters.DaysPerYear", findings)
+        self.assertFinding("parameters.DayCountConvention", findings)
         self.fixture["parameters"] = []
         self.assertFinding("parameters: must be an object", self.findings())
         del self.fixture["parameters"]
         self.assertFinding("missing field 'parameters'", self.findings())
 
-    def test_days_per_year_has_the_engine_range(self) -> None:
-        # CORE_Engine.LoadParams: 360 to 366, not necessarily whole (#161).
-        accepted: tuple[object, ...] = (360, 365, 365.25, 366)
-        rejected: tuple[object, ...] = (359, 359.99, 366.01, 367, 0, -365, "365", True, None)
+    def test_day_count_convention_is_one_of_the_conventional_years(self) -> None:
+        # CORE_Engine.ReadConvention: 366, 365, 365.25, 264, 360, 252 or 250.
+        accepted: tuple[object, ...] = (366, 365, 365.25, 264, 360, 252, 250)
+        rejected: tuple[object, ...] = (359, 361, 365.5, 367, 0, -365, "365", True, None)
         for value in accepted:
             with self.subTest(value=value):
-                self.fixture["parameters"] = {"DaysPerYear": value}
+                self.fixture["parameters"] = {"DayCountConvention": value}
                 self.assertEqual(self.findings(), [])
         for value in rejected:
             with self.subTest(value=value):
-                self.fixture["parameters"] = {"DaysPerYear": value}
-                self.assertFinding("parameters.DaysPerYear: invalid days_per_year", self.findings())
+                self.fixture["parameters"] = {"DayCountConvention": value}
+                self.assertFinding("parameters.DayCountConvention: invalid year_basis", self.findings())
 
     def test_remargin_period_is_whole_business_days_to_10000(self) -> None:
         # CORE_Engine.LoadNettingSets: whole, 0 to 10000; 0 is raised to 1;
@@ -209,7 +209,7 @@ class TestCaseValidatorTests(unittest.TestCase):
                 self.assertFinding(f"netting_set.{field}: invalid mpor_business_days", self.findings())
 
     def test_business_days_reject_non_finite_values(self) -> None:
-        for kind in ("remargin_business_days", "mpor_business_days", "days_per_year"):
+        for kind in ("remargin_business_days", "mpor_business_days", "year_basis"):
             for value in (float("nan"), float("inf"), float("-inf")):
                 with self.subTest(kind=kind, value=value):
                     self.assertTrue(cases.check_value("v", kind, value))

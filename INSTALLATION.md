@@ -899,9 +899,10 @@ running it raises `ERR_RUN_ACTIVE`.
 `RestoreRegulatoryParameters_Silent()` writes the regulatory parameter set
 back to Params without a confirmation or a message, as **Restore parameters**
 on the K-SACCR tab (`RestoreRegulatoryParameters`) does after its
-confirmation (#357): the reference parameters, `DaysPerYear`,
-`IRBucketOffset`, `DayCountConvention` and `Calendar` (back to `CAL365` and
-`TARGET`, #721; the table of closing days is not cleared), and the rows of the supervisory-factor table, key to
+confirmation (#357): the reference parameters and the conventions
+`DayCountNumerator` (`ACTUAL`) and `IRBucketOffset` (`DayCountConvention` and
+`Calendar` are settings of the run and are not touched, nor is the table of
+closing days), and the rows of the supervisory-factor table, key to
 regimes ([scope](docs/workbook/RIBBON.md#-commands)). Only the cells that
 differ from the set are written, and each is read back; on any failure the
 cells kept before the write are written back and read back. It returns
