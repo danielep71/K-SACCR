@@ -174,8 +174,9 @@ Private Sub CaseTolerances()
 '==============================================================================
 ' PURPOSE
 '   A figure matches within the absolute or within the relative tolerance,
-'   and is a DIFFERENCE outside both; difference = calculator - bank and
-'   the relative difference is taken on the bank figure.
+'   and is a DIFFERENCE outside both; the difference is the absolute value of
+'   calculator - bank and the relative difference, which keeps the sign, is
+'   taken on the bank figure.
 '==============================================================================
 '
 
@@ -240,7 +241,7 @@ Private Sub CaseScale()
         ComparedRows = Compare(BankRows, CalcRows, 1000#, 1#, 0#)
         CheckNear "EAD bank figure in units", CellOf(ComparedRows, "NS1", "EAD", RC_BANK), 48600#
         CheckText "EAD in thousands", ResultOf(ComparedRows, "NS1", "EAD"), RES_MATCH
-        CheckNear "RC difference in units", CellOf(ComparedRows, "NS1", "RC", RC_DIFF), -2#
+        CheckNear "RC difference in units", CellOf(ComparedRows, "NS1", "RC", RC_DIFF), 2#
         CheckText "RC two units apart", ResultOf(ComparedRows, "NS1", "RC"), RES_DIFF
         Exit Sub
 

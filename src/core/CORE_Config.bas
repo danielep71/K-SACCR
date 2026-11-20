@@ -77,13 +77,15 @@ Attribute VB_Name = "CORE_Config"
     'M_Main.ProtectWorkbook, #421). The sheets named below, between bars,
     'also let the user sort, filter, insert rows or open and close row
     'groups; filtering uses the AutoFilter the template gives the sheet, as
-    'a protected sheet cannot get a new one. check_workbook_protection
+    'a protected sheet cannot get a new one. The sheets of PROTECT_NONE are
+    'never protected: the user works on them (#720). check_workbook_protection
     'compares these lists with the matrix and the template.
         Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
         Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
         Public Const PROTECT_INSERTING_ROWS As String = _
             "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
+        Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -499,6 +501,7 @@ Attribute VB_Name = "CORE_Config"
     'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
     'figures and inputs it was made from; it is empty when there is none.
         Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
+        Public Const RECON_FILTER_LAST_ROW As Long = 100000   'Last row of the AutoFilter the template gives a reconciliation sheet (#720)
         Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
         Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
     'TradeReconciliation has the same layout, with its own hidden name,

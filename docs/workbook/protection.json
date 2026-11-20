@@ -1,5 +1,5 @@
 {
-  "description": "Editability matrix of the workbook template (#420): the cells a user may change in normal use, and what else each protected sheet allows (sorting, filtering where the template has an AutoFilter, inserting rows, opening and closing row groups). Every other cell is locked. tools/check_workbook_protection.py checks the template and the PROTECT_ constants of CORE_Config against it.",
+  "description": "Editability matrix of the workbook template (#420): the cells a user may change in normal use, and what else each protected sheet allows (sorting, filtering where the template has an AutoFilter, inserting rows, opening and closing row groups). Every other cell is locked, except on a sheet of the role Working, which is never protected. tools/check_workbook_protection.py checks the template and the PROTECT_ constants of CORE_Config against it.",
   "schema_version": 1,
   "sheets": {
     "Home": {"role": "Instructions"},
@@ -34,14 +34,14 @@
       "unlocked_columns": {"columns": "C:P", "first_row": 9},
       "allow": ["sorting", "inserting_rows"]
     },
-    "Reconciliation": {"role": "Output"},
+    "Reconciliation": {"role": "Working", "notes": "Never protected (#720): the user sorts, filters and annotates the reconciliation. The run still writes the table."},
     "BankTrades": {
       "role": "Bank figures",
       "unlocked_cells": ["D4:D6"],
       "unlocked_columns": {"columns": "C:O", "first_row": 9},
       "allow": ["sorting", "inserting_rows"]
     },
-    "TradeReconciliation": {"role": "Output"},
+    "TradeReconciliation": {"role": "Working", "notes": "Never protected (#720), as Reconciliation."},
     "TestCatalogue": {"role": "Test", "unlocked_cells": ["L7:L34"]},
     "FormulaTest": {"role": "Test", "unlocked_cells": ["E4", "H4", "E7:E28", "F7:F28", "G9:G28", "H13:J21", "K15", "G33:H81", "K33:L81"]},
     "Basel_vs_CRR": {"role": "Reference", "allow": ["filtering"]}

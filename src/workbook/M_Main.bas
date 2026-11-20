@@ -363,7 +363,8 @@ Private Sub ProtectSheet( _
 ' PURPOSE
 '   Protect one worksheet for the user interface only, with its options,
 '   unless it already is; let the user open and close its row groups when
-'   PROTECT_OUTLINING lists it.
+'   PROTECT_OUTLINING lists it. A sheet of PROTECT_NONE is never protected:
+'   one found protected without a password is unprotected (#720).
 '
 ' ERROR POLICY
 '   Never raises: a sheet protected with a password stays as it is, and
@@ -385,6 +386,12 @@ Private Sub ProtectSheet( _
         On Error GoTo Failed
         Listed = "|" & Sheet.Name & "|"
         If InStr(1, gKeepProtection, Listed, vbBinaryCompare) > 0 Then
+            Exit Sub
+        End If
+        If InStr(1, PROTECT_NONE, Listed, vbBinaryCompare) > 0 Then
+            If Sheet.ProtectContents Then
+                Sheet.Unprotect
+            End If
             Exit Sub
         End If
         If Not (Sheet.ProtectContents And Sheet.ProtectionMode) Then
@@ -1072,8 +1079,21 @@ Private Function ReconcileAfterRun( _
             End If
             RowsToWrite = UBound(ReconRows, 1)
             WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
-            FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
-                          "#,##0.00########|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
+            FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00|#,##0.00|" & _
+                          "#,##0.00|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
+        'The rows of a filter the user set stay filtered: the rule is applied to the new rows. The
+        'template's filter ends at row 100,000: a reconciliation that goes beyond it gets a new filter
+        'over all its rows, without the criteria of the old one (#720).
+            If ReconSheet.AutoFilterMode Then
+                If ReconFirstRow + RowsToWrite - 1 > RECON_FILTER_LAST_ROW Then
+                    ReconSheet.AutoFilterMode = False
+                    TableRange(ReconSheet, ReconFirstRow - 1, 1, ReconFirstRow + RowsToWrite - 1, ReconColsOf(ReconKind)).AutoFilter
+                ElseIf ReconSheet.FilterMode Then
+                    On Error Resume Next
+                    ReconSheet.AutoFilter.ApplyFilter
+                    On Error GoTo Failed
+                End If
+            End If
         End If
         ReconSheet.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                                                " | " & Summary
