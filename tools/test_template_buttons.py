@@ -1,7 +1,8 @@
-"""Tests of the buttons of the workbook template and of the Ribbon (#719, #727).
+"""Tests of the buttons and notes of the workbook template and of the Ribbon (#719, #727, #731).
 
 Every command on a sheet is a rounded-rectangle shape with its macro assigned, in the title row of the sheet,
-and the template holds no form control any more. The Ribbon holds Clear outputs as a button of its own.
+and the template holds no form control any more. The staging sheets carry a note on D8 that explains
+the row of CSV field names (#731). The Ribbon holds Clear outputs as a button of its own.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ EXPECTED = {
     "Import_Trades": tuple((a, b.replace("{import}", "ImportTradesCsv"), c, d) for a, b, c, d in STAGING),
 }
 # The shapes start no further than this right of the left edge of column C, and clear of the title.
+NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)
 LATEST_START_PX = 480
 EMU = 9525
 GAP_PX = 8
@@ -83,14 +85,42 @@ class ShapeButtonTests(unittest.TestCase):
 
     def test_the_template_has_no_form_control(self) -> None:
         names = self.package.namelist()
-        self.assertEqual([item for item in names if "ctrlProp" in item or item.endswith(".vml")], [])
+        self.assertEqual([item for item in names if "ctrlProp" in item], [])
         self.assertNotIn("ctrlProp", self.package.read("[Content_Types].xml").decode("utf-8"))
+        # The only VML left holds the notes of #731: no object of it is a control.
+        for item in (item for item in names if item.endswith(".vml")):
+            vml = self.package.read(item).decode("utf-8")
+            self.assertEqual(set(re.findall(r'ObjectType="(\w+)"', vml)), {"Note"}, item)
         for name, part in self.parts.items():
             sheet = self.package.read(part).decode("utf-8")
-            self.assertNotIn("legacyDrawing", sheet, name)
             self.assertNotIn("<controls>", sheet, name)
+            if name not in NOTES:
+                self.assertNotIn("legacyDrawing", sheet, name)
             drawing = self.package.read(drawing_of(self.package, part)).decode("utf-8")
             self.assertNotRegex(drawing, r'name="Button \d+"', name)
+
+    def test_the_staging_sheets_explain_their_field_name_row_in_a_note(self) -> None:
+        strings = [re.sub("<[^>]+>", "", item) for item in
+                   re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
+        for name in NOTES:
+            part = self.parts[name]
+            sheet = self.package.read(part).decode("utf-8")
+            rels = self.package.read(part.replace("worksheets/", "worksheets/_rels/") + ".rels").decode("utf-8")
+            self.assertRegex(rels, r'Type="[^"]*/comments" Target="\.\./comments\d+\.xml"', name)
+            self.assertRegex(rels, r'Type="[^"]*/vmlDrawing" Target="\.\./drawings/vmlDrawing\d+\.vml"', name)
+            self.assertIn("<legacyDrawing ", sheet, name)
+            comments = ElementTree.fromstring(self.package.read(
+                "xl/" + re.search(r'Target="\.\./(comments\d+\.xml)"', rels).group(1)))  # type: ignore[union-attr]
+            notes = list(comments.iter(MAIN + "comment"))
+            self.assertEqual([note.attrib["ref"] for note in notes], ["D8"], name)
+            text = "".join(item.text or "" for item in notes[0].iter(MAIN + "t"))
+            self.assertTrue(text.startswith("CSV field names."), name)
+            self.assertIn("The workbook does not read this row", text, name)
+            # D8 is the first CSV field name of the sheet, on the row above the header of the table.
+            cell = re.search(r'<c r="D8"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet)
+            self.assertIsNotNone(cell, name)
+            self.assertRegex(strings[int(cell.group(1))], r"^[a-z_]+$", name)  # type: ignore[union-attr]
+            self.assertRegex(sheet, r'<row r="9"[^>]*>', name)
 
     def test_every_sheet_has_its_shapes_with_their_macros(self) -> None:
         for name, expected in EXPECTED.items():
