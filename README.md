@@ -319,7 +319,10 @@ Both sheets show eight summary tiles above the table (the time of the last
 reconciliation, the rows shown, the figures compared and the count of `MATCH`,
 `DIFFERENCE`, `NOT IN BANK FILE`, `MISSING IN CALCULATOR` and `DUPLICATE`) and
 one tile for the other results. The tiles are rounded shapes linked to cells, so
-their counts follow the filter and need no macro to refresh.
+their counts follow the filter and need no macro to refresh. A fourth row gives the sums of the bank
+and calculator figures and of the absolute differences, and the largest absolute
+difference, of the measure the filter shows: filter the `Measure` column to one measure
+to read them.
 
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
