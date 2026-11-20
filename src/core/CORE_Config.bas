@@ -149,6 +149,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REGIME       As String = "Regime"                 'Default regime
         Public Const PRM_LAMIR        As String = "LambdaThresholdIR"      'CRR lambda threshold, IR
         Public Const PRM_LAMCO        As String = "LambdaThresholdCO"      'CRR lambda threshold, CO
+        Public Const PRM_DAYCOUNT     As String = "DayCountConvention"     'CAL365 or BD250 (#721)
+        Public Const PRM_CALENDAR     As String = "Calendar"               'TARGET, TARGET+TABLE or TABLE (#721)
+        Public Const NM_HOLIDAY_TABLE As String = "Holiday_Table"          'Closing days of the calendar, from its header (#721)
 
 '------------------------------------------------------------------------------
 ' RUN FINGERPRINT
@@ -186,14 +189,24 @@ Attribute VB_Name = "CORE_Config"
     'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
     '2026-10-09. A run whose parameters, factor table and alpha overrides
     'all equal this set is REGULATORY and names REF_SET_ID; any difference
-    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear and
-    'IRBucketOffset are conventions and do not change the class.
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear, DayCountConvention,
+    'Calendar and IRBucketOffset are conventions and do not change the class.
         Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
         Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
         Public Const RUN_WHATIF       As String = "WHAT-IF"                 'Some parameter differs
         Public Const REF_ALPHA        As Double = 1.4       'CRE52.1; CRR Art. 274(2)
         Public Const REF_FLOOR        As Double = 0.05      'CRE52.23; CRR Art. 278(3)
         Public Const REF_BDYEAR       As Double = 250       'CRE52.49, 52.53; CRR Art. 279c(1)
+    'The conventions DayCountConvention and Calendar (#721): the default reads
+    'dates as calendar days over DaysPerYear; BD250 counts the business days
+    'from the reporting date over BusinessDaysPerYear. Like DaysPerYear they
+    'do not change the class of a run, and Restore parameters puts them back.
+        Public Const DAYCOUNT_CAL365  As String = "CAL365"          'Calendar days over DaysPerYear
+        Public Const DAYCOUNT_BD250   As String = "BD250"           'Business days over BusinessDaysPerYear
+        Public Const CALENDAR_TARGET  As String = "TARGET"          'The EUR TARGET rule
+        Public Const CALENDAR_BOTH    As String = "TARGET+TABLE"    'The rule and the table of closing days
+        Public Const CALENDAR_TABLE   As String = "TABLE"           'The table of closing days alone
+        Public Const HOLIDAY_ROWS     As Long = 100                 'Rows of the table of closing days below its header
         Public Const REF_MINMAT       As Double = 10        'CRE52.48; CRR Art. 279c(1)(a)
         Public Const REF_SDFLOOR      As Double = 10        'CRE52.34; CRR Art. 279b(1)(a)
         Public Const REF_MPOR_BIL     As Double = 10        'CRE52.50; CRR Art. 285(2)(b)
@@ -344,6 +357,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
         Public Const FX_HEADERS As String = "FX_Ccy||Units of ccy per 1 unit of reporting ccy"
+        Public Const HOLIDAY_HEADERS As String = "Closing day|Description"
     'The rate column's header before #725, when rates were units of the reporting currency per
     'unit of the currency: a workbook that still has it is refused with a message that says so.
         Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"
@@ -709,11 +723,14 @@ Attribute VB_Name = "CORE_Config"
         Public Const DIAG_PRM_ALPHA As String = "PRM-ALPHA"    'active
         Public Const DIAG_PRM_ASOF As String = "PRM-ASOF"    'active
         Public Const DIAG_PRM_BOOLEAN As String = "PRM-BOOLEAN"    'active
+        Public Const DIAG_PRM_CALENDAR As String = "PRM-CALENDAR"    'active
         Public Const DIAG_PRM_CURRENCY As String = "PRM-CURRENCY"    'active
         Public Const DIAG_PRM_CURRENCY_MISSING As String = "PRM-CURRENCY-MISSING"    'active
+        Public Const DIAG_PRM_DAYCOUNT As String = "PRM-DAYCOUNT"    'active
         Public Const DIAG_PRM_DEFAULT As String = "PRM-DEFAULT"    'active
         Public Const DIAG_PRM_DUP As String = "PRM-DUP"    'active
         Public Const DIAG_PRM_DUP_SAME As String = "PRM-DUP-SAME"    'active
+        Public Const DIAG_PRM_HOLIDAY As String = "PRM-HOLIDAY"    'active
         Public Const DIAG_PRM_IR_CORRELATION As String = "PRM-IR-CORRELATION"    'active
         Public Const DIAG_PRM_NAME As String = "PRM-NAME"    'active
         Public Const DIAG_PRM_NUMBER As String = "PRM-NUMBER"    'active
