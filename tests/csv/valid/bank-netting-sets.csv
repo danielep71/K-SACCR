@@ -1,0 +1,4 @@
+netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment
+NS-001;BCBS;350913.6;120000;230913.6;225000;200000;25000;;;;;1;Month-end figures
+00731;CRR;1250000;;;;;;;;;;;
+NS-CCP;CRR;0;;;;;;;;;;;"Bank ""EAD""; zero"

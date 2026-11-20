@@ -43,8 +43,8 @@ Attribute VB_Name = "TEST_CsvReader"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 132    'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 345    'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 144    'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 385    'Checks in a complete run
         Private Const ROUND_TRIP_LAST_LINE As Long = 11    'Line of the last record of valid/trades.csv
         Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records=9"    'ReadCsv_Silent on it
         Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings=16; first=CSV-RANGE|2|1|attachment_rate"    'ReadCsv_Silent on invalid/trades-fields-and-rules.csv
@@ -72,6 +72,10 @@ Public Sub RunCsvReaderTests()
         Fixture10
         Fixture11
         Fixture12
+        Fixture13
+        Fixture14
+        Fixture15
+        Fixture16
         Case01
         Case02
         Case03
@@ -738,6 +742,51 @@ End Sub
 '
 
 Private Sub Fixture01()
+    'Fixture invalid/bank-netting-sets-fields.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F69643B726567696D653B6561643B72633B7066653B6164646F6E5F6167677265676174653B6164646F6E5F69723B6164646F6E5F66783B6164646F6E5F63723B6164646F"
+        HexText = HexText & "6E5F65713B6164646F6E5F636F3B6164646F6E5F6F743B6D756C7469706C6965723B636F6D6D656E740A4E532D313B4555523B312C353B6162633B3B3B3B3B3B3B3B3B2D302E353B0A4E532D323B3B31"
+        HexText = HexText & "30303B3B3B3B3B3B3B3B3B3B3B0A6E732D313B4352523B31653430303B3B3B3B3B3B3B3B3B3B3B3D53554D284131290A"
+        Expected = ""
+        Expected = "CSV-TYPE|2|1|ead"
+        Expected = Expected & vbLf & "CSV-RANGE|2|1|multiplier"
+        Expected = Expected & vbLf & "CSV-TYPE|2|1|rc"
+        Expected = Expected & vbLf & "CSV-ALLOWED|2|1|regime"
+        Expected = Expected & vbLf & "CSV-REQUIRED|3|2|regime"
+        Expected = Expected & vbLf & "CSV-FORMULA|4|3|comment"
+        Expected = Expected & vbLf & "CSV-RANGE|4|3|ead"
+        Expected = Expected & vbLf & "CSV-DUPLICATE-KEY|4|3|netting_set_id"
+        Values = ""
+        RunFixture "invalid/bank-netting-sets-fields.csv", "BankNettingSets", HexText, Expected, 0, Values, True, 3
+
+End Sub
+
+
+Private Sub Fixture02()
+    'Fixture invalid/bank-trades-fields.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "74726164655F69643B6E6F74696F6E616C3B6D746D3B6D617475726974793B73757065727669736F72795F6475726174696F6E3B61646A75737465645F6E6F74696F6E616C3B73757065727669736F72"
+        HexText = HexText & "795F64656C74613B6D665F756E6D617267696E65643B6D665F6D617267696E65643B6566666563746976655F6E6F74696F6E616C5F756E6D617267696E65643B6566666563746976655F6E6F74696F6E"
+        HexText = HexText & "616C5F6D617267696E65643B7374616E64616C6F6E655F6164646F6E3B636F6D6D656E740A542D313B312E3030302E3030303B2B353B3B3B3B3B3B3B3B3B3B0A742D313B3130303B3B3B3B3B3B3B3B3B"
+        HexText = HexText & "3B3B0A3B3130303B3B3B3B3B3B3B3B3B3B3B0A542D333B3B3B332079656172733B3B3B3B3B3B3B3B3B3D312B310A"
+        Expected = ""
+        Expected = "CSV-TYPE|2|1|mtm"
+        Expected = Expected & vbLf & "CSV-TYPE|2|1|notional"
+        Expected = Expected & vbLf & "CSV-DUPLICATE-KEY|3|2|trade_id"
+        Expected = Expected & vbLf & "CSV-REQUIRED|4|3|trade_id"
+        Expected = Expected & vbLf & "CSV-FORMULA|5|4|comment"
+        Expected = Expected & vbLf & "CSV-TYPE|5|4|maturity"
+        Values = ""
+        RunFixture "invalid/bank-trades-fields.csv", "BankTrades", HexText, Expected, 0, Values, True, 4
+
+End Sub
+
+
+Private Sub Fixture03()
     'Fixture invalid/netting-sets-fields.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -770,7 +819,7 @@ Private Sub Fixture01()
 End Sub
 
 
-Private Sub Fixture02()
+Private Sub Fixture04()
     'Fixture invalid/netting-sets-header.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -791,7 +840,7 @@ Private Sub Fixture02()
 End Sub
 
 
-Private Sub Fixture03()
+Private Sub Fixture05()
     'Fixture invalid/netting-sets-keys-and-rules.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -816,7 +865,7 @@ Private Sub Fixture03()
 End Sub
 
 
-Private Sub Fixture04()
+Private Sub Fixture06()
     'Fixture invalid/netting-sets-quote-in-field.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -834,7 +883,7 @@ Private Sub Fixture04()
 End Sub
 
 
-Private Sub Fixture05()
+Private Sub Fixture07()
     'Fixture invalid/netting-sets-records.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -855,7 +904,7 @@ Private Sub Fixture05()
 End Sub
 
 
-Private Sub Fixture06()
+Private Sub Fixture08()
     'Fixture invalid/netting-sets-unclosed-quote.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -873,7 +922,7 @@ Private Sub Fixture06()
 End Sub
 
 
-Private Sub Fixture07()
+Private Sub Fixture09()
     'Fixture invalid/trades-fields-and-rules.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -912,7 +961,155 @@ Private Sub Fixture07()
 End Sub
 
 
-Private Sub Fixture08()
+Private Sub Fixture10()
+    'Fixture valid/bank-netting-sets.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F69643B726567696D653B6561643B72633B7066653B6164646F6E5F6167677265676174653B6164646F6E5F69723B6164646F6E5F66783B6164646F6E5F63723B6164646F"
+        HexText = HexText & "6E5F65713B6164646F6E5F636F3B6164646F6E5F6F743B6D756C7469706C6965723B636F6D6D656E740A4E532D3030313B424342533B3335303931332E363B3132303030303B3233303931332E363B32"
+        HexText = HexText & "32353030303B3230303030303B32353030303B3B3B3B3B313B4D6F6E74682D656E6420666967757265730A30303733313B4352523B313235303030303B3B3B3B3B3B3B3B3B3B3B0A4E532D4343503B43"
+        HexText = HexText & "52523B303B3B3B3B3B3B3B3B3B3B3B2242616E6B20222245414422223B207A65726F220A"
+        Expected = ""
+        Values = ""
+        Values = Values & "NS-001"
+        Values = Values & ChrW(31)
+        Values = Values & "BCBS"
+        Values = Values & ChrW(31)
+        Values = Values & "350913.6"
+        Values = Values & ChrW(31)
+        Values = Values & "120000"
+        Values = Values & ChrW(31)
+        Values = Values & "230913.6"
+        Values = Values & ChrW(31)
+        Values = Values & "225000"
+        Values = Values & ChrW(31)
+        Values = Values & "200000"
+        Values = Values & ChrW(31)
+        Values = Values & "25000"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "Month-end figures"
+        Values = Values & ChrW(30)
+        Values = Values & "00731"
+        Values = Values & ChrW(31)
+        Values = Values & "CRR"
+        Values = Values & ChrW(31)
+        Values = Values & "1250000"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "NS-CCP"
+        Values = Values & ChrW(31)
+        Values = Values & "CRR"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "Bank ""EAD""; zero"
+        RunFixture "valid/bank-netting-sets.csv", "BankNettingSets", HexText, Expected, 3, Values, True, 3
+
+End Sub
+
+
+Private Sub Fixture11()
+    'Fixture valid/bank-trades.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "74726164655F69643B6E6F74696F6E616C3B6D746D3B6D617475726974793B73757065727669736F72795F6475726174696F6E3B61646A75737465645F6E6F74696F6E616C3B73757065727669736F72"
+        HexText = HexText & "795F64656C74613B6D665F756E6D617267696E65643B6D665F6D617267696E65643B6566666563746976655F6E6F74696F6E616C5F756E6D617267696E65643B6566666563746976655F6E6F74696F6E"
+        HexText = HexText & "616C5F6D617267696E65643B7374616E64616C6F6E655F6164646F6E3B636F6D6D656E740A5452442D3130312D49523B353030303030303B2D313230303030303B333B322E383B31343030303030303B"
+        HexText = HexText & "2D313B313B302E333B31343030303030303B343230303030303B37303030303B4D6F6E74682D656E6420666967757265730A3030303234353B313030303030303B3B3B3B3B3B3B3B3B3B3B0A5452442D"
+        HexText = HexText & "4343502D313B323030303030303B2D31353030303B3B3B3B3B3B3B3B3B3B22436C656172656420737761702C20222262616E6B2222220A"
+        Expected = ""
+        Values = ""
+        Values = Values & "TRD-101-IR"
+        Values = Values & ChrW(31)
+        Values = Values & "5000000"
+        Values = Values & ChrW(31)
+        Values = Values & "-1200000"
+        Values = Values & ChrW(31)
+        Values = Values & "3"
+        Values = Values & ChrW(31)
+        Values = Values & "2.8"
+        Values = Values & ChrW(31)
+        Values = Values & "14000000"
+        Values = Values & ChrW(31)
+        Values = Values & "-1"
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "0.3"
+        Values = Values & ChrW(31)
+        Values = Values & "14000000"
+        Values = Values & ChrW(31)
+        Values = Values & "4200000"
+        Values = Values & ChrW(31)
+        Values = Values & "70000"
+        Values = Values & ChrW(31)
+        Values = Values & "Month-end figures"
+        Values = Values & ChrW(30)
+        Values = Values & "000245"
+        Values = Values & ChrW(31)
+        Values = Values & "1000000"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "TRD-CCP-1"
+        Values = Values & ChrW(31)
+        Values = Values & "2000000"
+        Values = Values & ChrW(31)
+        Values = Values & "-15000"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "Cleared swap, ""bank"""
+        RunFixture "valid/bank-trades.csv", "BankTrades", HexText, Expected, 3, Values, True, 3
+
+End Sub
+
+
+Private Sub Fixture12()
     'Fixture valid/netting-sets-reordered.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -983,7 +1180,7 @@ Private Sub Fixture08()
 End Sub
 
 
-Private Sub Fixture09()
+Private Sub Fixture13()
     'Fixture valid/netting-sets-v1.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1225,7 +1422,7 @@ Private Sub Fixture09()
 End Sub
 
 
-Private Sub Fixture10()
+Private Sub Fixture14()
     'Fixture valid/netting-sets.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1473,7 +1670,7 @@ Private Sub Fixture10()
 End Sub
 
 
-Private Sub Fixture11()
+Private Sub Fixture15()
     'Fixture valid/trades-header-only.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1490,7 +1687,7 @@ Private Sub Fixture11()
 End Sub
 
 
-Private Sub Fixture12()
+Private Sub Fixture16()
     'Fixture valid/trades.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings

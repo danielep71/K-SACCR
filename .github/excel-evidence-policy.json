@@ -56,8 +56,8 @@
     },
     {
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
-      "cases": 132,
-      "checks": {"32-bit": 345, "64-bit": 345}
+      "cases": 144,
+      "checks": {"32-bit": 385, "64-bit": 385}
     },
     {
       "entry_point": "TEST_Import.RunImportTests",

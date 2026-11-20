@@ -97,6 +97,26 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Specify the CSV files of the bank's own figures (#718, first part). Version 3 of
+  the CSV contract adds `BankNettingSets` and `BankTrades` (version 1 of each): one
+  record per netting set or per trade leg, with an ID, for `BankNettingSets` the
+  regime (`BCBS` or `CRR`, required), the EAD, RC, PFE, the add-ons and the
+  multiplier, and for `BankTrades` the figures of TradeCalc, in the columns of the two
+  sheets and in their order, with a free comment. A blank figure is not compared
+  and is no finding; the amount scale and the tolerances stay on the sheet, and an
+  amount in a file is in the scale of the sheet. The limits are the rows of the
+  sheets, 200 netting sets and 500 legs; a longer file is rejected whole
+  (`CSV-TOO-MANY-RECORDS`), never truncated. An ID that is not on NettingSets or
+  Trades is no finding of the file: the reconciliation reports it as `MISSING IN
+  CALCULATOR`. The contract, the Python reference, the two blank templates
+  (`K-SACCR_BankNettingSets_v1.csv`, `K-SACCR_BankTrades_v1.csv`), the field
+  tables of `CSV_CONTRACT.md`, the import specification page, the generated
+  `CORE_CsvSchema` and `CORE_ImportSpec` modules and the fixtures
+  (`tests/csv`) follow the new files, and `check_csv_contract` compares the sheets'
+  header rows and validation lists with them. The import itself, which loads a file
+  onto the sheet, is the next part of the issue; the exported specification page
+  is now `K-SACCR_Import_Specification_v3.html`.
+
 - Make Clear outputs easy to find (#719). The command was only an item in the
   drop-down menu of the Run split button, and no sheet had a button for it. It is
   now a button of its own in the Calculation group of the K-SACCR tab, beside Run,
