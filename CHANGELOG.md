@@ -97,6 +97,25 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add the business-day count to the worksheet functions (#721, first part of the
+  engine). `SACCR_BusinessDays(StartDate, EndDate, [Holidays], [UseTarget])` counts the
+  business days in (start, end], the first date excluded and the last included as in the
+  Python reference (`tools/business_calendar.py`), negative for a reversed interval. Saturday
+  and Sunday are never counted; the EUR TARGET closing days come from a rule, not a yearly list
+  (1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December, with Easter by the
+  Anonymous Gregorian algorithm; 1999 and 2001 close also on 31 December and 1999 not on the
+  other four, and the rule starts on 1 January 1999); `Holidays` is a date, a range or an array of
+  extra closing days (a weekend date or a duplicate counts once, blank entries are skipped), and
+  `UseTarget` False counts weekends and the table only, with no range of validity. A date
+  before 1 March 1900 and, under the rule, an interval that touches a year before 1999 are
+  `#NUM!`; text in the table is `#VALUE!` and an error value in it is passed on. Nothing in the
+  calculation reads it yet: the day-count convention `BD250`, the Params cells and the holiday
+  table follow in the next parts. `TEST_Formulas` gains a case (10 cases, 115 checks; 113 on
+  32-bit VBA) that repeats the Python reference's checks (Easter 2008, 2026 and 2038, the business
+  days of 2024 to 2028, 2000 and 2001 and of ten years, a table with a Friday, a Saturday and a
+  duplicate, dates before 1999 and the errors), every year from 2000 to 2099 and 300
+  pairs of dates with a table against a count made day by day with Gauss's Easter rule.
+
 - Load the bank's own figures from a CSV file (#718, second part). **BankNettingSets
   file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and an
   Import CSV button on each bank sheet, read a file against the contract of the first
