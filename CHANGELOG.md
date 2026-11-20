@@ -313,6 +313,14 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Explain the row of CSV field names of the two staging sheets (#731). D8 of
+  `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
+  give the name each column has in the first line of a CSV file for the sheet, as
+  the CSV contract defines it, to prepare or check a file; the workbook does not
+  read the row (the header row is found by its name, and the rows start below it).
+  `test_template_buttons.py` checks the note, its comments and VML parts, and that
+  the only VML left in the template belongs to notes.
+
 - Replace the form-control buttons of the sheets with rounded-rectangle shapes
   linked to the macros (#727). Import CSV, Validate staging, Commit import and
   Export import specifications on the two staging sheets, Randomize inputs and
