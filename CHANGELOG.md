@@ -97,6 +97,18 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Support the business-day convention in the independent cross-check and document it (#721, third
+  part). `tools/rsaccr_crosscheck.py` reads `DayCountConvention` and `Calendar` of a fixture's
+  parameters (`TARGET` only; another calendar and any other parameter are `Unsupported`) and, with
+  `BD250`, translates the dates into the business days after the valuation date of the Python reference
+  over 250, as the engine does; a date that is not after the valuation date keeps the calendar-day measure.
+  Three tests (the years on each basis, the basis from the parameters, a `BD250` fixture translated). The
+  methodology page states the convention, the calendar rule with its range of validity, its sources and
+  what was not re-read, the support matrix and the regulatory-versus-what-if note follow, TEST_CASES
+  says that the accuracy contracts are on `CAL365` and no case of the catalogue runs on `BD250`, and
+  INSTALLATION names the two conventions in Restore parameters. A `BD250` case with the package's figures
+  needs a run of the workbook on that convention and is not committed yet.
+
 - Read the day-count convention and the calendar on Params and use them (#721, second part of
   the engine). Two reference parameters below the others, `DayCountConvention` (`CAL365`, the default, or
   `BD250`) and `Calendar` (`TARGET`, the default, `TARGET+TABLE` or `TABLE`), with a list validation,
