@@ -1715,7 +1715,7 @@ Private Sub AddParamRow( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        NewRow = ParamsRow(PRM_LAMCO) + 1
+        NewRow = ParamsRow(PRM_CALENDAR) + 1    'The row below the last parameter
         If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsCodeCol()).Value) Or _
            Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsValueCol()).Value) Then
             Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & NewRow & " is not blank."
