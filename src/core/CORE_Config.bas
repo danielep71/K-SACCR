@@ -343,7 +343,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
-        Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"
+        Public Const FX_HEADERS As String = "FX_Ccy||Units of ccy per 1 unit of reporting ccy"
+    'The rate column's header before #725, when rates were units of the reporting currency per
+    'unit of the currency: a workbook that still has it is refused with a message that says so.
+        Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"
 
 '------------------------------------------------------------------------------
 ' CSV TEMPLATES
