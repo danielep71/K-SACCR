@@ -1,7 +1,7 @@
 {
   "schema": "ksaccr-csv-contract",
-  "contract_version": 2,
-  "description": "Field-level contract of the K-SACCR Trades and NettingSets CSV input files, version 2: NettingSets version 2, which still reads its version 1 files, and Trades version 1. CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
+  "contract_version": 3,
+  "description": "Field-level contract of the K-SACCR CSV files, version 3: the Trades and NettingSets input files (NettingSets version 2, which still reads its version 1 files, and Trades version 1) and the BankNettingSets and BankTrades files of the bank's own figures (version 1). CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
   "format": {
     "encoding": "UTF-8, with or without a byte-order mark",
     "delimiter": ";",
@@ -180,6 +180,63 @@
          "otherwise_blank": ["next_reset_date"]},
         {"id": "end-after-start", "after": ["end_date", "start_date"]},
         {"id": "detachment-above-attachment", "above": ["detachment_rate", "attachment_rate"]}
+      ]
+    },
+    "BankNettingSets": {
+      "version": 1,
+      "template": "K-SACCR_BankNettingSets_v1.csv",
+      "sheet": "BankNettingSets",
+      "key": "netting_set_id",
+      "reserved_keys": [],
+      "max_records": 200,
+      "examples": [
+        {"netting_set_id": "NS-001", "regime": "BCBS", "ead": "350913.6", "rc": "120000", "pfe": "230913.6", "addon_aggregate": "225000", "addon_ir": "200000", "addon_fx": "25000", "multiplier": "1", "comment": "Month-end figures"},
+        {"netting_set_id": "00731", "regime": "CRR", "ead": "1250000"},
+        {"netting_set_id": "NS-CCP", "regime": "CRR", "ead": "0", "comment": "Bank \"EAD\"; zero"}
+      ],
+      "columns": [
+        {"name": "netting_set_id", "sheet_header": "NettingSetID", "type": "id", "required": true, "description": "Netting-set ID of the bank's figures, matched to the ID on NettingSets case-insensitively.", "example": "NS-001"},
+        {"name": "regime", "sheet_header": "Regime (BCBS / CRR)", "type": "code", "allowed": ["BCBS", "CRR"], "required": true, "description": "Regime of the bank's figures; figures are never compared across regimes.", "example": "BCBS"},
+        {"name": "ead", "sheet_header": "EAD", "type": "number", "required": false, "blank": "not compared", "description": "Bank EAD, in the amount scale of the sheet.", "example": "350913.6"},
+        {"name": "rc", "sheet_header": "RC", "type": "number", "required": false, "blank": "not compared", "description": "Bank replacement cost, in the amount scale of the sheet.", "example": "120000"},
+        {"name": "pfe", "sheet_header": "PFE", "type": "number", "required": false, "blank": "not compared", "description": "Bank potential future exposure, in the amount scale of the sheet.", "example": "230913.6"},
+        {"name": "addon_aggregate", "sheet_header": "AddOn aggregate", "type": "number", "required": false, "blank": "not compared", "description": "Bank aggregate add-on, in the amount scale of the sheet.", "example": "225000"},
+        {"name": "addon_ir", "sheet_header": "AddOn IR", "type": "number", "required": false, "blank": "not compared", "description": "Bank interest-rate add-on, in the amount scale of the sheet.", "example": "200000"},
+        {"name": "addon_fx", "sheet_header": "AddOn FX", "type": "number", "required": false, "blank": "not compared", "description": "Bank FX add-on, in the amount scale of the sheet.", "example": "25000"},
+        {"name": "addon_cr", "sheet_header": "AddOn CR", "type": "number", "required": false, "blank": "not compared", "description": "Bank credit add-on, in the amount scale of the sheet.", "example": "0"},
+        {"name": "addon_eq", "sheet_header": "AddOn EQ", "type": "number", "required": false, "blank": "not compared", "description": "Bank equity add-on, in the amount scale of the sheet.", "example": "0"},
+        {"name": "addon_co", "sheet_header": "AddOn CO", "type": "number", "required": false, "blank": "not compared", "description": "Bank commodity add-on, in the amount scale of the sheet.", "example": "0"},
+        {"name": "addon_ot", "sheet_header": "AddOn OT", "type": "number", "required": false, "blank": "not compared", "description": "Bank other add-on, in the amount scale of the sheet.", "example": "0"},
+        {"name": "multiplier", "sheet_header": "Multiplier", "type": "number", "min": 0, "required": false, "blank": "not compared", "description": "Bank multiplier, a ratio that is never scaled.", "example": "1"},
+        {"name": "comment", "sheet_header": "Comment", "type": "text", "required": false, "description": "Free text, not read by the reconciliation.", "example": "Month-end figures"}
+      ]
+    },
+    "BankTrades": {
+      "version": 1,
+      "template": "K-SACCR_BankTrades_v1.csv",
+      "sheet": "BankTrades",
+      "key": "trade_id",
+      "reserved_keys": [],
+      "max_records": 500,
+      "examples": [
+        {"trade_id": "TRD-101-IR", "notional": "5000000", "mtm": "-1200000", "maturity": "3", "supervisory_duration": "2.8", "adjusted_notional": "14000000", "supervisory_delta": "-1", "mf_unmargined": "1", "mf_margined": "0.3", "effective_notional_unmargined": "14000000", "effective_notional_margined": "4200000", "standalone_addon": "70000", "comment": "Month-end figures"},
+        {"trade_id": "000245", "notional": "1000000"},
+        {"trade_id": "TRD-CCP-1", "notional": "2000000", "mtm": "-15000", "comment": "Cleared swap, \"bank\""}
+      ],
+      "columns": [
+        {"name": "trade_id", "sheet_header": "TradeID", "type": "id", "required": true, "description": "Leg ID of the bank's figures, matched to the TradeID on Trades case-insensitively.", "example": "TRD-101-IR"},
+        {"name": "notional", "sheet_header": "Notional (rep ccy)", "type": "number", "required": false, "blank": "not compared", "description": "Bank notional in the reporting currency, in the amount scale of the sheet.", "example": "5000000"},
+        {"name": "mtm", "sheet_header": "MtM (rep ccy)", "type": "number", "required": false, "blank": "not compared", "description": "Bank mark-to-market in the reporting currency, in the amount scale of the sheet.", "example": "-1200000"},
+        {"name": "maturity", "sheet_header": "M (years)", "type": "number", "required": false, "blank": "not compared", "description": "Bank maturity in years, never scaled.", "example": "3"},
+        {"name": "supervisory_duration", "sheet_header": "Supervisory duration", "type": "number", "required": false, "blank": "not compared", "description": "Bank supervisory duration, never scaled.", "example": "2.8"},
+        {"name": "adjusted_notional", "sheet_header": "Adjusted notional d", "type": "number", "required": false, "blank": "not compared", "description": "Bank adjusted notional, in the amount scale of the sheet.", "example": "14000000"},
+        {"name": "supervisory_delta", "sheet_header": "Supervisory delta", "type": "number", "required": false, "blank": "not compared", "description": "Bank supervisory delta, never scaled.", "example": "-1"},
+        {"name": "mf_unmargined", "sheet_header": "MF unmargined", "type": "number", "required": false, "blank": "not compared", "description": "Bank maturity factor of an unmargined netting set, never scaled.", "example": "1"},
+        {"name": "mf_margined", "sheet_header": "MF margined", "type": "number", "required": false, "blank": "not compared", "description": "Bank maturity factor of a margined netting set, never scaled.", "example": "0.3"},
+        {"name": "effective_notional_unmargined", "sheet_header": "Effective notional unmargined", "type": "number", "required": false, "blank": "not compared", "description": "Bank effective notional of an unmargined netting set, in the amount scale of the sheet.", "example": "14000000"},
+        {"name": "effective_notional_margined", "sheet_header": "Effective notional margined", "type": "number", "required": false, "blank": "not compared", "description": "Bank effective notional of a margined netting set, in the amount scale of the sheet.", "example": "4200000"},
+        {"name": "standalone_addon", "sheet_header": "Stand-alone add-on", "type": "number", "required": false, "blank": "not compared", "description": "Bank stand-alone add-on, in the amount scale of the sheet.", "example": "70000"},
+        {"name": "comment", "sheet_header": "Comment", "type": "text", "required": false, "description": "Free text, not read by the reconciliation.", "example": "Month-end figures"}
       ]
     }
   },

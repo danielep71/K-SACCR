@@ -36,10 +36,11 @@ EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
 PORTFOLIO = "tests/csv/portfolio.json"
 STAGED = "tests/csv/staged.json"
-ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
-ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS"}
+ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS",
+                  "BankNettingSets": "BN_HEADERS", "BankTrades": "BT_HEADERS"}
+ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS", "BankNettingSets": "BN_NCOLS", "BankTrades": "BT_NCOLS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
-KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
+KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID", "BankNettingSets": "NettingSetID", "BankTrades": "TradeID"}
 # Staging sheet and its header anchor per file (#208); the header row starts with the CSV line column.
 STAGING = {"NettingSets": ("Import_NettingSets", "ImportNettingSets_Header"),
            "Trades": ("Import_Trades", "ImportTrades_Header")}
@@ -231,7 +232,8 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
         first, template = workbook.header(sheet, KEY_COLUMN[kind])
         if [header_key(h) for h in template] != headers:
             findings.append(f"{kind}: sheet headers differ from the {spec['sheet']} header row of {TEMPLATE}")
-        findings += check_staging(workbook, kind, spec)
+        if kind in STAGING:  # the bank files are loaded onto their sheet, with no staging sheet (#718)
+            findings += check_staging(workbook, kind, spec)
         lists = workbook.lists(sheet)
         for offset, column in enumerate(spec["columns"]):
             if column["type"] in ("code", "flag"):
@@ -307,6 +309,8 @@ def check_export(root: Path, contract: dict[str, Any]) -> list[str]:
     """The file name and header line that M_Main writes for each blank template."""
     findings: list[str] = []
     for kind, spec in contract["files"].items():
+        if kind not in EXPORT_CONSTANTS:  # the template of a bank file is exported from the Templates menu (#718)
+            continue
         file_constant, header_constant = EXPORT_CONSTANTS[kind]
         if vba_string(root, file_constant) != spec["template"]:
             findings.append(f"{kind}: {file_constant} in {CONFIG} differs from the template name {spec['template']}")

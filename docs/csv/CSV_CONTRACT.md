@@ -1,12 +1,15 @@
 # CSV input contract
 
-This document specifies version 2 of the contract for the two CSV files that
-carry the inputs of the `NettingSets` and `Trades` sheets: what a file must
-contain, how each field is written and read, and how a file is rejected. It
-covers NettingSets files of version 2, which still reads version 1 files, and
-Trades files of version 1. The contract came with the CSV import of v1.1.0
+This document specifies version 3 of the contract for the CSV files of the
+workbook: the two files that carry the inputs of the `NettingSets` and `Trades`
+sheets, and the two that carry a bank's own figures for the `BankNettingSets` and
+`BankTrades` sheets. It says what a file must contain, how each field is written
+and read, and how a file is rejected. It covers NettingSets files of version 2,
+which still reads version 1 files, Trades files of version 1, and BankNettingSets
+and BankTrades files of version 1. The contract came with the CSV import of v1.1.0
 (#206); parsing, staging, validation and commit are built on it in #207 to
-#211, and NettingSets version 2 adds the counterparty sector (#674).
+#211, NettingSets version 2 adds the counterparty sector (#674), and the two
+bank files are the contract of the import of the reconciliation inputs (#718).
 
 The machine-readable contract is [`contract.json`](contract.json). The field
 tables below are generated from it, and
@@ -23,6 +26,8 @@ workbook exports, this document's tables and the
 | --- | --- | --- | --- | --- |
 | NettingSets | 2 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv) |
 | Trades | 1 | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| BankNettingSets | 1 | `BankNettingSets` | `netting_set_id` | [`K-SACCR_BankNettingSets_v1.csv`](templates/K-SACCR_BankNettingSets_v1.csv) |
+| BankTrades | 1 | `BankTrades` | `trade_id` | [`K-SACCR_BankTrades_v1.csv`](templates/K-SACCR_BankTrades_v1.csv) |
 
 A template is the header record alone. The version 1 NettingSets template,
 [`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv), is kept
@@ -140,6 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
+| BankNettingSets | 200 |
+| BankTrades | 500 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
@@ -162,6 +169,17 @@ unlocked down to the last row of the sheet
 below the validation lists are read and calculated like the others, without
 dropdowns. Loading, validating and committing a file at these limits has not
 been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
+
+The two bank files hold figures a user compares with the workbook's, not inputs
+of a run, and carry no scale and no tolerance: both stay on the sheet (the amount
+scale in `D4`, the absolute tolerance in `D5` and the relative tolerance in `D6`).
+An amount in a bank file is written in the scale of the sheet. A blank figure is
+not compared. Their limits are the rows of the sheets, 200 netting sets (rows 9 to
+208 of `BankNettingSets`) and 500 legs (rows 9 to 508 of `BankTrades`): a file
+with more records is rejected whole (`CSV-TOO-MANY-RECORDS`), never truncated.
+A bank file has no rule against the other files: an ID that is not on
+`NettingSets` or on `Trades` is a row the reconciliation reports as
+`MISSING IN CALCULATOR`, not a finding of the file.
 
 ## 📋 NettingSets columns
 
@@ -225,6 +243,47 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `next_reset_date` | Next reset date | date | no |  | STM only, and then required: the first settlement date after the reporting date. |  |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free-text note; not read by the engine. |  |
 <!-- END GENERATED: Trades -->
+
+## 📋 BankNettingSets columns
+
+<!-- BEGIN GENERATED: BankNettingSets -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Netting-set ID of the bank's figures, matched to the ID on NettingSets case-insensitively. | `NS-001` |
+| `regime` | Regime (BCBS / CRR) | code: `BCBS`, `CRR` | yes |  | Regime of the bank's figures; figures are never compared across regimes. | `BCBS` |
+| `ead` | EAD | number | no | not compared | Bank EAD, in the amount scale of the sheet. | `350913.6` |
+| `rc` | RC | number | no | not compared | Bank replacement cost, in the amount scale of the sheet. | `120000` |
+| `pfe` | PFE | number | no | not compared | Bank potential future exposure, in the amount scale of the sheet. | `230913.6` |
+| `addon_aggregate` | AddOn aggregate | number | no | not compared | Bank aggregate add-on, in the amount scale of the sheet. | `225000` |
+| `addon_ir` | AddOn IR | number | no | not compared | Bank interest-rate add-on, in the amount scale of the sheet. | `200000` |
+| `addon_fx` | AddOn FX | number | no | not compared | Bank FX add-on, in the amount scale of the sheet. | `25000` |
+| `addon_cr` | AddOn CR | number | no | not compared | Bank credit add-on, in the amount scale of the sheet. | `0` |
+| `addon_eq` | AddOn EQ | number | no | not compared | Bank equity add-on, in the amount scale of the sheet. | `0` |
+| `addon_co` | AddOn CO | number | no | not compared | Bank commodity add-on, in the amount scale of the sheet. | `0` |
+| `addon_ot` | AddOn OT | number | no | not compared | Bank other add-on, in the amount scale of the sheet. | `0` |
+| `multiplier` | Multiplier | number (>= 0) | no | not compared | Bank multiplier, a ratio that is never scaled. | `1` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankNettingSets -->
+
+## 📋 BankTrades columns
+
+<!-- BEGIN GENERATED: BankTrades -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `trade_id` | TradeID | id (<= 64 characters) | yes |  | Leg ID of the bank's figures, matched to the TradeID on Trades case-insensitively. | `TRD-101-IR` |
+| `notional` | Notional (rep ccy) | number | no | not compared | Bank notional in the reporting currency, in the amount scale of the sheet. | `5000000` |
+| `mtm` | MtM (rep ccy) | number | no | not compared | Bank mark-to-market in the reporting currency, in the amount scale of the sheet. | `-1200000` |
+| `maturity` | M (years) | number | no | not compared | Bank maturity in years, never scaled. | `3` |
+| `supervisory_duration` | Supervisory duration | number | no | not compared | Bank supervisory duration, never scaled. | `2.8` |
+| `adjusted_notional` | Adjusted notional d | number | no | not compared | Bank adjusted notional, in the amount scale of the sheet. | `14000000` |
+| `supervisory_delta` | Supervisory delta | number | no | not compared | Bank supervisory delta, never scaled. | `-1` |
+| `mf_unmargined` | MF unmargined | number | no | not compared | Bank maturity factor of an unmargined netting set, never scaled. | `1` |
+| `mf_margined` | MF margined | number | no | not compared | Bank maturity factor of a margined netting set, never scaled. | `0.3` |
+| `effective_notional_unmargined` | Effective notional unmargined | number | no | not compared | Bank effective notional of an unmargined netting set, in the amount scale of the sheet. | `14000000` |
+| `effective_notional_margined` | Effective notional margined | number | no | not compared | Bank effective notional of a margined netting set, in the amount scale of the sheet. | `4200000` |
+| `standalone_addon` | Stand-alone add-on | number | no | not compared | Bank stand-alone add-on, in the amount scale of the sheet. | `70000` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankTrades -->
 
 ## 🔗 Rules between fields of a record
 

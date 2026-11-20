@@ -1,0 +1,4 @@
+trade_id;notional;mtm;maturity;supervisory_duration;adjusted_notional;supervisory_delta;mf_unmargined;mf_margined;effective_notional_unmargined;effective_notional_margined;standalone_addon;comment
+TRD-101-IR;5000000;-1200000;3;2.8;14000000;-1;1;0.3;14000000;4200000;70000;Month-end figures
+000245;1000000;;;;;;;;;;;
+TRD-CCP-1;2000000;-15000;;;;;;;;;;"Cleared swap, ""bank"""

@@ -1,6 +1,32 @@
 {
   "description": "Expected outcome of each CSV fixture under docs/csv/contract.json: the kind of file and every finding as [code, line, record, column]; a valid fixture has none.",
   "fixtures": {
+    "invalid/bank-netting-sets-fields.csv": {
+      "kind": "BankNettingSets",
+      "records": 0,
+      "findings": [
+        ["CSV-TYPE", 2, 1, "ead"],
+        ["CSV-RANGE", 2, 1, "multiplier"],
+        ["CSV-TYPE", 2, 1, "rc"],
+        ["CSV-ALLOWED", 2, 1, "regime"],
+        ["CSV-REQUIRED", 3, 2, "regime"],
+        ["CSV-FORMULA", 4, 3, "comment"],
+        ["CSV-RANGE", 4, 3, "ead"],
+        ["CSV-DUPLICATE-KEY", 4, 3, "netting_set_id"]
+      ]
+    },
+    "invalid/bank-trades-fields.csv": {
+      "kind": "BankTrades",
+      "records": 0,
+      "findings": [
+        ["CSV-TYPE", 2, 1, "mtm"],
+        ["CSV-TYPE", 2, 1, "notional"],
+        ["CSV-DUPLICATE-KEY", 3, 2, "trade_id"],
+        ["CSV-REQUIRED", 4, 3, "trade_id"],
+        ["CSV-FORMULA", 5, 4, "comment"],
+        ["CSV-TYPE", 5, 4, "maturity"]
+      ]
+    },
     "invalid/netting-sets-fields.csv": {
       "kind": "NettingSets",
       "records": 0,
@@ -89,6 +115,16 @@
         ["CSV-FORMULA", 6, 5, "comment"],
         ["CSV-DUPLICATE-KEY", 6, 5, "trade_id"]
       ]
+    },
+    "valid/bank-netting-sets.csv": {
+      "kind": "BankNettingSets",
+      "records": 3,
+      "findings": []
+    },
+    "valid/bank-trades.csv": {
+      "kind": "BankTrades",
+      "records": 3,
+      "findings": []
     },
     "valid/netting-sets-reordered.csv": {
       "kind": "NettingSets",
