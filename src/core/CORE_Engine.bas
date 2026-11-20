@@ -298,7 +298,7 @@ Attribute VB_Name = "CORE_Engine"
         Private mSFCount      As Long            'Rows used
         Private mSFIndex      As Collection      'Key to position
 
-        Private mFXRate()     As Double          'Units of reporting currency per unit of currency
+        Private mFXRate()     As Double          'Units of the currency per 1 unit of the reporting currency, as quoted (#725)
         Private mFXCode()     As String          'Currency of each rate, for LoadRunContext
         Private mFXCount      As Long            'Rates used
         Private mFXIndex      As Collection      'Currency code to position
@@ -1367,7 +1367,10 @@ Private Function HeadersMatch( _
                     HeadersMatch = False
                     LogMsg DIAG_LAYOUT_HEADER, CStr(Headers(c)), SEV_ERROR, HeaderSheet.Name, TableCell(HeaderSheet, HeaderRow, FirstColumn + c).Address(False, False), _
                            "Header must be '" & Headers(c) & "' (found " & DescribeValue(FoundHeader) & _
-                           ") - a column was inserted, deleted or moved, or the header renamed.", HeaderRow
+                           ") - a column was inserted, deleted or moved, or the header renamed." & _
+                           IIf(StrComp(HeaderKey(SafeStr(FoundHeader)), HeaderKey(FX_HEADER_BEFORE_725), vbTextCompare) = 0, _
+                               " FX rates are now units of the currency per 1 unit of the reporting currency (#725): " & _
+                               "invert every rate and rename the header; the rates are not converted for you.", ""), HeaderRow
                 End If
             End If
         Next c
@@ -1965,8 +1968,8 @@ Private Function LoadFXTable() As Boolean
             KeyAdd mFXIndex, pRepCcy, mFXCount
         ElseIf Abs(mFXRate(KeyIndex(mFXIndex, pRepCcy)) - 1#) > 0.0000001 Then
             LogMsg DIAG_FX_REPORTING_RATE, "Rate", SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
-                   CStr(mFXRate(KeyIndex(mFXIndex, pRepCcy))) & "): rates are units of the reporting " & _
-                   "currency per unit."
+                   CStr(mFXRate(KeyIndex(mFXIndex, pRepCcy))) & "): rates are units of the currency " & _
+                   "per 1 unit of the reporting currency, so that of the reporting currency is 1."
             Exit Function
         End If
         LoadFXTable = True
@@ -4204,8 +4207,8 @@ Private Sub ReadTradeAmounts( _
         Trade.fxM = FXRate(Trade.mccy)
         If Trade.fxM < 0# Then AddErr DIAG_TR_MTM_CURRENCY, "MtM currency", Trade.ok, Trade.msg, NoRateText("MtM", Trade.mccy)
         If Trade.ok Then
-            Trade.notionalRep = Trade.notional * Trade.fxN
-            Trade.mtmRep = Trade.mtm * Trade.fxM
+            Trade.notionalRep = Trade.notional / Trade.fxN
+            Trade.mtmRep = Trade.mtm / Trade.fxM
         End If
 
 End Sub
