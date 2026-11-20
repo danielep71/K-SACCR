@@ -52,7 +52,7 @@
     {
       "entry_point": "TEST_Reconcile.RunReconcileTests",
       "cases": 23,
-      "checks": {"32-bit": 232, "64-bit": 232}
+      "checks": {"32-bit": 237, "64-bit": 237}
     },
     {
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",

@@ -187,7 +187,7 @@ Public Function CsvSpecOf( _
                 Spec.Sheet = "BankNettingSets"
                 Spec.Key = "netting_set_id"
                 Spec.ReservedKeys = ""
-                Spec.MaxRecords = 200
+                Spec.MaxRecords = 10000
                 Spec.Version = 1
                 Spec.EarlierColumns = ""
                 Spec.ColumnCount = 14
@@ -214,7 +214,7 @@ Public Function CsvSpecOf( _
                 Spec.Sheet = "BankTrades"
                 Spec.Key = "trade_id"
                 Spec.ReservedKeys = ""
-                Spec.MaxRecords = 500
+                Spec.MaxRecords = 50000
                 Spec.Version = 1
                 Spec.EarlierColumns = ""
                 Spec.ColumnCount = 13

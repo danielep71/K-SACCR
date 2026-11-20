@@ -834,7 +834,7 @@ sheet without a dialog (#718). It returns `RESULT=LOADED; records=N; file=...`
 when the records were written; `RESULT=REJECTED; findings=N;
 first=CODE|line|record|column; file=...` when the file does not follow the
 [contract](docs/csv/CSV_CONTRACT.md#-the-bank-files), a file with more
-records than the sheet holds (200 netting sets, 500 legs) included; or
+records than the contract allows (10,000 netting sets, 50,000 legs) included; or
 `RESULT=REFUSED; reason=...; file=...` when the file has no record, or the
 sheet holds figures and `replaceExisting` is not True. The sheet changes only
 on `LOADED`; an error while it is written puts it back as it was, and

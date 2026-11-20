@@ -81,8 +81,9 @@ class EncodingTests(unittest.TestCase):
         self.assertEqual([code for code, *_ in codes(
             f"{header}\n{row(netting_set_id='a', regime='CRR')}\n{row(netting_set_id='A', regime='BCBS')}\n",
             "BankNettingSets")], ["CSV-DUPLICATE-KEY"])
-        # The limits are the rows of the sheets: a longer file is rejected whole.
-        for kind, limit in (("BankNettingSets", 200), ("BankTrades", 500)):
+        # The limits are those of the contract (the sheets' formatted rows are fewer): a longer file is
+        # rejected whole.
+        for kind, limit in (("BankNettingSets", 10000), ("BankTrades", 50000)):
             self.assertEqual(CONTRACT["files"][kind]["max_records"], limit)
             columns = [column["name"] for column in CONTRACT["files"][kind]["columns"]]
             key = columns.index(CONTRACT["files"][kind]["key"])
