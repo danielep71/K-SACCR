@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 23              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 230              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 232              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1247,6 +1247,8 @@ Private Sub CaseExportWorkbook()
     Dim FxRow         As Long         'First blank row below it
     Dim FxCells       As Range        'A currency added and removed
     Dim SavedFx       As Variant      'Their formulas
+    Dim HolidayCells  As Range        'A closing day added and removed
+    Dim SavedHoliday  As Variant      'Its formulas
     Dim FileNumber    As Integer      'File number of a file written by the case
 
 '------------------------------------------------------------------------------
@@ -1364,6 +1366,24 @@ Private Sub CaseExportWorkbook()
         ResultLine = M_Main.RunSACCR_Silent()
 
 '------------------------------------------------------------------------------
+' EXPORT A CLOSING DAY BELOW A BLANK ROW OF THE HOLIDAY TABLE
+'------------------------------------------------------------------------------
+    'The engine reads all the rows of the table, also after a blank one
+    '(#721), so the report lists the header and every closing day.
+        Set HolidayCells = TableRange(ParamsSheet, NamedRow(NM_HOLIDAY_TABLE) + 3, NamedTableCol(NM_HOLIDAY_TABLE), _
+                                      NamedRow(NM_HOLIDAY_TABLE) + 3, NamedTableCol(NM_HOLIDAY_TABLE) + 1)
+        SavedHoliday = HolidayCells.Formula
+        HolidayCells.Value = Array(46364#, "Test closing day")
+        ResultLine = M_Main.RunSACCR_Silent()
+        ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;Closing day;Description" & vbCrLf) > 0, _
+                       "the header of the holiday table is missing from the report: " & ResultLine
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;46364;Test closing day" & vbCrLf) > 0, _
+                       "a closing day below a blank row is missing from the report: " & ResultLine
+        HolidayCells.Formula = SavedHoliday
+        ResultLine = M_Main.RunSACCR_Silent()
+
+'------------------------------------------------------------------------------
 ' CLEAN UP
 '------------------------------------------------------------------------------
         RemoveFile FirstFile
@@ -1380,6 +1400,9 @@ Unexpected:
         End If
         If Not FxCells Is Nothing Then
             FxCells.Formula = SavedFx
+        End If
+        If Not HolidayCells Is Nothing Then
+            HolidayCells.Formula = SavedHoliday
         End If
         RemoveFile FirstFile
         RemoveFile SecondFile

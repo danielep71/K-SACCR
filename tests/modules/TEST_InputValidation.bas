@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 190               'Cases in a complete run
-        Private Const CHECKS      As Long = 329               'Checks in a complete run
+        Private Const CASES       As Long = 193               'Cases in a complete run
+        Private Const CHECKS      As Long = 334               'Checks in a complete run
 
 
 '
@@ -373,6 +373,34 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
         TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46364#
         ExpectStatus "VALID"
+
+    'On BD250 two dates apart can be the same number of business days: the
+    'order is that of the dates. 3 and 4 October 2026 are a Saturday and a
+    'Sunday, both two business days after the reporting date.
+        StartCase "bd250-start-end-same-business-days", "N"
+        AddSwapTo "T1", "2026-10-04"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_START, DateSerial(2026, 10, 3)
+        ExpectStatus "VALID"
+
+        StartCase "bd250-end-before-start", "N"
+        AddSwapTo "T1", "2026-10-03"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_START, DateSerial(2026, 10, 4)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "date-order", SEV_ERROR, DIAG_TR_DATE_ORDER, "illustrative"
+
+    'With 1 and 2 October 2026 closed, an option expiring on Saturday 3
+    'October has no business day left: it is rejected, not priced.
+        StartCase "bd250-option-no-business-day-left", "N"
+        AddEquityCall "T1", "Long", "100", "30"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), "BD250"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46296#
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 2, NamedTableCol(NM_HOLIDAY_TABLE), 46297#
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2026, 10, 3)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "expired", SEV_ERROR, DIAG_TR_EXPIRED, "illustrative"
 
         StartCase "factor-table-negative-factor", "N"
         AddSwap "T1"

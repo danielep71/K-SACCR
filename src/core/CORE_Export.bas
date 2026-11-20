@@ -10,7 +10,7 @@ Attribute VB_Name = "CORE_Export"
 '   their Excel names, text quoted only when it holds a separator, a quote
 '   or a line break, text that Excel would read as a formula prefixed with
 '   an apostrophe, and lines ended by CR LF. Each line starts with its
-'   section: RUN, PARAMS, SF_TABLE, FX_TABLE, RESULTS, RECONCILIATION,
+'   section: RUN, PARAMS, SF_TABLE, FX_TABLE, HOLIDAY_TABLE, RESULTS, RECONCILIATION,
 '   TRADE_RECONCILIATION, CHECKS or LIMITATIONS.
 '
 ' PUBLIC SURFACE

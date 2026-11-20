@@ -777,7 +777,7 @@ which every operation empties first, and the report gives it as
 
 The file is `;`-separated, with a `.` decimal point, CR LF line ends and UTF-8
 without a byte-order mark; the first field of every line names its section
-(`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`, `RESULTS`, `RECONCILIATION`,
+(`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`, `HOLIDAY_TABLE`, `RESULTS`, `RECONCILIATION`,
 `TRADE_RECONCILIATION`, `CHECKS`, `LIMITATIONS`), and the first line is
 `RUN;format;K-SACCR evidence 1`. `RUN;reference_parameter_set` names the set
 the template ships; whether the run used it unchanged (`REGULATORY`) or not
@@ -791,7 +791,8 @@ names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and tolerances are in
 `RUN` only when it was made, as they are then part of its fingerprint.
 `SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
-range.
+range. `HOLIDAY_TABLE` holds the header of `Holiday_Table` and every closing day in
+its 100 rows, also below a blank row, as the engine reads them all.
 
 ### ReadCsv_Silent
 

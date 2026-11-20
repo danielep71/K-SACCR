@@ -4541,7 +4541,10 @@ Private Sub ReadTradeDates( _
             End If
             If Len(MaturedText(Trade.dMat, pAsOf)) > 0 Then
                 AddErr DIAG_TR_MATURED, "", Trade.ok, Trade.msg, MaturedText(Trade.dMat, pAsOf)
-            ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.E <= Trade.S Then
+            ElseIf (Trade.ac = AC_IR Or Trade.ac = AC_CR) And Trade.dEnd <= Max2(Trade.dStart, pAsOf) Then
+                'The order is that of the dates, not of the years: on BD250 two
+                'dates apart can be the same number of business days, and the
+                'floor of the supervisory duration is there for that case.
                 AddErr DIAG_TR_DATE_ORDER, "", Trade.ok, Trade.msg, "end date must be after start date"
             End If
         End If
@@ -4716,6 +4719,10 @@ Private Sub TradeDelta( _
                         Trade.T = YearsTo(Trade.dExp)
                         If Len(ExpiredText(Trade.dExp, pAsOf)) > 0 Then
                             AddErr DIAG_TR_EXPIRED, "Option expiry", Trade.ok, Trade.msg, ExpiredText(Trade.dExp, pAsOf)
+                        ElseIf Trade.T <= 0# Then
+                            'BD250: no business day lies between the reporting date and
+                            'the expiry, so the option has no time left to price.
+                            AddErr DIAG_TR_EXPIRED, "Option expiry", Trade.ok, Trade.msg, "option has no business day left before its expiry"
                         ElseIf Trade.dExp > Trade.dMat Then
                             AddErr DIAG_TR_EXPIRY_MATURITY, "Option expiry", Trade.ok, Trade.msg, "option expiry is after the maturity date (M is the latest " & _
                                    "date the contract may still be active)"

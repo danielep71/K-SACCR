@@ -36,8 +36,8 @@
     },
     {
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
-      "cases": 190,
-      "checks": {"32-bit": 329, "64-bit": 329}
+      "cases": 193,
+      "checks": {"32-bit": 334, "64-bit": 334}
     },
     {
       "entry_point": "TEST_Aggregation.RunAggregationTests",
@@ -52,7 +52,7 @@
     {
       "entry_point": "TEST_Reconcile.RunReconcileTests",
       "cases": 23,
-      "checks": {"32-bit": 230, "64-bit": 230}
+      "checks": {"32-bit": 232, "64-bit": 232}
     },
     {
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
