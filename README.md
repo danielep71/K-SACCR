@@ -308,6 +308,12 @@ stand-alone add-on, with `EXCLUDED` legs and `NOT APPLICABLE` figures. Each
 leg's row also shows its Economic trade ID from Trades, so legs can be grouped
 as the bank groups its trades.
 
+The bank's figures can be typed on the two bank sheets or loaded from a CSV file:
+**BankNettingSets file...** and **BankTrades file...** in the Import CSV menu of the
+K-SACCR tab, or the Import CSV button of the sheet, replace the figures with those of a
+file that follows the [CSV contract](docs/csv/CSV_CONTRACT.md) (200 netting sets or 500
+legs at most), or change nothing and list what is wrong with the file.
+
 Both sheets show eight summary tiles above the table (the time of the last
 reconciliation, the rows shown, the figures compared and the count of `MATCH`,
 `DIFFERENCE`, `NOT IN BANK FILE`, `MISSING IN CALCULATOR` and `DUPLICATE`) and
