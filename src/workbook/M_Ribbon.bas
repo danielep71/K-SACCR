@@ -100,6 +100,8 @@ Attribute VB_Name = "M_Ribbon"
         Private Const MSG_TITLE     As String = "K-SACCR"
     'The hidden workbook name that holds the Ribbon's pointer (#216).
         Private Const RIBBON_POINTER_NAME   As String = "ksRibbonPointer"
+    'The id of the K-SACCR tab in customUI14.xml, selected when the workbook opens (#726).
+        Private Const RIBBON_TAB_ID         As String = "ksTab"
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -121,14 +123,21 @@ Public Sub RibbonOnLoad( _
 ' PURPOSE
 '   Keep the Ribbon object Excel passes when it loads the tab, and store
 '   its pointer with this session's window handle in the hidden name
-'   RIBBON_POINTER_NAME, without marking the workbook changed (#216).
+'   RIBBON_POINTER_NAME, without marking the workbook changed (#216), and
+'   open the tab K-SACCR (#726).
+'
+' ERROR POLICY
+'   Selecting the tab is best effort: a failure never stops the load.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-20
 '==============================================================================
 '
         Set mRibbon = Ribbon
         WritePointer PointerText(ObjPtr(Ribbon), Application.Hwnd)
+        On Error Resume Next
+        Ribbon.ActivateTab RIBBON_TAB_ID
+        On Error GoTo 0
 
 End Sub
 
