@@ -57,9 +57,10 @@ run in `tool-tests`.
 
 `business_calendar.py` is the Python reference of the business-day count (#721):
 the EUR TARGET closing days by rule, a table of extra closing days, the count of
-business days between two dates and the two day-count conventions `CAL365` and
-`BD250`. It is not a gate; its tests, `test_business_calendar.py`, run in
-`tool-tests`. The workbook does not use it yet.
+business days between two dates and the day count of the workbook: the ACTUAL
+days counted on the calendar `TARGET`, `TARGET+TABLE` or `TABLE` over the days of
+the conventional year. It is not a gate; its tests, `test_business_calendar.py`,
+run in `tool-tests`.
 
 `Certify-SACCR.ps1` (or `Certify-SACCR.cmd`, double-clicked) runs the Excel
 certification of the checked-out commit with one command on the Windows host
@@ -143,7 +144,7 @@ Excel.
 expected values in `tests/expected` with an external implementation, the
 CRAN package `SACCR` 3.4 with `Trading` 3.2 (#352). The Python script
 translates each fixture into the package's trades, CSA and collateral, one
-counterparty per netting set, with times in years on the fixture's DaysPerYear;
+counterparty per netting set, with times in years on the fixture's DayCountConvention and Calendar;
 the R script runs the package, which this repository calls but does not copy
 (GPL-3); the comparison prints each value with its difference and the
 expected file's tolerance, the package's figures for fixtures with no numeric
@@ -200,7 +201,7 @@ one year; at most two trades share one commodity. It writes the portfolio in
 the fixture format and the two CSV files of the input contract, checked with
 its reference validator. `run` runs the package on the portfolio. After the
 workbook has imported the two files and run, with AsOfDate 2026-09-30,
-ReportingCcy EUR and DaysPerYear 365, `compare` reads the file Export evidence
+ReportingCcy EUR and the day count at its defaults (DayCountConvention 365, Calendar TABLE), `compare` reads the file Export evidence
 writes and compares each netting set's regime, status, trades used, RC,
 add-on per asset class, aggregate add-on, multiplier, PFE and EAD with the
 package, within the full-precision tolerance of

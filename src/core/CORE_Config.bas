@@ -133,7 +133,6 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
         Public Const PRM_FLOOR        As String = "MultiplierFloor"        'Multiplier floor
-        Public Const PRM_DAYSYEAR     As String = "DaysPerYear"            'Days per year for S, E, M, T
         Public Const PRM_BDYEAR       As String = "BusinessDaysPerYear"    'Business days per year
         Public Const PRM_MINMAT       As String = "MinMaturityBD"          'Floor on M, BD
         Public Const PRM_SDFLOOR      As String = "SDFloorBD"              'Floor on SD, BD
@@ -149,7 +148,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REGIME       As String = "Regime"                 'Default regime
         Public Const PRM_LAMIR        As String = "LambdaThresholdIR"      'CRR lambda threshold, IR
         Public Const PRM_LAMCO        As String = "LambdaThresholdCO"      'CRR lambda threshold, CO
-        Public Const PRM_DAYCOUNT     As String = "DayCountConvention"     'CAL365 or BD250 (#721)
+        Public Const PRM_DAYNUM       As String = "DayCountNumerator"      'ACTUAL, the only numerator for the moment (#721)
+        Public Const PRM_DAYCOUNT     As String = "DayCountConvention"     'Days of the conventional year, the denominator (#721)
         Public Const PRM_CALENDAR     As String = "Calendar"               'TARGET, TARGET+TABLE or TABLE (#721)
         Public Const NM_HOLIDAY_TABLE As String = "Holiday_Table"          'Closing days of the calendar, from its header (#721)
 
@@ -189,7 +189,7 @@ Attribute VB_Name = "CORE_Config"
     'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
     '2026-10-09. A run whose parameters, factor table and alpha overrides
     'all equal this set is REGULATORY and names REF_SET_ID; any difference
-    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear, DayCountConvention,
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DayCountNumerator, DayCountConvention,
     'Calendar and IRBucketOffset are conventions and do not change the class.
         Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
         Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
@@ -197,12 +197,16 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_ALPHA        As Double = 1.4       'CRE52.1; CRR Art. 274(2)
         Public Const REF_FLOOR        As Double = 0.05      'CRE52.23; CRR Art. 278(3)
         Public Const REF_BDYEAR       As Double = 250       'CRE52.49, 52.53; CRR Art. 279c(1)
-    'The conventions DayCountConvention and Calendar (#721): the default reads
-    'dates as calendar days over DaysPerYear; BD250 counts the business days
-    'from the reporting date over BusinessDaysPerYear. Like DaysPerYear they
-    'do not change the class of a run, and Restore parameters puts them back.
-        Public Const DAYCOUNT_CAL365  As String = "CAL365"          'Calendar days over DaysPerYear
-        Public Const DAYCOUNT_BD250   As String = "BD250"           'Business days over BusinessDaysPerYear
+    'The day count of Params (#721): years = ACTUAL days between the reporting
+    'date and the date, counted on the Calendar, over the days of the
+    'conventional year of DayCountConvention. None of the three cells changes
+    'the class of a run; DayCountConvention and Calendar are run settings, as
+    'Regime is, and DayCountNumerator is a convention that Restore parameters
+    'puts back.
+        Public Const DAYNUM_ACTUAL    As String = "ACTUAL"          'The only numerator for the moment
+        Public Const DAYCOUNT_DEFAULT As Double = 365               'Days of the year by default
+        Public Const DAYCOUNT_LIST    As String = "366, 365, 365.25, 264, 360, 252 or 250"
+        Public Const CALENDAR_DEFAULT As String = "TABLE"           'Calendar days while the table is empty
         Public Const CALENDAR_TARGET  As String = "TARGET"          'The EUR TARGET rule
         Public Const CALENDAR_BOTH    As String = "TARGET+TABLE"    'The rule and the table of closing days
         Public Const CALENDAR_TABLE   As String = "TABLE"           'The table of closing days alone
@@ -219,10 +223,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_RHO13        As Double = 0.3       'CRE52.57; CRR Art. 280a(3)
         Public Const REF_LAMIR        As Double = 0.001     'CRR-RTS Art. 5(2)
         Public Const REF_LAMCO        As Double = 0.1       'CRR-RTS Art. 5(2)
-    'The two conventions of Params, outside the comparison: Restore
+    'The conventions of Params, outside the comparison: Restore
     'regulatory parameters (M_Main, #357) writes them back with the set, so
     'that a restored workbook calculates as the template does.
-        Public Const REF_DAYSYEAR     As Double = 365       'Calendar days per year for S, E, M, T
         Public Const REF_IRFULL       As Boolean = True     'CRE52.57(5); the CRR allows TRUE only
 
 '------------------------------------------------------------------------------

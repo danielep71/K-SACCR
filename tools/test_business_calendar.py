@@ -194,26 +194,44 @@ class TableTests(unittest.TestCase):
 
 
 class ConventionTests(unittest.TestCase):
-    def test_calendar_days_over_the_days_per_year(self) -> None:
+    def test_the_default_is_calendar_days_over_365(self) -> None:
         start, end = dt.date(2026, 6, 30), dt.date(2028, 5, 15)
         self.assertEqual(bc.years_between(start, end), (end - start).days / 365)
-        self.assertEqual(bc.years_between(start, end, days_per_year=362), (end - start).days / 362)
+        for year_days in bc.YEAR_BASES:
+            self.assertEqual(bc.years_between(start, end, year_days), (end - start).days / year_days)
 
-    def test_business_days_over_the_business_days_per_year(self) -> None:
+    def test_the_table_calendar_counts_every_day_but_those_of_the_table(self) -> None:
+        start, end = dt.date(2026, 6, 30), dt.date(2026, 12, 31)
+        days = (end - start).days
+        saturday = dt.date(2026, 7, 4)
+        table = [dt.date(2026, 8, 17), saturday, saturday, dt.date(2026, 6, 30), dt.date(2027, 1, 4)]
+        # An empty table is calendar days; a day is dropped once, a weekend day too; the first date of the
+        # interval and a day after its end are not in it.
+        self.assertEqual(bc.counted_days(start, end), days)
+        self.assertEqual(bc.counted_days(start, end, bc.CALENDAR_TABLE, table), days - 2)
+        self.assertEqual(bc.counted_days(end, start, bc.CALENDAR_TABLE, table), -(days - 2))
+
+    def test_the_target_calendars_count_business_days(self) -> None:
         start, end = dt.date(2026, 6, 30), dt.date(2028, 5, 15)
-        expected = Calendar.target().business_days(start, end) / 250
-        self.assertEqual(bc.years_between(start, end, bc.BD250), expected)
-        self.assertEqual(bc.years_between(start, end, bc.BD250, business_days_per_year=252),
+        extra = [dt.date(2026, 8, 17)]
+        self.assertEqual(bc.counted_days(start, end, bc.CALENDAR_TARGET), Calendar.target().business_days(start, end))
+        self.assertEqual(bc.counted_days(start, end, bc.CALENDAR_BOTH, extra),
+                         Calendar.target(extra).business_days(start, end))
+        self.assertEqual(bc.years_between(start, end, 250.0, bc.CALENDAR_TARGET),
+                         Calendar.target().business_days(start, end) / 250)
+        self.assertEqual(bc.years_between(start, end, 252.0, bc.CALENDAR_TARGET),
                          Calendar.target().business_days(start, end) / 252)
 
     def test_a_business_day_year_is_longer_than_a_calendar_year_on_long_maturities(self) -> None:
         start = dt.date(2026, 6, 30)
         end = dt.date(2036, 6, 30)
-        self.assertGreater(bc.years_between(start, end, bc.BD250), bc.years_between(start, end))
+        self.assertGreater(bc.years_between(start, end, 250.0, bc.CALENDAR_TARGET), bc.years_between(start, end))
 
-    def test_unknown_convention_is_refused(self) -> None:
+    def test_unknown_convention_or_calendar_is_refused(self) -> None:
         with self.assertRaises(CalendarError):
-            bc.years_between(dt.date(2026, 1, 1), dt.date(2026, 2, 1), "ACT360")
+            bc.years_between(dt.date(2026, 1, 1), dt.date(2026, 2, 1), 361.0)
+        with self.assertRaises(CalendarError):
+            bc.years_between(dt.date(2026, 1, 1), dt.date(2026, 2, 1), 365.0, "NATIONAL")
 
 
 if __name__ == "__main__":

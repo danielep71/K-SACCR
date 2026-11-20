@@ -62,65 +62,69 @@ class ComparisonError(Exception):
 
 @dataclass(frozen=True)
 class Basis:
-    """How the engine turns a date into years (#721): calendar days over DaysPerYear (CAL365), or with a
-    number of business days per year the business days of the EUR TARGET rule over it (BD250)."""
+    """How the engine turns a date into years (#721): the ACTUAL days counted on the calendar over the days
+    of the conventional year. The default, 365 days on the calendar TABLE with no table, is calendar days
+    over 365."""
 
-    days_per_year: float = 365.0
-    business_days_per_year: float | None = None
+    year_days: float = 365.0
+    calendar: str = bc.CALENDAR_TABLE
 
 
 def time_basis(parameters: dict[str, Any]) -> Basis:
     """The basis a fixture's parameters give; a parameter without a package counterpart is Unsupported."""
-    convention = parameters.get("DayCountConvention", bc.CAL365)
-    calendar = parameters.get("Calendar", "TARGET")
     for name, value in parameters.items():
-        if name not in ("DaysPerYear", "DayCountConvention", "Calendar"):
+        if name not in ("DayCountNumerator", "DayCountConvention", "Calendar"):
             raise Unsupported(f"parameter {name}={value} has no package counterpart")
-    if convention not in bc.CONVENTIONS:
-        raise Unsupported(f"day-count convention {convention!r} is not CAL365 or BD250")
-    if calendar != "TARGET":
-        raise Unsupported(f"calendar {calendar!r}: the package's times are the TARGET rule's or calendar days")
-    return Basis(float(parameters.get("DaysPerYear", 365)), 250.0 if convention == bc.BD250 else None)
+    numerator = parameters.get("DayCountNumerator", "ACTUAL")
+    year_days = parameters.get("DayCountConvention", 365)
+    calendar = parameters.get("Calendar", bc.CALENDAR_TABLE)
+    if numerator != "ACTUAL":
+        raise Unsupported(f"day-count numerator {numerator!r} is not ACTUAL")
+    if isinstance(year_days, bool) or year_days not in bc.YEAR_BASES:
+        raise Unsupported(f"day-count convention {year_days!r} is not one of {bc.YEAR_BASES}")
+    if calendar not in bc.CALENDARS:
+        raise Unsupported(f"calendar {calendar!r} is not one of {bc.CALENDARS}")
+    return Basis(float(year_days), calendar)
 
 
-def years(date: str | None, valuation: dt.date, days_per_year: float | Basis) -> float | None:
-    """Years from the valuation date as the engine computes them: on the DaysPerYear basis, or with BD250 the
-    business days after the valuation date over the business days per year; a date that is not after the
-    valuation date takes the calendar-day measure on either basis."""
+def years(date: str | None, valuation: dt.date, basis: float | Basis) -> float | None:
+    """Years from the valuation date as the engine computes them: the ACTUAL days after the valuation date on
+    the calendar over the days of the year; a date that is not after the valuation date takes the calendar-day
+    measure whatever the calendar. A number is a basis of that many days on calendar days.
+    A fixture holds no table of closing days, so TABLE and TARGET+TABLE read an empty one."""
     if date is None:
         return None
     when = dt.date.fromisoformat(date)
-    if isinstance(days_per_year, Basis):
-        if days_per_year.business_days_per_year is not None and when > valuation:
-            return bc.years_between(valuation, when, bc.BD250,
-                                    business_days_per_year=days_per_year.business_days_per_year)
-        days_per_year = days_per_year.days_per_year
-    return (when - valuation).days / days_per_year
+    if isinstance(basis, Basis):
+        if when > valuation:
+            return bc.years_between(valuation, when, basis.year_days, basis.calendar)
+        basis = basis.year_days
+    return (when - valuation).days / basis
 
 
-def trade_times(trade: dict[str, Any], valuation: dt.date, days_per_year: float | Basis) -> tuple[float, float, float]:
+def trade_times(trade: dict[str, Any], valuation: dt.date, basis: float | Basis) -> tuple[float, float, float]:
     """S, E and M as the engine fills them: maturity from the end date, then from the expiry."""
-    end = years(trade["end_date"], valuation, days_per_year)
-    maturity = years(trade["maturity_date"], valuation, days_per_year)
-    expiry = years(trade["option_expiry_date"], valuation, days_per_year)
+    end = years(trade["end_date"], valuation, basis)
+    maturity = years(trade["maturity_date"], valuation, basis)
+    expiry = years(trade["option_expiry_date"], valuation, basis)
     if maturity is None:
         maturity = end if end is not None else expiry
     if maturity is None:
         raise Unsupported("no maturity, end or expiry date")
     if end is None:
         end = maturity
-    start = years(trade["start_date"], valuation, days_per_year)
+    start = years(trade["start_date"], valuation, basis)
     return max(0.0, start or 0.0), end, maturity
 
 
-def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, days_per_year: float | Basis) -> float:
+def settled_maturity(trade: dict[str, Any], maturity: float, valuation: dt.date, basis: float | Basis) -> float:
     """M as the engine uses it: for a settled-to-market trade, the time to its next reset date (#360).
 
     The engine rejects a reset date on an ordinary trade, a settled-to-market
     trade without one, and a reset on or before the valuation date or after
     the maturity; such a fixture compares a different netting set.
     """
-    reset = years(trade["next_reset_date"], valuation, days_per_year)
+    reset = years(trade["next_reset_date"], valuation, basis)
     if trade["settlement_type"] != "settled_to_market":
         if reset is not None:
             raise Unsupported(f"{trade['id']} has a reset date but is not settled-to-market, which the engine rejects")
@@ -214,7 +218,7 @@ def equity(trade: dict[str, Any], maturity: float, expiry: float | None) -> tupl
     return ("EquityOptionIndex" if index else "EquityOptionSingle"), {**args, **option_args(trade)}
 
 
-def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: float | Basis,
+def translate_trade(trade: dict[str, Any], valuation: dt.date, basis: float | Basis,
                     currency: str) -> tuple[str, dict[str, Any]]:
     """The package's trade class and constructor arguments for one fixture trade."""
     if trade["nature"] != "standard":
@@ -223,9 +227,9 @@ def translate_trade(trade: dict[str, Any], valuation: dt.date, days_per_year: fl
         raise Unsupported(f"{trade['id']} is an option without expiry, which the engine rejects")
     if trade["instrument"] == "option":
         option_args(trade)  # Refuse incomplete inputs before selecting a package constructor.
-    start, end, maturity = trade_times(trade, valuation, days_per_year)
-    maturity = settled_maturity(trade, maturity, valuation, days_per_year)
-    expiry = years(trade["option_expiry_date"], valuation, days_per_year)
+    start, end, maturity = trade_times(trade, valuation, basis)
+    maturity = settled_maturity(trade, maturity, valuation, basis)
+    expiry = years(trade["option_expiry_date"], valuation, basis)
     if expiry is not None and expiry <= 0:
         raise Unsupported(f"{trade['id']} expires on or before the valuation date, which the engine rejects")
     long = trade["direction"] == "long"
@@ -286,7 +290,7 @@ def fixture_classes(fixture: dict[str, Any]) -> set[str]:
 def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
     """The package's netting set for one fixture."""
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
-    days_per_year = time_basis(fixture["parameters"])
+    basis = time_basis(fixture["parameters"])
     if fixture["netting_set"]["alpha_factor"] not in (None, 1.4):
         raise Unsupported("the package's alpha is always 1.4")
     # The engine marks the netting set INVALID when one credit, equity or
@@ -312,13 +316,13 @@ def translate_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
     ns_id = fixture["netting_set"]["id"]
     trades = []
     for trade in fixture["trades"]:
-        _, _, maturity = trade_times(trade, valuation, days_per_year)
+        _, _, maturity = trade_times(trade, valuation, basis)
         # The engine excludes a matured trade and withholds the netting set's
         # EAD as INCOMPLETE; running the other trades would compare a
         # different netting set.
         if maturity <= 0:
             raise Unsupported(f"{trade['id']} has matured: the engine withholds the netting set's EAD")
-        name, args = translate_trade(trade, valuation, days_per_year, fixture["calculation_currency"])
+        name, args = translate_trade(trade, valuation, basis, fixture["calculation_currency"])
         trades.append({"id": trade["id"], "class": name, "args": {**args, "Counterparty": ns_id}})
     # The package returns 0 for a portfolio of sold options only, a
     # treatment the engine does not apply.
@@ -374,7 +378,7 @@ def regime_difference(fixture: dict[str, Any]) -> str | None:
     #regime-differences) that a fixture the translator runs can still meet.
     """
     valuation = dt.date.fromisoformat(fixture["valuation_date"])
-    days_per_year = time_basis(fixture["parameters"])
+    basis = time_basis(fixture["parameters"])
     for trade in fixture["trades"]:
         asset_class = trade["asset_class"]
         sub_class = str(trade["sub_class"] or "").strip().upper()
@@ -387,7 +391,7 @@ def regime_difference(fixture: dict[str, Any]) -> str | None:
         if trade["instrument"] == "option" and asset_class in ("interest_rate", "commodity") \
                 and (min(trade["underlying_price"], trade["strike_price"]) < 0.001 or trade["lambda_price"]):
             return "the CRR lambda shift replaces an entered lambda, and shifts options priced near or below zero"
-        _, end, _ = trade_times(trade, valuation, days_per_year)
+        _, end, _ = trade_times(trade, valuation, basis)
         if asset_class == "interest_rate" and abs(end - 1) < 1e-12:
             return "an end date of exactly 1 year is in bucket 1 under CRR and bucket 2 under BCBS"
     return None

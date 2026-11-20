@@ -98,7 +98,7 @@
     },
     "PRM-DAYCOUNT": {
       "constant": "DIAG_PRM_DAYCOUNT",
-      "description": "Day-count convention must be CAL365 or BD250 (found",
+      "description": "Day-count convention must be 366, 365, 365.25, 264, 360, 252 or 250, or the day-count numerator ACTUAL (found",
       "status": "active"
     },
     "PRM-CALENDAR": {
@@ -588,7 +588,7 @@
     },
     "TR-EXPIRED": {
       "constant": "DIAG_TR_EXPIRED",
-      "description": "The option has expired on or before the reporting date.",
+      "description": "The option has expired on or before the reporting date, or no counted day is left before its expiry on the calendar.",
       "status": "active"
     },
     "TR-EXPIRY-MATURITY": {

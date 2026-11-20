@@ -624,7 +624,7 @@ Public Sub SetParameter( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Give one Params value for the current case, from a fixture's
-'   "parameters" object, for example DaysPerYear 360 so that a published
+'   "parameters" object, for example DayCountConvention 360 so that a published
 '   maturity of 0.75 years can be entered as a date, or IRBucketOffset
 '   FALSE. Restored like PatchCell.
 '

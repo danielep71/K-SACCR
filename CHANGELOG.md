@@ -97,64 +97,58 @@ Use only the categories needed by a release.
 
 ### Added
 
-- Support the business-day convention in the independent cross-check and document it (#721, third
-  part). `tools/rsaccr_crosscheck.py` reads `DayCountConvention` and `Calendar` of a fixture's
-  parameters (`TARGET` only; another calendar and any other parameter are `Unsupported`) and, with
-  `BD250`, translates the dates into the business days after the valuation date of the Python reference
-  over 250, as the engine does; a date that is not after the valuation date keeps the calendar-day measure.
-  Three tests (the years on each basis, the basis from the parameters, a `BD250` fixture translated). The
-  methodology page states the convention, the calendar rule with its range of validity, its sources and
-  what was not re-read, the support matrix and the regulatory-versus-what-if note follow, TEST_CASES
-  says that the accuracy contracts are on `CAL365` and no case of the catalogue runs on `BD250`, and
-  INSTALLATION names the two conventions in Restore parameters. A `BD250` case with the package's figures
-  needs a run of the workbook on that convention and is not committed yet.
+- Choose the days of the year and the calendar on Params (#721, follow-up). The first parts of
+  #721 offered a convention `CAL365` or `BD250`; it is replaced by the usual day counts. Years are
+  the ACTUAL days between the reporting date and the date, counted on a calendar, over the days of a
+  conventional year. `DayCountConvention` (yellow, unlocked, a list) is the denominator: 366, 365
+  (the default), 365.25, 264, 360, 252 or 250. `Calendar` (yellow, unlocked) decides which days are
+  counted: `TABLE` (the default) counts every day except those of the table of closing days, so an
+  empty table gives calendar days and every result is as before; `TARGET` counts the business days of
+  the EUR TARGET rule; `TARGET+TABLE` closes the days of the table too. The numerator is a new locked
+  cell, `DayCountNumerator` (`ACTUAL`, the only one for the moment); it takes the row of `DaysPerYear`,
+  which is retired, so a fixture sets `DayCountConvention` where it set `DaysPerYear`. Business days
+  are normally used only with a denominator of 252 or 250, which the notes of the cells say. The
+  convention and the calendar are settings of the run, like the reporting date: they do not change its
+  class, and Restore parameters leaves them (it still writes `DayCountNumerator` back). The new
+  `params-day-count-numerator` and `params-table-calendar-valid` cases and the changed ones bring
+  `TEST_InputValidation` to 195 cases and 336 checks. The Python reference
+  (`tools/business_calendar.py`, `counted_days` and `years_between`), the cross-check
+  (`tools/rsaccr_crosscheck.py`), the fixture checker, the methodology page, TEST_CASES,
+  INSTALLATION and the protection matrix follow.
 
-- Read the day-count convention and the calendar on Params and use them (#721, second part of
-  the engine). Two reference parameters below the others, `DayCountConvention` (`CAL365`, the default, or
-  `BD250`) and `Calendar` (`TARGET`, the default, `TARGET+TABLE` or `TABLE`), with a list validation,
-  the grey fill and workbook names; a table of closing days (`Holiday_Table`, 100 rows of date and
-  description, unlocked) at the right of the FX table. With `BD250`, S, E, M, T and the time to a reset
-  date are the business days after the reporting date, up to and including the date, over
-  `BusinessDaysPerYear` (`SACCR_BusinessDays`, with the whole years before the year of the date
-  kept for the run, so that a call spans one year at most); the floors in business days then apply to a
-  business-day count exactly, and a date that is not after the reporting date keeps the calendar-day
-  measure, which only the checks for a matured or expired trade and the floor of S read. The order
-  of start and end date is checked on the dates, not on the years (two dates can be the same number of
-  business days apart, and the floor of the supervisory duration then applies), and an option with no
-  business day left before its expiry is rejected with `TR-EXPIRED` instead of failing the option delta. With `CAL365`
-  nothing is read and every result is as before. The convention and the calendar do not change the class
-  of a run, are listed on the evidence export with the other parameters (the closing days in a new
-  `HOLIDAY_TABLE` section, every row with a date), are part of the fingerprint of
-  the inputs together with the table of closing days, and Restore parameters puts them back to `CAL365`
-  and `TARGET`. A convention or a calendar that is not allowed, a TARGET calendar with a reporting date
-  before 1 January 1999, and an entry of the table that is not a date from 1 March 1900 stop the run with
-  the new Checks codes `PRM-DAYCOUNT`, `PRM-CALENDAR` and `PRM-HOLIDAY`. The rows of Params from the
-  supervisory-factor table down moved by two, so the table of factors is at `C30:K56` and the FX table at
-  `C59:E64`; the protection matrix, `sheet-style.json`, the protection check and the FX test follow.
-  The suites gain cases: `TEST_InputValidation` nine (an unknown convention and calendar, a
-  reporting date before TARGET, an entry that is not a date, two valid BD250 runs, two dates the same
-  number of business days apart, an end date before the start date, and an option with no business day
-  left), `TEST_Reconcile` two checks (the holiday table in the evidence export), and
-  `TEST_MainState` one (the maturity of the first trade on each convention, and the class of the run) and
-  a Restore with the two conventions changed. The prompt of the FX rate cells, which still gave the
-  rate the other way round after #725, now reads units of the currency per 1 unit of the reporting
-  currency.
+- Support the day count in the independent cross-check and document it (#721, third part).
+  `tools/rsaccr_crosscheck.py` reads the day count of a fixture's parameters and translates its
+  dates into the ACTUAL days after the valuation date on the calendar over the days of the year, as
+  the engine does; a date that is not after the valuation date keeps the calendar-day measure. A
+  fixture holds no table of closing days, so `TABLE` and `TARGET+TABLE` read an empty one; any other
+  parameter is `Unsupported`. The methodology page states the day count, the calendar rule with its
+  range of validity, its sources and what was not re-read, the support matrix and the
+  regulatory-versus-what-if note follow, TEST_CASES says that the accuracy contracts are on calendar
+  days over 365 and no case of the catalogue runs on business days, and INSTALLATION describes
+  Restore parameters. A case on business days with the package's figures needs a run of the workbook
+  on that day count and is not committed yet.
 
-- Show the figures of one measure on the reconciliation sheets (#720, third part). A fourth
-  row of tiles gives, for the rows the filter leaves, the Sum of bank figures, the Sum of
-  calc. figures, the Sum of abs. diff. and the Largest abs. diff., and a Measure shown tile
-  names the measure. An amount summed over EAD, PFE and the multiplier would mean nothing, so
-  the sums are shown only when the filter leaves **one** measure: with several, the tiles ask to
-  filter one (`Filter one measure`) and Measure shown reads `Several`; for a factor (the
-  multiplier on Reconciliation; M, the supervisory duration, the delta and the maturity
-  factors on TradeReconciliation) no sum is shown (`Factor`) and the largest absolute
-  difference has six decimals instead of two. The tiles are linked to helper cells in columns W
-  to Z (hidden, in the `Reconciliation_Tiles` and `TradeReconciliation_Tiles` names), whose
-  formulas follow the filter as those of the other tiles do; the numbers are written with
-  `FIXED`, so the separators are those of the user's locale. The header row moved from row 10
-  to row 11, and `test_reconciliation_sheets.py` checks the new tiles and formulas. This is
-  the owner's per-measure table as figures of the measure the filter shows, not a table of
-  every measure at once: that table would take much of the frozen rows above the header.
+- Read the day count on Params and use it (#721, second part of the engine). Reference parameters
+  below the others, `DayCountConvention` and `Calendar`, with list validations and workbook names, and
+  a table of closing days (`Holiday_Table`, 100 rows of date and description, unlocked) at the right of
+  the FX table. S, E, M, T and the time to a reset date are the days after the reporting date, up to
+  and including the date, that the calendar counts, over the days of the year; business days come from
+  `SACCR_BusinessDays`, with the whole years before the year of the date kept for the run, so that a
+  call spans one year at most. The floors in business days (`BusinessDaysPerYear`) are unchanged. A date
+  that is not after the reporting date keeps the calendar-day measure, which only the checks for a
+  matured or expired trade and the floor of S read. The order of start and end date is checked on the
+  dates, not on the years (two dates can be the same number of days apart, and the floor of the
+  supervisory duration then applies), and an option with no counted day left before its expiry is
+  rejected with `TR-EXPIRED` instead of failing the option delta. The day count is listed on the
+  evidence export with the other parameters (the closing days in a new `HOLIDAY_TABLE` section, every
+  row with a date) and is part of the fingerprint of the inputs together with the table. A convention or
+  a calendar that is not allowed, a TARGET calendar with a reporting date before 1 January 1999, and an
+  entry of the table that is not a date from 1 March 1900 stop the run with the new Checks codes
+  `PRM-DAYCOUNT`, `PRM-CALENDAR` and `PRM-HOLIDAY`. The rows of Params from the supervisory-factor table
+  down moved by two, so the table of factors is at `C30:K56` and the FX table at `C59:E64`; the
+  protection matrix, `sheet-style.json`, the protection check and the FX test follow. The prompt of the
+  FX rate cells, which still gave the rate the other way round after #725, now reads units of the
+  currency per 1 unit of the reporting currency.
 
 - Add the business-day count to the worksheet functions (#721, first part of the
   engine). `SACCR_BusinessDays(StartDate, EndDate, [Holidays], [UseTarget])` counts the
@@ -168,7 +162,7 @@ Use only the categories needed by a release.
   `UseTarget` False counts weekends and the table only, with no range of validity. A date
   before 1 March 1900 and, under the rule, an interval that touches a year before 1999 are
   `#NUM!`; text in the table is `#VALUE!` and an error value in it is passed on. Nothing in the
-  calculation reads it yet: the day-count convention `BD250`, the Params cells and the holiday
+  calculation reads it yet: the day count on Params and the holiday
   table follow in the next parts. A VBA `Date` is accepted in the table as a serial number, alone or in
   an array. `TEST_Formulas` gains a case (10 cases, 117 checks; 115 on
   32-bit VBA) that repeats the Python reference's checks (Easter 2008, 2026 and 2038, the business
@@ -235,9 +229,8 @@ Use only the categories needed by a release.
   extended), a table of extra closing days that can be added to it or used
   alone, the count of business days between two dates (the first date excluded,
   the last included), a fingerprint of the calendar for the evidence of a run,
-  and the two conventions that turn dates into years: `CAL365` (calendar days
-  over `DaysPerYear`, today's behaviour) and `BD250` (business days over
-  `BusinessDaysPerYear`). The rule is valid from 1 January 1999, when TARGET
+  and the day count that turns dates into years (the days counted on a calendar
+  over the days of a conventional year). The rule is valid from 1 January 1999, when TARGET
   opened; earlier dates are refused. Its tests, `test_business_calendar.py`, run
   in `tool-tests`: the Easter dates against a second method and against known
   dates, the closing days of 1999 to 2001 and of 2025 and 2026, the business days
