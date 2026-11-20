@@ -552,6 +552,15 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Document the CSV import of the bank sheets (#718, third part). The import
+  specification page has a section on how a bank file is loaded (as a whole, with a
+  question before figures are replaced, text for the identifier, regime and comment,
+  numbers for the figures, a blank figure not compared, scale and tolerances left on the
+  sheet) and says that the two bank templates are written from the Templates menu;
+  `CSV_CONTRACT.md` has a section on the bank files; the README macro table has the two import
+  entries and the four templates; INSTALLATION describes `ImportBankCsv_Silent`. The
+  page and the generated `CORE_ImportSpec` module follow, and a test checks the page.
+
 - State in GOVERNANCE when the PR that brings `main` back into the release
   branch needs no new automated review: its head is the integration merge
   commit, its diff against the release branch is empty and the integration

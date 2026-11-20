@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v3.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 45335    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 46909    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -168,7 +168,7 @@ Private Sub AppendPart1( _
         Page = Page & "mport_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</stro"
         Page = Page & "ng> then replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and <code>Trades</code> writes the blank template, the header alone.</p>" & vbLf
         Page = Page & "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
-        Page = Page & "<code>TradeReconciliation</code> compare with the workbook's results.</p>" & vbLf
+        Page = Page & "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: <strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV men"
 
 End Sub
 
@@ -178,6 +178,8 @@ Private Sub AppendPart2( _
 '
 '   Piece 2 of 8 of the page.
 '
+        Page = Page & "u, or <strong>Import CSV</strong> on the sheet, replace the figures of the sheet with the records of a file that follows the contract, and change nothing otherwise. <strong>BankNettingSets template..."
+        Page = Page & "</strong> and <strong>BankTrades template...</strong> write the blank template.</p>" & vbLf
         Page = Page & "<table>" & vbLf
         Page = Page & "<thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>" & vbLf
         Page = Page & "<tbody>" & vbLf
@@ -236,8 +238,6 @@ Private Sub AppendPart2( _
         Page = Page & "</table>" & vbLf
         Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""blanks"">" & vbLf
-        Page = Page & "<h2>Blank fields, empty files and limits</h2>" & vbLf
-        Page = Page & "<ul>" & vbLf
 
 End Sub
 
@@ -247,6 +247,8 @@ Private Sub AppendPart3( _
 '
 '   Piece 3 of 8 of the page.
 '
+        Page = Page & "<h2>Blank fields, empty files and limits</h2>" & vbLf
+        Page = Page & "<ul>" & vbLf
         Page = Page & "<li>A <strong>blank field</strong> is an empty one. A required field must not be blank; an optional blank field takes the meaning given under <em>Blank means</em>, which is the sheet's.</li>" & vbLf
         Page = Page & "<li>A <strong>blank record</strong>, whose fields are all empty, and an <strong>empty line</strong> are errors.</li>" & vbLf
         Page = Page & "<li>A <strong>header-only file</strong> is valid and holds no record. Committing it never clears the input sheet: a staging sheet without rows leaves its input sheet as it is.</li>" & vbLf
@@ -305,8 +307,6 @@ Private Sub AppendPart3( _
         Page = Page & "it institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role.</td><td>code</td><td>no</td><td><code>CB"
         Page = Page & "</code>, <code>GG</code>, <code>CI</code>, <code>OFC</code>, <code>NFC</code>, <code>HH</code></td><td>Not classified</td><td><code>CI</code></td></tr>" & vbLf
         Page = Page & "</tbody>" & vbLf
-        Page = Page & "</table></div>" & vbLf
-        Page = Page & "<h3>Rules between the fields of a record</h3>" & vbLf
 
 End Sub
 
@@ -316,6 +316,8 @@ Private Sub AppendPart4( _
 '
 '   Piece 4 of 8 of the page.
 '
+        Page = Page & "</table></div>" & vbLf
+        Page = Page & "<h3>Rules between the fields of a record</h3>" & vbLf
         Page = Page & "<ul><li>When <code>clearing_role</code> is <code>CCP</code>, <code>qccp</code>, <code>ccp_retains_variation_margin</code> are required; otherwise <code>qccp</code>, <code>ccp_retains_variation_margin<"
         Page = Page & "/code> are blank.</li></ul>" & vbLf
         Page = Page & "<p>A clearing member's trade exposure to a central counterparty is a netting set with <code>clearing_role</code> <code>CCP</code>; a client of a clearing member enters <code>CLIENT</code>, and a clear"
@@ -374,8 +376,6 @@ Private Sub AppendPart4( _
         Page = Page & "01</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">17</td><td><code>maturity_date</code></td><td>Maturity date (M)</td><td>Contractual maturity M.</td><td>date</td><td>no</td><td></td><td></td><td><code>2031-10-01</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">18</td><td><code>option_expiry_date</code></td><td>Option expiry (T)</td><td>Option expiry T; required by the engine for an option.</td><td>date</td><td>no</td><td></td><td></td><t"
-        Page = Page & "d></td></tr>" & vbLf
-        Page = Page & "<tr><td class=""num"">19</td><td><code>underlying_price</code></td><td>Underlying price P</td><td>Option underlying price or rate P.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
 
 End Sub
 
@@ -385,6 +385,8 @@ Private Sub AppendPart5( _
 '
 '   Piece 5 of 8 of the page.
 '
+        Page = Page & "d></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">19</td><td><code>underlying_price</code></td><td>Underlying price P</td><td>Option underlying price or rate P.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">20</td><td><code>strike_price</code></td><td>Strike K</td><td>Option strike K.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">21</td><td><code>lambda_price</code></td><td>Lambda shift</td><td>Lambda shift added to P and K.</td><td>number (&ge; 0)</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">22</td><td><code>attachment_rate</code></td><td>Attachment A</td><td>CDO tranche attachment point, a fraction.</td><td>number (&ge; 0, &le; 0.9999)</td><td>no</td><td></td><td></td"
@@ -443,8 +445,6 @@ Private Sub AppendPart5( _
         Page = Page & "<p>The trades suppose a reporting date before <code>2026-12-31</code>, a rate in the FX table for <code>EUR</code>, <code>GBP</code>, <code>USD</code>, and a supervisory-factor row for <code>EQ_SINGLE"
         Page = Page & "</code>, <code>FX</code>, <code>IR</code>, as the workbook template has. With other Params, a validation may report a matured trade or a missing rate.</p>" & vbLf
         Page = Page & "<pre class=""csv"" id=""example-trades"">trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_"
-        Page = Page & "amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;n"
-        Page = Page & "ext_reset_date;comment" & vbLf
 
 End Sub
 
@@ -454,6 +454,8 @@ Private Sub AppendPart6( _
 '
 '   Piece 6 of 8 of the page.
 '
+        Page = Page & "amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;n"
+        Page = Page & "ext_reset_date;comment" & vbLf
         Page = Page & "TRD-101-IR;NS-001;IR;;USD;Linear;Short;;;;5000000;USD;-1200000;EUR;2026-10-01;2029-10-01;2029-10-01;;;;;;;TRD-101;Y;;;&quot;Cross-currency swap; MtM on this leg&quot;" & vbLf
         Page = Page & "TRD-101-FX;NS-001;FX;;EUR/USD;Linear;Long;;;;5000000;USD;0;;;;2029-10-01;;;;;;;TRD-101;N;;;" & vbLf
         Page = Page & "000245;00731;EQ;SINGLE;ACME-EQ;Option;Long;Call;;;1000000;EUR;35000;;;;2028-03-31;2027-03-31;100;110;;;;;;;;" & vbLf
@@ -467,6 +469,10 @@ Private Sub AppendPart6( _
         Page = Page & "ompared case-insensitively, matched to the ID on <code>NettingSets</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
         Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankNettingSets</code>, and an amount in the file is written in that scale. A blank figure is"
         Page = Page & " not compared. The file holds at most 200 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>" & vbLf
+        Page = Page & "<h3>How a file is loaded</h3>" & vbLf
+        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that al"
+        Page = Page & "ready holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a numbe"
+        Page = Page & "r; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
         Page = Page & "<h3>Columns</h3>" & vbLf
         Page = Page & "<div class=""wide""><table>" & vbLf
         Page = Page & "<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></t"
@@ -508,12 +514,6 @@ Private Sub AppendPart6( _
         Page = Page & "00731;CRR;1250000;;;;;;;;;;;" & vbLf
         Page = Page & "NS-CCP;CRR;0;;;;;;;;;;;&quot;Bank &quot;&quot;EAD&quot;&quot;; zero&quot;" & vbLf
         Page = Page & "</pre>" & vbLf
-        Page = Page & "</section>" & vbLf
-        Page = Page & "<section id=""banktrades"">" & vbLf
-        Page = Page & "<h2>BankTrades file</h2>" & vbLf
-        Page = Page & "<p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and comp"
-        Page = Page & "ared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
-        Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not "
 
 End Sub
 
@@ -523,7 +523,17 @@ Private Sub AppendPart7( _
 '
 '   Piece 7 of 8 of the page.
 '
+        Page = Page & "</section>" & vbLf
+        Page = Page & "<section id=""banktrades"">" & vbLf
+        Page = Page & "<h2>BankTrades file</h2>" & vbLf
+        Page = Page & "<p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and comp"
+        Page = Page & "ared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
+        Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not "
         Page = Page & "compared. The file holds at most 500 records, the rows of the sheet; a longer file is rejected whole, never truncated.</p>" & vbLf
+        Page = Page & "<h3>How a file is loaded</h3>" & vbLf
+        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a record too many for the sheet or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that al"
+        Page = Page & "ready holds figures asks before they are replaced.</li><li>The identifier, the regime and the comment are written as text, so <code>00731</code> keeps its leading zeros; a figure is written as a numbe"
+        Page = Page & "r; a blank figure is an empty cell, which is not compared.</li><li>The amount scale and the tolerances stay on the sheet and are not touched.</li></ul>" & vbLf
         Page = Page & "<h3>Columns</h3>" & vbLf
         Page = Page & "<div class=""wide""><table>" & vbLf
         Page = Page & "<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></t"
@@ -573,6 +583,15 @@ Private Sub AppendPart7( _
         Page = Page & "<section id=""findings"">" & vbLf
         Page = Page & "<h2>Findings</h2>" & vbLf
         Page = Page & "<p>Every finding of the import and of the validation has one of these codes.</p>" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart8( _
+    ByRef Page As String)
+'
+'   Piece 8 of 8 of the page.
+'
         Page = Page & "<table>" & vbLf
         Page = Page & "<thead><tr><th>Finding</th><th>Meaning</th></tr></thead>" & vbLf
         Page = Page & "<tbody>" & vbLf
@@ -583,15 +602,6 @@ Private Sub AppendPart7( _
         Page = Page & "<tr><td><code>CSV-DELIMITER</code></td><td>The header is a single field that contains a comma or a tab: the file uses another delimiter than &#x27;;&#x27;.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-HEADER-DUPLICATE</code></td><td>A column name appears more than once in the header.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-HEADER-MISSING</code></td><td>A column of the contract is missing from the header.</td></tr>" & vbLf
-
-End Sub
-
-
-Private Sub AppendPart8( _
-    ByRef Page As String)
-'
-'   Piece 8 of 8 of the page.
-'
         Page = Page & "<tr><td><code>CSV-HEADER-UNKNOWN</code></td><td>The header names a column that is not in the contract.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-FIELD-COUNT</code></td><td>The record has a different number of fields from the header.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-BLANK-RECORD</code></td><td>Every field of the record is blank.</td></tr>" & vbLf

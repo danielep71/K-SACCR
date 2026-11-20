@@ -36,9 +36,9 @@ column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, **NettingSets template** and **Trades template** in the
-**Templates** menu of the K-SACCR Ribbon tab write the same file, byte for
-byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
+In the workbook, **NettingSets template**, **Trades template**, **BankNettingSets
+template** and **BankTrades template** in the **Templates** menu of the K-SACCR Ribbon
+tab write the same file, byte for byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An
@@ -489,6 +489,29 @@ record limit.
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 🏦 The bank files
+
+`BankNettingSets` and `BankTrades` files have no staging sheet: **BankNettingSets
+file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and the
+**Import CSV** button of each bank sheet (#718), read the file with the reader of this
+contract and write it onto the sheet at once, because the sheet holds figures only and
+the reconciliation reports what does not match.
+
+- A file is accepted or rejected **as a whole**. One finding, a record too many for the
+  sheet (`CSV-TOO-MANY-RECORDS`) or a header-only file changes nothing; the findings are
+  listed in the dialog and nothing is written to Checks.
+- A sheet that holds figures asks before they are replaced, with No as the default.
+- The figures and comments of the sheet are cleared and the records written from the
+  first row below the header. The identifier, the regime and the comment are written
+  as text, so `00731` keeps its leading zeros; a figure is written as a number, read
+  with the point of the file in every locale; a blank figure is an empty cell, which the
+  reconciliation does not compare. The amount scale and the tolerances above the table
+  are not read from the file and are not touched.
+- An error while the sheet is written puts the old figures back and restores the Excel
+  settings.
+- `ImportBankCsv_Silent` is the entry point for automation and tests
+  ([INSTALLATION](../../INSTALLATION.md#importbankcsv_silent)).
 
 ## 📦 Staging
 
