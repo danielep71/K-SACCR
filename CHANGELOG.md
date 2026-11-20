@@ -313,6 +313,24 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Replace the form-control buttons of the sheets with rounded-rectangle shapes
+  linked to the macros (#727). Import CSV, Validate staging, Commit import and
+  Export import specifications on the two staging sheets, Randomize inputs and
+  Restore defaults on FormulaTest, and Clear outputs on the seven output sheets are
+  now shapes: navy with white bold text for the commands, light blue with navy text
+  for the secondary one of a sheet, in the colors of the headers. Each sheet's shapes
+  are one group, anchored once in the title row right after the title and after the
+  frozen columns of the sheet (a group across the freeze would be cut when the sheet
+  scrolls), with an equal gap whatever the column widths, so they sit further left
+  than the buttons did and never cover the title. The form controls, their VML drawings, control properties,
+  relationships and content types are gone from the template, and so are the
+  fallback shapes of the old buttons in the drawings. The shapes keep stable names
+  (`btn_ImportCsv`, `btn_ValidateStaging`, ...), are locked with the sheet and run
+  their macros on a protected sheet. `test_template_buttons.py` checks that no form
+  control is left, that every sheet has its shapes with their macros, geometry,
+  colors and labels, that they sit in the title row clear of the title and with an
+  equal gap, and that the macros exist.
+
 - Open the workbook the way it is used (#726). Every sheet is saved at a zoom of
   100% (three had 90%), and `Auto_Open` gives every visible sheet that zoom again
   through `ApplyOpeningView`, so a copy saved at another zoom opens like the
