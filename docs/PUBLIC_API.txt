@@ -22,3 +22,5 @@ SACCR_Formulas	Function	SACCR_ReplacementCost
 # SIG	SACCR_Formulas	Function	SACCR_ReplacementCost	Public Function SACCR_ReplacementCost( ByVal V As Double, ByVal C As Double, Optional ByVal Margined As Boolean = False, Optional ByVal TH As Double = 0#, Optional ByVal MTA As Double = 0#, Optional ByVal NICA As Double = 0#) As Variant
 SACCR_Formulas	Function	SACCR_FactorAggregation
 # SIG	SACCR_Formulas	Function	SACCR_FactorAggregation	Public Function SACCR_FactorAggregation( ByVal AddOns As Variant, ByVal Rhos As Variant) As Variant
+SACCR_Formulas	Function	SACCR_BusinessDays
+# SIG	SACCR_Formulas	Function	SACCR_BusinessDays	Public Function SACCR_BusinessDays( ByVal StartDate As Double, ByVal EndDate As Double, Optional ByVal Holidays As Variant, Optional ByVal UseTarget As Boolean = True) As Variant
