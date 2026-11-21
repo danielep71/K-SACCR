@@ -7873,6 +7873,9 @@ Private Function LookUpClosingPrices( _
 '      zero, and otherwise with the price the cell held before; list the
 '      currency in Without. No formula stays in the column.
 '   4. Put the calculation mode back, also after an error.
+'   From step 1 to the end mRunning is set, so that no other operation, and
+'   no second lookup, starts while DoEvents lets the buttons work: it is
+'   released on every way out.
 '
 ' ERROR POLICY
 '   A refusal is returned in the result line, not raised.
@@ -7944,6 +7947,7 @@ Private Function LookUpClosingPrices( _
 ' WRITE THE FORMULAS
 '------------------------------------------------------------------------------
         On Error GoTo Failed
+        mRunning = True
         Mode = Application.Calculation
         ModeKept = True
         Application.Calculation = xlCalculationAutomatic
@@ -7967,6 +7971,7 @@ Private Function LookUpClosingPrices( _
             PutPricesBack PairRows, Kept, i, ParamsSheet, KeyColumn
             Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
             Application.Calculation = Mode
+            mRunning = False
             LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
@@ -8001,6 +8006,7 @@ Private Function LookUpClosingPrices( _
             End If
         Next i
         Application.Calculation = Mode
+        mRunning = False
         LookUpClosingPrices = "RESULT=PRICED; prices=" & Priced & "; without_price=" & _
                               IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
                               IIf(Len(Without) > 0, "; codes=" & Without, "")
@@ -8009,6 +8015,7 @@ Private Function LookUpClosingPrices( _
 Failed:
         ErrNumber = Err.Number
         ErrText = Err.Description
+        mRunning = False
         If ModeKept Then
             On Error Resume Next
             PutPricesBack PairRows, Kept, Count, ParamsSheet, KeyColumn
