@@ -7556,8 +7556,7 @@ Failed:
 End Sub
 
 
-Public Sub CancelPriceLookup( _
-    Optional ByVal Closing As Boolean = False)
+Public Sub CancelPriceLookup()
 '
 '==============================================================================
 '                              CancelPriceLookup
@@ -7568,17 +7567,14 @@ Public Sub CancelPriceLookup( _
 '   no price formula is saved and no scheduled look reopens the workbook.
 '   ThisWorkbook calls it. Does nothing when no lookup is waiting.
 '
-' INPUTS
-'   Closing: True from Workbook_BeforeClose, False from Workbook_BeforeSave.
-'
 ' METHOD
 '   Emptying the scratch column with events on would raise
 '   Workbook_SheetChange, whose Ribbon refresh is scheduled with
 '   Application.OnTime and could reopen the workbook once it is closed. So
-'   events are off while the lookup ends, and put back as they were. When
-'   the workbook stays open (a save), the Ribbon is refreshed afterwards,
-'   because it was disabled while the lookup ran and nothing else would
-'   enable it again.
+'   events are off while the lookup ends, and put back as they were. The
+'   Ribbon was disabled while the lookup ran and the workbook can stay open
+'   (a save, or a close whose save prompt is cancelled), so it is
+'   invalidated afterwards, directly and not through a scheduled callback.
 '
 ' ERROR POLICY
 '   Never raises.
@@ -7602,9 +7598,7 @@ Public Sub CancelPriceLookup( _
             Application.EnableEvents = False
             AbandonPriceLookup
             Application.EnableEvents = EventsOn
-            If Not Closing Then
-                RibbonStateChanged
-            End If
+            M_Ribbon.RefreshRibbon
         End If
 
 End Sub
