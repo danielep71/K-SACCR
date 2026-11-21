@@ -526,6 +526,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shBankTrades"
             Case "ksGoTradeReconciliation"
                 RibbonSheet = "shTradeReconciliation"
+            Case "ksGoReconSummary"
+                RibbonSheet = "shReconSummary"
             Case "ksGoTestCatalogue"
                 RibbonSheet = "shTestCatalogue"
             Case "ksGoFormulaTest"
