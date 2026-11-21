@@ -249,6 +249,8 @@ Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
 the status of the results and of both staging sheets and reaches every sheet
 through **Go to** ([Ribbon](docs/workbook/RIBBON.md)). The two staging sheets
 also carry rounded shapes that act as buttons for their own commands (#727).
+The workbook opens on this tab, selected again a moment later when an add-in
+such as think-cell takes it, with every sheet at a zoom of 100% (#726).
 
 | Command | Macro | Does |
 | --- | --- | --- |
@@ -260,7 +262,7 @@ also carry rounded shapes that act as buttons for their own commands (#727).
 | **Download prices** (on Params, beside the FX table) | `DownloadClosingPrices` | After a confirmation with Cancel as the default, writes the rates of the FX table from the source chosen beside the button: the closing price of each pair on the reporting date (`STOCKHISTORY`, Microsoft 365), or the ECB euro reference rate, the last fixing on or before that day, crossed through the euro for another reporting currency (an HTTPS request with the currency codes and the dates only). The source and the date of the rates are shown beside the button; a currency with no rate keeps its own, and without a connection no rate is changed (#721, #745) |
 | **NettingSets template**, **Trades template**, **BankNettingSets template**, **BankTrades template** (CSV import, Templates menu; the two bank ones also on their sheets) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate`, `ExportBankNettingSetsCsvTemplate`, `ExportBankTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
-| **BankNettingSets file...**, **BankTrades file...** (Import CSV menu) and **Import CSV** (on BankNettingSets and BankTrades) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` | Replaces the bank figures of the sheet with the records of a CSV file that follows the [contract](docs/csv/CSV_CONTRACT.md#-the-bank-files); a file with a finding, with more records than the sheet holds (200 netting sets, 500 legs) or with none changes nothing and the findings are listed; a sheet that holds figures asks first. There is no staging sheet |
+| **BankNettingSets file...**, **BankTrades file...** (Import CSV menu) and **Import CSV** (on BankNettingSets and BankTrades) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` | Replaces the bank figures of the sheet with the records of a CSV file that follows the [contract](docs/csv/CSV_CONTRACT.md#-the-bank-files); a file with a finding, with more records than the sheet holds (10,000 netting sets, 50,000 legs) or with none changes nothing and the findings are listed; a sheet that holds figures asks first. There is no staging sheet |
 | **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | **Commit import** (on Import_Trades and Import_NettingSets) | `CommitImport` | After a confirmation that gives each input sheet's rows now and the staged rows that replace it, replaces NettingSets and Trades with the staged rows of a `VALID` validation that still holds; an input sheet whose staging sheet holds no rows is left as it is. On a failure the input sheets are put back and checked. Results reads `OUT OF DATE` until the next run |
 | **Export import specifications** (on Import_Trades and Import_NettingSets) | `ExportImportSpecification` | Saves the [CSV import specification](docs/csv/K-SACCR_Import_Specification.html): one HTML page, readable offline and printable, that describes every column and rule of both files and gives an example of each to copy. A file that exists is replaced only after a confirmation; the page can then be opened. The workbook is not changed |
@@ -279,9 +281,10 @@ also carry rounded shapes that act as buttons for their own commands (#727).
    a decimal comma is rejected.
 2. **Import.** Press **Import CSV** on `Import_NettingSets`, then on
    `Import_Trades`, and choose the file. Each record lands on the staging
-   sheet as text, with its CSV line; the input sheets are not changed. A file
-   with a structural problem, such as a missing column or another delimiter,
-   is not loaded and the message says why.
+   sheet as text, with its CSV line; the input sheets are not changed. Row 8
+   holds the CSV field name of each column, explained in a note on D8 (#731).
+   A file with a structural problem, such as a missing column or another
+   delimiter, is not loaded and the message says why.
 3. **Correct.** Edit the staged cells; the sheet reads `EDITED`. A file can
    also be corrected outside Excel and imported again.
 4. **Validate.** Press **Validate staging**. Each finding is listed on Checks
@@ -300,7 +303,8 @@ To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
 set at the top of the sheet. **Run SA-CCR** then writes the comparison to
 `Reconciliation`: one row per netting set and figure, matched by ID and never
-across regimes, `MATCH` within the absolute or the relative tolerance or
+across regimes, `MATCH` within the absolute or the relative tolerance (1 unit
+and 1% by default, set at the top of the sheet, #726) or
 `DIFFERENCE`, and a row for every netting set that cannot be compared, with
 the reason: missing on either side, listed twice, of another regime, withheld
 or unusable. `BankTrades` and `TradeReconciliation` do the same per trade leg,
@@ -439,7 +443,7 @@ the exposure value (select it to open it full size):
 | Sheet | Role |
 | --- | --- |
 | `Home` | Start page: what the workbook does, the steps of a run and a link to every sheet; the workbook opens on it |
-| `Params` | Run parameters, supervisory-factor table, FX rates |
+| `Params` | Run parameters, supervisory-factor table, FX rates as the market quotes them: units of the currency per 1 unit of the reporting currency, such as EUR/USD 1.16 with EUR as reporting currency, an amount being divided by its rate (#725) |
 | `NettingSets` · `Trades` | Inputs |
 | `Import_NettingSets` · `Import_Trades` | CSV staging: a file's records as text, to check and correct before they replace the inputs |
 | `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; a TOTAL row per regime over its `VALID` netting sets; run summary and stale-result indicator |
