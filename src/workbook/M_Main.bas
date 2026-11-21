@@ -8067,6 +8067,14 @@ Private Function LookUpClosingPrices( _
                 Priced = Priced + 1
             End If
         Next i
+    'A row with no pair, the reporting currency, keeps no price of an earlier date or pair
+        For r = HeaderRow + 1 To LastRow
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) = 0 Then
+                TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE).ClearContents
+                TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).ClearContents
+            End If
+        Next r
+    'The prices are now all of the reporting date
         NamedCell(NM_FX_PRICE_DATE).Value2 = NamedCell(PRM_ASOF).Value2
         Application.Calculation = Mode
         mRunning = False
