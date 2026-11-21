@@ -8310,7 +8310,8 @@ Private Function EcbAnswer( _
 '   not HTTPS.
 '
 ' ERROR POLICY
-'   Never raises. gTestFault = "ecb-answer" returns gTestEcbAnswer;
+'   Never raises. gTestFault = "ecb-answer" returns gTestEcbAnswer, and so
+'   does "ecb-write", whose failure LookUpEcbRates injects later;
 '   "ecb-offline", "ecb-http" and "ecb-timeout" give the problem of no
 '   connection, of HTTP 503 and of a time-out; none of them sends anything.
 '
@@ -8332,7 +8333,7 @@ Private Function EcbAnswer( _
 '------------------------------------------------------------------------------
         Problem = vbNullString
         Select Case gTestFault
-            Case "ecb-answer"
+            Case "ecb-answer", "ecb-write"
                 EcbAnswer = gTestEcbAnswer
                 Exit Function
             Case "ecb-offline"

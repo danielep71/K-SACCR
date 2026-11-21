@@ -193,6 +193,8 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('Codes(i) Like "[A-Z][A-Z][A-Z]"', main)  # only codes go into the request
         self.assertIn('CreateObject("MSXML2.XMLHTTP.6.0")', main)
         self.assertIn('LCase$(Left$(Url, 8)) <> "https://"', main)
+        answer = main[main.index("Private Function EcbAnswer("):]
+        self.assertIn('Case "ecb-answer", "ecb-write"', answer)  # no test fault sends a real request
         for absent in ("QueryTables", "Connections.Add", "WorkbookConnection", '"Authorization"', "SetCredentials"):
             self.assertNotIn(absent, main)
 
