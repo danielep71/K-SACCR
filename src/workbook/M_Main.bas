@@ -8276,6 +8276,11 @@ Private Function LookUpEcbRates( _
                 Changed = True
             End If
         Next i
+        If ReportRow > 0 Then
+            If Not IsReportingRow(ParamsSheet, ReportRow, KeyColumn) Then
+                Changed = True
+            End If
+        End If
         If Changed Then
             mRunning = False
             Priced = 0
@@ -9091,6 +9096,11 @@ Private Function FinishPriceLookup( _
                 Changed = True
             End If
         Next i
+        If mPriceReportRow > 0 Then
+            If Not IsReportingRow(mPriceSheet, mPriceReportRow, mPriceKeyColumn) Then
+                Changed = True
+            End If
+        End If
         If Unavailable Or Changed Then
             If Unavailable Then
                 Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
