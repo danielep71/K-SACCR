@@ -669,6 +669,15 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
+  figures, the sum of the absolute differences and the largest of them now count only the rows
+  compared, MATCH and DIFFERENCE. They counted every row shown, also those with a figure on one
+  side only (missing at the bank or in the calculator), so the two sums covered different rows:
+  with 66 notional rows of which 3 compared, the calculator's sum held 63 notionals the bank did
+  not have. The note above the tables and the two headers ("Sum of bank figures compared",
+  "Sum of calculator figures compared") say so; `test_reconciliation_sheets.py` checks the
+  formulas. Found by the owner in Excel.
+
 - Set the rate of the reporting currency to 1 when Download prices writes the rates (#745), with
   either source. The row of the reporting currency has no pair, so it kept the rate it had: after
   the reporting currency was changed, to USD for example, USD kept its rate against the euro and
