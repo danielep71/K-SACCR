@@ -2364,7 +2364,9 @@ Private Function LoadFXTable() As Boolean
         ElseIf Abs(mFXRate(KeyIndex(mFXIndex, pRepCcy)) - 1#) > 0.0000001 Then
             LogMsg DIAG_FX_REPORTING_RATE, "Rate", SEV_ERROR, SH_PARAMS, pRepCcy, "Rate of the reporting currency must be 1 (found " & _
                    CStr(mFXRate(KeyIndex(mFXIndex, pRepCcy))) & "): rates are units of the currency " & _
-                   "per 1 unit of the reporting currency, so that of the reporting currency is 1."
+                   "per 1 unit of the reporting currency, so that of the reporting currency is 1. After a change " & _
+                   "of the reporting currency, accept the rebase of the FX table the workbook offers, press " & _
+                   "Download prices, or divide every rate by that of the reporting currency."
             Exit Function
         End If
         LoadFXTable = True

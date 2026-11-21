@@ -291,7 +291,7 @@ The layout and file conventions are defined in
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 10 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 12 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 13 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 14 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -972,6 +972,23 @@ code changed while the answer was awaited (Params stays editable meanwhile).
 
 With either source, Results is not recalculated: `ResultsStatus()` returns
 `STALE` until the next **Run SA-CCR**. While an operation is running it raises
+`ERR_RUN_ACTIVE`.
+
+### RebaseFxTable_Silent
+
+`RebaseFxTable_Silent([currency])` expresses every rate of the FX table in units
+per 1 unit of `currency`, or of the reporting currency when it is omitted,
+without a question or a message (#725), as a change of the reporting currency on
+Params offers to do after a question (`ReportingCurrencyChanged`, asked only
+outside silent mode and while no operation runs). Each rate is divided by the
+rate of that currency, which becomes exactly 1; the rates are relative, so every
+conversion is unchanged, and their date and source stay. The rates are written
+all or none, with events off; a rate that is a formula, or not a number above
+zero, stays and is listed. It returns
+`RESULT=REBASED; currency=XXX; divisor=D; rates=N` (and `; not_rebased=...`),
+`RESULT=UNCHANGED; currency=XXX` when the rate is already 1, or
+`RESULT=REFUSED; reason=...` when the currency is not a three-letter code in the
+table with a rate above zero. While an operation is running it raises
 `ERR_RUN_ACTIVE`.
 
 ### SetNavigationBar_Silent

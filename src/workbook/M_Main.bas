@@ -8037,6 +8037,352 @@ Failed:
 End Function
 
 
+Public Sub ReportingCurrencyChanged( _
+    ByVal Sh As Object, _
+    ByVal Target As Range)
+'
+'==============================================================================
+'                          ReportingCurrencyChanged
+'------------------------------------------------------------------------------
+' PURPOSE
+'   When the user changes the reporting currency, offer to rebase the FX
+'   table on it (#725): the rates are units of each currency per 1 unit of
+'   the reporting currency, so after a change they are still those of the
+'   old one, and a run refuses a table whose reporting currency is not 1.
+'   ThisWorkbook.Workbook_SheetChange calls it for every edit.
+'
+' METHOD
+'   Nothing is asked when the edit is not the reporting currency of
+'   Params, when an operation runs, in silent mode, when the new currency
+'   is not in the FX table or its rate is not a number above zero, or
+'   when its rate is already 1. Otherwise a question, with No as the
+'   default, names the currency and its rate; Yes runs RebaseFxTable.
+'
+' ERROR POLICY
+'   Never raises: an edit must never fail because of it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Cell        As Range     'ReportingCcy
+    Dim Code        As String    'The new reporting currency
+    Dim Rate        As Double    'Its rate in the FX table
+    Dim Problem     As String    'Why nothing was rebased
+    Dim ResultLine  As String    'What the rebase returned
+
+'------------------------------------------------------------------------------
+' ASK
+'------------------------------------------------------------------------------
+        On Error GoTo Done
+        If mRunning Or gSilent Then
+            Exit Sub
+        End If
+        Set Cell = NamedCell(PRM_REPCCY)
+        If Cell Is Nothing Then
+            Exit Sub
+        End If
+        If Not Sh Is Cell.Worksheet Then
+            Exit Sub
+        End If
+        If Application.Intersect(Target, Cell) Is Nothing Then
+            Exit Sub
+        End If
+        Code = UCase$(Trim$(SafeStr(Cell.Cells(1, 1).Value2)))
+        If Not Code Like "[A-Z][A-Z][A-Z]" Then
+            Exit Sub
+        End If
+        Rate = FxTableRate(Code)
+        If Rate <= 0# Or Abs(Rate - 1#) <= 0.000000000001 Then
+            Exit Sub
+        End If
+        If MsgBox("The reporting currency is now " & Code & ", whose rate in the FX table is " & CStr(Rate) & "." & _
+                  vbLf & vbLf & "Rebase the FX table on " & Code & "? Every rate is divided by " & CStr(Rate) & _
+                  ", so that " & Code & " is 1 and every other rate is in units per 1 " & Code & _
+                  ". Undo cannot bring the rates back." & vbLf & vbLf & _
+                  "Without it the next run stops, until the rates are rebased or downloaded again.", _
+                  vbYesNo + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+            Exit Sub
+        End If
+        ResultLine = RebaseFxTable(Code, Problem)
+        If Len(Problem) > 0 Then
+            Notify "The FX table was not rebased." & vbLf & vbLf & Problem, vbExclamation
+        Else
+            Notify RebaseMessage(ResultLine, Code), vbInformation
+        End If
+
+Done:
+
+End Sub
+
+
+Public Function RebaseFxTable_Silent( _
+    Optional ByVal Code As String = vbNullString) _
+    As String
+'
+'==============================================================================
+'                            RebaseFxTable_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Rebase the FX table on Code, or on the reporting currency of Params
+'   when Code is blank, without a question or a message (#725), for
+'   automation and tests. See RebaseFxTable.
+'
+' RETURNS
+'   "RESULT=REBASED; currency=XXX; divisor=D; rates=N[; not_rebased=...]",
+'   "RESULT=UNCHANGED; currency=XXX" when its rate is already 1, or
+'   "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Problem     As String    'Why nothing was rebased
+
+'------------------------------------------------------------------------------
+' REBASE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.RebaseFxTable_Silent", "An SA-CCR operation is already running."
+        End If
+        If Len(Trim$(Code)) = 0 Then
+            Code = SafeStr(NamedCell(PRM_REPCCY).Value2)
+        End If
+        RebaseFxTable_Silent = RebaseFxTable(UCase$(Trim$(Code)), Problem)
+
+End Function
+
+
+Private Function RebaseFxTable( _
+    ByVal Code As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                                RebaseFxTable
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Express every rate of the FX table in units per 1 unit of Code (#725):
+'   each rate is divided by the rate of Code, which becomes exactly 1. The
+'   rates are relative, so the conversion of every amount is unchanged.
+'   The date and the source of the rates stay: they are the same quotes.
+'
+' METHOD
+'   Work out every new rate, then write them with events off, all or none.
+'   A rate that is a formula, or not a number above zero, is left as it is
+'   and listed in not_rebased.
+'
+' RETURNS
+'   See RebaseFxTable_Silent. Problem is set when the result is REFUSED.
+'
+' ERROR POLICY
+'   A refusal is returned, not raised. An error puts the rates back and is
+'   raised again.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Its last row
+    Dim r             As Long         'Row
+    Dim RateCell      As Range        'A rate
+    Dim Divisor       As Double       'The rate of Code
+    Dim Kept()        As Variant      'Each rate before
+    Dim NewRates()    As Variant      'Each rate after; Empty when it stays
+    Dim Rebased       As Long         'Rates divided
+    Dim Skipped       As String       'Currencies whose rate stays
+    Dim EventsOn      As Boolean      'Events were enabled
+    Dim Started       As Boolean      'The writing began
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+
+'------------------------------------------------------------------------------
+' WORK OUT
+'------------------------------------------------------------------------------
+        Problem = vbNullString
+        If Not Code Like "[A-Z][A-Z][A-Z]" Then
+            Problem = "the currency '" & Code & "' is not a three-letter code."
+            RebaseFxTable = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        Divisor = FxTableRate(Code)
+        If Divisor = 0# Then
+            Problem = Code & " is not in the FX table, or its rate is not a number above zero."
+            RebaseFxTable = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        If Abs(Divisor - 1#) <= 0.000000000001 Then
+            RebaseFxTable = "RESULT=UNCHANGED; currency=" & Code
+            Exit Function
+        End If
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        ReDim Kept(HeaderRow + 1 To LastRow)
+        ReDim NewRates(HeaderRow + 1 To LastRow)
+        For r = HeaderRow + 1 To LastRow
+            Set RateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
+            Kept(r) = RateCell.Formula
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                NewRates(r) = 1#
+            ElseIf RateCell.HasFormula Or VarType(RateCell.Value2) <> vbDouble Then
+                Skipped = Skipped & IIf(Len(Skipped) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
+            ElseIf RateCell.Value2 <= 0# Then
+                Skipped = Skipped & IIf(Len(Skipped) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
+            Else
+                NewRates(r) = RateCell.Value2 / Divisor
+            End If
+        Next r
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        mRunning = True
+        EventsOn = Application.EnableEvents
+        Application.EnableEvents = False
+        Started = True
+        For r = HeaderRow + 1 To LastRow
+            If Not IsEmpty(NewRates(r)) Then
+                TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2 = NewRates(r)
+                Rebased = Rebased + 1
+                If gTestFault = "rebase-write" Then
+                    Err.Raise ERR_INJECTED_FAULT, "M_Main.RebaseFxTable", "Injected failure while the FX table is rebased."
+                End If
+            End If
+        Next r
+        Application.EnableEvents = EventsOn
+        mRunning = False
+        RebaseFxTable = "RESULT=REBASED; currency=" & Code & "; divisor=" & CStr(Divisor) & "; rates=" & Rebased & _
+                        IIf(Len(Skipped) > 0, "; not_rebased=" & Skipped, "")
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        On Error Resume Next
+        If Started Then
+            For r = HeaderRow + 1 To LastRow
+                TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Formula = Kept(r)
+            Next r
+            Application.EnableEvents = EventsOn
+        End If
+        mRunning = False
+        On Error GoTo 0
+        Err.Raise ErrNumber, "M_Main.RebaseFxTable", ErrText
+
+End Function
+
+
+Private Function FxTableRate( _
+    ByVal Code As String) _
+    As Double
+'
+'==============================================================================
+'                                 FxTableRate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rate of Code in the FX table (#725): 0 when the table has no such
+'   currency, or its rate is not a number above zero.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim r             As Long         'Row
+    Dim Found         As Variant      'A rate
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                Found = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
+                If VarType(Found) = vbDouble Then
+                    If Found > 0# Then
+                        FxTableRate = Found
+                    End If
+                End If
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Function RebaseMessage( _
+    ByVal ResultLine As String, _
+    ByVal Code As String) _
+    As String
+'
+'==============================================================================
+'                                RebaseMessage
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message after a rebase of the FX table (#725), with the rates that
+'   stayed as they were.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim At          As Long      'Where not_rebased starts
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        RebaseMessage = "The FX table is now in units per 1 " & Code & "; " & Code & " is 1."
+        At = InStr(1, ResultLine, "; not_rebased=", vbBinaryCompare)
+        If At > 0 Then
+            RebaseMessage = RebaseMessage & vbLf & vbLf & "Not rebased, as their rate is a formula or not a number " & _
+                            "above zero: " & Replace(Mid$(ResultLine, At + Len("; not_rebased=")), ",", ", ") & _
+                            ". Check them before the next run."
+        End If
+
+End Function
+
+
 Private Function LookUpEcbRates( _
     ByRef Priced As Long, _
     ByRef Without As String, _

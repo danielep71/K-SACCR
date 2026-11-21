@@ -26,7 +26,9 @@ Private Sub Workbook_SheetActivate(ByVal Sh As Object)
 End Sub
 
 Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+    'A new reporting currency: offer to rebase the FX table on it (#725).
     'An input edit recalculates Results C5: refresh the tab once Excel is idle (#216).
+        M_Main.ReportingCurrencyChanged Sh, Target
         M_Main.RibbonStateChanged
 
 End Sub
