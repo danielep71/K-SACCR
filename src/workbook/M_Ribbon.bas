@@ -102,6 +102,9 @@ Attribute VB_Name = "M_Ribbon"
         Private Const RIBBON_POINTER_NAME   As String = "ksRibbonPointer"
     'The id of the K-SACCR tab in customUI14.xml, selected when the workbook opens (#726).
         Private Const RIBBON_TAB_ID         As String = "ksTab"
+    'Seconds after the load of the Ribbon at which the tab is selected again, and how many times (#726).
+        Private Const TAB_RETRY_SECONDS     As Long = 2
+        Private Const TAB_RETRY_COUNT       As Long = 2
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -109,6 +112,9 @@ Attribute VB_Name = "M_Ribbon"
         Private mRibbon             As IRibbonUI    'The Ribbon, from RibbonOnLoad
         Private mInCallback         As Boolean      'A state callback is running
         Private mHeldPointer        As String       'The stored pointer while a save runs
+        Private mTabAt              As Date         'When the next selection of the tab is scheduled
+        Private mTabName            As String       'The procedure it was scheduled with
+        Private mTabTries           As Long         'Selections of the tab still to make
 
 '------------------------------------------------------------------------------
 ' PUBLIC PROCEDURES
@@ -124,13 +130,15 @@ Public Sub RibbonOnLoad( _
 '   Keep the Ribbon object Excel passes when it loads the tab, and store
 '   its pointer with this session's window handle in the hidden name
 '   RIBBON_POINTER_NAME, without marking the workbook changed (#216), and
-'   open the tab K-SACCR (#726).
+'   open the tab K-SACCR (#726). An add-in that loads its own tab after
+'   this one (think-cell) takes the selection away, so the tab is selected
+'   again a moment later, by ActivateRibbonTab.
 '
 ' ERROR POLICY
 '   Selecting the tab is best effort: a failure never stops the load.
 '
 ' UPDATED
-'   2026-11-20
+'   2026-11-21
 '==============================================================================
 '
         Set mRibbon = Ribbon
@@ -138,6 +146,101 @@ Public Sub RibbonOnLoad( _
         On Error Resume Next
         Ribbon.ActivateTab RIBBON_TAB_ID
         On Error GoTo 0
+        mTabTries = TAB_RETRY_COUNT
+        ScheduleTabActivation
+
+End Sub
+
+
+Public Sub ActivateRibbonTab()
+'
+'==============================================================================
+'                             ActivateRibbonTab
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Select the tab K-SACCR once more, a few seconds after the Ribbon
+'   loaded, for an add-in that took the selection when its own tab loaded
+'   (#726). Application.OnTime runs it, at most TAB_RETRY_COUNT times. It
+'   selects the tab only while this workbook is the active one, so that
+'   another open workbook keeps its own tab. Only the load of the workbook
+'   starts it: a sheet change or a tab the user chose later is left alone.
+'
+' ERROR POLICY
+'   Never raises: the tab stays where it is when it cannot be selected.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        mTabAt = 0
+        On Error GoTo Done
+        If mRibbon Is Nothing Then GoTo Done
+        If Not Application.ActiveWorkbook Is ThisWorkbook Then GoTo Done
+        mRibbon.ActivateTab RIBBON_TAB_ID
+        mTabTries = mTabTries - 1
+        If mTabTries > 0 Then ScheduleTabActivation
+
+Done:
+
+End Sub
+
+
+Public Sub CancelTabActivation()
+'
+'==============================================================================
+'                            CancelTabActivation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Cancel the selection of the tab that is scheduled, when there is one,
+'   so that Application.OnTime does not reopen a workbook that was closed
+'   before it ran (#726). ThisWorkbook.Workbook_BeforeClose calls it.
+'
+' ERROR POLICY
+'   Never raises: a selection that already ran cannot be cancelled, and that
+'   is the expected case.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error Resume Next
+        If mTabAt <> 0 Then
+            Application.OnTime mTabAt, mTabName, , False
+        End If
+        On Error GoTo 0
+        mTabAt = 0
+        mTabName = vbNullString
+        mTabTries = 0
+
+End Sub
+
+
+Private Sub ScheduleTabActivation()
+'
+'==============================================================================
+'                           ScheduleTabActivation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Schedule the next ActivateRibbonTab TAB_RETRY_SECONDS from now. The
+'   workbook name is quoted, with an apostrophe in it doubled, as Excel
+'   requires (#726).
+'
+' ERROR POLICY
+'   Never raises: when it cannot be scheduled, the tab is not selected again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error GoTo Failed
+        mTabAt = Now + TimeSerial(0, 0, TAB_RETRY_SECONDS)
+        mTabName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Ribbon.ActivateRibbonTab"
+        Application.OnTime mTabAt, mTabName
+        Exit Sub
+
+Failed:
+        mTabAt = 0
+        mTabName = vbNullString
 
 End Sub
 

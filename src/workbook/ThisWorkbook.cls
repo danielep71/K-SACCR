@@ -44,8 +44,10 @@ End Sub
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
     'End a lookup of closing prices that waits for its data, so that the
-    'look scheduled for it does not reopen the workbook (#721).
+    'look scheduled for it does not reopen the workbook (#721), and cancel
+    'the scheduled selection of the K-SACCR tab for the same reason (#726).
         M_Main.CancelPriceLookup
+        M_Ribbon.CancelTabActivation
 
 End Sub
 

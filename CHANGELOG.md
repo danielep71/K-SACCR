@@ -541,6 +541,14 @@ Use only the categories needed by a release.
   value keeps it. `test_template_defaults.py` checks the template and the macro
   source, and `TEST_MainState` checks the zoom of every sheet after the opening view.
 
+- Select the K-SACCR tab again after an add-in took it (#726). With think-cell
+  installed, its tab loads after ours and the workbook opened on it. `RibbonOnLoad`
+  now also schedules `ActivateRibbonTab`, which selects the K-SACCR tab 2 and 4
+  seconds later, only while this workbook is the active one, so another open
+  workbook keeps its tab and a tab the user chooses afterwards is left alone;
+  `Workbook_BeforeClose` cancels a selection still scheduled so that it cannot
+  reopen the workbook. `test_template_defaults.py` checks the source.
+
 - Quote the FX rates of Params as the market does (#725, behavior change). The rate
   column of the FX table is now units of the currency per 1 unit of the reporting
   currency, so that EUR/USD 1.16 is entered as 1.16 with a EUR reporting currency;
