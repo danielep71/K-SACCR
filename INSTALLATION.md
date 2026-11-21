@@ -291,7 +291,7 @@ The layout and file conventions are defined in
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 10 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `CopyClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `CopyClosingPrices_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `CopyClosingPrices`, `RefreshClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `CopyClosingPrices_Silent`, `RefreshClosingPrices_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 12 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object, `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 13 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 14 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -927,6 +927,20 @@ their rate. It returns `RESULT=COPIED; rates=N; unchanged=U; without_price=M`
 `FX_Table` is missing. Results is not recalculated: `ResultsStatus()` returns
 `STALE` until the next **Run SA-CCR**. While an operation is running it raises
 `ERR_RUN_ACTIVE`.
+
+### RefreshClosingPrices_Silent
+
+`RefreshClosingPrices_Silent()` looks up the closing price of each currency pair
+of the FX table with `STOCKHISTORY`, without a confirmation or a message, as
+the **Refresh prices** button of the Params sheet (`RefreshClosingPrices`) does
+after its confirmation (#721). It writes the last closing price up to the
+reporting date, seven days back at most, as a value in the Closing Price column;
+no formula stays there, and a currency that gets no price keeps its earlier one.
+It needs Microsoft 365 and a connection and waits `PRICE_WAIT_SECONDS` (30) at
+most. It returns `RESULT=PRICED; prices=N; without_price=M` (and `; codes=...`),
+or `RESULT=REFUSED; reason=...` with nothing changed, for example without
+`STOCKHISTORY`. The rates are not changed: `CopyClosingPrices_Silent` copies the
+prices into them. While an operation is running it raises `ERR_RUN_ACTIVE`.
 
 ### SetNavigationBar_Silent
 

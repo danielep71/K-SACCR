@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 42   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 43   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -199,6 +199,7 @@ Public Sub RunMainStateTests()
         CaseRestoreParams
         CaseYearConvention
         CaseCopyClosingPrices
+        CaseRefreshClosingPrices
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1806,6 +1807,69 @@ Unexpected:
         End If
         If Not Prices Is Nothing Then
             Prices.Formula = SavedPrices
+        End If
+
+End Sub
+
+
+Private Sub CaseRefreshClosingPrices()
+'
+'==============================================================================
+'                        CaseRefreshClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Refresh prices on Params (#721) in an Excel without STOCKHISTORY, which the
+'   fault "prices-unavailable" stands for: the lookup refuses and says why,
+'   the prices stay as they were, no formula is left in the column and the
+'   calculation mode is as it was.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+    Dim Result      As String    'What a call returned
+    Dim ParamsSheet As Worksheet 'Params
+    Dim HeaderRow   As Long      'Header row of the FX table
+    Dim KeyColumn   As Long      'Its key column
+    Dim LastRow     As Long      'Last row of the FX table
+    Dim Prices      As Range     'The closing prices below the reporting currency
+    Dim SavedPrices As Variant   'Their values
+    Dim Same        As Boolean   'Every price is as it was
+    Dim i           As Long      'Price
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.refresh-closing-prices"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Set Prices = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
+        SavedPrices = Prices.Value2
+        M_Main.gTestFault = "prices-unavailable"
+        Result = M_Main.RefreshClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "refusal: " & Result
+        Same = True
+        For i = 1 To Prices.Rows.Count
+            If SafeStr(Prices.Cells(i, 1).Value2) <> SafeStr(SavedPrices(i, 1)) Then
+                Same = False
+            End If
+        Next i
+        TEST_Kit.Check Same, "the prices are as they were"
+        TEST_Kit.Check Prices.HasFormula = False, "no formula is left in the column"
+        TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not Prices Is Nothing Then
+            Prices.Value2 = SavedPrices
         End If
 
 End Sub

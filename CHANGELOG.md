@@ -106,11 +106,14 @@ Use only the categories needed by a release.
   Bank Holiday for the table of closing days, which the engine checks. The FX table holds the euro and the
   20 currencies most traded against it, with the closing prices of the Closing Price column as rates.
   The new **Copy values** button, beside the FX table (column G, on the row of its title, where the owner put
-  it), runs `CopyClosingPrices`: after a
+  it), with **Refresh prices** to its left, runs `CopyClosingPrices`: after a
   confirmation it copies the closing price of each currency into its rate as a value; a currency without a
   price and the reporting currency keep their rate. The pairs and the prices are recalculated first, also in
   manual calculation, which is left as it was. `CopyClosingPrices_Silent` is its entry point, and
-  `params.copy-closing-prices` its case (6 checks, 616 in TEST_MainState). Two repairs of the sheet that
+  `params.copy-closing-prices` its case (6 checks). **Refresh prices** (`RefreshClosingPrices`, entry point
+  `RefreshClosingPrices_Silent`, case `params.refresh-closing-prices` with 4 checks, 620 in TEST_MainState) writes
+  the last closing price of each pair up to the reporting date, seven days back at most, as a value, and
+  keeps the earlier price of a currency that gets none. Two repairs of the sheet that
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting
   currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the
@@ -128,8 +131,10 @@ Use only the categories needed by a release.
   table on row 60 and `SF_Table`, `FX_Table` and `Holiday_Table` follow (the macros find them by name;
   the validations on Trades, the editable cells, the check script and the matrix follow). The FX table
   has a Currency Pair column (the reporting currency over the currency of the row) and a Closing Price
-  column that reads the closing price of the pair on `AsOfDate` with `STOCKHISTORY` (Microsoft 365,
-  online); the engine does not read the two columns. The validated zone of the FX table holds the
+  column with the closing price of the pair; the engine does not read the two columns. The prices are
+  values, written by the new **Refresh prices** button, which looks them up with `STOCKHISTORY` (Microsoft
+  365 and a connection); the template holds no such formula, because an unfinished data request keeps
+  Excel from reporting its calculation done and a run in manual calculation then refuses to start. The validated zone of the FX table holds the
   reporting currency and 20 others (rows 61 to 81), with the pair and the closing price on each row. The
   illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
   table of closing days moved from G:H to I:J. Header typo fixed ("Closing Price").

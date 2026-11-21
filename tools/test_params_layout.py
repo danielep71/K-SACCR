@@ -73,11 +73,25 @@ class ParamsLayoutTests(unittest.TestCase):
             self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
             self.assertNotIn("$C$61&amp;", self.xml)
             self.assertEqual(self.text(f"F{row}"), f"EUR/{pair}")
-            self.assertIn(f'IF(F{row}="","",_xlfn.STOCKHISTORY(F{row},AsOfDate,AsOfDate,0,0,1))', self.xml)
         self.assertEqual(self.text("F61"), "")  # the reporting currency has no pair
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")
         self.assertNotIn("Refinitiv", engine)
         self.assertNotIn("STOCKHISTORY", engine)
+
+    def test_the_closing_prices_are_values_and_a_macro_looks_them_up(self) -> None:
+        # A STOCKHISTORY formula left in the sheet is a data request that Excel may never finish: a run
+        # in manual calculation then refuses to start. The prices are values; Refresh prices writes them.
+        self.assertNotIn("STOCKHISTORY", self.xml)
+        for row in range(62, 82):
+            cell = self.sheet.find(f'.//{MAIN}c[@r="G{row}"]')
+            assert cell is not None
+            self.assertIsNone(cell.find(MAIN + "f"), row)
+            self.assertGreater(float(cell.findtext(MAIN + "v") or "0"), 0, row)
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
+        self.assertIn('"=LET(r,STOCKHISTORY("', main)
+        self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
+        self.assertRegex(main, r"(?m)^Public Sub RefreshClosingPrices\(\)")
+        self.assertRegex(main, r"(?m)^Public Function RefreshClosingPrices_Silent\(\) As String")
 
     def test_the_fx_table_is_filled_with_twenty_currencies_against_the_euro(self) -> None:
         codes = [self.text(f"C{row}") for row in range(61, 82)]
@@ -142,7 +156,7 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertRegex(self.xml, r'<conditionalFormatting sqref="C61:C81">')
         for row in range(61, 82):
             self.assertIn(f'<c r="F{row}"', self.xml)
-            self.assertIn(f'IF(F{row}="","",_xlfn.STOCKHISTORY(F{row},AsOfDate,AsOfDate,0,0,1))', self.xml)
+            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)  # the pair of every row
         self.assertNotIn('<c r="F82"', self.xml)
 
 

@@ -34,7 +34,8 @@ BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLU
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
     "Reconciliation": CLEAR, "TradeReconciliation": CLEAR,
-    "Params": (("btn_CopyClosingPrices", "CopyClosingPrices", "Copy values", NAVY),),
+    "Params": (("btn_RefreshClosingPrices", "RefreshClosingPrices", "Refresh prices", BLUE),
+               ("btn_CopyClosingPrices", "CopyClosingPrices", "Copy values", NAVY)),
     "FormulaTest": (("btn_RandomizeInputs", "RandomizeFormulaTestInputs", "Randomize inputs", NAVY),
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
@@ -149,8 +150,8 @@ class ShapeButtonTests(unittest.TestCase):
                 self.assertEqual(color.attrib["val"], fill, (name, button))
                 self.assertEqual("".join(item.text or "" for item in shape.iter(A + "t")), label, (name, button))
 
-    def test_copy_values_sits_beside_the_fx_table(self) -> None:
-        # Not in the title row: the owner put it at the FX table, in column G, on its title row.
+    def test_the_price_buttons_sit_beside_the_fx_table_with_copy_values_in_column_g(self) -> None:
+        # Not in the title row: the owner put Copy values at the FX table, in column G, on its title row.
         strings = [re.sub("<[^>]+>", "", item) for item in
                    re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
         sheet = self.package.read(self.parts["Params"]).decode("utf-8")
@@ -161,10 +162,26 @@ class ShapeButtonTests(unittest.TestCase):
                   if anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr") is not None
                   and anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr").attrib["name"] == "btn_Group"]  # type: ignore[union-attr]
         self.assertEqual(len(groups), 1)
-        self.assertEqual(anchor_column(groups[0]), 6)  # G
-        first = int(groups[0].findtext(f"{XDR}from/{XDR}row") or "0") + 1  # the sheet row where the shape starts
+        group = groups[0]
+        first = int(group.findtext(f"{XDR}from/{XDR}row") or "0") + 1  # the sheet row where the shapes start
         self.assertIn(first, (title - 1, title))
-        self.assertEqual(groups[0].find(XDR + "clientData").attrib["fLocksWithSheet"], "1")  # type: ignore[union-attr]
+        self.assertEqual(group.find(XDR + "clientData").attrib["fLocksWithSheet"], "1")  # type: ignore[union-attr]
+        widths = column_widths(sheet)
+        origin = sum(widths.get(index, 64) for index in range(1, anchor_column(group) + 1)) + \
+            int(group.findtext(f"{XDR}from/{XDR}colOff") or "0") // EMU
+        edges = {}
+        for shape in group.iter(XDR + "sp"):
+            position = shape.find(f"{XDR}spPr/{A}xfrm/{A}off")
+            size = shape.find(f"{XDR}spPr/{A}xfrm/{A}ext")
+            assert position is not None and size is not None
+            left = origin + int(position.attrib["x"]) // EMU
+            edges[shape_name(shape)] = (left, left + int(size.attrib["cx"]) // EMU)
+        column_g = (sum(widths.get(index, 64) for index in range(1, 7)), sum(widths.get(index, 64) for index in range(1, 8)))
+        copy_left, copy_right = edges["btn_CopyClosingPrices"]
+        self.assertTrue(column_g[0] <= copy_left < column_g[1], (edges, column_g))  # Copy values starts in column G
+        self.assertLess(edges["btn_RefreshClosingPrices"][1], copy_left)  # Refresh prices is left of it, not over it
+        # nothing covers the title of the table of closing days in column I
+        self.assertLessEqual(copy_right, sum(widths.get(index, 64) for index in range(1, 9)) + 2)
 
     def test_shapes_sit_in_the_title_row_left_of_the_old_buttons_and_clear_of_the_title(self) -> None:
         strings = [re.sub("<[^>]+>", "", item) for item in
