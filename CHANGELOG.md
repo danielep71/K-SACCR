@@ -97,6 +97,18 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Offer to rebase the FX table when the reporting currency changes (#725). The rates are units
+  of each currency per 1 unit of the reporting currency, so after a change of the reporting
+  currency on Params they are still those of the old one, and a run stops because the new
+  reporting currency is not 1. The workbook now asks, with No as the default, whether to rebase
+  the table: every rate is divided by the rate of the new reporting currency, which becomes 1;
+  the conversions are unchanged, and the date and source of the rates stay. A rate that is a
+  formula or not a number above zero stays and is listed; a formula as the rate of the new
+  reporting currency refuses the rebase. Nothing is asked in silent mode or
+  while an operation runs; `RebaseFxTable_Silent` does it for automation. The run's error
+  `FX-REPORTING-RATE` now says what to do: accept the rebase, press Download prices, or divide
+  every rate by that of the reporting currency. `TEST_MainState` gains `params.rebase-fx-table`.
+
 - Let the user choose the source of the rates that Download prices writes (#745). A list
   beside the button on Params (`FX_Source`, D59) holds `Closing price`, the default and the
   behavior until now, and `ECB reference rate`: the euro foreign exchange reference rates of

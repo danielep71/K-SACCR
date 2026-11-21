@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 44   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 45   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -201,6 +201,7 @@ Public Sub RunMainStateTests()
         CaseDownloadClosingPrices
         CaseEcbAnswer
         CaseDownloadEcbRates
+        CaseRebaseFxTable
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -2124,6 +2125,146 @@ Unexpected:
         PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice
 
 End Sub
+
+
+Private Sub CaseRebaseFxTable()
+'
+'==============================================================================
+'                              CaseRebaseFxTable
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rebase of the FX table on a new reporting currency (#725): with
+'   USD at 1.25, every rate is divided by 1.25, USD is 1 and EUR 0.8; a
+'   second rebase changes nothing; a rate that is a formula stays and is
+'   listed; a currency not in the table, or whose own rate is a formula,
+'   is refused; a failure while the
+'   rates are written puts them back; events are on again. Params is put
+'   back as the case found it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result        As String       'What a call returned
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the FX table
+    Dim AllRates      As Range        'Every rate of the table
+    Dim SavedRates    As Variant      'The rates, formulas included
+    Dim SetUp         As Variant      'The rates with USD at 1.25
+    Dim SavedJpy      As Double       'The rate of JPY
+    Dim Total         As Long         'Currencies of the table
+    Dim ErrNumber     As Long         'An error raised by the rebase
+
+'------------------------------------------------------------------------------
+' REBASE ON USD
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.rebase-fx-table"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Total = LastRow - HeaderRow
+        Set AllRates = TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        SavedRates = AllRates.Formula
+        SavedJpy = FxRateOf("JPY")
+        FxRateCell("EUR").Value2 = 1#
+        FxRateCell("USD").Value2 = 1.25
+        SetUp = AllRates.Formula
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check Result = "RESULT=REBASED; currency=USD; divisor=1.25; rates=" & Total, "rebase: " & Result
+        TEST_Kit.Check FxRateOf("USD") = 1# And Abs(FxRateOf("EUR") - 0.8) < 0.000000000001 And _
+                       Abs(FxRateOf("JPY") - SavedJpy / 1.25) < 0.000000001, _
+                       "every rate is divided by 1.25: EUR " & FxRateOf("EUR") & ", JPY " & FxRateOf("JPY")
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check Result = "RESULT=UNCHANGED; currency=USD", "a second rebase changes nothing: " & Result
+
+'------------------------------------------------------------------------------
+' A FORMULA, AN UNKNOWN CURRENCY, A FAILURE
+'------------------------------------------------------------------------------
+        AllRates.Formula = SetUp
+        FxRateCell("GBP").Formula = "=0.86"
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check InStr(Result, "; not_rebased=GBP") > 0 And FxRateCell("GBP").Formula = "=0.86", _
+                       "a rate that is a formula stays and is listed: " & Result
+        Result = M_Main.RebaseFxTable_Silent("XYZ")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=XYZ is not in the FX table") = 1, "unknown currency: " & Result
+        AllRates.Formula = SetUp
+        FxRateCell("USD").Formula = "=1.25"
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the rate of USD is a formula") = 1 And _
+                       FxRateCell("USD").Formula = "=1.25", "a formula as the divisor is refused and kept: " & Result
+        AllRates.Formula = SetUp
+        M_Main.gTestFault = "rebase-write"
+        On Error Resume Next
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        ErrNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        TEST_Kit.Check ErrNumber = ERR_INJECTED_FAULT, "the failure is raised: " & ErrNumber
+        TEST_Kit.Check RatesAsSaved(AllRates, SetUp), "after the failure the rates are put back"
+        TEST_Kit.Check Application.EnableEvents, "events are on again"
+        AllRates.Formula = SavedRates
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not AllRates Is Nothing Then
+            AllRates.Formula = SavedRates
+        End If
+
+End Sub
+
+
+Private Function FxRateCell( _
+    ByVal Code As String) _
+    As Range
+'
+'==============================================================================
+'                                 FxRateCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rate cell of Code in the FX table; Nothing when the table has no
+'   such currency (#725).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim KeyColumn     As Long         'Key column of the FX table
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                Set FxRateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
 
 
 Private Sub PutEcbCaseBack( _

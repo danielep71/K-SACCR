@@ -209,6 +209,21 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertEqual(lines, fixture)
         self.assertEqual(fixture[0], "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE")
 
+    def test_a_change_of_the_reporting_currency_offers_to_rebase_the_fx_table(self) -> None:
+        # #725: the rates are relative to the reporting currency, so a new one is offered a rebase; never in
+        # silent mode or during an operation, so that tests and automation are never stopped by a question.
+        workbook = (ROOT / "src" / "workbook" / "ThisWorkbook.cls").read_text(encoding="cp1252")
+        change = workbook[workbook.index("Private Sub Workbook_SheetChange"):]
+        self.assertIn("M_Main.ReportingCurrencyChanged Sh, Target", change[: change.index("End Sub")])
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
+        handler = main[main.index("Public Sub ReportingCurrencyChanged("):]
+        handler = handler[: handler.index("\nEnd Sub")]
+        self.assertIn("If mRunning Or gSilent Then", handler)
+        self.assertIn("vbYesNo + vbQuestion + vbDefaultButton2", handler)
+        self.assertIn("RebaseFxTable(Code, Problem)", handler)
+        engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")
+        self.assertIn("accept the rebase of the FX table the workbook offers, press", engine)
+
     def test_a_currency_appended_below_the_table_has_a_pair_from_its_code(self) -> None:
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
         # the pair is built from the code and the reporting currency in code, for every row down to the first blank key
