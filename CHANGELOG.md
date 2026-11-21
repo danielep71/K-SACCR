@@ -543,9 +543,9 @@ Use only the categories needed by a release.
 
 - Select the K-SACCR tab again after an add-in took it (#726). With think-cell
   installed, its tab loads after ours and the workbook opened on it. `RibbonOnLoad`
-  now also schedules `ActivateRibbonTab`, which selects the K-SACCR tab 2 and 4
-  seconds later, only while this workbook is the active one, so another open
-  workbook keeps its tab and a tab the user chooses afterwards is left alone;
+  now also schedules `ActivateRibbonTab`, which selects the K-SACCR tab once more
+  3 seconds later, only while this workbook is the active one, so another open
+  workbook keeps its tab and a tab the user chooses after that moment is left alone;
   `Workbook_BeforeClose` cancels a selection still scheduled so that it cannot
   reopen the workbook. `test_template_defaults.py` checks the source.
 
