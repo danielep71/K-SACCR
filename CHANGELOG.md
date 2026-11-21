@@ -657,6 +657,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Set the rate of the reporting currency to 1 when Download prices writes the rates (#745), with
+  either source. The row of the reporting currency has no pair, so it kept the rate it had: after
+  the reporting currency was changed, to USD for example, USD kept its rate against the euro and
+  a run refused the table, which needs 1 for the reporting currency. The 1 is written with the
+  other rates and put back with them when the lookup fails. `TEST_MainState` sets that rate to
+  1.5 before each lookup and checks that it comes back as 1. Found by the owner in Excel.
+
 - Post the report of the automatic quick Excel check on a pull request that has
   no comment yet (#713): Windows PowerShell 5.1 returns an empty string for the
   empty list of comments, which the upsert read as a comment without a body and

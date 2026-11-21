@@ -195,6 +195,8 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('LCase$(Left$(Url, 8)) <> "https://"', main)
         answer = main[main.index("Private Function EcbAnswer("):]
         self.assertIn('Case "ecb-answer", "ecb-write"', answer)  # no test fault sends a real request
+        # the row of the reporting currency takes 1, and only while it is still that currency's row
+        self.assertEqual(main.count("If Not IsReportingRow("), 2)
         for absent in ("QueryTables", "Connections.Add", "WorkbookConnection", '"Authorization"', "SetCredentials"):
             self.assertNotIn(absent, main)
 
