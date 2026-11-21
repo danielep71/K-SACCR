@@ -7567,6 +7567,12 @@ Public Sub CancelPriceLookup()
 '   no price formula is saved and no scheduled look reopens the workbook.
 '   ThisWorkbook calls it. Does nothing when no lookup is waiting.
 '
+' METHOD
+'   Emptying the scratch column with events on would raise
+'   Workbook_SheetChange, whose Ribbon refresh is scheduled with
+'   Application.OnTime and could reopen the workbook once it is closed. So
+'   events are off while the lookup ends, and put back as they were.
+'
 ' ERROR POLICY
 '   Never raises.
 '
@@ -7574,8 +7580,21 @@ Public Sub CancelPriceLookup()
 '   2026-11-21
 '==============================================================================
 '
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim EventsOn    As Boolean   'Events were enabled
+
+'------------------------------------------------------------------------------
+' END THE LOOKUP
+'------------------------------------------------------------------------------
         If mPriceActive Then
+            On Error Resume Next
+            EventsOn = Application.EnableEvents
+            Application.EnableEvents = False
             AbandonPriceLookup
+            Application.EnableEvents = EventsOn
         End If
 
 End Sub
