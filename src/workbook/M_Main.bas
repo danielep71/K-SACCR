@@ -275,6 +275,7 @@ Attribute VB_Name = "M_Main"
         Private mPriceMode      As XlCalculation 'The caller's calculation mode
         Private mPriceDeadline  As Date       'When to stop waiting
         Private mPriceStarted   As Date       'When the formulas were written
+        Private mPriceWritten   As Boolean    'FinishPriceLookup began to write rates
         Private mPollAt         As Date       'When the next poll is scheduled; 0 for none
         Private mPollName       As String     'The procedure it was scheduled with
     'The navigation bar was hidden when a save began, and is hidden again
@@ -7914,6 +7915,7 @@ Private Function StartPriceLookup( _
         On Error GoTo Failed
         mRunning = True
         mPriceActive = True
+        mPriceWritten = False
         mPriceAsOf = NamedCell(PRM_ASOF).Value2
         mPriceMode = Application.Calculation
         Application.Calculation = xlCalculationAutomatic
@@ -8070,6 +8072,7 @@ Private Function FinishPriceLookup( _
                 Code = UCase$(Trim$(SafeStr(TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn).Value2)))
                 Without = Without & IIf(Len(Without) > 0, ",", "") & Code
             Else
+                mPriceWritten = True
                 TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = Found
                 Priced = Priced + 1
             End If
@@ -8112,8 +8115,11 @@ Private Sub AbandonPriceLookup()
 '                             AbandonPriceLookup
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   End a lookup of closing prices that did not succeed (#721): put the
-'   rates and the date of the prices back as they were, then release it.
+'   End a lookup of closing prices that did not succeed (#721): when
+'   FinishPriceLookup had begun to write rates, put them and the date of the
+'   prices back as they were; then empty the scratch column and release the
+'   lookup. A rate is not put back when none was written, so that an edit
+'   the user made while the prices were awaited stays.
 '
 ' ERROR POLICY
 '   Never raises.
@@ -8132,7 +8138,7 @@ Private Sub AbandonPriceLookup()
 ' PUT BACK AND RELEASE
 '------------------------------------------------------------------------------
         On Error Resume Next
-        If mPriceActive Then
+        If mPriceActive And mPriceWritten Then
             For i = 1 To mPriceCount
                 TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceKept(i)
             Next i
