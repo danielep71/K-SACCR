@@ -88,8 +88,18 @@ class ParamsLayoutTests(unittest.TestCase):
     def test_the_trades_validations_read_the_moved_tables(self) -> None:
         trades = self.package.read(sheet_parts(self.package)["Trades"]).decode("utf-8")
         self.assertIn("Params!$E$32:$E$57", trades)
-        self.assertEqual(sorted(set(re.findall(r"Params!\$C\$61:\$C\$80", trades))), ["Params!$C$61:$C$80"])
+        self.assertEqual(sorted(set(re.findall(r"Params!\$C\$61:\$C\$81", trades))), ["Params!$C$61:$C$81"])
         self.assertNotIn("Params!$C$60:$C$79", trades)
+
+    def test_the_fx_table_holds_the_euro_and_twenty_currencies(self) -> None:
+        # rows 61 to 81: the reporting currency and 20 others, validated and checked for a repeated code
+        self.assertRegex(self.xml, r'sqref="C61:C81"[^>]*><formula1>AND\(ISTEXT\(C61\),LEN\(C61\)=3,COUNTIF\(\$C\$61:\$C\$81,C61\)=1\)')
+        self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E61:E81"')
+        self.assertRegex(self.xml, r'<conditionalFormatting sqref="C61:C81">')
+        for row in range(61, 82):
+            self.assertIn(f'<c r="F{row}"', self.xml)
+            self.assertIn(f'IF(F{row}="","",_xlfn.STOCKHISTORY(F{row},AsOfDate,AsOfDate,0,0,1))', self.xml)
+        self.assertNotIn('<c r="F82"', self.xml)
 
 
 if __name__ == "__main__":

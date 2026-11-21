@@ -105,7 +105,8 @@ Use only the categories needed by a release.
   the validations on Trades, the editable cells, the check script and the matrix follow). The FX table
   has a Currency Pair column (the reporting currency over the currency of the row) and a Closing Price
   column that reads the closing price of the pair on `AsOfDate` with `STOCKHISTORY` (Microsoft 365,
-  online); the engine does not read the two columns. The
+  online); the engine does not read the two columns. The validated zone of the FX table holds the
+  reporting currency and 20 others (rows 61 to 81), with the pair and the closing price on each row. The
   illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
   table of closing days moved from G:H to I:J. Header typo fixed ("Closing Price").
 
