@@ -44,7 +44,8 @@ EXPECTED = {
     "BankTrades": tuple((a, b.replace("{import}", "ImportBankTradesCsv").replace(
         "{export}", "ExportBankTradesCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
 }
-# The shapes start no further than this right of the left edge of column C, and clear of the title.
+# The shapes start no further than this right of the left edge of column C, and clear of the title (Params
+# is the exception: its Copy values button sits beside the FX table).
 NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)
 LATEST_START_PX = 480
 EMU = 9525
@@ -65,6 +66,10 @@ def drawing_of(package: zipfile.ZipFile, part: str) -> str:
     match = re.search(r'Type="[^"]*/drawing" Target="\.\./drawings/(drawing\d+\.xml)"', rels)
     assert match is not None, part
     return "xl/drawings/" + match.group(1)
+
+
+def anchor_column(anchor: ElementTree.Element) -> int:
+    return int(anchor.findtext(f"{XDR}from/{XDR}col") or "0")
 
 
 def shape_name(shape: ElementTree.Element) -> str:
@@ -144,10 +149,27 @@ class ShapeButtonTests(unittest.TestCase):
                 self.assertEqual(color.attrib["val"], fill, (name, button))
                 self.assertEqual("".join(item.text or "" for item in shape.iter(A + "t")), label, (name, button))
 
+    def test_copy_values_sits_beside_the_fx_table(self) -> None:
+        # Not in the title row: the owner put it at the FX table, in column G, on its title row.
+        strings = [re.sub("<[^>]+>", "", item) for item in
+                   re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
+        sheet = self.package.read(self.parts["Params"]).decode("utf-8")
+        title = next(int(row) for row, index in re.findall(r'<c r="C(\d+)"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet)
+                     if strings[int(index)] == "FX rates")
+        drawing = ElementTree.fromstring(self.package.read(drawing_of(self.package, self.parts["Params"])))
+        groups = [anchor for anchor in drawing.iter(XDR + "oneCellAnchor")
+                  if anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr") is not None
+                  and anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr").attrib["name"] == "btn_Group"]  # type: ignore[union-attr]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(anchor_column(groups[0]), 6)  # G
+        first = int(groups[0].findtext(f"{XDR}from/{XDR}row") or "0") + 1  # the sheet row where the shape starts
+        self.assertIn(first, (title - 1, title))
+        self.assertEqual(groups[0].find(XDR + "clientData").attrib["fLocksWithSheet"], "1")  # type: ignore[union-attr]
+
     def test_shapes_sit_in_the_title_row_left_of_the_old_buttons_and_clear_of_the_title(self) -> None:
         strings = [re.sub("<[^>]+>", "", item) for item in
                    re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
-        for name in EXPECTED:
+        for name in (sheet for sheet in EXPECTED if sheet != "Params"):
             sheet = self.package.read(self.parts[name]).decode("utf-8")
             title = strings[int(re.search(r'<c r="B2"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet).group(1))]  # type: ignore[union-attr]
             widths = column_widths(sheet)
