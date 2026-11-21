@@ -27,7 +27,7 @@ class OpeningStateTests(unittest.TestCase):
         self.parts = sheet_parts(self.package)
 
     def test_every_sheet_is_saved_at_100_percent(self) -> None:
-        self.assertEqual(len(self.parts), 19)
+        self.assertEqual(len(self.parts), 20)
         for name, part in self.parts.items():
             view = ElementTree.fromstring(self.package.read(part)).find(f"{MAIN}sheetViews/{MAIN}sheetView")
             assert view is not None

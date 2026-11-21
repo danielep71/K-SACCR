@@ -136,6 +136,7 @@
               <button id="ksGoReconciliation" label="Reconciliation" onAction="RibbonGoTo" supertip="Bank figures against Results."/>
               <button id="ksGoBankTrades" label="BankTrades" onAction="RibbonGoTo" supertip="A bank's own figures per trade leg."/>
               <button id="ksGoTradeReconciliation" label="TradeReconciliation" onAction="RibbonGoTo" supertip="Bank figures against TradeCalc."/>
+              <button id="ksGoReconSummary" label="ReconSummary" onAction="RibbonGoTo" supertip="Sums, counts and the largest difference per measure, from the rows the reconciliation filters leave."/>
               <menuSeparator id="ksGoSepReference" title="Reference and tests"/>
               <button id="ksGoTestCatalogue" label="TestCatalogue" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
               <button id="ksGoFormulaTest" label="FormulaTest" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>

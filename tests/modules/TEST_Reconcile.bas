@@ -1232,10 +1232,11 @@ Private Sub CaseExportWorkbook()
 '   as does a recalculation pending in manual calculation; undoing them,
 '   or a new run, allows it again. A currency added below the FX table's
 '   named range is in the report. The edited cells and the files are put
-'   back or removed.
+'   back or removed. The case starts without the sample bank figures of the
+'   template, which it puts back at the end.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-21
 '==============================================================================
 '
 
@@ -1261,6 +1262,10 @@ Private Sub CaseExportWorkbook()
     Dim HolidayCells  As Range        'A closing day added and removed
     Dim SavedHoliday  As Variant      'Its formulas
     Dim FileNumber    As Integer      'File number of a file written by the case
+    Dim BankSets      As Range        'The first rows of BankNettingSets, emptied for the case
+    Dim BankLegs      As Range        'The first rows of BankTrades, emptied for the case
+    Dim SavedSets     As Variant      'Their formulas
+    Dim SavedLegs     As Variant      'Their formulas
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1275,6 +1280,13 @@ Private Sub CaseExportWorkbook()
         End If
         FirstFile = TempFolder & Application.PathSeparator & "K-SACCR_evidence_test_a.csv"
         SecondFile = TempFolder & Application.PathSeparator & "K-SACCR_evidence_test_b.csv"
+    'The template carries sample bank figures: the case starts without them
+        Set BankSets = TableRange(GetSheet(SH_BANK_NS), NamedRow(NM_BN_HEADER) + 1, 1, NamedRow(NM_BN_HEADER) + 50, BN_NCOLS)
+        Set BankLegs = TableRange(GetSheet(SH_BANK_TR), NamedRow(NM_BT_HEADER) + 1, 1, NamedRow(NM_BT_HEADER) + 50, BT_NCOLS)
+        SavedSets = BankSets.Formula
+        SavedLegs = BankLegs.Formula
+        BankSets.ClearContents
+        BankLegs.ClearContents
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(FirstFile)
         TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "first export: " & ResultLine
@@ -1397,6 +1409,8 @@ Private Sub CaseExportWorkbook()
 '------------------------------------------------------------------------------
 ' CLEAN UP
 '------------------------------------------------------------------------------
+        BankSets.Formula = SavedSets
+        BankLegs.Formula = SavedLegs
         RemoveFile FirstFile
         RemoveFile SecondFile
         Exit Sub
@@ -1414,6 +1428,12 @@ Unexpected:
         End If
         If Not HolidayCells Is Nothing Then
             HolidayCells.Formula = SavedHoliday
+        End If
+        If Not BankSets Is Nothing Then
+            BankSets.Formula = SavedSets
+        End If
+        If Not BankLegs Is Nothing Then
+            BankLegs.Formula = SavedLegs
         End If
         RemoveFile FirstFile
         RemoveFile SecondFile

@@ -44,10 +44,10 @@ Current source:
   activation and after an edit, keep its pointer out of every saved file
   (#216), and save the navigation bar shown even while it is hidden
   (#620);
-- `workbook/SACCR_Template.xlsx`: the 19 sheets, in tab order (Home, Params,
+- `workbook/SACCR_Template.xlsx`: the 20 sheets, in tab order (Home, Params,
   NettingSets, Trades, Import_NettingSets, Import_Trades, Results,
   HedgingSets, Buckets, TradeCalc, Checks, BankNettingSets, Reconciliation,
-  BankTrades, TradeReconciliation, TestCatalogue, FormulaTest, Basel_vs_CRR,
+  BankTrades, TradeReconciliation, ReconSummary, TestCatalogue, FormulaTest, Basel_vs_CRR,
   README) with their
   formulas, named ranges, data validation, buttons and the Ribbon part, and no
   VBA project or document properties.
