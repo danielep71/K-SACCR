@@ -1842,7 +1842,8 @@ Private Sub CaseDownloadClosingPrices()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Download prices on Params (#721) in an Excel without STOCKHISTORY, which the
-'   fault "prices-unavailable" stands for: the lookup refuses and says why,
+'   faults "prices-unavailable" and "prices-name-error" stand for: the
+'   lookup refuses and says why,
 '   the prices stay as they were, no formula is left in the column and the
 '   calculation mode is as it was.
 '
@@ -1886,6 +1887,18 @@ Private Sub CaseDownloadClosingPrices()
         TEST_Kit.Check Same, "the prices are as they were"
         TEST_Kit.Check Prices.HasFormula = False, "no formula is left in the column"
         TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+        M_Main.gTestFault = "prices-name-error"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "#NAME? refusal: " & Result
+        Same = True
+        For i = 1 To Prices.Rows.Count
+            If SafeStr(Prices.Cells(i, 1).Value2) <> SafeStr(SavedPrices(i, 1)) Then
+                Same = False
+            End If
+        Next i
+        TEST_Kit.Check Same, "after #NAME? the prices are as they were"
+        TEST_Kit.Check Prices.HasFormula = False, "after #NAME? no formula is left in the column"
         Exit Sub
 
 Unexpected:

@@ -7825,8 +7825,9 @@ Public Function DownloadClosingPrices_Silent() As String
 '
 ' ERROR POLICY
 '   Raises ERR_RUN_ACTIVE while an operation runs. gTestFault =
-'   "prices-unavailable" makes the lookup refuse as an Excel without
-'   STOCKHISTORY does.
+'   "prices-unavailable" makes the lookup refuse as an Excel that
+'   cannot take the formula does; "prices-name-error" writes =#NAME? as
+'   an Excel that takes it but has no STOCKHISTORY would evaluate it.
 '
 ' UPDATED
 '   2026-11-21
@@ -7917,6 +7918,8 @@ Private Function LookUpClosingPrices( _
 '      is a refusal and nothing is changed.
 '   2. With calculation automatic, wait until Excel reports the
 '      calculation done, PRICE_WAIT_SECONDS at most.
+'   2a. If a price cell evaluated to #NAME? (an Excel that takes the
+'      formula but has no STOCKHISTORY), put everything back and refuse.
 '   2b. If the reporting date, the reporting currency or a code changed
 '      while the data came in, put everything back and refuse.
 '   3. Replace each formula with its value when that is a number above
@@ -7951,6 +7954,8 @@ Private Function LookUpClosingPrices( _
     Dim AsOfAsked     As Variant      'The reporting date the prices were asked for
     Dim PairsAsked()  As String       'The pair each price was asked for
     Dim Changed       As Boolean      'An input changed while the data came in
+    Dim Unavailable   As Boolean      'The formula evaluated to #NAME?, STOCKHISTORY is unknown
+    Dim Formula       As String       'The formula written into a price cell
     Dim LastUsed      As Long         'Last row holding a price or a recorded pair
     Dim Count         As Long         'Rows with a pair
     Dim i             As Long         'Row with a pair
@@ -8025,9 +8030,12 @@ Private Function LookUpClosingPrices( _
             Refused = (gTestFault = "prices-unavailable")
             If Not Refused Then
                 Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
-                CallByName PriceCell, "Formula2", VbLet, "=LET(r,STOCKHISTORY(""" & _
-                           PairsAsked(i) & _
-                           """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+                Formula = "=LET(r,STOCKHISTORY(""" & PairsAsked(i) & _
+                          """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+                If gTestFault = "prices-name-error" Then
+                    Formula = "=#NAME?"
+                End If
+                CallByName PriceCell, "Formula2", VbLet, Formula
                 Refused = (Err.Number <> 0)
             End If
             If Refused Then
@@ -8057,6 +8065,22 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
 ' FREEZE THE PRICES
 '------------------------------------------------------------------------------
+    'An Excel that takes the formula but does not know STOCKHISTORY returns #NAME?
+        For i = 1 To Count
+            If IsError(TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2) Then
+                If TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2 = CVErr(xlErrName) Then
+                    Unavailable = True
+                End If
+            End If
+        Next i
+        If Unavailable Then
+            PutPricesBack PairRows, Kept, KeptPairs, Count, ParamsSheet, KeyColumn
+            Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
+            Application.Calculation = Mode
+            mRunning = False
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
     'The reporting date and the pairs must still be the ones asked for
         Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfAsked)
         For i = 1 To Count
