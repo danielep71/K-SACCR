@@ -133,6 +133,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Reconciliation | `ksGoReconciliation` | Reconciliation | `shReconciliation` |
 | Reconciliation | `ksGoBankTrades` | BankTrades | `shBankTrades` |
 | Reconciliation | `ksGoTradeReconciliation` | TradeReconciliation | `shTradeReconciliation` |
+| Reconciliation | `ksGoReconSummary` | ReconSummary | `shReconSummary` |
 | Reference and tests | `ksGoTestCatalogue` | TestCatalogue | `shTestCatalogue` |
 | Reference and tests | `ksGoFormulaTest` | FormulaTest | `shTests` |
 | Reference and tests | `ksGoBaselVsCRR` | Basel_vs_CRR | `shBaselVsCRR` |
