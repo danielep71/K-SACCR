@@ -103,7 +103,8 @@ Use only the categories needed by a release.
   largest absolute difference and the sheet row where it is. The sums are formulas over the rows the
   filters of `Reconciliation` and `TradeReconciliation` leave (`SUBTOTAL(103, ...)` as the tiles do), so
   they change with a filter and need no macro. A factor (multiplier, M, supervisory duration and delta,
-  maturity factors) has no sum, only its counts and its largest difference, in six decimals. The
+  maturity factors) has no sum, only its counts and its largest difference, in six decimals. The amounts
+  are in units of the reporting currency (the bank figures times the amount scale). The
   sheet holds formulas only and is protected as an output sheet (role Output). It has its own button in
   the Reconciliation section of the Go to menu and of the navigation bar, and a link on Home, and the measures it lists are
   tested against those of `CORE_Reconcile`. The workbook now has 20 sheets.
