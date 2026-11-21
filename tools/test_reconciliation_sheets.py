@@ -324,5 +324,48 @@ class ReconSummaryTests(unittest.TestCase):
             self.assertTrue(protection_of is None or protection_of.attrib.get("locked") != "0", cell.attrib["r"])
 
 
+class SampleBankFigureTests(unittest.TestCase):
+    """The template carries sample bank figures, so that a first run shows a reconciliation (#720)."""
+
+    def setUp(self) -> None:
+        self.package = zipfile.ZipFile(TEMPLATE)
+        self.addCleanup(self.package.close)
+        self.parts = sheet_parts(self.package)
+        self.strings = [re.sub(r"<[^>]+>", "", item) for item in
+                        re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
+
+    def column(self, sheet: str, letter: str, first: int, last: int) -> list[str]:
+        root = ElementTree.fromstring(self.package.read(self.parts[sheet]))
+        out: list[str] = []
+        for row in range(first, last + 1):
+            cell = root.find(f'.//{MAIN}c[@r="{letter}{row}"]')
+            value = "" if cell is None else cell.findtext(MAIN + "v") or ""
+            out.append(self.strings[int(value)] if cell is not None and cell.attrib.get("t") == "s" and value else value)
+        return out
+
+    def test_the_sample_bank_rows_name_netting_sets_and_trades_of_the_sample_inputs(self) -> None:
+        sets = {name for name in self.column("NettingSets", "C", 7, 60) if name}
+        ids = [name for name in self.column("BankNettingSets", "C", 9, 30) if name]
+        self.assertGreaterEqual(len(ids), 6)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual([name for name in ids if name not in sets], ["BANK-ONLY-1"])
+        regimes = [value for value in self.column("BankNettingSets", "D", 9, 30) if value]
+        self.assertEqual(len(regimes), len(ids))
+        self.assertTrue(set(regimes) <= {"BCBS", "CRR"})
+        trades = {name for name in self.column("Trades", "C", 5, 400) if name}
+        bank = [name for name in self.column("BankTrades", "C", 9, 30) if name]
+        self.assertGreaterEqual(len(bank), 3)
+        self.assertEqual([name for name in bank if name not in trades], ["BANK-ONLY-T1"])
+
+    def test_the_sample_bank_figures_are_published_values_or_marked_as_changed(self) -> None:
+        ead = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "E", 9, 15)))
+        self.assertEqual(ead["BCBS-EX1"], "569")  # CRE99 example 1 prints an EAD of 569 thousand
+        self.assertEqual(ead["BCBS-EX2"], "381")
+        self.assertEqual(ead["BCBS-EX4"], "936")
+        self.assertEqual(ead["BCBS-EX5"], "1879")
+        comments = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "P", 9, 15)))
+        self.assertIn("on purpose", comments["BCBS-EX3"])
+
+
 if __name__ == "__main__":
     unittest.main()

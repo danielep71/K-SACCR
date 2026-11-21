@@ -108,6 +108,14 @@ Use only the categories needed by a release.
   the Reconciliation section of the Go to menu and of the navigation bar, and a link on Home, and the measures it lists are
   tested against those of `CORE_Reconcile`. The workbook now has 20 sheets.
 
+- Put sample bank figures on `BankNettingSets` and `BankTrades` of the template (#720), so that a first
+  Run SA-CCR shows a reconciliation as the other input sheets show a run. Seven netting sets (the printed
+  figures of CRE99 examples 1 to 5, in thousands as the sample inputs, one EAD changed by 10% and one
+  netting set the calculator does not have) and four trade legs (a printed adjusted notional and delta,
+  an MtM changed on purpose and one leg the calculator does not have). The rows give Match, Difference,
+  Missing in calculator and, for the other sample netting sets, Not in bank file. Clear the cells to start
+  from empty bank sheets.
+
 - Lift the limits of the bank files (#718, follow-up). The files were limited to the rows the template
   formats, 200 netting sets and 500 legs; they now hold up to 10,000 netting sets (as `NettingSets`)
   and 50,000 legs, the limits of the contract (`CSV-TOO-MANY-RECORDS` above them, as before). The
