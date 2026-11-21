@@ -2,7 +2,8 @@
 
 The day-count convention is chosen from a list kept in hidden cells; the FX table carries the currency
 pair and a closing-price column that the engine does not read; the table of closing days sits right of
-them, and the names, the validations and the editable cells follow the layout.
+them, and the names, the validations and the editable cells follow the layout. The source of the rates
+Download prices writes is chosen beside the button and stated with their date (#745).
 """
 
 from __future__ import annotations
@@ -99,7 +100,7 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
         self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")
-        self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\(\) As String")
+        self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\( _\n    Optional ByVal Source As String = vbNullString\) _\n    As String")
         for removed in ("CopyClosingPrices", "ScanClosingPrices", "FX_COL_PRICE_PAIR"):
             self.assertNotIn(removed, main)
 
@@ -149,7 +150,7 @@ class ParamsLayoutTests(unittest.TestCase):
     def test_the_date_of_the_prices_is_shown_beside_the_button(self) -> None:
         self.assertIn('<definedName name="FX_PriceDate">Params!$AQ$27</definedName>', self.workbook)
         self.assertEqual(self.text("AQ27"), self.text("E6"))  # the date of the prices in the template: the reporting date
-        self.assertEqual(self.text("G59"), "Prices downloaded for 2026-09-30")
+        self.assertEqual(self.text("G59"), "Closing prices of 2026-09-30")
         formula = self.sheet.find(f'.//{MAIN}c[@r="G59"]/{MAIN}f')
         assert formula is not None and formula.text is not None
         self.assertIn("FX_PriceDate", formula.text)
@@ -162,6 +163,50 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn("FX_COL_PRICE As Long = 41", config)  # the scratch column AR is 41 columns right of the key column C
         self.assertNotIn("FX_COL_PRICE_PAIR", config)
 
+    def test_the_source_of_the_rates_is_chosen_beside_the_button_and_stated_with_their_date(self) -> None:
+        # #745: D59 chooses what Download prices writes; AQ28 keeps the source of the rates downloaded, which
+        # G59 states with their date, so that the rates in the table never have an unknown source.
+        self.assertIn('<definedName name="FX_Source">Params!$D$59</definedName>', self.workbook)
+        self.assertIn('<definedName name="FX_PriceSource">Params!$AQ$28</definedName>', self.workbook)
+        self.assertEqual(self.text("D59"), "Closing price")
+        self.assertEqual(self.text("AQ28"), "Closing price")
+        self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="D59"[^>]*>'
+                                   r'<formula1>"Closing price,ECB reference rate"</formula1>')
+        formula = self.sheet.find(f'.//{MAIN}c[@r="G59"]/{MAIN}f')
+        assert formula is not None and formula.text is not None
+        self.assertIn('IF(FX_PriceSource="ECB reference rate","ECB reference rates of ","Closing prices of ")', formula.text)
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
+        for constant in ('NM_FX_SOURCE     As String = "FX_Source"', 'NM_FX_PRICE_SRC  As String = "FX_PriceSource"',
+                         'FX_SOURCE_CLOSING  As String = "Closing price"', 'FX_SOURCE_ECB      As String = "ECB reference rate"'):
+            self.assertIn(constant, config)
+
+    def test_the_ecb_is_asked_over_https_with_currency_codes_and_dates_only(self) -> None:
+        # #745: one HTTPS request from VBA, no web query and no connection left in the workbook, nothing sent
+        # but three-letter codes and two dates, no credential.
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
+        self.assertIn('ECB_EXR_URL        As String = "https://data-api.ecb.europa.eu/service/data/EXR/D."', config)
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
+        url = main[main.index("Public Function EcbRequestUrl("):]
+        url = url[: url.index("End Function")]
+        self.assertIn('ECB_EXR_URL & Join(Codes, "+") & ".EUR.SP00.A?startPeriod="', url)
+        self.assertIn('"&format=csvdata&detail=dataonly"', url)
+        self.assertIn('Codes(i) Like "[A-Z][A-Z][A-Z]"', main)  # only codes go into the request
+        self.assertIn('CreateObject("MSXML2.XMLHTTP.6.0")', main)
+        self.assertIn('LCase$(Left$(Url, 8)) <> "https://"', main)
+        answer = main[main.index("Private Function EcbAnswer("):]
+        self.assertIn('Case "ecb-answer", "ecb-write"', answer)  # no test fault sends a real request
+        for absent in ("QueryTables", "Connections.Add", "WorkbookConnection", '"Authorization"', "SetCredentials"):
+            self.assertNotIn(absent, main)
+
+    def test_the_sample_answer_of_the_tests_is_the_fixture_file(self) -> None:
+        tests = (ROOT / "tests" / "modules" / "TEST_MainState.bas").read_text(encoding="cp1252")
+        block = re.search(r"Private Function EcbSample\(\).*?Join\(Array\((.*?)\), vbLf\)", tests, re.S)
+        assert block is not None
+        lines = [item.replace('""', '"') for item in re.findall(r'"((?:[^"]|"")*)"', block.group(1))]
+        fixture = (ROOT / "tests" / "fixtures" / "ecb" / "EXR_D_sample.csv").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(lines, fixture)
+        self.assertEqual(fixture[0], "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE")
+
     def test_a_currency_appended_below_the_table_has_a_pair_from_its_code(self) -> None:
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
         # the pair is built from the code and the reporting currency in code, for every row down to the first blank key
@@ -172,7 +217,7 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertNotRegex(self.xml, r'sqref="G\d+:G\d+"[^>]*><formula1>AND\(ISNUMBER\(G')
         matrix = (ROOT / "docs" / "workbook" / "protection.json").read_text(encoding="utf-8")
         self.assertIn('"C61:E260", "I61:J160"', matrix)
-        self.assertIn('"unlocked_cells": ["E6", "E7", "E8", "E26", "E27"', matrix)
+        self.assertIn('"unlocked_cells": ["E6", "E7", "E8", "E26", "E27", "D59"', matrix)
 
     def test_the_trades_validations_read_the_moved_tables(self) -> None:
         trades = self.package.read(sheet_parts(self.package)["Trades"]).decode("utf-8")

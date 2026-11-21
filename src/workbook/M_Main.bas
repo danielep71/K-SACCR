@@ -255,6 +255,7 @@ Attribute VB_Name = "M_Main"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
+        Public gTestEcbAnswer  As String  'Test seam: the answer of the ECB with gTestFault = "ecb-answer" (#745)
         Private mRunning    As Boolean    'True while an operation is in progress
     'The lookup of closing prices in progress (#721): the formulas are in the
     'scratch column and the prices are awaited. Excel hands a request of
@@ -271,6 +272,7 @@ Attribute VB_Name = "M_Main"
         Private mPricePairs()   As String     'The pair each price is asked for
         Private mPriceKept()    As Variant    'The rate each row held before
         Private mPriceKeptDate  As Variant    'The date of the prices before
+        Private mPriceKeptSource As Variant   'The source of the rates before (#745)
         Private mPriceAsOf      As Variant    'The reporting date asked for
         Private mPriceMode      As XlCalculation 'The caller's calculation mode
         Private mPriceDeadline  As Date       'When to stop waiting
@@ -7425,32 +7427,37 @@ Public Sub DownloadClosingPrices()
 '                            DownloadClosingPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Look up the closing price of each currency pair of the FX table on the
-'   reporting date with STOCKHISTORY and write it as a value in the rate
-'   cell of the currency (#721), after a confirmation with Cancel as the
-'   default, and show the date of the prices beside the button. The pair
-'   is built from the reporting currency and the code of the row; the
-'   formulas live in a hidden scratch column that is emptied afterwards, so
-'   no formula and no data request is left in the workbook.
+'   Look up the rate of each currency of the FX table on the reporting date
+'   from the source chosen in FX_Source and write it as a value in the rate
+'   cell of the currency, after a confirmation with Cancel as the default,
+'   and show the source and the date of the rates beside the button. The
+'   sources are the closing price of the pair with STOCKHISTORY (#721) and
+'   the euro reference rate of the ECB (#745). The pair is built from the
+'   reporting currency and the code of the row; no formula, no data request
+'   and no connection is left in the workbook.
 '
 ' USAGE
 '   Download prices on the Params sheet, or the Macros dialog. Automation
 '   calls DownloadClosingPrices_Silent.
 '
 ' METHOD
-'   The macro writes the formulas and returns: Excel hands the requests of
-'   STOCKHISTORY back only when no macro runs. PollClosingPrices, scheduled
-'   each second, writes the rates when the prices have come, and the
-'   message is shown then. The status bar shows the wait.
+'   Closing price: the macro writes the formulas into a hidden scratch
+'   column and returns, as Excel hands the requests of STOCKHISTORY back
+'   only when no macro runs. PollClosingPrices, scheduled each second,
+'   writes the rates when the prices have come, and the message is shown
+'   then. ECB reference rate: LookUpEcbRates asks the ECB data portal over
+'   HTTPS and writes the rates in the same call. The status bar shows the
+'   wait.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
-'   mode; never raises. STOCKHISTORY needs Microsoft 365 and a connection:
-'   without them no rate is changed. In silent mode, where no confirmation
-'   can be given, nothing is looked up.
+'   mode; never raises. STOCKHISTORY needs Microsoft 365 and a connection,
+'   the ECB a connection to its data portal: without them no rate is
+'   changed. In silent mode, where no confirmation can be given, nothing is
+'   looked up.
 '
 ' UPDATED
-'   2026-11-21
+'   2026-11-22
 '==============================================================================
 '
 
@@ -7459,6 +7466,10 @@ Public Sub DownloadClosingPrices()
 '------------------------------------------------------------------------------
     Dim Pairs       As Long      'Currencies with a pair
     Dim Problem     As String    'Why nothing was looked up
+    Dim Source      As String    'FX_SOURCE_CLOSING or FX_SOURCE_ECB
+    Dim Priced      As Long      'Rates an ECB lookup wrote
+    Dim Without     As String    'Currencies the ECB gave no rate for
+    Dim Fixing      As String    'The day of the ECB rates, when not the reporting date
 
 '------------------------------------------------------------------------------
 ' CONFIRM AND START THE LOOKUP
@@ -7478,15 +7489,30 @@ Public Sub DownloadClosingPrices()
             Notify "No currency of the FX table has a pair: nothing to look up.", vbExclamation
             Exit Sub
         End If
-        If MsgBox("Replace the rates of " & Pairs & " currenc" & IIf(Pairs = 1, "y", "ies") & " with the closing prices of " & _
-                  ClosingPriceDate() & "?" & vbLf & vbLf & _
-                  "The rates now in the table are overwritten and Undo cannot bring them back. It needs Microsoft 365 " & _
-                  "and a connection, and takes up to " & PRICE_WAIT_SECONDS & " seconds.", _
-                  vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+        Source = PriceSource(vbNullString, Problem)
+        If Len(Problem) > 0 Then
+            Notify "Nothing was looked up." & vbLf & vbLf & Problem, vbExclamation
             Exit Sub
         End If
+        If MsgBox(PriceQuestion(Pairs, Source), vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+
+    'The ECB: one request, answered within this call
+        If Source = FX_SOURCE_ECB Then
+            Application.Cursor = xlWait
+            Application.StatusBar = "Downloading the ECB reference rates of " & ClosingPriceDate() & "..."
+            LookUpEcbRates Priced, Without, Problem, Fixing
+            Application.Cursor = xlDefault
+            Application.StatusBar = False
+            RibbonStateChanged
+            ReportPrices Priced, Without, Problem, Source, Fixing
+            Exit Sub
+        End If
+
+    'STOCKHISTORY: the formulas now, the prices from the timer
         If Not StartPriceLookup(Problem) Then
-            ReportPrices 0, vbNullString, Problem
+            ReportPrices 0, vbNullString, Problem, Source
             Exit Sub
         End If
         Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "..."
@@ -7494,7 +7520,11 @@ Public Sub DownloadClosingPrices()
         Exit Sub
 
 Failed:
-        Notify "Download closing prices: " & Err.Description, vbCritical
+        If Source = FX_SOURCE_ECB Then
+            Application.Cursor = xlDefault
+            Application.StatusBar = False
+        End If
+        Notify "Download prices: " & Err.Description, vbCritical
 
 End Sub
 
@@ -7545,7 +7575,7 @@ Public Sub PollClosingPrices()
         End If
         ResultLine = FinishPriceLookup(Priced, Without, Problem)
         RibbonStateChanged
-        ReportPrices Priced, Without, Problem
+        ReportPrices Priced, Without, Problem, FX_SOURCE_CLOSING
         Exit Sub
 
 Failed:
@@ -7607,45 +7637,161 @@ End Sub
 Private Sub ReportPrices( _
     ByVal Priced As Long, _
     ByVal Without As String, _
-    ByVal Problem As String)
+    ByVal Problem As String, _
+    ByVal Source As String, _
+    Optional ByVal Fixing As String = vbNullString)
 '
 '==============================================================================
 '                               ReportPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Tell the user the result of a lookup of closing prices (#721): why no
-'   rate was changed, or how many rates were set and for which currencies
-'   there was no price.
+'   Tell the user the result of a lookup of rates (#721, #745): why no rate
+'   was changed, or how many rates were set from which source and for which
+'   currencies there was no rate. Fixing is the day of the ECB rates when it
+'   is not the reporting date, a day without a fixing.
 '
 ' UPDATED
-'   2026-11-21
+'   2026-11-22
 '==============================================================================
 '
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim What        As String    'The kind of rate, as the message names it
+
+'------------------------------------------------------------------------------
+' TELL
+'------------------------------------------------------------------------------
         If Len(Problem) > 0 Then
             Notify "No rate was changed." & vbLf & vbLf & Problem, vbExclamation
-        Else
-            Notify Priced & " rate" & IIf(Priced = 1, "", "s") & " set to the closing price of " & ClosingPriceDate() & _
-                   IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose rate stays as it was.", "."), _
-                   IIf(Len(Without) > 0, vbExclamation, vbInformation)
+            Exit Sub
         End If
+        What = IIf(Source = FX_SOURCE_ECB, "ECB reference rate", "closing price")
+        Notify Priced & " rate" & IIf(Priced = 1, "", "s") & " set to the " & What & " of " & ClosingPriceDate() & _
+               IIf(Len(Fixing) > 0, " (the fixing of " & Fixing & ", the last one on or before that day)", "") & _
+               IIf(Len(Without) > 0, "; no " & What & " for " & Replace(Without, ",", ", ") & _
+                   ", whose rate stays as it was.", "."), _
+               IIf(Len(Without) > 0, vbExclamation, vbInformation)
 
 End Sub
 
 
-Public Function DownloadClosingPrices_Silent() As String
+Private Function PriceQuestion( _
+    ByVal Pairs As Long, _
+    ByVal Source As String) _
+    As String
+'
+'==============================================================================
+'                              PriceQuestion
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The confirmation of Download prices, which names the source (#745) and
+'   says what the lookup needs and sends.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Currencies  As String    'How many currencies, in words
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        Currencies = Pairs & " currenc" & IIf(Pairs = 1, "y", "ies")
+        If Source = FX_SOURCE_ECB Then
+            PriceQuestion = "Replace the rates of " & Currencies & " with the ECB reference rates of " & _
+                            ClosingPriceDate() & "?" & vbLf & vbLf & _
+                            "The rates now in the table are overwritten and Undo cannot bring them back. The rates are " & _
+                            "asked of the ECB data portal over HTTPS, with the currency codes and the dates only; it needs " & _
+                            "a connection and takes up to " & PRICE_WAIT_SECONDS & " seconds."
+        Else
+            PriceQuestion = "Replace the rates of " & Currencies & " with the closing prices of " & _
+                            ClosingPriceDate() & "?" & vbLf & vbLf & _
+                            "The rates now in the table are overwritten and Undo cannot bring them back. It needs " & _
+                            "Microsoft 365 and a connection, and takes up to " & PRICE_WAIT_SECONDS & " seconds."
+        End If
+
+End Function
+
+
+Private Function PriceSource( _
+    ByVal Given As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                               PriceSource
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The source of the rates a lookup uses (#745): Given when it is not
+'   blank, else the cell FX_Source on Params; blank is the default,
+'   FX_SOURCE_CLOSING. Case and surrounding spaces are ignored.
+'
+' RETURNS
+'   FX_SOURCE_CLOSING or FX_SOURCE_ECB. "" with Problem set when the source
+'   is neither, or the name FX_Source is missing.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Cell        As Range     'FX_Source
+    Dim Text        As String    'The source as given
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        Problem = vbNullString
+        Text = Trim$(Given)
+        If Len(Text) = 0 Then
+            Set Cell = NamedCell(NM_FX_SOURCE)
+            If Cell Is Nothing Then
+                Problem = "the workbook name '" & NM_FX_SOURCE & "' is missing."
+                Exit Function
+            End If
+            Text = Trim$(SafeStr(Cell.Cells(1, 1).Value2))
+        End If
+        Select Case LCase$(Text)
+            Case vbNullString, LCase$(FX_SOURCE_CLOSING)
+                PriceSource = FX_SOURCE_CLOSING
+            Case LCase$(FX_SOURCE_ECB)
+                PriceSource = FX_SOURCE_ECB
+            Case Else
+                Problem = "the source of the rates is '" & Text & "': choose " & FX_SOURCE_CLOSING & " or " & _
+                          FX_SOURCE_ECB & " beside Download prices on " & SH_PARAMS & "."
+        End Select
+
+End Function
+
+
+Public Function DownloadClosingPrices_Silent( _
+    Optional ByVal Source As String = vbNullString) _
+    As String
 '
 '==============================================================================
 '                         DownloadClosingPrices_Silent
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Look up the closing prices of the FX table and write them as rates
-'   (#721), for automation and tests, without a confirmation or a message.
+'   Look up the rates of the FX table and write them (#721), for automation
+'   and tests, without a confirmation or a message, from Source, or from
+'   the source in FX_Source when Source is blank (#745).
 '
 ' RETURNS
 '   "RESULT=PRICED; rates=N; without_price=M" (and "; codes=..." with the
-'   currencies that got no price, whose rate stays), or
-'   "RESULT=REFUSED; reason=..." when no rate was changed, for example
-'   without STOCKHISTORY or when no price came for any currency.
+'   currencies that got no rate, whose rate stays; from the ECB, then
+'   "; source=ECB" and "; fixing=yyyy-mm-dd" when the fixing is of an
+'   earlier day), or "RESULT=REFUSED; reason=..." when no rate was
+'   changed, for example without STOCKHISTORY, without a connection, or
+'   when no rate came for any currency.
 '
 ' ERROR POLICY
 '   Raises ERR_RUN_ACTIVE while an operation runs. gTestFault =
@@ -7654,10 +7800,11 @@ Public Function DownloadClosingPrices_Silent() As String
 '   an Excel that takes it but has no STOCKHISTORY would evaluate it;
 '   "prices-fixed" writes the price 2 for every pair, and no price (#N/A)
 '   for the first one, and "prices-none" no price (#N/A) for any pair, in
-'   place of the formulas of STOCKHISTORY.
+'   place of the formulas of STOCKHISTORY. The faults of the ECB are in
+'   EcbAnswer and LookUpEcbRates.
 '
 ' UPDATED
-'   2026-11-21
+'   2026-11-22
 '==============================================================================
 '
 
@@ -7667,6 +7814,8 @@ Public Function DownloadClosingPrices_Silent() As String
     Dim Priced      As Long      'Rates written
     Dim Without     As String    'Currencies with no price
     Dim Problem     As String    'Why no rate was changed
+    Dim Fixing      As String    'The day of the ECB rates, when not the reporting date
+    Dim Chosen      As String    'The source used
 
 '------------------------------------------------------------------------------
 ' LOOK UP
@@ -7674,7 +7823,14 @@ Public Function DownloadClosingPrices_Silent() As String
         If mRunning Then
             Err.Raise ERR_RUN_ACTIVE, "M_Main.DownloadClosingPrices_Silent", "An SA-CCR operation is already running."
         End If
-        DownloadClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
+        Chosen = PriceSource(Source, Problem)
+        If Len(Problem) > 0 Then
+            DownloadClosingPrices_Silent = "RESULT=REFUSED; reason=" & Problem
+        ElseIf Chosen = FX_SOURCE_ECB Then
+            DownloadClosingPrices_Silent = LookUpEcbRates(Priced, Without, Problem, Fixing)
+        Else
+            DownloadClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
+        End If
 
 End Function
 
@@ -7844,6 +8000,808 @@ Failed:
 End Function
 
 
+Private Function LookUpEcbRates( _
+    ByRef Priced As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String, _
+    ByRef Fixing As String) _
+    As String
+'
+'==============================================================================
+'                               LookUpEcbRates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the ECB euro foreign exchange reference rates on the reporting
+'   date and write them as the rates of the FX table, all or none (#745).
+'   For each currency the latest fixing on or before the reporting date is
+'   used, ECB_LOOKBACK_DAYS back at most. The ECB quotes every currency
+'   against the euro: with another reporting currency the rate is crossed
+'   through the euro, the currency per euro over the reporting currency per
+'   euro, and the euro is 1 over the latter. A currency the ECB gave no rate
+'   for keeps its rate and is listed in Without.
+'
+' METHOD
+'   1. Find the rows with a pair and note their rates, and the date and
+'      source of the rates, to put them back.
+'   2. Ask the ECB (EcbAnswer) for the currencies of the table that are
+'      three-letter codes, the euro aside, and the reporting currency
+'      unless it is the euro; read the answer (EcbLatestRates).
+'   3. Work out every rate; refuse when the reporting date, the reporting
+'      currency or a code was changed while the answer was awaited, which
+'      DoEvents allows; then write the rates, the reporting date into
+'      NM_FX_PRICE_DATE and FX_SOURCE_ECB into NM_FX_PRICE_SRC.
+'   mRunning is set while the answer is awaited, so that no other operation
+'   starts.
+'
+' RETURNS
+'   "RESULT=PRICED; rates=N; without_price=M[; codes=...]; source=ECB
+'   [; fixing=yyyy-mm-dd]" or "RESULT=REFUSED; reason=...". Fixing is the
+'   day of the fixing used when it is not the reporting date.
+'
+' ERROR POLICY
+'   A refusal is returned, not raised, and changes nothing: no connection,
+'   an HTTP error, a time-out, an answer that is not the CSV expected, no
+'   rate for the reporting currency, none for any currency, or an input
+'   changed while the answer was awaited. An error
+'   puts the rates, the date and the source back and is raised again.
+'   gTestFault = "ecb-write" raises ERR_INJECTED_FAULT after the first rate
+'   is written.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim r             As Long         'Row
+    Dim i             As Long         'Row with a pair
+    Dim k             As Long         'Currency asked for
+    Dim Count         As Long         'Rows with a pair
+    Dim PairRows()    As Long         'The rows with a pair
+    Dim Codes()       As String       'Their currencies
+    Dim Kept()        As Variant      'The rate each row held
+    Dim KeptDate      As Variant      'The date of the rates before
+    Dim KeptSource    As Variant      'Their source before
+    Dim Reporting     As String       'The reporting currency
+    Dim AsOfValue     As Variant      'The reporting date as the cell holds it
+    Dim AsOf          As Date         'The reporting date
+    Dim Asked()       As String       'The currencies asked of the ECB
+    Dim AskedCount    As Long         'How many
+    Dim Answer        As String       'What the ECB answered
+    Dim PerEuro()     As Double       'The rate of each currency asked, per euro; 0 for none
+    Dim Days()        As Date         'The day of each
+    Dim ReportingPer  As Double       'Units of the reporting currency per euro
+    Dim CodePer       As Double       'Units of a currency per euro
+    Dim NewRates()    As Double       'The rate of each row; 0 for none
+    Dim Latest        As Date         'The latest fixing used
+    Dim Written       As Boolean      'A rate was written
+    Dim Changed       As Boolean      'An input changed while the answer was awaited
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+
+'------------------------------------------------------------------------------
+' FIND THE ROWS
+'------------------------------------------------------------------------------
+        Priced = 0
+        Without = vbNullString
+        Problem = vbNullString
+        Fixing = vbNullString
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Problem = "the workbook name '" & NM_FX_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS & "."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        If NamedCell(NM_FX_PRICE_DATE) Is Nothing Or NamedCell(NM_FX_PRICE_SRC) Is Nothing Then
+            Problem = "the workbook name '" & IIf(NamedCell(NM_FX_PRICE_DATE) Is Nothing, NM_FX_PRICE_DATE, NM_FX_PRICE_SRC) & _
+                      "' is missing."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        Reporting = UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2)))
+        AsOfValue = NamedCell(PRM_ASOF).Value2
+        If Not Reporting Like "[A-Z][A-Z][A-Z]" Then
+            Problem = "the reporting currency '" & Reporting & "' is not a three-letter code."
+        ElseIf VarType(AsOfValue) <> vbDouble Then
+            Problem = "the reporting date is not a date."
+        End If
+        If Len(Problem) > 0 Then
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        AsOf = CDate(Int(AsOfValue))
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
+                Count = Count + 1
+                ReDim Preserve PairRows(1 To Count)
+                ReDim Preserve Codes(1 To Count)
+                ReDim Preserve Kept(1 To Count)
+                PairRows(Count) = r
+                Codes(Count) = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
+                Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
+            End If
+            r = r + 1
+        Loop
+        If Count = 0 Then
+            Problem = "no currency of the FX table has a pair."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        KeptSource = NamedCell(NM_FX_PRICE_SRC).Value2
+
+'------------------------------------------------------------------------------
+' ASK THE ECB
+'------------------------------------------------------------------------------
+    'Only three-letter codes go into the request: nothing else leaves the workbook
+        ReDim Asked(1 To Count + 1)
+        If Reporting <> "EUR" Then
+            AskedCount = 1
+            Asked(1) = Reporting
+        End If
+        For i = 1 To Count
+            If Codes(i) Like "[A-Z][A-Z][A-Z]" And Codes(i) <> "EUR" And IndexOfCode(Asked, AskedCount, Codes(i)) = 0 Then
+                AskedCount = AskedCount + 1
+                Asked(AskedCount) = Codes(i)
+            End If
+        Next i
+        If AskedCount = 0 Then
+            Problem = "no currency of the FX table is a code the ECB could publish a rate for."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        ReDim Preserve Asked(1 To AskedCount)
+        On Error GoTo Failed
+        mRunning = True
+        Answer = EcbAnswer(EcbRequestUrl(Asked, AsOf), Problem)
+        If Len(Problem) = 0 Then
+            If Not EcbLatestRates(Answer, Asked, AsOf, PerEuro, Days, Problem) Then
+                If Len(Problem) = 0 Then
+                    Problem = "the answer of the ECB data portal could not be read."
+                End If
+            End If
+        End If
+        If Len(Problem) > 0 Then
+            mRunning = False
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WORK OUT THE RATES
+'------------------------------------------------------------------------------
+        ReportingPer = 1#
+        If Reporting <> "EUR" Then
+            ReportingPer = PerEuro(IndexOfCode(Asked, AskedCount, Reporting))
+            Latest = Days(IndexOfCode(Asked, AskedCount, Reporting))
+            If ReportingPer <= 0# Then
+                mRunning = False
+                Problem = "the ECB published no reference rate of the reporting currency " & Reporting & " from " & _
+                          Format$(AsOf - ECB_LOOKBACK_DAYS, "yyyy-mm-dd") & " to " & Format$(AsOf, "yyyy-mm-dd") & _
+                          ", so no rate can be crossed through the euro."
+                LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+                Exit Function
+            End If
+        End If
+        ReDim NewRates(1 To Count)
+        For i = 1 To Count
+            CodePer = 0#
+            If Codes(i) = "EUR" Then
+                CodePer = 1#
+            Else
+                k = IndexOfCode(Asked, AskedCount, Codes(i))
+                If k > 0 Then
+                    CodePer = PerEuro(k)
+                    If CodePer > 0# And Days(k) > Latest Then
+                        Latest = Days(k)
+                    End If
+                End If
+            End If
+            If CodePer > 0# Then
+                NewRates(i) = CodePer / ReportingPer
+                Priced = Priced + 1
+            Else
+                Without = Without & IIf(Len(Without) > 0, ",", "") & Codes(i)
+            End If
+        Next i
+        If Priced = 0 Then
+            mRunning = False
+            Without = vbNullString
+            Problem = "the ECB published no reference rate for any currency of the FX table from " & _
+                      Format$(AsOf - ECB_LOOKBACK_DAYS, "yyyy-mm-dd") & " to " & Format$(AsOf, "yyyy-mm-dd") & "."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE THE RATES
+'------------------------------------------------------------------------------
+    'Params stays editable while the answer is awaited: the inputs must still be those asked for
+        Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfValue) Or _
+                  (UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2))) <> Reporting)
+        For i = 1 To Count
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, PairRows(i), KeyColumn).Value2))) <> Codes(i) Then
+                Changed = True
+            End If
+        Next i
+        If Changed Then
+            mRunning = False
+            Priced = 0
+            Without = vbNullString
+            Problem = "the reporting date, the reporting currency or a currency code was changed while the rates came in, " & _
+                      "so no rate was changed."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        For i = 1 To Count
+            If NewRates(i) > 0# Then
+                Written = True
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = NewRates(i)
+                If gTestFault = "ecb-write" Then
+                    Err.Raise ERR_INJECTED_FAULT, "M_Main.LookUpEcbRates", "Injected failure while the ECB rates are written."
+                End If
+            End If
+        Next i
+        NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfValue
+        NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_ECB
+        mRunning = False
+        If Latest <> AsOf And Latest > 0 Then
+            Fixing = Format$(Latest, "yyyy-mm-dd")
+        End If
+        LookUpEcbRates = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
+                         IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
+                         IIf(Len(Without) > 0, "; codes=" & Without, "") & "; source=ECB" & _
+                         IIf(Len(Fixing) > 0, "; fixing=" & Fixing, "")
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        On Error Resume Next
+        If Written Then
+            For i = 1 To Count
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Kept(i)
+            Next i
+            NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = KeptSource
+        End If
+        mRunning = False
+        On Error GoTo 0
+        Err.Raise ErrNumber, "M_Main.LookUpEcbRates", ErrText
+
+End Function
+
+
+Public Function EcbRequestUrl( _
+    ByRef Codes() As String, _
+    ByVal AsOf As Date) _
+    As String
+'
+'==============================================================================
+'                                EcbRequestUrl
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The HTTPS address that asks the ECB data portal for the daily euro
+'   reference rates of Codes from ECB_LOOKBACK_DAYS before AsOf to AsOf,
+'   as CSV with the data columns only (#745). It carries the currency codes
+'   and the two dates, nothing else.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        EcbRequestUrl = ECB_EXR_URL & Join(Codes, "+") & ".EUR.SP00.A?startPeriod=" & _
+                        Format$(AsOf - ECB_LOOKBACK_DAYS, "yyyy-mm-dd") & "&endPeriod=" & Format$(AsOf, "yyyy-mm-dd") & _
+                        "&format=csvdata&detail=dataonly"
+
+End Function
+
+
+Private Function EcbAnswer( _
+    ByVal Url As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                                  EcbAnswer
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Send the request Url to the ECB data portal and return its answer, the
+'   text of a CSV file (#745). HTTP 404 is the portal's answer when none of
+'   the currencies asked has a series: it is an empty answer, no rate.
+'
+' METHOD
+'   MSXML2.XMLHTTP, by late binding, sends the request through the
+'   connection and the proxy settings of Windows, as a browser does, and
+'   asynchronously, so that the wait can end after PRICE_WAIT_SECONDS. The
+'   request asks the portal itself, not a copy kept by Windows. No web
+'   query and no connection is left in the workbook.
+'
+' RETURNS
+'   The answer; "" with Problem set when there is none: no connection, a
+'   time-out, an HTTP status other than 200 and 404, or an address that is
+'   not HTTPS.
+'
+' ERROR POLICY
+'   Never raises. gTestFault = "ecb-answer" returns gTestEcbAnswer, and so
+'   does "ecb-write", whose failure LookUpEcbRates injects later, and
+'   "ecb-edit", which also moves the reporting date a day on, as a user
+'   could while the answer is awaited;
+'   "ecb-offline", "ecb-http" and "ecb-timeout" give the problem of no
+'   connection, of HTTP 503 and of a time-out; none of them sends anything.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Request     As Object    'MSXML2.XMLHTTP
+    Dim Deadline    As Date      'When to stop waiting
+    Dim Status      As Long      'The HTTP status
+    Dim Failure     As String    'What the request reported
+
+'------------------------------------------------------------------------------
+' FAULTS
+'------------------------------------------------------------------------------
+        Problem = vbNullString
+        Select Case gTestFault
+            Case "ecb-answer", "ecb-write"
+                EcbAnswer = gTestEcbAnswer
+                Exit Function
+            Case "ecb-edit"
+                EcbAnswer = gTestEcbAnswer
+                NamedCell(PRM_ASOF).Value2 = NamedCell(PRM_ASOF).Value2 + 1
+                Exit Function
+            Case "ecb-offline"
+                Problem = EcbUnreachable("the server name could not be resolved")
+                Exit Function
+            Case "ecb-http"
+                Problem = "the ECB data portal answered HTTP 503 (Service Unavailable). Try again later."
+                Exit Function
+            Case "ecb-timeout"
+                Problem = "the ECB data portal did not answer within " & PRICE_WAIT_SECONDS & " seconds. " & _
+                          "Check the connection and try again."
+                Exit Function
+        End Select
+        If LCase$(Left$(Url, 8)) <> "https://" Then
+            Problem = "the address of the ECB data portal is not HTTPS, so nothing was sent."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' SEND AND WAIT
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        Set Request = CreateObject("MSXML2.XMLHTTP.6.0")
+        If Request Is Nothing Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "this Excel cannot send a web request (MSXML2.XMLHTTP is missing), so no rate was looked up."
+            Exit Function
+        End If
+        Request.Open "GET", Url, True
+        Request.setRequestHeader "Cache-Control", "no-cache"
+        Request.setRequestHeader "If-Modified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"
+        Request.send
+        If Err.Number <> 0 Then
+            Failure = Err.Description
+            Err.Clear
+            On Error GoTo 0
+            Problem = EcbUnreachable(Failure)
+            Exit Function
+        End If
+        Deadline = Now + TimeSerial(0, 0, PRICE_WAIT_SECONDS)
+        Do While Request.readyState <> 4
+            If Now >= Deadline Then
+                Request.abort
+                Err.Clear
+                On Error GoTo 0
+                Problem = "the ECB data portal did not answer within " & PRICE_WAIT_SECONDS & " seconds. " & _
+                          "Check the connection and try again."
+                Exit Function
+            End If
+            DoEvents
+        Loop
+        Status = Request.Status
+        If Err.Number <> 0 Then
+            Failure = Err.Description
+            Err.Clear
+            On Error GoTo 0
+            Problem = EcbUnreachable(Failure)
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' READ THE STATUS
+'------------------------------------------------------------------------------
+    'Windows reports a request that did not reach the server as a status of 0, or 12000 and above
+        Select Case Status
+            Case 200
+                EcbAnswer = Request.responseText
+            Case 404
+                EcbAnswer = vbNullString
+            Case 0, 12000 To 12999
+                Problem = EcbUnreachable(IIf(Status = 0, "no answer", "network error " & Status))
+            Case Else
+                Problem = "the ECB data portal answered HTTP " & Status & _
+                          IIf(Len(SafeStr(Request.statusText)) > 0, " (" & SafeStr(Request.statusText) & ")", "") & _
+                          ". Try again later."
+        End Select
+        If Err.Number <> 0 And Len(Problem) = 0 Then
+            EcbAnswer = vbNullString
+            Problem = EcbUnreachable(Err.Description)
+        End If
+        Err.Clear
+        On Error GoTo 0
+
+End Function
+
+
+Private Function EcbUnreachable( _
+    ByVal Failure As String) _
+    As String
+'
+'==============================================================================
+'                               EcbUnreachable
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The problem of a request that did not reach the ECB data portal (#745),
+'   with what Windows reported.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        EcbUnreachable = "the ECB data portal could not be reached (" & Trim$(Replace(Failure, vbCrLf, " ")) & _
+                         "). Check the connection, and that the network lets Excel reach data-api.ecb.europa.eu."
+
+End Function
+
+
+Public Function EcbLatestRates( _
+    ByVal Answer As String, _
+    ByRef Codes() As String, _
+    ByVal AsOf As Date, _
+    ByRef PerEuro() As Double, _
+    ByRef Days() As Date, _
+    ByRef Problem As String) _
+    As Boolean
+'
+'==============================================================================
+'                               EcbLatestRates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Read an answer of the ECB data portal, a CSV file of daily euro
+'   reference rates, and keep for each of Codes the latest rate on or
+'   before AsOf (#745), as published: units of the currency per euro.
+'
+' INPUTS
+'   Answer: the text of the CSV file; blank when the ECB published nothing.
+'   Codes: the currencies asked for, upper case, from index 1.
+'
+' METHOD
+'   The header names the columns: CURRENCY, TIME_PERIOD and OBS_VALUE are
+'   needed, CURRENCY_DENOM is read when present and must be EUR. Fields may
+'   be quoted, and every line has as many fields as the header, so that a
+'   decimal comma is never read as two fields. A rate without a value is
+'   no rate; a currency that was not asked for is skipped; a day after AsOf
+'   is not used. Dates are read
+'   digit by digit and numbers with Val, so that the Windows locale does
+'   not matter.
+'
+' RETURNS
+'   True with PerEuro and Days, of the bounds of Codes, set: 0 for a
+'   currency with no rate. False with Problem set when the answer is not
+'   the CSV expected, or a line is malformed: then nothing is used.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Lines       As Variant   'The lines of the answer
+    Dim Fields      As Variant   'The fields of a line
+    Dim n           As Long      'Line
+    Dim HeaderLine  As Long      'The line of the header; -1 before it is found
+    Dim CodeCol     As Long      'Column CURRENCY; -1 for none
+    Dim DenomCol    As Long      'Column CURRENCY_DENOM; -1 for none
+    Dim DayCol      As Long      'Column TIME_PERIOD; -1 for none
+    Dim ValueCol    As Long      'Column OBS_VALUE; -1 for none
+    Dim HeaderLast  As Long      'The last field of the header
+    Dim c           As Long      'Column
+    Dim k           As Long      'Currency
+    Dim DayText     As String    'A date as text
+    Dim ValueText   As String    'A rate as text
+    Dim Day         As Date      'A date
+    Dim Missing     As String    'A column the header lacks
+
+'------------------------------------------------------------------------------
+' HEADER
+'------------------------------------------------------------------------------
+        Problem = vbNullString
+        ReDim PerEuro(LBound(Codes) To UBound(Codes))
+        ReDim Days(LBound(Codes) To UBound(Codes))
+        Lines = Split(Replace(Answer, vbCr, vbNullString), vbLf)
+        HeaderLine = -1
+        For n = LBound(Lines) To UBound(Lines)
+            If Len(Trim$(Lines(n))) > 0 Then
+                HeaderLine = n
+                Exit For
+            End If
+        Next n
+        If HeaderLine < 0 Then
+            EcbLatestRates = True
+            Exit Function
+        End If
+        Fields = CsvLineFields(CStr(Lines(HeaderLine)))
+        CodeCol = -1
+        DenomCol = -1
+        DayCol = -1
+        ValueCol = -1
+        If Not IsEmpty(Fields) Then
+            HeaderLast = UBound(Fields)
+            For c = LBound(Fields) To UBound(Fields)
+                Select Case UCase$(Trim$(Fields(c)))
+                    Case "CURRENCY"
+                        CodeCol = c
+                    Case "CURRENCY_DENOM"
+                        DenomCol = c
+                    Case "TIME_PERIOD"
+                        DayCol = c
+                    Case "OBS_VALUE"
+                        ValueCol = c
+                End Select
+            Next c
+        End If
+        If CodeCol < 0 Then
+            Missing = "CURRENCY"
+        ElseIf DayCol < 0 Then
+            Missing = "TIME_PERIOD"
+        ElseIf ValueCol < 0 Then
+            Missing = "OBS_VALUE"
+        End If
+        If Len(Missing) > 0 Then
+            Problem = "the answer of the ECB data portal is not the CSV expected: its first line has no column " & Missing & "."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' RATES
+'------------------------------------------------------------------------------
+        For n = HeaderLine + 1 To UBound(Lines)
+            If Len(Trim$(Lines(n))) > 0 Then
+                Fields = CsvLineFields(CStr(Lines(n)))
+                If IsEmpty(Fields) Then
+                    Problem = EcbMalformed(n + 1, "a quote is not closed")
+                    Exit Function
+                End If
+                If UBound(Fields) <> HeaderLast Then
+                    Problem = EcbMalformed(n + 1, "it has " & (UBound(Fields) + 1) & " fields, the header " & (HeaderLast + 1))
+                    Exit Function
+                End If
+                If DenomCol >= 0 Then
+                    If UCase$(Trim$(Fields(DenomCol))) <> "EUR" Then
+                        Problem = EcbMalformed(n + 1, "the rate is not against the euro")
+                        Exit Function
+                    End If
+                End If
+                k = IndexOfCode(Codes, UBound(Codes), UCase$(Trim$(Fields(CodeCol))))
+                If k > 0 Then
+                    DayText = Trim$(Fields(DayCol))
+                    If Not DayText Like "####-##-##" Then
+                        Problem = EcbMalformed(n + 1, "the date '" & DayText & "' is not yyyy-mm-dd")
+                        Exit Function
+                    End If
+                    Day = DateSerial(CInt(Left$(DayText, 4)), CInt(Mid$(DayText, 6, 2)), CInt(Right$(DayText, 2)))
+                    If Format$(Day, "yyyy-mm-dd") <> DayText Then
+                        Problem = EcbMalformed(n + 1, "the date '" & DayText & "' does not exist")
+                        Exit Function
+                    End If
+                    ValueText = Trim$(Fields(ValueCol))
+                    If Len(ValueText) > 0 And UCase$(ValueText) <> "NAN" Then
+                        If Not IsDecimalText(ValueText) Then
+                            Problem = EcbMalformed(n + 1, "the rate '" & ValueText & "' is not a number")
+                            Exit Function
+                        End If
+                        If Val(ValueText) <= 0# Then
+                            Problem = EcbMalformed(n + 1, "the rate '" & ValueText & "' is not above zero")
+                            Exit Function
+                        End If
+                        If Day <= AsOf And Day > Days(k) Then
+                            PerEuro(k) = Val(ValueText)
+                            Days(k) = Day
+                        End If
+                    End If
+                End If
+            End If
+        Next n
+        EcbLatestRates = True
+
+End Function
+
+
+Private Function EcbMalformed( _
+    ByVal LineNumber As Long, _
+    ByVal What As String) _
+    As String
+'
+'==============================================================================
+'                                EcbMalformed
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The problem of a malformed line of the answer of the ECB (#745).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        EcbMalformed = "line " & LineNumber & " of the answer of the ECB data portal is malformed: " & What & _
+                       ", so no rate was used."
+
+End Function
+
+
+Private Function IndexOfCode( _
+    ByRef Codes() As String, _
+    ByVal Last As Long, _
+    ByVal Code As String) _
+    As Long
+'
+'==============================================================================
+'                                 IndexOfCode
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The index of Code among Codes, from index 1 to Last; 0 when it is not
+'   there or Last is 0 (#745).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Index
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+        For i = 1 To Last
+            If Codes(i) = Code Then
+                IndexOfCode = i
+                Exit Function
+            End If
+        Next i
+
+End Function
+
+
+Private Function IsDecimalText( _
+    ByVal Text As String) _
+    As Boolean
+'
+'==============================================================================
+'                                IsDecimalText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether Text is digits with at most one decimal point between digits,
+'   as the ECB writes a rate (#745): no sign, no exponent, no separator.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Character
+    Dim Ch          As String    'One character
+    Dim Points      As Long      'Decimal points seen
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Len(Text) = 0 Or Left$(Text, 1) = "." Or Right$(Text, 1) = "." Then
+            Exit Function
+        End If
+        For i = 1 To Len(Text)
+            Ch = Mid$(Text, i, 1)
+            If Ch = "." Then
+                Points = Points + 1
+            ElseIf Ch < "0" Or Ch > "9" Then
+                Exit Function
+            End If
+        Next i
+        IsDecimalText = (Points <= 1)
+
+End Function
+
+
+Private Function CsvLineFields( _
+    ByVal LineText As String) _
+    As Variant
+'
+'==============================================================================
+'                                CsvLineFields
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The fields of one line of a CSV file, comma-separated, a field possibly
+'   in double quotes with "" for a quote inside (#745).
+'
+' RETURNS
+'   A String array from 0; Empty when a quote is not closed.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result()    As String    'The fields
+    Dim Count       As Long      'Fields found
+    Dim Current     As String    'The field being read
+    Dim Quoted      As Boolean   'Inside quotes
+    Dim i           As Long      'Character
+    Dim Ch          As String    'One character
+
+'------------------------------------------------------------------------------
+' SPLIT
+'------------------------------------------------------------------------------
+        ReDim Result(0 To 0)
+        i = 1
+        Do While i <= Len(LineText)
+            Ch = Mid$(LineText, i, 1)
+            If Quoted Then
+                If Ch = """" Then
+                    If Mid$(LineText, i + 1, 1) = """" Then
+                        Current = Current & """"
+                        i = i + 1
+                    Else
+                        Quoted = False
+                    End If
+                Else
+                    Current = Current & Ch
+                End If
+            ElseIf Ch = """" Then
+                Quoted = True
+            ElseIf Ch = "," Then
+                ReDim Preserve Result(0 To Count)
+                Result(Count) = Current
+                Count = Count + 1
+                Current = vbNullString
+            Else
+                Current = Current & Ch
+            End If
+            i = i + 1
+        Loop
+        If Quoted Then
+            Exit Function
+        End If
+        ReDim Preserve Result(0 To Count)
+        Result(Count) = Current
+        CsvLineFields = Result
+
+End Function
+
+
 Private Function StartPriceLookup( _
     ByRef Problem As String) _
     As Boolean
@@ -7916,6 +8874,13 @@ Private Function StartPriceLookup( _
             Err.Clear
             On Error GoTo 0
             Problem = "the workbook name '" & NM_FX_PRICE_DATE & "' is missing."
+            Exit Function
+        End If
+        mPriceKeptSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        If Err.Number <> 0 Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "the workbook name '" & NM_FX_PRICE_SRC & "' is missing."
             Exit Function
         End If
         On Error GoTo 0
@@ -7996,9 +8961,10 @@ Private Function FinishPriceLookup( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   End the lookup StartPriceLookup started (#721): read the scratch cells,
-'   write each price above zero into its rate cell, and the reporting date
-'   into the hidden cell NM_FX_PRICE_DATE, which the sheet shows beside the
-'   button. A row with no price keeps its rate and is listed in Without.
+'   write each price above zero into its rate cell, the reporting date into
+'   the hidden cell NM_FX_PRICE_DATE and the source into NM_FX_PRICE_SRC,
+'   which the sheet shows beside the button (#745). A row with no price
+'   keeps its rate and is listed in Without.
 '
 ' METHOD
 '   Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
@@ -8115,8 +9081,9 @@ Private Function FinishPriceLookup( _
             Exit Function
         End If
 
-    'The date the rates are of, shown beside the button
+    'The date and the source of the rates, shown beside the button
         NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceAsOf
+        NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_CLOSING
         ReleasePriceLookup True
         FinishPriceLookup = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
                             IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
@@ -8139,9 +9106,9 @@ Private Sub AbandonPriceLookup()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   End a lookup of closing prices that did not succeed (#721): when
-'   FinishPriceLookup had begun to write rates, put them and the date of the
-'   prices back as they were; then empty the scratch column and release the
-'   lookup. A rate is not put back when none was written, so that an edit
+'   FinishPriceLookup had begun to write rates, put them and the date and
+'   source of the prices back as they were; then empty the scratch column
+'   and release the lookup. A rate is not put back when none was written, so that an edit
 '   the user made while the prices were awaited stays.
 '
 ' ERROR POLICY
@@ -8166,6 +9133,7 @@ Private Sub AbandonPriceLookup()
                 TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceKept(i)
             Next i
             NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceKeptDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = mPriceKeptSource
         End If
         ReleasePriceLookup True
 

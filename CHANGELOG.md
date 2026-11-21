@@ -97,6 +97,30 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Let the user choose the source of the rates that Download prices writes (#745). A list
+  beside the button on Params (`FX_Source`, D59) holds `Closing price`, the default and the
+  behavior until now, and `ECB reference rate`: the euro foreign exchange reference rates of
+  the ECB, asked of its data portal with one HTTPS request from VBA (`MSXML2.XMLHTTP`, the
+  connection and proxy settings of Windows, no web query or connection left in the file) that
+  carries only the three-letter codes of the table and the seven days up to the reporting
+  date. Each currency takes the last fixing on or before the reporting date, as published;
+  with another reporting currency the rate is crossed through the euro. A currency the ECB
+  does not publish keeps its rate and is listed. The rates are written all or none; no
+  connection, a time-out, an HTTP error, an answer that is not the CSV expected (a proxy's
+  sign-in page, a decimal comma, a malformed line), no rate of the reporting currency, or a
+  reporting date, reporting currency or code changed while the answer was awaited is
+  refused with the reason and changes nothing. The source of the rates downloaded is kept in
+  the hidden name `FX_PriceSource` and stated beside the button with their date ("ECB
+  reference rates of 2026-09-30", "Closing prices of 2026-09-30"), and the confirmation and
+  the message name it. `DownloadClosingPrices_Silent` takes the source as an optional
+  argument. `TEST_MainState` gains `params.ecb-answer` and `params.download-ecb-rates`, which
+  read the sample answer of `tests/fixtures/ecb/EXR_D_sample.csv` through the fault
+  `ecb-answer` and cover the refusals with the faults `ecb-offline`, `ecb-http`, `ecb-timeout`,
+  `ecb-edit` and `ecb-write`, so that the quick check needs no network; `test_params_layout.py` checks the
+  template, the request and that the sample is the fixture. Restore parameters does not change
+  the source: like the FX table, it is an input. Last price is not offered yet, and the source
+  is not yet recorded on the run and in the evidence.
+
 - Take the second round of the owner's changes to the Params sheet into the template, and add Download prices
   (#721). The parameters are in the owner's order, with Regime first (row 8), and the two day-count
   codes are renamed: `DaycountConvention` for the numerator (`ACTUAL`, row 25, formerly
