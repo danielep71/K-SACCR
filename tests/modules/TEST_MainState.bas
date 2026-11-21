@@ -1742,7 +1742,8 @@ Private Sub CaseDownloadClosingPrices()
 '   left in the hidden scratch column and the calculation mode is as it
 '   was. With the fault "prices-fixed", which stands for prices that came
 '   (2 for every pair, none for the first), the rates of the others take the
-'   price, the first keeps its rate, the reporting currency keeps 1, the
+'   price, the first keeps its rate, the reporting currency, set to 1.5
+'   before, takes 1, the
 '   date of the prices is the reporting date and the scratch column is
 '   empty, and the source of the prices is the closing price (#745). The
 '   rates, the date and the source are put back.
@@ -1765,6 +1766,8 @@ Private Sub CaseDownloadClosingPrices()
     Dim SavedRates  As Variant   'The rates, formulas included
     Dim SavedDate   As Variant   'The date of the prices before
     Dim SavedSource As Variant   'The source of the prices before
+    Dim Reporting   As Range     'The rate of the reporting currency
+    Dim SavedReport As Variant   'It, as a formula
     Dim Count       As Long      'Currencies below the reporting currency
     Dim i           As Long      'Currency
 
@@ -1787,6 +1790,8 @@ Private Sub CaseDownloadClosingPrices()
         SavedRates = Rates.Formula
         SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
         SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        Set Reporting = TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE)
+        SavedReport = Reporting.Formula
         M_Main.gTestFault = "prices-unavailable"
         Result = M_Main.DownloadClosingPrices_Silent()
         M_Main.gTestFault = ""
@@ -1810,6 +1815,7 @@ Private Sub CaseDownloadClosingPrices()
 '------------------------------------------------------------------------------
 ' LOOK UP WITH PRICES
 '------------------------------------------------------------------------------
+        Reporting.Value2 = 1.5
         M_Main.gTestFault = "prices-fixed"
         Result = M_Main.DownloadClosingPrices_Silent()
         M_Main.gTestFault = ""
@@ -1817,14 +1823,14 @@ Private Sub CaseDownloadClosingPrices()
         TEST_Kit.Check CStr(Rates.Cells(1, 1).Formula) = CStr(SavedRates(1, 1)), "a currency with no price keeps its rate"
         TEST_Kit.Check ToDbl(Rates.Cells(2, 1).Value2, 0#) = 2#, "a rate takes the price"
         TEST_Kit.Check ToDbl(Rates.Cells(Count, 1).Value2, 0#) = 2#, "the last rate takes the price"
-        TEST_Kit.Check ToDbl(TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE).Value2, 0#) = 1#, _
-                       "the reporting currency keeps 1"
+        TEST_Kit.Check ToDbl(Reporting.Value2, 0#) = 1#, "the rate of the reporting currency is set to 1"
         TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(NamedCell(PRM_ASOF).Value2, -1#), _
                        "the date of the prices is the reporting date"
         TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_CLOSING, _
                        "the source of the prices is the closing price"
         TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after the prices the scratch column is empty"
         Rates.Formula = SavedRates
+        Reporting.Formula = SavedReport
         NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
         Exit Sub
@@ -1836,6 +1842,9 @@ Unexpected:
             Rates.Formula = SavedRates
             NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        End If
+        If Not Reporting Is Nothing Then
+            Reporting.Formula = SavedReport
         End If
 
 End Sub
@@ -1959,7 +1968,8 @@ Private Sub CaseDownloadEcbRates()
 '   the reporting date as published, the other currencies kept, the date
 '   and the source written; the source read from FX_Source; on a closing
 '   day the fixing before it, named in the result; with USD as reporting
-'   currency every rate crossed through the euro. Refusals that change
+'   currency every rate crossed through the euro; the rate of the
+'   reporting currency set to 1 each time. Refusals that change
 '   nothing: no rate of the reporting currency, no connection, HTTP 503, a
 '   time-out, an HTML page, an empty answer, a reporting date changed
 '   while the answer was awaited (fault "ecb-edit") and an unknown source. A
@@ -2019,6 +2029,7 @@ Private Sub CaseDownloadEcbRates()
         SavedUsd = FxRateOf("USD")
         NamedCell(PRM_REPCCY).Value2 = "EUR"
         NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        AllRates.Cells(1, 1).Value2 = 1.5
         M_Main.gTestEcbAnswer = EcbSample()
         M_Main.gTestFault = "ecb-answer"
         Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
@@ -2027,7 +2038,7 @@ Private Sub CaseDownloadEcbRates()
         TEST_Kit.Check FxRateOf("USD") = 1.1725 And FxRateOf("JPY") = 174.25 And FxRateOf("GBP") = 0.8725, _
                        "the rates are the fixings of the reporting date as published: " & FxRateOf("USD")
         TEST_Kit.Check FxRateOf("CNY") = SavedCny, "a currency the answer has no rate for keeps its rate"
-        TEST_Kit.Check FxRateOf("EUR") = 1#, "the reporting currency keeps 1"
+        TEST_Kit.Check FxRateOf("EUR") = 1#, "the rate of the reporting currency, 1.5 before, is set to 1"
         TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = CDbl(DateSerial(2026, 9, 30)), _
                        "the date of the rates is the reporting date"
         TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_ECB, "the source of the rates is the ECB"
@@ -2051,7 +2062,7 @@ Private Sub CaseDownloadEcbRates()
                        Abs(FxRateOf("JPY") - 174.25 / 1.1725) < 0.000000000001 And _
                        Abs(FxRateOf("GBP") - 0.8725 / 1.1725) < 0.000000000001, _
                        "the rates are crossed through the euro: " & FxRateOf("EUR") & " " & FxRateOf("JPY")
-        TEST_Kit.Check FxRateOf("USD") = SavedUsd, "the reporting currency keeps its rate"
+        TEST_Kit.Check FxRateOf("USD") = 1# And SavedUsd <> 1#, "the rate of the reporting currency USD is set to 1"
 
 '------------------------------------------------------------------------------
 ' REFUSALS CHANGE NOTHING

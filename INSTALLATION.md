@@ -929,8 +929,8 @@ price is the last closing price up to the reporting date, seven days back at
 most; the pair is built from the currency code and the reporting currency, so a
 currency appended below the table is looked up too. The formulas live in a
 hidden scratch column that is emptied afterwards: no formula stays in the
-workbook. A currency that gets no price, and the reporting currency, keep their
-rate; the date of the prices is written into the hidden name `FX_PriceDate`,
+workbook. A currency that gets no price keeps its rate; the rate of the
+reporting currency is set to 1, which a run requires (#745); the date of the prices is written into the hidden name `FX_PriceDate`,
 which the sheet shows beside the button. It needs Microsoft 365 and a
 connection and waits `PRICE_WAIT_SECONDS` (30) at most. Excel hands the data of
 `STOCKHISTORY` back only when no macro runs, so the button does not wait inside
@@ -955,7 +955,8 @@ in the workbook. Each currency takes the last fixing on or before the reporting
 date, as published, in units of the currency per euro; with another reporting
 currency the rate is crossed through the euro (the currency per euro over the
 reporting currency per euro, and the euro is 1 over the latter). A currency the
-ECB does not publish, such as TWD, keeps its rate. The rates are written all or
+ECB does not publish, such as TWD, keeps its rate, and the reporting currency
+takes 1. The rates are written all or
 none, with the reporting date into `FX_PriceDate` and the source into
 `FX_PriceSource`. It returns `RESULT=PRICED; rates=N; without_price=M`, then
 `; codes=...` when some currency got no rate, `; source=ECB`, and

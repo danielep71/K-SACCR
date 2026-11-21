@@ -273,6 +273,8 @@ Attribute VB_Name = "M_Main"
         Private mPriceKept()    As Variant    'The rate each row held before
         Private mPriceKeptDate  As Variant    'The date of the prices before
         Private mPriceKeptSource As Variant   'The source of the rates before (#745)
+        Private mPriceReportRow As Long       'The row of the reporting currency; 0 for none (#745)
+        Private mPriceReportKept As Variant   'Its rate before, set to 1 with the prices
         Private mPriceAsOf      As Variant    'The reporting date asked for
         Private mPriceMode      As XlCalculation 'The caller's calculation mode
         Private mPriceDeadline  As Date       'When to stop waiting
@@ -7874,6 +7876,41 @@ Private Function ClosingPair( _
 End Function
 
 
+Private Function IsReportingRow( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal Row As Long, _
+    ByVal KeyColumn As Long) _
+    As Boolean
+'
+'==============================================================================
+'                               IsReportingRow
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Whether the FX-table row is that of the reporting currency, whose rate
+'   Download prices sets to 1 with the others (#745). Case and surrounding
+'   spaces are ignored, as in ClosingPair.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'The currency of the row
+    Dim Reporting   As String    'The reporting currency
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, Row, KeyColumn).Value2)))
+        Reporting = UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2)))
+        IsReportingRow = (Len(Code) > 0 And Code = Reporting)
+
+End Function
+
+
 Private Function ClosingPriceDate() As String
 '
 '==============================================================================
@@ -8018,7 +8055,8 @@ Private Function LookUpEcbRates( _
 '   against the euro: with another reporting currency the rate is crossed
 '   through the euro, the currency per euro over the reporting currency per
 '   euro, and the euro is 1 over the latter. A currency the ECB gave no rate
-'   for keeps its rate and is listed in Without.
+'   for keeps its rate and is listed in Without. The row of the reporting
+'   currency takes 1, the rate a run requires of it.
 '
 ' METHOD
 '   1. Find the rows with a pair and note their rates, and the date and
@@ -8028,7 +8066,8 @@ Private Function LookUpEcbRates( _
 '      unless it is the euro; read the answer (EcbLatestRates).
 '   3. Work out every rate; refuse when the reporting date, the reporting
 '      currency or a code was changed while the answer was awaited, which
-'      DoEvents allows; then write the rates, the reporting date into
+'      DoEvents allows; then write the rates, 1 for the reporting currency,
+'      the reporting date into
 '      NM_FX_PRICE_DATE and FX_SOURCE_ECB into NM_FX_PRICE_SRC.
 '   mRunning is set while the answer is awaited, so that no other operation
 '   starts.
@@ -8081,6 +8120,8 @@ Private Function LookUpEcbRates( _
     Dim Latest        As Date         'The latest fixing used
     Dim Written       As Boolean      'A rate was written
     Dim Changed       As Boolean      'An input changed while the answer was awaited
+    Dim ReportRow     As Long         'The row of the reporting currency; 0 for none
+    Dim ReportKept    As Variant      'Its rate before
     Dim ErrNumber     As Long         'The error to raise again
     Dim ErrText       As String       'Its description
 
@@ -8127,6 +8168,9 @@ Private Function LookUpEcbRates( _
                 PairRows(Count) = r
                 Codes(Count) = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
                 Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
+            ElseIf ReportRow = 0 And IsReportingRow(ParamsSheet, r, KeyColumn) Then
+                ReportRow = r
+                ReportKept = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
             End If
             r = r + 1
         Loop
@@ -8250,6 +8294,10 @@ Private Function LookUpEcbRates( _
                 End If
             End If
         Next i
+        If ReportRow > 0 Then
+            Written = True
+            TableCell(ParamsSheet, ReportRow, KeyColumn + FX_COL_RATE).Value2 = 1#
+        End If
         NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfValue
         NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_ECB
         mRunning = False
@@ -8270,6 +8318,9 @@ Failed:
             For i = 1 To Count
                 TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Kept(i)
             Next i
+            If ReportRow > 0 Then
+                TableCell(ParamsSheet, ReportRow, KeyColumn + FX_COL_RATE).Value2 = ReportKept
+            End If
             NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = KeptSource
         End If
@@ -8815,8 +8866,8 @@ Private Function StartPriceLookup( _
 '   what FinishPriceLookup needs.
 '
 ' METHOD
-'   1. Find the rows with a pair and note their rates and the date of the
-'      prices, to put them back.
+'   1. Find the rows with a pair and the row of the reporting currency,
+'      and note their rates and the date of the prices, to put them back.
 '   2. Set calculation automatic and write the formulas through Formula2
 '      by late binding, so that the code compiles in an Excel without it;
 '      an Excel that refuses it, or a fault injected, is a refusal.
@@ -8884,12 +8935,16 @@ Private Function StartPriceLookup( _
             Exit Function
         End If
         On Error GoTo 0
+        mPriceReportRow = 0
         For r = HeaderRow + 1 To mPriceLastRow
             If Len(ClosingPair(mPriceSheet, r, mPriceKeyColumn)) > 0 Then
                 mPriceCount = mPriceCount + 1
                 mPriceRows(mPriceCount) = r
                 mPricePairs(mPriceCount) = ClosingPair(mPriceSheet, r, mPriceKeyColumn)
                 mPriceKept(mPriceCount) = TableCell(mPriceSheet, r, mPriceKeyColumn + FX_COL_RATE).Value2
+            ElseIf mPriceReportRow = 0 And IsReportingRow(mPriceSheet, r, mPriceKeyColumn) Then
+                mPriceReportRow = r
+                mPriceReportKept = TableCell(mPriceSheet, r, mPriceKeyColumn + FX_COL_RATE).Value2
             End If
         Next r
         If mPriceCount = 0 Then
@@ -8964,7 +9019,8 @@ Private Function FinishPriceLookup( _
 '   write each price above zero into its rate cell, the reporting date into
 '   the hidden cell NM_FX_PRICE_DATE and the source into NM_FX_PRICE_SRC,
 '   which the sheet shows beside the button (#745). A row with no price
-'   keeps its rate and is listed in Without.
+'   keeps its rate and is listed in Without; the row of the reporting
+'   currency takes 1, the rate a run requires of it.
 '
 ' METHOD
 '   Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
@@ -9081,6 +9137,11 @@ Private Function FinishPriceLookup( _
             Exit Function
         End If
 
+    'The reporting currency is 1 unit of itself, as a run requires
+        If mPriceReportRow > 0 Then
+            TableCell(mPriceSheet, mPriceReportRow, mPriceKeyColumn + FX_COL_RATE).Value2 = 1#
+        End If
+
     'The date and the source of the rates, shown beside the button
         NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceAsOf
         NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_CLOSING
@@ -9132,6 +9193,9 @@ Private Sub AbandonPriceLookup()
             For i = 1 To mPriceCount
                 TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceKept(i)
             Next i
+            If mPriceReportRow > 0 Then
+                TableCell(mPriceSheet, mPriceReportRow, mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceReportKept
+            End If
             NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceKeptDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = mPriceKeptSource
         End If
