@@ -302,6 +302,15 @@ class ReconSummaryTests(unittest.TestCase):
                         self.assertIn(f"*OFFSET({sheet}!${source}${FIRST},0,0,{sheet}!$R$1,1)",
                                       self.formula(f"{column}{row}"), (sheet, measure))
 
+    def test_home_links_to_every_other_sheet_in_tab_order(self) -> None:
+        names = re.findall(r'<sheet name="([^"]+)"', self.package.read("xl/workbook.xml").decode("utf-8"))
+        home = self.package.read(self.parts["Home"]).decode("utf-8")
+        links = re.findall(r'<hyperlink ref="C(\d+)" location="\'([^\']+)\'!A1" display="([^"]+)"', home)
+        self.assertEqual([name for _, name, _ in links], names[1:])
+        self.assertTrue(all(name == shown for _, name, shown in links))
+        rows = [int(row) for row, _, _ in links]
+        self.assertEqual(rows, list(range(rows[0], rows[0] + len(rows))))
+
     def test_the_sheet_is_saved_protected_as_an_output_sheet(self) -> None:
         protection = self.sheet.find(MAIN + "sheetProtection")
         assert protection is not None

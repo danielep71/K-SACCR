@@ -105,7 +105,7 @@ Use only the categories needed by a release.
   they change with a filter and need no macro. A factor (multiplier, M, supervisory duration and delta,
   maturity factors) has no sum, only its counts and its largest difference, in six decimals. The
   sheet holds formulas only and is protected as an output sheet (role Output). It has its own button in
-  the Reconciliation section of the Go to menu and of the navigation bar, and the measures it lists are
+  the Reconciliation section of the Go to menu and of the navigation bar, and a link on Home, and the measures it lists are
   tested against those of `CORE_Reconcile`. The workbook now has 20 sheets.
 
 - Lift the limits of the bank files (#718, follow-up). The files were limited to the rows the template
