@@ -92,8 +92,9 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertRegex(main, r"(?m)^Public Sub PollClosingPrices\(\)")
         self.assertNotIn("CalculateUntilAsyncQueriesDone", main)
         self.assertNotIn("CVErr(2045)", main)  # 2045 is #SPILL!, not the busy state
-        cancel = main[main.index("Public Sub CancelPriceLookup()") :]
+        cancel = main[main.index("Public Sub CancelPriceLookup(") :]
         self.assertIn("Application.EnableEvents = False", cancel[: cancel.index("End Sub")])  # no refresh on close
+        self.assertIn("If Not Closing Then", cancel[: cancel.index("End Sub")])  # a save keeps the Ribbon in step
         self.assertIn('"Downloading the prices of "', main)  # the wait shows in the status bar
         self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel

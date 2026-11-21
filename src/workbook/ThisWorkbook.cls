@@ -36,7 +36,7 @@ Private Sub Workbook_BeforeSave(ByVal SaveAsUI As Boolean, Cancel As Boolean)
     'navigation bar shown even while it is hidden (#620), and end a lookup
     'of closing prices that waits for its data, so that no price formula is
     'saved (#721).
-        M_Main.CancelPriceLookup
+        M_Main.CancelPriceLookup False
         M_Ribbon.HidePointer
         M_Main.NavigationBarBeforeSave
 
@@ -45,7 +45,7 @@ End Sub
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
     'End a lookup of closing prices that waits for its data, so that the
     'look scheduled for it does not reopen the workbook (#721).
-        M_Main.CancelPriceLookup
+        M_Main.CancelPriceLookup True
 
 End Sub
 
