@@ -42,7 +42,7 @@ class ParamsLayoutTests(unittest.TestCase):
         for name, target in (("SF_Table", "$C$31:$K$57"), ("FX_Table", "$C$60:$E$65"), ("Holiday_Table", "$I$60:$J$160")):
             self.assertIn(f'<definedName name="{name}">Params!{target}</definedName>', self.workbook)
         self.assertEqual([self.text(ref) for ref in ("C31", "C60", "I60", "J60")],
-                         ["SF_Key", "FX_Ccy", "Closing day", "Description"])
+                         ["SF_Key", "Currency Code", "Bank Holiday", "Description"])
 
     def test_the_day_count_list_is_in_hidden_cells_and_feeds_the_choice(self) -> None:
         self.assertEqual([self.text(f"AQ{row}") for row in range(20, 26)], BASES)
@@ -68,7 +68,7 @@ class ParamsLayoutTests(unittest.TestCase):
 
     def test_the_fx_table_has_a_pair_and_a_closing_price_the_engine_does_not_read(self) -> None:
         self.assertEqual((self.text("F60"), self.text("G60")), ("Currency Pair", "Closing Price\nfrom Refinitiv"))
-        for row, pair in ((62, "USD"), (63, "GBP"), (64, "JPY"), (65, "CHF")):
+        for row, pair in ((62, "USD"), (63, "JPY"), (64, "GBP"), (65, "CNY")):
             # the pair is built from ReportingCcy, not from the first row of the table
             self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
             self.assertNotIn("$C$61&amp;", self.xml)
@@ -79,11 +79,41 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertNotIn("Refinitiv", engine)
         self.assertNotIn("STOCKHISTORY", engine)
 
+    def test_the_fx_table_is_filled_with_twenty_currencies_against_the_euro(self) -> None:
+        codes = [self.text(f"C{row}") for row in range(61, 82)]
+        self.assertEqual(codes[0], "EUR")
+        self.assertEqual(len(set(codes)), 21)
+        self.assertTrue(all(re.fullmatch(r"[A-Z]{3}", code) for code in codes), codes)
+        for row in range(61, 82):
+            self.assertTrue(self.text(f"D{row}"), row)
+            self.assertGreater(float(self.text(f"E{row}")), 0, row)
+        self.assertEqual(self.text("E61"), "1")  # the reporting currency against itself
+        self.assertEqual(len({self.text(f"E{row}") for row in range(62, 82)}), 20)  # no rate is a copied placeholder
+        self.assertTrue(self.text("D82").startswith("Add currencies directly below the last row"))
+        self.assertEqual(self.text("C82"), "")  # a note in column C would be read as a currency
+
+    def test_the_parameters_are_in_the_owners_order_with_their_names(self) -> None:
+        order = [self.text(f"C{row}") for row in (8, 9, 10, 23, 24, 25, 26, 27)]
+        self.assertEqual(order, ["Regime", "Alpha", "MultiplierFloor", "LambdaThresholdIR", "LambdaThresholdCO",
+                                 "DaycountConvention", "YearConvention", "Calendar"])
+        for name, cell in (("Regime", "$E$8"), ("Alpha", "$E$9"), ("MultiplierFloor", "$E$10"), ("LambdaThresholdIR", "$E$23"),
+                           ("LambdaThresholdCO", "$E$24"), ("DaycountConvention", "$E$25"), ("YearConvention", "$E$26"),
+                           ("Calendar", "$E$27")):
+            self.assertIn(f'<definedName name="{name}">Params!{cell}</definedName>', self.workbook, name)
+        for old in ("DayCountConvention", "DayCountNumerator"):
+            self.assertNotIn(f'name="{old}"', self.workbook)
+        # a validation belongs to the cell it checks: the regime list on E8, the currency check on E7 only
+        self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E8"[^>]*><formula1>"CRR,BCBS"</formula1>')
+        self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E7"')
+        self.assertNotRegex(self.xml, r'sqref="E7:E8"')
+        self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E25"[^>]*><formula1>"ACTUAL"</formula1>')
+
     def test_the_closing_day_validation_and_the_unlocked_cells_follow_the_table(self) -> None:
         self.assertRegex(self.xml, r'sqref="I61:I160"[^>]*><formula1>AND\(ISNUMBER\(I61\),I61&gt;=61\)</formula1>')
         self.assertNotRegex(self.xml, r'sqref="G\d+:G\d+"[^>]*><formula1>AND\(ISNUMBER\(G')
         matrix = (ROOT / "docs" / "workbook" / "protection.json").read_text(encoding="utf-8")
         self.assertIn('"C61:E260", "I61:J160"', matrix)
+        self.assertIn('"unlocked_cells": ["E6", "E7", "E8", "E26", "E27"', matrix)
 
     def test_the_trades_validations_read_the_moved_tables(self) -> None:
         trades = self.package.read(sheet_parts(self.package)["Trades"]).decode("utf-8")

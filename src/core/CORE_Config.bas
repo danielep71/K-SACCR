@@ -148,8 +148,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REGIME       As String = "Regime"                 'Default regime
         Public Const PRM_LAMIR        As String = "LambdaThresholdIR"      'CRR lambda threshold, IR
         Public Const PRM_LAMCO        As String = "LambdaThresholdCO"      'CRR lambda threshold, CO
-        Public Const PRM_DAYNUM       As String = "DayCountNumerator"      'ACTUAL, the only numerator for the moment (#721)
-        Public Const PRM_DAYCOUNT     As String = "DayCountConvention"     'Days of the conventional year, the denominator (#721)
+        Public Const PRM_DAYNUM       As String = "DaycountConvention"     'ACTUAL, the only numerator for the moment (#721)
+        Public Const PRM_DAYCOUNT     As String = "YearConvention"         'Days of the conventional year, the denominator (#721)
         Public Const PRM_CALENDAR     As String = "Calendar"               'TARGET, TARGET+TABLE or TABLE (#721)
         Public Const NM_HOLIDAY_TABLE As String = "Holiday_Table"          'Closing days of the calendar, from its header (#721)
 
@@ -189,7 +189,7 @@ Attribute VB_Name = "CORE_Config"
     'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
     '2026-10-09. A run whose parameters, factor table and alpha overrides
     'all equal this set is REGULATORY and names REF_SET_ID; any difference
-    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DayCountNumerator, DayCountConvention,
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaycountConvention, YearConvention,
     'Calendar and IRBucketOffset are conventions and do not change the class.
         Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
         Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
@@ -199,9 +199,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_BDYEAR       As Double = 250       'CRE52.49, 52.53; CRR Art. 279c(1)
     'The day count of Params (#721): years = ACTUAL days between the reporting
     'date and the date, counted on the Calendar, over the days of the
-    'conventional year of DayCountConvention. None of the three cells changes
-    'the class of a run; DayCountConvention and Calendar are run settings, as
-    'Regime is, and DayCountNumerator is a convention that Restore parameters
+    'conventional year of YearConvention. None of the three cells changes
+    'the class of a run; YearConvention and Calendar are run settings, as
+    'Regime is, and DaycountConvention is a convention that Restore parameters
     'puts back.
         Public Const DAYNUM_ACTUAL    As String = "ACTUAL"          'The only numerator for the moment
         Public Const DAYCOUNT_DEFAULT As Double = 365               'Days of the year by default
@@ -266,8 +266,8 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
     'Header text of the first column of each lookup table, at the top-left
     'cell of its workbook name. The table runs down to the first blank key.
-        Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
-        Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
+        Public Const HDR_SF   As String = "SF_Key"           'Supervisory-factor table
+        Public Const HDR_FX   As String = "Currency Code"    'FX-rate table
 
 '------------------------------------------------------------------------------
 ' NETTINGSETS INPUT COLUMNS
@@ -359,8 +359,13 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
-        Public Const FX_HEADERS As String = "FX_Ccy||Units of ccy per 1 unit of reporting ccy"
-        Public Const HOLIDAY_HEADERS As String = "Closing day|Description"
+        Public Const FX_HEADERS As String = "Currency Code||Units of ccy per 1 unit of reporting ccy"
+        Public Const HOLIDAY_HEADERS As String = "Bank Holiday|Description"
+    'Where the FX table's neighbours are, in columns from its key (#721): the rate, the currency pair
+    'built from the reporting currency, and the closing price of the pair on the reporting date.
+        Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
+        Public Const FX_COL_PAIR  As Long = 3     'Currency pair, empty on the row of the reporting currency
+        Public Const FX_COL_PRICE As Long = 4     'Closing price of the pair, a number or not
     'The rate column's header before #725, when rates were units of the reporting currency per
     'unit of the currency: a workbook that still has it is refused with a message that says so.
         Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"

@@ -150,16 +150,16 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding("cite EBA Q&A 2023_6962", self.findings())
 
     def test_parameters(self) -> None:
-        self.fixture["parameters"] = {"DayCountConvention": 360}
+        self.fixture["parameters"] = {"YearConvention": 360}
         self.assertEqual(self.findings(), [])
-        self.fixture["parameters"] = {"DayCountConvention": 360, "IRBucketOffset": False}
+        self.fixture["parameters"] = {"YearConvention": 360, "IRBucketOffset": False}
         self.assertEqual(self.findings(), [])
         self.fixture["parameters"] = {"IRBucketOffset": "FALSE"}
         self.assertFinding("parameters.IRBucketOffset", self.findings())
-        self.fixture["parameters"] = {"Alpha": 1, "DayCountConvention": 0}
+        self.fixture["parameters"] = {"Alpha": 1, "YearConvention": 0}
         findings = self.findings()
         self.assertFinding("unknown parameter 'Alpha'", findings)
-        self.assertFinding("parameters.DayCountConvention", findings)
+        self.assertFinding("parameters.YearConvention", findings)
         self.fixture["parameters"] = []
         self.assertFinding("parameters: must be an object", self.findings())
         del self.fixture["parameters"]
@@ -171,12 +171,12 @@ class TestCaseValidatorTests(unittest.TestCase):
         rejected: tuple[object, ...] = (359, 361, 365.5, 367, 0, -365, "365", True, None)
         for value in accepted:
             with self.subTest(value=value):
-                self.fixture["parameters"] = {"DayCountConvention": value}
+                self.fixture["parameters"] = {"YearConvention": value}
                 self.assertEqual(self.findings(), [])
         for value in rejected:
             with self.subTest(value=value):
-                self.fixture["parameters"] = {"DayCountConvention": value}
-                self.assertFinding("parameters.DayCountConvention: invalid year_basis", self.findings())
+                self.fixture["parameters"] = {"YearConvention": value}
+                self.assertFinding("parameters.YearConvention: invalid year_basis", self.findings())
 
     def test_remargin_period_is_whole_business_days_to_10000(self) -> None:
         # CORE_Engine.LoadNettingSets: whole, 0 to 10000; 0 is raised to 1;

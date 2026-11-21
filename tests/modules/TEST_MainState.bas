@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 41   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 42   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -197,7 +197,8 @@ Public Sub RunMainStateTests()
         CaseStaleParams False
         CaseStaleParams True
         CaseRestoreParams
-        CaseDayCountConvention
+        CaseYearConvention
+        CaseCopyClosingPrices
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1649,10 +1650,10 @@ Unexpected:
 End Sub
 
 
-Private Sub CaseDayCountConvention()
+Private Sub CaseYearConvention()
 '
 '==============================================================================
-'                          CaseDayCountConvention
+'                          CaseYearConvention
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The day count of Params (#721): with a year of 365 days and the calendar
@@ -1723,6 +1724,89 @@ Private Sub CaseDayCountConvention()
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         PutParamsBack
+
+End Sub
+
+
+Private Sub CaseCopyClosingPrices()
+'
+'==============================================================================
+'                          CaseCopyClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Copy values on Params (#721): of the currencies of the FX table, with the
+'   closing price of the first different from its rate, that of the second
+'   equal to it, that of the third not a number and those of the others equal,
+'   the first rate takes the closing price, the others keep their rate; the
+'   reporting currency keeps 1; a second copy changes nothing. The closing
+'   prices and the rates are put back.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+    Dim Result      As String    'What a call returned
+    Dim ParamsSheet As Worksheet 'Params
+    Dim HeaderRow   As Long      'Header row of the FX table
+    Dim KeyColumn   As Long      'Its key column
+    Dim Rates       As Range     'The rates of the currencies below the reporting currency
+    Dim Prices      As Range     'Their closing prices
+    Dim LastRow     As Long      'Last row of the FX table
+    Dim Count       As Long      'Currencies below the reporting currency
+    Dim i           As Long      'Currency
+    Dim SavedRates  As Variant   'Their formulas
+    Dim SavedPrices As Variant   'Theirs
+    Dim SecondRate  As Double    'The rate that equals its closing price
+    Dim ThirdRate   As Double    'The rate with no closing price
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.copy-closing-prices"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Count = LastRow - HeaderRow - 1
+        Set Rates = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        Set Prices = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
+        SavedRates = Rates.Formula
+        SavedPrices = Prices.Formula
+        SecondRate = ToDbl(Rates.Cells(2, 1).Value2, 0#)
+        ThirdRate = ToDbl(Rates.Cells(3, 1).Value2, 0#)
+        Prices.ClearContents
+        Prices.Cells(1, 1).Value2 = 2.5
+        Prices.Cells(2, 1).Value2 = SecondRate
+        Prices.Cells(3, 1).Value2 = "n/a"
+        For i = 4 To Count
+            Prices.Cells(i, 1).Value2 = Rates.Cells(i, 1).Value2
+        Next i
+        Result = M_Main.CopyClosingPrices_Silent()
+        TEST_Kit.Check InStr(Result, "RESULT=COPIED; rates=1; unchanged=" & (Count - 2) & "; without_price=1; codes=") = 1, _
+                       "first copy: " & Result
+        TEST_Kit.Check ToDbl(Rates.Cells(1, 1).Value2, 0#) = 2.5, "the rate takes the closing price"
+        TEST_Kit.Check ToDbl(Rates.Cells(2, 1).Value2, 0#) = SecondRate, "a rate equal to its closing price is as it was"
+        TEST_Kit.Check ToDbl(Rates.Cells(3, 1).Value2, 0#) = ThirdRate, "a currency without a closing price keeps its rate"
+        TEST_Kit.Check ToDbl(TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE).Value2, 0#) = 1#, _
+                       "the reporting currency keeps 1"
+        Result = M_Main.CopyClosingPrices_Silent()
+        TEST_Kit.Check InStr(Result, "RESULT=UNCHANGED; rates=0; unchanged=" & (Count - 1) & "; without_price=1;") = 1, _
+                       "second copy: " & Result
+        Rates.Formula = SavedRates
+        Prices.Formula = SavedPrices
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not Rates Is Nothing Then
+            Rates.Formula = SavedRates
+        End If
+        If Not Prices Is Nothing Then
+            Prices.Formula = SavedPrices
+        End If
 
 End Sub
 

@@ -79,23 +79,23 @@ class TranslateTests(unittest.TestCase):
 
     def test_the_basis_comes_from_the_fixture_parameters(self) -> None:
         self.assertEqual(xc.time_basis({}), xc.Basis(365.0, "TABLE"))
-        self.assertEqual(xc.time_basis({"DayCountConvention": 360}), xc.Basis(360.0, "TABLE"))
-        self.assertEqual(xc.time_basis({"DayCountConvention": 250, "Calendar": "TARGET"}), xc.Basis(250.0, "TARGET"))
-        self.assertEqual(xc.time_basis({"DayCountNumerator": "ACTUAL", "DayCountConvention": 364}),
+        self.assertEqual(xc.time_basis({"YearConvention": 360}), xc.Basis(360.0, "TABLE"))
+        self.assertEqual(xc.time_basis({"YearConvention": 250, "Calendar": "TARGET"}), xc.Basis(250.0, "TARGET"))
+        self.assertEqual(xc.time_basis({"DaycountConvention": "ACTUAL", "YearConvention": 364}),
                          xc.Basis(364.0, "TABLE"))
         with self.assertRaisesRegex(xc.Unsupported, "361"):
-            xc.time_basis({"DayCountConvention": 361})
+            xc.time_basis({"YearConvention": 361})
         with self.assertRaisesRegex(xc.Unsupported, "calendar 'NATIONAL'"):
             xc.time_basis({"Calendar": "NATIONAL"})
         with self.assertRaisesRegex(xc.Unsupported, "numerator '30/360'"):
-            xc.time_basis({"DayCountNumerator": "30/360"})
+            xc.time_basis({"DaycountConvention": "30/360"})
         with self.assertRaisesRegex(xc.Unsupported, "Alpha=1.5"):
             xc.time_basis({"Alpha": 1.5})
 
     def test_a_business_day_fixture_is_translated_with_business_day_times(self) -> None:
         data = fixture("cre99-example-3")
         calendar_days = xc.translate_fixture(data)["trades"][0]["args"]["Ei"]
-        data["parameters"] = {"DayCountConvention": 250, "Calendar": "TARGET"}
+        data["parameters"] = {"YearConvention": 250, "Calendar": "TARGET"}
         first = xc.translate_fixture(data)["trades"][0]
         valuation = dt.date.fromisoformat(data["valuation_date"])
         end = dt.date.fromisoformat(data["trades"][0]["maturity_date"])

@@ -115,7 +115,7 @@ values come from the R package `SACCR` 3.4, the registered source
 on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,
 and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
-`DayCountConvention` 360 and 270 days to give exactly 0.75 years. `illustrative`
+`YearConvention` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository, from
 hand calculations or from the scripts in `derivations/`, and stay
 illustrative unless an external implementation registered as a source

@@ -40,7 +40,7 @@ class GenerateCaseTestsTests(unittest.TestCase):
     def test_fixture_parameters_are_set_after_begin_case(self) -> None:
         module = generator.generate(ROOT).split("\r\n")
         begin = module.index('        TEST_CaseRunner.BeginCase "cre99-example-3", "BCBS", "2026-09-30", "USD"')
-        self.assertEqual(module[begin + 1], '        TEST_CaseRunner.SetParameter "DayCountConvention", "360"')
+        self.assertEqual(module[begin + 1], '        TEST_CaseRunner.SetParameter "YearConvention", "360"')
 
     def test_check_mode_detects_a_stale_module(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

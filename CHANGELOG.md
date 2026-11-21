@@ -97,6 +97,23 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Take the second round of the owner's changes to the Params sheet into the template, and add Copy values
+  (#721). The parameters are in the owner's order, with Regime first (row 8), and the two day-count
+  codes are renamed: `DaycountConvention` for the numerator (`ACTUAL`, row 25, formerly
+  `DayCountNumerator`) and `YearConvention` for the days of the year (row 26, formerly
+  `DayCountConvention`), in the workbook names, the engine, the fixtures, the checks and the docs. The
+  headers of the tables are the owner's too: Currency Code and Currency Description for the FX table and
+  Bank Holiday for the table of closing days, which the engine checks. The FX table holds the euro and the
+  20 currencies most traded against it, with the closing prices of the Closing Price column as rates.
+  The new **Copy values** button, in the title row of Params, runs `CopyClosingPrices`: after a
+  confirmation it copies the closing price of each currency into its rate as a value; a currency without a
+  price and the reporting currency keep their rate. `CopyClosingPrices_Silent` is its entry point, and
+  `params.copy-closing-prices` its case (6 checks, 616 in TEST_MainState). Two repairs of the sheet that
+  the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
+  validations follow their cells (Regime keeps its list, the currency check covers only the reporting
+  currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the
+  rows under the FX table are editable, and the instruction for new currencies is back under the last row.
+
 - Take the owner's changes to the Params sheet into the template (#721, follow-up). The list of day-count
   denominators is 366, 365, 364, 360, 252 and 250 (365.25 and 264 are removed, 364 is added) and is kept
   in the hidden cells AQ20:AQ25; the engine, the checks and the docs follow. The note of `Calendar`

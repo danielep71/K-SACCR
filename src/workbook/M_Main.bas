@@ -7392,6 +7392,286 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+'                  CLOSING PRICES OF THE FX TABLE (#721)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub CopyClosingPrices()
+'
+'==============================================================================
+'                              CopyClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Copy the closing prices that Params shows beside the FX table, in its
+'   Closing Price column, into the rate column as values (#721), after a
+'   confirmation that says how many rates change, with Cancel as the
+'   default. A currency without a closing price, and the reporting
+'   currency, keep their rate.
+'
+' USAGE
+'   Copy values on the Params sheet, or the Macros dialog. Automation
+'   calls CopyClosingPrices_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. In silent mode, where no confirmation can be
+'   given, nothing is copied.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Changed     As Long      'Rates that differ from their closing price
+    Dim Unchanged   As Long      'Rates equal to their closing price
+    Dim Without     As String    'Currencies with no closing price, comma separated
+    Dim Problem     As String    'Why nothing can be copied; "" when it can
+    Dim ResultLine  As String    'What the scan or the copy returned
+    Dim Question    As String    'The confirmation
+
+'------------------------------------------------------------------------------
+' CONFIRM, COPY AND REPORT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was copied." & vbLf & vbLf & "A copy is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls CopyClosingPrices_Silent.", vbExclamation
+            Exit Sub
+        End If
+        ResultLine = ScanClosingPrices(False, Changed, Unchanged, Without, Problem)
+        If Len(Problem) > 0 Then
+            Notify "Nothing was copied." & vbLf & vbLf & Problem, vbExclamation
+            Exit Sub
+        End If
+        If Changed = 0 Then
+            Notify "No rate changes: " & ClosingPriceSummary(Changed, Unchanged, Without), vbInformation
+            Exit Sub
+        End If
+        Question = "Replace " & Changed & " rate" & IIf(Changed = 1, "", "s") & " of the FX table with the closing prices of " & _
+                   ClosingPriceDate() & "?" & vbLf & vbLf & "The rates are written as values." & _
+                   IIf(Len(Without) > 0, vbLf & vbLf & "No closing price for " & Replace(Without, ",", ", ") & ": their rates stay.", "")
+        If MsgBox(Question, vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        ResultLine = ScanClosingPrices(True, Changed, Unchanged, Without, Problem)
+        RibbonStateChanged
+        Notify ClosingPriceSummary(Changed, Unchanged, Without), vbInformation
+        Exit Sub
+
+Failed:
+        Notify "Copy closing prices: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function CopyClosingPrices_Silent() As String
+'
+'==============================================================================
+'                          CopyClosingPrices_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Copy the closing prices of the FX table into its rates (#721), for
+'   automation and tests, without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=COPIED; rates=N; unchanged=U; without_price=M; codes=..." with
+'   the rates written, those already equal to their closing price, and the
+'   currencies with no closing price (codes= only when M is not 0);
+'   "RESULT=UNCHANGED; ..." when no rate differs; or
+'   "RESULT=REFUSED; reason=..." when nothing was written.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Changed     As Long      'Rates written
+    Dim Unchanged   As Long      'Rates already equal to their closing price
+    Dim Without     As String    'Currencies with no closing price
+    Dim Problem     As String    'Why nothing was copied
+
+'------------------------------------------------------------------------------
+' COPY
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.CopyClosingPrices_Silent", "An SA-CCR operation is already running."
+        End If
+        CopyClosingPrices_Silent = ScanClosingPrices(True, Changed, Unchanged, Without, Problem)
+
+End Function
+
+
+Private Function ScanClosingPrices( _
+    ByVal Apply As Boolean, _
+    ByRef Changed As Long, _
+    ByRef Unchanged As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                             ScanClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Compare, row by row of the FX table, the closing price (the column
+'   FX_COL_PRICE places from its key) with the rate (FX_COL_RATE) and, when
+'   Apply is True, write the price into the rate as a value (#721). A row
+'   without a currency pair, the reporting currency, is skipped; a row
+'   whose price is not a number above zero is listed in Without and keeps
+'   its rate. The table runs down to the first blank key, as the run reads
+'   it.
+'
+' INPUTS
+'   Apply: True to write, False to count only.
+'   Changed, Unchanged, Without, Problem: the counts, the currencies with
+'   no price and the reason for a refusal, set here.
+'
+' RETURNS
+'   The result line of CopyClosingPrices_Silent.
+'
+' ERROR POLICY
+'   A table that cannot be found is a refusal, not an error; a failed
+'   write raises the error of Excel to the caller.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim r             As Long         'Row
+    Dim Price         As Variant      'The closing price
+    Dim PriceCell     As Range        'Its cell
+    Dim RateCell      As Range        'The rate's cell
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        Changed = 0
+        Unchanged = 0
+        Without = vbNullString
+        Problem = vbNullString
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Problem = "the workbook name '" & NM_FX_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS & "."
+            ScanClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+
+'------------------------------------------------------------------------------
+' COMPARE AND COPY
+'------------------------------------------------------------------------------
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If Len(SafeStr(TableCell(ParamsSheet, r, KeyColumn + FX_COL_PAIR).Value2)) > 0 Then
+                Set PriceCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE)
+                Set RateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
+                Price = PriceCell.Value2
+                If VarType(Price) <> vbDouble Then
+                    Without = Without & IIf(Len(Without) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
+                ElseIf Price <= 0# Then
+                    Without = Without & IIf(Len(Without) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
+                ElseIf ToDbl(RateCell.Value2, 0#) = Price Then
+                    Unchanged = Unchanged + 1
+                Else
+                    Changed = Changed + 1
+                    If Apply Then
+                        RateCell.Value2 = Price
+                    End If
+                End If
+            End If
+            r = r + 1
+        Loop
+
+'------------------------------------------------------------------------------
+' RETURN THE RESULT
+'------------------------------------------------------------------------------
+        ScanClosingPrices = IIf(Apply And Changed > 0, "RESULT=COPIED", IIf(Apply, "RESULT=UNCHANGED", "RESULT=SCANNED")) & _
+                            "; rates=" & Changed & "; unchanged=" & Unchanged & "; without_price=" & _
+                            IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
+                            IIf(Len(Without) > 0, "; codes=" & Without, "")
+
+End Function
+
+
+Private Function ClosingPriceSummary( _
+    ByVal Changed As Long, _
+    ByVal Unchanged As Long, _
+    ByVal Without As String) _
+    As String
+'
+'==============================================================================
+'                            ClosingPriceSummary
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The message after a copy: the rates written, those already equal to
+'   their closing price and the currencies without one (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        ClosingPriceSummary = Changed & " rate" & IIf(Changed = 1, "", "s") & " copied from the closing prices of " & _
+                              ClosingPriceDate() & "; " & Unchanged & " already equal" & _
+                              IIf(Len(Without) > 0, "; no closing price for " & Replace(Without, ",", ", ") & ", whose rates stay.", ".")
+
+End Function
+
+
+Private Function ClosingPriceDate() As String
+'
+'==============================================================================
+'                             ClosingPriceDate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reporting date, the day of the closing prices, as yyyy-mm-dd (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo NoDate
+        ClosingPriceDate = Format$(CDate(NamedCell(PRM_ASOF).Value2), "yyyy-mm-dd")
+        Exit Function
+
+NoDate:
+        ClosingPriceDate = "the reporting date"
+
+End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
 '                         REGULATORY PARAMETERS (#357)
 '
 '------------------------------------------------------------------------------

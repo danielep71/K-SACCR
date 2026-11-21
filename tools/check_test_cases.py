@@ -78,7 +78,7 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
 # Params codes a fixture may set for its own run -> kind of the value, with
 # the engine's range for that parameter (CORE_Engine.LoadParams).
 PARAMETERS: dict[str, str] = {
-    "DayCountConvention": "year_basis",
+    "YearConvention": "year_basis",
     "IRBucketOffset": "bool",
 }
 ENUMS = {
@@ -157,7 +157,7 @@ def check_value(where: str, kind: str, value: object) -> list[str]:
         "remargin_business_days": lambda v: is_whole_number(v) and 0 <= v <= 10000,
         # MPOR override: a whole number above 0; null, not 0, means none.
         "mpor_business_days": lambda v: is_whole_number(v) and v >= 1,
-        # DayCountConvention: the days of the conventional year (CORE_Engine.ReadConvention).
+        # YearConvention: the days of the conventional year (CORE_Engine.ReadConvention).
         "year_basis": lambda v: is_number(v) and v in (366, 365, 364, 360, 252, 250),
         "date": valid_date,
     }

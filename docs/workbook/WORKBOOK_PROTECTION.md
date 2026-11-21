@@ -49,9 +49,9 @@ Params, unprotect that sheet (Review > Unprotect Sheet), make the change and
 either protect it again (macro `ProtectWorkbook`) or simply start the next
 operation: every operation protects every sheet and the structure again
 first. The change itself is kept, and a run on changed regulatory
-parameters is still classified `WHAT-IF`, except for `DayCountNumerator`
+parameters is still classified `WHAT-IF`, except for `DaycountConvention`
 and `IRBucketOffset`: they are conventions, which `CORE_Engine.ClassifyRun` does
-not compare (nor `DayCountConvention` and `Calendar`, which are configuration). The freshness status and the evidence checks work as before.
+not compare (nor `YearConvention` and `Calendar`, which are configuration). The freshness status and the evidence checks work as before.
 
 ## 🗂️ Matrix
 
@@ -59,7 +59,7 @@ not compare (nor `DayCountConvention` and `Calendar`, which are configuration). 
 | --- | --- | --- | --- |
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
-| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `E26` (DayCountConvention), `E27` (Calendar), `C61:E260` (FX table and the rows below it for added currencies), `I61:J160` (the table of closing days of the calendar) | — |
+| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E8` (Regime), `E26` (YearConvention), `E27` (Calendar), `C61:E260` (FX table and the rows below it for added currencies), `I61:J160` (the table of closing days of the calendar) | — |
 | `NettingSets` | Input | Columns `C:T` from row 7 down | Sorting, inserting rows |
 | `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
@@ -91,7 +91,7 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
   input fill. Every other value on Params
   is a reference regulatory parameter, filled grey: it is changed only on an
   unprotected sheet, by a deliberate maintenance unlock, and a run on changed
-  values stays `WHAT-IF`, as today. The exceptions are `DayCountNumerator`
+  values stays `WHAT-IF`, as today. The exceptions are `DaycountConvention`
   and `IRBucketOffset`, conventions that do not change the run class.
   **Restore parameters** on the K-SACCR tab puts them all back to the
   regulatory set without an unlock (#357).

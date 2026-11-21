@@ -25,7 +25,7 @@ class FxQuoteTests(unittest.TestCase):
         self.config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
 
     def headers(self) -> tuple[str, str]:
-        header = re.search(r'FX_HEADERS As String = "FX_Ccy\|\|([^"]+)"', self.config)
+        header = re.search(r'FX_HEADERS As String = "Currency Code\|\|([^"]+)"', self.config)
         before = re.search(r'FX_HEADER_BEFORE_725 As String = "([^"]+)"', self.config)
         self.assertIsNotNone(header)
         self.assertIsNotNone(before)
@@ -43,8 +43,8 @@ class FxQuoteTests(unittest.TestCase):
         parts = sheet_parts(self.package)
         sheet = ElementTree.fromstring(self.package.read(parts["Params"]))
         rates = {item.attrib["r"]: float(item.findtext(f"{MAIN}v") or "nan")
-                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in {"E61", "E62", "E63", "E64", "E65"}}
-        self.assertEqual(rates, {"E61": 1.0, "E62": 1.1328, "E63": 0.8536, "E64": 178.29, "E65": 0.93})
+                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in {"E61", "E62", "E63", "E64"}}
+        self.assertEqual(rates, {"E61": 1.0, "E62": 1.1328, "E63": 178.29, "E64": 0.8536})
 
     def test_the_engine_divides_by_the_rate(self) -> None:
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")

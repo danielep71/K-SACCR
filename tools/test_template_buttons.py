@@ -34,6 +34,7 @@ BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLU
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
     "Reconciliation": CLEAR, "TradeReconciliation": CLEAR,
+    "Params": (("btn_CopyClosingPrices", "CopyClosingPrices", "Copy values", NAVY),),
     "FormulaTest": (("btn_RandomizeInputs", "RandomizeFormulaTestInputs", "Randomize inputs", NAVY),
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
