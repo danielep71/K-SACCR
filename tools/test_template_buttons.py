@@ -34,8 +34,7 @@ BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLU
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
     "Reconciliation": CLEAR, "TradeReconciliation": CLEAR,
-    "Params": (("btn_DownloadClosingPrices", "DownloadClosingPrices", "Download prices", BLUE),
-               ("btn_CopyClosingPrices", "CopyClosingPrices", "Copy values", NAVY)),
+    "Params": (("btn_DownloadClosingPrices", "DownloadClosingPrices", "Download prices", BLUE),),
     "FormulaTest": (("btn_RandomizeInputs", "RandomizeFormulaTestInputs", "Randomize inputs", NAVY),
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
@@ -46,7 +45,7 @@ EXPECTED = {
         "{export}", "ExportBankTradesCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
 }
 # The shapes start no further than this right of the left edge of column C, and clear of the title (Params
-# is the exception: its Copy values button sits beside the FX table).
+# is the exception: its Download prices button sits beside the FX table).
 NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)
 LATEST_START_PX = 480
 EMU = 9525
@@ -150,8 +149,8 @@ class ShapeButtonTests(unittest.TestCase):
                 self.assertEqual(color.attrib["val"], fill, (name, button))
                 self.assertEqual("".join(item.text or "" for item in shape.iter(A + "t")), label, (name, button))
 
-    def test_the_price_buttons_sit_beside_the_fx_table_with_copy_values_in_column_g(self) -> None:
-        # Not in the title row: the owner put Copy values at the FX table, in column G, on its title row.
+    def test_the_price_button_sits_beside_the_fx_table_and_clear_of_the_stamp_and_the_closing_days_title(self) -> None:
+        # Not in the title row's text: the owner put the button at the FX table, left of the date stamp in G59.
         strings = [re.sub("<[^>]+>", "", item) for item in
                    re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
         sheet = self.package.read(self.parts["Params"]).decode("utf-8")
@@ -176,12 +175,12 @@ class ShapeButtonTests(unittest.TestCase):
             assert position is not None and size is not None
             left = origin + int(position.attrib["x"]) // EMU
             edges[shape_name(shape)] = (left, left + int(size.attrib["cx"]) // EMU)
-        column_g = (sum(widths.get(index, 64) for index in range(1, 7)), sum(widths.get(index, 64) for index in range(1, 8)))
-        copy_left, copy_right = edges["btn_CopyClosingPrices"]
-        self.assertTrue(column_g[0] <= copy_left < column_g[1], (edges, column_g))  # Copy values starts in column G
-        self.assertLess(edges["btn_DownloadClosingPrices"][1], copy_left)  # Download prices is left of it, not over it
-        # nothing covers the title of the table of closing days in column I
-        self.assertLessEqual(copy_right, sum(widths.get(index, 64) for index in range(1, 9)) + 2)
+        self.assertEqual(list(edges), ["btn_DownloadClosingPrices"])
+        left, right = edges["btn_DownloadClosingPrices"]
+        column_e = (sum(widths.get(index, 64) for index in range(1, 5)), sum(widths.get(index, 64) for index in range(1, 6)))
+        column_g = sum(widths.get(index, 64) for index in range(1, 7))
+        self.assertTrue(column_e[0] <= left < column_e[1], (edges, column_e))  # the button starts in column E, beside the table
+        self.assertLessEqual(right, column_g + 2)  # and ends before the date stamp in column G
 
     def test_shapes_sit_in_the_title_row_left_of_the_old_buttons_and_clear_of_the_title(self) -> None:
         strings = [re.sub("<[^>]+>", "", item) for item in

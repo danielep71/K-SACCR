@@ -362,12 +362,10 @@ Attribute VB_Name = "CORE_Config"
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
         Public Const FX_HEADERS As String = "Currency Code||Units of ccy per 1 unit of reporting ccy"
         Public Const HOLIDAY_HEADERS As String = "Bank Holiday|Description"
-    'Where the FX table's neighbours are, in columns from its key (#721): the rate, the currency pair
-    'built from the reporting currency, and the closing price of the pair on the reporting date.
+    'Where the rate and the hidden scratch column of Download prices are, in columns from the key
+    '(#721): the rate; and column AR, where the price formulas of a lookup live until it empties them.
         Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
-        Public Const FX_COL_PAIR  As Long = 3     'Currency pair, empty on the row of the reporting currency
-        Public Const FX_COL_PRICE As Long = 4     'Closing price of the pair, a number or not
-        Public Const FX_COL_PRICE_PAIR As Long = 41    'Hidden: the pair the price was looked up for (column AR)
+        Public Const FX_COL_PRICE As Long = 41    'Hidden scratch column AR: the closing price of the pair, a number or not
     'Seconds Download prices waits for the data of STOCKHISTORY (#721).
         Public Const PRICE_WAIT_SECONDS As Long = 30
     'The rate column's header before #725, when rates were units of the reporting currency per

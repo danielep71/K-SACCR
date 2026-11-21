@@ -66,32 +66,30 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn("closed too. Business days are normally used only with a denominator of 252 or 250.", self.text("F28"))
         self.assertEqual(self.text("C30"), "Supervisory parameters (CRE52.72 / CRR Art. 279a, 280a-280f)")
 
-    def test_the_fx_table_has_a_pair_and_a_closing_price_the_engine_does_not_read(self) -> None:
-        self.assertEqual((self.text("F60"), self.text("G60")), ("Currency Pair", "Closing Price\nfrom Refinitiv"))
-        for row, pair in ((62, "USD"), (63, "JPY"), (64, "GBP"), (65, "CNY")):
-            # the pair is built from ReportingCcy, not from the first row of the table
-            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
-            self.assertNotIn("$C$61&amp;", self.xml)
-            self.assertEqual(self.text(f"F{row}"), f"EUR/{pair}")
-        self.assertEqual(self.text("F61"), "")  # the reporting currency has no pair
+    def test_the_fx_table_has_no_pair_or_price_column_and_the_engine_does_not_read_prices(self) -> None:
+        # Download prices builds the pair in code and keeps its price formulas in a hidden scratch column.
+        for row in (60, 61, 62, 81, 82, 260):
+            for column in "FG":
+                self.assertIsNone(self.sheet.find(f'.//{MAIN}c[@r="{column}{row}"]'), (column, row))
+        self.assertNotIn("$C$61&amp;", self.xml)
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")
         self.assertNotIn("Refinitiv", engine)
         self.assertNotIn("STOCKHISTORY", engine)
 
-    def test_the_closing_prices_are_values_and_a_macro_looks_them_up(self) -> None:
+    def test_download_prices_writes_the_rates_and_leaves_no_formula_in_the_sheet(self) -> None:
         # A STOCKHISTORY formula left in the sheet is a data request that Excel may never finish: a run
-        # in manual calculation then refuses to start. The prices are values; Download prices writes them.
+        # in manual calculation then refuses to start. The macro writes the formulas into a hidden scratch
+        # column, reads the prices, writes them as the rates and empties the column.
         self.assertNotIn("STOCKHISTORY", self.xml)
-        for row in range(62, 82):
-            cell = self.sheet.find(f'.//{MAIN}c[@r="G{row}"]')
-            assert cell is not None
-            self.assertIsNone(cell.find(MAIN + "f"), row)
-            self.assertGreater(float(cell.findtext(MAIN + "v") or "0"), 0, row)
+        for row in range(61, 261):
+            self.assertIsNone(self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]'), row)
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
         self.assertIn('"=LET(r,STOCKHISTORY("', main)
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
         self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")
         self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\(\) As String")
+        for removed in ("CopyClosingPrices", "ScanClosingPrices", "FX_COL_PRICE_PAIR"):
+            self.assertNotIn(removed, main)
 
     def test_the_fx_table_is_filled_with_twenty_currencies_against_the_euro(self) -> None:
         codes = [self.text(f"C{row}") for row in range(61, 82)]
@@ -136,29 +134,26 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('"header_size_exceptions"', rules)
         self.assertIn('"Params": {"E60": 10}', rules)
 
-    def test_the_prices_carry_their_context_in_hidden_cells(self) -> None:
-        # Copy values copies a price only when it is of the reporting date and of the pair of its currency now.
+    def test_the_date_of_the_prices_is_shown_beside_the_button(self) -> None:
         self.assertIn('<definedName name="FX_PriceDate">Params!$AQ$27</definedName>', self.workbook)
         self.assertEqual(self.text("AQ27"), self.text("E6"))  # the date of the prices in the template: the reporting date
-        for row in range(62, 82):
-            cell = self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]')
-            assert cell is not None
-            self.assertEqual("".join(item.text or "" for item in cell.iter(MAIN + "t")), self.text(f"F{row}"), row)
+        self.assertEqual(self.text("G59"), "Prices downloaded for 2026-09-30")
+        formula = self.sheet.find(f'.//{MAIN}c[@r="G59"]/{MAIN}f')
+        assert formula is not None and formula.text is not None
+        self.assertIn("FX_PriceDate", formula.text)
+        self.assertIn('TEXT(MONTH(FX_PriceDate),"00")', formula.text)  # no locale-bound date format in the formula
         hidden = [(int(col.attrib["min"]), int(col.attrib["max"])) for col in self.sheet.iter(MAIN + "col")
                   if col.attrib.get("hidden") == "1"]
         self.assertTrue(all(any(low <= column <= high for low, high in hidden) for column in (43, 44)), hidden)  # AQ, AR
         config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
         self.assertIn('NM_FX_PRICE_DATE As String = "FX_PriceDate"', config)
-        self.assertIn("FX_COL_PRICE_PAIR As Long = 41", config)  # AR is 41 columns right of the key column C
+        self.assertIn("FX_COL_PRICE As Long = 41", config)  # the scratch column AR is 41 columns right of the key column C
+        self.assertNotIn("FX_COL_PRICE_PAIR", config)
 
-    def test_a_currency_appended_below_the_table_has_a_pair_and_a_price_cell(self) -> None:
-        for row in (82, 100, 200, 260):
-            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
-            self.assertIsNotNone(self.sheet.find(f'.//{MAIN}c[@r="G{row}"]'), row)
+    def test_a_currency_appended_below_the_table_has_a_pair_from_its_code(self) -> None:
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
-        # the pair is built from the code and the reporting currency, not read from the Currency Pair column
+        # the pair is built from the code and the reporting currency in code, for every row down to the first blank key
         self.assertIn("ClosingPair = Reporting & \"/\" & Code", main)
-        self.assertNotIn("FX_COL_PAIR).Value2", main.split("Private Function ClosingPair")[0].split("CLOSING PRICES OF THE FX TABLE")[-1])
 
     def test_the_closing_day_validation_and_the_unlocked_cells_follow_the_table(self) -> None:
         self.assertRegex(self.xml, r'sqref="I61:I160"[^>]*><formula1>AND\(ISNUMBER\(I61\),I61&gt;=61\)</formula1>')
@@ -178,10 +173,7 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertRegex(self.xml, r'sqref="C61:C81"[^>]*><formula1>AND\(ISTEXT\(C61\),LEN\(C61\)=3,COUNTIF\(\$C\$61:\$C\$81,C61\)=1\)')
         self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E61:E81"')
         self.assertRegex(self.xml, r'<conditionalFormatting sqref="C61:C81">')
-        for row in range(61, 82):
-            self.assertIn(f'<c r="F{row}"', self.xml)
-            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)  # the pair of every row
-        self.assertIn('<c r="F82"', self.xml)  # the pair is there for a currency appended below the table
+        self.assertNotIn('ReportingCcy&amp;"/"&amp;C', self.xml)  # no pair formula: the macro builds the pair
 
 
 if __name__ == "__main__":
