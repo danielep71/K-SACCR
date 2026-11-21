@@ -103,7 +103,8 @@ Use only the categories needed by a release.
   reporting currency is not 1. The workbook now asks, with No as the default, whether to rebase
   the table: every rate is divided by the rate of the new reporting currency, which becomes 1;
   the conversions are unchanged, and the date and source of the rates stay. A rate that is a
-  formula or not a number above zero stays and is listed. Nothing is asked in silent mode or
+  formula or not a number above zero stays and is listed; a formula as the rate of the new
+  reporting currency refuses the rebase. Nothing is asked in silent mode or
   while an operation runs; `RebaseFxTable_Silent` does it for automation. The run's error
   `FX-REPORTING-RATE` now says what to do: accept the rebase, press Download prices, or divide
   every rate by that of the reporting currency. `TEST_MainState` gains `params.rebase-fx-table`.

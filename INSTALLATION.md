@@ -984,7 +984,9 @@ outside silent mode and while no operation runs). Each rate is divided by the
 rate of that currency, which becomes exactly 1; the rates are relative, so every
 conversion is unchanged, and their date and source stay. The rates are written
 all or none, with events off; a rate that is a formula, or not a number above
-zero, stays and is listed. It returns
+zero, stays and is listed; when the rate of that currency is itself a formula,
+the rebase is refused, as it would replace it by 1. The divisor is written with
+a decimal point whatever the locale. It returns
 `RESULT=REBASED; currency=XXX; divisor=D; rates=N` (and `; not_rebased=...`),
 `RESULT=UNCHANGED; currency=XXX` when the rate is already 1, or
 `RESULT=REFUSED; reason=...` when the currency is not a three-letter code in the

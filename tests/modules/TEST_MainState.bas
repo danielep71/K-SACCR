@@ -2136,7 +2136,8 @@ Private Sub CaseRebaseFxTable()
 '   The rebase of the FX table on a new reporting currency (#725): with
 '   USD at 1.25, every rate is divided by 1.25, USD is 1 and EUR 0.8; a
 '   second rebase changes nothing; a rate that is a formula stays and is
-'   listed; a currency not in the table is refused; a failure while the
+'   listed; a currency not in the table, or whose own rate is a formula,
+'   is refused; a failure while the
 '   rates are written puts them back; events are on again. Params is put
 '   back as the case found it.
 '
@@ -2198,6 +2199,11 @@ Private Sub CaseRebaseFxTable()
                        "a rate that is a formula stays and is listed: " & Result
         Result = M_Main.RebaseFxTable_Silent("XYZ")
         TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=XYZ is not in the FX table") = 1, "unknown currency: " & Result
+        AllRates.Formula = SetUp
+        FxRateCell("USD").Formula = "=1.25"
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the rate of USD is a formula") = 1 And _
+                       FxRateCell("USD").Formula = "=1.25", "a formula as the divisor is refused and kept: " & Result
         AllRates.Formula = SetUp
         M_Main.gTestFault = "rebase-write"
         On Error Resume Next

@@ -8181,7 +8181,9 @@ Private Function RebaseFxTable( _
 ' METHOD
 '   Work out every new rate, then write them with events off, all or none.
 '   A rate that is a formula, or not a number above zero, is left as it is
-'   and listed in not_rebased.
+'   and listed in not_rebased; when the rate of Code itself is a formula,
+'   the rebase is refused, as it would replace it by 1. The divisor in the
+'   result is written with Str$, with a decimal point whatever the locale.
 '
 ' RETURNS
 '   See RebaseFxTable_Silent. Problem is set when the result is REFUSED.
@@ -8246,6 +8248,12 @@ Private Function RebaseFxTable( _
             Set RateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
             Kept(r) = RateCell.Formula
             If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                If RateCell.HasFormula Then
+                    Problem = "the rate of " & Code & " is a formula, which a rebase would replace by 1: write " & _
+                              "its rate as a number first."
+                    RebaseFxTable = "RESULT=REFUSED; reason=" & Problem
+                    Exit Function
+                End If
                 NewRates(r) = 1#
             ElseIf RateCell.HasFormula Or VarType(RateCell.Value2) <> vbDouble Then
                 Skipped = Skipped & IIf(Len(Skipped) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
@@ -8275,7 +8283,7 @@ Private Function RebaseFxTable( _
         Next r
         Application.EnableEvents = EventsOn
         mRunning = False
-        RebaseFxTable = "RESULT=REBASED; currency=" & Code & "; divisor=" & CStr(Divisor) & "; rates=" & Rebased & _
+        RebaseFxTable = "RESULT=REBASED; currency=" & Code & "; divisor=" & Trim$(Str$(Divisor)) & "; rates=" & Rebased & _
                         IIf(Len(Skipped) > 0, "; not_rebased=" & Skipped, "")
         Exit Function
 
