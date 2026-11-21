@@ -107,7 +107,8 @@ Use only the categories needed by a release.
   20 currencies most traded against it, with the closing prices of the Closing Price column as rates.
   The new **Copy values** button, in the title row of Params, runs `CopyClosingPrices`: after a
   confirmation it copies the closing price of each currency into its rate as a value; a currency without a
-  price and the reporting currency keep their rate. `CopyClosingPrices_Silent` is its entry point, and
+  price and the reporting currency keep their rate. The pairs and the prices are recalculated first, also in
+  manual calculation, which is left as it was. `CopyClosingPrices_Silent` is its entry point, and
   `params.copy-closing-prices` its case (6 checks, 616 in TEST_MainState). Two repairs of the sheet that
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting

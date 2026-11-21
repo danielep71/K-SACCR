@@ -7533,7 +7533,8 @@ Private Function ScanClosingPrices( _
 '   without a currency pair, the reporting currency, is skipped; a row
 '   whose price is not a number above zero is listed in Without and keeps
 '   its rate. The table runs down to the first blank key, as the run reads
-'   it.
+'   it. The pair and the price are formulas: they are recalculated first,
+'   also in manual calculation, which is left as it was.
 '
 ' INPUTS
 '   Apply: True to write, False to count only.
@@ -7558,6 +7559,7 @@ Private Function ScanClosingPrices( _
     Dim ParamsSheet   As Worksheet    'Params
     Dim HeaderRow     As Long         'Header row of the FX table
     Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the table
     Dim r             As Long         'Row
     Dim Price         As Variant      'The closing price
     Dim PriceCell     As Range        'Its cell
@@ -7578,6 +7580,18 @@ Private Function ScanClosingPrices( _
             Exit Function
         End If
         KeyColumn = NamedTableCol(NM_FX_TABLE)
+
+'------------------------------------------------------------------------------
+' BRING THE PAIRS AND THE PRICES UP TO DATE
+'------------------------------------------------------------------------------
+        LastRow = HeaderRow
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        If LastRow > HeaderRow Then
+            TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_PAIR, LastRow, KeyColumn + FX_COL_PAIR).Calculate
+            TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE).Calculate
+        End If
 
 '------------------------------------------------------------------------------
 ' COMPARE AND COPY
