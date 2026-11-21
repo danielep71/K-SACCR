@@ -158,7 +158,7 @@ def check_value(where: str, kind: str, value: object) -> list[str]:
         # MPOR override: a whole number above 0; null, not 0, means none.
         "mpor_business_days": lambda v: is_whole_number(v) and v >= 1,
         # DayCountConvention: the days of the conventional year (CORE_Engine.ReadConvention).
-        "year_basis": lambda v: is_number(v) and v in (366, 365, 365.25, 264, 360, 252, 250),
+        "year_basis": lambda v: is_number(v) and v in (366, 365, 364, 360, 252, 250),
         "date": valid_date,
     }
     if kind in ENUMS:

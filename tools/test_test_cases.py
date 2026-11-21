@@ -166,8 +166,8 @@ class TestCaseValidatorTests(unittest.TestCase):
         self.assertFinding("missing field 'parameters'", self.findings())
 
     def test_day_count_convention_is_one_of_the_conventional_years(self) -> None:
-        # CORE_Engine.ReadConvention: 366, 365, 365.25, 264, 360, 252 or 250.
-        accepted: tuple[object, ...] = (366, 365, 365.25, 264, 360, 252, 250)
+        # CORE_Engine.ReadConvention: 366, 365, 364, 360, 252 or 250.
+        accepted: tuple[object, ...] = (366, 365, 364, 360, 252, 250)
         rejected: tuple[object, ...] = (359, 361, 365.5, 367, 0, -365, "365", True, None)
         for value in accepted:
             with self.subTest(value=value):

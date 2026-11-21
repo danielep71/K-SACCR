@@ -398,7 +398,7 @@ try {
     # tolerance are accepted, also thousands of rows down.
     $targets = @(
         @("Trades", "C5", "T-CHECK"), @("Trades", "C4000", "T-CHECK"), @("NettingSets", "C7", "NS-CHECK"),
-        @("Params", "E6", 46022), @("Params", "E60", 1), @("BankNettingSets", "C9", "NS-CHECK"),
+        @("Params", "E6", 46022), @("Params", "E61", 1), @("BankNettingSets", "C9", "NS-CHECK"),
         @("BankNettingSets", "D5", 0.5)
     )
     $refused = @($targets | Where-Object { -not (Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) $_[2]) } |
@@ -408,7 +408,7 @@ try {
         $reason = "; last error: " + $script:lastWriteError
     }
     Add-Result 3 ($refused.Count -eq 0) `
-        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E60, BankNettingSets!C9 and D5; refused [" +
+        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E61, BankNettingSets!C9 and D5; refused [" +
          ($refused -join ", ") + "]" + $reason)
 
     # 4: several rows of values pasted into the input columns, then cleared.

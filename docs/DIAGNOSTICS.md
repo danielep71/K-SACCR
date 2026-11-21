@@ -159,7 +159,7 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `PRM-CALENDAR` | active | Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier. |
 | `PRM-CURRENCY` | active | Reporting currency must be three letters A to Z, |
 | `PRM-CURRENCY-MISSING` | active | Reporting currency missing. |
-| `PRM-DAYCOUNT` | active | Day-count convention must be 366, 365, 365.25, 264, 360, 252 or 250, or the day-count numerator ACTUAL (found |
+| `PRM-DAYCOUNT` | active | Day-count convention must be 366, 365, 364, 360, 252 or 250, or the day-count numerator ACTUAL (found |
 | `PRM-DEFAULT` | active | Parameter missing - default   used. |
 | `PRM-DUP` | active | Parameter listed twice with different values (rows |
 | `PRM-DUP-SAME` | active | Parameter listed twice with the same value (rows |

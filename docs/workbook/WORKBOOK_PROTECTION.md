@@ -59,7 +59,7 @@ not compare (nor `DayCountConvention` and `Calendar`, which are configuration). 
 | --- | --- | --- | --- |
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
-| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `E26` (DayCountConvention), `E27` (Calendar), `C60:E259` (FX table and the rows below it for added currencies), `G60:H159` (the table of closing days of the calendar) | — |
+| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `E26` (DayCountConvention), `E27` (Calendar), `C61:E260` (FX table and the rows below it for added currencies), `I61:J160` (the table of closing days of the calendar) | — |
 | `NettingSets` | Input | Columns `C:T` from row 7 down | Sorting, inserting rows |
 | `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
