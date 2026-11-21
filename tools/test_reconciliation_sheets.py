@@ -285,8 +285,13 @@ class ReconSummaryTests(unittest.TestCase):
                 self.assertIn(f'*(OFFSET({sheet}!$M${FIRST},0,0,{sheet}!$R$1,1)="MATCH")', self.formula(f"E{row}"), row)
                 self.assertIn('="DIFFERENCE")', self.formula(f"F{row}"), row)
                 self.assertEqual(self.formula(f"G{row}"), f"D{row}-E{row}-F{row}", row)
-                self.assertIn(f"SUMPRODUCT(MAX({visible}*{measure}*OFFSET({sheet}!$K${FIRST},0,0,{sheet}!$R$1,1)))",
-                              self.formula(f"K{row}"), row)
+                # Sums and differences count only the rows compared, so that the two sums cover the same rows.
+                compared = (f'((OFFSET({sheet}!$M${FIRST},0,0,{sheet}!$R$1,1)="MATCH")'
+                            f'+(OFFSET({sheet}!$M${FIRST},0,0,{sheet}!$R$1,1)="DIFFERENCE"))')
+                self.assertIn(f"SUMPRODUCT(MAX({visible}*{measure}*{compared}*OFFSET({sheet}!$K${FIRST},0,0,"
+                              f"{sheet}!$R$1,1)))", self.formula(f"K{row}"), row)
+                self.assertTrue(self.formula(f"K{row}").startswith(f'IF(E{row}+F{row}=0,"",'), row)
+                self.assertIn(f"*{measure}*{compared}*", self.formula(f"L{row}"), row)
                 self.assertIn(f"+{FIRST - 1}", self.formula(f"L{row}"), row)
 
     def test_amounts_have_sums_and_factors_do_not(self) -> None:
@@ -299,8 +304,10 @@ class ReconSummaryTests(unittest.TestCase):
                         self.assertEqual(self.formula(f"{column}{row}"), "", (sheet, measure))
                 else:
                     for column, source in zip("HIJ", "IJK"):
-                        self.assertIn(f"*OFFSET({sheet}!${source}${FIRST},0,0,{sheet}!$R$1,1)",
+                        self.assertIn(f'="DIFFERENCE"))*OFFSET({sheet}!${source}${FIRST},0,0,{sheet}!$R$1,1)',
                                       self.formula(f"{column}{row}"), (sheet, measure))
+                        self.assertTrue(self.formula(f"{column}{row}").startswith(f'IF(E{row}+F{row}=0,"",'),
+                                        (sheet, measure))
 
     def test_home_links_to_every_other_sheet_in_tab_order(self) -> None:
         names = re.findall(r'<sheet name="([^"]+)"', self.package.read("xl/workbook.xml").decode("utf-8"))
