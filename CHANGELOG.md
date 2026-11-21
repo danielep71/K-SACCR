@@ -97,6 +97,17 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add the `ReconSummary` sheet, after `TradeReconciliation`, with one row per measure of the two
+  reconciliation sheets (#720). Each row shows the rows shown, the Match and Difference counts, the other
+  results, the sum of the bank figures, of the calculator figures and of the absolute differences, the
+  largest absolute difference and the sheet row where it is. The sums are formulas over the rows the
+  filters of `Reconciliation` and `TradeReconciliation` leave (`SUBTOTAL(103, ...)` as the tiles do), so
+  they change with a filter and need no macro. A factor (multiplier, M, supervisory duration and delta,
+  maturity factors) has no sum, only its counts and its largest difference, in six decimals. The
+  sheet holds formulas only and is protected as an output sheet (role Output). It has its own button in
+  the Reconciliation section of the Go to menu and of the navigation bar, and the measures it lists are
+  tested against those of `CORE_Reconcile`. The workbook now has 20 sheets.
+
 - Lift the limits of the bank files (#718, follow-up). The files were limited to the rows the template
   formats, 200 netting sets and 500 legs; they now hold up to 10,000 netting sets (as `NettingSets`)
   and 50,000 legs, the limits of the contract (`CSV-TOO-MANY-RECORDS` above them, as before). The

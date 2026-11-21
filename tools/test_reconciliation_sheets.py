@@ -232,5 +232,88 @@ class ReconciliationSheetTests(unittest.TestCase):
         self.assertEqual({name for name in match.group(1).split("|") if name}, set(SHEETS))
 
 
+class ReconSummaryTests(unittest.TestCase):
+    """The ReconSummary sheet: one row per measure of each reconciliation sheet, following the filters (#720)."""
+
+    FIRST_ROWS = {"Reconciliation": 8, "TradeReconciliation": 22}
+    COLUMNS = "CDEFGHIJKL"
+
+    def setUp(self) -> None:
+        self.package = zipfile.ZipFile(TEMPLATE)
+        self.addCleanup(self.package.close)
+        self.parts = sheet_parts(self.package)
+        self.strings = [re.sub(r"<[^>]+>", "", item) for item in
+                        re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
+        self.sheet = ElementTree.fromstring(self.package.read(self.parts["ReconSummary"]))
+
+    def cell(self, ref: str) -> ElementTree.Element:
+        found = self.sheet.find(f'.//{MAIN}c[@r="{ref}"]')
+        assert found is not None, ref
+        return found
+
+    def text(self, ref: str) -> str:
+        value = self.cell(ref).findtext(MAIN + "v") or ""
+        return self.strings[int(value)] if self.cell(ref).attrib.get("t") == "s" else value
+
+    def formula(self, ref: str) -> str:
+        return self.cell(ref).findtext(MAIN + "f") or ""
+
+    def source_measures(self, constant: str) -> list[str]:
+        reconcile = (ROOT / "src" / "core" / "CORE_Reconcile.bas").read_text(encoding="utf-8")
+        match = re.search(rf"{constant}\s+As String = ((?:\"[^\"]*\"(?: & _\s*)?)+)", reconcile)
+        assert match is not None
+        return "".join(re.findall(r'"([^"]*)"', match.group(1))).split("|")
+
+    def test_the_sheet_follows_the_two_reconciliation_sheets_in_tab_order(self) -> None:
+        names = re.findall(r'<sheet name="([^"]+)"', self.package.read("xl/workbook.xml").decode("utf-8"))
+        self.assertEqual(names[names.index("TradeReconciliation") + 1], "ReconSummary")
+
+    def test_it_lists_the_measures_of_the_reconciliation_code_in_its_order(self) -> None:
+        for sheet, constant in (("Reconciliation", "NS_MEASURES"), ("TradeReconciliation", "TR_MEASURES")):
+            first = self.FIRST_ROWS[sheet]
+            measures = self.source_measures(constant)
+            self.assertEqual(len(measures), 11)
+            self.assertEqual([self.text(f"C{first + i}") for i in range(len(measures))], measures, sheet)
+
+    def test_the_formulas_read_the_visible_rows_of_the_right_sheet(self) -> None:
+        for sheet, first in self.FIRST_ROWS.items():
+            for row in range(first, first + 11):
+                visible = (f"SUBTOTAL(103,OFFSET({sheet}!$M${FIRST},ROW(OFFSET({sheet}!$M${FIRST},0,0,{sheet}!$R$1,1))"
+                           f"-ROW({sheet}!$M${FIRST}),0))")
+                measure = f"(OFFSET({sheet}!$H${FIRST},0,0,{sheet}!$R$1,1)=$C{row})"
+                self.assertIn(f"IF({sheet}!$R$1=0,0,SUMPRODUCT({visible}*{measure}", self.formula(f"D{row}"), row)
+                self.assertIn(f'*(OFFSET({sheet}!$M${FIRST},0,0,{sheet}!$R$1,1)="MATCH")', self.formula(f"E{row}"), row)
+                self.assertIn('="DIFFERENCE")', self.formula(f"F{row}"), row)
+                self.assertEqual(self.formula(f"G{row}"), f"D{row}-E{row}-F{row}", row)
+                self.assertIn(f"SUMPRODUCT(MAX({visible}*{measure}*OFFSET({sheet}!$K${FIRST},0,0,{sheet}!$R$1,1)))",
+                              self.formula(f"K{row}"), row)
+                self.assertIn(f"+{FIRST - 1}", self.formula(f"L{row}"), row)
+
+    def test_amounts_have_sums_and_factors_do_not(self) -> None:
+        for sheet, first in self.FIRST_ROWS.items():
+            for i, measure in enumerate(self.source_measures("NS_MEASURES" if sheet == "Reconciliation" else "TR_MEASURES")):
+                row = first + i
+                if measure in FACTORS[sheet]:
+                    for column in "HIJ":
+                        self.assertEqual(self.text(f"{column}{row}"), "-", (sheet, measure))
+                        self.assertEqual(self.formula(f"{column}{row}"), "", (sheet, measure))
+                else:
+                    for column, source in zip("HIJ", "IJK"):
+                        self.assertIn(f"*OFFSET({sheet}!${source}${FIRST},0,0,{sheet}!$R$1,1)",
+                                      self.formula(f"{column}{row}"), (sheet, measure))
+
+    def test_the_sheet_is_saved_protected_as_an_output_sheet(self) -> None:
+        protection = self.sheet.find(MAIN + "sheetProtection")
+        assert protection is not None
+        self.assertEqual(protection.attrib.get("sheet"), "1")
+        for formula in self.sheet.iter(MAIN + "f"):  # formulas only: no cell is unlocked
+            self.assertTrue((formula.text or "").strip())
+        styles = ElementTree.fromstring(self.package.read("xl/styles.xml"))
+        xfs = list(styles.find(MAIN + "cellXfs"))  # type: ignore[arg-type]
+        for cell in self.sheet.iter(MAIN + "c"):
+            protection_of = xfs[int(cell.attrib.get("s", "0"))].find(MAIN + "protection")
+            self.assertTrue(protection_of is None or protection_of.attrib.get("locked") != "0", cell.attrib["r"])
+
+
 if __name__ == "__main__":
     unittest.main()

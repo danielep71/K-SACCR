@@ -69,6 +69,7 @@ not compare (nor `DayCountConvention` and `Calendar`, which are configuration). 
 | `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |
 | `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
 | `TradeReconciliation` | Working | — | Never protected, as `Reconciliation` |
+| `ReconSummary` | Output | — | — (formulas only) |
 | `TestCatalogue` | Test | `L7:L34` | — |
 | `FormulaTest` | Test | `E4`, `H4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15`, `G33:H81`, `K33:L81` | — |
 | `Basel_vs_CRR` | Reference | — | Filtering |
