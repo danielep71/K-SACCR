@@ -24,7 +24,11 @@ For the branch of a pull request, with one command on the Windows host:
    session only (AutomationSecurity Low; the Trust Center is not changed),
    runs its Auto_Open as Excel does for a user, compiles it, runs
    Test_RunAll once (TEST_Suite.Verify, into summary.log)
-   and runs the 14 protection checks with
+   reviews every sheet (#706): Clear outputs, a picture of every sheet, a run
+   of the demonstration portfolio, a second picture, and in both states the
+   checks of tools\Review-SACCR-Sheets.ps1 against
+   docs\workbook\sheet-style.json, into sheet-review.txt and the folder
+   sheets; and runs the 14 protection checks with
    tools\Check-SACCR-Protection.ps1 -Unattended. No prompt is shown; a step
    that would need one stops the run. A compile error opens a dialog in the
    VBE, which the compile command waits on: a watchdog closes the Excel of
@@ -33,19 +37,26 @@ For the branch of a pull request, with one command on the Windows host:
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
+   With -Commit the script checks nothing out: it verifies the commit the
+   checkout already is at, and stops when HEAD is another commit. The
+   automatic quick check of a pull request (#713) uses it, so that its result
+   belongs to the commit that triggered it even when the branch has moved on
+   while the run waited. -Branch then only names the branch in the summary;
 4. writes verify-summary.txt in the bundle and prints it: the branch, the
-   commit, the mode, the duration, the Test_RunAll summary, the 14
-   protection checks and the result.
+   commit, the mode, the duration, the Test_RunAll summary, the sheet review
+   (quick run), the 14 protection checks and the result.
 Without -Quick the exit code is that of Certify-SACCR.ps1: 0 only when the
 bundle validates and the 14 protection checks pass. With -Quick it is 0 only
-when the project compiled, Test_RunAll printed RESULT=PASS and the 14
-protection checks pass. The script never pushes and never changes the macro
+when the project compiled, Test_RunAll printed RESULT=PASS, the sheet review
+passed and the 14 protection checks pass. The script never pushes and never changes the macro
 setting or the access to the VBA project. Checks a person makes by eye, such
 as the Ribbon's labels, stay with the person. A quick run needs the branch to
 carry TEST_Suite.Verify and the -Unattended switch of
 Check-SACCR-Protection.ps1; on an older branch it stops and says so.
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch chore/218-tooling-cleanup
+.EXAMPLE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick -Commit 0123456789abcdef0123456789abcdef01234567
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick
 #>
@@ -60,7 +71,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$Operator,
     [Parameter(Mandatory = $false)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [Parameter(Mandatory = $false)]
+    [string]$Commit
 )
 
 Set-StrictMode -Version Latest
@@ -170,6 +183,7 @@ function Invoke-QuickRun {
     New-Item -ItemType Directory -Path $Bundle | Out-Null
     $script:verifyLog = Join-Path $Bundle "verify.log"
     $script:compileLine = "Compile: NOT RUN"
+    $script:reviewLine = "Sheet review: NOT RUN"
     Write-Log "K-SACCR quick verification of ${Sha}: a pull-request check, not a release certification"
     Write-Log "Started at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')); folder $Bundle"
     $workbookPath = Join-Path $Bundle "K-SACCR_Verification.xlsm"
@@ -180,14 +194,22 @@ function Invoke-QuickRun {
         # Build the development workbook from the template and the source.
         Write-Log "Building the development workbook: tools\Sync-SACCR-VBA.ps1 -Mode Development -FromTemplate"
         $syncScript = Join-Path $RepoRoot "tools\Sync-SACCR-VBA.ps1"
-        $syncOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncScript `
-            -WorkbookPath $workbookPath -Mode Development -FromTemplate -NoBackup -RepoRoot $RepoRoot 2>&1
+        # Under the script's "Stop" preference, Windows PowerShell 5.1 turns the first line the child
+        # writes to stderr into a terminating error, cut at the console width; read every line as text
+        # instead, and quote the whole message with its whitespace normalised (#708).
+        $syncOutput = @(& {
+            $ErrorActionPreference = "Continue"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncScript `
+                -WorkbookPath $workbookPath -Mode Development -FromTemplate -NoBackup -RepoRoot $RepoRoot 2>&1 |
+                ForEach-Object { [string]$_ }
+        })
         $syncCode = $LASTEXITCODE
         foreach ($line in $syncOutput) {
             Write-Log ("  sync: " + $line)
         }
         if ($syncCode -ne 0 -or -not (Test-Path -LiteralPath $workbookPath)) {
-            throw "The workbook could not be built (Sync-SACCR-VBA exited with code $syncCode); see verify.log."
+            $message = (($syncOutput | Select-Object -Last 12) -join " ") -replace '\s+', ' '
+            throw ("The workbook could not be built (Sync-SACCR-VBA exited with code $syncCode): " + $message.Trim())
         }
 
         # Open it with its macros enabled for this Excel session only. The
@@ -285,6 +307,26 @@ function Invoke-QuickRun {
         if (-not $suitesRan) {
             throw "The suites did not run: $verifyResult"
         }
+
+        # The sheet review (#706), in the same Excel session: Clear outputs,
+        # pictures, a run of the demonstration portfolio, pictures, checks.
+        $reviewScript = Join-Path $RepoRoot "tools\Review-SACCR-Sheets.ps1"
+        if (Test-Path -LiteralPath $reviewScript) {
+            . $reviewScript
+            Write-Log "Reviewing the sheets: Clear outputs, pictures, a run, pictures; into sheet-review.txt"
+            try {
+                $script:reviewLine = "Sheet review: " + (Invoke-SheetReview -Excel $excel -Workbook $workbook `
+                    -Bundle $Bundle -RepoRoot $RepoRoot -Sha $Sha)
+            }
+            catch {
+                $script:reviewLine = "Sheet review: RESULT=FAIL; stopped: " + $_.Exception.Message
+            }
+            Write-Log $script:reviewLine
+        }
+        else {
+            $script:reviewLine = "Sheet review: RESULT=FAIL; this branch has no tools\Review-SACCR-Sheets.ps1"
+            Write-Log $script:reviewLine
+        }
     }
     catch {
         Write-Log ("Stopped: " + $_.Exception.Message)
@@ -338,7 +380,8 @@ function Invoke-QuickRun {
     }
     $summaryPassed = (Get-FileText (Join-Path $Bundle "summary.log")) -match '(?m)^RESULT=PASS; suites='
     Write-Log "Finished at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz'))"
-    if ($suitesRan -and $summaryPassed -and $protectionCode -eq 0) {
+    $reviewPassed = $script:reviewLine.StartsWith("Sheet review: RESULT=PASS;")
+    if ($suitesRan -and $summaryPassed -and $reviewPassed -and $protectionCode -eq 0) {
         return 0
     }
     return 1
@@ -358,23 +401,37 @@ if (-not [string]::IsNullOrWhiteSpace($dirty)) {
     throw "The working tree has changes. Commit or stash them first; nothing was checked out."
 }
 
-Write-Host "Fetching $Branch from origin..."
-[void](Invoke-Git @("fetch", "origin", ("+refs/heads/" + $Branch + ":refs/remotes/origin/" + $Branch)) `
-    "Cannot fetch the branch from origin")
-if ((Invoke-GitRaw @("show-ref", "--verify", "--quiet", ("refs/heads/" + $Branch))).Code -eq 0) {
-    [void](Invoke-Git @("checkout", $Branch) "Cannot check out the branch")
-    [void](Invoke-Git @("merge", "--ff-only", ("origin/" + $Branch)) `
-        "The local branch has commits origin does not have; it was left as it is")
+if (-not [string]::IsNullOrWhiteSpace($Commit)) {
+    # The commit the checkout is at, as the automatic quick check asks (#713): nothing is fetched or
+    # checked out, so a branch that moved on cannot change what is verified.
+    if ($Commit -cnotmatch '^[0-9a-f]{40}$') {
+        throw "Not a full commit SHA: $Commit"
+    }
+    $sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
+    if ($sha -ne $Commit) {
+        throw "The checkout is at $sha, not at the commit asked for ($Commit); nothing was verified."
+    }
+    Write-Host "Verifying the checked-out commit $sha of $Branch."
 }
 else {
-    [void](Invoke-Git @("checkout", "-b", $Branch, "--track", ("origin/" + $Branch)) "Cannot check out the branch")
+    Write-Host "Fetching $Branch from origin..."
+    [void](Invoke-Git @("fetch", "origin", ("+refs/heads/" + $Branch + ":refs/remotes/origin/" + $Branch)) `
+        "Cannot fetch the branch from origin")
+    if ((Invoke-GitRaw @("show-ref", "--verify", "--quiet", ("refs/heads/" + $Branch))).Code -eq 0) {
+        [void](Invoke-Git @("checkout", $Branch) "Cannot check out the branch")
+        [void](Invoke-Git @("merge", "--ff-only", ("origin/" + $Branch)) `
+            "The local branch has commits origin does not have; it was left as it is")
+    }
+    else {
+        [void](Invoke-Git @("checkout", "-b", $Branch, "--track", ("origin/" + $Branch)) "Cannot check out the branch")
+    }
+    $sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
+    $remoteSha = Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin"
+    if ($sha -ne $remoteSha) {
+        throw "The checkout is at $sha, not at origin/$Branch ($remoteSha)."
+    }
+    Write-Host "Checked out $Branch at $sha."
 }
-$sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
-$remoteSha = Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin"
-if ($sha -ne $remoteSha) {
-    throw "The checkout is at $sha, not at origin/$Branch ($remoteSha)."
-}
-Write-Host "Checked out $Branch at $sha."
 
 # ----------------------------------------------------------------------------
 # Certify, or the quick check
@@ -422,7 +479,7 @@ $title = "K-SACCR branch verification"
 $resultLine = "Result: " + $verdict + " (Certify-SACCR exit code " + $code + ")"
 if ($Quick) {
     $title = "K-SACCR branch verification (quick): a pull-request check, not a release certification"
-    $resultLine = "Result: " + $verdict + " (quick run; compile, Test_RunAll and the 14 protection checks)"
+    $resultLine = "Result: " + $verdict + " (quick run; compile, Test_RunAll, the sheet review and the 14 protection checks)"
 }
 $lines = @(
     $title,
@@ -434,7 +491,7 @@ $lines = @(
     $resultLine
 )
 if ($Quick) {
-    $lines += @($script:compileLine)
+    $lines += @($script:compileLine, $script:reviewLine)
 }
 $lines += @(
     "",
@@ -444,6 +501,12 @@ $lines += @(
     "Protection checks (protection-checks.txt):",
     (Get-FileText (Join-Path $bundle "protection-checks.txt"))
 )
+if ($Quick) {
+    # The review's failing lines, their details and its result line.
+    $review = Get-FileText (Join-Path $bundle "sheet-review.txt")
+    $failing = @($review -split "\r?\n" | Where-Object { $_ -match 'FAIL' -or $_ -match '^  [a-z]+: [0-9]' -or $_ -match '^  (gridlines|tab):' })
+    $lines += @("", "Sheet review (sheet-review.txt; pictures in the folder sheets):") + $failing
+}
 $summary = ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 if (Test-Path -LiteralPath $bundle) {
     [System.IO.File]::WriteAllText((Join-Path $bundle "verify-summary.txt"), $summary, $utf8NoBom)

@@ -46,6 +46,8 @@ docs/               contracts, architecture, governance, evidence record
   index.html        public project landing page (GitHub Pages); WEBSITE.md is its runbook
   licenses/         notices for files adapted from software under other licenses
   assets/           images and diagrams of the documentation, with their sources
+    screenshots/    pictures of a quick Excel run, named after its commit
+  excel-runs/       dated records of quick Excel runs (pull-request checks)
   csv/              CSV input contract, its specification and blank templates
   workbook/         Ribbon contract and protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
@@ -84,7 +86,7 @@ is created with its first file.
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
 `src/`, `tests/` and `tools/` each have a `README.md`, as do `docs/assets/`,
-`docs/methodology/`, `docs/methodology/sources/` and each version folder of
+`docs/excel-runs/`, `docs/methodology/`, `docs/methodology/sources/` and each version folder of
 `docs/user-manual/`.
 Subdirectories are created with their first real file, never empty.
 

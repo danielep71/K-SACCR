@@ -60,6 +60,16 @@ not opened just to record progress.
    owner-approved milestone transition, retain the completed branch and
    create the next `release/X.Y.Z` from the integration commit, then update
    [Branches](#branches) and Dependabot's `target-branch`.
+
+   The sync PR needs no new automated review when all of these hold:
+   - its head is the integration merge commit;
+   - its diff against the release branch is empty;
+   - the integration PR's review of its final head covered the same tree.
+
+   Its description then names that review. **Repository integrity** still
+   runs and must be green. If the automated review runs anyway and comments,
+   its conversations are resolved as on any PR. A sync that changes any file
+   is reviewed as usual.
 5. Verify that the release branch contains the integration merge commit and
    that CI passed on both branches.
 
@@ -87,6 +97,17 @@ merged. Report static checks and real Excel runs separately. If a hosted run
 fails after a merge, record the failure and fix or revert it through a new PR
 before closing the issue. Never rewrite shared history to conceal the failed
 candidate.
+
+The quick Excel check of a pull request also runs on the owner's self-hosted
+Windows runner and reports in the pull request
+([`excel-quick.yml`](../.github/workflows/excel-quick.yml); see
+[Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). It is a
+pull-request check, never release evidence, and not a required check. It counts
+as the Excel verification that a VBA or template change needs before its merge
+only when the owner says so in the pull request; the release certification stays
+manual. Write access to the repository is write access to that machine, so the
+workflow starts only for branches of this repository, and Actions requires
+approval for outside collaborators.
 
 <a id="continuity"></a>
 
@@ -234,6 +255,7 @@ configuration.
 | Automatic Dependabot updates | See [Dependency updates](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
 | Repository integrity CI | See [GitHub Actions](../tools/README.md#github-actions). Static checks only; no Excel execution. |
+| Self-hosted runner | The owner's Windows machine with desktop Excel, registered for this repository with the label `excel`, started with its run command in a logged-in session, and used only by `excel-quick.yml` (see [Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). Keep Actions, General, Fork pull request workflows set to require approval for all outside collaborators. |
 | Labels | See [Labels](#labels). |
 | Pull-request milestones | Removed by the **Keep milestones issue-only** workflow; see [Issue metadata and completion](#issue-metadata-and-completion). |
 | Traffic history | See [Traffic history](../tools/README.md#traffic-history). Analytics only, never CI. |

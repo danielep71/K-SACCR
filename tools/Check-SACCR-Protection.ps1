@@ -97,7 +97,20 @@ function Add-Stop {
 function Get-SheetNames {
     $matrix = [System.IO.File]::ReadAllText((Join-Path $RepoRoot "docs\workbook\protection.json"), $utf8NoBom) |
         ConvertFrom-Json
-    return @($matrix.sheets.PSObject.Properties | ForEach-Object { $_.Name })
+    # The sheets that must be protected: a sheet of the role Working is never protected (#720).
+    $names = New-Object System.Collections.Generic.List[string]
+    $never = New-Object System.Collections.Generic.List[string]
+    foreach ($property in $matrix.sheets.PSObject.Properties) {
+        if ([string]$property.Value.role -eq "Working") {
+            $never.Add([string]$property.Name)
+        }
+        else {
+            $names.Add([string]$property.Name)
+        }
+    }
+    Write-Host ("Sheets that must be protected: " + $names.Count + "; never protected (role Working): [" +
+        ($never -join ", ") + "]")
+    return , @($names.ToArray())
 }
 
 function Get-BarLinks {
@@ -336,15 +349,15 @@ try {
         }
     }
     $expectedLinks = [int]$workbook.Worksheets.Count - 1
-    $sheetNames = @(foreach ($sheet in $workbook.Worksheets) { [string]$sheet.Name })
+    $workbookSheetNames = @(foreach ($sheet in $workbook.Worksheets) { [string]$sheet.Name })
     $barWrong = New-Object System.Collections.Generic.List[string]
     $barBroken = New-Object System.Collections.Generic.List[string]
-    foreach ($sheetName in $sheetNames) {
+    foreach ($sheetName in $workbookSheetNames) {
         $barLinks = Get-BarLinks $workbook.Worksheets.Item($sheetName)
         $targets = @(foreach ($link in $barLinks) {
             ([string]$link.SubAddress) -replace "^'?([^'!]+)'?!.*$", '$1'
         })
-        $expected = @($sheetNames | Where-Object { $_ -ne $sheetName })
+        $expected = @($workbookSheetNames | Where-Object { $_ -ne $sheetName })
         if ((($targets | Sort-Object) -join "|") -ne (($expected | Sort-Object) -join "|")) {
             $barWrong.Add($sheetName)
         }
@@ -366,26 +379,26 @@ try {
                    $barWrong.Count -eq 0 -and $barBroken.Count -eq 0) `
         ("Opened with macros disabled: unprotected [" + ($open -join ", ") + "]; a macro ran: $macroRan; opens on " +
          $opensOn + "; Home links " + $linkCount + " of " + $expectedLinks + ", not reaching their sheet [" +
-         ($broken -join ", ") + "]; navigation bar on " + ($sheetNames.Count - $barWrong.Count) + " of " +
-         $sheetNames.Count + " sheets, wrong [" + ($barWrong -join ", ") + "], links not reaching their sheet [" +
+         ($broken -join ", ") + "]; navigation bar on " + ($workbookSheetNames.Count - $barWrong.Count) + " of " +
+         $workbookSheetNames.Count + " sheets, wrong [" + ($barWrong -join ", ") + "], links not reaching their sheet [" +
          ($barBroken -join ", ") + "]")
 
     # 2: typing into a header, a grey Params value, an output cell, a
     # staging metadata cell and Home is refused.
     $targets = @(
-        @("Trades", "C4"), @("Params", "E8"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
+        @("Trades", "C4"), @("Params", "E9"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
     )
     $accepted = @($targets | Where-Object { Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) "x" } |
         ForEach-Object { $_[0] + "!" + $_[1] })
     Add-Result 2 ($accepted.Count -eq 0) `
-        ("Writes to Trades!C4, Params!E8, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
+        ("Writes to Trades!C4, Params!E9, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
          ($accepted -join ", ") + "]")
 
     # 3: inputs, Params configuration, an FX rate, a bank figure and a bank
     # tolerance are accepted, also thousands of rows down.
     $targets = @(
         @("Trades", "C5", "T-CHECK"), @("Trades", "C4000", "T-CHECK"), @("NettingSets", "C7", "NS-CHECK"),
-        @("Params", "E6", 46022), @("Params", "E58", 1), @("BankNettingSets", "C9", "NS-CHECK"),
+        @("Params", "E6", 46022), @("Params", "E61", 1), @("BankNettingSets", "C9", "NS-CHECK"),
         @("BankNettingSets", "D5", 0.5)
     )
     $refused = @($targets | Where-Object { -not (Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) $_[2]) } |
@@ -395,7 +408,7 @@ try {
         $reason = "; last error: " + $script:lastWriteError
     }
     Add-Result 3 ($refused.Count -eq 0) `
-        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E58, BankNettingSets!C9 and D5; refused [" +
+        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E61, BankNettingSets!C9 and D5; refused [" +
          ($refused -join ", ") + "]" + $reason)
 
     # 4: several rows of values pasted into the input columns, then cleared.
@@ -523,13 +536,13 @@ try {
     # 10: a changed Alpha after a maintenance unlock makes the run WHAT-IF;
     # the run protects Params again; the value is restored.
     $params = $workbook.Worksheets.Item("Params")
-    $alphaFormula = [string]$params.Range("E8").Formula
+    $alphaFormula = [string]$params.Range("E9").Formula
     $params.Unprotect()
-    $params.Range("E8").Value2 = 1.5
+    $params.Range("E9").Value2 = 1.5
     $whatIf = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $protectedAgain = [bool]$params.ProtectContents
     $params.Unprotect()
-    $params.Range("E8").Formula = $alphaFormula
+    $params.Range("E9").Formula = $alphaFormula
     $regular = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     Add-Result 10 ((Test-Run $whatIf) -and $whatIf.Contains("; run_class=WHAT-IF;") -and $protectedAgain -and
                    $regular.Contains("; run_class=REGULATORY;") -and [bool]$params.ProtectContents) `

@@ -22,6 +22,7 @@
     "src/workbook/shNettingSets.cls",
     "src/workbook/shParams.cls",
     "src/workbook/shReadme.cls",
+    "src/workbook/shReconSummary.cls",
     "src/workbook/shReconciliation.cls",
     "src/workbook/shResults.cls",
     "src/workbook/shTestCatalogue.cls",
@@ -45,6 +46,7 @@
         "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
+        "src/workbook/M_FormulaTest.bas",
         "src/workbook/M_Main.bas",
         "src/workbook/M_Ribbon.bas"
       ]
@@ -63,6 +65,7 @@
         "src/core/CORE_Reconcile.bas",
         "src/core/CORE_Util.bas",
         "src/modules/SACCR_Formulas.bas",
+        "src/workbook/M_FormulaTest.bas",
         "src/workbook/M_Main.bas",
         "src/workbook/M_Ribbon.bas",
         "tests/modules/TEST_Aggregation.bas",
@@ -70,6 +73,7 @@
         "tests/modules/TEST_CaseRunner.bas",
         "tests/modules/TEST_Cases.bas",
         "tests/modules/TEST_CsvReader.bas",
+        "tests/modules/TEST_FormulaRandom.bas",
         "tests/modules/TEST_Formulas.bas",
         "tests/modules/TEST_Harness.bas",
         "tests/modules/TEST_Import.bas",

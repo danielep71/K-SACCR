@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any
 
 import check_excel_evidence as evidence
+import measured_differences
 import write_excel_evidence as writer
+from test_excel_evidence import measured_lines
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
@@ -32,7 +34,10 @@ class WriteEvidenceTests(unittest.TestCase):
         self.bundle.mkdir()
         self.git("init", "-q", str(self.root))
         (self.root / ".github").mkdir()
+        (self.root / "tests").mkdir()
         shutil.copy(ROOT / evidence.POLICY, self.root / evidence.POLICY)
+        shutil.copy(ROOT / measured_differences.CONTRACTS, self.root / measured_differences.CONTRACTS)
+        shutil.copytree(ROOT / measured_differences.EXPECTED, self.root / measured_differences.EXPECTED)
         for name, text in SOURCES.items():
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -80,8 +85,10 @@ class WriteEvidenceTests(unittest.TestCase):
         result = (f"RESULT={verdict}; cases={spec['cases']}; checks={spec['checks']['64-bit']}; "
                   f"failures={failures}; restore=PASS")
         names = [f"case-{index}" for index in range(spec["cases"])]
-        return "\n".join([f"CANDIDATE={self.sha}", "SUITE=" + spec["entry_point"].split(".")[0], "MODE=NORMAL",
-                          *(f"CASE={name}" for name in names), result, ""])
+        module = spec["entry_point"].split(".")[0]
+        measured = measured_lines() if module == measured_differences.ACCURACY_SUITE else []
+        return "\n".join([f"CANDIDATE={self.sha}", "SUITE=" + module, "MODE=NORMAL",
+                          *(f"CASE={name}" for name in names), *measured, result, ""])
 
     def summary_log(self) -> str:
         rows = [("TEST_Harness", "completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS")]

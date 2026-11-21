@@ -1,10 +1,15 @@
 # CSV input contract
 
-This document specifies version 1 of the two CSV files that carry the inputs of
-the `NettingSets` and `Trades` sheets: what a file must contain, how each field
-is written and read, and how a file is rejected. It is the contract for the
-CSV import of v1.1.0 (#206). Parsing, staging, validation and commit are built
-on it in #207 to #211.
+This document specifies version 3 of the contract for the CSV files of the
+workbook: the two files that carry the inputs of the `NettingSets` and `Trades`
+sheets, and the two that carry a bank's own figures for the `BankNettingSets` and
+`BankTrades` sheets. It says what a file must contain, how each field is written
+and read, and how a file is rejected. It covers NettingSets files of version 2,
+which still reads version 1 files, Trades files of version 1, and BankNettingSets
+and BankTrades files of version 1. The contract came with the CSV import of v1.1.0
+(#206); parsing, staging, validation and commit are built on it in #207 to
+#211, NettingSets version 2 adds the counterparty sector (#674), and the two
+bank files are the contract of the import of the reconciliation inputs (#718).
 
 The machine-readable contract is [`contract.json`](contract.json). The field
 tables below are generated from it, and
@@ -17,19 +22,23 @@ workbook exports, this document's tables and the
 
 ## 📄 Files and templates
 
-| File | Sheet | Key | Blank template |
-| --- | --- | --- | --- |
-| NettingSets | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv) |
-| Trades | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| File | Version | Sheet | Key | Blank template |
+| --- | --- | --- | --- | --- |
+| NettingSets | 2 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv) |
+| Trades | 1 | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| BankNettingSets | 1 | `BankNettingSets` | `netting_set_id` | [`K-SACCR_BankNettingSets_v1.csv`](templates/K-SACCR_BankNettingSets_v1.csv) |
+| BankTrades | 1 | `BankTrades` | `trade_id` | [`K-SACCR_BankTrades_v1.csv`](templates/K-SACCR_BankTrades_v1.csv) |
 
-A template is the header record alone. Each CSV column maps to exactly one
+A template is the header record alone. The version 1 NettingSets template,
+[`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv), is kept
+for the files written to it, which are still read. Each CSV column maps to exactly one
 column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, **NettingSets template** and **Trades template** in the
-**Templates** menu of the K-SACCR Ribbon tab write the same file, byte for
-byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
+In the workbook, **NettingSets template**, **Trades template**, **BankNettingSets
+template** and **BankTrades template** in the **Templates** menu of the K-SACCR Ribbon
+tab write the same file, byte for byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An
@@ -76,10 +85,26 @@ CSV dialect, such as Excel's comma-separated save: it gets one
 There are no optional columns: an optional field is a column whose value may
 be blank.
 
-The column set is the schema version. These are the version 1 files, and the
-templates carry `_v1` in their name. A later version that adds, removes or
-renames a column is a new contract with its own templates; a file is never
-mapped to a contract by guessing what a column means.
+The column set is the file's schema version, and a template carries its
+version in its name. A later version that adds, removes or renames a column is
+a new version with its own template; a file is never mapped to a version by
+guessing what a column means.
+
+| File | Version | Change |
+| --- | --- | --- |
+| NettingSets | 1 | The 17 columns from `netting_set_id` to `ccp_retains_variation_margin` (v1.1.0) |
+| NettingSets | 2 | Adds `counterparty_sector`, last (#674) |
+| Trades | 1 | The 28 columns (v1.1.0) |
+
+A file is read as an earlier version only when its header is exactly that
+version's column set, each column once, in any order. Version 1 NettingSets
+files are still read in this way: `counterparty_sector` is blank in each of
+their records, as if the column were present and empty. Any other header is
+judged against the current version, so a version 1 header with a column
+missing or added reports `counterparty_sector` as missing too. The contract
+lists each earlier version that is still read, with its columns and template
+(`earlier_versions` in `contract.json`); `CORE_CsvReader` and
+`tools/csv_contract.py` accept the same sets.
 
 ## 🔤 Value types
 
@@ -120,6 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
+| BankNettingSets | 200 |
+| BankTrades | 500 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
@@ -143,6 +170,24 @@ below the validation lists are read and calculated like the others, without
 dropdowns. Loading, validating and committing a file at these limits has not
 been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 
+The two bank files hold figures a user compares with the workbook's, not inputs
+of a run, and carry no scale and no tolerance: both stay on the sheet (the amount
+scale in `D4`, the absolute tolerance in `D5` and the relative tolerance in `D6`).
+An amount in a bank file is written in the scale of the sheet. A blank figure is
+not compared. Their limits are 10,000 netting sets (`BankNettingSets`) and 50,000
+legs (`BankTrades`): a file with more records is rejected whole
+(`CSV-TOO-MANY-RECORDS`), never truncated. The template formats and validates the
+first 200 rows of `BankNettingSets` and the first 500 of `BankTrades` (rows 9 to
+208 and 9 to 508: dropdowns, the warning on a repeated ID, the number formats);
+a load writes every record, and the rows below those have the number formats of
+the first row and no dropdown or warning, as the committed rows of the input
+sheets do. A reconciliation writes one row per figure, 11 for each trade leg, to a
+sheet that holds 1,048,576 rows: when the rows it needs do not fit, it is not made
+and the run message says how many it needs.
+A bank file has no rule against the other files: an ID that is not on
+`NettingSets` or on `Trades` is a row the reconciliation reports as
+`MISSING IN CALCULATOR`, not a finding of the file.
+
 ## 📋 NettingSets columns
 
 <!-- BEGIN GENERATED: NettingSets -->
@@ -165,6 +210,7 @@ been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 | `margin_agreements` | Margin agreements (blank / MIXED / SHARED) | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
 | `qccp` | QCCP (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
 | `ccp_retains_variation_margin` | CCP retains VM, collateral not protected (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
+| `counterparty_sector` | Counterparty sector (CB / GG / CI / OFC / NFC / HH) | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
 <!-- END GENERATED: NettingSets -->
 
 Reserved keys: `TOTAL`, `TOTAL CRR` and `TOTAL BCBS`, in any case, label the
@@ -204,6 +250,47 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `next_reset_date` | Next reset date | date | no |  | STM only, and then required: the first settlement date after the reporting date. |  |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free-text note; not read by the engine. |  |
 <!-- END GENERATED: Trades -->
+
+## 📋 BankNettingSets columns
+
+<!-- BEGIN GENERATED: BankNettingSets -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Netting-set ID of the bank's figures, matched to the ID on NettingSets case-insensitively. | `NS-001` |
+| `regime` | Regime (BCBS / CRR) | code: `BCBS`, `CRR` | yes |  | Regime of the bank's figures; figures are never compared across regimes. | `BCBS` |
+| `ead` | EAD | number | no | not compared | Bank EAD, in the amount scale of the sheet. | `350913.6` |
+| `rc` | RC | number | no | not compared | Bank replacement cost, in the amount scale of the sheet. | `120000` |
+| `pfe` | PFE | number | no | not compared | Bank potential future exposure, in the amount scale of the sheet. | `230913.6` |
+| `addon_aggregate` | AddOn aggregate | number | no | not compared | Bank aggregate add-on, in the amount scale of the sheet. | `225000` |
+| `addon_ir` | AddOn IR | number | no | not compared | Bank interest-rate add-on, in the amount scale of the sheet. | `200000` |
+| `addon_fx` | AddOn FX | number | no | not compared | Bank FX add-on, in the amount scale of the sheet. | `25000` |
+| `addon_cr` | AddOn CR | number | no | not compared | Bank credit add-on, in the amount scale of the sheet. | `0` |
+| `addon_eq` | AddOn EQ | number | no | not compared | Bank equity add-on, in the amount scale of the sheet. | `0` |
+| `addon_co` | AddOn CO | number | no | not compared | Bank commodity add-on, in the amount scale of the sheet. | `0` |
+| `addon_ot` | AddOn OT | number | no | not compared | Bank other add-on, in the amount scale of the sheet. | `0` |
+| `multiplier` | Multiplier | number (>= 0) | no | not compared | Bank multiplier, a ratio that is never scaled. | `1` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankNettingSets -->
+
+## 📋 BankTrades columns
+
+<!-- BEGIN GENERATED: BankTrades -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `trade_id` | TradeID | id (<= 64 characters) | yes |  | Leg ID of the bank's figures, matched to the TradeID on Trades case-insensitively. | `TRD-101-IR` |
+| `notional` | Notional (rep ccy) | number | no | not compared | Bank notional in the reporting currency, in the amount scale of the sheet. | `5000000` |
+| `mtm` | MtM (rep ccy) | number | no | not compared | Bank mark-to-market in the reporting currency, in the amount scale of the sheet. | `-1200000` |
+| `maturity` | M (years) | number | no | not compared | Bank maturity in years, never scaled. | `3` |
+| `supervisory_duration` | Supervisory duration | number | no | not compared | Bank supervisory duration, never scaled. | `2.8` |
+| `adjusted_notional` | Adjusted notional d | number | no | not compared | Bank adjusted notional, in the amount scale of the sheet. | `14000000` |
+| `supervisory_delta` | Supervisory delta | number | no | not compared | Bank supervisory delta, never scaled. | `-1` |
+| `mf_unmargined` | MF unmargined | number | no | not compared | Bank maturity factor of an unmargined netting set, never scaled. | `1` |
+| `mf_margined` | MF margined | number | no | not compared | Bank maturity factor of a margined netting set, never scaled. | `0.3` |
+| `effective_notional_unmargined` | Effective notional unmargined | number | no | not compared | Bank effective notional of an unmargined netting set, in the amount scale of the sheet. | `14000000` |
+| `effective_notional_margined` | Effective notional margined | number | no | not compared | Bank effective notional of a margined netting set, in the amount scale of the sheet. | `4200000` |
+| `standalone_addon` | Stand-alone add-on | number | no | not compared | Bank stand-alone add-on, in the amount scale of the sheet. | `70000` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankTrades -->
 
 ## 🔗 Rules between fields of a record
 
@@ -409,6 +496,29 @@ record limit.
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 🏦 The bank files
+
+`BankNettingSets` and `BankTrades` files have no staging sheet: **BankNettingSets
+file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and the
+**Import CSV** button of each bank sheet (#718), read the file with the reader of this
+contract and write it onto the sheet at once, because the sheet holds figures only and
+the reconciliation reports what does not match.
+
+- A file is accepted or rejected **as a whole**. One finding, a record too many for the
+  sheet (`CSV-TOO-MANY-RECORDS`) or a header-only file changes nothing; the findings are
+  listed in the dialog and nothing is written to Checks.
+- A sheet that holds figures asks before they are replaced, with No as the default.
+- The figures and comments of the sheet are cleared and the records written from the
+  first row below the header. The identifier, the regime and the comment are written
+  as text, so `00731` keeps its leading zeros; a figure is written as a number, read
+  with the point of the file in every locale; a blank figure is an empty cell, which the
+  reconciliation does not compare. The amount scale and the tolerances above the table
+  are not read from the file and are not touched.
+- An error while the sheet is written puts the old figures back and restores the Excel
+  settings.
+- `ImportBankCsv_Silent` is the entry point for automation and tests
+  ([INSTALLATION](../../INSTALLATION.md#importbankcsv_silent)).
 
 ## 📦 Staging
 

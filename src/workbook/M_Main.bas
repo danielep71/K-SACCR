@@ -127,7 +127,8 @@ Attribute VB_Name = "M_Main"
 '   restoration fail; gTestFault = "recalc" takes the path of a
 '   recalculation that did not finish (#195); gTestFault = "recalc-error"
 '   raises ERR_INJECTED_FAULT where the recalculation starts, as an error
-'   thrown by it would (#204); gTestFault = "reconcile" raises
+'   thrown by it would (#204); gTestFault = "reconcile-rows" makes the reconciliation need every row of its
+'   sheet and one more (#718); gTestFault = "reconcile" raises
 '   ERR_INJECTED_FAULT in a reconciliation that has bank figures (#318);
 '   gTestFault = "evidence-open", "evidence-write" and "evidence-replace"
 '   raise ERR_INJECTED_FAULT in WriteTextFile, which writes the evidence
@@ -135,6 +136,8 @@ Attribute VB_Name = "M_Main"
 '   is written and while the older file is replaced (#312).
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
+'   gTestFault = "bank-write" raises ERR_INJECTED_FAULT in LoadBank once
+'   the bank records have been written (#718).
 '   gTestFault = "commit-write" raises ERR_INJECTED_FAULT in
 '   CommitStaging once the first input sheet has been written;
 '   "commit-verify" makes its read-back fail, and "commit-rollback" makes
@@ -248,11 +251,33 @@ Attribute VB_Name = "M_Main"
     'Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "evidence-*", "staging-write", "commit-*" or "restore-*"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "reconcile-rows", "evidence-*", "staging-write", "commit-*" or "restore-*"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
+    'The lookup of closing prices in progress (#721): the formulas are in the
+    'scratch column and the prices are awaited. Excel hands a request of
+    'STOCKHISTORY back only when no macro runs, so the button writes the
+    'formulas, returns, and PollClosingPrices, scheduled each second with
+    'Application.OnTime, reads the prices when they have come.
+        Private mPriceActive    As Boolean    'Formulas written, prices awaited
+        Private mPriceSheet     As Worksheet  'Params
+        Private mPriceKeyColumn As Long       'Key column of the FX table
+        Private mPriceFirstRow  As Long       'First row of the table
+        Private mPriceLastRow   As Long       'Last row of the table
+        Private mPriceCount     As Long       'Rows with a pair
+        Private mPriceRows()    As Long       'The rows with a pair
+        Private mPricePairs()   As String     'The pair each price is asked for
+        Private mPriceKept()    As Variant    'The rate each row held before
+        Private mPriceKeptDate  As Variant    'The date of the prices before
+        Private mPriceAsOf      As Variant    'The reporting date asked for
+        Private mPriceMode      As XlCalculation 'The caller's calculation mode
+        Private mPriceDeadline  As Date       'When to stop waiting
+        Private mPriceStarted   As Date       'When the formulas were written
+        Private mPriceWritten   As Boolean    'FinishPriceLookup began to write rates
+        Private mPollAt         As Date       'When the next poll is scheduled; 0 for none
+        Private mPollName       As String     'The procedure it was scheduled with
     'The navigation bar was hidden when a save began, and is hidden again
     'after it, or by the restore scheduled at mBarRestoreAt when the save
     'never ends, as a cancelled Save As (#620).
@@ -281,10 +306,11 @@ Public Sub Auto_Open()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run by Excel when a user opens the workbook with macros enabled:
-'   protect every sheet again for the user interface only (#421).
+'   protect every sheet again for the user interface only (#421), and give
+'   every sheet a zoom of 100% (#726).
 '
 ' UPDATED
-'   2026-11-03
+'   2026-11-20
 '==============================================================================
 '
 
@@ -292,6 +318,63 @@ Public Sub Auto_Open()
 ' PROTECT
 '------------------------------------------------------------------------------
         ProtectWorkbook
+        ApplyOpeningView
+
+End Sub
+
+
+Public Sub ApplyOpeningView()
+'
+'==============================================================================
+'                              ApplyOpeningView
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Give every visible sheet of this workbook a zoom of 100%, so that a copy
+'   saved with another zoom opens as the template does (#726). The sheet that
+'   was active stays active. Events are off meanwhile, so that no sheet
+'   refreshes its status because it was visited, and the Saved flag is kept.
+'
+' ERROR POLICY
+'   Never raises and never stops the opening: nothing is done when this
+'   workbook is not the active one, or has no window.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet          As Worksheet    'Each worksheet
+    Dim Original       As Object       'The sheet that was active
+    Dim WasSaved       As Boolean      'The workbook's Saved flag before
+    Dim SavedEvents    As Boolean      'Application.EnableEvents before
+    Dim SavedScreen    As Boolean      'Application.ScreenUpdating before
+
+'------------------------------------------------------------------------------
+' ZOOM
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        If Not Application.ActiveWorkbook Is ThisWorkbook Then Exit Sub
+        If ThisWorkbook.Windows.Count = 0 Then Exit Sub
+        WasSaved = ThisWorkbook.Saved
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        Set Original = ThisWorkbook.ActiveSheet
+        Application.EnableEvents = False
+        Application.ScreenUpdating = False
+        For Each Sheet In ThisWorkbook.Worksheets
+            If Sheet.Visible = xlSheetVisible Then
+                Sheet.Activate
+                ThisWorkbook.Windows(1).Zoom = 100
+            End If
+        Next Sheet
+        If Not Original Is Nothing Then Original.Activate
+        Application.ScreenUpdating = SavedScreen
+        Application.EnableEvents = SavedEvents
+        ThisWorkbook.Saved = WasSaved
+        Err.Clear
 
 End Sub
 
@@ -363,7 +446,8 @@ Private Sub ProtectSheet( _
 ' PURPOSE
 '   Protect one worksheet for the user interface only, with its options,
 '   unless it already is; let the user open and close its row groups when
-'   PROTECT_OUTLINING lists it.
+'   PROTECT_OUTLINING lists it. A sheet of PROTECT_NONE is never protected:
+'   one found protected without a password is unprotected (#720).
 '
 ' ERROR POLICY
 '   Never raises: a sheet protected with a password stays as it is, and
@@ -385,6 +469,12 @@ Private Sub ProtectSheet( _
         On Error GoTo Failed
         Listed = "|" & Sheet.Name & "|"
         If InStr(1, gKeepProtection, Listed, vbBinaryCompare) > 0 Then
+            Exit Sub
+        End If
+        If InStr(1, PROTECT_NONE, Listed, vbBinaryCompare) > 0 Then
+            If Sheet.ProtectContents Then
+                Sheet.Unprotect
+            End If
             Exit Sub
         End If
         If Not (Sheet.ProtectContents And Sheet.ProtectionMode) Then
@@ -635,8 +725,8 @@ Public Sub ClearOutputs()
 '   the stored fingerprints, and stamp the time on the Results sheet.
 '
 ' USAGE
-'   Clear outputs on the K-SACCR Ribbon tab (Run menu), or the Macros
-'   dialog.
+'   Clear outputs on the K-SACCR Ribbon tab (Calculation group), the
+'   button of an output sheet, or the Macros dialog.
 '
 ' UPDATED
 '   2026-10-17
@@ -726,7 +816,7 @@ Public Function ResultsStatusText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Worksheet function for the status cell in Results C5 (#36):
-'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$S, Trades!$C:$AC,
+'     =ResultsStatusText(SACCR_RunInputs, NettingSets!$C:$T, Trades!$C:$AC,
 '                        Params!$1:$1048576)
 '   Its arguments are what Excel watches: a run changes the hidden name
 '   SACCR_RunInputs and an edit changes an input range, and either makes
@@ -807,7 +897,7 @@ Public Function ReconciliationStatusText( _
 ' PURPOSE
 '   Worksheet function for the status cell in Reconciliation C5 (#45):
 '     =ReconciliationStatusText(SACCR_ReconInputs, SACCR_RunInputs,
-'        BankNettingSets!$1:$1048576, NettingSets!$C:$S, Trades!$C:$AC,
+'        BankNettingSets!$1:$1048576, NettingSets!$C:$T, Trades!$C:$AC,
 '        Params!$1:$1048576)
 '   As ResultsStatusText: a run changes the hidden names and an edit
 '   changes a watched range, and either makes Excel recalculate the cell.
@@ -848,7 +938,7 @@ Public Function TradeReconciliationStatusText( _
 '   Worksheet function for the status cell in TradeReconciliation C5
 '   (#45), as ReconciliationStatusText:
 '     =TradeReconciliationStatusText(SACCR_TradeReconInputs,
-'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$S,
+'        SACCR_RunInputs, BankTrades!$1:$1048576, NettingSets!$C:$T,
 '        Trades!$C:$AC, Params!$1:$1048576)
 '
 ' INPUTS
@@ -1071,9 +1161,36 @@ Private Function ReconcileAfterRun( _
                 ReconRows = WithEconomicTradeIds(ComparedRows)
             End If
             RowsToWrite = UBound(ReconRows, 1)
+            If gTestFault = "reconcile-rows" Then
+                RowsToWrite = ReconSheet.Rows.Count
+            End If
+        'One row per figure, 11 per trade leg: a sheet holds 1,048,576 rows. A reconciliation that does not
+        'fit is not made, and the message says what it needs (#718).
+            If ReconFirstRow + RowsToWrite - 1 > ReconSheet.Rows.Count Then
+                Problem = "it needs " & RowsToWrite & " rows from row " & ReconFirstRow & " and " & ReconSheet.Name & _
+                          " holds " & ReconSheet.Rows.Count & ": use fewer bank rows"
+                ClearReconciliation "Reconciliation not run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & ": " & Problem & ".", _
+                                    ReconKind
+                AddReconLine ReconName & " not run: " & Problem & "."
+                ReconcileAfterRun = "FAILED"
+                Exit Function
+            End If
             WriteBlock ReconSheet, ReconFirstRow, ReconRows, RowsToWrite, ReconColsOf(ReconKind)
-            FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00########|#,##0.00########|" & _
-                          "#,##0.00########|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
+            FormatColumns ReconSheet, ReconFirstRow, RowsToWrite, "@|0|@|@|@|@|#,##0.00|#,##0.00|" & _
+                          "#,##0.00|0.0000%|@|@" & IIf(ReconKind = RECON_NS, "", "|@")
+        'The rows of a filter the user set stay filtered: the rule is applied to the new rows. The
+        'template's filter ends at row 100,000: a reconciliation that goes beyond it gets a new filter
+        'over all its rows, without the criteria of the old one (#720).
+            If ReconSheet.AutoFilterMode Then
+                If ReconFirstRow + RowsToWrite - 1 > RECON_FILTER_LAST_ROW Then
+                    ReconSheet.AutoFilterMode = False
+                    TableRange(ReconSheet, ReconFirstRow - 1, 1, ReconFirstRow + RowsToWrite - 1, ReconColsOf(ReconKind)).AutoFilter
+                ElseIf ReconSheet.FilterMode Then
+                    On Error Resume Next
+                    ReconSheet.AutoFilter.ApplyFilter
+                    On Error GoTo Failed
+                End If
+            End If
         End If
         ReconSheet.Range(RECON_INFO_CELL).Value = "Last reconciliation " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                                                " | " & Summary
@@ -2033,7 +2150,8 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Build the evidence report from the sheets as they are: RUN (the run
-'   identity), PARAMS, SF_TABLE and FX_TABLE (the parameter snapshot),
+'   identity), PARAMS, SF_TABLE, FX_TABLE and HOLIDAY_TABLE (the parameter
+'   snapshot),
 '   RESULTS, RECONCILIATION, TRADE_RECONCILIATION, CHECKS and LIMITATIONS.
 '   Everything is read from the workbook, so the report is the same after
 '   the workbook is closed and reopened.
@@ -2129,6 +2247,7 @@ Private Function EvidenceText() As String
         Next i
         Report = Report & ParamsTableLines("SF_TABLE", NM_SF_TABLE, SF_HEADERS)
         Report = Report & ParamsTableLines("FX_TABLE", NM_FX_TABLE, FX_HEADERS)
+        Report = Report & HolidayTableLines()
 
 '------------------------------------------------------------------------------
 ' TABLES
@@ -2186,6 +2305,47 @@ Private Function ParamsTableLines( _
         Loop
         ParamsTableLines = CORE_Export.TableLines(Section, TableRange(ParamsSheet, HeaderRow, KeyColumn, r - 1, _
                                                   KeyColumn + UBound(Split(Headers, "|"))).Value2)
+
+End Function
+
+
+Private Function HolidayTableLines() As String
+'
+'==============================================================================
+'                             HolidayTableLines
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The Holiday_Table of Params as the run reads it (#721): its header row,
+'   then every one of its HOLIDAY_ROWS rows with a closing day, also those
+'   below a blank row, as the engine reads them all.
+'
+' ERROR POLICY
+'   Raises when the name does not locate a header row.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row
+    Dim KeyColumn     As Long         'First column of the table
+    Dim Block         As Variant      'Header and rows
+    Dim r             As Long         'Row read
+
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_HOLIDAY_TABLE)
+        KeyColumn = NamedTableCol(NM_HOLIDAY_TABLE)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_PARAMS_LAYOUT, "M_Main.HolidayTableLines", "The name " & NM_HOLIDAY_TABLE & " is missing."
+        End If
+        Block = TableRange(ParamsSheet, HeaderRow, KeyColumn, HeaderRow + HOLIDAY_ROWS, KeyColumn + 1).Value2
+        HolidayTableLines = CORE_Export.CsvLine("HOLIDAY_TABLE", Array(Block(1, 1), Block(1, 2)))
+        For r = 2 To HOLIDAY_ROWS + 1
+            If IsError(Block(r, 1)) Or Not IsBlankCell(Block(r, 1)) Then
+                HolidayTableLines = HolidayTableLines & CORE_Export.CsvLine("HOLIDAY_TABLE", Array(Block(r, 1), Block(r, 2)))
+            End If
+        Next r
 
 End Function
 
@@ -2548,6 +2708,56 @@ Public Sub ExportTradesCsvTemplate()
 End Sub
 
 
+Public Sub ExportBankNettingSetsCsvTemplate()
+'
+'==============================================================================
+'                         ExportBankNettingSetsCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank BankNettingSets CSV template of the input contract
+'   (#718) to a file chosen by the user: its header line only.
+'
+' USAGE
+'   BankNettingSets template on the K-SACCR Ribbon tab (Templates menu), the
+'   Export CSV template button on BankNettingSets, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ExportCsvTemplate "BankNettingSets"
+
+End Sub
+
+
+Public Sub ExportBankTradesCsvTemplate()
+'
+'==============================================================================
+'                           ExportBankTradesCsvTemplate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the blank BankTrades CSV template of the input contract (#718) to
+'   a file chosen by the user: its header line only.
+'
+' USAGE
+'   BankTrades template on the K-SACCR Ribbon tab (Templates menu), the
+'   Export CSV template button on BankTrades, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ExportCsvTemplate; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ExportCsvTemplate "BankTrades"
+
+End Sub
+
+
 Public Function ExportCsvTemplate_Silent( _
     ByVal Kind As String, _
     ByVal FilePath As String) _
@@ -2656,6 +2866,10 @@ Private Function CsvTemplateText( _
                 CsvTemplateText = CSV_NS_HEADER & vbLf
             Case "Trades"
                 CsvTemplateText = CSV_TR_HEADER & vbLf
+            Case "BankNettingSets"
+                CsvTemplateText = CSV_BN_HEADER & vbLf
+            Case "BankTrades"
+                CsvTemplateText = CSV_BT_HEADER & vbLf
         End Select
 
 End Function
@@ -2681,6 +2895,10 @@ Private Function CsvTemplateFile( _
                 CsvTemplateFile = CSV_NS_FILE
             Case "Trades"
                 CsvTemplateFile = CSV_TR_FILE
+            Case "BankNettingSets"
+                CsvTemplateFile = CSV_BN_FILE
+            Case "BankTrades"
+                CsvTemplateFile = CSV_BT_FILE
         End Select
 
 End Function
@@ -3165,6 +3383,131 @@ Public Sub ImportTradesCsv()
 End Sub
 
 
+Public Sub ImportBankNettingSetsCsv()
+'
+'==============================================================================
+'                           ImportBankNettingSetsCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a BankNettingSets CSV file chosen by the user onto BankNettingSets
+'   (#718): the bank's figures replace those of the sheet when the whole
+'   file follows the CSV contract, and nothing changes otherwise.
+'
+' USAGE
+'   BankNettingSets file on the K-SACCR Ribbon tab (Import CSV menu), the
+'   Import CSV button on BankNettingSets, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportBankCsv; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ImportBankCsv "BankNettingSets"
+        RibbonStateChanged
+
+End Sub
+
+
+Public Sub ImportBankTradesCsv()
+'
+'==============================================================================
+'                             ImportBankTradesCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Load a BankTrades CSV file chosen by the user onto BankTrades (#718),
+'   as ImportBankNettingSetsCsv does for BankNettingSets.
+'
+' USAGE
+'   BankTrades file on the K-SACCR Ribbon tab (Import CSV menu), the Import
+'   CSV button on BankTrades, or the Macros dialog.
+'
+' ERROR POLICY
+'   As ImportBankCsv; never raises.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        ImportBankCsv "BankTrades"
+        RibbonStateChanged
+
+End Sub
+
+
+Public Function ImportBankCsv_Silent( _
+    ByVal Kind As String, _
+    ByVal FilePath As String, _
+    Optional ByVal ReplaceExisting As Boolean = False) _
+    As String
+'
+'==============================================================================
+'                             ImportBankCsv_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The bank-figure load for automation and tests (#718): read FilePath as a
+'   file of Kind ("BankNettingSets" or "BankTrades") and write its records
+'   onto the bank sheet without asking. A sheet that already holds bank
+'   figures is replaced only when ReplaceExisting is True.
+'
+' RETURNS
+'   "RESULT=LOADED; records=N; file=..." when the records were written;
+'   "RESULT=REJECTED; findings=N; first=CODE|line|record|column; file=..."
+'   when the file does not follow the contract, a file with more records
+'   than the sheet holds included; "RESULT=REFUSED; reason=...; file=..."
+'   when the file has no record, or the sheet holds figures and
+'   ReplaceExisting is False. The sheet is changed only when the result is
+'   LOADED.
+'
+' ERROR POLICY
+'   An unknown kind and a file that cannot be read raise ERR_CSV_READ. An
+'   SA-CCR operation in progress raises ERR_RUN_ACTIVE, and a bank sheet
+'   or name that is missing, and a value longer than a cell holds, raise
+'   ERR_STAGING_WRITE, before the sheet changes; an error while the sheet
+'   is written is raised after the sheet has been put back as it was.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ReconKind   As Long             'The reconciliation the sheet belongs to
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' READ AND LOAD
+'------------------------------------------------------------------------------
+        ReconKind = BankReconKind(Kind)
+        ReadCsvFile FilePath, Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Accepted Then
+            ImportBankCsv_Silent = "RESULT=REJECTED; findings=" & Result.FindingCount & _
+                                   "; first=" & FindingText(Findings(1)) & "; file=" & FilePath
+            Exit Function
+        End If
+        If Result.RecordCount = 0 Then
+            ImportBankCsv_Silent = "RESULT=REFUSED; reason=the file has no record; file=" & FilePath
+            Exit Function
+        End If
+        If Not ReplaceExisting Then
+            If BankRowsEntered(ReconKind) Then
+                ImportBankCsv_Silent = "RESULT=REFUSED; reason=" & BankSheetOf(ReconKind) & _
+                                       " holds bank figures; file=" & FilePath
+                Exit Function
+            End If
+        End If
+        LoadBank ReconKind, Result, Values
+        ImportBankCsv_Silent = "RESULT=LOADED; records=" & Result.RecordCount & "; file=" & FilePath
+
+End Function
+
+
 Public Function ImportCsv_Silent( _
     ByVal Kind As String, _
     ByVal FilePath As String, _
@@ -3427,6 +3770,278 @@ Private Sub ImportCsv( _
 
 Failed:
         Notify Kind & " CSV import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Sub ImportBankCsv( _
+    ByVal Kind As String)
+'
+'==============================================================================
+'                                ImportBankCsv
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The interactive load of a bank file (#718): ask for the file, read it,
+'   say what is wrong with it when it does not follow the contract, ask
+'   before replacing figures that are on the sheet, and write the records.
+'   The file is accepted or rejected as a whole; a record is never dropped
+'   or truncated, so a file with more records than the sheet holds is
+'   rejected.
+'
+' ERROR POLICY
+'   Reported to the user, never raised.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim ReconKind   As Long             'The reconciliation the sheet belongs to
+    Dim SheetName   As String           'The bank sheet
+    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
+    Dim Result      As CsvReadResult    'What the reader found
+    Dim Values()    As String           'The records of a readable file
+    Dim Lines()     As Long             'Their lines
+    Dim Findings()  As CsvFinding       'The findings
+
+        On Error GoTo Failed
+        ReconKind = BankReconKind(Kind)
+        SheetName = BankSheetOf(ReconKind)
+        ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
+                                                 Title:="Import " & Kind & " CSV file into " & SheetName)
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+        If Not Result.Accepted Then
+            Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                                   "Nothing was loaded: " & SheetName & " is unchanged."), vbExclamation
+            Exit Sub
+        End If
+        If Result.RecordCount = 0 Then
+            Notify CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & vbLf & vbLf & _
+                   "The file holds no record. Nothing was loaded: " & SheetName & " is unchanged.", vbExclamation
+            Exit Sub
+        End If
+        If BankRowsEntered(ReconKind) Then
+            If Not gSilent Then
+                If MsgBox(SheetName & " holds bank figures." & vbLf & vbLf & "Replace them with the " & _
+                          Result.RecordCount & " records of " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & "?", _
+                          vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+                    Exit Sub
+                End If
+            End If
+        End If
+        LoadBank ReconKind, Result, Values
+        ThisWorkbook.Worksheets(SheetName).Activate
+        Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                               "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
+                               "The amount scale and the tolerances of the sheet are unchanged; press Run SA-CCR to reconcile."), _
+               vbInformation
+        Exit Sub
+
+Failed:
+        Notify Kind & " CSV import: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function BankReconKind( _
+    ByVal Kind As String) _
+    As Long
+'
+'==============================================================================
+'                               BankReconKind
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reconciliation (RECON_NS or RECON_TR) of the bank file Kind.
+'
+' ERROR POLICY
+'   Raises ERR_CSV_READ for a kind that is not a bank file.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+        Select Case Kind
+            Case "BankNettingSets"
+                BankReconKind = RECON_NS
+            Case "BankTrades"
+                BankReconKind = RECON_TR
+            Case Else
+                Err.Raise ERR_CSV_READ, "M_Main.BankReconKind", "unknown bank CSV kind '" & Kind & "'"
+        End Select
+
+End Function
+
+
+Private Sub LoadBank( _
+    ByVal ReconKind As Long, _
+    ByRef Result As CsvReadResult, _
+    ByRef Values() As String)
+'
+'==============================================================================
+'                                  LoadBank
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the records of an accepted bank file onto the bank sheet (#718),
+'   from the first row below the header: the identifiers, the regime and
+'   the comment as text, the figures as numbers, a blank figure as an empty
+'   cell. The figures and comments of the sheet are cleared first. The
+'   amount scale and the tolerances, above the table, are not touched.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs, ERR_STAGING_WRITE for a
+'   missing bank header and a value longer than a cell holds, both before
+'   the sheet changes. An error while writing puts the sheet back as it
+'   was and is raised; settings that could not be restored are added to
+'   its description.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Kind                As String          'BankNettingSets or BankTrades
+    Dim Sheet               As Worksheet       'The bank sheet
+    Dim HeaderRow           As Long            'Its header row
+    Dim FirstRow            As Long            'First row below the header
+    Dim Width               As Long            'Columns of the table
+    Dim Spec                As CsvSpec         'The file's contract
+    Dim Columns()           As CsvColumn       'Its columns
+    Dim Rules()             As CsvRule         'Its rules
+    Dim NewBlock()          As Variant         'The records as they will be written
+    Dim OldBlock            As Variant         'The block before the load, as formulas
+    Dim OldLast             As Long            'Its last used row; below FirstRow for none
+    Dim LastRow             As Long            'Last row written or cleared
+    Dim Cleared             As Boolean         'The old block has been cleared
+    Dim SavedCalculation    As XlCalculation   'Calculation mode before the load
+    Dim SavedEvents         As Boolean         'EnableEvents before the load
+    Dim SavedScreen         As Boolean         'ScreenUpdating before the load
+    Dim StateCaptured       As Boolean         'True once all three were read
+    Dim ErrorNumber         As Long            'Primary error number; 0 for none
+    Dim ErrorSource         As String          'Primary error source
+    Dim ErrorDescription    As String          'Primary error description
+    Dim CleanupDetails      As String          'Settings not restored
+    Dim r                   As Long            'Record
+    Dim c                   As Long            'Column
+
+'------------------------------------------------------------------------------
+' PREPARE
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.LoadBank", "An SA-CCR operation is already running."
+        End If
+        Kind = IIf(ReconKind = RECON_NS, "BankNettingSets", "BankTrades")
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                      "The name " & HeaderNameOf(ReconKind) & " is missing: build the workbook from the current template."
+        End If
+        Set Sheet = GetSheet(BankSheetOf(ReconKind))
+        FirstRow = HeaderRow + 1
+        Width = BankColsOf(ReconKind)
+        If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
+            Err.Raise ERR_CSV_READ, "M_Main.LoadBank", "unknown CSV kind '" & Kind & "'"
+        End If
+        If Spec.ColumnCount <> Width Then
+            Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                      "The CSV contract has " & Spec.ColumnCount & " columns and " & Sheet.Name & " has " & Width & "."
+        End If
+        ReDim NewBlock(1 To Result.RecordCount, 1 To Width)
+        For r = 1 To Result.RecordCount
+            For c = 1 To Width
+                If Len(Values(r, c)) > EXCEL_CELL_CHARS Then
+                    Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _
+                              "The " & Columns(c).ColumnName & " value of record " & r & " has " & Len(Values(r, c)) & _
+                              " characters; a cell holds " & EXCEL_CELL_CHARS & ". Nothing was loaded."
+                End If
+                If Len(Values(r, c)) = 0 Then
+                    NewBlock(r, c) = Empty
+                ElseIf Columns(c).Kind = "number" Then
+                    NewBlock(r, c) = Val(Values(r, c))    'Val reads the "." of the file in every locale
+                Else
+                    NewBlock(r, c) = Values(r, c)
+                End If
+            Next c
+        Next r
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        mRunning = True
+        ProtectWorkbook
+        On Error GoTo Failed
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+
+        OldLast = UsedLastRow(Sheet)
+        If OldLast >= FirstRow Then
+            OldBlock = TableRange(Sheet, FirstRow, 1, OldLast, Width).Formula
+        End If
+        LastRow = FirstRow + Result.RecordCount - 1
+        If OldLast > LastRow Then
+            LastRow = OldLast
+        End If
+        Cleared = True
+        TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+    'The template formats the first rows of the sheet; a longer file is written
+    'with the format of the first row in every column (#718), text as text.
+        For c = 1 To Width
+            If Columns(c).Kind <> "number" Then
+                TableRange(Sheet, FirstRow, c, FirstRow + Result.RecordCount - 1, c).NumberFormat = "@"
+            Else
+                TableRange(Sheet, FirstRow, c, FirstRow + Result.RecordCount - 1, c).NumberFormat = _
+                    TableCell(Sheet, FirstRow, c).NumberFormat
+            End If
+        Next c
+        TableRange(Sheet, FirstRow, 1, FirstRow + Result.RecordCount - 1, Width).Value2 = NewBlock
+        If gTestFault = "bank-write" Then
+            Err.Raise ERR_INJECTED_FAULT, "M_Main.LoadBank", "Injected bank write failure."
+        End If
+
+CleanUp:
+        On Error GoTo 0
+        If ErrorNumber <> 0 And Cleared Then
+            On Error Resume Next
+            TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+            If OldLast >= FirstRow Then
+                TableRange(Sheet, FirstRow, 1, OldLast, Width).Formula = OldBlock
+            End If
+            If Err.Number <> 0 Then
+                ErrorDescription = ErrorDescription & " " & Sheet.Name & " could not be put back: " & Err.Description
+            End If
+            On Error GoTo 0
+        End If
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If ErrorNumber <> 0 Then
+            If Len(CleanupDetails) > 0 Then
+                ErrorDescription = ErrorDescription & " Excel settings not restored: " & CleanupDetails
+            End If
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
+        End If
+        If Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, "M_Main.LoadBank", _
+                      "The records were loaded, but Excel settings were not restored: " & CleanupDetails
+        End If
+        Exit Sub
+
+Failed:
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
+        Resume CleanUp
 
 End Sub
 
@@ -6795,6 +7410,1085 @@ Private Function ChecksHasImportLines() As Boolean
 
 End Function
 
+
+'
+'------------------------------------------------------------------------------
+'
+'                  CLOSING PRICES OF THE FX TABLE (#721)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub DownloadClosingPrices()
+'
+'==============================================================================
+'                            DownloadClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the closing price of each currency pair of the FX table on the
+'   reporting date with STOCKHISTORY and write it as a value in the rate
+'   cell of the currency (#721), after a confirmation with Cancel as the
+'   default, and show the date of the prices beside the button. The pair
+'   is built from the reporting currency and the code of the row; the
+'   formulas live in a hidden scratch column that is emptied afterwards, so
+'   no formula and no data request is left in the workbook.
+'
+' USAGE
+'   Download prices on the Params sheet, or the Macros dialog. Automation
+'   calls DownloadClosingPrices_Silent.
+'
+' METHOD
+'   The macro writes the formulas and returns: Excel hands the requests of
+'   STOCKHISTORY back only when no macro runs. PollClosingPrices, scheduled
+'   each second, writes the rates when the prices have come, and the
+'   message is shown then. The status bar shows the wait.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. STOCKHISTORY needs Microsoft 365 and a connection:
+'   without them no rate is changed. In silent mode, where no confirmation
+'   can be given, nothing is looked up.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Pairs       As Long      'Currencies with a pair
+    Dim Problem     As String    'Why nothing was looked up
+
+'------------------------------------------------------------------------------
+' CONFIRM AND START THE LOOKUP
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was looked up." & vbLf & vbLf & "A lookup is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls DownloadClosingPrices_Silent.", vbExclamation
+            Exit Sub
+        End If
+        Pairs = ClosingPricePairs()
+        If Pairs = 0 Then
+            Notify "No currency of the FX table has a pair: nothing to look up.", vbExclamation
+            Exit Sub
+        End If
+        If MsgBox("Replace the rates of " & Pairs & " currenc" & IIf(Pairs = 1, "y", "ies") & " with the closing prices of " & _
+                  ClosingPriceDate() & "?" & vbLf & vbLf & _
+                  "The rates now in the table are overwritten and Undo cannot bring them back. It needs Microsoft 365 " & _
+                  "and a connection, and takes up to " & PRICE_WAIT_SECONDS & " seconds.", _
+                  vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        If Not StartPriceLookup(Problem) Then
+            ReportPrices 0, vbNullString, Problem
+            Exit Sub
+        End If
+        Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "..."
+        SchedulePricePoll
+        Exit Sub
+
+Failed:
+        Notify "Download closing prices: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Sub PollClosingPrices()
+'
+'==============================================================================
+'                              PollClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look at the scratch cells of the lookup that DownloadClosingPrices
+'   started, one second after the last look (#721): while a price is still
+'   awaited and the time is not up, schedule the next look and let Excel
+'   work; otherwise write the rates, show the result and end the lookup.
+'   Application.OnTime calls it, so that Excel is idle between the looks
+'   and hands the requests of STOCKHISTORY back.
+'
+' ERROR POLICY
+'   Reports an error in a message; the lookup ends, the rates are put back.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine  As String    'What the lookup returned
+    Dim Priced      As Long      'Rates written
+    Dim Without     As String    'Currencies with no price
+    Dim Problem     As String    'Why no rate was changed
+    Dim ErrText     As String    'The description of an error
+
+'------------------------------------------------------------------------------
+' LOOK
+'------------------------------------------------------------------------------
+        mPollAt = 0
+        If Not mPriceActive Then
+            Exit Sub
+        End If
+        On Error GoTo Failed
+        If PricesPending() And Now < mPriceDeadline Then
+            Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "... " & _
+                                    Format$((Now - mPriceStarted) * 86400#, "0") & " s"
+            SchedulePricePoll
+            Exit Sub
+        End If
+        ResultLine = FinishPriceLookup(Priced, Without, Problem)
+        RibbonStateChanged
+        ReportPrices Priced, Without, Problem
+        Exit Sub
+
+Failed:
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Notify "Download closing prices: " & ErrText, vbCritical
+
+End Sub
+
+
+Public Sub CancelPriceLookup()
+'
+'==============================================================================
+'                              CancelPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End a lookup of closing prices that is waiting for its data, without
+'   changing a rate, when the workbook is saved or closed (#721), so that
+'   no price formula is saved and no scheduled look reopens the workbook.
+'   ThisWorkbook calls it. Does nothing when no lookup is waiting.
+'
+' METHOD
+'   Emptying the scratch column with events on would raise
+'   Workbook_SheetChange, whose Ribbon refresh is scheduled with
+'   Application.OnTime and could reopen the workbook once it is closed. So
+'   events are off while the lookup ends, and put back as they were. The
+'   Ribbon was disabled while the lookup ran and the workbook can stay open
+'   (a save, or a close whose save prompt is cancelled), so it is
+'   invalidated afterwards, directly and not through a scheduled callback.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim EventsOn    As Boolean   'Events were enabled
+
+'------------------------------------------------------------------------------
+' END THE LOOKUP
+'------------------------------------------------------------------------------
+        If mPriceActive Then
+            On Error Resume Next
+            EventsOn = Application.EnableEvents
+            Application.EnableEvents = False
+            AbandonPriceLookup
+            Application.EnableEvents = EventsOn
+            M_Ribbon.RefreshRibbon
+        End If
+
+End Sub
+
+
+Private Sub ReportPrices( _
+    ByVal Priced As Long, _
+    ByVal Without As String, _
+    ByVal Problem As String)
+'
+'==============================================================================
+'                               ReportPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell the user the result of a lookup of closing prices (#721): why no
+'   rate was changed, or how many rates were set and for which currencies
+'   there was no price.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        If Len(Problem) > 0 Then
+            Notify "No rate was changed." & vbLf & vbLf & Problem, vbExclamation
+        Else
+            Notify Priced & " rate" & IIf(Priced = 1, "", "s") & " set to the closing price of " & ClosingPriceDate() & _
+                   IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose rate stays as it was.", "."), _
+                   IIf(Len(Without) > 0, vbExclamation, vbInformation)
+        End If
+
+End Sub
+
+
+Public Function DownloadClosingPrices_Silent() As String
+'
+'==============================================================================
+'                         DownloadClosingPrices_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the closing prices of the FX table and write them as rates
+'   (#721), for automation and tests, without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=PRICED; rates=N; without_price=M" (and "; codes=..." with the
+'   currencies that got no price, whose rate stays), or
+'   "RESULT=REFUSED; reason=..." when no rate was changed, for example
+'   without STOCKHISTORY or when no price came for any currency.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs. gTestFault =
+'   "prices-unavailable" makes the lookup refuse as an Excel that
+'   cannot take the formula does; "prices-name-error" writes =#NAME? as
+'   an Excel that takes it but has no STOCKHISTORY would evaluate it;
+'   "prices-fixed" writes the price 2 for every pair, and no price (#N/A)
+'   for the first one, and "prices-none" no price (#N/A) for any pair, in
+'   place of the formulas of STOCKHISTORY.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Priced      As Long      'Rates written
+    Dim Without     As String    'Currencies with no price
+    Dim Problem     As String    'Why no rate was changed
+
+'------------------------------------------------------------------------------
+' LOOK UP
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.DownloadClosingPrices_Silent", "An SA-CCR operation is already running."
+        End If
+        DownloadClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
+
+End Function
+
+
+Private Function ClosingPair( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal Row As Long, _
+    ByVal KeyColumn As Long) _
+    As String
+'
+'==============================================================================
+'                               ClosingPair
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The currency pair of the FX-table row, the reporting currency over the
+'   currency of the row, such as EUR/USD, in capitals (#721). Empty for the
+'   row of the reporting currency. It is built from the code, so that a
+'   currency appended below the table has one too.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'The currency of the row
+    Dim Reporting   As String    'The reporting currency
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, Row, KeyColumn).Value2)))
+        Reporting = UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2)))
+        If Len(Code) = 0 Or Len(Reporting) = 0 Or Code = Reporting Then
+            Exit Function
+        End If
+        ClosingPair = Reporting & "/" & Code
+
+End Function
+
+
+Private Function ClosingPriceDate() As String
+'
+'==============================================================================
+'                             ClosingPriceDate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reporting date, the day of the closing prices, as yyyy-mm-dd (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo NoDate
+        ClosingPriceDate = Format$(CDate(NamedCell(PRM_ASOF).Value2), "yyyy-mm-dd")
+        Exit Function
+
+NoDate:
+        ClosingPriceDate = "the reporting date"
+
+End Function
+
+
+Private Function ClosingPricePairs() As Long
+'
+'==============================================================================
+'                             ClosingPricePairs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   How many rows of the FX table have a currency pair (ClosingPair), the
+'   rows whose closing price can be looked up (#721). The table runs down
+'   to the first blank key.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
+                ClosingPricePairs = ClosingPricePairs + 1
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Function LookUpClosingPrices( _
+    ByRef Priced As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                            LookUpClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the closing prices and write the rates in one call, for
+'   automation and tests (#721): StartPriceLookup, a wait that lets
+'   DoEvents run for PRICE_WAIT_SECONDS at most, and FinishPriceLookup.
+'   Excel hands the requests of STOCKHISTORY back only when no macro runs,
+'   so with real data this wait ends without prices: the button does not
+'   use it, it starts the lookup and PollClosingPrices ends it.
+'
+' ERROR POLICY
+'   A refusal is returned in the result line, not raised. An error puts the
+'   rates back as they were and is raised again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Deadline    As Double    'When to stop waiting
+    Dim ErrNumber   As Long      'The error to raise again
+    Dim ErrText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' START, WAIT AND FINISH
+'------------------------------------------------------------------------------
+        If Not StartPriceLookup(Problem) Then
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        On Error GoTo Failed
+        Deadline = Timer + PRICE_WAIT_SECONDS
+        Do While PricesPending() And Timer < Deadline
+            DoEvents
+        Loop
+        LookUpClosingPrices = FinishPriceLookup(Priced, Without, Problem)
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
+
+End Function
+
+
+Private Function StartPriceLookup( _
+    ByRef Problem As String) _
+    As Boolean
+'
+'==============================================================================
+'                             StartPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Start a lookup of closing prices (#721): write the formula of each row
+'   that has a pair (ClosingPair) into the hidden scratch column, and keep
+'   what FinishPriceLookup needs.
+'
+' METHOD
+'   1. Find the rows with a pair and note their rates and the date of the
+'      prices, to put them back.
+'   2. Set calculation automatic and write the formulas through Formula2
+'      by late binding, so that the code compiles in an Excel without it;
+'      an Excel that refuses it, or a fault injected, is a refusal.
+'   From here mRunning is set, so that no other operation, and no second
+'   lookup, starts while the prices are awaited: every way out releases it.
+'
+' RETURNS
+'   True when the lookup started. False with Problem set when it was
+'   refused, nothing changed.
+'
+' ERROR POLICY
+'   A refusal is returned, not raised. An error puts everything back and is
+'   raised again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim r             As Long         'Row
+    Dim i             As Long         'Row with a pair
+    Dim PriceCell     As Range        'A scratch cell
+    Dim Formula       As String       'The formula written into a scratch cell
+    Dim Refused       As Boolean      'The formula could not be written
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+
+'------------------------------------------------------------------------------
+' FIND THE ROWS
+'------------------------------------------------------------------------------
+        Problem = vbNullString
+        Set mPriceSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Problem = "the workbook name '" & NM_FX_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS & "."
+            Exit Function
+        End If
+        mPriceKeyColumn = NamedTableCol(NM_FX_TABLE)
+        mPriceFirstRow = HeaderRow + 1
+        mPriceLastRow = HeaderRow
+        Do While Not IsBlankCell(TableCell(mPriceSheet, mPriceLastRow + 1, mPriceKeyColumn).Value)
+            mPriceLastRow = mPriceLastRow + 1
+        Loop
+        ReDim mPriceRows(1 To mPriceLastRow - HeaderRow + 1)
+        ReDim mPricePairs(1 To mPriceLastRow - HeaderRow + 1)
+        ReDim mPriceKept(1 To mPriceLastRow - HeaderRow + 1)
+        mPriceCount = 0
+        On Error Resume Next
+        mPriceKeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        If Err.Number <> 0 Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "the workbook name '" & NM_FX_PRICE_DATE & "' is missing."
+            Exit Function
+        End If
+        On Error GoTo 0
+        For r = HeaderRow + 1 To mPriceLastRow
+            If Len(ClosingPair(mPriceSheet, r, mPriceKeyColumn)) > 0 Then
+                mPriceCount = mPriceCount + 1
+                mPriceRows(mPriceCount) = r
+                mPricePairs(mPriceCount) = ClosingPair(mPriceSheet, r, mPriceKeyColumn)
+                mPriceKept(mPriceCount) = TableCell(mPriceSheet, r, mPriceKeyColumn + FX_COL_RATE).Value2
+            End If
+        Next r
+        If mPriceCount = 0 Then
+            Problem = "no currency of the FX table has a pair."
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE THE FORMULAS
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        mRunning = True
+        mPriceActive = True
+        mPriceWritten = False
+        mPriceAsOf = NamedCell(PRM_ASOF).Value2
+        mPriceMode = Application.Calculation
+        Application.Calculation = xlCalculationAutomatic
+        ClearPriceScratch mPriceSheet, mPriceKeyColumn, mPriceFirstRow, mPriceLastRow
+        On Error Resume Next
+        For i = 1 To mPriceCount
+            Refused = (gTestFault = "prices-unavailable")
+            If Not Refused Then
+                Set PriceCell = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE)
+                Formula = PriceFormula(mPricePairs(i))
+                If gTestFault = "prices-name-error" Then
+                    Formula = "=#NAME?"
+                ElseIf gTestFault = "prices-fixed" Then
+                    Formula = IIf(i = 1, "=NA()", "=2")
+                ElseIf gTestFault = "prices-none" Then
+                    Formula = "=NA()"
+                End If
+                CallByName PriceCell, "Formula2", VbLet, Formula
+                Refused = (Err.Number <> 0)
+            End If
+            If Refused Then
+                Exit For
+            End If
+        Next i
+        If Refused Then
+            Err.Clear
+            On Error GoTo Failed
+            AbandonPriceLookup
+            Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
+            Exit Function
+        End If
+        On Error GoTo Failed
+        mPriceStarted = Now
+        mPriceDeadline = Now + TimeSerial(0, 0, PRICE_WAIT_SECONDS)
+        StartPriceLookup = True
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.StartPriceLookup", ErrText
+
+End Function
+
+
+Private Function FinishPriceLookup( _
+    ByRef Priced As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                             FinishPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End the lookup StartPriceLookup started (#721): read the scratch cells,
+'   write each price above zero into its rate cell, and the reporting date
+'   into the hidden cell NM_FX_PRICE_DATE, which the sheet shows beside the
+'   button. A row with no price keeps its rate and is listed in Without.
+'
+' METHOD
+'   Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
+'   that takes the formula but has no STOCKHISTORY), when the reporting
+'   date, the reporting currency or a code was changed while the data came
+'   in, or when no price came for any currency, in which case the rates and
+'   the date stay and Problem says what the first cell showed. Then empty
+'   the scratch column and put the calculation mode back.
+'
+' RETURNS
+'   "RESULT=PRICED; rates=N; without_price=M[; codes=...]" or
+'   "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   A refusal is returned, not raised. An error puts the rates back as they
+'   were and is raised again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i             As Long         'Row with a pair
+    Dim PriceCell     As Range        'A scratch cell
+    Dim Found         As Variant      'What the formula returned, Empty when it is no price
+    Dim Unavailable   As Boolean      'A formula evaluated to #NAME?, STOCKHISTORY is unknown
+    Dim Changed       As Boolean      'An input changed while the data came in
+    Dim TimedOut      As Boolean      'A price was still awaited
+    Dim FirstState    As String       'What the first scratch cell returned
+    Dim CalcText      As String       'The calculation state
+    Dim Code          As String       'A currency
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+
+'------------------------------------------------------------------------------
+' CHECK WHAT CAME
+'------------------------------------------------------------------------------
+        Priced = 0
+        Without = vbNullString
+        Problem = vbNullString
+        On Error GoTo Failed
+        TimedOut = PricesPending()
+        Select Case Application.CalculationState
+            Case xlDone
+                CalcText = "done"
+            Case xlCalculating
+                CalcText = "calculating"
+            Case Else
+                CalcText = "pending"
+        End Select
+        FirstState = ScratchState(TableCell(mPriceSheet, mPriceRows(1), mPriceKeyColumn + FX_COL_PRICE).Value2)
+    'An Excel that takes the formula but does not know STOCKHISTORY returns #NAME?
+        For i = 1 To mPriceCount
+            Found = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE).Value2
+            If IsError(Found) Then
+                If ErrorNumber(Found) = 2029 Then
+                    Unavailable = True
+                End If
+            End If
+        Next i
+    'The reporting date and the pairs must still be the ones asked for
+        Changed = (NamedCell(PRM_ASOF).Value2 <> mPriceAsOf)
+        For i = 1 To mPriceCount
+            If ClosingPair(mPriceSheet, mPriceRows(i), mPriceKeyColumn) <> mPricePairs(i) Then
+                Changed = True
+            End If
+        Next i
+        If Unavailable Or Changed Then
+            If Unavailable Then
+                Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
+            Else
+                Problem = "the reporting date, the reporting currency or a currency code was changed while the prices came in, so no rate was changed."
+            End If
+            AbandonPriceLookup
+            FinishPriceLookup = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE THE RATES
+'------------------------------------------------------------------------------
+        For i = 1 To mPriceCount
+            Set PriceCell = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE)
+            Found = Empty
+            If VarType(PriceCell.Value2) = vbDouble Then
+                If PriceCell.Value2 > 0# Then
+                    Found = PriceCell.Value2
+                End If
+            End If
+            If IsEmpty(Found) Then
+                Code = UCase$(Trim$(SafeStr(TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn).Value2)))
+                Without = Without & IIf(Len(Without) > 0, ",", "") & Code
+            Else
+                mPriceWritten = True
+                TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = Found
+                Priced = Priced + 1
+            End If
+        Next i
+
+    'No price at all: no rate and no date changes
+        If Priced = 0 Then
+            If TimedOut Then
+                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (the first, " & mPricePairs(1) & _
+                          ", showed " & FirstState & "; the calculation was " & CalcText & "). Check the connection and try again."
+            Else
+                Problem = "no price came for any currency (the first, " & mPricePairs(1) & ", returned " & FirstState & _
+                          "). Check the connection and that this Excel can look up prices."
+            End If
+            AbandonPriceLookup
+            FinishPriceLookup = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+    'The date the rates are of, shown beside the button
+        NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceAsOf
+        ReleasePriceLookup True
+        FinishPriceLookup = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
+                            IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
+                            IIf(Len(Without) > 0, "; codes=" & Without, "")
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.FinishPriceLookup", ErrText
+
+End Function
+
+
+Private Sub AbandonPriceLookup()
+'
+'==============================================================================
+'                             AbandonPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End a lookup of closing prices that did not succeed (#721): when
+'   FinishPriceLookup had begun to write rates, put them and the date of the
+'   prices back as they were; then empty the scratch column and release the
+'   lookup. A rate is not put back when none was written, so that an edit
+'   the user made while the prices were awaited stays.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Row with a pair
+
+'------------------------------------------------------------------------------
+' PUT BACK AND RELEASE
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        If mPriceActive And mPriceWritten Then
+            For i = 1 To mPriceCount
+                TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceKept(i)
+            Next i
+            NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceKeptDate
+        End If
+        ReleasePriceLookup True
+
+End Sub
+
+
+Private Sub ReleasePriceLookup( _
+    ByVal Clear As Boolean)
+'
+'==============================================================================
+'                             ReleasePriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Leave the state of a lookup of closing prices (#721): cancel the next
+'   look, empty the scratch column when Clear is True, put the calculation
+'   mode back, clear the status bar and release mRunning.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error Resume Next
+        CancelPricePoll
+        If mPriceActive Then
+            If Clear Then
+                ClearPriceScratch mPriceSheet, mPriceKeyColumn, mPriceFirstRow, mPriceLastRow
+            End If
+            Application.Calculation = mPriceMode
+        End If
+        mPriceActive = False
+        mRunning = False
+        Application.StatusBar = False
+
+End Sub
+
+
+Private Sub SchedulePricePoll()
+'
+'==============================================================================
+'                             SchedulePricePoll
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Schedule PollClosingPrices one second from now (#721), with the
+'   workbook-qualified name, an apostrophe in the workbook name doubled, as
+'   Excel requires.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        mPollAt = Now + TimeSerial(0, 0, 1)
+        mPollName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Main.PollClosingPrices"
+        Application.OnTime mPollAt, mPollName
+
+End Sub
+
+
+Private Sub CancelPricePoll()
+'
+'==============================================================================
+'                              CancelPricePoll
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Cancel the look SchedulePricePoll scheduled, when one is pending, so
+'   that it does not run after the lookup ended or reopen a closed
+'   workbook (#721).
+'
+' ERROR POLICY
+'   Never raises: a look that already ran cannot be cancelled, and that is
+'   the expected case when the look itself ends the lookup.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error GoTo Done
+        If mPollAt <> 0 Then
+            Application.OnTime mPollAt, mPollName, , False
+        End If
+
+Done:
+        mPollAt = 0
+        mPollName = vbNullString
+
+End Sub
+
+
+Private Function PriceFormula( _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+'                               PriceFormula
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The formula that returns the last closing price up to the reporting date
+'   (seven days back at most) of a pair such as EUR/USD, which STOCKHISTORY
+'   takes as EUR:USD (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        PriceFormula = "=" & PriceTerm(Replace(Pair, "/", ":"))
+
+End Function
+
+
+Private Function PriceTerm( _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+'                                PriceTerm
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One lookup of PriceFormula: the last row of the history of Pair up to the
+'   reporting date, without headers, the closing price (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        PriceTerm = "LET(r,STOCKHISTORY(""" & Pair & """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+
+End Function
+
+
+Private Function PricesPending() As Boolean
+'
+'==============================================================================
+'                              PricesPending
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True while a scratch cell still waits for its data (#721): a request of
+'   STOCKHISTORY that has not come back shows #BUSY!, and the calculation can
+'   be reported done before it has. A cell is pending when it is empty or
+'   holds an Excel error that is not one of the final ones (#N/A, #VALUE!,
+'   #NAME?, #CONNECT!, ...), so the wait does not depend on the number that
+'   Excel gives to the busy state.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Pair
+    Dim Value       As Variant   'What a scratch cell holds
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        For i = 1 To mPriceCount
+            Value = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE).Value2
+            If IsError(Value) Then
+                If Not IsFinalError(ErrorNumber(Value)) Then
+                    PricesPending = True
+                    Exit Function
+                End If
+            ElseIf IsEmpty(Value) Then
+                PricesPending = True
+                Exit Function
+            End If
+        Next i
+
+End Function
+
+
+Private Function ErrorNumber( _
+    ByVal Value As Variant) _
+    As Long
+'
+'==============================================================================
+'                               ErrorNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The number of an Excel error value, such as 2042 for #N/A, read from its
+'   text ("Error 2042") so that no Error variant is compared (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        ErrorNumber = CLng(Val(Mid$(CStr(Value), 7)))
+
+End Function
+
+
+Private Function IsFinalError( _
+    ByVal Number As Long) _
+    As Boolean
+'
+'==============================================================================
+'                               IsFinalError
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True for an Excel error that a lookup ends with (#NULL!, #DIV/0!,
+'   #VALUE!, #REF!, #NAME?, #NUM!, #N/A, #SPILL!, #CONNECT!, #BLOCKED!,
+'   #UNKNOWN!, #FIELD!, #CALC!), as opposed to the busy state of a request
+'   that has not come back (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Select Case Number
+            Case 2000, 2007, 2015, 2023, 2029, 2036, 2042, 2045 To 2050
+                IsFinalError = True
+        End Select
+
+End Function
+
+
+Private Function ScratchState( _
+    ByVal Value As Variant) _
+    As String
+'
+'==============================================================================
+'                               ScratchState
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Say what a scratch cell returned, for the message when no price came
+'   (#721): the Excel error, or the kind of value.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        If IsError(Value) Then
+            Select Case ErrorNumber(Value)
+                Case 2000
+                    ScratchState = "#NULL!"
+                Case 2007
+                    ScratchState = "#DIV/0!"
+                Case 2015
+                    ScratchState = "#VALUE!"
+                Case 2023
+                    ScratchState = "#REF!"
+                Case 2029
+                    ScratchState = "#NAME?"
+                Case 2036
+                    ScratchState = "#NUM!"
+                Case 2042
+                    ScratchState = "#N/A"
+                Case 2045
+                    ScratchState = "#SPILL!"
+                Case 2046
+                    ScratchState = "#CONNECT!"
+                Case 2047
+                    ScratchState = "#BLOCKED!"
+                Case 2048
+                    ScratchState = "#UNKNOWN!"
+                Case 2049
+                    ScratchState = "#FIELD!"
+                Case 2050
+                    ScratchState = "#CALC!"
+                Case Else
+                    ScratchState = "the busy state of a request (error " & ErrorNumber(Value) & "), the data had not come"
+            End Select
+        ElseIf IsEmpty(Value) Then
+            ScratchState = "an empty cell"
+        ElseIf VarType(Value) = vbString Then
+            ScratchState = "text"
+        Else
+            ScratchState = "a value that is not a price"
+        End If
+
+End Function
+
+
+Private Sub ClearPriceScratch( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal KeyColumn As Long, _
+    ByVal FirstRow As Long, _
+    ByVal LastRow As Long)
+'
+'==============================================================================
+'                            ClearPriceScratch
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Empty the hidden scratch column that the price formulas of a lookup use,
+'   from FirstRow to LastRow (#721), so that no formula and no data request
+'   stays in the workbook.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' EMPTY
+'------------------------------------------------------------------------------
+        If LastRow >= FirstRow Then
+            TableRange(ParamsSheet, FirstRow, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE).ClearContents
+        End If
+
+End Sub
 
 '
 '------------------------------------------------------------------------------

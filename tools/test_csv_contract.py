@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT: dict[str, Any] = csv.load_contract(ROOT)
 NS_HEADER = csv.template_text("NettingSets", CONTRACT).rstrip("\n")
 TR_HEADER = csv.template_text("Trades", CONTRACT).rstrip("\n")
-NS_ROW = "NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;"
+NS_ROW = "NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;"
+NS_V1_COLUMNS: list[str] = CONTRACT["files"]["NettingSets"]["earlier_versions"][0]["columns"]
 TR_ROW = "T1;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;"
 
 
@@ -55,12 +56,42 @@ class ParserTests(unittest.TestCase):
 class EncodingTests(unittest.TestCase):
     def test_bom_and_crlf_variants_of_every_fixture_match_lf(self) -> None:
         for path in sorted((ROOT / gate.FIXTURES).glob("*/*.csv")):
-            kind = "Trades" if path.name.startswith("trades") else "NettingSets"
+            kind = {"trades": "Trades", "bank-netting-sets": "BankNettingSets", "bank-trades": "BankTrades"}.get(
+                path.name.rsplit("-fields", 1)[0].removesuffix(".csv"), "Trades" if path.name.startswith("trades") else "NettingSets")
             plain = path.read_bytes()
             with self.subTest(path=path.name):
                 expected = codes(plain, kind)
                 self.assertEqual(codes(csv.BOM + plain, kind), expected)
                 self.assertEqual(codes(plain.replace(b"\n", b"\r\n"), kind), expected)
+
+    def test_the_bank_files_are_read_as_the_contract_says(self) -> None:
+        names = [column["name"] for column in CONTRACT["files"]["BankNettingSets"]["columns"]]
+        header = ";".join(names)
+
+        def row(**fields: str) -> str:
+            return ";".join(fields.get(name, "") for name in names)
+
+        self.assertEqual(codes(f"{header}\n{row(netting_set_id='NS-1', regime='CRR')}\n", "BankNettingSets"), [])
+        # A blank figure is not compared and is no finding; the ID and the regime are required.
+        self.assertEqual(codes(f"{header}\n{row(ead='5')}\n", "BankNettingSets"),
+                         [("CSV-REQUIRED", 2, 1, "netting_set_id"), ("CSV-REQUIRED", 2, 1, "regime")])
+        self.assertEqual(codes(f"{header}\n{row(netting_set_id='N', regime='CRR', multiplier='-1')}\n", "BankNettingSets"),
+                         [("CSV-RANGE", 2, 1, "multiplier")])
+        # An ID absent from NettingSets is no finding of the file; a repeated one is.
+        self.assertEqual([code for code, *_ in codes(
+            f"{header}\n{row(netting_set_id='a', regime='CRR')}\n{row(netting_set_id='A', regime='BCBS')}\n",
+            "BankNettingSets")], ["CSV-DUPLICATE-KEY"])
+        # The limits are those of the contract (the sheets' formatted rows are fewer): a longer file is
+        # rejected whole.
+        for kind, limit in (("BankNettingSets", 10000), ("BankTrades", 50000)):
+            self.assertEqual(CONTRACT["files"][kind]["max_records"], limit)
+            columns = [column["name"] for column in CONTRACT["files"][kind]["columns"]]
+            key = columns.index(CONTRACT["files"][kind]["key"])
+            lines = [";".join(f"K{n}" if i == key else ("CRR" if columns[i] == "regime" else "") for i in range(len(columns)))
+                     for n in range(limit + 1)]
+            found = codes(";".join(columns) + "\n" + "\n".join(lines) + "\n", kind)
+            self.assertEqual([code for code, *_ in found], ["CSV-TOO-MANY-RECORDS"], kind)
+            self.assertEqual(codes(";".join(columns) + "\n" + "\n".join(lines[:limit]) + "\n", kind), [], kind)
 
     def test_invalid_utf8_and_nul(self) -> None:
         self.assertEqual(codes(NS_HEADER.encode() + b"\n\xff\n"), [("CSV-ENCODING", 0, 0, "")])
@@ -148,6 +179,35 @@ class FileTests(unittest.TestCase):
         self.assertEqual(codes(NS_HEADER.replace("margined", "Margined") + "\n"),
                          [("CSV-HEADER-UNKNOWN", 1, 0, "Margined"), ("CSV-HEADER-MISSING", 1, 0, "margined")])
 
+    def test_a_version_1_netting_sets_file_reads_with_the_sector_blank(self) -> None:
+        values = NS_ROW.split(";")[:-1]
+        text = ";".join(NS_V1_COLUMNS) + "\n" + ";".join(values) + "\n"
+        rows, findings = csv.validate(text.encode(), "NettingSets", CONTRACT)
+        self.assertEqual((findings, rows[0]["netting_set_id"], rows[0]["counterparty_sector"]), ([], "NS-1", ""))
+        reordered = ";".join(reversed(NS_V1_COLUMNS)) + "\n" + ";".join(reversed(values)) + "\n"
+        self.assertEqual(csv.validate(reordered.encode(), "NettingSets", CONTRACT), (rows, []))
+        self.assertEqual(csv.validate(";".join(NS_V1_COLUMNS).encode() + b"\n", "NettingSets", CONTRACT), ([], []))
+
+    def test_only_a_whole_version_1_header_is_version_1(self) -> None:
+        short = ";".join(NS_V1_COLUMNS[:-1])
+        self.assertEqual(codes(short + "\n"), [("CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"),
+                                              ("CSV-HEADER-MISSING", 1, 0, "counterparty_sector")])
+        repeated = ";".join(NS_V1_COLUMNS + ["qccp"])
+        self.assertEqual(codes(repeated + "\n"), [("CSV-HEADER-DUPLICATE", 1, 0, "qccp"),
+                                                 ("CSV-HEADER-MISSING", 1, 0, "counterparty_sector")])
+        self.assertEqual(codes(";".join(NS_V1_COLUMNS) + "\n", kind="NettingSets"), [])
+        self.assertEqual(codes(TR_HEADER.replace(";comment", "") + "\n", kind="Trades"),
+                         [("CSV-HEADER-MISSING", 1, 0, "comment")])
+
+    def test_the_sector_takes_the_finrep_codes(self) -> None:
+        for sector in ("", "CB", "GG", "CI", "OFC", "NFC", "HH"):
+            with self.subTest(sector=sector):
+                self.assertEqual(codes(NS_HEADER + "\n" + NS_ROW[:-1] + ";" + sector + "\n"), [])
+        for sector in ("ci", "BANK", "CCP"):
+            with self.subTest(sector=sector):
+                self.assertEqual(codes(NS_HEADER + "\n" + NS_ROW[:-1] + ";" + sector + "\n"),
+                                 [("CSV-ALLOWED", 2, 1, "counterparty_sector")])
+
     def test_record_limit_rejects_the_whole_file(self) -> None:
         text = NS_HEADER + "\n" + "\n".join(NS_ROW.replace("NS-1", f"NS-{i}") for i in range(3)) + "\n"
         self.assertEqual(codes(text, max_records=2), [("CSV-TOO-MANY-RECORDS", 4, 3, "")])
@@ -211,7 +271,7 @@ class FieldTests(unittest.TestCase):
 
 def netting_set(role: str, qccp: str = "", retains: str = "") -> str:
     values = NS_ROW.split(";")
-    values[3], values[-2], values[-1] = role, qccp, retains
+    values[3], values[-3], values[-2] = role, qccp, retains
     return NS_HEADER + "\n" + ";".join(values) + "\n"
 
 
@@ -310,6 +370,21 @@ class GateTests(unittest.TestCase):
         self.assertIn("context rule matured: code CSV-NOWHERE is not in errors", findings)
         self.assertIn("context rule expired names unknown column 'no_such_column'", findings)
         self.assertIn("context rule 'currency' repeats", findings)
+
+    def test_versions_must_be_consistent(self) -> None:
+        def change(contract: dict[str, Any]) -> None:
+            netting_sets = contract["files"]["NettingSets"]
+            earlier = netting_sets["earlier_versions"][0]
+            earlier["columns"] = [n for n in earlier["columns"] if n != "netting_set_id"] + ["no_such_column"]
+            earlier["version"] = 2
+            contract["files"]["Trades"]["version"] = 3
+        self.edit_contract(change)
+        findings = gate.run_check(self.root)["findings"]
+        self.assertIn("NettingSets version 2: not an earlier version", findings)
+        self.assertIn("NettingSets version 2: template 'K-SACCR_NettingSets_v1.csv' does not end in _v2.csv", findings)
+        self.assertIn("NettingSets version 2: column 'no_such_column' is not a current column", findings)
+        self.assertIn("NettingSets version 2: required column 'netting_set_id' is missing", findings)
+        self.assertIn("Trades: template 'K-SACCR_Trades_v1.csv' does not end in _v3.csv", findings)
 
     def test_allowed_values_must_match_the_template(self) -> None:
         self.edit_contract(lambda c: c["files"]["Trades"]["columns"][5]["allowed"].append("Swap"))

@@ -18,9 +18,10 @@ when evidence is required is in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and
 > `UNAVAILABLE`, static checks and synthetic fixtures are never an Excel pass.
 
 Execution is **manual**: an operator runs Excel interactively on the Windows
-host, with one command or step by step. There is no self-hosted runner and no
-automated Excel job, and neither way changes macro security or Trust Center
-settings.
+host, with one command or step by step. The one automated Excel job is the quick
+check of a pull request on the owner's self-hosted runner
+([Automatic quick check](#automatic-quick-check)); it is not a certification and
+writes no record. Neither way changes macro security or Trust Center settings.
 
 <a id="what-a-record-binds"></a>
 
@@ -127,9 +128,35 @@ unattended, in `saccr-verify-SHORTSHA` next to the checkout. It builds the
 development workbook, opens it with its macros enabled for that Excel
 session only (the Trust Center is not changed), compiles it, runs
 `Test_RunAll` once, into `summary.log` with the `CANDIDATE=` line
-(`TEST_Suite.Verify`), and runs the 14 protection checks with
-`Check-SACCR-Protection.ps1 -Unattended`. Its `verify-summary.txt` says so
-in its first line. A compile error opens a dialog in the VBE, which the
+(`TEST_Suite.Verify`), reviews every sheet, and runs the 14 protection
+checks with `Check-SACCR-Protection.ps1 -Unattended`. Its
+`verify-summary.txt` says so in its first line.
+
+The sheet review (#706), `tools/Review-SACCR-Sheets.ps1`, runs in the same
+Excel session after `Test_RunAll`:
+
+1. It runs **Clear outputs** and takes a picture of every sheet,
+   `sheets/NN-Sheet-cleared.png`.
+2. It runs the demonstration portfolio and takes a second picture,
+   `sheets/NN-Sheet-run.png`.
+
+In both states it checks every sheet against
+[`docs/workbook/sheet-style.json`](workbook/sheet-style.json):
+
+- every cell of the used range has the style's font and is vertically
+  centered;
+- no cell displays `####`;
+- no cell holds a date unless it has the date format `yyyy-mm-dd`, so a code
+  or reference that Excel turned into a date is caught;
+- gridlines are off;
+- the tab has the color of the sheet's role in
+  [`protection.json`](workbook/protection.json).
+
+A picture covers at most the first 60 rows and 40 columns that hold content.
+It is pasted into a chart of a separate temporary workbook, the paste is
+retried until the chart holds a shape, and a picture of one color only does
+not count. `sheet-review.txt` lists each check by sheet and state, and its
+last line, `RESULT=PASS` or `RESULT=FAIL`, is part of the run's result. A compile error opens a dialog in the VBE, which the
 compile command waits on: a watchdog closes that run's Excel after 60
 seconds, and the run fails with that reason; run it without `-Quick` to see
 the error. The suites do not run on their own, and no `session.json`
@@ -145,6 +172,62 @@ same. Do not click **Enable Content** there, and do not use the window: an
 add-in loaded, or a click in the sheet, during `Test_RunAll` can leave a
 recalculation pending or turn screen updating back on, which the suites
 report as failures.
+
+<a id="automatic-quick-check"></a>
+
+### Automatic quick check
+
+The workflow [`excel-quick.yml`](../.github/workflows/excel-quick.yml) (#713) runs
+the quick check on the owner's self-hosted Windows runner, so that a pull request
+carries its result without anyone running the script by hand. It starts:
+
+- for a pull request into `main` or `release/**` **from a branch of this
+  repository** that changes `src/`, `tests/`, `docs/workbook/` or the scripts of
+  the quick check itself;
+- by hand, from Actions, **Excel quick check**, **Run workflow**, with the branch.
+
+It never starts for the branch of a fork. `tools/Run-SACCR-QuickCheck.ps1` takes the
+machine's Excel mutex (`Local\SACCR-ExcelAutomation`, so that two runs never drive
+Excel at once; other Excel automation on the machine should take the same one), runs
+`Verify-SACCR-Branch.ps1 -Quick -Commit` on the commit the workflow checked out (the
+pull request's head, or the branch tip when a run by hand starts), then:
+
+- posts the summary as a comment of the pull request, **one per commit**, updated
+  by a re-run of the same commit; the comment says which commit was checked;
+- uploads the sheet pictures and the text results as an artifact, kept for 14 days,
+  with the machine's paths and user name replaced and without any workbook;
+- fails the job when the quick check fails, so the pull request shows a red check.
+
+The commit is fixed before the wait for Excel: a push that moves the branch while the run
+is queued changes nothing, so a result is never attached to a commit whose workbook was
+not tested, and a re-run of an older run verifies that older commit. The new push has
+its own run.
+
+The comment is a pull-request check, as the quick run always is: it is not release
+evidence, `check_excel_evidence.py` does not validate it, and the release
+certification stays manual. Whether it counts as the owner's Excel verification
+before a VBA or template merge is the owner's call
+([`GOVERNANCE.md`](GOVERNANCE.md#ownership-authorization-and-review)). The check is not a
+required one: with the machine off the job waits in the queue and the pull request
+shows it as pending.
+
+The runner is a Windows 64-bit machine with desktop Excel, Git and Windows
+PowerShell 5.1, with trusted access to the VBA project object model in Excel's
+Trust Center. It is registered for this repository with the label `excel` and
+started with its run command **in a logged-in session, not as a service**: a service
+runs outside the session and Excel cannot be driven from it. The workflow runs its step
+with the execution policy `Bypass` for that process only, like every script of the
+repository, so the machine's policy, which a Windows desktop sets to block scripts by
+default, is not changed. Do not use Excel on that
+machine while a run is in progress; a script-started Excel is left alone, as
+described above.
+
+Write access to this repository is write access to that machine, since a branch
+runs its own code there. The workflow therefore starts only for branches of this
+repository or by hand, holds `contents: read` and `pull-requests: write` only, uses
+no secret, writes no part of the event into a command and cannot be cancelled in
+the middle of an Excel run. The invariants of `tools/check_workflows.py` hold it to
+that, and Actions requires approval for the workflows of outside collaborators.
 
 <a id="manual-procedure"></a>
 
@@ -393,6 +476,15 @@ Rules the validator applies:
   prints its `SUITE` and `MODE` lines, the reason as a `FAILURE` line and
   `RESULT=FAIL; cases=0; checks=0; failures=1; restore=NOT_RUN`: it is a
   failed suite.
+- The log of a `PASS` of `TEST_Cases` carries the differences it measured
+  (#537): one `MEASURED=` line for every output of an accuracy contract
+  family, with the case, trade, quantity, expected value, actual value and
+  difference. The validator reads the contracts and the expected files of the
+  candidate commit and fails a missing or repeated line, an expected value that
+  is not the expected file's, a difference that the printed values do not give,
+  and a difference beyond the contract's bound
+  ([accuracy contracts](methodology/TEST_CASES.md#accuracy-contracts)). A failed
+  run makes no such claim.
 - Each test run has its own log: the same log cannot be cited for two suites,
   even with blank lines or trailing spaces added to a copy.
 - The regression stage is `FAIL` when the harness or a suite failed, and

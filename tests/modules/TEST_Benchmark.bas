@@ -1372,7 +1372,7 @@ Private Function CsvRecord( _
                         IIf(Index Mod 2 = 0, "Long", "Short") & ";;;;" & (1000000 + Index) & _
                         ";EUR;1250.5;EUR;2026-01-02;2031-01-02;2031-01-02;;;;;;;;;;;Synthetic leg " & Index
         Else
-            CsvRecord = "NS-" & Index & ";Counterparty " & Index & ";Y;N;1;N;N;;0;0;0;0;;;;;"
+            CsvRecord = "NS-" & Index & ";Counterparty " & Index & ";Y;N;1;N;N;;0;0;0;0;;;;;;"
         End If
 
 End Function

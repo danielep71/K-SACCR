@@ -9,7 +9,7 @@ controls, callbacks and targets.
 
 The Ribbon reaches the existing macros; it is not a new implementation.
 Since #217 it is the only place for the calculation and export commands: the
-only worksheet buttons left are those of the two staging sheets. Every command runs an `M_Main` macro, and that macro keeps
+sheet buttons left are the rounded shapes of the staging sheets, of FormulaTest, of the two bank sheets (Import CSV and Export CSV template, #718) and the Clear outputs shapes of the output sheets (#727). Every command runs an `M_Main` macro, and that macro keeps
 its protection, busy guard, error handling and every gate: staging
 validation, commit and export eligibility. The Ribbon's enabled states help
 the user. They never replace those gates.
@@ -40,14 +40,16 @@ the user. They never replace those gates.
 
 | Group | Controls |
 | --- | --- |
-| Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR, Validate inputs and Clear outputs |
+| Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR and Validate inputs · **Clear outputs**, a button of its own beside it (#719) |
 | CSV import | Menu **Import CSV** (NettingSets file, Trades file) · **Validate staging** · **Commit import** · menu **Templates** (NettingSets template, Trades template, Import specification) |
 | Evidence | **Export evidence** |
 | Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
 
-Labels on the large buttons are short, so that they wrap cleanly; the full
+The workbook opens with this tab selected: `RibbonOnLoad` calls
+`ActivateTab` for it (#726), and a failure never stops the load. Labels on the large
+buttons are short, so that they wrap cleanly; the full
 name is in the screentip. The tab's keytip is `KS`, so **Alt, K, S** opens it.
 
 ## 🔘 Commands
@@ -62,10 +64,14 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksClearOutputs` | Clear outputs | C | `ClearOutputs` |
 | `ksImportNettingSets` | NettingSets file... | I, N | `ImportNettingSetsCsv` |
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
+| `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
+| `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
 | `ksValidateStaging` | Validate staging | V | `ValidateStaging` |
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |
 | `ksTemplateTrades` | Trades template... | P, T | `ExportTradesCsvTemplate` |
+| `ksTemplateBankNettingSets` | BankNettingSets template... | P, B | `ExportBankNettingSetsCsvTemplate` |
+| `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |
@@ -80,10 +86,10 @@ set, the one every run is compared with:
 - **Restored:** the reference parameters `Alpha`, `MultiplierFloor`,
   `BusinessDaysPerYear`, `MinMaturityBD`, `SDFloorBD`, the three MPOR floors,
   `BasisFactor`, `VolatilityFactor`, the three IR correlations and the two
-  CRR lambda thresholds; the conventions `DaysPerYear` (365) and
+  CRR lambda thresholds; the conventions `DaycountConvention` (ACTUAL) and
   `IRBucketOffset` (TRUE); and the 26 rows of the supervisory-factor table,
   from the key to the regimes.
-- **Not changed:** `AsOfDate`, `ReportingCcy`, `Regime`, the FX table, the
+- **Not changed:** `AsOfDate`, `ReportingCcy`, `Regime`, `YearConvention`, `Calendar`, the FX table, the
   Reference column of the factor table, and the alpha overrides on
   NettingSets, which are inputs. A run with an alpha override stays `WHAT-IF`.
 - **Confirmation:** it lists what will be overwritten, the value now and in
@@ -127,6 +133,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Reconciliation | `ksGoReconciliation` | Reconciliation | `shReconciliation` |
 | Reconciliation | `ksGoBankTrades` | BankTrades | `shBankTrades` |
 | Reconciliation | `ksGoTradeReconciliation` | TradeReconciliation | `shTradeReconciliation` |
+| Reconciliation | `ksGoReconSummary` | ReconSummary | `shReconSummary` |
 | Reference and tests | `ksGoTestCatalogue` | TestCatalogue | `shTestCatalogue` |
 | Reference and tests | `ksGoFormulaTest` | FormulaTest | `shTests` |
 | Reference and tests | `ksGoBaselVsCRR` | Basel_vs_CRR | `shBaselVsCRR` |

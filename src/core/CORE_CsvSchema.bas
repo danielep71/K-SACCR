@@ -33,7 +33,7 @@ Attribute VB_Name = "CORE_CsvSchema"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Public Const CSV_CONTRACT_VERSION As Long = 1    'Contract version
+        Public Const CSV_CONTRACT_VERSION As Long = 3    'Contract version
         Public Const CSV_DELIMITER        As String = ";"    'Field separator
         Public Const CSV_MAX_BYTES        As Long = 134217728    'Largest file, in bytes
         Public Const CSV_MAX_DIGITS       As Long = 15    'Significant digits of a number
@@ -84,6 +84,8 @@ Attribute VB_Name = "CORE_CsvSchema"
             Key                 As String     'Column whose values must be unique
             ReservedKeys        As String     'Keys a record may not use
             MaxRecords          As Long       'Records per file
+            Version             As Long       'Version of the file: its column set
+            EarlierColumns      As String     'Earlier versions' column sets still read: "|"-joined, space-separated
             ColumnCount         As Long       'Number of columns
             RuleCount           As Long       'Number of rules
         End Type
@@ -110,8 +112,10 @@ Public Function CsvSpecOf( _
                 Spec.Key = "netting_set_id"
                 Spec.ReservedKeys = "TOTAL|TOTAL CRR|TOTAL BCBS"
                 Spec.MaxRecords = 10000
-                Spec.ColumnCount = 17
-                ReDim Columns(1 To 17)
+                Spec.Version = 2
+                Spec.EarlierColumns = "netting_set_id|counterparty|margined|clearing_role|remargin_period_business_days|large_or_illiquid|margin_disputes|mpor_override_business_days|variation_margin_net_amount|independent_collateral_net_amount|threshold_amount|minimum_transfer_amount|alpha_factor|regime_override|margin_agreements|qccp|ccp_retains_variation_margin"
+                Spec.ColumnCount = 18
+                ReDim Columns(1 To 18)
                 SetColumn Columns(1), "netting_set_id", "id", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(2), "counterparty", "text", False, "", False, 0, False, 0, False, 0
                 SetColumn Columns(3), "margined", "flag", False, "Y|N", False, 0, False, 0, False, 0
@@ -129,6 +133,7 @@ Public Function CsvSpecOf( _
                 SetColumn Columns(15), "margin_agreements", "code", False, "MIXED|SHARED", False, 0, False, 0, False, 0
                 SetColumn Columns(16), "qccp", "flag", False, "Y|N", False, 0, False, 0, False, 0
                 SetColumn Columns(17), "ccp_retains_variation_margin", "flag", False, "Y|N", False, 0, False, 0, False, 0
+                SetColumn Columns(18), "counterparty_sector", "code", False, "CB|GG|CI|OFC|NFC|HH", False, 0, False, 0, False, 0
                 Spec.RuleCount = 1
                 ReDim Rules(1 To 1)
                 SetRule Rules(1), "ccp-flags", "when", "clearing_role", "CCP", "qccp|ccp_retains_variation_margin", "qccp|ccp_retains_variation_margin", "", "", "clearing_role|qccp|ccp_retains_variation_margin"
@@ -139,6 +144,8 @@ Public Function CsvSpecOf( _
                 Spec.Key = "trade_id"
                 Spec.ReservedKeys = ""
                 Spec.MaxRecords = 100000
+                Spec.Version = 1
+                Spec.EarlierColumns = ""
                 Spec.ColumnCount = 28
                 ReDim Columns(1 To 28)
                 SetColumn Columns(1), "trade_id", "id", True, "", False, 0, False, 0, False, 0
@@ -174,6 +181,59 @@ Public Function CsvSpecOf( _
                 SetRule Rules(1), "stm-reset", "when", "settlement_type", "STM", "next_reset_date", "next_reset_date", "", "", "settlement_type|next_reset_date"
                 SetRule Rules(2), "end-after-start", "after", "", "", "", "", "end_date", "start_date", "end_date|start_date"
                 SetRule Rules(3), "detachment-above-attachment", "above", "", "", "", "", "detachment_rate", "attachment_rate", "detachment_rate|attachment_rate"
+                CsvSpecOf = True
+            Case "BankNettingSets"
+                Spec.Kind = "BankNettingSets"
+                Spec.Sheet = "BankNettingSets"
+                Spec.Key = "netting_set_id"
+                Spec.ReservedKeys = ""
+                Spec.MaxRecords = 10000
+                Spec.Version = 1
+                Spec.EarlierColumns = ""
+                Spec.ColumnCount = 14
+                ReDim Columns(1 To 14)
+                SetColumn Columns(1), "netting_set_id", "id", True, "", False, 0, False, 0, False, 0
+                SetColumn Columns(2), "regime", "code", True, "BCBS|CRR", False, 0, False, 0, False, 0
+                SetColumn Columns(3), "ead", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(4), "rc", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(5), "pfe", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(6), "addon_aggregate", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(7), "addon_ir", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(8), "addon_fx", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(9), "addon_cr", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(10), "addon_eq", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(11), "addon_co", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(12), "addon_ot", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(13), "multiplier", "number", False, "", True, 0, False, 0, False, 0
+                SetColumn Columns(14), "comment", "text", False, "", False, 0, False, 0, False, 0
+                Spec.RuleCount = 0
+                Erase Rules
+                CsvSpecOf = True
+            Case "BankTrades"
+                Spec.Kind = "BankTrades"
+                Spec.Sheet = "BankTrades"
+                Spec.Key = "trade_id"
+                Spec.ReservedKeys = ""
+                Spec.MaxRecords = 50000
+                Spec.Version = 1
+                Spec.EarlierColumns = ""
+                Spec.ColumnCount = 13
+                ReDim Columns(1 To 13)
+                SetColumn Columns(1), "trade_id", "id", True, "", False, 0, False, 0, False, 0
+                SetColumn Columns(2), "notional", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(3), "mtm", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(4), "maturity", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(5), "supervisory_duration", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(6), "adjusted_notional", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(7), "supervisory_delta", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(8), "mf_unmargined", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(9), "mf_margined", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(10), "effective_notional_unmargined", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(11), "effective_notional_margined", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(12), "standalone_addon", "number", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(13), "comment", "text", False, "", False, 0, False, 0, False, 0
+                Spec.RuleCount = 0
+                Erase Rules
                 CsvSpecOf = True
         End Select
 

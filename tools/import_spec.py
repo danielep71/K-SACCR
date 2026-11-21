@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the CSV import specification, a standalone HTML page, from the CSV contract (#473).
 
-The page describes the NettingSets and Trades files for a user who has only the
+The page describes the NettingSets, Trades, BankNettingSets and BankTrades files for a user who has only the
 workbook: the file format, the header, the value types, the blank and empty-file
 rules, the limits, every column, the rules between fields, between records and
 against Params, the finding codes, and the synthetic example records of the
@@ -211,11 +211,12 @@ def section(anchor: str, title: str, body: str) -> str:
 
 
 def overview(contract: dict[str, Any]) -> str:
-    rows = ["<table>", "<thead><tr><th>File</th><th>Sheet</th><th>Key column</th><th>Records per file</th>"
-            "<th>Blank template</th></tr></thead>", "<tbody>"]
+    rows = ["<table>", "<thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th>"
+            "<th>Records per file</th><th>Blank template</th></tr></thead>", "<tbody>"]
     for kind, spec in contract["files"].items():
-        rows.append(f"<tr><td>{esc(kind)}</td><td>{esc(spec['sheet'])}</td><td>{code(spec['key'])}</td>"
-                    f'<td class="num">{spec["max_records"]:,}</td><td>{code(spec["template"])}</td></tr>')
+        rows.append(f'<tr><td>{esc(kind)}</td><td class="num">{spec["version"]}</td><td>{esc(spec["sheet"])}</td>'
+                    f'<td>{code(spec["key"])}</td><td class="num">{spec["max_records"]:,}</td>'
+                    f'<td>{code(spec["template"])}</td></tr>')
     rows += ["</tbody>", "</table>"]
     return "\n".join([
         "<p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a "
@@ -224,6 +225,13 @@ def overview(contract: dict[str, Any]) -> str:
         "checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then "
         "replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and "
         "<code>Trades</code> writes the blank template, the header alone.</p>",
+        "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets "
+        "<code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
+        "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: "
+        "<strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV menu, "
+        "or <strong>Import CSV</strong> on the sheet, replace the figures of the sheet with the records of a file "
+        "that follows the contract, and change nothing otherwise. <strong>BankNettingSets template...</strong> and "
+        "<strong>BankTrades template...</strong> write the blank template.</p>",
         *rows,
     ])
 
@@ -265,12 +273,19 @@ def file_format(contract: dict[str, Any]) -> str:
     ])
 
 
-def header_rules() -> str:
+def header_rules(contract: dict[str, Any]) -> str:
+    earlier = []
+    for kind, spec in contract["files"].items():
+        for version in spec.get("earlier_versions", []):
+            added = [column["name"] for column in spec["columns"] if column["name"] not in version["columns"]]
+            earlier.append(f"A {esc(kind)} file whose header is exactly the column set of version "
+                           f"{version['version']}, the template {code(version['template'])}, is still read: "
+                           f"{listed(added)} {'is' if len(added) == 1 else 'are'} blank in each of its records.")
     return ("<p>The first record is the header. It names every column of the file exactly once, in any order, with "
             "the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column rejects "
             "the file before any record is read. There are no optional columns: an optional field is a column whose "
-            "value may be blank. The column set is the contract version: a file of another version is never mapped by "
-            "guessing what a column means.</p>")
+            "value may be blank. The column set is the file's version: a file is never mapped to a version by "
+            "guessing what a column means.</p>" + "".join(f"\n<p>{text}</p>" for text in earlier))
 
 
 def value_types(contract: dict[str, Any]) -> str:
@@ -372,6 +387,37 @@ def trades_section(contract: dict[str, Any]) -> str:
     ])
 
 
+def bank_section(kind: str, contract: dict[str, Any]) -> str:
+    """A bank file: the bank's own figures for one reconciliation sheet, loaded onto the sheet (#718)."""
+    spec = contract["files"][kind]
+    sheet, other = (("Reconciliation", "NettingSets") if kind == "BankNettingSets"
+                    else ("TradeReconciliation", "Trades"))
+    unit = "netting set" if kind == "BankNettingSets" else "trade leg"
+    return "\n".join([
+        f"<p>One record per {unit}: the figures of the bank's own calculation that {code(sheet)} compares with the "
+        f"workbook's. {code(spec['key'])} is the key: unique in the file and compared case-insensitively, matched to "
+        f"the ID on {code(other)}; an ID that is not there is not an error of the file, the reconciliation reports "
+        f"it as {code('MISSING IN CALCULATOR')}.</p>",
+        f"<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet "
+        f"{code(spec['sheet'])}, and an amount in the file is written in that scale. A blank figure is not compared. "
+        f"The file holds at most {spec['max_records']:,} records; a longer file is rejected whole, never "
+        "truncated.</p>",
+        "<h3>How a file is loaded</h3>",
+        "<ul>"
+        "<li>The file is accepted or rejected as a whole: a finding, a file with too many records or a "
+        "header-only file changes nothing, and the findings are listed in a message.</li>"
+        "<li>A sheet that already holds figures asks before they are replaced.</li>"
+        f"<li>The identifier, the regime and the comment are written as text, so {code('00731')} keeps its leading "
+        "zeros; a figure is written as a number; a blank figure is an empty cell, which is not compared.</li>"
+        "<li>The amount scale and the tolerances stay on the sheet and are not touched.</li>"
+        "</ul>",
+        "<h3>Columns</h3>",
+        field_table(kind, contract),
+        "<h3>Example</h3>",
+        f'<pre class="csv" id="example-{kind.lower()}">{esc(example_text(kind, contract))}</pre>',
+    ])
+
+
 def examples_note() -> str:
     return ("<p>The examples are synthetic and hold no real portfolio data. The two belong together: each leg's "
             "netting set is in the NettingSets example. To try them, select the text of an example, copy it into a "
@@ -392,11 +438,13 @@ def render(contract: dict[str, Any]) -> str:
     sections = [
         ("files", "Files", overview(contract)),
         ("format", "File format", file_format(contract)),
-        ("header", "Header", header_rules()),
+        ("header", "Header", header_rules(contract)),
         ("types", "Value types", value_types(contract)),
         ("blanks", "Blank fields, empty files and limits", blanks_and_limits(contract)),
         ("nettingsets", "NettingSets file", netting_sets_section(contract)),
         ("trades", "Trades file", trades_section(contract)),
+        ("banknettingsets", "BankNettingSets file", bank_section("BankNettingSets", contract)),
+        ("banktrades", "BankTrades file", bank_section("BankTrades", contract)),
         ("examples", "Using the examples", examples_note()),
         ("findings", "Findings", "<p>Every finding of the import and of the validation has one of these codes.</p>\n"
                                  + findings_table(contract)),
@@ -414,9 +462,11 @@ def render(contract: dict[str, Any]) -> str:
         "<body>",
         "<header>",
         "<h1>K-SACCR CSV import specification</h1>",
-        f'<p class="lead">CSV contract version {version}, for the NettingSets and Trades files whose blank templates '
-        f"end in <code>_v{version}</code>. The contract version changes only when a column is added, removed or "
-        "renamed, not with each K-SACCR release.</p>",
+        f'<p class="lead">CSV contract version {version}, for '
+        + ", and ".join(f"{esc(kind)} files of version {spec['version']}, whose blank template is "
+                       f"{code(spec['template'])}" for kind, spec in contract["files"].items())
+        + ". A file's version changes only when a column is added, removed or renamed, not with each K-SACCR "
+        "release.</p>",
         "</header>",
         f"<nav><ol>{navigation}</ol></nav>",
         "<main>",
@@ -441,7 +491,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--write", action="store_true", help=f"Write {SPECIFICATION}")
     parser.add_argument("--examples", type=Path, metavar="DIR",
-                        help="Write the example files, NettingSets.csv and Trades.csv, into DIR")
+                        help="Write the example files, one for each file of the contract, into DIR")
     args = parser.parse_args()
     contract = load_contract(args.root)
     if args.examples is not None:

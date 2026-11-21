@@ -1,6 +1,6 @@
 # 🖼️ Documentation images
 
-The images in this directory illustrate K-SACCR. They do not certify the
+The images and the slide guide in this directory illustrate K-SACCR. They do not certify the
 engine or replace the [methodology](../methodology/README.md), which holds the
 regulatory sources, the support matrix and the traceability of each rule. Each
 section below says what its images show, how they were made and when to update
@@ -53,6 +53,30 @@ screenshot. The output sheets show a run of that portfolio on that day.
 Retake a screenshot when the layout or content of its sheet changes, and keep
 the same processing.
 
+<a id="run-pictures"></a>
+
+## 🧪 Pictures of an Excel run
+
+`screenshots/` holds pictures written by the sheet review of a quick Excel run
+(#706), `tools/Review-SACCR-Sheets.ps1`, named `check-SHORTSHA-Sheet.png`
+after the commit the run checked. Unlike the screenshots above they are the
+original PNGs as the review wrote them: not cropped, palette-reduced or
+otherwise edited, and taken after the run of the demonstration portfolio.
+Each set is described and linked by its dated record in
+[`docs/excel-runs/`](../excel-runs/README.md); the paths and names of the host
+appear in no picture.
+
+| Image | Shows | Record |
+| --- | --- | --- |
+| `screenshots/check-369abf4-Results.png` | Results after the run: run summary, one row per netting set from V and C to EAD and status, the TOTAL rows | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-Checks.png` | Checks after the run: the six ERROR lines of the demonstration portfolio | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-NettingSets.png` | The NettingSets input sheet with the demonstration netting sets | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+| `screenshots/check-369abf4-Params.png` | Params: the run parameters and the supervisory-factor table (first 60 rows) | [2026-11-15](../excel-runs/2026-11-15-quick-369abf4.md) |
+
+The root README shows these four in its [status](../../README.md#status).
+Keep only the pictures a page shows: a quick run writes 38 of about 18 MB,
+and the others stay in its run folder.
+
 <a id="ead-reference-card"></a>
 
 ## 🧮 EAD reference card
@@ -66,8 +90,8 @@ authority, is in the methodology: the
 summarises them and is not a source.
 
 - **Dates:** the card gives S, E, M and T in years of 365 days. That is the
-  default of the `DaysPerYear` parameter on Params, which accepts any value
-  from 360 to 366; the engine uses the value set.
+  default of the `YearConvention` parameter on Params, which accepts 366,
+  365, 364, 360, 252 or 250; the engine uses the value set.
 - **Sources:** the card's source line names CRE52, the CRR and Delegated
   Regulation (EU) 2021/931. Its MPOR line also relies on CRE54.8, CRE54.12,
   CRE54.14 to CRE54.17, registered as `CRE54` in the
@@ -203,6 +227,33 @@ source; the card holds the parameters and the full formulas.
   colours as the screenshots above. Render them again whenever an SVG
   changes, and update the pictures when a formula or a supervisory parameter
   they show changes.
+
+<a id="sa-ccr-guide"></a>
+
+## 🎓 SA-CCR guide (slides)
+
+`SACCR_Counterparty_Credit_Risk.pptx` is a 76-slide guide to the theory behind
+the workbook, with speaker notes on every slide. It covers why derivative
+exposure differs from a loan, the Basel and EU rulebook, the move from CEM to
+SA-CCR, the calculation chain in the workbook's order (replacement cost, the
+multiplier, trade-level inputs, the add-on of each asset class, margined
+netting sets and a full worked example), the simplified methods, the other
+uses of the exposure (CVA, CCPs, leverage ratio, large exposures, output
+floor), calibration and limitations, and CCR management beyond capital.
+
+- **Status:** the regulatory status is the one stated on the slides, November
+  2026. Like the pictures above, the guide summarises and is not a source: the
+  [methodology](../methodology/README.md) holds the authoritative texts, the
+  support matrix and the traceability.
+- **Figures:** the worked examples are the guide's own calculations on an
+  illustrative portfolio, in EUR millions; they are neither the CRE99 examples
+  nor test cases of the workbook. Market figures cite the BIS statistics named
+  on their slide.
+- **Origin:** written for this project; its five charts are generated from the
+  formulas they show. The text uses IBM Plex Sans, which the file does not
+  embed: without the font, PowerPoint substitutes another.
+- **Update** the guide when a rule, a supervisory parameter or a sheet name it
+  cites changes.
 
 <a id="website-banner"></a>
 

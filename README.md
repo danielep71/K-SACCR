@@ -12,8 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-10%2F10_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-472_cases_%C2%B7_2013_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-11%2F11_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-531_cases_%C2%B7_2272_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -174,9 +174,9 @@ inspected. This toolkit is the opposite:
 | Input validation | Unreadable or locale-dependent dates, the 1904 date system, duplicate IDs, codes, FX pairs, Excel error values, moved columns and broken names reject the trade or netting set or stop the run; nothing is silently read as blank |
 | Reconciliation | A bank's own figures per netting set and per trade leg, compared with the engine's ([how](#3-run)) |
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
-| Worksheet functions | Ten `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
+| Worksheet functions | Eleven `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Ten Excel suites (472 cases, 2013 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Eleven Excel suites (531 cases, 2272 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -248,17 +248,18 @@ further illustrative netting sets.
 Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
 the status of the results and of both staging sheets and reaches every sheet
 through **Go to** ([Ribbon](docs/workbook/RIBBON.md)). The two staging sheets
-also carry buttons for their own commands.
+also carry rounded shapes that act as buttons for their own commands (#727).
 
 | Command | Macro | Does |
 | --- | --- | --- |
 | **Run** (Calculation) | `RunSACCR` | Validates the inputs, calculates, writes every output sheet and opens Results; a run that stops opens Checks |
 | **Validate inputs** (Run menu) | `ValidateInputs` | Checks the inputs and lists the findings on Checks, which it opens, without calculating |
-| **Clear outputs** (Run menu) | `ClearOutputs` | Empties the output sheets |
+| **Clear outputs** (Calculation, and on every output sheet) | `ClearOutputs` | Empties the output sheets; the inputs, Params and the evidence record stay |
 | **Export evidence** (Evidence) | `ExportEvidence` | Writes the evidence report of the current run to a CSV file |
 | **Restore parameters** (Parameters) | `RestoreRegulatoryParameters` | After a confirmation that lists what it overwrites, puts the reference parameters, the two conventions and the factor table on Params back to the regulatory set, so that the next run is `REGULATORY`; the reporting date, currency, regime, FX rates and alpha overrides are not changed ([scope](docs/workbook/RIBBON.md#-commands)) |
-| **NettingSets template**, **Trades template** (CSV import, Templates menu) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
+| **NettingSets template**, **Trades template**, **BankNettingSets template**, **BankTrades template** (CSV import, Templates menu; the two bank ones also on their sheets) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate`, `ExportBankNettingSetsCsvTemplate`, `ExportBankTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
+| **BankNettingSets file...**, **BankTrades file...** (Import CSV menu) and **Import CSV** (on BankNettingSets and BankTrades) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` | Replaces the bank figures of the sheet with the records of a CSV file that follows the [contract](docs/csv/CSV_CONTRACT.md#-the-bank-files); a file with a finding, with more records than the sheet holds (200 netting sets, 500 legs) or with none changes nothing and the findings are listed; a sheet that holds figures asks first. There is no staging sheet |
 | **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | **Commit import** (on Import_Trades and Import_NettingSets) | `CommitImport` | After a confirmation that gives each input sheet's rows now and the staged rows that replace it, replaces NettingSets and Trades with the staged rows of a `VALID` validation that still holds; an input sheet whose staging sheet holds no rows is left as it is. On a failure the input sheets are put back and checked. Results reads `OUT OF DATE` until the next run |
 | **Export import specifications** (on Import_Trades and Import_NettingSets) | `ExportImportSpecification` | Saves the [CSV import specification](docs/csv/K-SACCR_Import_Specification.html): one HTML page, readable offline and printable, that describes every column and rule of both files and gives an example of each to copy. A file that exists is replaced only after a confirmation; the page can then be opened. The workbook is not changed |
@@ -308,6 +309,21 @@ stand-alone add-on, with `EXCLUDED` legs and `NOT APPLICABLE` figures. Each
 leg's row also shows its Economic trade ID from Trades, so legs can be grouped
 as the bank groups its trades.
 
+The bank's figures can be typed on the two bank sheets or loaded from a CSV file:
+**BankNettingSets file...** and **BankTrades file...** in the Import CSV menu of the
+K-SACCR tab, or the Import CSV button of the sheet, replace the figures with those of a
+file that follows the [CSV contract](docs/csv/CSV_CONTRACT.md) (10,000 netting sets or
+50,000 legs at most), or change nothing and list what is wrong with the file.
+
+Both sheets show eight summary tiles above the table (the time of the last
+reconciliation, the rows shown, the figures compared and the count of `MATCH`,
+`DIFFERENCE`, `NOT IN BANK FILE`, `MISSING IN CALCULATOR` and `DUPLICATE`) and
+one tile for the other results. The tiles are rounded shapes linked to cells, so
+their counts follow the filter and need no macro to refresh. A fourth row gives the sums of the bank
+and calculator figures and of the absolute differences, and the largest absolute
+difference, of the measure the filter shows: filter the `Measure` column to one measure
+to read them.
+
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
 run's identity and input fingerprint, the parameters, supervisory-factor and
@@ -340,21 +356,22 @@ Test_RunAll
 
 Expected summary in Windows Excel 64-bit. The format and counts are those of
 the shared suite lifecycle (#536); the timings, which vary, are from the quick
-verification of `release/1.3.0` at 47c5a4b:
+run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19:
 
 ```text
-SACCR TEST SUMMARY 2026-11-09 22:53:57
+SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
-  PASS  TEST_Formulas         cases=9; checks=82; failures=0; restore=PASS  (0,1 s)
-  PASS  TEST_MainState        cases=40; checks=602; failures=0; restore=PASS  (28,3 s)
-  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (5,5 s)
-  PASS  TEST_InputValidation  cases=181; checks=318; failures=0; restore=PASS  (25,0 s)
-  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,1 s)
-  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,5 s)
-  PASS  TEST_Reconcile        cases=21; checks=180; failures=0; restore=PASS  (9,5 s)
-  PASS  TEST_CsvReader        cases=124; checks=317; failures=0; restore=PASS  (2,0 s)
-  PASS  TEST_Import           cases=38; checks=227; failures=0; restore=PASS  (30,2 s)
-RESULT=PASS; suites=10; passed=10; failed=0; seconds=105,3
+  PASS  TEST_Formulas         cases=10; checks=117; failures=0; restore=PASS  (0,1 s)
+  PASS  TEST_MainState        cases=42; checks=627; failures=0; restore=PASS  (27,8 s)
+  PASS  TEST_Cases            cases=39; checks=243; failures=0; restore=PASS  (7,4 s)
+  PASS  TEST_InputValidation  cases=195; checks=336; failures=0; restore=PASS  (28,4 s)
+  PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
+  PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
+  PASS  TEST_Reconcile        cases=23; checks=237; failures=0; restore=PASS  (10,7 s)
+  PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
+  PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
+  PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
+RESULT=PASS; suites=11; passed=11; failed=0; seconds=120,1
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
@@ -391,7 +408,9 @@ BankNettingSets · BankTrades ────────────────�
    currency, or a broken name stops the run; a missing numeric parameter takes
    its regulatory default with a warning.
 2. **Netting sets.** Margining, collateral, threshold, MTA, clearing role and
-   MPOR inputs are read and checked.
+   MPOR inputs are read and checked, and so is the optional counterparty
+   sector (FINREP: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH`), which no SA-CCR
+   rule uses.
 3. **Trades.** Each trade gets its dates in years (S, E, M, T), adjusted
    notional, supervisory delta, maturity factor and effective notional. An
    invalid trade is excluded with all its reasons.
@@ -428,7 +447,8 @@ the exposure value (select it to open it full size):
 | `Checks` | Errors, warnings and what-if differences |
 | `BankNettingSets` · `Reconciliation` | A bank's own figures per netting set, and their comparison with Results |
 | `BankTrades` · `TradeReconciliation` | The same per trade leg, against TradeCalc |
-| `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples |
+| `ReconSummary` | One row per measure of the two reconciliation sheets: rows shown, results, sums of the amounts and the largest absolute difference, following the filters |
+| `TestCatalogue` · `FormulaTest` | Reference-test catalogue; worksheet-function examples, with a seed, a range table and buttons to randomize their inputs reproducibly |
 | `Basel_vs_CRR` | The two regimes side by side |
 | `README` | In-workbook guide: conventions, methodology summary, worksheet functions and the reference card; the last tab |
 
@@ -635,7 +655,7 @@ bank's portfolio, under the CRR, at the reporting date of 30 June 2026
   maturity factor, bucket).
 - **Result:** every difference is traced. The day-count convention (business
   days of 252 a year at the bank, calendar days of 365 and 250 business days in
-  K-SACCR) explains those of the add-ons; the remaining ones come from
+  K-SACCR by default; K-SACCR now also offers business days over 252 or 250) explains those of the add-ons; the remaining ones come from
   treatments of the comparison engine. No defect was found in K-SACCR.
 - **Not covered:**
   - the cap of margined netting sets;
@@ -666,19 +686,20 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | Suite | Covers | Cases | Checks |
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
-| `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 9 | 82 |
-| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 40 | 602 |
+| `TEST_Formulas` | Domain and Excel-error contract of every worksheet function | 10 | 117 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle and the refusal of a dirty workbook | 42 | 627 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 39 | 243 |
-| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 181 | 318 |
+| `TEST_InputValidation` | Rejection of malformed inputs and the input conventions | 195 | 336 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
-| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 21 | 180 |
-| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 124 | 317 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, and the output tables of committed rows against the same rows typed by hand | 38 | 227 |
-| **Total** | | **472** | **2013** |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 23 | 237 |
+| `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 144 | 385 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
+| `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
+| **Total** | | **531** | **2272** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
-Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (80).
+Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (115).
 
 <details>
 <summary><b>In the workbook</b>: TestCatalogue and FormulaTest</summary>
@@ -726,6 +747,7 @@ Excel error (`#NUM!`, `#VALUE!` or `#REF!`) instead of a misleading number.
 | `SACCR_FactorAggregation(AddOns, Rhos)` | Single-factor aggregation | CRE52.61, .66, .70 |
 | `SACCR_Multiplier(VminusC, AddOn, [FloorPct])` | PFE multiplier | CRE52.23; CRR Art. 278(3) |
 | `SACCR_ReplacementCost(V, C, [Margined], [TH], [MTA], [NICA])` | Replacement cost | CRE52.10, .18; CRR Art. 275 |
+| `SACCR_BusinessDays(StartDate, EndDate, [Holidays], [UseTarget])` | Business days between two dates on the EUR TARGET calendar, with an optional table of closing days (the first date excluded, the last included) | ECB TARGET closing days; `docs/methodology/README.md` |
 | `SACCR_NormCDF(x)` | Standard normal distribution | — |
 
 Everything in `src/core/` is internal and may change without notice.
@@ -900,7 +922,7 @@ rejected.
 | [Wiki](https://github.com/danielep71/K-SACCR/wiki) | SA-CCR overview, regulatory sources, worked examples and workbook guide |
 | [`docs/methodology/`](docs/methodology/README.md) | Regulatory basis, source register, support matrix, regime differences, parameters, traceability |
 | [`docs/methodology/TEST_CASES.md`](docs/methodology/TEST_CASES.md) | Numerical test-case format and evidence classes |
-| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 1, its blank templates and the import through the staging sheets (since v1.1.0) |
+| [`docs/csv/CSV_CONTRACT.md`](docs/csv/CSV_CONTRACT.md) | Trades and NettingSets CSV input contract, version 2 (NettingSets version 2, Trades version 1), its blank templates and the import through the staging sheets (since v1.1.0) |
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |
@@ -936,6 +958,44 @@ Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches) through task branches and
 pull requests; `main` receives it on the owner's instruction, and only a
 release is versioned and tagged.
+
+The latest Excel run of unreleased work is the
+[quick run of 2026-11-15](docs/excel-runs/2026-11-15-quick-369abf4.md) at
+369abf4 (#707), a pull-request check and not a certification: compile,
+`Test_RunAll` 10 of 10, the sheet review of 19 sheets in two states and the 14
+protection checks, all passing. Four of its pictures, after the run of the
+demonstration portfolio:
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Results after the demonstration run: one row per netting set from regime and margining to EAD and status, two INCOMPLETE rows in light red, and the TOTAL CRR and TOTAL BCBS rows"
+         src="docs/assets/screenshots/check-369abf4-Results.png"></a><br>
+      <sub>Results</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Checks after the demonstration run: six ERROR lines with sheet, row, reference, message, origin, code and field"
+         src="docs/assets/screenshots/check-369abf4-Checks.png"></a><br>
+      <sub>Checks</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="NettingSets input sheet: one row per demonstration netting set with margining, clearing role, collateral, threshold, MTA and regime override, under navy headers"
+         src="docs/assets/screenshots/check-369abf4-NettingSets.png"></a><br>
+      <sub>NettingSets (input)</sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="docs/excel-runs/2026-11-15-quick-369abf4.md"><img width="420"
+         alt="Params sheet: reporting date, currency and regime in yellow, the grey regulatory parameters, and the supervisory-factor table"
+         src="docs/assets/screenshots/check-369abf4-Params.png"></a><br>
+      <sub>Params (parameters)</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 

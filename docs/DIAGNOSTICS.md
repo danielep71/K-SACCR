@@ -156,11 +156,14 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `PRM-ALPHA` | active | Alpha must be greater than zero. |
 | `PRM-ASOF` | active | Reporting date missing or not a date (enter a date, |
 | `PRM-BOOLEAN` | active | Parameter must be TRUE or FALSE (found |
+| `PRM-CALENDAR` | active | Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier. |
 | `PRM-CURRENCY` | active | Reporting currency must be three letters A to Z, |
 | `PRM-CURRENCY-MISSING` | active | Reporting currency missing. |
+| `PRM-DAYCOUNT` | active | Day-count convention must be 366, 365, 364, 360, 252 or 250, or the day-count numerator ACTUAL (found |
 | `PRM-DEFAULT` | active | Parameter missing - default   used. |
 | `PRM-DUP` | active | Parameter listed twice with different values (rows |
 | `PRM-DUP-SAME` | active | Parameter listed twice with the same value (rows |
+| `PRM-HOLIDAY` | active | Closing day on a row of the Params table is not a date from 1 March 1900. |
 | `PRM-IR-CORRELATION` | active | The IR bucket correlations  , |
 | `PRM-NAME` | active | A Params workbook name is missing or no longer refers to a cell (#REF!); every parameter is read through its name. |
 | `PRM-NUMBER` | active | Parameter must be a number (found  ). |
@@ -191,7 +194,7 @@ Code/Field alongside its existing origin, cell-link and message contract.
 | `TR-DIRECTION` | active | direction must be Long or Short |
 | `TR-DUP-ID` | active | duplicate Trade ID (first used on row  ) |
 | `TR-EMPTY` | active | No trades found. |
-| `TR-EXPIRED` | active | The option has expired on or before the reporting date. |
+| `TR-EXPIRED` | active | The option has expired on or before the reporting date, or no counted day is left before its expiry on the calendar. |
 | `TR-EXPIRY-MATURITY` | active | option expiry is after the maturity date (M is the latest |
 | `TR-EXPIRY-MISSING` | active | option expiry missing |
 | `TR-FACTOR` | active | No supervisory-factor row exists for the asset class/sub-class. |

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "description": "Style rules of the workbook's sheets (#706, #708). check_sheet_style.py checks the template against them, and the sheet review of the quick Excel run (tools/Verify-SACCR-Branch.ps1 -Quick) checks the workbook Excel shows, after Clear outputs and after a run. Each role of docs/workbook/protection.json has one tab color, as RRGGBB. header_rows lists the table-header rows of each sheet: every header cell is bold, white, header_font_size points (or the size header_size_exceptions gives it), on header_fill, and its row is tall enough for its wrapped text.",
+  "font": "Aptos",
+  "vertical_alignment": "center",
+  "date_format": "yyyy-mm-dd",
+  "gridlines": false,
+  "tab_colors": {
+    "Instructions": "1F3864",
+    "Reference": "1F3864",
+    "Run configuration and reference regulatory parameters": "BF9000",
+    "Input": "BF9000",
+    "Bank figures": "BF9000",
+    "Staging": "7030A0",
+    "Output": "2E75B6",
+    "Working": "2E75B6",
+    "Test": "548235"
+  },
+  "header_fill": "1F3864",
+  "header_font_size": 11,
+  "header_size_exceptions": {
+    "Params": {"E60": 10}
+  },
+  "header_rows": {
+    "Params": [
+      5,
+      31,
+      60
+    ],
+    "NettingSets": [
+      6
+    ],
+    "Trades": [
+      4
+    ],
+    "Import_NettingSets": [
+      9
+    ],
+    "Import_Trades": [
+      9
+    ],
+    "Results": [
+      6
+    ],
+    "HedgingSets": [
+      5
+    ],
+    "Buckets": [
+      5
+    ],
+    "TradeCalc": [
+      5
+    ],
+    "Checks": [
+      5
+    ],
+    "BankNettingSets": [
+      8
+    ],
+    "Reconciliation": [
+      11
+    ],
+    "BankTrades": [
+      8
+    ],
+    "TradeReconciliation": [
+      11
+    ],
+    "ReconSummary": [
+      7,
+      21
+    ],
+    "TestCatalogue": [
+      6
+    ],
+    "FormulaTest": [
+      6
+    ],
+    "Basel_vs_CRR": [
+      5
+    ]
+  }
+}

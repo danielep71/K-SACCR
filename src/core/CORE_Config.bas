@@ -77,13 +77,15 @@ Attribute VB_Name = "CORE_Config"
     'M_Main.ProtectWorkbook, #421). The sheets named below, between bars,
     'also let the user sort, filter, insert rows or open and close row
     'groups; filtering uses the AutoFilter the template gives the sheet, as
-    'a protected sheet cannot get a new one. check_workbook_protection
+    'a protected sheet cannot get a new one. The sheets of PROTECT_NONE are
+    'never protected: the user works on them (#720). check_workbook_protection
     'compares these lists with the matrix and the template.
         Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
         Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
         Public Const PROTECT_INSERTING_ROWS As String = _
             "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
+        Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -127,11 +129,11 @@ Attribute VB_Name = "CORE_Config"
         Public Const NM_PRM_VALUE     As String = "Params_Value"           'Header cell "Value"
         Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
         Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
+        Public Const NM_FX_PRICE_DATE As String = "FX_PriceDate"           'Hidden cell: the date of the closing prices (#721)
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
         Public Const PRM_FLOOR        As String = "MultiplierFloor"        'Multiplier floor
-        Public Const PRM_DAYSYEAR     As String = "DaysPerYear"            'Days per year for S, E, M, T
         Public Const PRM_BDYEAR       As String = "BusinessDaysPerYear"    'Business days per year
         Public Const PRM_MINMAT       As String = "MinMaturityBD"          'Floor on M, BD
         Public Const PRM_SDFLOOR      As String = "SDFloorBD"              'Floor on SD, BD
@@ -147,6 +149,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REGIME       As String = "Regime"                 'Default regime
         Public Const PRM_LAMIR        As String = "LambdaThresholdIR"      'CRR lambda threshold, IR
         Public Const PRM_LAMCO        As String = "LambdaThresholdCO"      'CRR lambda threshold, CO
+        Public Const PRM_DAYNUM       As String = "DaycountConvention"     'ACTUAL, the only numerator for the moment (#721)
+        Public Const PRM_DAYCOUNT     As String = "YearConvention"         'Days of the conventional year, the denominator (#721)
+        Public Const PRM_CALENDAR     As String = "Calendar"               'TARGET, TARGET+TABLE or TABLE (#721)
+        Public Const NM_HOLIDAY_TABLE As String = "Holiday_Table"          'Closing days of the calendar, from its header (#721)
 
 '------------------------------------------------------------------------------
 ' RUN FINGERPRINT
@@ -184,14 +190,28 @@ Attribute VB_Name = "CORE_Config"
     'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
     '2026-10-09. A run whose parameters, factor table and alpha overrides
     'all equal this set is REGULATORY and names REF_SET_ID; any difference
-    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear and
-    'IRBucketOffset are conventions and do not change the class.
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaycountConvention, YearConvention,
+    'Calendar and IRBucketOffset are conventions and do not change the class.
         Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
         Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
         Public Const RUN_WHATIF       As String = "WHAT-IF"                 'Some parameter differs
         Public Const REF_ALPHA        As Double = 1.4       'CRE52.1; CRR Art. 274(2)
         Public Const REF_FLOOR        As Double = 0.05      'CRE52.23; CRR Art. 278(3)
         Public Const REF_BDYEAR       As Double = 250       'CRE52.49, 52.53; CRR Art. 279c(1)
+    'The day count of Params (#721): years = ACTUAL days between the reporting
+    'date and the date, counted on the Calendar, over the days of the
+    'conventional year of YearConvention. None of the three cells changes
+    'the class of a run; YearConvention and Calendar are run settings, as
+    'Regime is, and DaycountConvention is a convention that Restore parameters
+    'puts back.
+        Public Const DAYNUM_ACTUAL    As String = "ACTUAL"          'The only numerator for the moment
+        Public Const DAYCOUNT_DEFAULT As Double = 365               'Days of the year by default
+        Public Const DAYCOUNT_LIST    As String = "366, 365, 364, 360, 252 or 250"
+        Public Const CALENDAR_DEFAULT As String = "TABLE"           'Calendar days while the table is empty
+        Public Const CALENDAR_TARGET  As String = "TARGET"          'The EUR TARGET rule
+        Public Const CALENDAR_BOTH    As String = "TARGET+TABLE"    'The rule and the table of closing days
+        Public Const CALENDAR_TABLE   As String = "TABLE"           'The table of closing days alone
+        Public Const HOLIDAY_ROWS     As Long = 100                 'Rows of the table of closing days below its header
         Public Const REF_MINMAT       As Double = 10        'CRE52.48; CRR Art. 279c(1)(a)
         Public Const REF_SDFLOOR      As Double = 10        'CRE52.34; CRR Art. 279b(1)(a)
         Public Const REF_MPOR_BIL     As Double = 10        'CRE52.50; CRR Art. 285(2)(b)
@@ -204,10 +224,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_RHO13        As Double = 0.3       'CRE52.57; CRR Art. 280a(3)
         Public Const REF_LAMIR        As Double = 0.001     'CRR-RTS Art. 5(2)
         Public Const REF_LAMCO        As Double = 0.1       'CRR-RTS Art. 5(2)
-    'The two conventions of Params, outside the comparison: Restore
+    'The conventions of Params, outside the comparison: Restore
     'regulatory parameters (M_Main, #357) writes them back with the set, so
     'that a restored workbook calculates as the template does.
-        Public Const REF_DAYSYEAR     As Double = 365       'Calendar days per year for S, E, M, T
         Public Const REF_IRFULL       As Boolean = True     'CRE52.57(5); the CRR allows TRUE only
 
 '------------------------------------------------------------------------------
@@ -224,6 +243,11 @@ Attribute VB_Name = "CORE_Config"
     'is rejected: the engine does not model them.
         Public Const MS_MIXED    As String = "MIXED"     'Several agreements, or margined and unmargined trades
         Public Const MS_SHARED   As String = "SHARED"    'One agreement over several netting sets
+    'Counterparty sectors of a netting set, the FINREP counterparty sectors
+    '(#674): central banks, general governments, credit institutions, other
+    'financial corporations, non-financial corporations and households. A
+    'blank sector is not classified. No SA-CCR rule reads it.
+        Public Const SECTOR_CODES As String = "CB|GG|CI|OFC|NFC|HH"    'Allowed counterparty sectors
     'Trades in a netting set above which the 20-day MPOR floor applies in the
     'following quarter [CRE52.51(1); CRR Art. 285(3)(a)].
         Public Const LARGE_NS_TRADES As Long = 5000
@@ -243,8 +267,8 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
     'Header text of the first column of each lookup table, at the top-left
     'cell of its workbook name. The table runs down to the first blank key.
-        Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
-        Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
+        Public Const HDR_SF   As String = "SF_Key"           'Supervisory-factor table
+        Public Const HDR_FX   As String = "Currency Code"    'FX-rate table
 
 '------------------------------------------------------------------------------
 ' NETTINGSETS INPUT COLUMNS
@@ -267,7 +291,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_STRUCT     As Long = 15    'Margin-agreement structure: blank, MIXED or SHARED
         Public Const NS_QCCP       As Long = 16    'QCCP (Y/N): role CCP only (#112)
         Public Const NS_RETAINVM   As Long = 17    'CCP retains VM, collateral not protected (Y/N): role CCP only
-        Public Const NS_NCOLS      As Long = 17    'Number of input columns
+        Public Const NS_SECTOR     As Long = 18    'Counterparty sector: blank, CB, GG, CI, OFC, NFC or HH (#674)
+        Public Const NS_NCOLS      As Long = 18    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -323,7 +348,8 @@ Attribute VB_Name = "CORE_Config"
             "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
             "Alpha override|Regime override (blank = Params)|" & _
             "Margin agreements (blank / MIXED / SHARED)|QCCP (Y/N)|" & _
-            "CCP retains VM, collateral not protected (Y/N)"
+            "CCP retains VM, collateral not protected (Y/N)|" & _
+            "Counterparty sector (CB / GG / CI / OFC / NFC / HH)"
         Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
             "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
             "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
@@ -334,7 +360,17 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
-        Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"
+        Public Const FX_HEADERS As String = "Currency Code||Units of ccy per 1 unit of reporting ccy"
+        Public Const HOLIDAY_HEADERS As String = "Bank Holiday|Description"
+    'Where the rate and the hidden scratch column of Download prices are, in columns from the key
+    '(#721): the rate; and column AR, where the price formulas of a lookup live until it empties them.
+        Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
+        Public Const FX_COL_PRICE As Long = 41    'Hidden scratch column AR: the closing price of the pair, a number or not
+    'Seconds Download prices waits for the data of STOCKHISTORY (#721).
+        Public Const PRICE_WAIT_SECONDS As Long = 30
+    'The rate column's header before #725, when rates were units of the reporting currency per
+    'unit of the currency: a workbook that still has it is refused with a message that says so.
+        Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"
 
 '------------------------------------------------------------------------------
 ' CSV TEMPLATES
@@ -345,12 +381,13 @@ Attribute VB_Name = "CORE_Config"
     'feed, which makes the file the template in docs/csv/templates byte for
     'byte; tools/check_csv_contract.py checks these constants against the
     'contract.
-        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v1.csv"
+        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v2.csv"
         Public Const CSV_NS_HEADER As String = "netting_set_id;counterparty;margined;clearing_role;" & _
             "remargin_period_business_days;large_or_illiquid;margin_disputes;" & _
             "mpor_override_business_days;variation_margin_net_amount;" & _
             "independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;" & _
-            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin"
+            "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;" & _
+            "counterparty_sector"
         Public Const CSV_TR_FILE As String = "K-SACCR_Trades_v1.csv"
         Public Const CSV_TR_HEADER As String = "trade_id;netting_set_id;asset_class;sub_class;" & _
             "risk_factor;instrument;direction;option_type;nature;hedging_set_label;" & _
@@ -358,6 +395,13 @@ Attribute VB_Name = "CORE_Config"
             "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
             "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
             "mtm_leg;settlement_type;next_reset_date;comment"
+        Public Const CSV_BN_FILE As String = "K-SACCR_BankNettingSets_v1.csv"
+        Public Const CSV_BN_HEADER As String = "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;" & _
+            "addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment"
+        Public Const CSV_BT_FILE As String = "K-SACCR_BankTrades_v1.csv"
+        Public Const CSV_BT_HEADER As String = "trade_id;notional;mtm;maturity;supervisory_duration;" & _
+            "adjusted_notional;supervisory_delta;mf_unmargined;mf_margined;" & _
+            "effective_notional_unmargined;effective_notional_margined;standalone_addon;comment"
 
 '------------------------------------------------------------------------------
 ' CSV STAGING
@@ -444,6 +488,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const TC_ENU         As Long = 19    'Effective notional, unmargined
         Public Const TC_ENM         As Long = 20    'Effective notional, margined
         Public Const TC_ADDON       As Long = 22    'Stand-alone add-on
+        Public Const TC_LAMBDA      As Long = 23    'Lambda shift: a rate for IR, a price for CO
         Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
 
 '------------------------------------------------------------------------------
@@ -490,6 +535,7 @@ Attribute VB_Name = "CORE_Config"
     'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
     'figures and inputs it was made from; it is empty when there is none.
         Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
+        Public Const RECON_FILTER_LAST_ROW As Long = 100000   'Last row of the AutoFilter the template gives a reconciliation sheet (#720)
         Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
         Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
     'TradeReconciliation has the same layout, with its own hidden name,
@@ -687,11 +733,14 @@ Attribute VB_Name = "CORE_Config"
         Public Const DIAG_PRM_ALPHA As String = "PRM-ALPHA"    'active
         Public Const DIAG_PRM_ASOF As String = "PRM-ASOF"    'active
         Public Const DIAG_PRM_BOOLEAN As String = "PRM-BOOLEAN"    'active
+        Public Const DIAG_PRM_CALENDAR As String = "PRM-CALENDAR"    'active
         Public Const DIAG_PRM_CURRENCY As String = "PRM-CURRENCY"    'active
         Public Const DIAG_PRM_CURRENCY_MISSING As String = "PRM-CURRENCY-MISSING"    'active
+        Public Const DIAG_PRM_DAYCOUNT As String = "PRM-DAYCOUNT"    'active
         Public Const DIAG_PRM_DEFAULT As String = "PRM-DEFAULT"    'active
         Public Const DIAG_PRM_DUP As String = "PRM-DUP"    'active
         Public Const DIAG_PRM_DUP_SAME As String = "PRM-DUP-SAME"    'active
+        Public Const DIAG_PRM_HOLIDAY As String = "PRM-HOLIDAY"    'active
         Public Const DIAG_PRM_IR_CORRELATION As String = "PRM-IR-CORRELATION"    'active
         Public Const DIAG_PRM_NAME As String = "PRM-NAME"    'active
         Public Const DIAG_PRM_NUMBER As String = "PRM-NUMBER"    'active

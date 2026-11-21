@@ -118,7 +118,7 @@ End Sub
 Private Sub Case03()
     'tests/expected/cre99-example-3.bcbs.json
         TEST_CaseRunner.BeginCase "cre99-example-3", "BCBS", "2026-09-30", "USD"
-        TEST_CaseRunner.SetParameter "DaysPerYear", "360"
+        TEST_CaseRunner.SetParameter "YearConvention", "360"
         TEST_CaseRunner.AddNettingSet "EX3", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
         TEST_CaseRunner.AddTrade "EX3-T1", "CO", "OIL_GAS", "CRUDE OIL", "Linear", "Long", "", "Standard", "", "10000000", "-50000", "", "", "2027-06-27", "", "", "", "", "", "", "", ""
         TEST_CaseRunner.AddTrade "EX3-T2", "CO", "OIL_GAS", "CRUDE OIL", "Linear", "Short", "", "Standard", "", "20000000", "-30000", "", "", "2028-09-29", "", "", "", "", "", "", "", ""

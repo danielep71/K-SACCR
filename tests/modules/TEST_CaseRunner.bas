@@ -624,7 +624,7 @@ Public Sub SetParameter( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Give one Params value for the current case, from a fixture's
-'   "parameters" object, for example DaysPerYear 360 so that a published
+'   "parameters" object, for example YearConvention 360 so that a published
 '   maturity of 0.75 years can be entered as a date, or IRBucketOffset
 '   FALSE. Restored like PatchCell.
 '
@@ -775,7 +775,10 @@ Public Sub ExpectNumber( _
 '   Check a numeric output: |actual - expected| <= max(absolute,
 '   relative * |expected|), as in docs/methodology/TEST_CASES.md. A
 '   quantity that cannot be negative fails when it is, however small,
-'   before the tolerance is applied.
+'   before the tolerance is applied. Each comparison that reads a number
+'   prints one MEASURED= line with the case, trade, quantity, expected and
+'   actual values and their difference, whatever the verdict (#537); the
+'   evidence validator checks those lines against the accuracy contracts.
 '
 ' INPUTS
 '   Label: catalogue ID or quantity, for the report.
@@ -786,7 +789,7 @@ Public Sub ExpectNumber( _
 '   ReferenceClass: published, independent or illustrative.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-19
 '==============================================================================
 '
 
@@ -796,6 +799,7 @@ Public Sub ExpectNumber( _
     Dim Actual                As Variant    'Output cell value
     Dim ExpectedValue         As Double     'Expected value
     Dim PermittedDifference   As Double     'Permitted difference
+    Dim Difference            As Double     'Measured difference |actual - expected|
     Dim Detail                As String     'Diagnostic
 
 '------------------------------------------------------------------------------
@@ -819,7 +823,11 @@ Public Sub ExpectNumber( _
             Record Label, ReferenceClass, False, _
                    Quantity & " must not be negative, actual " & Trim$(Str$(CDbl(Actual)))
         Else
-            Record Label, ReferenceClass, Abs(CDbl(Actual) - ExpectedValue) <= PermittedDifference, _
+            Difference = Abs(CDbl(Actual) - ExpectedValue)
+            TEST_Suite.Say "MEASURED=" & mCase & "; trade=" & TradeId & "; quantity=" & Quantity & _
+                        "; expected=" & Trim$(Str$(ExpectedValue)) & "; actual=" & Trim$(Str$(CDbl(Actual))) & _
+                        "; difference=" & Trim$(Str$(Difference))
+            Record Label, ReferenceClass, Difference <= PermittedDifference, _
                    Quantity & " expected " & Trim$(Str$(ExpectedValue)) & ", actual " & _
                    Trim$(Str$(CDbl(Actual))) & ", tolerance " & Trim$(Str$(PermittedDifference))
         End If

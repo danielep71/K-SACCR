@@ -83,8 +83,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 21              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 180              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 23              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 237              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -152,6 +152,8 @@ Public Sub RunReconcileTests()
         CaseExportWorkbook
         CaseExportReplaceFailure
         CaseExportCsvTemplates
+        CaseBankImport
+        CaseBankTradesImport
 
         Application.Calculation = CallerCalculation
         M_Main.gSilent = CallerSilent
@@ -174,8 +176,9 @@ Private Sub CaseTolerances()
 '==============================================================================
 ' PURPOSE
 '   A figure matches within the absolute or within the relative tolerance,
-'   and is a DIFFERENCE outside both; difference = calculator - bank and
-'   the relative difference is taken on the bank figure.
+'   and is a DIFFERENCE outside both; the difference is the absolute value of
+'   calculator - bank and the relative difference, which keeps the sign, is
+'   taken on the bank figure.
 '==============================================================================
 '
 
@@ -240,7 +243,7 @@ Private Sub CaseScale()
         ComparedRows = Compare(BankRows, CalcRows, 1000#, 1#, 0#)
         CheckNear "EAD bank figure in units", CellOf(ComparedRows, "NS1", "EAD", RC_BANK), 48600#
         CheckText "EAD in thousands", ResultOf(ComparedRows, "NS1", "EAD"), RES_MATCH
-        CheckNear "RC difference in units", CellOf(ComparedRows, "NS1", "RC", RC_DIFF), -2#
+        CheckNear "RC difference in units", CellOf(ComparedRows, "NS1", "RC", RC_DIFF), 2#
         CheckText "RC two units apart", ResultOf(ComparedRows, "NS1", "RC"), RES_DIFF
         Exit Sub
 
@@ -756,6 +759,17 @@ Private Sub CaseWorkbook()
         ResultLine = M_Main.RunSACCR_Silent()
         TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the failed reconciliation: " & ResultLine
 
+    'A reconciliation that needs more rows than its sheet holds is not made, and
+    'its summary says so (#718). A normal run follows.
+        M_Main.gTestFault = "reconcile-rows"
+        ResultLine = M_Main.RunSACCR_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=FAILED;") > 0, "run with a reconciliation too long for its sheet: " & ResultLine
+        TEST_Kit.Check InStr(SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value), "holds " & ReconSheet.Rows.Count) > 0, _
+                       "summary of a reconciliation too long for its sheet: " & SafeStr(ReconSheet.Range(RECON_INFO_CELL).Value)
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run after the reconciliation too long: " & ResultLine
+
 '------------------------------------------------------------------------------
 ' EDITED BANK FIGURE, STOPPED RUN, THEN VALIDATION
 '------------------------------------------------------------------------------
@@ -1218,10 +1232,11 @@ Private Sub CaseExportWorkbook()
 '   as does a recalculation pending in manual calculation; undoing them,
 '   or a new run, allows it again. A currency added below the FX table's
 '   named range is in the report. The edited cells and the files are put
-'   back or removed.
+'   back or removed. The case starts without the sample bank figures of the
+'   template, which it puts back at the end.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-21
 '==============================================================================
 '
 
@@ -1244,7 +1259,13 @@ Private Sub CaseExportWorkbook()
     Dim FxRow         As Long         'First blank row below it
     Dim FxCells       As Range        'A currency added and removed
     Dim SavedFx       As Variant      'Their formulas
+    Dim HolidayCells  As Range        'A closing day added and removed
+    Dim SavedHoliday  As Variant      'Its formulas
     Dim FileNumber    As Integer      'File number of a file written by the case
+    Dim BankSets      As Range        'The first rows of BankNettingSets, emptied for the case
+    Dim BankLegs      As Range        'The first rows of BankTrades, emptied for the case
+    Dim SavedSets     As Variant      'Their formulas
+    Dim SavedLegs     As Variant      'Their formulas
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1259,6 +1280,13 @@ Private Sub CaseExportWorkbook()
         End If
         FirstFile = TempFolder & Application.PathSeparator & "K-SACCR_evidence_test_a.csv"
         SecondFile = TempFolder & Application.PathSeparator & "K-SACCR_evidence_test_b.csv"
+    'The template carries sample bank figures: the case starts without them
+        Set BankSets = TableRange(GetSheet(SH_BANK_NS), NamedRow(NM_BN_HEADER) + 1, 1, NamedRow(NM_BN_HEADER) + 50, BN_NCOLS)
+        Set BankLegs = TableRange(GetSheet(SH_BANK_TR), NamedRow(NM_BT_HEADER) + 1, 1, NamedRow(NM_BT_HEADER) + 50, BT_NCOLS)
+        SavedSets = BankSets.Formula
+        SavedLegs = BankLegs.Formula
+        BankSets.ClearContents
+        BankLegs.ClearContents
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(FirstFile)
         TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "first export: " & ResultLine
@@ -1361,8 +1389,28 @@ Private Sub CaseExportWorkbook()
         ResultLine = M_Main.RunSACCR_Silent()
 
 '------------------------------------------------------------------------------
+' EXPORT A CLOSING DAY BELOW A BLANK ROW OF THE HOLIDAY TABLE
+'------------------------------------------------------------------------------
+    'The engine reads all the rows of the table, also after a blank one
+    '(#721), so the report lists the header and every closing day.
+        Set HolidayCells = TableRange(ParamsSheet, NamedRow(NM_HOLIDAY_TABLE) + 3, NamedTableCol(NM_HOLIDAY_TABLE), _
+                                      NamedRow(NM_HOLIDAY_TABLE) + 3, NamedTableCol(NM_HOLIDAY_TABLE) + 1)
+        SavedHoliday = HolidayCells.Formula
+        HolidayCells.Value = Array(46364#, "Test closing day")
+        ResultLine = M_Main.RunSACCR_Silent()
+        ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;Bank Holiday;Description" & vbCrLf) > 0, _
+                       "the header of the holiday table is missing from the report: " & ResultLine
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;46364;Test closing day" & vbCrLf) > 0, _
+                       "a closing day below a blank row is missing from the report: " & ResultLine
+        HolidayCells.Formula = SavedHoliday
+        ResultLine = M_Main.RunSACCR_Silent()
+
+'------------------------------------------------------------------------------
 ' CLEAN UP
 '------------------------------------------------------------------------------
+        BankSets.Formula = SavedSets
+        BankLegs.Formula = SavedLegs
         RemoveFile FirstFile
         RemoveFile SecondFile
         Exit Sub
@@ -1377,6 +1425,15 @@ Unexpected:
         End If
         If Not FxCells Is Nothing Then
             FxCells.Formula = SavedFx
+        End If
+        If Not HolidayCells Is Nothing Then
+            HolidayCells.Formula = SavedHoliday
+        End If
+        If Not BankSets Is Nothing Then
+            BankSets.Formula = SavedSets
+        End If
+        If Not BankLegs Is Nothing Then
+            BankLegs.Formula = SavedLegs
         End If
         RemoveFile FirstFile
         RemoveFile SecondFile
@@ -1522,10 +1579,19 @@ Private Sub CaseExportCsvTemplates()
         If Len(TempFolder) = 0 Then
             TempFolder = ThisWorkbook.Path
         End If
-        Kinds = Array("NettingSets", "Trades")
+        Kinds = Array("NettingSets", "Trades", "BankNettingSets", "BankTrades")
         For Each Kind In Kinds
             TargetFile = TempFolder & Application.PathSeparator & "K-SACCR_template_test_" & Kind & ".csv"
-            Expected = IIf(Kind = "NettingSets", CSV_NS_HEADER, CSV_TR_HEADER) & vbLf
+            Select Case Kind
+                Case "NettingSets"
+                    Expected = CSV_NS_HEADER & vbLf
+                Case "Trades"
+                    Expected = CSV_TR_HEADER & vbLf
+                Case "BankNettingSets"
+                    Expected = CSV_BN_HEADER & vbLf
+                Case Else
+                    Expected = CSV_BT_HEADER & vbLf
+            End Select
             RemoveFile TargetFile
             OlderText = "An older file" & vbCrLf
             FileNumber = FreeFile
@@ -1571,6 +1637,416 @@ Unexpected:
         RemoveFile TargetFile
 
 End Sub
+
+
+'------------------------------------------------------------------------------
+'                              BANK IMPORT CASES
+'------------------------------------------------------------------------------
+
+Private Sub CaseBankImport()
+'
+'==============================================================================
+'                               CaseBankImport
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The CSV import of BankNettingSets (#718): the figures of a file that
+'   follows the contract give the same Reconciliation rows as the same
+'   figures typed, an identifier keeps its leading zeros, a file that does
+'   not follow the contract, has too many records or has none changes
+'   nothing, a failure while writing puts the sheet back, and a sheet with
+'   figures is replaced only on request.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim BankSheet       As Worksheet    'BankNettingSets
+    Dim ReconSheet      As Worksheet    'Reconciliation
+    Dim ResultsSheet    As Worksheet    'Results
+    Dim FirstRow        As Long         'First bank row
+    Dim SavedTable      As Variant      'Bank table formulas, first 50 rows
+    Dim SavedSettings   As Variant      'Settings formulas, (scale, abs, rel)
+    Dim ResultLine      As String       'Result line of a run or an import
+    Dim ValidRow        As Long         'Results row of the first VALID netting set
+    Dim ValidSetId      As String       'Its ID
+    Dim RegimeCode      As String       'Its regime
+    Dim EadText         As String       'Its EAD, as a file writes it
+    Dim RcText          As String       'The bank's RC, as a file writes it
+    Dim TypedRows       As Variant      'Reconciliation rows of the typed figures
+    Dim Before          As Variant      'The bank table before an import that must change nothing
+    Dim CsvFile         As String       'The file
+    Dim Lines()         As String       'Its lines
+    Dim ErrorNumber     As Long         'Error raised by an import
+    Dim i               As Long         'Row
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "import.bank-netting-sets-csv"
+        Application.Calculation = xlCalculationAutomatic
+        M_Main.gSilent = True
+        Set BankSheet = GetSheet(SH_BANK_NS)
+        Set ReconSheet = GetSheet(SH_RECON)
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        FirstRow = NamedRow(NM_BN_HEADER) + 1
+        SavedTable = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula
+        SavedSettings = Array(NamedCell(NM_BN_SCALE).Formula, NamedCell(NM_BN_ABSTOL).Formula, _
+                         NamedCell(NM_BN_RELTOL).Formula)
+        CsvFile = BankTestFile("NettingSets")
+
+    'The figures typed: the first VALID netting set with its EAD as on Results
+    '(MATCH) and an RC ten percent higher plus 100 (DIFFERENCE), and an ID
+    'that Results does not have.
+        TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).ClearContents
+        ResultLine = M_Main.RunSACCR_Silent()
+        For i = LastDataRow(ResultsSheet, OutputFirstRow(SH_RESULTS), RS_ID) To OutputFirstRow(SH_RESULTS) Step -1
+            If SafeStr(TableCell(ResultsSheet, i, RS_STATUS_COL).Value) = "VALID" Then
+                ValidRow = i
+            End If
+        Next i
+        TEST_Kit.Check ValidRow > 0, "no VALID netting set on Results: build the workbook from the template"
+        ValidSetId = SafeStr(TableCell(ResultsSheet, ValidRow, RS_ID).Value)
+        RegimeCode = SafeStr(TableCell(ResultsSheet, ValidRow, RS_REGIME).Value)
+        EadText = Trim$(Str$(TableCell(ResultsSheet, ValidRow, RS_EAD).Value2))
+        RcText = Trim$(Str$(TableCell(ResultsSheet, ValidRow, RS_RC).Value2 * 1.1 + 100))
+        NamedCell(NM_BN_SCALE).Value = 1
+        NamedCell(NM_BN_ABSTOL).Value = 1
+        NamedCell(NM_BN_RELTOL).Value = 0.0001
+        TableCell(BankSheet, FirstRow, BN_ID).Value = ValidSetId
+        TableCell(BankSheet, FirstRow, BN_REGIME).Value = RegimeCode
+        TableCell(BankSheet, FirstRow, BN_EAD).Value = Val(EadText)
+        TableCell(BankSheet, FirstRow, BN_EAD + 1).Value = Val(RcText)
+        TableCell(BankSheet, FirstRow + 1, BN_ID).Value = "NOT-ON-RESULTS"
+        TableCell(BankSheet, FirstRow + 1, BN_REGIME).Value = RegimeCode
+        TableCell(BankSheet, FirstRow + 1, BN_EAD).Value = 1000
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run with typed figures: " & ResultLine
+        TypedRows = ReconciliationRows(ReconSheet)
+
+    'The same figures in a file replace the typed ones only on request.
+        ReDim Lines(1 To 3)
+        Lines(1) = CSV_BN_HEADER
+        Lines(2) = BankNsLine(ValidSetId, RegimeCode, EadText, RcText, "", "from a file")
+        Lines(3) = BankNsLine("NOT-ON-RESULTS", RegimeCode, "1000", "", "", "")
+        WriteBankTestFile CsvFile, Lines
+        Before = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile)
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED", "import onto a sheet with figures: " & ResultLine
+        TEST_Kit.Check SameBlock(Before, TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula), _
+                       "a refused import changed the sheet"
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 27) = "RESULT=LOADED; records=2; f", "import with replacement: " & ResultLine
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run with imported figures: " & ResultLine
+        TEST_Kit.Check SameReconciliation(TypedRows, ReconciliationRows(ReconSheet)), _
+                       "imported figures give other Reconciliation rows than the same figures typed"
+        TEST_Kit.Check RowCount(ReconciliationRows(ReconSheet)) = RowCount(TypedRows), "number of Reconciliation rows"
+
+    'An identifier keeps its leading zeros, a figure is a number, and a blank
+    'figure is an empty cell.
+        ReDim Lines(1 To 2)
+        Lines(1) = CSV_BN_HEADER
+        Lines(2) = BankNsLine("00731", "CRR", "1250000.5", "", "0.5", "Leading zeros; ""quoted""")
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 27) = "RESULT=LOADED; records=1; f", "import of one record: " & ResultLine
+        TEST_Kit.Check SafeStr(TableCell(BankSheet, FirstRow, BN_ID).Value2) = "00731", "ID: " & SafeStr(TableCell(BankSheet, FirstRow, BN_ID).Value2)
+        TEST_Kit.Check VarType(TableCell(BankSheet, FirstRow, BN_ID).Value2) = vbString, "the ID is not text"
+        TEST_Kit.Check VarType(TableCell(BankSheet, FirstRow, BN_EAD).Value2) = vbDouble, "the EAD is not a number"
+        TEST_Kit.Check Abs(TableCell(BankSheet, FirstRow, BN_EAD).Value2 - 1250000.5) < TOL, "EAD: " & SafeStr(TableCell(BankSheet, FirstRow, BN_EAD).Value2)
+        TEST_Kit.Check IsEmpty(TableCell(BankSheet, FirstRow, BN_EAD + 1).Value2), "a blank figure is not an empty cell"
+        TEST_Kit.Check Abs(TableCell(BankSheet, FirstRow, BN_MULT).Value2 - 0.5) < TOL, "multiplier"
+        TEST_Kit.Check IsEmpty(TableCell(BankSheet, FirstRow + 1, BN_ID).Value2), "the second row of the first load was not cleared"
+
+    'A file longer than the rows the template formats (200 here) is written
+    'whole (#718): the last record is there, and a figure column has the
+    'format of the first row.
+        ReDim Lines(1 To 251)
+        Lines(1) = CSV_BN_HEADER
+        For i = 1 To 250
+            Lines(i + 1) = BankNsLine("L" & Format$(i, "00000"), "CRR", CStr(i), "", "", "")
+        Next i
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check InStr(ResultLine, "RESULT=LOADED; records=250;") = 1, "import of 250 records: " & ResultLine
+        TEST_Kit.Check SafeStr(TableCell(BankSheet, FirstRow + 249, BN_ID).Value2) = "L00250" And _
+                       TableCell(BankSheet, FirstRow + 249, BN_EAD).NumberFormat = TableCell(BankSheet, FirstRow, BN_EAD).NumberFormat, _
+                       "the last of 250 records: " & SafeStr(TableCell(BankSheet, FirstRow + 249, BN_ID).Value2)
+        TableRange(BankSheet, FirstRow, 1, FirstRow + 249, BN_NCOLS).ClearContents
+
+    'A file that does not follow the contract, one with more records than the
+    'contract allows and one without a record change nothing.
+        Before = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula
+        ReDim Lines(1 To 2)
+        Lines(1) = CSV_BN_HEADER
+        Lines(2) = BankNsLine("NS-9", "EUR", "5", "", "", "")
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-ALLOWED") > 0, "regime EUR: " & ResultLine
+        ReDim Lines(1 To 10002)
+        Lines(1) = CSV_BN_HEADER
+        For i = 1 To 10001
+            Lines(i + 1) = BankNsLine("NS-" & i, "CRR", "1", "", "", "")
+        Next i
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TOO-MANY-RECORDS") > 0, _
+                       "10001 records: " & ResultLine
+        ReDim Lines(1 To 1)
+        Lines(1) = CSV_BN_HEADER
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 14) = "RESULT=REFUSED" And InStr(ResultLine, "no record") > 0, "header only: " & ResultLine
+        TEST_Kit.Check SameBlock(Before, TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula), _
+                       "a rejected or refused import changed the sheet"
+
+    'A failure while the sheet is written puts it back, with the settings.
+        ReDim Lines(1 To 2)
+        Lines(1) = CSV_BN_HEADER
+        Lines(2) = BankNsLine("NS-1", "CRR", "7", "", "", "")
+        WriteBankTestFile CsvFile, Lines
+        M_Main.gTestFault = "bank-write"
+        ErrorNumber = 0
+        On Error Resume Next
+        ResultLine = M_Main.ImportBankCsv_Silent("BankNettingSets", CsvFile, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        TEST_Kit.Check ErrorNumber = ERR_INJECTED_FAULT, "import with a write failure: error " & ErrorNumber
+        TEST_Kit.Check SameBlock(Before, TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BN_NCOLS).Formula), _
+                       "the sheet was not put back after a write failure"
+        TEST_Kit.Check Application.EnableEvents, "events are off after a write failure"
+
+    'A kind that is not a bank file is an error.
+        ErrorNumber = 0
+        On Error Resume Next
+        ResultLine = M_Main.ImportBankCsv_Silent("Trades", CsvFile, True)
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "kind Trades: error " & ErrorNumber
+
+        RemoveFile CsvFile
+        RestoreBankTable BankSheet, FirstRow, BN_NCOLS, SavedTable, SavedSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "closing run: " & ResultLine
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
+        On Error Resume Next
+        RemoveFile CsvFile
+        RestoreBankTable BankSheet, FirstRow, BN_NCOLS, SavedTable, SavedSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
+
+End Sub
+
+
+Private Sub CaseBankTradesImport()
+'
+'==============================================================================
+'                            CaseBankTradesImport
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The CSV import of BankTrades (#718): a trade ID keeps its leading zeros,
+'   the figures are numbers and a blank one is an empty cell, and a file
+'   that does not follow the contract or has more than 50,000 records changes
+'   nothing.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim BankSheet       As Worksheet    'BankTrades
+    Dim FirstRow        As Long         'First bank row
+    Dim SavedTable      As Variant      'Bank table formulas, first 50 rows
+    Dim SavedSettings   As Variant      'Settings formulas, (scale, abs, rel)
+    Dim ResultLine      As String       'Result line of an import
+    Dim Before          As Variant      'The bank table before an import that must change nothing
+    Dim CsvFile         As String       'The file
+    Dim Lines()         As String       'Its lines
+    Dim i               As Long         'Row
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "import.bank-trades-csv"
+        M_Main.gSilent = True
+        Set BankSheet = GetSheet(SH_BANK_TR)
+        FirstRow = NamedRow(NM_BT_HEADER) + 1
+        SavedTable = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BT_NCOLS).Formula
+        SavedSettings = Array(NamedCell(NM_BT_SCALE).Formula, NamedCell(NM_BT_ABSTOL).Formula, _
+                         NamedCell(NM_BT_RELTOL).Formula)
+        CsvFile = BankTestFile("Trades")
+
+        ReDim Lines(1 To 3)
+        Lines(1) = CSV_BT_HEADER
+        Lines(2) = BankTrLine("000245", "5000000", "", "3", "Leading zeros")
+        Lines(3) = BankTrLine("TRD-101-IR", "1000000.25", "-1200000", "", "")
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankTrades", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 27) = "RESULT=LOADED; records=2; f", "import: " & ResultLine
+        TEST_Kit.Check SafeStr(TableCell(BankSheet, FirstRow, BT_ID).Value2) = "000245", "ID: " & SafeStr(TableCell(BankSheet, FirstRow, BT_ID).Value2)
+        TEST_Kit.Check VarType(TableCell(BankSheet, FirstRow, BT_ID).Value2) = vbString, "the trade ID is not text"
+        TEST_Kit.Check Abs(TableCell(BankSheet, FirstRow, BT_NOTIONAL).Value2 - 5000000) < TOL, "notional"
+        TEST_Kit.Check IsEmpty(TableCell(BankSheet, FirstRow, BT_NOTIONAL + 1).Value2), "a blank MtM is not an empty cell"
+        TEST_Kit.Check Abs(TableCell(BankSheet, FirstRow + 1, BT_NOTIONAL + 1).Value2 + 1200000) < TOL, "MtM"
+
+        Before = TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BT_NCOLS).Formula
+        ReDim Lines(1 To 2)
+        Lines(1) = CSV_BT_HEADER
+        Lines(2) = BankTrLine("T-1", "1.000.000", "", "", "")
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankTrades", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TYPE") > 0, "notional 1.000.000: " & ResultLine
+        ReDim Lines(1 To 50002)
+        Lines(1) = CSV_BT_HEADER
+        For i = 1 To 50001
+            Lines(i + 1) = BankTrLine("T-" & i, "1", "", "", "")
+        Next i
+        WriteBankTestFile CsvFile, Lines
+        ResultLine = M_Main.ImportBankCsv_Silent("BankTrades", CsvFile, True)
+        TEST_Kit.Check Left$(ResultLine, 15) = "RESULT=REJECTED" And InStr(ResultLine, "CSV-TOO-MANY-RECORDS") > 0, _
+                       "50001 records: " & ResultLine
+        TEST_Kit.Check SameBlock(Before, TableRange(BankSheet, FirstRow, 1, FirstRow + 49, BT_NCOLS).Formula), _
+                       "a rejected import changed the sheet"
+
+        RemoveFile CsvFile
+        RestoreBankTable BankSheet, FirstRow, BT_NCOLS, SavedTable, SavedSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        RemoveFile CsvFile
+        RestoreBankTable BankSheet, FirstRow, BT_NCOLS, SavedTable, SavedSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
+
+End Sub
+
+
+Private Function BankTestFile( _
+    ByVal Kind As String) _
+    As String
+
+    Dim Folder   As String    'Folder of the test files
+
+        Folder = Environ$("TEMP")
+        If Len(Folder) = 0 Then
+            Folder = ThisWorkbook.Path
+        End If
+        BankTestFile = Folder & Application.PathSeparator & "K-SACCR_bank_import_test_" & Kind & ".csv"
+
+End Function
+
+
+Private Sub WriteBankTestFile( _
+    ByVal FilePath As String, _
+    ByRef Lines() As String)
+
+    Dim FileNumber   As Integer    'File number
+    Dim i            As Long       'Line
+
+        RemoveFile FilePath
+        FileNumber = FreeFile
+        Open FilePath For Output As #FileNumber
+        For i = LBound(Lines) To UBound(Lines)
+            Print #FileNumber, Lines(i)
+        Next i
+        Close #FileNumber
+
+End Sub
+
+
+Private Function BankNsLine( _
+    ByVal Id As String, _
+    ByVal RegimeCode As String, _
+    ByVal EadText As String, _
+    ByVal RcText As String, _
+    ByVal MultiplierText As String, _
+    ByVal NoteText As String) _
+    As String
+
+    Dim Fields(1 To 14)   As String    'The fields of a record
+
+        Fields(1) = Id
+        Fields(2) = RegimeCode
+        Fields(3) = EadText
+        Fields(4) = RcText
+        Fields(13) = MultiplierText
+        Fields(14) = IIf(InStr(NoteText, """") > 0, """" & Replace(NoteText, """", """""") & """", NoteText)
+        BankNsLine = Join(Fields, ";")
+
+End Function
+
+
+Private Function BankTrLine( _
+    ByVal Id As String, _
+    ByVal NotionalText As String, _
+    ByVal MtmText As String, _
+    ByVal MaturityText As String, _
+    ByVal NoteText As String) _
+    As String
+
+    Dim Fields(1 To 13)   As String    'The fields of a record
+
+        Fields(1) = Id
+        Fields(2) = NotionalText
+        Fields(3) = MtmText
+        Fields(4) = MaturityText
+        Fields(13) = NoteText
+        BankTrLine = Join(Fields, ";")
+
+End Function
+
+
+Private Function SameBlock( _
+    ByVal A As Variant, _
+    ByVal B As Variant) _
+    As Boolean
+
+    Dim r   As Long    'Row
+    Dim c   As Long    'Column
+
+        If UBound(A, 1) <> UBound(B, 1) Or UBound(A, 2) <> UBound(B, 2) Then
+            Exit Function
+        End If
+        For r = LBound(A, 1) To UBound(A, 1)
+            For c = LBound(A, 2) To UBound(A, 2)
+                If CStr(A(r, c)) <> CStr(B(r, c)) Then
+                    Exit Function
+                End If
+            Next c
+        Next r
+        SameBlock = True
+
+End Function
+
+
+Private Function SameReconciliation( _
+    ByVal A As Variant, _
+    ByVal B As Variant) _
+    As Boolean
+
+    Dim r   As Long    'Row
+
+        If Not IsArray(A) Or Not IsArray(B) Then
+            Exit Function
+        End If
+        If UBound(A, 1) <> UBound(B, 1) Then
+            Exit Function
+        End If
+        For r = LBound(A, 1) To UBound(A, 1)
+            If CStr(A(r, RC_ID)) <> CStr(B(r, RC_ID)) Or CStr(A(r, RC_MEASURE)) <> CStr(B(r, RC_MEASURE)) _
+               Or CStr(A(r, RC_RESULT)) <> CStr(B(r, RC_RESULT)) Then
+                Exit Function
+            End If
+            If IsNumeric(A(r, RC_BANK)) And IsNumeric(B(r, RC_BANK)) And Not IsEmpty(A(r, RC_BANK)) And Not IsEmpty(B(r, RC_BANK)) Then
+                If Abs(CDbl(A(r, RC_BANK)) - CDbl(B(r, RC_BANK))) > TOL * (1 + Abs(CDbl(A(r, RC_BANK)))) Then
+                    Exit Function
+                End If
+            End If
+        Next r
+        SameReconciliation = True
+
+End Function
+
 
 
 Private Function FileText( _

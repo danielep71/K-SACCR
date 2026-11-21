@@ -100,6 +100,8 @@ Attribute VB_Name = "M_Ribbon"
         Private Const MSG_TITLE     As String = "K-SACCR"
     'The hidden workbook name that holds the Ribbon's pointer (#216).
         Private Const RIBBON_POINTER_NAME   As String = "ksRibbonPointer"
+    'The id of the K-SACCR tab in customUI14.xml, selected when the workbook opens (#726).
+        Private Const RIBBON_TAB_ID         As String = "ksTab"
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -121,14 +123,21 @@ Public Sub RibbonOnLoad( _
 ' PURPOSE
 '   Keep the Ribbon object Excel passes when it loads the tab, and store
 '   its pointer with this session's window handle in the hidden name
-'   RIBBON_POINTER_NAME, without marking the workbook changed (#216).
+'   RIBBON_POINTER_NAME, without marking the workbook changed (#216), and
+'   open the tab K-SACCR (#726).
+'
+' ERROR POLICY
+'   Selecting the tab is best effort: a failure never stops the load.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-20
 '==============================================================================
 '
         Set mRibbon = Ribbon
         WritePointer PointerText(ObjPtr(Ribbon), Application.Hwnd)
+        On Error Resume Next
+        Ribbon.ActivateTab RIBBON_TAB_ID
+        On Error GoTo 0
 
 End Sub
 
@@ -167,6 +176,10 @@ Public Sub RibbonAction( _
                 M_Main.ImportNettingSetsCsv
             Case "ImportTradesCsv"
                 M_Main.ImportTradesCsv
+            Case "ImportBankNettingSetsCsv"
+                M_Main.ImportBankNettingSetsCsv
+            Case "ImportBankTradesCsv"
+                M_Main.ImportBankTradesCsv
             Case "ValidateStaging"
                 M_Main.ValidateStaging
             Case "CommitImport"
@@ -175,6 +188,10 @@ Public Sub RibbonAction( _
                 M_Main.ExportNettingSetsCsvTemplate
             Case "ExportTradesCsvTemplate"
                 M_Main.ExportTradesCsvTemplate
+            Case "ExportBankNettingSetsCsvTemplate"
+                M_Main.ExportBankNettingSetsCsvTemplate
+            Case "ExportBankTradesCsvTemplate"
+                M_Main.ExportBankTradesCsvTemplate
             Case "ExportImportSpecification"
                 M_Main.ExportImportSpecification
             Case "ExportEvidence"
@@ -429,6 +446,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ImportNettingSetsCsv"
             Case "ksImportTrades"
                 RibbonMacro = "ImportTradesCsv"
+            Case "ksImportBankNettingSets"
+                RibbonMacro = "ImportBankNettingSetsCsv"
+            Case "ksImportBankTrades"
+                RibbonMacro = "ImportBankTradesCsv"
             Case "ksValidateStaging"
                 RibbonMacro = "ValidateStaging"
             Case "ksCommitImport"
@@ -437,6 +458,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ExportNettingSetsCsvTemplate"
             Case "ksTemplateTrades"
                 RibbonMacro = "ExportTradesCsvTemplate"
+            Case "ksTemplateBankNettingSets"
+                RibbonMacro = "ExportBankNettingSetsCsvTemplate"
+            Case "ksTemplateBankTrades"
+                RibbonMacro = "ExportBankTradesCsvTemplate"
             Case "ksImportSpecification"
                 RibbonMacro = "ExportImportSpecification"
             Case "ksExportEvidence"
@@ -501,6 +526,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shBankTrades"
             Case "ksGoTradeReconciliation"
                 RibbonSheet = "shTradeReconciliation"
+            Case "ksGoReconSummary"
+                RibbonSheet = "shReconSummary"
             Case "ksGoTestCatalogue"
                 RibbonSheet = "shTestCatalogue"
             Case "ksGoFormulaTest"

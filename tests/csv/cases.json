@@ -744,6 +744,86 @@
       ]
     },
     {
+      "name": "sector-codes",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CB\nNS-2;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;GG\nNS-3;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CI\nNS-4;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;OFC\nNS-5;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;NFC\nNS-6;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;HH\nNS-7;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;\nNS-8;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;ci\nNS-9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;BANK\nNS-10;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CCP\nNS-11;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;; CI\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ALLOWED",
+          9,
+          8,
+          "counterparty_sector"
+        ],
+        [
+          "CSV-ALLOWED",
+          10,
+          9,
+          "counterparty_sector"
+        ],
+        [
+          "CSV-ALLOWED",
+          11,
+          10,
+          "counterparty_sector"
+        ],
+        [
+          "CSV-TYPE",
+          12,
+          11,
+          "counterparty_sector"
+        ]
+      ]
+    },
+    {
+      "name": "version-1-header-reads-the-sector-blank",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "version-1-header-reordered",
+      "kind": "NettingSets",
+      "text": "ccp_retains_variation_margin;qccp;margin_agreements;regime_override;alpha_factor;minimum_transfer_amount;threshold_amount;independent_collateral_net_amount;variation_margin_net_amount;mpor_override_business_days;margin_disputes;large_or_illiquid;remargin_period_business_days;clearing_role;margined;counterparty;netting_set_id\n;;;;;0;0;0;0;;N;N;1;N;Y;CPTY;NS-1\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "version-1-header-incomplete",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-HEADER-MISSING",
+          1,
+          0,
+          "ccp_retains_variation_margin"
+        ],
+        [
+          "CSV-HEADER-MISSING",
+          1,
+          0,
+          "counterparty_sector"
+        ]
+      ]
+    },
+    {
+      "name": "version-1-header-and-a-version-2-record",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CI\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-FIELD-COUNT",
+          2,
+          1,
+          ""
+        ]
+      ]
+    },
+    {
       "name": "keys-ignore-case",
       "kind": "NettingSets",
       "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nns-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nTotal CRR;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\ncaf\u00e9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nCAF\u00c9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",

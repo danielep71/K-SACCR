@@ -9,7 +9,7 @@ Three steps, each a command:
 
 ``generate`` writes a deterministic synthetic portfolio: ``portfolio.json`` in
 the fixture format of tests/fixtures, one entry per netting set, and the two
-CSV files of the input contract, ``K-SACCR_NettingSets_v1.csv`` and
+CSV files of the input contract, ``K-SACCR_NettingSets_v2.csv`` and
 ``K-SACCR_Trades_v1.csv``, which the workbook imports. Every trade is one the
 package represents as the engine does (tools/rsaccr_crosscheck.py), and every
 amount is in EUR, so no FX conversion enters. ``run`` translates the portfolio
@@ -53,7 +53,7 @@ ROOT = Path(__file__).resolve().parent.parent
 VALUATION = dt.date(2026, 9, 30)
 CURRENCY = "EUR"
 REGIME = "CRR"
-NS_FILE = "K-SACCR_NettingSets_v1.csv"
+NS_FILE = "K-SACCR_NettingSets_v2.csv"
 TR_FILE = "K-SACCR_Trades_v1.csv"
 # The external implementation, as the source register names it (#100).
 SOURCE = "IMPL-R-SACCR"

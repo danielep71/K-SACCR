@@ -100,7 +100,7 @@ counterparties, collateral agreements or portfolio extracts.
 | Units | In `netting_set` and `trades`, a field's suffix states its unit: `_amount` in `calculation_currency`, unscaled; `_date` as ISO `YYYY-MM-DD`; `_years` in years; `_business_days` in business days; `_rate` and `_factor` as decimals; `underlying_price`, `strike_price` and `lambda_price` share the underlying's unit, a decimal rate for an interest-rate option and a price otherwise. A quantity there never lacks a unit suffix. Envelope fields such as `schema_version` are metadata, not quantities |
 | Currencies | Every amount is in `calculation_currency`; amounts in other currencies are converted before they enter a fixture ([currency](README.md#assumptions-and-scope)). `risk_factor` names what the trade is exposed to: the interest-rate currency, the FX pair, the credit or equity reference, or the commodity |
 | Signs | Market values are from the bank's side: positive is an asset. `variation_margin_net_amount` and `independent_collateral_net_amount` are held minus posted. `notional_amount` is unsigned; `direction` gives the sign. A zero notional is accepted on the sheet, by the engine and by the CSV contract: the regulation sets no minimum, and the leg's market value must still enter V (CRR Art. 275(1); CRE52.10), while its adjusted notional and add-on are zero. A negative notional is rejected (#561) |
-| Parameters | A fixture runs with the default parameters of the workbook template's Params sheet (for example 365 days and 250 business days a year). `parameters` lists the Params values the case runs with instead, by code; `{}` for none. Accepted: `DaysPerYear` (a number from 360 to 366, the engine's range), so that a published maturity such as 0.75 years can be entered as dates, and `IRBucketOffset` (Boolean), so that a BCBS case can use the sum of absolute bucket values; a case that needs another parameter adds it to the format first |
+| Parameters | A fixture runs with the default parameters of the workbook template's Params sheet (for example 365 days a year on calendar days and 250 business days a year for the floors). `parameters` lists the Params values the case runs with instead, by code; `{}` for none. Accepted: `YearConvention` (one of 366, 365, 364, 360, 252 or 250, the engine's list), so that a published maturity such as 0.75 years can be entered as dates, and `IRBucketOffset` (Boolean), so that a BCBS case can use the sum of absolute bucket values; a case that needs another parameter adds it to the format first |
 | Fields | Every field below is present in every fixture; `null` means not applicable or the default. `tools/check_test_cases.py` rejects an unknown, missing or mistyped field |
 
 | Netting-set field | Type | Meaning |
@@ -339,6 +339,19 @@ with an output of the family is in exactly one of two lists:
   registered external implementation `IMPL-R-SACCR`) and the convention's
   tolerance. They test the claim without having shaped it.
 
+The contracts are stated on the default day count, ACTUAL calendar days over
+365 (`YearConvention` 365, `Calendar` `TABLE` with an empty table). The
+published cases and the CRR fixtures stay on it, and no case of the catalogue
+runs on a calendar of business days (#721): the day count is tested by the VBA
+suites (the business-day count against a count made day by day, the maturity
+of a trade on each day count, the Params checks) and by the Python
+cross-check, which translates a fixture with `YearConvention` 250 and
+`Calendar` `TARGET` into the package's times (`tools/rsaccr_crosscheck.py`).
+A case on business days with the package's figures as expected values needs a
+run of the workbook on that day count, as the cases of
+`tools/rsaccr_portfolio.py` do; none is committed yet, so the accuracy
+contracts do not claim anything on it.
+
 A case whose expected value is rounded, such as a printed figure or a hand
 calculation to the cent, is listed under `rounded` with the rounding as its
 bound: it tests the claim only down to that rounding. Every family has at
@@ -350,7 +363,20 @@ with an output of the family is in neither list or in both, when a listed
 case has no such output, when a `rounded` entry is not needed, and when no
 held-out case tests the claim at full precision. A new case therefore needs
 a decision on its role. The contracts claim what the expected files allow;
-the differences an Excel run actually measures are not recorded yet (#537).
+what an Excel run measures is recorded and checked as follows.
+
+The case runner prints, for each numeric comparison it makes, a line
+`MEASURED=case; trade=...; quantity=...; expected=...; actual=...;
+difference=...` in the log of its suite. For a run of `TEST_Cases` that
+passed, the evidence validator (`tools/check_excel_evidence.py`) requires one
+such line for every output of a contract family and checks it: the expected
+value is the expected file's, the difference is that of the printed values, and
+the difference is within the contract's bound, the claimed tolerance or the
+rounding of a `rounded` case. A line missing, printed twice or beyond its bound
+fails the record. `python tools/measured_differences.py --log TEST_Cases.log`
+prints the largest measured difference of each family. The lines are printed by
+the suite's own run, not during `Test_RunAll`, whose quiet mode keeps only the
+verdicts.
 
 <a id="categories"></a>
 
