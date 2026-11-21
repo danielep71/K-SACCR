@@ -81,6 +81,12 @@ class FxQuoteTests(unittest.TestCase):
         tests = (ROOT / "tests" / "modules" / "TEST_InputValidation.bas").read_text(encoding="cp1252")
         start = tests.index('StartCase "fx-rate-old-convention-value"')
         block = tests[start:tests.index("StartCase", tests.index('StartCase "fx-rate-multi-currency"') + 1)]
+        # The currencies the derivation assumes are those the case sets: AddTrade gives both currency fields the
+        # case currency, EUR, so each one that differs is set explicitly.
+        multi = block[block.index('StartCase "fx-rate-multi-currency"'):]
+        for trade, field, code in ((1, "TR_NCCY", "USD"), (1, "TR_MCCY", "USD"), (2, "TR_MCCY", "GBP"),
+                                   (3, "TR_NCCY", "JPY")):
+            self.assertIn(f'SetInputCell SH_TRADES, {trade}, {field}, "{code}"', multi, (trade, field))
         for text, derived in expected.items():
             self.assertIn(f'"{text}"', block, text)
             self.assertAlmostEqual(float(text), derived, delta=1e-9 * max(1.0, abs(derived)), msg=text)

@@ -925,6 +925,7 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.AddTrade "T1", "IR", "", "USD", "Linear", "Long", "", "Standard", "", _
                                  "10000", "500", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
         TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MCCY, "USD"
         TEST_CaseRunner.AddTrade "T2", "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
                                  "20000", "-300", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
         TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NCCY, "EUR"
