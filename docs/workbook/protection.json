@@ -6,7 +6,7 @@
     "README": {"role": "Instructions", "allow": ["outlining"]},
     "Params": {
       "role": "Run configuration and reference regulatory parameters",
-      "unlocked_cells": ["E6", "E7", "E23", "E26", "E27", "C60:E259", "G60:H159"],
+      "unlocked_cells": ["E6", "E7", "E23", "E26", "E27", "C61:E260", "I61:J160"],
       "notes": "AsOfDate, ReportingCcy, Regime, the day-count convention (the days of the conventional year) and the Calendar, the FX table, with rows below it for added currencies, and the table of closing days at its right are configuration. Every other value is a reference regulatory parameter, changed only after a maintenance unlock; a run on changed values stays WHAT-IF, except DayCountNumerator and IRBucketOffset, conventions that do not change the run class (DayCountConvention and Calendar do not either)."
     },
     "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:T", "first_row": 7}, "allow": ["sorting", "inserting_rows"]},

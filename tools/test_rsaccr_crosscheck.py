@@ -81,8 +81,8 @@ class TranslateTests(unittest.TestCase):
         self.assertEqual(xc.time_basis({}), xc.Basis(365.0, "TABLE"))
         self.assertEqual(xc.time_basis({"DayCountConvention": 360}), xc.Basis(360.0, "TABLE"))
         self.assertEqual(xc.time_basis({"DayCountConvention": 250, "Calendar": "TARGET"}), xc.Basis(250.0, "TARGET"))
-        self.assertEqual(xc.time_basis({"DayCountNumerator": "ACTUAL", "DayCountConvention": 365.25}),
-                         xc.Basis(365.25, "TABLE"))
+        self.assertEqual(xc.time_basis({"DayCountNumerator": "ACTUAL", "DayCountConvention": 364}),
+                         xc.Basis(364.0, "TABLE"))
         with self.assertRaisesRegex(xc.Unsupported, "361"):
             xc.time_basis({"DayCountConvention": 361})
         with self.assertRaisesRegex(xc.Unsupported, "calendar 'NATIONAL'"):

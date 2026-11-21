@@ -1804,14 +1804,14 @@ Private Function IsYearBasis( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell whether a number is one of the days of the conventional year that
-'   DayCountConvention allows (#721): 366, 365, 365.25, 264, 360, 252, 250.
+'   DayCountConvention allows (#721): 366, 365, 364, 360, 252, 250.
 '
 ' UPDATED
 '   2026-11-21
 '==============================================================================
 '
         Select Case Candidate
-            Case 366#, 365#, 365.25, 264#, 360#, 252#, 250#
+            Case 366#, 365#, 364#, 360#, 252#, 250#
                 IsYearBasis = True
         End Select
 

@@ -97,6 +97,19 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Take the owner's changes to the Params sheet into the template (#721, follow-up). The list of day-count
+  denominators is 366, 365, 364, 360, 252 and 250 (365.25 and 264 are removed, 364 is added) and is kept
+  in the hidden cells AQ20:AQ25; the engine, the checks and the docs follow. The note of `Calendar`
+  runs over two rows, so every row below it moved down by one: the factor table starts on row 31, the FX
+  table on row 60 and `SF_Table`, `FX_Table` and `Holiday_Table` follow (the macros find them by name;
+  the validations on Trades, the editable cells, the check script and the matrix follow). The FX table
+  has a Currency Pair column (the reporting currency over the currency of the row) and a Closing Price
+  column that reads the closing price of the pair on `AsOfDate` with `STOCKHISTORY` (Microsoft 365,
+  online); the engine does not read the two columns. The validated zone of the FX table holds the
+  reporting currency and 20 others (rows 61 to 81), with the pair and the closing price on each row. The
+  illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
+  table of closing days moved from G:H to I:J. Header typo fixed ("Closing Price").
+
 - Add the `ReconSummary` sheet, after `TradeReconciliation`, with one row per measure of the two
   reconciliation sheets (#720). Each row shows the rows shown, the Match and Difference counts, the other
   results, the sum of the bank figures, of the calculator figures and of the absolute differences, the

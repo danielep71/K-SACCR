@@ -205,7 +205,7 @@ Attribute VB_Name = "CORE_Config"
     'puts back.
         Public Const DAYNUM_ACTUAL    As String = "ACTUAL"          'The only numerator for the moment
         Public Const DAYCOUNT_DEFAULT As Double = 365               'Days of the year by default
-        Public Const DAYCOUNT_LIST    As String = "366, 365, 365.25, 264, 360, 252 or 250"
+        Public Const DAYCOUNT_LIST    As String = "366, 365, 364, 360, 252 or 250"
         Public Const CALENDAR_DEFAULT As String = "TABLE"           'Calendar days while the table is empty
         Public Const CALENDAR_TARGET  As String = "TARGET"          'The EUR TARGET rule
         Public Const CALENDAR_BOTH    As String = "TARGET+TABLE"    'The rule and the table of closing days
