@@ -726,6 +726,13 @@ Use only the categories needed by a release.
   the other uses of the exposure, calibration and limitations. The assets
   README describes it and the methodology links it.
 
+- Describe in GOVERNANCE how the project continues without its one
+  maintainer: a successor designated in the owner's GitHub account who, after
+  the owner's death and GitHub's waiting period, transfers the repository and
+  maintains it there; what a lasting incapacity leaves (a fork); the
+  OpenSSF Best Practices entry; and nothing else to hand over (no signing
+  key, no custom domain, one analytics-only secret).
+
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.
 
