@@ -87,9 +87,12 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('"LET(r,STOCKHISTORY("""', main)
         self.assertIn('Replace(Pair, "/", ":")', main)  # STOCKHISTORY takes EUR:USD
         self.assertIn("PricesPending(", main)  # waits while a cell shows #BUSY!
-        self.assertIn("Application.CalculateUntilAsyncQueriesDone", main)  # lets the data service finish
+        # Excel hands the data back only when no macro runs: the button returns and a timer reads the prices
+        self.assertIn("Application.OnTime mPollAt, mPollName", main)
+        self.assertRegex(main, r"(?m)^Public Sub PollClosingPrices\(\)")
+        self.assertNotIn("CalculateUntilAsyncQueriesDone", main)
         self.assertNotIn("CVErr(2045)", main)  # 2045 is #SPILL!, not the busy state
-        self.assertIn("Application.Cursor = xlWait", main)  # the wait shows
+        self.assertIn('"Downloading the prices of "', main)  # the wait shows in the status bar
         self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
         self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")

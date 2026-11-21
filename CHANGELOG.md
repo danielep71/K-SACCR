@@ -116,11 +116,11 @@ Use only the categories needed by a release.
   `STOCKHISTORY` (also when the cell evaluates to `#NAME?`) and when the reporting date, the reporting
   currency or a code is changed while the prices come in. `DownloadClosingPrices_Silent` is its entry point
   and `params.download-closing-prices` its case (17 checks, 627 in TEST_MainState; the test faults
-  `prices-fixed` and `prices-none` stand for prices that came and for none). The macro lets Excel finish the requests of the
-  data service (`CalculateUntilAsyncQueriesDone`) and then waits while a
-  scratch cell shows `#BUSY!` (a request that has not come back, which the calculation state does not
-  tell), up to 30 seconds, the cursor shows the wait with a message in the status bar, and when no price
-  comes for any currency it changes no rate and no date and says what the first lookup returned. Two repairs of the sheet that
+  `prices-fixed` and `prices-none` stand for prices that came and for none). Excel hands the requests of `STOCKHISTORY` back only when no macro runs, so the
+  button writes the formulas and returns, and a timer (`PollClosingPrices`, each second, 30 seconds at
+  most) writes the rates when the prices have come, with the wait in the status bar; saving or closing the
+  workbook meanwhile ends the lookup without changing a rate. When no price comes for any currency it
+  changes no rate and no date and says what the first cell showed. Two repairs of the sheet that
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting
   currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the

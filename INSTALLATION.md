@@ -927,7 +927,12 @@ hidden scratch column that is emptied afterwards: no formula stays in the
 workbook. A currency that gets no price, and the reporting currency, keep their
 rate; the date of the prices is written into the hidden name `FX_PriceDate`,
 which the sheet shows beside the button. It needs Microsoft 365 and a
-connection and waits `PRICE_WAIT_SECONDS` (30) at most. It returns
+connection and waits `PRICE_WAIT_SECONDS` (30) at most. Excel hands the data of
+`STOCKHISTORY` back only when no macro runs, so the button does not wait inside
+a macro: it writes the formulas, returns, and a timer (`PollClosingPrices`) writes
+the rates when the prices have come. This entry point waits inside the call, so
+with real data it refuses with `no price came`; it is meant for tests, with the
+faults of `gTestFault`. It returns
 `RESULT=PRICED; rates=N; without_price=M` (and `; codes=...`), or
 `RESULT=REFUSED; reason=...` with no rate changed: without `STOCKHISTORY` (an
 Excel that refuses the formula, or whose cell evaluates to `#NAME?`), or when the

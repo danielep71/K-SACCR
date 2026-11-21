@@ -256,6 +256,27 @@ Attribute VB_Name = "M_Main"
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
         Private mRunning    As Boolean    'True while an operation is in progress
+    'The lookup of closing prices in progress (#721): the formulas are in the
+    'scratch column and the prices are awaited. Excel hands a request of
+    'STOCKHISTORY back only when no macro runs, so the button writes the
+    'formulas, returns, and PollClosingPrices, scheduled each second with
+    'Application.OnTime, reads the prices when they have come.
+        Private mPriceActive    As Boolean    'Formulas written, prices awaited
+        Private mPriceSheet     As Worksheet  'Params
+        Private mPriceKeyColumn As Long       'Key column of the FX table
+        Private mPriceFirstRow  As Long       'First row of the table
+        Private mPriceLastRow   As Long       'Last row of the table
+        Private mPriceCount     As Long       'Rows with a pair
+        Private mPriceRows()    As Long       'The rows with a pair
+        Private mPricePairs()   As String     'The pair each price is asked for
+        Private mPriceKept()    As Variant    'The rate each row held before
+        Private mPriceKeptDate  As Variant    'The date of the prices before
+        Private mPriceAsOf      As Variant    'The reporting date asked for
+        Private mPriceMode      As XlCalculation 'The caller's calculation mode
+        Private mPriceDeadline  As Date       'When to stop waiting
+        Private mPriceStarted   As Date       'When the formulas were written
+        Private mPollAt         As Date       'When the next poll is scheduled; 0 for none
+        Private mPollName       As String     'The procedure it was scheduled with
     'The navigation bar was hidden when a save began, and is hidden again
     'after it, or by the restore scheduled at mBarRestoreAt when the save
     'never ends, as a cancelled Save As (#620).
@@ -7415,6 +7436,12 @@ Public Sub DownloadClosingPrices()
 '   Download prices on the Params sheet, or the Macros dialog. Automation
 '   calls DownloadClosingPrices_Silent.
 '
+' METHOD
+'   The macro writes the formulas and returns: Excel hands the requests of
+'   STOCKHISTORY back only when no macro runs. PollClosingPrices, scheduled
+'   each second, writes the rates when the prices have come, and the
+'   message is shown then. The status bar shows the wait.
+'
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
 '   mode; never raises. STOCKHISTORY needs Microsoft 365 and a connection:
@@ -7430,13 +7457,10 @@ Public Sub DownloadClosingPrices()
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim Pairs       As Long      'Currencies with a pair
-    Dim Priced      As Long      'Rates written
-    Dim Without     As String    'Currencies with no price
     Dim Problem     As String    'Why nothing was looked up
-    Dim ResultLine  As String    'What the lookup returned
 
 '------------------------------------------------------------------------------
-' CONFIRM, LOOK UP AND REPORT
+' CONFIRM AND START THE LOOKUP
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         If mRunning Then
@@ -7460,12 +7484,119 @@ Public Sub DownloadClosingPrices()
                   vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
             Exit Sub
         End If
-        Application.Cursor = xlWait
+        If Not StartPriceLookup(Problem) Then
+            ReportPrices 0, vbNullString, Problem
+            Exit Sub
+        End If
         Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "..."
-        ResultLine = LookUpClosingPrices(Priced, Without, Problem)
-        Application.StatusBar = False
-        Application.Cursor = xlDefault
+        SchedulePricePoll
+        Exit Sub
+
+Failed:
+        Notify "Download closing prices: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Sub PollClosingPrices()
+'
+'==============================================================================
+'                              PollClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look at the scratch cells of the lookup that DownloadClosingPrices
+'   started, one second after the last look (#721): while a price is still
+'   awaited and the time is not up, schedule the next look and let Excel
+'   work; otherwise write the rates, show the result and end the lookup.
+'   Application.OnTime calls it, so that Excel is idle between the looks
+'   and hands the requests of STOCKHISTORY back.
+'
+' ERROR POLICY
+'   Reports an error in a message; the lookup ends, the rates are put back.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ResultLine  As String    'What the lookup returned
+    Dim Priced      As Long      'Rates written
+    Dim Without     As String    'Currencies with no price
+    Dim Problem     As String    'Why no rate was changed
+    Dim ErrText     As String    'The description of an error
+
+'------------------------------------------------------------------------------
+' LOOK
+'------------------------------------------------------------------------------
+        mPollAt = 0
+        If Not mPriceActive Then
+            Exit Sub
+        End If
+        On Error GoTo Failed
+        If PricesPending() And Now < mPriceDeadline Then
+            Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "... " & _
+                                    Format$((Now - mPriceStarted) * 86400#, "0") & " s"
+            SchedulePricePoll
+            Exit Sub
+        End If
+        ResultLine = FinishPriceLookup(Priced, Without, Problem)
         RibbonStateChanged
+        ReportPrices Priced, Without, Problem
+        Exit Sub
+
+Failed:
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Notify "Download closing prices: " & ErrText, vbCritical
+
+End Sub
+
+
+Public Sub CancelPriceLookup()
+'
+'==============================================================================
+'                              CancelPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End a lookup of closing prices that is waiting for its data, without
+'   changing a rate, when the workbook is saved or closed (#721), so that
+'   no price formula is saved and no scheduled look reopens the workbook.
+'   ThisWorkbook calls it. Does nothing when no lookup is waiting.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        If mPriceActive Then
+            AbandonPriceLookup
+        End If
+
+End Sub
+
+
+Private Sub ReportPrices( _
+    ByVal Priced As Long, _
+    ByVal Without As String, _
+    ByVal Problem As String)
+'
+'==============================================================================
+'                               ReportPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell the user the result of a lookup of closing prices (#721): why no
+'   rate was changed, or how many rates were set and for which currencies
+'   there was no price.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
         If Len(Problem) > 0 Then
             Notify "No rate was changed." & vbLf & vbLf & Problem, vbExclamation
         Else
@@ -7473,12 +7604,6 @@ Public Sub DownloadClosingPrices()
                    IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose rate stays as it was.", "."), _
                    IIf(Len(Without) > 0, vbExclamation, vbInformation)
         End If
-        Exit Sub
-
-Failed:
-        Application.StatusBar = False
-        Application.Cursor = xlDefault
-        Notify "Download closing prices: " & Err.Description, vbCritical
 
 End Sub
 
@@ -7648,32 +7773,16 @@ Private Function LookUpClosingPrices( _
 '                            LookUpClosingPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write into the rate cell of each row that has a pair (ClosingPair) the
-'   last closing price of the pair up to the reporting date, seven days
-'   back at most, as a value (#721), and the reporting date into the hidden
-'   cell NM_FX_PRICE_DATE, which the sheet shows beside the button.
-'
-' METHOD
-'   1. Write the STOCKHISTORY formula into the hidden scratch column of
-'      every row with a pair, through the property Formula2 by late
-'      binding so that the code compiles in an Excel without it; an Excel
-'      that refuses it, or a fault injected, is a refusal.
-'   2. With calculation automatic, wait until Excel reports the
-'      calculation done, PRICE_WAIT_SECONDS at most.
-'   3. Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
-'      that takes the formula but has no STOCKHISTORY) or when the
-'      reporting date, the reporting currency or a code was changed while
-'      the data came in.
-'   4. Write each price above zero into its rate cell; a row with no price
-'      keeps its rate and is listed in Without.
-'   5. Empty the scratch column and put the calculation mode back, also
-'      after an error, which puts the rates back as they were.
-'   From step 1 to the end mRunning is set, so that no other operation, and
-'   no second lookup, starts while DoEvents lets the buttons work: it is
-'   released on every way out.
+'   Look up the closing prices and write the rates in one call, for
+'   automation and tests (#721): StartPriceLookup, a wait that lets
+'   DoEvents run for PRICE_WAIT_SECONDS at most, and FinishPriceLookup.
+'   Excel hands the requests of STOCKHISTORY back only when no macro runs,
+'   so with real data this wait ends without prices: the button does not
+'   use it, it starts the lookup and PollClosingPrices ends it.
 '
 ' ERROR POLICY
-'   A refusal is returned in the result line, not raised.
+'   A refusal is returned in the result line, not raised. An error puts the
+'   rates back as they were and is raised again.
 '
 ' UPDATED
 '   2026-11-21
@@ -7683,76 +7792,119 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ParamsSheet   As Worksheet    'Params
+    Dim Deadline    As Double    'When to stop waiting
+    Dim ErrNumber   As Long      'The error to raise again
+    Dim ErrText     As String    'Its description
+
+'------------------------------------------------------------------------------
+' START, WAIT AND FINISH
+'------------------------------------------------------------------------------
+        If Not StartPriceLookup(Problem) Then
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        On Error GoTo Failed
+        Deadline = Timer + PRICE_WAIT_SECONDS
+        Do While PricesPending() And Timer < Deadline
+            DoEvents
+        Loop
+        LookUpClosingPrices = FinishPriceLookup(Priced, Without, Problem)
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
+
+End Function
+
+
+Private Function StartPriceLookup( _
+    ByRef Problem As String) _
+    As Boolean
+'
+'==============================================================================
+'                             StartPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Start a lookup of closing prices (#721): write the formula of each row
+'   that has a pair (ClosingPair) into the hidden scratch column, and keep
+'   what FinishPriceLookup needs.
+'
+' METHOD
+'   1. Find the rows with a pair and note their rates and the date of the
+'      prices, to put them back.
+'   2. Set calculation automatic and write the formulas through Formula2
+'      by late binding, so that the code compiles in an Excel without it;
+'      an Excel that refuses it, or a fault injected, is a refusal.
+'   From here mRunning is set, so that no other operation, and no second
+'   lookup, starts while the prices are awaited: every way out releases it.
+'
+' RETURNS
+'   True when the lookup started. False with Problem set when it was
+'   refused, nothing changed.
+'
+' ERROR POLICY
+'   A refusal is returned, not raised. An error puts everything back and is
+'   raised again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
     Dim HeaderRow     As Long         'Header row of the FX table
-    Dim KeyColumn     As Long         'Its key column
-    Dim LastRow       As Long         'Last row of the table
     Dim r             As Long         'Row
-    Dim PairRows()    As Long         'The rows with a pair
-    Dim PairsAsked()  As String       'The pair each price is asked for
-    Dim Kept()        As Variant      'The rate each row held before
-    Dim KeptDate      As Variant      'The date of the prices before
-    Dim AsOfAsked     As Variant      'The reporting date the prices are asked for
-    Dim Count         As Long         'Rows with a pair
     Dim i             As Long         'Row with a pair
     Dim PriceCell     As Range        'A scratch cell
-    Dim Found         As Variant      'What the formula returned, Empty when it is no price
     Dim Formula       As String       'The formula written into a scratch cell
     Dim Refused       As Boolean      'The formula could not be written
-    Dim Unavailable   As Boolean      'A formula evaluated to #NAME?, STOCKHISTORY is unknown
-    Dim Changed       As Boolean      'An input changed while the data came in
     Dim ErrNumber     As Long         'The error to raise again
     Dim ErrText       As String       'Its description
-    Dim Mode          As XlCalculation 'The caller's calculation mode
-    Dim ModeKept      As Boolean      'The mode was read
-    Dim Deadline      As Double       'When to stop waiting
-    Dim Code          As String       'A currency
-    Dim TimedOut      As Boolean      'The data did not come within the wait
-    Dim FirstState    As String       'What the first scratch cell returned
-    Dim CalcText      As String       'The calculation state after the wait
 
 '------------------------------------------------------------------------------
 ' FIND THE ROWS
 '------------------------------------------------------------------------------
-        Priced = 0
-        Without = vbNullString
         Problem = vbNullString
-        Set ParamsSheet = GetSheet(SH_PARAMS)
+        Set mPriceSheet = GetSheet(SH_PARAMS)
         HeaderRow = NamedRow(NM_FX_TABLE)
         If HeaderRow = 0 Then
             Problem = "the workbook name '" & NM_FX_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS & "."
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
-        KeyColumn = NamedTableCol(NM_FX_TABLE)
-        LastRow = HeaderRow
-        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
-            LastRow = LastRow + 1
+        mPriceKeyColumn = NamedTableCol(NM_FX_TABLE)
+        mPriceFirstRow = HeaderRow + 1
+        mPriceLastRow = HeaderRow
+        Do While Not IsBlankCell(TableCell(mPriceSheet, mPriceLastRow + 1, mPriceKeyColumn).Value)
+            mPriceLastRow = mPriceLastRow + 1
         Loop
-        ReDim PairRows(1 To LastRow - HeaderRow + 1)
-        ReDim PairsAsked(1 To LastRow - HeaderRow + 1)
-        ReDim Kept(1 To LastRow - HeaderRow + 1)
+        ReDim mPriceRows(1 To mPriceLastRow - HeaderRow + 1)
+        ReDim mPricePairs(1 To mPriceLastRow - HeaderRow + 1)
+        ReDim mPriceKept(1 To mPriceLastRow - HeaderRow + 1)
+        mPriceCount = 0
         On Error Resume Next
-        KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        mPriceKeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
         If Err.Number <> 0 Then
             Err.Clear
             On Error GoTo 0
             Problem = "the workbook name '" & NM_FX_PRICE_DATE & "' is missing."
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
         On Error GoTo 0
-        For r = HeaderRow + 1 To LastRow
-            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
-                Count = Count + 1
-                PairRows(Count) = r
-                PairsAsked(Count) = ClosingPair(ParamsSheet, r, KeyColumn)
-                Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
+        For r = HeaderRow + 1 To mPriceLastRow
+            If Len(ClosingPair(mPriceSheet, r, mPriceKeyColumn)) > 0 Then
+                mPriceCount = mPriceCount + 1
+                mPriceRows(mPriceCount) = r
+                mPricePairs(mPriceCount) = ClosingPair(mPriceSheet, r, mPriceKeyColumn)
+                mPriceKept(mPriceCount) = TableCell(mPriceSheet, r, mPriceKeyColumn + FX_COL_RATE).Value2
             End If
         Next r
-        If Count = 0 Then
+        If mPriceCount = 0 Then
             Problem = "no currency of the FX table has a pair."
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
 
@@ -7761,17 +7913,17 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         mRunning = True
-        AsOfAsked = NamedCell(PRM_ASOF).Value2
-        Mode = Application.Calculation
-        ModeKept = True
+        mPriceActive = True
+        mPriceAsOf = NamedCell(PRM_ASOF).Value2
+        mPriceMode = Application.Calculation
         Application.Calculation = xlCalculationAutomatic
-        ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+        ClearPriceScratch mPriceSheet, mPriceKeyColumn, mPriceFirstRow, mPriceLastRow
         On Error Resume Next
-        For i = 1 To Count
+        For i = 1 To mPriceCount
             Refused = (gTestFault = "prices-unavailable")
             If Not Refused Then
-                Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
-                Formula = PriceFormula(PairsAsked(i))
+                Set PriceCell = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE)
+                Formula = PriceFormula(mPricePairs(i))
                 If gTestFault = "prices-name-error" Then
                     Formula = "=#NAME?"
                 ElseIf gTestFault = "prices-fixed" Then
@@ -7789,29 +7941,84 @@ Private Function LookUpClosingPrices( _
         If Refused Then
             Err.Clear
             On Error GoTo Failed
-            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+            AbandonPriceLookup
             Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
-            Application.Calculation = Mode
-            mRunning = False
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
         On Error GoTo Failed
+        mPriceStarted = Now
+        mPriceDeadline = Now + TimeSerial(0, 0, PRICE_WAIT_SECONDS)
+        StartPriceLookup = True
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.StartPriceLookup", ErrText
+
+End Function
+
+
+Private Function FinishPriceLookup( _
+    ByRef Priced As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                             FinishPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End the lookup StartPriceLookup started (#721): read the scratch cells,
+'   write each price above zero into its rate cell, and the reporting date
+'   into the hidden cell NM_FX_PRICE_DATE, which the sheet shows beside the
+'   button. A row with no price keeps its rate and is listed in Without.
+'
+' METHOD
+'   Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
+'   that takes the formula but has no STOCKHISTORY), when the reporting
+'   date, the reporting currency or a code was changed while the data came
+'   in, or when no price came for any currency, in which case the rates and
+'   the date stay and Problem says what the first cell showed. Then empty
+'   the scratch column and put the calculation mode back.
+'
+' RETURNS
+'   "RESULT=PRICED; rates=N; without_price=M[; codes=...]" or
+'   "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   A refusal is returned, not raised. An error puts the rates back as they
+'   were and is raised again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
 
 '------------------------------------------------------------------------------
-' WAIT FOR THE DATA
+' DECLARE
 '------------------------------------------------------------------------------
-    'Let Excel run the requests of the data service to the end, then check
-        On Error Resume Next
-        Application.CalculateUntilAsyncQueriesDone
-        Err.Clear
+    Dim i             As Long         'Row with a pair
+    Dim PriceCell     As Range        'A scratch cell
+    Dim Found         As Variant      'What the formula returned, Empty when it is no price
+    Dim Unavailable   As Boolean      'A formula evaluated to #NAME?, STOCKHISTORY is unknown
+    Dim Changed       As Boolean      'An input changed while the data came in
+    Dim TimedOut      As Boolean      'A price was still awaited
+    Dim FirstState    As String       'What the first scratch cell returned
+    Dim CalcText      As String       'The calculation state
+    Dim Code          As String       'A currency
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+
+'------------------------------------------------------------------------------
+' CHECK WHAT CAME
+'------------------------------------------------------------------------------
+        Priced = 0
+        Without = vbNullString
+        Problem = vbNullString
         On Error GoTo Failed
-        Deadline = Timer + PRICE_WAIT_SECONDS
-        Do While (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count)) _
-                 And Timer < Deadline
-            DoEvents
-        Loop
-        TimedOut = (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count))
+        TimedOut = PricesPending()
         Select Case Application.CalculationState
             Case xlDone
                 CalcText = "done"
@@ -7820,44 +8027,39 @@ Private Function LookUpClosingPrices( _
             Case Else
                 CalcText = "pending"
         End Select
-
-'------------------------------------------------------------------------------
-' CHECK WHAT CAME
-'------------------------------------------------------------------------------
+        FirstState = ScratchState(TableCell(mPriceSheet, mPriceRows(1), mPriceKeyColumn + FX_COL_PRICE).Value2)
     'An Excel that takes the formula but does not know STOCKHISTORY returns #NAME?
-        For i = 1 To Count
-            If IsError(TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2) Then
-                If TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2 = CVErr(xlErrName) Then
+        For i = 1 To mPriceCount
+            Found = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE).Value2
+            If IsError(Found) Then
+                If ErrorNumber(Found) = 2029 Then
                     Unavailable = True
                 End If
             End If
         Next i
     'The reporting date and the pairs must still be the ones asked for
-        Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfAsked)
-        For i = 1 To Count
-            If ClosingPair(ParamsSheet, PairRows(i), KeyColumn) <> PairsAsked(i) Then
+        Changed = (NamedCell(PRM_ASOF).Value2 <> mPriceAsOf)
+        For i = 1 To mPriceCount
+            If ClosingPair(mPriceSheet, mPriceRows(i), mPriceKeyColumn) <> mPricePairs(i) Then
                 Changed = True
             End If
         Next i
         If Unavailable Or Changed Then
-            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
             If Unavailable Then
                 Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
             Else
                 Problem = "the reporting date, the reporting currency or a currency code was changed while the prices came in, so no rate was changed."
             End If
-            Application.Calculation = Mode
-            mRunning = False
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            AbandonPriceLookup
+            FinishPriceLookup = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
 
 '------------------------------------------------------------------------------
 ' WRITE THE RATES
 '------------------------------------------------------------------------------
-        FirstState = ScratchState(TableCell(ParamsSheet, PairRows(1), KeyColumn + FX_COL_PRICE).Value2)
-        For i = 1 To Count
-            Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
+        For i = 1 To mPriceCount
+            Set PriceCell = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE)
             Found = Empty
             If VarType(PriceCell.Value2) = vbDouble Then
                 If PriceCell.Value2 > 0# Then
@@ -7865,53 +8067,164 @@ Private Function LookUpClosingPrices( _
                 End If
             End If
             If IsEmpty(Found) Then
-                Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, PairRows(i), KeyColumn).Value2)))
+                Code = UCase$(Trim$(SafeStr(TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn).Value2)))
                 Without = Without & IIf(Len(Without) > 0, ",", "") & Code
             Else
-                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Found
+                TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = Found
                 Priced = Priced + 1
             End If
         Next i
-        ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+
     'No price at all: no rate and no date changes
         If Priced = 0 Then
             If TimedOut Then
-                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (the first, " & PairsAsked(1) & _
+                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (the first, " & mPricePairs(1) & _
                           ", showed " & FirstState & "; the calculation was " & CalcText & "). Check the connection and try again."
             Else
-                Problem = "no price came for any currency (the first, " & PairsAsked(1) & ", returned " & FirstState & _
+                Problem = "no price came for any currency (the first, " & mPricePairs(1) & ", returned " & FirstState & _
                           "). Check the connection and that this Excel can look up prices."
             End If
-            Application.Calculation = Mode
-            mRunning = False
-            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            AbandonPriceLookup
+            FinishPriceLookup = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
+
     'The date the rates are of, shown beside the button
-        NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfAsked
-        Application.Calculation = Mode
-        mRunning = False
-        LookUpClosingPrices = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
-                              IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
-                              IIf(Len(Without) > 0, "; codes=" & Without, "")
+        NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceAsOf
+        ReleasePriceLookup True
+        FinishPriceLookup = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
+                            IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
+                            IIf(Len(Without) > 0, "; codes=" & Without, "")
         Exit Function
 
 Failed:
         ErrNumber = Err.Number
         ErrText = Err.Description
-        mRunning = False
-        If ModeKept Then
-            On Error Resume Next
-            For i = 1 To Count
-                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Kept(i)
-            Next i
-            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
-            NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
-            Application.Calculation = Mode
-        End If
-        Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
+        AbandonPriceLookup
+        Err.Raise ErrNumber, "M_Main.FinishPriceLookup", ErrText
 
 End Function
+
+
+Private Sub AbandonPriceLookup()
+'
+'==============================================================================
+'                             AbandonPriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   End a lookup of closing prices that did not succeed (#721): put the
+'   rates and the date of the prices back as they were, then release it.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Row with a pair
+
+'------------------------------------------------------------------------------
+' PUT BACK AND RELEASE
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        If mPriceActive Then
+            For i = 1 To mPriceCount
+                TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_RATE).Value2 = mPriceKept(i)
+            Next i
+            NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceKeptDate
+        End If
+        ReleasePriceLookup True
+
+End Sub
+
+
+Private Sub ReleasePriceLookup( _
+    ByVal Clear As Boolean)
+'
+'==============================================================================
+'                             ReleasePriceLookup
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Leave the state of a lookup of closing prices (#721): cancel the next
+'   look, empty the scratch column when Clear is True, put the calculation
+'   mode back, clear the status bar and release mRunning.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error Resume Next
+        CancelPricePoll
+        If mPriceActive Then
+            If Clear Then
+                ClearPriceScratch mPriceSheet, mPriceKeyColumn, mPriceFirstRow, mPriceLastRow
+            End If
+            Application.Calculation = mPriceMode
+        End If
+        mPriceActive = False
+        mRunning = False
+        Application.StatusBar = False
+
+End Sub
+
+
+Private Sub SchedulePricePoll()
+'
+'==============================================================================
+'                             SchedulePricePoll
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Schedule PollClosingPrices one second from now (#721), with the
+'   workbook-qualified name, an apostrophe in the workbook name doubled, as
+'   Excel requires.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        mPollAt = Now + TimeSerial(0, 0, 1)
+        mPollName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Main.PollClosingPrices"
+        Application.OnTime mPollAt, mPollName
+
+End Sub
+
+
+Private Sub CancelPricePoll()
+'
+'==============================================================================
+'                              CancelPricePoll
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Cancel the look SchedulePricePoll scheduled, when one is pending, so
+'   that it does not run after the lookup ended or reopen a closed
+'   workbook (#721).
+'
+' ERROR POLICY
+'   Never raises: a look that already ran cannot be cancelled, and that is
+'   the expected case when the look itself ends the lookup.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error GoTo Done
+        If mPollAt <> 0 Then
+            Application.OnTime mPollAt, mPollName, , False
+        End If
+
+Done:
+        mPollAt = 0
+        mPollName = vbNullString
+
+End Sub
 
 
 Private Function PriceFormula( _
@@ -7963,12 +8276,7 @@ Private Function PriceTerm( _
 End Function
 
 
-Private Function PricesPending( _
-    ByVal ParamsSheet As Worksheet, _
-    ByVal KeyColumn As Long, _
-    ByRef PairRows() As Long, _
-    ByVal Count As Long) _
-    As Boolean
+Private Function PricesPending() As Boolean
 '
 '==============================================================================
 '                              PricesPending
@@ -7995,8 +8303,8 @@ Private Function PricesPending( _
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-        For i = 1 To Count
-            Value = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2
+        For i = 1 To mPriceCount
+            Value = TableCell(mPriceSheet, mPriceRows(i), mPriceKeyColumn + FX_COL_PRICE).Value2
             If IsError(Value) Then
                 If Not IsFinalError(ErrorNumber(Value)) Then
                     PricesPending = True
