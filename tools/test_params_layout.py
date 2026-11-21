@@ -69,9 +69,12 @@ class ParamsLayoutTests(unittest.TestCase):
     def test_the_fx_table_has_a_pair_and_a_closing_price_the_engine_does_not_read(self) -> None:
         self.assertEqual((self.text("F60"), self.text("G60")), ("Currency Pair", "Closing Price\nfrom Refinitiv"))
         for row, pair in ((62, "USD"), (63, "GBP"), (64, "JPY"), (65, "CHF")):
-            self.assertIn(f'$C$61&amp;"/"&amp;C{row}', self.xml)
+            # the pair is built from ReportingCcy, not from the first row of the table
+            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
+            self.assertNotIn("$C$61&amp;", self.xml)
             self.assertEqual(self.text(f"F{row}"), f"EUR/{pair}")
-            self.assertIn(f"_xlfn.STOCKHISTORY(F{row},AsOfDate,AsOfDate,0,0,1)", self.xml)
+            self.assertIn(f'IF(F{row}="","",_xlfn.STOCKHISTORY(F{row},AsOfDate,AsOfDate,0,0,1))', self.xml)
+        self.assertEqual(self.text("F61"), "")  # the reporting currency has no pair
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")
         self.assertNotIn("Refinitiv", engine)
         self.assertNotIn("STOCKHISTORY", engine)

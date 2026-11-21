@@ -103,8 +103,9 @@ Use only the categories needed by a release.
   runs over two rows, so every row below it moved down by one: the factor table starts on row 31, the FX
   table on row 60 and `SF_Table`, `FX_Table` and `Holiday_Table` follow (the macros find them by name;
   the validations on Trades, the editable cells, the check script and the matrix follow). The FX table
-  has a Currency Pair column and a Closing Price column that reads the closing price of the pair on
-  `AsOfDate` with `STOCKHISTORY` (Microsoft 365, online); the engine does not read the column. The
+  has a Currency Pair column (the reporting currency over the currency of the row) and a Closing Price
+  column that reads the closing price of the pair on `AsOfDate` with `STOCKHISTORY` (Microsoft 365,
+  online); the engine does not read the two columns. The
   illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
   table of closing days moved from G:H to I:J. Header typo fixed ("Closing Price").
 
