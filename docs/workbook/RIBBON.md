@@ -48,7 +48,15 @@ the user. They never replace those gates.
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
 
 The workbook opens with this tab selected: `RibbonOnLoad` calls
-`ActivateTab` for it (#726), and a failure never stops the load. Labels on the large
+`ActivateTab` for it (#726), and a failure never stops the load. An add-in that
+loads its own tab after this one (think-cell) takes the selection away, so
+`RibbonOnLoad` also schedules `ActivateRibbonTab` (`Application.OnTime`), which
+selects the tab once more 3 seconds later, only while this workbook is the
+active one. Nothing else selects it: a tab the user chooses after that moment,
+or a sheet change, is left alone. Excel cannot say which tab is selected, so a
+tab chosen within those 3 seconds is replaced. `Workbook_BeforeClose` cancels a selection still
+scheduled (`CancelTabActivation`), so that it never reopens a closed workbook.
+Labels on the large
 buttons are short, so that they wrap cleanly; the full
 name is in the screentip. The tab's keytip is `KS`, so **Alt, K, S** opens it.
 

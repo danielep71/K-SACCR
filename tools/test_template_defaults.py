@@ -67,6 +67,21 @@ class OpeningStateTests(unittest.TestCase):
         self.assertEqual(tabs, [match.group(1)])
         self.assertIn("Ribbon.ActivateTab RIBBON_TAB_ID", ribbon)
 
+    def test_the_tab_is_selected_again_after_an_add_in_took_it(self) -> None:
+        ribbon = (ROOT / "src" / "workbook" / "M_Ribbon.bas").read_text(encoding="utf-8")
+        load = ribbon[ribbon.index("Public Sub RibbonOnLoad("):ribbon.index("Public Sub ActivateRibbonTab()")]
+        self.assertIn("ScheduleTabActivation", load)
+        retry = ribbon[ribbon.index("Public Sub ActivateRibbonTab()"):ribbon.index("Public Sub CancelTabActivation()")]
+        self.assertIn("mRibbon.ActivateTab RIBBON_TAB_ID", retry)
+        self.assertIn("Application.ActiveWorkbook Is ThisWorkbook", retry)  # another workbook keeps its tab
+        schedule = ribbon[ribbon.index("Private Sub ScheduleTabActivation()"):]
+        self.assertIn("M_Ribbon.ActivateRibbonTab", schedule)
+        self.assertIn("Replace(ThisWorkbook.Name", schedule)
+        cancel = (ROOT / "src" / "workbook" / "ThisWorkbook.cls").read_text(encoding="utf-8")
+        before_close = cancel[cancel.index("Private Sub Workbook_BeforeClose"):]
+        self.assertIn("M_Ribbon.CancelTabActivation", before_close[: before_close.index("End Sub")])
+        self.assertNotIn("TabActivation", cancel.replace("CancelTabActivation", ""))  # no event but the close touches it
+
     def test_the_opening_routine_applies_the_zoom(self) -> None:
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="utf-8")
         auto_open = main[main.index("Public Sub Auto_Open()"):main.index("Public Sub ApplyOpeningView()")]
