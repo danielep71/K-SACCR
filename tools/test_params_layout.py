@@ -108,6 +108,20 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertNotRegex(self.xml, r'sqref="E7:E8"')
         self.assertRegex(self.xml, r'<dataValidation [^>]*sqref="E25"[^>]*><formula1>"ACTUAL"</formula1>')
 
+    def test_the_rate_header_is_ten_points_as_the_style_rules_allow(self) -> None:
+        styles = ElementTree.fromstring(self.package.read("xl/styles.xml"))
+        xfs = list(styles.find(MAIN + "cellXfs"))  # type: ignore[arg-type]
+        fonts = list(styles.find(MAIN + "fonts"))  # type: ignore[arg-type]
+        cell = self.sheet.find(f'.//{MAIN}c[@r="E60"]')
+        assert cell is not None
+        font = fonts[int(xfs[int(cell.attrib["s"])].attrib["fontId"])]
+        size = font.find(MAIN + "sz")
+        assert size is not None
+        self.assertEqual(size.attrib["val"], "10")
+        rules = (ROOT / "docs" / "workbook" / "sheet-style.json").read_text(encoding="utf-8")
+        self.assertIn('"header_size_exceptions"', rules)
+        self.assertIn('"Params": {"E60": 10}', rules)
+
     def test_the_closing_day_validation_and_the_unlocked_cells_follow_the_table(self) -> None:
         self.assertRegex(self.xml, r'sqref="I61:I160"[^>]*><formula1>AND\(ISNUMBER\(I61\),I61&gt;=61\)</formula1>')
         self.assertNotRegex(self.xml, r'sqref="G\d+:G\d+"[^>]*><formula1>AND\(ISNUMBER\(G')

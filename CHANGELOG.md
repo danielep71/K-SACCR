@@ -114,7 +114,9 @@ Use only the categories needed by a release.
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting
   currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the
-  rows under the FX table are editable, and the instruction for new currencies is back under the last row. The formats the owner gave the cells are kept: the
+  rows under the FX table are editable, and the instruction for new currencies is back under the last row. The rate header E60 is 10 pt, the one exception to the 11 pt of every header (`header_size_exceptions` in
+  `sheet-style.json`). The texts of the Home sheet are the owner's (the descriptions of the steps are
+  broken into lines). The formats the owner gave the cells are kept: the
   reporting date in bold blue and centred, the day-count numerator and the added rates centred, the currency
   codes in bold, the pair and the closing price in 9 pt, the heading Bank Holiday
   centred, and the added currency rows as high as the first ones.

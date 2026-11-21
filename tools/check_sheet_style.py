@@ -29,7 +29,8 @@ from check_workbook_protection import MATRIX, NS, TEMPLATE, column_number, sheet
 
 STYLE = "docs/workbook/sheet-style.json"
 KEYS = {"schema_version", "description", "font", "vertical_alignment", "date_format", "gridlines", "tab_colors",
-        "header_fill", "header_font_size", "header_rows"}
+        "header_fill", "header_font_size", "header_rows", "header_size_exceptions"}
+OPTIONAL_KEYS = {"header_size_exceptions"}
 COLOR = re.compile(r"^[0-9A-F]{6}$")
 CELL = re.compile(r"^([A-Z]{1,3})([1-9][0-9]*)$")
 WHITE = "FFFFFF"
@@ -101,13 +102,22 @@ def read_styles(part: bytes) -> Styles:
     return Styles(fonts, fills, formats)
 
 
+def size_exception_findings(exceptions: Any) -> list[str]:
+    """Findings on the header cells that have a font size of their own."""
+    if isinstance(exceptions, dict) and all(
+            isinstance(cells, dict) and all(CELL.match(ref) and isinstance(size, (int, float)) and size > 0
+                                            for ref, size in cells.items()) for cells in exceptions.values()):
+        return []
+    return [f"{STYLE}: header_size_exceptions must map sheets to cells and their header font size"]
+
+
 def check_style(style: Any, roles: set[str]) -> list[str]:
     """Findings on the style file itself: its keys, and one color per role."""
     if not isinstance(style, dict):
         return [f"{STYLE}: not a JSON object"]
     findings = []
-    if set(style) != KEYS:
-        findings.append(f"{STYLE}: keys must be {sorted(KEYS)}, found {sorted(style)}")
+    if set(style) - OPTIONAL_KEYS != KEYS - OPTIONAL_KEYS or not set(style) <= KEYS:
+        findings.append(f"{STYLE}: keys must be {sorted(KEYS)} (optional: {sorted(OPTIONAL_KEYS)}), found {sorted(style)}")
     if style.get("schema_version") != 1:
         findings.append(f"{STYLE}: schema_version must be 1")
     if style.get("gridlines") is not False:
@@ -119,6 +129,7 @@ def check_style(style: Any, roles: set[str]) -> list[str]:
         findings.append(f"{STYLE}: header_fill must be six upper-case hex digits")
     if not isinstance(style.get("header_font_size"), (int, float)) or style.get("header_font_size", 0) <= 0:
         findings.append(f"{STYLE}: header_font_size must be a positive number")
+    findings += size_exception_findings(style.get("header_size_exceptions", {}))
     headers = style.get("header_rows")
     if not isinstance(headers, dict) or not all(
             isinstance(rows, list) and rows and all(isinstance(r, int) and r > 0 for r in rows)
@@ -204,8 +215,9 @@ def header_findings(name: str, part: bytes, rows: list[int], styles: Styles, str
             reference = cell.get("r", "")
             fmt = styles.formats[int(cell.get("s", "0"))]
             font = styles.fonts[fmt["font"]]
-            if styles.fills[fmt["fill"]] != fill or not font["bold"] or font["color"] != WHITE or font["size"] != size:
-                findings.append(f"{TEMPLATE}: {name}!{reference}: header is not bold white {size:g} pt on {fill}")
+            cell_size = float(style.get("header_size_exceptions", {}).get(name, {}).get(reference, size))
+            if styles.fills[fmt["fill"]] != fill or not font["bold"] or font["color"] != WHITE or font["size"] != cell_size:
+                findings.append(f"{TEMPLATE}: {name}!{reference}: header is not bold white {cell_size:g} pt on {fill}")
             match = CELL.match(reference)
             width = widths.get(column_number(match.group(1)), 9.140625) if match else 9.140625
             needed = max(needed, wrapped_lines(text, width, size) if fmt["wrap"] else 1)
