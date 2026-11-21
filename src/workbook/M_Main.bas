@@ -7917,6 +7917,8 @@ Private Function LookUpClosingPrices( _
 '      is a refusal and nothing is changed.
 '   2. With calculation automatic, wait until Excel reports the
 '      calculation done, PRICE_WAIT_SECONDS at most.
+'   2b. If the reporting date, the reporting currency or a code changed
+'      while the data came in, put everything back and refuse.
 '   3. Replace each formula with its value when that is a number above
 '      zero, and record its pair; otherwise empty the price and its pair
 '      and list the currency in Without: a price of an earlier date or
@@ -7946,6 +7948,10 @@ Private Function LookUpClosingPrices( _
     Dim Kept()        As Variant      'The price each held before
     Dim KeptPairs()   As Variant      'The pair each price was recorded for
     Dim KeptDate      As Variant      'The date of the prices before
+    Dim AsOfAsked     As Variant      'The reporting date the prices were asked for
+    Dim PairsAsked()  As String       'The pair each price was asked for
+    Dim Changed       As Boolean      'An input changed while the data came in
+    Dim LastUsed      As Long         'Last row holding a price or a recorded pair
     Dim Count         As Long         'Rows with a pair
     Dim i             As Long         'Row with a pair
     Dim PriceCell     As Range        'A price cell
@@ -7979,6 +7985,7 @@ Private Function LookUpClosingPrices( _
         ReDim PairRows(1 To LastRow - HeaderRow + 1)
         ReDim Kept(1 To LastRow - HeaderRow + 1)
         ReDim KeptPairs(1 To LastRow - HeaderRow + 1)
+        ReDim PairsAsked(1 To LastRow - HeaderRow + 1)
         On Error Resume Next
         KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
         If Err.Number <> 0 Then
@@ -7993,6 +8000,7 @@ Private Function LookUpClosingPrices( _
             If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
                 Count = Count + 1
                 PairRows(Count) = r
+                PairsAsked(Count) = ClosingPair(ParamsSheet, r, KeyColumn)
                 Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE).Value2
                 KeptPairs(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).Value2
             End If
@@ -8008,6 +8016,7 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
         On Error GoTo Failed
         mRunning = True
+        AsOfAsked = NamedCell(PRM_ASOF).Value2
         Mode = Application.Calculation
         ModeKept = True
         Application.Calculation = xlCalculationAutomatic
@@ -8017,7 +8026,7 @@ Private Function LookUpClosingPrices( _
             If Not Refused Then
                 Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
                 CallByName PriceCell, "Formula2", VbLet, "=LET(r,STOCKHISTORY(""" & _
-                           ClosingPair(ParamsSheet, PairRows(i), KeyColumn) & _
+                           PairsAsked(i) & _
                            """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
                 Refused = (Err.Number <> 0)
             End If
@@ -8048,6 +8057,21 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
 ' FREEZE THE PRICES
 '------------------------------------------------------------------------------
+    'The reporting date and the pairs must still be the ones asked for
+        Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfAsked)
+        For i = 1 To Count
+            If ClosingPair(ParamsSheet, PairRows(i), KeyColumn) <> PairsAsked(i) Then
+                Changed = True
+            End If
+        Next i
+        If Changed Then
+            PutPricesBack PairRows, Kept, KeptPairs, Count, ParamsSheet, KeyColumn
+            Problem = "the reporting date, the reporting currency or a currency code was changed while the prices came in, so no price was kept."
+            Application.Calculation = Mode
+            mRunning = False
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
         For i = 1 To Count
             Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
             Found = Empty
@@ -8063,7 +8087,7 @@ Private Function LookUpClosingPrices( _
                 Without = Without & IIf(Len(Without) > 0, ",", "") & Code
             Else
                 PriceCell.Value2 = Found
-                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE_PAIR).Value2 = ClosingPair(ParamsSheet, PairRows(i), KeyColumn)
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE_PAIR).Value2 = PairsAsked(i)
                 Priced = Priced + 1
             End If
         Next i
@@ -8073,6 +8097,15 @@ Private Function LookUpClosingPrices( _
                 TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE).ClearContents
                 TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).ClearContents
             End If
+        Next r
+    'A price or pair left below the table, a currency removed, is not of this date
+        LastUsed = TableCell(ParamsSheet, ParamsSheet.Rows.Count, KeyColumn + FX_COL_PRICE).End(xlUp).Row
+        If TableCell(ParamsSheet, ParamsSheet.Rows.Count, KeyColumn + FX_COL_PRICE_PAIR).End(xlUp).Row > LastUsed Then
+            LastUsed = TableCell(ParamsSheet, ParamsSheet.Rows.Count, KeyColumn + FX_COL_PRICE_PAIR).End(xlUp).Row
+        End If
+        For r = LastRow + 1 To LastUsed
+            TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE).ClearContents
+            TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).ClearContents
         Next r
     'The prices are now all of the reporting date
         NamedCell(NM_FX_PRICE_DATE).Value2 = NamedCell(PRM_ASOF).Value2
