@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 import unittest
 import zipfile
+from datetime import date
+from math import exp
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -56,6 +58,33 @@ class FxQuoteTests(unittest.TestCase):
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")
         self.assertIn("FX_HEADER_BEFORE_725", engine)
         self.assertIn("invert every rate and rename the header", engine)
+
+    def test_the_multi_currency_cases_agree_with_a_separate_derivation(self) -> None:
+        # #725: the expected values of the cases fx-rate-old-convention-value and fx-rate-multi-currency of
+        # TEST_InputValidation, derived here from the rules and the market quote, sharing no code with the engine.
+        # Five-year swaps from the reporting date, S = 0: supervisory duration CRE52.34, CRR Art. 279b(1)(a).
+        years = (date(2031, 9, 30) - date(2026, 9, 30)).days / 365.0
+        duration = (1.0 - exp(-0.05 * years)) / 0.05
+        usd, jpy, gbp = 1.25, 160.0, 0.85  # units of the currency per 1 EUR
+        old_value = 10000.0 * duration / 0.8  # 0.80, the old convention's rate, read as USD per EUR
+        usd_swap = 10000.0 / usd * duration
+        eur_swap = 20000.0 * duration
+        forward = 1600000.0 / jpy  # FX adjusted notional: the JPY leg in EUR, CRE52.35, CRR Art. 279b(1)(b)
+        value = 500.0 / usd - 300.0 / gbp  # MtM in USD and in GBP, each divided by its rate
+        replacement_cost = max(value, 0.0)  # unmargined, no collateral: CRE52.10, CRR Art. 275(1)
+        ir_add_on = 0.005 * abs(usd_swap) + 0.005 * abs(eur_swap)  # one hedging set per currency, CRE52.57
+        fx_add_on = 0.04 * abs(forward)  # CRE52.58, CRR Art. 280b
+        exposure = 1.4 * (replacement_cost + ir_add_on + fx_add_on)  # V - C > 0: multiplier 1
+        expected = {"55326.4736651278": old_value, "35408.9431456818": usd_swap, "10000": forward,
+                    "47.0588235294118": replacement_cost, "619.656505049432": ir_add_on, "400": fx_add_on,
+                    "1493.40146001038": exposure}
+        tests = (ROOT / "tests" / "modules" / "TEST_InputValidation.bas").read_text(encoding="cp1252")
+        start = tests.index('StartCase "fx-rate-old-convention-value"')
+        block = tests[start:tests.index("StartCase", tests.index('StartCase "fx-rate-multi-currency"') + 1)]
+        for text, derived in expected.items():
+            self.assertIn(f'"{text}"', block, text)
+            self.assertAlmostEqual(float(text), derived, delta=1e-9 * max(1.0, abs(derived)), msg=text)
+        self.assertNotAlmostEqual(old_value, usd_swap, delta=1.0)  # the old value is a different input
 
 
 if __name__ == "__main__":

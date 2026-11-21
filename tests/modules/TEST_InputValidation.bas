@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 195               'Cases in a complete run
-        Private Const CHECKS      As Long = 336               'Checks in a complete run
+        Private Const CASES       As Long = 197               'Cases in a complete run
+        Private Const CHECKS      As Long = 345               'Checks in a complete run
 
 
 '
@@ -900,6 +900,53 @@ Public Sub RunInputValidationTests()
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 1.25
         ExpectStatus "VALID"
         TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "35408.9431456818", _
+                                     "0.000001", "0", "illustrative"
+
+    'The rate the old convention gave for the same market, 0.80 EUR per USD,
+    'is read now as 0.80 USD per EUR (#725): the same 10,000 USD becomes
+    '12,500 EUR, and the adjusted notional 44,261.18 / 0.80 = 55,326.47, not
+    '35,408.94. A rate kept from before #725 is a wrong input, not a
+    'rounding: tools/test_fx_quote.py derives both values.
+        StartCase "fx-rate-old-convention-value", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 0.8
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "55326.4736651278", _
+                                     "0.000001", "0", "illustrative"
+
+    'A netting set in four currencies under the market quote (#725): a USD
+    'swap with its MtM in USD, a EUR swap with its MtM in GBP, and a EUR/JPY
+    'forward with its notional in JPY, at 1.25 USD, 160 JPY and 0.85 GBP per
+    'EUR. Every amount is divided by its rate: MtM 500 USD + -300 GBP is
+    '47.06 EUR, the forward 10,000 EUR. tools/test_fx_quote.py derives every
+    'expected value independently of the engine.
+        StartCase "fx-rate-multi-currency", "N"
+        TEST_CaseRunner.AddTrade "T1", "IR", "", "USD", "Linear", "Long", "", "Standard", "", _
+                                 "10000", "500", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.AddTrade "T2", "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
+                                 "20000", "-300", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NCCY, "EUR"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_MCCY, "GBP"
+        TEST_CaseRunner.AddTrade "T3", "FX", "", "EUR/JPY", "Linear", "Long", "", "Standard", "", _
+                                 "1600000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_NCCY, "JPY"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 1.25
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("JPY"), TableCol(NM_FX_TABLE, 3), 160
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("GBP"), TableCol(NM_FX_TABLE, 3), 0.85
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "35408.9431456818", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "fx-adjusted-notional", "T3", "adjusted_notional", "10000", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "replacement-cost", "", "replacement_cost", "47.0588235294118", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "ir-add-on", "", "add_on.interest_rate", "619.656505049432", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "fx-add-on", "", "add_on.foreign_exchange", "400", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "exposure-value", "", "exposure_value", "1493.40146001038", _
                                      "0.000001", "0", "illustrative"
 
     'Reporting currency format (#147): three letters A to Z, case and

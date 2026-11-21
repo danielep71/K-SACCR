@@ -97,6 +97,16 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Test the FX convention of #725 in every place the engine uses a rate. `TEST_InputValidation`
+  gains `fx-rate-multi-currency`, a netting set in four currencies (a USD swap with its MtM in
+  USD, a EUR swap with its MtM in GBP, a EUR/JPY forward with its notional in JPY, at 1.25 USD,
+  160 JPY and 0.85 GBP per EUR), which checks the adjusted notionals, the replacement cost, both
+  add-ons and the exposure value, and `fx-rate-old-convention-value`, which shows that a rate
+  kept from the old convention (0.80 for the same market) gives another input, not a rounding
+  difference. `tools/test_fx_quote.py` derives every expected value of both cases separately
+  from the engine, from the rules and the market quote. The engine converts only the notional
+  and the MtM: option prices are ratios and collateral is entered in the reporting currency.
+
 - Offer to rebase the FX table when the reporting currency changes (#725). The rates are units
   of each currency per 1 unit of the reporting currency, so after a change of the reporting
   currency on Params they are still those of the old one, and a run stops because the new
