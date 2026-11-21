@@ -964,7 +964,8 @@ day) and an earlier one was used; or `RESULT=REFUSED; reason=...` with no rate
 changed: no connection, a time-out, an HTTP status other than 200 (404, which
 the portal gives when it has no series, is an empty answer), an answer that is
 not the CSV expected or has a malformed line, no rate of the reporting
-currency, or no rate for any currency.
+currency, no rate for any currency, or a reporting date, reporting currency or
+code changed while the answer was awaited (Params stays editable meanwhile).
 
 With either source, Results is not recalculated: `ResultsStatus()` returns
 `STALE` until the next **Run SA-CCR**. While an operation is running it raises

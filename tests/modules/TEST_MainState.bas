@@ -1961,7 +1961,8 @@ Private Sub CaseDownloadEcbRates()
 '   day the fixing before it, named in the result; with USD as reporting
 '   currency every rate crossed through the euro. Refusals that change
 '   nothing: no rate of the reporting currency, no connection, HTTP 503, a
-'   time-out, an HTML page, an empty answer and an unknown source. A
+'   time-out, an HTML page, an empty answer, a reporting date changed
+'   while the answer was awaited (fault "ecb-edit") and an unknown source. A
 '   failure while the rates are written puts them back with their date and
 '   source. Params is put back as the case found it.
 '
@@ -2074,6 +2075,12 @@ Private Sub CaseDownloadEcbRates()
             Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
             TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=" & Reasons(f)) = 1, Faults(f) & ": " & Result
         Next f
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-edit"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the reporting date, the reporting currency or a currency " & _
+                       "code was changed while the rates came in") = 1, "an input changed while waiting: " & Result
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
         TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
                        ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
                        SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource), _

@@ -8026,7 +8026,9 @@ Private Function LookUpEcbRates( _
 '   2. Ask the ECB (EcbAnswer) for the currencies of the table that are
 '      three-letter codes, the euro aside, and the reporting currency
 '      unless it is the euro; read the answer (EcbLatestRates).
-'   3. Work out every rate, then write them, the reporting date into
+'   3. Work out every rate; refuse when the reporting date, the reporting
+'      currency or a code was changed while the answer was awaited, which
+'      DoEvents allows; then write the rates, the reporting date into
 '      NM_FX_PRICE_DATE and FX_SOURCE_ECB into NM_FX_PRICE_SRC.
 '   mRunning is set while the answer is awaited, so that no other operation
 '   starts.
@@ -8039,7 +8041,8 @@ Private Function LookUpEcbRates( _
 ' ERROR POLICY
 '   A refusal is returned, not raised, and changes nothing: no connection,
 '   an HTTP error, a time-out, an answer that is not the CSV expected, no
-'   rate for the reporting currency, or none for any currency. An error
+'   rate for the reporting currency, none for any currency, or an input
+'   changed while the answer was awaited. An error
 '   puts the rates, the date and the source back and is raised again.
 '   gTestFault = "ecb-write" raises ERR_INJECTED_FAULT after the first rate
 '   is written.
@@ -8077,6 +8080,7 @@ Private Function LookUpEcbRates( _
     Dim NewRates()    As Double       'The rate of each row; 0 for none
     Dim Latest        As Date         'The latest fixing used
     Dim Written       As Boolean      'A rate was written
+    Dim Changed       As Boolean      'An input changed while the answer was awaited
     Dim ErrNumber     As Long         'The error to raise again
     Dim ErrText       As String       'Its description
 
@@ -8220,6 +8224,23 @@ Private Function LookUpEcbRates( _
 '------------------------------------------------------------------------------
 ' WRITE THE RATES
 '------------------------------------------------------------------------------
+    'Params stays editable while the answer is awaited: the inputs must still be those asked for
+        Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfValue) Or _
+                  (UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2))) <> Reporting)
+        For i = 1 To Count
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, PairRows(i), KeyColumn).Value2))) <> Codes(i) Then
+                Changed = True
+            End If
+        Next i
+        If Changed Then
+            mRunning = False
+            Priced = 0
+            Without = vbNullString
+            Problem = "the reporting date, the reporting currency or a currency code was changed while the rates came in, " & _
+                      "so no rate was changed."
+            LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
         For i = 1 To Count
             If NewRates(i) > 0# Then
                 Written = True
@@ -8311,7 +8332,9 @@ Private Function EcbAnswer( _
 '
 ' ERROR POLICY
 '   Never raises. gTestFault = "ecb-answer" returns gTestEcbAnswer, and so
-'   does "ecb-write", whose failure LookUpEcbRates injects later;
+'   does "ecb-write", whose failure LookUpEcbRates injects later, and
+'   "ecb-edit", which also moves the reporting date a day on, as a user
+'   could while the answer is awaited;
 '   "ecb-offline", "ecb-http" and "ecb-timeout" give the problem of no
 '   connection, of HTTP 503 and of a time-out; none of them sends anything.
 '
@@ -8335,6 +8358,10 @@ Private Function EcbAnswer( _
         Select Case gTestFault
             Case "ecb-answer", "ecb-write"
                 EcbAnswer = gTestEcbAnswer
+                Exit Function
+            Case "ecb-edit"
+                EcbAnswer = gTestEcbAnswer
+                NamedCell(PRM_ASOF).Value2 = NamedCell(PRM_ASOF).Value2 + 1
                 Exit Function
             Case "ecb-offline"
                 Problem = EcbUnreachable("the server name could not be resolved")
