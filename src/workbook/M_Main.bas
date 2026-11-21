@@ -7454,13 +7454,17 @@ Public Sub DownloadClosingPrices()
             Exit Sub
         End If
         If MsgBox("Replace the rates of " & Pairs & " currenc" & IIf(Pairs = 1, "y", "ies") & " with the closing prices of " & _
-                  ClosingPriceDate() & " from STOCKHISTORY?" & vbLf & vbLf & _
+                  ClosingPriceDate() & "?" & vbLf & vbLf & _
                   "The rates now in the table are overwritten and Undo cannot bring them back. It needs Microsoft 365 " & _
                   "and a connection, and takes up to " & PRICE_WAIT_SECONDS & " seconds.", _
                   vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
             Exit Sub
         End If
+        Application.Cursor = xlWait
+        Application.StatusBar = "Downloading the prices of " & ClosingPriceDate() & "..."
         ResultLine = LookUpClosingPrices(Priced, Without, Problem)
+        Application.StatusBar = False
+        Application.Cursor = xlDefault
         RibbonStateChanged
         If Len(Problem) > 0 Then
             Notify "No rate was changed." & vbLf & vbLf & Problem, vbExclamation
@@ -7472,6 +7476,8 @@ Public Sub DownloadClosingPrices()
         Exit Sub
 
 Failed:
+        Application.StatusBar = False
+        Application.Cursor = xlDefault
         Notify "Download closing prices: " & Err.Description, vbCritical
 
 End Sub
@@ -7490,7 +7496,7 @@ Public Function DownloadClosingPrices_Silent() As String
 '   "RESULT=PRICED; rates=N; without_price=M" (and "; codes=..." with the
 '   currencies that got no price, whose rate stays), or
 '   "RESULT=REFUSED; reason=..." when no rate was changed, for example
-'   without STOCKHISTORY.
+'   without STOCKHISTORY or when no price came for any currency.
 '
 ' ERROR POLICY
 '   Raises ERR_RUN_ACTIVE while an operation runs. gTestFault =
@@ -7498,7 +7504,8 @@ Public Function DownloadClosingPrices_Silent() As String
 '   cannot take the formula does; "prices-name-error" writes =#NAME? as
 '   an Excel that takes it but has no STOCKHISTORY would evaluate it;
 '   "prices-fixed" writes the price 2 for every pair, and no price (#N/A)
-'   for the first one, in place of the formulas of STOCKHISTORY.
+'   for the first one, and "prices-none" no price (#N/A) for any pair, in
+'   place of the formulas of STOCKHISTORY.
 '
 ' UPDATED
 '   2026-11-21
@@ -7700,6 +7707,8 @@ Private Function LookUpClosingPrices( _
     Dim ModeKept      As Boolean      'The mode was read
     Dim Deadline      As Double       'When to stop waiting
     Dim Code          As String       'A currency
+    Dim TimedOut      As Boolean      'The data did not come within the wait
+    Dim FirstState    As String       'What the first scratch cell returned
 
 '------------------------------------------------------------------------------
 ' FIND THE ROWS
@@ -7761,12 +7770,13 @@ Private Function LookUpClosingPrices( _
             Refused = (gTestFault = "prices-unavailable")
             If Not Refused Then
                 Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
-                Formula = "=LET(r,STOCKHISTORY(""" & PairsAsked(i) & _
-                          """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+                Formula = PriceFormula(PairsAsked(i))
                 If gTestFault = "prices-name-error" Then
                     Formula = "=#NAME?"
                 ElseIf gTestFault = "prices-fixed" Then
                     Formula = IIf(i = 1, "=NA()", "=2")
+                ElseIf gTestFault = "prices-none" Then
+                    Formula = "=NA()"
                 End If
                 CallByName PriceCell, "Formula2", VbLet, Formula
                 Refused = (Err.Number <> 0)
@@ -7794,6 +7804,7 @@ Private Function LookUpClosingPrices( _
         Do While Application.CalculationState <> xlDone And Timer < Deadline
             DoEvents
         Loop
+        TimedOut = (Application.CalculationState <> xlDone)
 
 '------------------------------------------------------------------------------
 ' CHECK WHAT CAME
@@ -7829,6 +7840,7 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
 ' WRITE THE RATES
 '------------------------------------------------------------------------------
+        FirstState = ScratchState(TableCell(ParamsSheet, PairRows(1), KeyColumn + FX_COL_PRICE).Value2)
         For i = 1 To Count
             Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
             Found = Empty
@@ -7846,6 +7858,19 @@ Private Function LookUpClosingPrices( _
             End If
         Next i
         ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+    'No price at all: no rate and no date changes
+        If Priced = 0 Then
+            If TimedOut Then
+                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (check the connection and try again)."
+            Else
+                Problem = "no price came for any currency (the first, " & PairsAsked(1) & ", returned " & FirstState & _
+                          "). Check the connection and that this Excel can look up prices."
+            End If
+            Application.Calculation = Mode
+            mRunning = False
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
     'The date the rates are of, shown beside the button
         NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfAsked
         Application.Calculation = Mode
@@ -7869,6 +7894,129 @@ Failed:
             Application.Calculation = Mode
         End If
         Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
+
+End Function
+
+
+Private Function PriceFormula( _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+'                               PriceFormula
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The formula that returns the last closing price up to the reporting date
+'   (seven days back at most) of a pair such as EUR/USD (#721). Excel is not
+'   consistent in how a plain text names a pair, so the pair is tried as
+'   EUR:USD, then EUR/USD, then EURUSD, and the first that returns a price is
+'   taken (an error moves to the next form, the last one shows its own).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Base        As String    'The reporting currency
+    Dim Quote       As String    'The currency of the row
+    Dim Forms(1 To 3) As String  'The three names of the pair
+    Dim i           As Long      'Form
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        Base = Left$(Pair, InStr(Pair, "/") - 1)
+        Quote = Mid$(Pair, InStr(Pair, "/") + 1)
+        Forms(1) = Base & ":" & Quote
+        Forms(2) = Base & "/" & Quote
+        Forms(3) = Base & Quote
+        For i = 3 To 1 Step -1
+            If i = 3 Then
+                PriceFormula = PriceTerm(Forms(i))
+            Else
+                PriceFormula = "IFERROR(" & PriceTerm(Forms(i)) & "," & PriceFormula & ")"
+            End If
+        Next i
+        PriceFormula = "=" & PriceFormula
+
+End Function
+
+
+Private Function PriceTerm( _
+    ByVal Pair As String) _
+    As String
+'
+'==============================================================================
+'                                PriceTerm
+'------------------------------------------------------------------------------
+' PURPOSE
+'   One lookup of PriceFormula: the last row of the history of Pair up to the
+'   reporting date, without headers, the closing price (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        PriceTerm = "LET(r,STOCKHISTORY(""" & Pair & """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+
+End Function
+
+
+Private Function ScratchState( _
+    ByVal Value As Variant) _
+    As String
+'
+'==============================================================================
+'                               ScratchState
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Say what a scratch cell returned, for the message when no price came
+'   (#721): the Excel error, or the kind of value.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        If IsError(Value) Then
+            If Value = CVErr(xlErrNA) Then
+                ScratchState = "#N/A"
+            ElseIf Value = CVErr(xlErrValue) Then
+                ScratchState = "#VALUE!"
+            ElseIf Value = CVErr(xlErrName) Then
+                ScratchState = "#NAME?"
+            ElseIf Value = CVErr(xlErrRef) Then
+                ScratchState = "#REF!"
+            ElseIf Value = CVErr(xlErrNum) Then
+                ScratchState = "#NUM!"
+            ElseIf Value = CVErr(2045) Then
+                ScratchState = "#BUSY!"
+            ElseIf Value = CVErr(2046) Then
+                ScratchState = "#CONNECT!"
+            ElseIf Value = CVErr(2047) Then
+                ScratchState = "#BLOCKED!"
+            ElseIf Value = CVErr(2049) Then
+                ScratchState = "#FIELD!"
+            Else
+                ScratchState = "an Excel error"
+            End If
+        ElseIf IsEmpty(Value) Then
+            ScratchState = "an empty cell"
+        ElseIf VarType(Value) = vbString Then
+            ScratchState = "text"
+        Else
+            ScratchState = "a value that is not a price"
+        End If
 
 End Function
 

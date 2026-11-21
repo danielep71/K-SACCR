@@ -1795,6 +1795,12 @@ Private Sub CaseDownloadClosingPrices()
         TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "#NAME? refusal: " & Result
         TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "after #NAME? the rates are as they were"
         TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after #NAME? the scratch column is empty"
+        M_Main.gTestFault = "prices-none"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=no price came for any currency") = 1, "no price: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "with no price the rates are as they were"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#), "with no price the date is as it was"
 
 '------------------------------------------------------------------------------
 ' LOOK UP WITH PRICES

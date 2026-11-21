@@ -84,7 +84,11 @@ class ParamsLayoutTests(unittest.TestCase):
         for row in range(61, 261):
             self.assertIsNone(self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]'), row)
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
-        self.assertIn('"=LET(r,STOCKHISTORY("', main)
+        self.assertIn('"LET(r,STOCKHISTORY("""', main)
+        for form in ('Base & ":" & Quote', 'Base & "/" & Quote', "Base & Quote"):  # the three names of a pair
+            self.assertIn(form, main)
+        self.assertIn("Application.Cursor = xlWait", main)  # the wait shows
+        self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
         self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")
         self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\(\) As String")
