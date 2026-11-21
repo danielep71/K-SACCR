@@ -73,10 +73,10 @@ class Basis:
 def time_basis(parameters: dict[str, Any]) -> Basis:
     """The basis a fixture's parameters give; a parameter without a package counterpart is Unsupported."""
     for name, value in parameters.items():
-        if name not in ("DayCountNumerator", "DayCountConvention", "Calendar"):
+        if name not in ("DaycountConvention", "YearConvention", "Calendar"):
             raise Unsupported(f"parameter {name}={value} has no package counterpart")
-    numerator = parameters.get("DayCountNumerator", "ACTUAL")
-    year_days = parameters.get("DayCountConvention", 365)
+    numerator = parameters.get("DaycountConvention", "ACTUAL")
+    year_days = parameters.get("YearConvention", 365)
     calendar = parameters.get("Calendar", bc.CALENDAR_TABLE)
     if numerator != "ACTUAL":
         raise Unsupported(f"day-count numerator {numerator!r} is not ACTUAL")

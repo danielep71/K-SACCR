@@ -1804,14 +1804,14 @@ Private Function IsYearBasis( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Tell whether a number is one of the days of the conventional year that
-'   DayCountConvention allows (#721): 366, 365, 365.25, 264, 360, 252, 250.
+'   YearConvention allows (#721): 366, 365, 364, 360, 252, 250.
 '
 ' UPDATED
 '   2026-11-21
 '==============================================================================
 '
         Select Case Candidate
-            Case 366#, 365#, 365.25, 264#, 360#, 252#, 250#
+            Case 366#, 365#, 364#, 360#, 252#, 250#
                 IsYearBasis = True
         End Select
 
@@ -2254,7 +2254,7 @@ Private Function LoadFXTable() As Boolean
 '                                 LoadFXTable
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read the FX table on Params: the rows below the FX_Ccy header, down to
+'   Read the FX table on Params: the rows below the Currency Code header, down to
 '   the first blank currency. The third column of the table holds the
 '   units of reporting currency per one unit of the currency.
 '
@@ -2983,8 +2983,8 @@ Public Function RegulatoryParameterCodes() As Variant
 ' PURPOSE
 '   The Params codes that M_Main.RestoreRegulatoryParameters writes back
 '   (#357): the reference parameters ClassifyRun compares, then the
-'   conventions DayCountNumerator and IRBucketOffset. AsOfDate, ReportingCcy, Regime,
-'   DayCountConvention and Calendar are run settings and are not listed.
+'   conventions DaycountConvention and IRBucketOffset. AsOfDate, ReportingCcy, Regime,
+'   YearConvention and Calendar are run settings and are not listed.
 '
 ' UPDATED
 '   2026-11-06
@@ -3066,8 +3066,8 @@ Private Sub ClassifyRun()
 '   REF_SET_ID (#41): the numeric parameters on Params, every row of the
 '   supervisory-factor table, and the alpha override of each netting set.
 '   Each difference is logged as a "What-if:" warning; the run is
-'   RUN_REGULATORY when there is none, RUN_WHATIF otherwise. DayCountNumerator,
-'   IRBucketOffset, DayCountConvention and Calendar are conventions and are not compared.
+'   RUN_REGULATORY when there is none, RUN_WHATIF otherwise. DaycountConvention,
+'   IRBucketOffset, YearConvention and Calendar are conventions and are not compared.
 '
 ' STATE OWNERSHIP
 '   Sets mRunClass and mDeviations.

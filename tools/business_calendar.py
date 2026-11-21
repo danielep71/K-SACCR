@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Business-day count on the EUR TARGET calendar, with a table of extra closing days (#721).
 
-The Python reference of the day count of the workbook (Params: DayCountNumerator,
-DayCountConvention, Calendar). It holds three things:
+The Python reference of the day count of the workbook (Params: DaycountConvention,
+YearConvention, Calendar). It holds three things:
 
 - the TARGET closing days of a year, by rule, so that no yearly list has to be extended:
   1 January, Good Friday, Easter Monday, 1 May, 25 December and 26 December, with Good Friday
@@ -11,7 +11,7 @@ DayCountConvention, Calendar). It holds three things:
   included, and an interval that runs backwards counts negative;
 - the day count that turns a pair of dates into years: the ACTUAL days between them, counted
   on the workbook's calendar (``TARGET``, ``TARGET+TABLE`` or ``TABLE``), over the days of the
-  conventional year (366, 365, 365.25, 264, 360, 252 or 250). ``TABLE`` counts every day
+  conventional year (366, 365, 364, 360, 252 or 250). ``TABLE`` counts every day
   except those of the table, so calendar days while the table is empty.
 
 A :class:`Calendar` is either the TARGET rule, optionally with extra closing days, or a table
@@ -32,8 +32,8 @@ import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-# The days of the conventional year that DayCountConvention allows.
-YEAR_BASES = (366.0, 365.0, 365.25, 264.0, 360.0, 252.0, 250.0)
+# The days of the conventional year that YearConvention allows.
+YEAR_BASES = (366.0, 365.0, 364.0, 360.0, 252.0, 250.0)
 CALENDAR_TARGET = "TARGET"
 CALENDAR_BOTH = "TARGET+TABLE"
 CALENDAR_TABLE = "TABLE"

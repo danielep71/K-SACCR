@@ -7392,6 +7392,518 @@ End Function
 '
 '------------------------------------------------------------------------------
 '
+'                  CLOSING PRICES OF THE FX TABLE (#721)
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub DownloadClosingPrices()
+'
+'==============================================================================
+'                            DownloadClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the closing price of each currency pair of the FX table on the
+'   reporting date with STOCKHISTORY and write it as a value in the rate
+'   cell of the currency (#721), after a confirmation with Cancel as the
+'   default, and show the date of the prices beside the button. The pair
+'   is built from the reporting currency and the code of the row; the
+'   formulas live in a hidden scratch column that is emptied afterwards, so
+'   no formula and no data request is left in the workbook.
+'
+' USAGE
+'   Download prices on the Params sheet, or the Macros dialog. Automation
+'   calls DownloadClosingPrices_Silent.
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises. STOCKHISTORY needs Microsoft 365 and a connection:
+'   without them no rate is changed. In silent mode, where no confirmation
+'   can be given, nothing is looked up.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Pairs       As Long      'Currencies with a pair
+    Dim Priced      As Long      'Rates written
+    Dim Without     As String    'Currencies with no price
+    Dim Problem     As String    'Why nothing was looked up
+    Dim ResultLine  As String    'What the lookup returned
+
+'------------------------------------------------------------------------------
+' CONFIRM, LOOK UP AND REPORT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+        If gSilent Then
+            Notify "Nothing was looked up." & vbLf & vbLf & "A lookup is confirmed in a dialog, which silent mode " & _
+                   "does not show. Automation calls DownloadClosingPrices_Silent.", vbExclamation
+            Exit Sub
+        End If
+        Pairs = ClosingPricePairs()
+        If Pairs = 0 Then
+            Notify "No currency of the FX table has a pair: nothing to look up.", vbExclamation
+            Exit Sub
+        End If
+        If MsgBox("Replace the rates of " & Pairs & " currenc" & IIf(Pairs = 1, "y", "ies") & " with the closing prices of " & _
+                  ClosingPriceDate() & " from STOCKHISTORY?" & vbLf & vbLf & _
+                  "The rates now in the table are overwritten and Undo cannot bring them back. It needs Microsoft 365 " & _
+                  "and a connection, and takes up to " & PRICE_WAIT_SECONDS & " seconds.", _
+                  vbOKCancel + vbQuestion + vbDefaultButton2, MSG_TITLE) <> vbOK Then
+            Exit Sub
+        End If
+        ResultLine = LookUpClosingPrices(Priced, Without, Problem)
+        RibbonStateChanged
+        If Len(Problem) > 0 Then
+            Notify "No rate was changed." & vbLf & vbLf & Problem, vbExclamation
+        Else
+            Notify Priced & " rate" & IIf(Priced = 1, "", "s") & " set to the closing price of " & ClosingPriceDate() & _
+                   IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose rate stays as it was.", "."), _
+                   IIf(Len(Without) > 0, vbExclamation, vbInformation)
+        End If
+        Exit Sub
+
+Failed:
+        Notify "Download closing prices: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function DownloadClosingPrices_Silent() As String
+'
+'==============================================================================
+'                         DownloadClosingPrices_Silent
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Look up the closing prices of the FX table and write them as rates
+'   (#721), for automation and tests, without a confirmation or a message.
+'
+' RETURNS
+'   "RESULT=PRICED; rates=N; without_price=M" (and "; codes=..." with the
+'   currencies that got no price, whose rate stays), or
+'   "RESULT=REFUSED; reason=..." when no rate was changed, for example
+'   without STOCKHISTORY.
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs. gTestFault =
+'   "prices-unavailable" makes the lookup refuse as an Excel that
+'   cannot take the formula does; "prices-name-error" writes =#NAME? as
+'   an Excel that takes it but has no STOCKHISTORY would evaluate it;
+'   "prices-fixed" writes the price 2 for every pair, and no price (#N/A)
+'   for the first one, in place of the formulas of STOCKHISTORY.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Priced      As Long      'Rates written
+    Dim Without     As String    'Currencies with no price
+    Dim Problem     As String    'Why no rate was changed
+
+'------------------------------------------------------------------------------
+' LOOK UP
+'------------------------------------------------------------------------------
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.DownloadClosingPrices_Silent", "An SA-CCR operation is already running."
+        End If
+        DownloadClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
+
+End Function
+
+
+Private Function ClosingPair( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal Row As Long, _
+    ByVal KeyColumn As Long) _
+    As String
+'
+'==============================================================================
+'                               ClosingPair
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The currency pair of the FX-table row, the reporting currency over the
+'   currency of the row, such as EUR/USD, in capitals (#721). Empty for the
+'   row of the reporting currency. It is built from the code, so that a
+'   currency appended below the table has one too.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'The currency of the row
+    Dim Reporting   As String    'The reporting currency
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, Row, KeyColumn).Value2)))
+        Reporting = UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2)))
+        If Len(Code) = 0 Or Len(Reporting) = 0 Or Code = Reporting Then
+            Exit Function
+        End If
+        ClosingPair = Reporting & "/" & Code
+
+End Function
+
+
+Private Function ClosingPriceDate() As String
+'
+'==============================================================================
+'                             ClosingPriceDate
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reporting date, the day of the closing prices, as yyyy-mm-dd (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo NoDate
+        ClosingPriceDate = Format$(CDate(NamedCell(PRM_ASOF).Value2), "yyyy-mm-dd")
+        Exit Function
+
+NoDate:
+        ClosingPriceDate = "the reporting date"
+
+End Function
+
+
+Private Function ClosingPricePairs() As Long
+'
+'==============================================================================
+'                             ClosingPricePairs
+'------------------------------------------------------------------------------
+' PURPOSE
+'   How many rows of the FX table have a currency pair (ClosingPair), the
+'   rows whose closing price can be looked up (#721). The table runs down
+'   to the first blank key.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
+                ClosingPricePairs = ClosingPricePairs + 1
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Function LookUpClosingPrices( _
+    ByRef Priced As Long, _
+    ByRef Without As String, _
+    ByRef Problem As String) _
+    As String
+'
+'==============================================================================
+'                            LookUpClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write into the rate cell of each row that has a pair (ClosingPair) the
+'   last closing price of the pair up to the reporting date, seven days
+'   back at most, as a value (#721), and the reporting date into the hidden
+'   cell NM_FX_PRICE_DATE, which the sheet shows beside the button.
+'
+' METHOD
+'   1. Write the STOCKHISTORY formula into the hidden scratch column of
+'      every row with a pair, through the property Formula2 by late
+'      binding so that the code compiles in an Excel without it; an Excel
+'      that refuses it, or a fault injected, is a refusal.
+'   2. With calculation automatic, wait until Excel reports the
+'      calculation done, PRICE_WAIT_SECONDS at most.
+'   3. Refuse, changing no rate, when a cell evaluated to #NAME? (an Excel
+'      that takes the formula but has no STOCKHISTORY) or when the
+'      reporting date, the reporting currency or a code was changed while
+'      the data came in.
+'   4. Write each price above zero into its rate cell; a row with no price
+'      keeps its rate and is listed in Without.
+'   5. Empty the scratch column and put the calculation mode back, also
+'      after an error, which puts the rates back as they were.
+'   From step 1 to the end mRunning is set, so that no other operation, and
+'   no second lookup, starts while DoEvents lets the buttons work: it is
+'   released on every way out.
+'
+' ERROR POLICY
+'   A refusal is returned in the result line, not raised.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the table
+    Dim r             As Long         'Row
+    Dim PairRows()    As Long         'The rows with a pair
+    Dim PairsAsked()  As String       'The pair each price is asked for
+    Dim Kept()        As Variant      'The rate each row held before
+    Dim KeptDate      As Variant      'The date of the prices before
+    Dim AsOfAsked     As Variant      'The reporting date the prices are asked for
+    Dim Count         As Long         'Rows with a pair
+    Dim i             As Long         'Row with a pair
+    Dim PriceCell     As Range        'A scratch cell
+    Dim Found         As Variant      'What the formula returned, Empty when it is no price
+    Dim Formula       As String       'The formula written into a scratch cell
+    Dim Refused       As Boolean      'The formula could not be written
+    Dim Unavailable   As Boolean      'A formula evaluated to #NAME?, STOCKHISTORY is unknown
+    Dim Changed       As Boolean      'An input changed while the data came in
+    Dim ErrNumber     As Long         'The error to raise again
+    Dim ErrText       As String       'Its description
+    Dim Mode          As XlCalculation 'The caller's calculation mode
+    Dim ModeKept      As Boolean      'The mode was read
+    Dim Deadline      As Double       'When to stop waiting
+    Dim Code          As String       'A currency
+
+'------------------------------------------------------------------------------
+' FIND THE ROWS
+'------------------------------------------------------------------------------
+        Priced = 0
+        Without = vbNullString
+        Problem = vbNullString
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        If HeaderRow = 0 Then
+            Problem = "the workbook name '" & NM_FX_TABLE & "' is missing or no longer refers to a cell on " & SH_PARAMS & "."
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        ReDim PairRows(1 To LastRow - HeaderRow + 1)
+        ReDim PairsAsked(1 To LastRow - HeaderRow + 1)
+        ReDim Kept(1 To LastRow - HeaderRow + 1)
+        On Error Resume Next
+        KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        If Err.Number <> 0 Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "the workbook name '" & NM_FX_PRICE_DATE & "' is missing."
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        On Error GoTo 0
+        For r = HeaderRow + 1 To LastRow
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
+                Count = Count + 1
+                PairRows(Count) = r
+                PairsAsked(Count) = ClosingPair(ParamsSheet, r, KeyColumn)
+                Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2
+            End If
+        Next r
+        If Count = 0 Then
+            Problem = "no currency of the FX table has a pair."
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE THE FORMULAS
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        mRunning = True
+        AsOfAsked = NamedCell(PRM_ASOF).Value2
+        Mode = Application.Calculation
+        ModeKept = True
+        Application.Calculation = xlCalculationAutomatic
+        ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+        On Error Resume Next
+        For i = 1 To Count
+            Refused = (gTestFault = "prices-unavailable")
+            If Not Refused Then
+                Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
+                Formula = "=LET(r,STOCKHISTORY(""" & PairsAsked(i) & _
+                          """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+                If gTestFault = "prices-name-error" Then
+                    Formula = "=#NAME?"
+                ElseIf gTestFault = "prices-fixed" Then
+                    Formula = IIf(i = 1, "=NA()", "=2")
+                End If
+                CallByName PriceCell, "Formula2", VbLet, Formula
+                Refused = (Err.Number <> 0)
+            End If
+            If Refused Then
+                Exit For
+            End If
+        Next i
+        If Refused Then
+            Err.Clear
+            On Error GoTo Failed
+            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+            Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
+            Application.Calculation = Mode
+            mRunning = False
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        On Error GoTo Failed
+
+'------------------------------------------------------------------------------
+' WAIT FOR THE DATA
+'------------------------------------------------------------------------------
+        Deadline = Timer + PRICE_WAIT_SECONDS
+        Do While Application.CalculationState <> xlDone And Timer < Deadline
+            DoEvents
+        Loop
+
+'------------------------------------------------------------------------------
+' CHECK WHAT CAME
+'------------------------------------------------------------------------------
+    'An Excel that takes the formula but does not know STOCKHISTORY returns #NAME?
+        For i = 1 To Count
+            If IsError(TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2) Then
+                If TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2 = CVErr(xlErrName) Then
+                    Unavailable = True
+                End If
+            End If
+        Next i
+    'The reporting date and the pairs must still be the ones asked for
+        Changed = (NamedCell(PRM_ASOF).Value2 <> AsOfAsked)
+        For i = 1 To Count
+            If ClosingPair(ParamsSheet, PairRows(i), KeyColumn) <> PairsAsked(i) Then
+                Changed = True
+            End If
+        Next i
+        If Unavailable Or Changed Then
+            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+            If Unavailable Then
+                Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
+            Else
+                Problem = "the reporting date, the reporting currency or a currency code was changed while the prices came in, so no rate was changed."
+            End If
+            Application.Calculation = Mode
+            mRunning = False
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE THE RATES
+'------------------------------------------------------------------------------
+        For i = 1 To Count
+            Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
+            Found = Empty
+            If VarType(PriceCell.Value2) = vbDouble Then
+                If PriceCell.Value2 > 0# Then
+                    Found = PriceCell.Value2
+                End If
+            End If
+            If IsEmpty(Found) Then
+                Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, PairRows(i), KeyColumn).Value2)))
+                Without = Without & IIf(Len(Without) > 0, ",", "") & Code
+            Else
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Found
+                Priced = Priced + 1
+            End If
+        Next i
+        ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+    'The date the rates are of, shown beside the button
+        NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfAsked
+        Application.Calculation = Mode
+        mRunning = False
+        LookUpClosingPrices = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
+                              IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
+                              IIf(Len(Without) > 0, "; codes=" & Without, "")
+        Exit Function
+
+Failed:
+        ErrNumber = Err.Number
+        ErrText = Err.Description
+        mRunning = False
+        If ModeKept Then
+            On Error Resume Next
+            For i = 1 To Count
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_RATE).Value2 = Kept(i)
+            Next i
+            ClearPriceScratch ParamsSheet, KeyColumn, HeaderRow + 1, LastRow
+            NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
+            Application.Calculation = Mode
+        End If
+        Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
+
+End Function
+
+
+Private Sub ClearPriceScratch( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal KeyColumn As Long, _
+    ByVal FirstRow As Long, _
+    ByVal LastRow As Long)
+'
+'==============================================================================
+'                            ClearPriceScratch
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Empty the hidden scratch column that the price formulas of a lookup use,
+'   from FirstRow to LastRow (#721), so that no formula and no data request
+'   stays in the workbook.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' EMPTY
+'------------------------------------------------------------------------------
+        If LastRow >= FirstRow Then
+            TableRange(ParamsSheet, FirstRow, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE).ClearContents
+        End If
+
+End Sub
+
+'
+'------------------------------------------------------------------------------
+'
 '                         REGULATORY PARAMETERS (#357)
 '
 '------------------------------------------------------------------------------

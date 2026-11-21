@@ -86,10 +86,10 @@ set, the one every run is compared with:
 - **Restored:** the reference parameters `Alpha`, `MultiplierFloor`,
   `BusinessDaysPerYear`, `MinMaturityBD`, `SDFloorBD`, the three MPOR floors,
   `BasisFactor`, `VolatilityFactor`, the three IR correlations and the two
-  CRR lambda thresholds; the conventions `DayCountNumerator` (ACTUAL) and
+  CRR lambda thresholds; the conventions `DaycountConvention` (ACTUAL) and
   `IRBucketOffset` (TRUE); and the 26 rows of the supervisory-factor table,
   from the key to the regimes.
-- **Not changed:** `AsOfDate`, `ReportingCcy`, `Regime`, `DayCountConvention`, `Calendar`, the FX table, the
+- **Not changed:** `AsOfDate`, `ReportingCcy`, `Regime`, `YearConvention`, `Calendar`, the FX table, the
   Reference column of the factor table, and the alpha overrides on
   NettingSets, which are inputs. A run with an alpha override stays `WHAT-IF`.
 - **Confirmation:** it lists what will be overwritten, the value now and in

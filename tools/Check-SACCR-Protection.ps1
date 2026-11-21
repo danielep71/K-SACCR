@@ -386,19 +386,19 @@ try {
     # 2: typing into a header, a grey Params value, an output cell, a
     # staging metadata cell and Home is refused.
     $targets = @(
-        @("Trades", "C4"), @("Params", "E8"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
+        @("Trades", "C4"), @("Params", "E9"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
     )
     $accepted = @($targets | Where-Object { Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) "x" } |
         ForEach-Object { $_[0] + "!" + $_[1] })
     Add-Result 2 ($accepted.Count -eq 0) `
-        ("Writes to Trades!C4, Params!E8, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
+        ("Writes to Trades!C4, Params!E9, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
          ($accepted -join ", ") + "]")
 
     # 3: inputs, Params configuration, an FX rate, a bank figure and a bank
     # tolerance are accepted, also thousands of rows down.
     $targets = @(
         @("Trades", "C5", "T-CHECK"), @("Trades", "C4000", "T-CHECK"), @("NettingSets", "C7", "NS-CHECK"),
-        @("Params", "E6", 46022), @("Params", "E60", 1), @("BankNettingSets", "C9", "NS-CHECK"),
+        @("Params", "E6", 46022), @("Params", "E61", 1), @("BankNettingSets", "C9", "NS-CHECK"),
         @("BankNettingSets", "D5", 0.5)
     )
     $refused = @($targets | Where-Object { -not (Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) $_[2]) } |
@@ -408,7 +408,7 @@ try {
         $reason = "; last error: " + $script:lastWriteError
     }
     Add-Result 3 ($refused.Count -eq 0) `
-        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E60, BankNettingSets!C9 and D5; refused [" +
+        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E61, BankNettingSets!C9 and D5; refused [" +
          ($refused -join ", ") + "]" + $reason)
 
     # 4: several rows of values pasted into the input columns, then cleared.
@@ -536,13 +536,13 @@ try {
     # 10: a changed Alpha after a maintenance unlock makes the run WHAT-IF;
     # the run protects Params again; the value is restored.
     $params = $workbook.Worksheets.Item("Params")
-    $alphaFormula = [string]$params.Range("E8").Formula
+    $alphaFormula = [string]$params.Range("E9").Formula
     $params.Unprotect()
-    $params.Range("E8").Value2 = 1.5
+    $params.Range("E9").Value2 = 1.5
     $whatIf = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $protectedAgain = [bool]$params.ProtectContents
     $params.Unprotect()
-    $params.Range("E8").Formula = $alphaFormula
+    $params.Range("E9").Formula = $alphaFormula
     $regular = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     Add-Result 10 ((Test-Run $whatIf) -and $whatIf.Contains("; run_class=WHAT-IF;") -and $protectedAgain -and
                    $regular.Contains("; run_class=REGULATORY;") -and [bool]$params.ProtectContents) `

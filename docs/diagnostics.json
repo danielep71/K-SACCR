@@ -98,7 +98,7 @@
     },
     "PRM-DAYCOUNT": {
       "constant": "DIAG_PRM_DAYCOUNT",
-      "description": "Day-count convention must be 366, 365, 365.25, 264, 360, 252 or 250, or the day-count numerator ACTUAL (found",
+      "description": "Day-count convention must be 366, 365, 364, 360, 252 or 250, or the day-count numerator ACTUAL (found",
       "status": "active"
     },
     "PRM-CALENDAR": {

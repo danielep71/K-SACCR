@@ -34,6 +34,7 @@ BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLU
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
     "Reconciliation": CLEAR, "TradeReconciliation": CLEAR,
+    "Params": (("btn_DownloadClosingPrices", "DownloadClosingPrices", "Download prices", BLUE),),
     "FormulaTest": (("btn_RandomizeInputs", "RandomizeFormulaTestInputs", "Randomize inputs", NAVY),
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
@@ -43,7 +44,8 @@ EXPECTED = {
     "BankTrades": tuple((a, b.replace("{import}", "ImportBankTradesCsv").replace(
         "{export}", "ExportBankTradesCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
 }
-# The shapes start no further than this right of the left edge of column C, and clear of the title.
+# The shapes start no further than this right of the left edge of column C, and clear of the title (Params
+# is the exception: its Download prices button sits beside the FX table).
 NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)
 LATEST_START_PX = 480
 EMU = 9525
@@ -64,6 +66,10 @@ def drawing_of(package: zipfile.ZipFile, part: str) -> str:
     match = re.search(r'Type="[^"]*/drawing" Target="\.\./drawings/(drawing\d+\.xml)"', rels)
     assert match is not None, part
     return "xl/drawings/" + match.group(1)
+
+
+def anchor_column(anchor: ElementTree.Element) -> int:
+    return int(anchor.findtext(f"{XDR}from/{XDR}col") or "0")
 
 
 def shape_name(shape: ElementTree.Element) -> str:
@@ -143,10 +149,43 @@ class ShapeButtonTests(unittest.TestCase):
                 self.assertEqual(color.attrib["val"], fill, (name, button))
                 self.assertEqual("".join(item.text or "" for item in shape.iter(A + "t")), label, (name, button))
 
+    def test_the_price_button_sits_beside_the_fx_table_and_clear_of_the_stamp_and_the_closing_days_title(self) -> None:
+        # Not in the title row's text: the owner put the button at the FX table, left of the date stamp in G59.
+        strings = [re.sub("<[^>]+>", "", item) for item in
+                   re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
+        sheet = self.package.read(self.parts["Params"]).decode("utf-8")
+        title = next(int(row) for row, index in re.findall(r'<c r="C(\d+)"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet)
+                     if strings[int(index)] == "FX rates")
+        drawing = ElementTree.fromstring(self.package.read(drawing_of(self.package, self.parts["Params"])))
+        groups = [anchor for anchor in drawing.iter(XDR + "oneCellAnchor")
+                  if anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr") is not None
+                  and anchor.find(f"{XDR}grpSp/{XDR}nvGrpSpPr/{XDR}cNvPr").attrib["name"] == "btn_Group"]  # type: ignore[union-attr]
+        self.assertEqual(len(groups), 1)
+        group = groups[0]
+        first = int(group.findtext(f"{XDR}from/{XDR}row") or "0") + 1  # the sheet row where the shapes start
+        self.assertIn(first, (title - 1, title))
+        self.assertEqual(group.find(XDR + "clientData").attrib["fLocksWithSheet"], "1")  # type: ignore[union-attr]
+        widths = column_widths(sheet)
+        origin = sum(widths.get(index, 64) for index in range(1, anchor_column(group) + 1)) + \
+            int(group.findtext(f"{XDR}from/{XDR}colOff") or "0") // EMU
+        edges = {}
+        for shape in group.iter(XDR + "sp"):
+            position = shape.find(f"{XDR}spPr/{A}xfrm/{A}off")
+            size = shape.find(f"{XDR}spPr/{A}xfrm/{A}ext")
+            assert position is not None and size is not None
+            left = origin + int(position.attrib["x"]) // EMU
+            edges[shape_name(shape)] = (left, left + int(size.attrib["cx"]) // EMU)
+        self.assertEqual(list(edges), ["btn_DownloadClosingPrices"])
+        left, right = edges["btn_DownloadClosingPrices"]
+        column_e = (sum(widths.get(index, 64) for index in range(1, 5)), sum(widths.get(index, 64) for index in range(1, 6)))
+        column_g = sum(widths.get(index, 64) for index in range(1, 7))
+        self.assertTrue(column_e[0] <= left < column_e[1], (edges, column_e))  # the button starts in column E, beside the table
+        self.assertLessEqual(right, column_g + 2)  # and ends before the date stamp in column G
+
     def test_shapes_sit_in_the_title_row_left_of_the_old_buttons_and_clear_of_the_title(self) -> None:
         strings = [re.sub("<[^>]+>", "", item) for item in
                    re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
-        for name in EXPECTED:
+        for name in (sheet for sheet in EXPECTED if sheet != "Params"):
             sheet = self.package.read(self.parts[name]).decode("utf-8")
             title = strings[int(re.search(r'<c r="B2"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet).group(1))]  # type: ignore[union-attr]
             widths = column_widths(sheet)

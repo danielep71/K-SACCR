@@ -1399,7 +1399,7 @@ Private Sub CaseExportWorkbook()
         HolidayCells.Value = Array(46364#, "Test closing day")
         ResultLine = M_Main.RunSACCR_Silent()
         ResultLine = M_Main.ExportEvidence_Silent(SecondFile)
-        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;Closing day;Description" & vbCrLf) > 0, _
+        TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;Bank Holiday;Description" & vbCrLf) > 0, _
                        "the header of the holiday table is missing from the report: " & ResultLine
         TEST_Kit.Check InStr(FileText(SecondFile), vbCrLf & "HOLIDAY_TABLE;46364;Test closing day" & vbCrLf) > 0, _
                        "a closing day below a blank row is missing from the report: " & ResultLine

@@ -986,7 +986,7 @@ Public Function SACCR_BusinessDays( _
 '   counted, and the closing days of the calendar left out. The calendar
 '   is the EUR TARGET rule, a table of closing days, or both. The engine
 '   counts the days of its Calendar parameter (TARGET, TARGET+TABLE) with
-'   it, over the days of the conventional year of DayCountConvention.
+'   it, over the days of the conventional year of YearConvention.
 '
 '   TARGET closes on 1 January, Good Friday, Easter Monday, 1 May, 25
 '   December and 26 December, with Good Friday and Easter Monday from the

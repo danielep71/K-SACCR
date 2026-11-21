@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 41   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 42   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -197,7 +197,8 @@ Public Sub RunMainStateTests()
         CaseStaleParams False
         CaseStaleParams True
         CaseRestoreParams
-        CaseDayCountConvention
+        CaseYearConvention
+        CaseDownloadClosingPrices
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1649,10 +1650,10 @@ Unexpected:
 End Sub
 
 
-Private Sub CaseDayCountConvention()
+Private Sub CaseYearConvention()
 '
 '==============================================================================
-'                          CaseDayCountConvention
+'                          CaseYearConvention
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The day count of Params (#721): with a year of 365 days and the calendar
@@ -1725,6 +1726,140 @@ Unexpected:
         PutParamsBack
 
 End Sub
+
+
+Private Sub CaseDownloadClosingPrices()
+'
+'==============================================================================
+'                        CaseDownloadClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Download prices on Params (#721). In an Excel without STOCKHISTORY, which
+'   the faults "prices-unavailable" and "prices-name-error" stand for, the
+'   lookup refuses and says why, the rates stay as they were, no formula is
+'   left in the hidden scratch column and the calculation mode is as it
+'   was. With the fault "prices-fixed", which stands for prices that came
+'   (2 for every pair, none for the first), the rates of the others take the
+'   price, the first keeps its rate, the reporting currency keeps 1, the
+'   date of the prices is the reporting date and the scratch column is
+'   empty. The rates and the date are put back.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String    'What a call returned
+    Dim ParamsSheet As Worksheet 'Params
+    Dim HeaderRow   As Long      'Header row of the FX table
+    Dim KeyColumn   As Long      'Its key column
+    Dim LastRow     As Long      'Last row of the FX table
+    Dim Rates       As Range     'The rates of the currencies below the reporting currency
+    Dim Scratch     As Range     'The hidden scratch column of the lookup
+    Dim SavedRates  As Variant   'The rates, formulas included
+    Dim SavedDate   As Variant   'The date of the prices before
+    Dim Count       As Long      'Currencies below the reporting currency
+    Dim i           As Long      'Currency
+
+'------------------------------------------------------------------------------
+' LOOK UP WITH FAULTS
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.download-closing-prices"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Count = LastRow - HeaderRow - 1
+        Set Rates = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        Set Scratch = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
+        SavedRates = Rates.Formula
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        M_Main.gTestFault = "prices-unavailable"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "refusal: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "the rates are as they were"
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "the scratch column is empty"
+        TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+        M_Main.gTestFault = "prices-name-error"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "#NAME? refusal: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "after #NAME? the rates are as they were"
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after #NAME? the scratch column is empty"
+
+'------------------------------------------------------------------------------
+' LOOK UP WITH PRICES
+'------------------------------------------------------------------------------
+        M_Main.gTestFault = "prices-fixed"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=" & (Count - 1) & "; without_price=1; codes=") = 1, "prices: " & Result
+        TEST_Kit.Check CStr(Rates.Cells(1, 1).Formula) = CStr(SavedRates(1, 1)), "a currency with no price keeps its rate"
+        TEST_Kit.Check ToDbl(Rates.Cells(2, 1).Value2, 0#) = 2#, "a rate takes the price"
+        TEST_Kit.Check ToDbl(Rates.Cells(Count, 1).Value2, 0#) = 2#, "the last rate takes the price"
+        TEST_Kit.Check ToDbl(TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE).Value2, 0#) = 1#, _
+                       "the reporting currency keeps 1"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(NamedCell(PRM_ASOF).Value2, -1#), _
+                       "the date of the prices is the reporting date"
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after the prices the scratch column is empty"
+        Rates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not Rates Is Nothing Then
+            Rates.Formula = SavedRates
+            NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        End If
+
+End Sub
+
+
+Private Function RatesAsSaved( _
+    ByVal Rates As Range, _
+    ByVal SavedRates As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                              RatesAsSaved
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True when every cell of Rates holds, as a formula or a value, what
+'   SavedRates holds (Rates.Formula read before): the rates are as they
+'   were (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Cell
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        RatesAsSaved = True
+        For i = 1 To Rates.Rows.Count
+            If CStr(Rates.Cells(i, 1).Formula) <> CStr(SavedRates(i, 1)) Then
+                RatesAsSaved = False
+            End If
+        Next i
+
+End Function
 
 
 Private Sub CaseRestoreFailures()

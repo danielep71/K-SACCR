@@ -97,6 +97,49 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Take the second round of the owner's changes to the Params sheet into the template, and add Download prices
+  (#721). The parameters are in the owner's order, with Regime first (row 8), and the two day-count
+  codes are renamed: `DaycountConvention` for the numerator (`ACTUAL`, row 25, formerly
+  `DayCountNumerator`) and `YearConvention` for the days of the year (row 26, formerly
+  `DayCountConvention`), in the workbook names, the engine, the fixtures, the checks and the docs. The
+  headers of the tables are the owner's too: Currency Code and Currency Description for the FX table and
+  Bank Holiday for the table of closing days, which the engine checks. The FX table holds the euro and the
+  20 currencies most traded against it, with the Refinitiv closing prices as rates.
+  The new **Download prices** button, beside the FX table (`DownloadClosingPrices`), looks up
+  the closing price of each pair with `STOCKHISTORY` (Microsoft 365 and a connection) after a confirmation
+  with Cancel as the default: the last price up to the reporting date, seven days back at most, becomes the
+  rate of the currency, as a value. A currency that gets no price and the reporting currency keep their rate,
+  and the date of the prices is shown in G59 (the hidden cell `FX_PriceDate`, AQ27). The pair is built in
+  code from the currency code and `ReportingCcy`, so a currency appended below the table is looked up
+  too. The price formulas live in a hidden scratch column (AR) that is emptied afterwards, so no formula and
+  no data request stays in the workbook. The macro refuses, changing no rate, in an Excel without
+  `STOCKHISTORY` (also when the cell evaluates to `#NAME?`) and when the reporting date, the reporting
+  currency or a code is changed while the prices come in. `DownloadClosingPrices_Silent` is its entry point
+  and `params.download-closing-prices` its case (14 checks, 624 in TEST_MainState; the test fault
+  `prices-fixed` stands for prices that came). Two repairs of the sheet that
+  the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
+  validations follow their cells (Regime keeps its list, the currency check covers only the reporting
+  currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the
+  rows under the FX table are editable, and the instruction for new currencies is back under the last row. The rate header E60 is 10 pt, the one exception to the 11 pt of every header (`header_size_exceptions` in
+  `sheet-style.json`). The texts of the Home sheet are the owner's (the descriptions of the steps are
+  broken into lines). The formats the owner gave the cells are kept: the
+  reporting date in bold blue and centred, the day-count numerator and the added rates centred, the currency
+  codes in bold, the heading Bank Holiday
+  centred, and the added currency rows as high as the first ones.
+
+- Take the owner's changes to the Params sheet into the template (#721, follow-up). The list of day-count
+  denominators is 366, 365, 364, 360, 252 and 250 (365.25 and 264 are removed, 364 is added) and is kept
+  in the hidden cells AQ20:AQ25; the engine, the checks and the docs follow. The note of `Calendar`
+  runs over two rows, so every row below it moved down by one: the factor table starts on row 31, the FX
+  table on row 60 and `SF_Table`, `FX_Table` and `Holiday_Table` follow (the macros find them by name;
+  the validations on Trades, the editable cells, the check script and the matrix follow). The prices are
+  values: the new **Download prices** button looks them up with `STOCKHISTORY` (Microsoft
+  365 and a connection) and writes them as the rates; the template holds no such formula, because an unfinished data request keeps
+  Excel from reporting its calculation done and a run in manual calculation then refuses to start. The validated zone of the FX table holds the
+  reporting currency and 20 others (rows 61 to 81). The
+  illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
+  table of closing days moved from G:H to I:J.
+
 - Add the `ReconSummary` sheet, after `TradeReconciliation`, with one row per measure of the two
   reconciliation sheets (#720). Each row shows the rows shown, the Match and Difference counts, the other
   results, the sum of the bank figures, of the calculator figures and of the absolute differences, the

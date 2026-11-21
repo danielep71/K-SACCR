@@ -90,8 +90,8 @@ authority, is in the methodology: the
 summarises them and is not a source.
 
 - **Dates:** the card gives S, E, M and T in years of 365 days. That is the
-  default of the `DayCountConvention` parameter on Params, which accepts 366,
-  365, 365.25, 264, 360, 252 or 250; the engine uses the value set.
+  default of the `YearConvention` parameter on Params, which accepts 366,
+  365, 364, 360, 252 or 250; the engine uses the value set.
 - **Sources:** the card's source line names CRE52, the CRR and Delegated
   Regulation (EU) 2021/931. Its MPOR line also relies on CRE54.8, CRE54.12,
   CRE54.14 to CRE54.17, registered as `CRE54` in the
