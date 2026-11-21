@@ -7959,9 +7959,12 @@ Private Function PricesPending( _
 '                              PricesPending
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   True while a scratch cell still waits for its data (#721): Excel shows
-'   #BUSY! for the request of STOCKHISTORY that has not come back, and the
-'   calculation can be reported done before it has.
+'   True while a scratch cell still waits for its data (#721): a request of
+'   STOCKHISTORY that has not come back shows #BUSY!, and the calculation can
+'   be reported done before it has. A cell is pending when it is empty or
+'   holds an Excel error that is not one of the final ones (#N/A, #VALUE!,
+'   #NAME?, #CONNECT!, ...), so the wait does not depend on the number that
+'   Excel gives to the busy state.
 '
 ' UPDATED
 '   2026-11-21
@@ -7980,7 +7983,7 @@ Private Function PricesPending( _
         For i = 1 To Count
             Value = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2
             If IsError(Value) Then
-                If Value = CVErr(2045) Then
+                If Not IsFinalError(ErrorNumber(Value)) Then
                     PricesPending = True
                     Exit Function
                 End If
@@ -7989,6 +7992,59 @@ Private Function PricesPending( _
                 Exit Function
             End If
         Next i
+
+End Function
+
+
+Private Function ErrorNumber( _
+    ByVal Value As Variant) _
+    As Long
+'
+'==============================================================================
+'                               ErrorNumber
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The number of an Excel error value, such as 2042 for #N/A, read from its
+'   text ("Error 2042") so that no Error variant is compared (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        ErrorNumber = CLng(Val(Mid$(CStr(Value), 7)))
+
+End Function
+
+
+Private Function IsFinalError( _
+    ByVal Number As Long) _
+    As Boolean
+'
+'==============================================================================
+'                               IsFinalError
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True for an Excel error that a lookup ends with (#NULL!, #DIV/0!,
+'   #VALUE!, #REF!, #NAME?, #NUM!, #N/A, #SPILL!, #CONNECT!, #BLOCKED!,
+'   #UNKNOWN!, #FIELD!, #CALC!), as opposed to the busy state of a request
+'   that has not come back (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Select Case Number
+            Case 2000, 2007, 2015, 2023, 2029, 2036, 2042, 2045 To 2050
+                IsFinalError = True
+        End Select
 
 End Function
 
@@ -8013,27 +8069,36 @@ Private Function ScratchState( _
 ' BUILD
 '------------------------------------------------------------------------------
         If IsError(Value) Then
-            If Value = CVErr(xlErrNA) Then
-                ScratchState = "#N/A"
-            ElseIf Value = CVErr(xlErrValue) Then
-                ScratchState = "#VALUE!"
-            ElseIf Value = CVErr(xlErrName) Then
-                ScratchState = "#NAME?"
-            ElseIf Value = CVErr(xlErrRef) Then
-                ScratchState = "#REF!"
-            ElseIf Value = CVErr(xlErrNum) Then
-                ScratchState = "#NUM!"
-            ElseIf Value = CVErr(2045) Then
-                ScratchState = "#BUSY!"
-            ElseIf Value = CVErr(2046) Then
-                ScratchState = "#CONNECT!"
-            ElseIf Value = CVErr(2047) Then
-                ScratchState = "#BLOCKED!"
-            ElseIf Value = CVErr(2049) Then
-                ScratchState = "#FIELD!"
-            Else
-                ScratchState = "an Excel error"
-            End If
+            Select Case ErrorNumber(Value)
+                Case 2000
+                    ScratchState = "#NULL!"
+                Case 2007
+                    ScratchState = "#DIV/0!"
+                Case 2015
+                    ScratchState = "#VALUE!"
+                Case 2023
+                    ScratchState = "#REF!"
+                Case 2029
+                    ScratchState = "#NAME?"
+                Case 2036
+                    ScratchState = "#NUM!"
+                Case 2042
+                    ScratchState = "#N/A"
+                Case 2045
+                    ScratchState = "#SPILL!"
+                Case 2046
+                    ScratchState = "#CONNECT!"
+                Case 2047
+                    ScratchState = "#BLOCKED!"
+                Case 2048
+                    ScratchState = "#UNKNOWN!"
+                Case 2049
+                    ScratchState = "#FIELD!"
+                Case 2050
+                    ScratchState = "#CALC!"
+                Case Else
+                    ScratchState = "the busy state of a request (error " & ErrorNumber(Value) & "), the data had not come"
+            End Select
         ElseIf IsEmpty(Value) Then
             ScratchState = "an empty cell"
         ElseIf VarType(Value) = vbString Then
