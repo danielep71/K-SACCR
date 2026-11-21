@@ -112,8 +112,11 @@ Use only the categories needed by a release.
   manual calculation, which is left as it was. `CopyClosingPrices_Silent` is its entry point, and
   `params.copy-closing-prices` its case (6 checks). **Download prices** (`DownloadClosingPrices`, entry point
   `DownloadClosingPrices_Silent`, case `params.download-closing-prices` with 4 checks, 620 in TEST_MainState) writes
-  the last closing price of each pair up to the reporting date, seven days back at most, as a value, and
-  keeps the earlier price of a currency that gets none. Two repairs of the sheet that
+  the last closing price of each pair up to the reporting date, seven days back at most, as a value, with the
+  pair it was looked up for (hidden column AR) and the date (hidden cell `FX_PriceDate`, AQ27); the price of a
+  currency that gets none is emptied. The pair is built from the currency code and `ReportingCcy`, so a currency
+  appended below the table is looked up too. Copy values copies nothing when the saved prices are not those of
+  the reporting date, and skips a currency whose recorded pair is not its pair now. Two repairs of the sheet that
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting
   currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the

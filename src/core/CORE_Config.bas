@@ -129,6 +129,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const NM_PRM_VALUE     As String = "Params_Value"           'Header cell "Value"
         Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
         Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
+        Public Const NM_FX_PRICE_DATE As String = "FX_PriceDate"           'Hidden cell: the date of the closing prices (#721)
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
@@ -366,6 +367,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
         Public Const FX_COL_PAIR  As Long = 3     'Currency pair, empty on the row of the reporting currency
         Public Const FX_COL_PRICE As Long = 4     'Closing price of the pair, a number or not
+        Public Const FX_COL_PRICE_PAIR As Long = 41    'Hidden: the pair the price was looked up for (column AR)
     'Seconds Download prices waits for the data of STOCKHISTORY (#721).
         Public Const PRICE_WAIT_SECONDS As Long = 30
     'The rate column's header before #725, when rates were units of the reporting currency per

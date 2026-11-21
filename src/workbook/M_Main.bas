@@ -7407,7 +7407,8 @@ Public Sub CopyClosingPrices()
 '   Closing Price column, into the rate column as values (#721), after a
 '   confirmation that says how many rates change, with Cancel as the
 '   default. A currency without a closing price, and the reporting
-'   currency, keep their rate.
+'   currency, keep their rate. Nothing is copied when the prices are not
+'   those of the reporting date.
 '
 ' USAGE
 '   Copy values on the Params sheet, or the Macros dialog. Automation
@@ -7529,24 +7530,26 @@ Private Function ScanClosingPrices( _
 ' PURPOSE
 '   Compare, row by row of the FX table, the closing price (the column
 '   FX_COL_PRICE places from its key) with the rate (FX_COL_RATE) and, when
-'   Apply is True, write the price into the rate as a value (#721). A row
-'   without a currency pair, the reporting currency, is skipped; a row
-'   whose price is not a number above zero is listed in Without and keeps
-'   its rate. The table runs down to the first blank key, as the run reads
-'   it. The pair and the price are formulas: they are recalculated first,
-'   also in manual calculation, which is left as it was.
+'   Apply is True, write the price into the rate as a value (#721). The
+'   prices are values saved by Download prices, with the date they are of
+'   (the name NM_FX_PRICE_DATE) and, per row, the pair they were looked up
+'   for (FX_COL_PRICE_PAIR): nothing is copied when that date is not the
+'   reporting date, and a row whose recorded pair is not the pair of its
+'   currency now, or whose price is not a number above zero, is listed in
+'   Without and keeps its rate. The reporting currency is skipped. The
+'   table runs down to the first blank key, as the run reads it.
 '
 ' INPUTS
 '   Apply: True to write, False to count only.
 '   Changed, Unchanged, Without, Problem: the counts, the currencies with
-'   no price and the reason for a refusal, set here.
+'   no usable price and the reason for a refusal, set here.
 '
 ' RETURNS
 '   The result line of CopyClosingPrices_Silent.
 '
 ' ERROR POLICY
-'   A table that cannot be found is a refusal, not an error; a failed
-'   write raises the error of Excel to the caller.
+'   A table or a price date that cannot be used is a refusal, not an
+'   error; a failed write raises the error of Excel to the caller.
 '
 ' UPDATED
 '   2026-11-21
@@ -7559,11 +7562,12 @@ Private Function ScanClosingPrices( _
     Dim ParamsSheet   As Worksheet    'Params
     Dim HeaderRow     As Long         'Header row of the FX table
     Dim KeyColumn     As Long         'Its key column
-    Dim LastRow       As Long         'Last row of the table
     Dim r             As Long         'Row
+    Dim Pair          As String       'The pair of the currency of the row now
     Dim Price         As Variant      'The closing price
     Dim PriceCell     As Range        'Its cell
     Dim RateCell      As Range        'The rate's cell
+    Dim PriceDate     As Double       'The date of the saved prices, 0 for none
 
 '------------------------------------------------------------------------------
 ' INITIALIZE
@@ -7582,15 +7586,16 @@ Private Function ScanClosingPrices( _
         KeyColumn = NamedTableCol(NM_FX_TABLE)
 
 '------------------------------------------------------------------------------
-' BRING THE PAIRS AND THE PRICES UP TO DATE
+' CHECK THE DATE OF THE PRICES
 '------------------------------------------------------------------------------
-        LastRow = HeaderRow
-        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
-            LastRow = LastRow + 1
-        Loop
-        If LastRow > HeaderRow Then
-            TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_PAIR, LastRow, KeyColumn + FX_COL_PAIR).Calculate
-            TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE).Calculate
+        On Error Resume Next
+        PriceDate = ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#)
+        On Error GoTo 0
+        If PriceDate <> ToDbl(NamedCell(PRM_ASOF).Value2, 0#) Then
+            Problem = "the closing prices are " & IIf(PriceDate = 0#, "of no recorded date", "those of " & Format$(PriceDate, "yyyy-mm-dd")) & _
+                      ", not of the reporting date " & ClosingPriceDate() & ": press Download prices first."
+            ScanClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
         End If
 
 '------------------------------------------------------------------------------
@@ -7598,11 +7603,13 @@ Private Function ScanClosingPrices( _
 '------------------------------------------------------------------------------
         r = HeaderRow + 1
         Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
-            If Len(SafeStr(TableCell(ParamsSheet, r, KeyColumn + FX_COL_PAIR).Value2)) > 0 Then
+            Pair = ClosingPair(ParamsSheet, r, KeyColumn)
+            If Len(Pair) > 0 Then
                 Set PriceCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE)
                 Set RateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
                 Price = PriceCell.Value2
-                If VarType(Price) <> vbDouble Then
+                If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).Value2))) <> Pair Or _
+                   VarType(Price) <> vbDouble Then
                     Without = Without & IIf(Len(Without) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
                 ElseIf Price <= 0# Then
                     Without = Without & IIf(Len(Without) > 0, ",", "") & UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2)))
@@ -7625,6 +7632,46 @@ Private Function ScanClosingPrices( _
                             "; rates=" & Changed & "; unchanged=" & Unchanged & "; without_price=" & _
                             IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
                             IIf(Len(Without) > 0, "; codes=" & Without, "")
+
+End Function
+
+
+Private Function ClosingPair( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal Row As Long, _
+    ByVal KeyColumn As Long) _
+    As String
+'
+'==============================================================================
+'                               ClosingPair
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The currency pair of the FX-table row, the reporting currency over the
+'   currency of the row, such as EUR/USD, in capitals (#721). Empty for the
+'   row of the reporting currency. It is built from the code and not read
+'   from the Currency Pair column, so that a currency appended below the
+'   table has one too.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Code        As String    'The currency of the row
+    Dim Reporting   As String    'The reporting currency
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+        Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, Row, KeyColumn).Value2)))
+        Reporting = UCase$(Trim$(SafeStr(NamedCell(PRM_REPCCY).Value2)))
+        If Len(Code) = 0 Or Len(Reporting) = 0 Or Code = Reporting Then
+            Exit Function
+        End If
+        ClosingPair = Reporting & "/" & Code
 
 End Function
 
@@ -7750,7 +7797,7 @@ Public Sub DownloadClosingPrices()
             Notify "Nothing was changed." & vbLf & vbLf & Problem, vbExclamation
         Else
             Notify Priced & " closing price" & IIf(Priced = 1, "", "s") & " of " & ClosingPriceDate() & " written" & _
-                   IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose earlier price stays.", "."), _
+                   IIf(Len(Without) > 0, "; no price for " & Replace(Without, ",", ", ") & ", whose price cell is empty and whose rate stays.", "."), _
                    IIf(Len(Without) > 0, vbExclamation, vbInformation)
         End If
         Exit Sub
@@ -7772,7 +7819,7 @@ Public Function DownloadClosingPrices_Silent() As String
 '
 ' RETURNS
 '   "RESULT=PRICED; prices=N; without_price=M" (and "; codes=..." with the
-'   currencies that got no price, whose earlier price stays), or
+'   currencies that got no price, whose price cell is left empty), or
 '   "RESULT=REFUSED; reason=..." when nothing was changed, for example
 '   without STOCKHISTORY.
 '
@@ -7810,9 +7857,9 @@ Private Function ClosingPricePairs() As Long
 '                             ClosingPricePairs
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   How many rows of the FX table have a currency pair, the rows whose
-'   closing price can be looked up (#721). The table runs down to the
-'   first blank key.
+'   How many rows of the FX table have a currency pair (ClosingPair), the
+'   rows whose closing price can be looked up (#721). The table runs down
+'   to the first blank key.
 '
 ' UPDATED
 '   2026-11-21
@@ -7838,8 +7885,7 @@ Private Function ClosingPricePairs() As Long
         KeyColumn = NamedTableCol(NM_FX_TABLE)
         r = HeaderRow + 1
         Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
-            TableCell(ParamsSheet, r, KeyColumn + FX_COL_PAIR).Calculate
-            If Len(SafeStr(TableCell(ParamsSheet, r, KeyColumn + FX_COL_PAIR).Value2)) > 0 Then
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
                 ClosingPricePairs = ClosingPricePairs + 1
             End If
             r = r + 1
@@ -7858,9 +7904,11 @@ Private Function LookUpClosingPrices( _
 '                            LookUpClosingPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write into the Closing Price cell of each row that has a pair the last
-'   closing price of the pair up to the reporting date, seven days back at
-'   most, as a value (#721).
+'   Write into the Closing Price cell of each row that has a pair
+'   (ClosingPair) the last closing price of the pair up to the reporting
+'   date, seven days back at most, as a value (#721), with the pair it was
+'   looked up for and, once, the reporting date (NM_FX_PRICE_DATE), so that
+'   Copy values can tell what the prices are of.
 '
 ' METHOD
 '   1. Write the STOCKHISTORY formula into every price cell, through the
@@ -7870,8 +7918,9 @@ Private Function LookUpClosingPrices( _
 '   2. With calculation automatic, wait until Excel reports the
 '      calculation done, PRICE_WAIT_SECONDS at most.
 '   3. Replace each formula with its value when that is a number above
-'      zero, and otherwise with the price the cell held before; list the
-'      currency in Without. No formula stays in the column.
+'      zero, and record its pair; otherwise empty the price and its pair
+'      and list the currency in Without: a price of an earlier date or
+'      pair must not stay. No formula stays in the column.
 '   4. Put the calculation mode back, also after an error.
 '   From step 1 to the end mRunning is set, so that no other operation, and
 '   no second lookup, starts while DoEvents lets the buttons work: it is
@@ -7895,6 +7944,8 @@ Private Function LookUpClosingPrices( _
     Dim r             As Long         'Row
     Dim PairRows()    As Long         'The rows with a pair
     Dim Kept()        As Variant      'The price each held before
+    Dim KeptPairs()   As Variant      'The pair each price was recorded for
+    Dim KeptDate      As Variant      'The date of the prices before
     Dim Count         As Long         'Rows with a pair
     Dim i             As Long         'Row with a pair
     Dim PriceCell     As Range        'A price cell
@@ -7925,16 +7976,25 @@ Private Function LookUpClosingPrices( _
         Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
             LastRow = LastRow + 1
         Loop
-        If LastRow > HeaderRow Then
-            TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_PAIR, LastRow, KeyColumn + FX_COL_PAIR).Calculate
-        End If
         ReDim PairRows(1 To LastRow - HeaderRow + 1)
         ReDim Kept(1 To LastRow - HeaderRow + 1)
+        ReDim KeptPairs(1 To LastRow - HeaderRow + 1)
+        On Error Resume Next
+        KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        If Err.Number <> 0 Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "the workbook name '" & NM_FX_PRICE_DATE & "' is missing."
+            LookUpClosingPrices = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+        On Error GoTo 0
         For r = HeaderRow + 1 To LastRow
-            If Len(SafeStr(TableCell(ParamsSheet, r, KeyColumn + FX_COL_PAIR).Value2)) > 0 Then
+            If Len(ClosingPair(ParamsSheet, r, KeyColumn)) > 0 Then
                 Count = Count + 1
                 PairRows(Count) = r
                 Kept(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE).Value2
+                KeptPairs(Count) = TableCell(ParamsSheet, r, KeyColumn + FX_COL_PRICE_PAIR).Value2
             End If
         Next r
         If Count = 0 Then
@@ -7956,9 +8016,9 @@ Private Function LookUpClosingPrices( _
             Refused = (gTestFault = "prices-unavailable")
             If Not Refused Then
                 Set PriceCell = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE)
-                CallByName PriceCell, "Formula2", VbLet, "=LET(r,STOCKHISTORY(" & _
-                           TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PAIR).Address(False, False) & _
-                           ",AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+                CallByName PriceCell, "Formula2", VbLet, "=LET(r,STOCKHISTORY(""" & _
+                           ClosingPair(ParamsSheet, PairRows(i), KeyColumn) & _
+                           """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
                 Refused = (Err.Number <> 0)
             End If
             If Refused Then
@@ -7968,7 +8028,7 @@ Private Function LookUpClosingPrices( _
         If Refused Then
             Err.Clear
             On Error GoTo Failed
-            PutPricesBack PairRows, Kept, i, ParamsSheet, KeyColumn
+            PutPricesBack PairRows, Kept, KeptPairs, i, ParamsSheet, KeyColumn
             Problem = "STOCKHISTORY is not available in this Excel (Microsoft 365 is needed), so no price was looked up."
             Application.Calculation = Mode
             mRunning = False
@@ -7997,14 +8057,17 @@ Private Function LookUpClosingPrices( _
                 End If
             End If
             If IsEmpty(Found) Then
-                PriceCell.Value2 = Kept(i)
+                PriceCell.ClearContents
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE_PAIR).ClearContents
                 Code = UCase$(Trim$(SafeStr(TableCell(ParamsSheet, PairRows(i), KeyColumn).Value2)))
                 Without = Without & IIf(Len(Without) > 0, ",", "") & Code
             Else
                 PriceCell.Value2 = Found
+                TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE_PAIR).Value2 = ClosingPair(ParamsSheet, PairRows(i), KeyColumn)
                 Priced = Priced + 1
             End If
         Next i
+        NamedCell(NM_FX_PRICE_DATE).Value2 = NamedCell(PRM_ASOF).Value2
         Application.Calculation = Mode
         mRunning = False
         LookUpClosingPrices = "RESULT=PRICED; prices=" & Priced & "; without_price=" & _
@@ -8018,7 +8081,8 @@ Failed:
         mRunning = False
         If ModeKept Then
             On Error Resume Next
-            PutPricesBack PairRows, Kept, Count, ParamsSheet, KeyColumn
+            PutPricesBack PairRows, Kept, KeptPairs, Count, ParamsSheet, KeyColumn
+            NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
             Application.Calculation = Mode
         End If
         Err.Raise ErrNumber, "M_Main.LookUpClosingPrices", ErrText
@@ -8029,6 +8093,7 @@ End Function
 Private Sub PutPricesBack( _
     ByRef PairRows() As Long, _
     ByRef Kept() As Variant, _
+    ByRef KeptPairs() As Variant, _
     ByVal Count As Long, _
     ByVal ParamsSheet As Worksheet, _
     ByVal KeyColumn As Long)
@@ -8037,8 +8102,8 @@ Private Sub PutPricesBack( _
 '                              PutPricesBack
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Put the first Count price cells back to the values they held before a
-'   lookup wrote its formulas into them (#721).
+'   Put the first Count price cells, and the pairs recorded for them, back
+'   to what they held before a lookup wrote its formulas into them (#721).
 '
 ' UPDATED
 '   2026-11-21
@@ -8055,6 +8120,7 @@ Private Sub PutPricesBack( _
 '------------------------------------------------------------------------------
         For i = 1 To Count
             TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2 = Kept(i)
+            TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE_PAIR).Value2 = KeptPairs(i)
         Next i
 
 End Sub

@@ -136,6 +136,30 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('"header_size_exceptions"', rules)
         self.assertIn('"Params": {"E60": 10}', rules)
 
+    def test_the_prices_carry_their_context_in_hidden_cells(self) -> None:
+        # Copy values copies a price only when it is of the reporting date and of the pair of its currency now.
+        self.assertIn('<definedName name="FX_PriceDate">Params!$AQ$27</definedName>', self.workbook)
+        self.assertEqual(self.text("AQ27"), self.text("E6"))  # the date of the prices in the template: the reporting date
+        for row in range(62, 82):
+            cell = self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]')
+            assert cell is not None
+            self.assertEqual("".join(item.text or "" for item in cell.iter(MAIN + "t")), self.text(f"F{row}"), row)
+        hidden = [(int(col.attrib["min"]), int(col.attrib["max"])) for col in self.sheet.iter(MAIN + "col")
+                  if col.attrib.get("hidden") == "1"]
+        self.assertTrue(all(any(low <= column <= high for low, high in hidden) for column in (43, 44)), hidden)  # AQ, AR
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
+        self.assertIn('NM_FX_PRICE_DATE As String = "FX_PriceDate"', config)
+        self.assertIn("FX_COL_PRICE_PAIR As Long = 41", config)  # AR is 41 columns right of the key column C
+
+    def test_a_currency_appended_below_the_table_has_a_pair_and_a_price_cell(self) -> None:
+        for row in (82, 100, 200, 260):
+            self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)
+            self.assertIsNotNone(self.sheet.find(f'.//{MAIN}c[@r="G{row}"]'), row)
+        main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
+        # the pair is built from the code and the reporting currency, not read from the Currency Pair column
+        self.assertIn("ClosingPair = Reporting & \"/\" & Code", main)
+        self.assertNotIn("FX_COL_PAIR).Value2", main.split("Private Function ClosingPair")[0].split("CLOSING PRICES OF THE FX TABLE")[-1])
+
     def test_the_closing_day_validation_and_the_unlocked_cells_follow_the_table(self) -> None:
         self.assertRegex(self.xml, r'sqref="I61:I160"[^>]*><formula1>AND\(ISNUMBER\(I61\),I61&gt;=61\)</formula1>')
         self.assertNotRegex(self.xml, r'sqref="G\d+:G\d+"[^>]*><formula1>AND\(ISNUMBER\(G')
@@ -157,7 +181,7 @@ class ParamsLayoutTests(unittest.TestCase):
         for row in range(61, 82):
             self.assertIn(f'<c r="F{row}"', self.xml)
             self.assertIn(f'ReportingCcy&amp;"/"&amp;C{row}', self.xml)  # the pair of every row
-        self.assertNotIn('<c r="F82"', self.xml)
+        self.assertIn('<c r="F82"', self.xml)  # the pair is there for a currency appended below the table
 
 
 if __name__ == "__main__":

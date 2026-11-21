@@ -1739,8 +1739,9 @@ Private Sub CaseCopyClosingPrices()
 '   closing price of the first different from its rate, that of the second
 '   equal to it, that of the third not a number and those of the others equal,
 '   the first rate takes the closing price, the others keep their rate; the
-'   reporting currency keeps 1; a second copy changes nothing. The closing
-'   prices and the rates are put back.
+'   reporting currency keeps 1; a second copy changes nothing; prices of
+'   another date than the reporting date are not copied. The closing
+'   prices, their pairs and date and the rates are put back.
 '
 ' UPDATED
 '   2026-11-21
@@ -1756,6 +1757,9 @@ Private Sub CaseCopyClosingPrices()
     Dim LastRow     As Long      'Last row of the FX table
     Dim Count       As Long      'Currencies below the reporting currency
     Dim i           As Long      'Currency
+    Dim Recorded    As Range     'The pair each closing price was looked up for
+    Dim SavedPairs  As Variant   'Their values
+    Dim SavedDate   As Variant   'The date of the closing prices
     Dim SavedRates  As Variant   'Their formulas
     Dim SavedPrices As Variant   'Theirs
     Dim SecondRate  As Double    'The rate that equals its closing price
@@ -1774,8 +1778,16 @@ Private Sub CaseCopyClosingPrices()
         Count = LastRow - HeaderRow - 1
         Set Rates = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
         Set Prices = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
+        Set Recorded = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE_PAIR, LastRow, KeyColumn + FX_COL_PRICE_PAIR)
         SavedRates = Rates.Formula
         SavedPrices = Prices.Formula
+        SavedPairs = Recorded.Value2
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        NamedCell(NM_FX_PRICE_DATE).Value2 = NamedCell(PRM_ASOF).Value2
+        For i = 1 To Count
+            Recorded.Cells(i, 1).Value2 = UCase$(SafeStr(NamedCell(PRM_REPCCY).Value2)) & "/" & _
+                                          UCase$(Trim$(SafeStr(TableCell(ParamsSheet, HeaderRow + 1 + i, KeyColumn).Value2)))
+        Next i
         SecondRate = ToDbl(Rates.Cells(2, 1).Value2, 0#)
         ThirdRate = ToDbl(Rates.Cells(3, 1).Value2, 0#)
         Prices.ClearContents
@@ -1796,8 +1808,15 @@ Private Sub CaseCopyClosingPrices()
         Result = M_Main.CopyClosingPrices_Silent()
         TEST_Kit.Check InStr(Result, "RESULT=UNCHANGED; rates=0; unchanged=" & (Count - 1) & "; without_price=1;") = 1, _
                        "second copy: " & Result
+        NamedCell(NM_FX_PRICE_DATE).Value2 = ToDbl(NamedCell(PRM_ASOF).Value2, 0#) - 1#
+        Rates.Cells(1, 1).Value2 = 3#
+        Result = M_Main.CopyClosingPrices_Silent()
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the closing prices are those of") = 1 And _
+                       ToDbl(Rates.Cells(1, 1).Value2, 0#) = 3#, "prices of another date: " & Result
         Rates.Formula = SavedRates
         Prices.Formula = SavedPrices
+        Recorded.Value2 = SavedPairs
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         Exit Sub
 
 Unexpected:
@@ -1807,6 +1826,10 @@ Unexpected:
         End If
         If Not Prices Is Nothing Then
             Prices.Formula = SavedPrices
+        End If
+        If Not Recorded Is Nothing Then
+            Recorded.Value2 = SavedPairs
+            NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         End If
 
 End Sub

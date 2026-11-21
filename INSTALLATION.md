@@ -921,10 +921,11 @@ the FX table (its Closing Price column) into the rate column as values,
 without a confirmation or a message, as the **Copy values** button of the
 Params sheet (`CopyClosingPrices`) does after its confirmation (#721). A row
 whose price is not a number above zero, and the reporting currency, keep
-their rate. It returns `RESULT=COPIED; rates=N; unchanged=U; without_price=M`
-(and `; codes=...` with the currencies that have no price), `RESULT=UNCHANGED;
+their rate, as does a currency whose recorded pair is not its pair now. It copies nothing when the saved prices
+are not those of the reporting date (the hidden name `FX_PriceDate`). It returns `RESULT=COPIED; rates=N; unchanged=U; without_price=M`
+(and `; codes=...` with the currencies that have no usable price), `RESULT=UNCHANGED;
 ...` when no rate differs, or `RESULT=REFUSED; reason=...` when the name
-`FX_Table` is missing. Results is not recalculated: `ResultsStatus()` returns
+`FX_Table` is missing or the prices are of another date. Results is not recalculated: `ResultsStatus()` returns
 `STALE` until the next **Run SA-CCR**. While an operation is running it raises
 `ERR_RUN_ACTIVE`.
 
@@ -935,7 +936,9 @@ of the FX table with `STOCKHISTORY`, without a confirmation or a message, as
 the **Download prices** button of the Params sheet (`DownloadClosingPrices`) does
 after its confirmation (#721). It writes the last closing price up to the
 reporting date, seven days back at most, as a value in the Closing Price column;
-no formula stays there, and a currency that gets no price keeps its earlier one.
+no formula stays there, the pair each price is for and its date are recorded in hidden cells, and the price
+of a currency that gets none is emptied. The pair is built from the currency code and the reporting currency,
+so a currency appended below the table is looked up too.
 It needs Microsoft 365 and a connection and waits `PRICE_WAIT_SECONDS` (30) at
 most. It returns `RESULT=PRICED; prices=N; without_price=M` (and `; codes=...`),
 or `RESULT=REFUSED; reason=...` with nothing changed, for example without
