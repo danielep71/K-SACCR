@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 42   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 44   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -199,6 +199,8 @@ Public Sub RunMainStateTests()
         CaseRestoreParams
         CaseYearConvention
         CaseDownloadClosingPrices
+        CaseEcbAnswer
+        CaseDownloadEcbRates
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1742,10 +1744,11 @@ Private Sub CaseDownloadClosingPrices()
 '   (2 for every pair, none for the first), the rates of the others take the
 '   price, the first keeps its rate, the reporting currency keeps 1, the
 '   date of the prices is the reporting date and the scratch column is
-'   empty. The rates and the date are put back.
+'   empty, and the source of the prices is the closing price (#745). The
+'   rates, the date and the source are put back.
 '
 ' UPDATED
-'   2026-11-21
+'   2026-11-22
 '==============================================================================
 '
 
@@ -1761,6 +1764,7 @@ Private Sub CaseDownloadClosingPrices()
     Dim Scratch     As Range     'The hidden scratch column of the lookup
     Dim SavedRates  As Variant   'The rates, formulas included
     Dim SavedDate   As Variant   'The date of the prices before
+    Dim SavedSource As Variant   'The source of the prices before
     Dim Count       As Long      'Currencies below the reporting currency
     Dim i           As Long      'Currency
 
@@ -1782,6 +1786,7 @@ Private Sub CaseDownloadClosingPrices()
         Set Scratch = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
         SavedRates = Rates.Formula
         SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
         M_Main.gTestFault = "prices-unavailable"
         Result = M_Main.DownloadClosingPrices_Silent()
         M_Main.gTestFault = ""
@@ -1816,9 +1821,12 @@ Private Sub CaseDownloadClosingPrices()
                        "the reporting currency keeps 1"
         TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(NamedCell(PRM_ASOF).Value2, -1#), _
                        "the date of the prices is the reporting date"
+        TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_CLOSING, _
+                       "the source of the prices is the closing price"
         TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after the prices the scratch column is empty"
         Rates.Formula = SavedRates
         NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
         Exit Sub
 
 Unexpected:
@@ -1827,9 +1835,385 @@ Unexpected:
         If Not Rates Is Nothing Then
             Rates.Formula = SavedRates
             NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
         End If
 
 End Sub
+
+
+Private Sub CaseEcbAnswer()
+'
+'==============================================================================
+'                                CaseEcbAnswer
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reading of an answer of the ECB data portal (#745), on the sample
+'   of tests/fixtures/ecb/EXR_D_sample.csv (EcbSample): for each currency
+'   the latest fixing on or before the date, as published, a later one
+'   left aside; on a closing day the fixing before it; no rate for a
+'   currency the ECB does not publish, nor in an empty answer; the full
+'   layout of the portal, with quoted fields; and a refusal, with the line
+'   and the reason, for a missing column, an HTML page, a decimal comma, a
+'   number that is not one, a date that does not exist, an unclosed quote
+'   and a rate not against the euro. The address of the request.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Codes(1 To 4)   As String    'USD, JPY, GBP and TWD
+    Dim Pair(1 To 2)    As String    'USD and JPY
+    Dim PerEuro()       As Double    'The rates read
+    Dim Days()          As Date      'Their days
+    Dim Problem         As String    'Why an answer was refused
+    Dim Ok              As Boolean   'The answer was read
+    Dim Header          As String    'The header of the sample
+    Dim Line            As String    'A line of the sample
+
+'------------------------------------------------------------------------------
+' READ THE SAMPLE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.ecb-answer"
+        Codes(1) = "USD"
+        Codes(2) = "JPY"
+        Codes(3) = "GBP"
+        Codes(4) = "TWD"
+        Ok = M_Main.EcbLatestRates(EcbSample(), Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And Len(Problem) = 0, "the sample is read: " & Problem
+        TEST_Kit.Check PerEuro(1) = 1.1725 And Days(1) = DateSerial(2026, 9, 30), _
+                       "USD is the fixing of the date as published, not the later one: " & PerEuro(1)
+        TEST_Kit.Check PerEuro(2) = 174.25 And PerEuro(3) = 0.8725, "JPY and GBP: " & PerEuro(2) & " " & PerEuro(3)
+        TEST_Kit.Check PerEuro(4) = 0#, "a currency the ECB does not publish has no rate: " & PerEuro(4)
+        Ok = M_Main.EcbLatestRates(EcbSample(), Codes, DateSerial(2026, 9, 27), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(1) = 1.165 And Days(1) = DateSerial(2026, 9, 25), _
+                       "on a closing day the fixing before it: " & PerEuro(1)
+        Ok = M_Main.EcbLatestRates(vbNullString, Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(1) = 0# And PerEuro(2) = 0# And PerEuro(3) = 0#, "an empty answer has no rate"
+        Header = "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE,OBS_STATUS,OBS_CONF," & _
+                 "OBS_PRE_BREAK,OBS_COM,TIME_FORMAT,BREAKS,COLLECTION,COMPILING_ORG,DISS_ORG,DOM_SER_IDS,PUBL_ECB," & _
+                 "PUBL_MU,PUBL_PUBLIC,UNIT_INDEX_BASE,COMPILATION,COVERAGE,DECIMALS,NAT_TITLE,SOURCE_AGENCY," & _
+                 "SOURCE_PUB,TITLE,TITLE_COMPL,UNIT,UNIT_MULT"
+        Line = "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-30,175.5,A,F,,,P1D,,A,,,,,,,99Q1=100,,,2,,4F0,," & _
+               "Japanese yen/Euro ECB reference exchange rate," & _
+               """ECB reference exchange rate, Japanese yen/Euro, 2.15 pm (C.E.T.)"",JPY,0"
+        Ok = M_Main.EcbLatestRates(Header & vbCrLf & Line & vbCrLf, Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(2) = 175.5, "the full layout, with quoted fields: " & Problem
+
+'------------------------------------------------------------------------------
+' REFUSE WHAT IS NOT THE CSV EXPECTED
+'------------------------------------------------------------------------------
+        Header = Split(EcbSample(), vbLf)(0)
+        Ok = M_Main.EcbLatestRates("KEY,FREQ,CURRENCY" & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "no column TIME_PERIOD") > 0, "a missing column: " & Problem
+        Ok = M_Main.EcbLatestRates("<!DOCTYPE html><html><body>Sign in to the proxy</body></html>", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "is not the CSV expected") > 0, "an HTML page: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1,17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "line 2 of the answer") = 1 And InStr(Problem, "9 fields, the header 8") > 0, _
+                       "a decimal comma: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.17x", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "is not a number") > 0, "a rate that is not a number: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-02-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "does not exist") > 0, "a date that does not exist: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & """EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "a quote is not closed") > 0, "an unclosed quote: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.GBP.SP00.A,D,USD,GBP,SP00,A,2026-09-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "not against the euro") > 0, "a rate not against the euro: " & Problem
+
+'------------------------------------------------------------------------------
+' THE REQUEST
+'------------------------------------------------------------------------------
+        Pair(1) = "USD"
+        Pair(2) = "JPY"
+        TEST_Kit.Check M_Main.EcbRequestUrl(Pair, DateSerial(2026, 9, 30)) = _
+                       "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+JPY.EUR.SP00.A?startPeriod=2026-09-23" & _
+                       "&endPeriod=2026-09-30&format=csvdata&detail=dataonly", _
+                       "the request: " & M_Main.EcbRequestUrl(Pair, DateSerial(2026, 9, 30))
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseDownloadEcbRates()
+'
+'==============================================================================
+'                            CaseDownloadEcbRates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Download prices from the ECB (#745), with the fault "ecb-answer" that
+'   hands the sample (EcbSample) back in place of the portal: the rates of
+'   the reporting date as published, the other currencies kept, the date
+'   and the source written; the source read from FX_Source; on a closing
+'   day the fixing before it, named in the result; with USD as reporting
+'   currency every rate crossed through the euro. Refusals that change
+'   nothing: no rate of the reporting currency, no connection, HTTP 503, a
+'   time-out, an HTML page, an empty answer and an unknown source. A
+'   failure while the rates are written puts them back with their date and
+'   source. Params is put back as the case found it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result        As String       'What a call returned
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the FX table
+    Dim AllRates      As Range        'Every rate of the table
+    Dim SavedRates    As Variant      'The rates, formulas included
+    Dim SavedDate     As Variant      'The date of the rates before
+    Dim SavedSource   As Variant      'Their source before
+    Dim SavedAsOf     As Variant      'The reporting date, as a formula
+    Dim SavedCcy      As Variant      'The reporting currency
+    Dim SavedChoice   As Variant      'FX_Source
+    Dim SavedCny      As Double       'The rate of CNY, which the sample does not have
+    Dim SavedUsd      As Double       'The rate of USD
+    Dim Count         As Long         'Currencies below the reporting currency
+    Dim Faults        As Variant      'Faults that refuse
+    Dim Reasons       As Variant      'The start of each refusal
+    Dim f             As Long         'Fault
+    Dim ErrNumber     As Long         'An error raised by the lookup
+
+'------------------------------------------------------------------------------
+' FROM THE SAMPLE ANSWER
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.download-ecb-rates"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Count = LastRow - HeaderRow - 1
+        Set AllRates = TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        SavedRates = AllRates.Formula
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedAsOf = NamedCell(PRM_ASOF).Formula
+        SavedCcy = NamedCell(PRM_REPCCY).Formula
+        SavedChoice = NamedCell(NM_FX_SOURCE).Formula
+        SavedCny = FxRateOf("CNY")
+        SavedUsd = FxRateOf("USD")
+        NamedCell(PRM_REPCCY).Value2 = "EUR"
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-answer"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=3; without_price=" & (Count - 3) & "; codes=") = 1 And _
+                       InStr(Result, "; source=ECB") > 0 And InStr(Result, "; fixing=") = 0, "ECB: " & Result
+        TEST_Kit.Check FxRateOf("USD") = 1.1725 And FxRateOf("JPY") = 174.25 And FxRateOf("GBP") = 0.8725, _
+                       "the rates are the fixings of the reporting date as published: " & FxRateOf("USD")
+        TEST_Kit.Check FxRateOf("CNY") = SavedCny, "a currency the answer has no rate for keeps its rate"
+        TEST_Kit.Check FxRateOf("EUR") = 1#, "the reporting currency keeps 1"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = CDbl(DateSerial(2026, 9, 30)), _
+                       "the date of the rates is the reporting date"
+        TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_ECB, "the source of the rates is the ECB"
+
+'------------------------------------------------------------------------------
+' FROM THE CELL, ON A CLOSING DAY, AND CROSSED
+'------------------------------------------------------------------------------
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_SOURCE).Value2 = FX_SOURCE_ECB
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 27))
+        Result = M_Main.DownloadClosingPrices_Silent()
+        TEST_Kit.Check InStr(Result, "; source=ECB; fixing=2026-09-25") > 0, "the source in the cell, on a Sunday: " & Result
+        TEST_Kit.Check FxRateOf("USD") = 1.165, "on a closing day the rate is the fixing before it: " & FxRateOf("USD")
+        AllRates.Formula = SavedRates
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        NamedCell(PRM_REPCCY).Value2 = "USD"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=3; without_price=" & (Count - 3) & "; codes=") = 1, _
+                       "crossed: " & Result
+        TEST_Kit.Check Abs(FxRateOf("EUR") - 1# / 1.1725) < 0.000000000001 And _
+                       Abs(FxRateOf("JPY") - 174.25 / 1.1725) < 0.000000000001 And _
+                       Abs(FxRateOf("GBP") - 0.8725 / 1.1725) < 0.000000000001, _
+                       "the rates are crossed through the euro: " & FxRateOf("EUR") & " " & FxRateOf("JPY")
+        TEST_Kit.Check FxRateOf("USD") = SavedUsd, "the reporting currency keeps its rate"
+
+'------------------------------------------------------------------------------
+' REFUSALS CHANGE NOTHING
+'------------------------------------------------------------------------------
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        NamedCell(PRM_REPCCY).Value2 = "CNY"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the ECB published no reference rate of the " & _
+                       "reporting currency CNY") = 1, "no rate of the reporting currency: " & Result
+        NamedCell(PRM_REPCCY).Value2 = "EUR"
+        Faults = Array("ecb-offline", "ecb-http", "ecb-timeout", "ecb-answer", "ecb-answer")
+        Reasons = Array("the ECB data portal could not be reached", "the ECB data portal answered HTTP 503", _
+                        "the ECB data portal did not answer within", _
+                        "the answer of the ECB data portal is not the CSV expected", _
+                        "the ECB published no reference rate for any currency")
+        For f = 0 To 4
+            M_Main.gTestEcbAnswer = IIf(f = 3, "<html><body>Sign in to the proxy</body></html>", vbNullString)
+            M_Main.gTestFault = CStr(Faults(f))
+            Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+            TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=" & Reasons(f)) = 1, Faults(f) & ": " & Result
+        Next f
+        TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
+                       ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource), _
+                       "after the refusals the rates, their date and their source are as they were"
+        TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+
+'------------------------------------------------------------------------------
+' A FAILURE WHILE THE RATES ARE WRITTEN, AN UNKNOWN SOURCE
+'------------------------------------------------------------------------------
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-write"
+        On Error Resume Next
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        ErrNumber = Err.Number
+        On Error GoTo Unexpected
+        TEST_Kit.Check ErrNumber = ERR_INJECTED_FAULT, "the failure is raised: " & ErrNumber
+        TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
+                       ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource), _
+                       "after the failure the rates, their date and their source are put back"
+        M_Main.gTestFault = ""
+        Result = M_Main.DownloadClosingPrices_Silent("Bloomberg")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the source of the rates is 'Bloomberg'") = 1, _
+                       "unknown source: " & Result
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice
+
+End Sub
+
+
+Private Sub PutEcbCaseBack( _
+    ByVal AllRates As Range, _
+    ByVal SavedRates As Variant, _
+    ByVal SavedDate As Variant, _
+    ByVal SavedSource As Variant, _
+    ByVal SavedAsOf As Variant, _
+    ByVal SavedCcy As Variant, _
+    ByVal SavedChoice As Variant)
+'
+'==============================================================================
+'                               PutEcbCaseBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Put Params back as CaseDownloadEcbRates found it, and clear the faults
+'   (#745). Does nothing to the rates when the case stopped before it read
+'   them.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        On Error Resume Next
+        M_Main.gTestFault = ""
+        M_Main.gTestEcbAnswer = vbNullString
+        If AllRates Is Nothing Then
+            Exit Sub
+        End If
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        NamedCell(PRM_ASOF).Formula = SavedAsOf
+        NamedCell(PRM_REPCCY).Formula = SavedCcy
+        NamedCell(NM_FX_SOURCE).Formula = SavedChoice
+
+End Sub
+
+
+Private Function FxRateOf( _
+    ByVal Code As String) _
+    As Double
+'
+'==============================================================================
+'                                  FxRateOf
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rate of Code in the FX table; -1 when the table has no such
+'   currency or its rate is not a number (#745).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim KeyColumn     As Long         'Key column of the FX table
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        FxRateOf = -1#
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                FxRateOf = ToDbl(TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2, -1#)
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Function EcbSample() As String
+'
+'==============================================================================
+'                                  EcbSample
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The answer of the ECB data portal in tests/fixtures/ecb/EXR_D_sample.csv,
+'   line by line, with illustrative rates (#745). test_params_layout.py
+'   checks that the two hold the same lines.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        EcbSample = Join(Array( _
+            "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-25,0.865", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-29,0.87", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-30,0.8725", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-25,172.1", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-29,173.5", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-30,174.25", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-25,1.165", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-29,1.17", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.1725", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-10-01,1.18"), vbLf)
+
+End Function
 
 
 Private Function RatesAsSaved( _

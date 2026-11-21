@@ -916,10 +916,15 @@ not recalculated: `ResultsStatus()` returns `STALE` until the next
 
 ### DownloadClosingPrices_Silent
 
-`DownloadClosingPrices_Silent()` looks up the closing price of each currency pair
-of the FX table with `STOCKHISTORY` and writes it as the rate of the currency,
-without a confirmation or a message, as the **Download prices** button of the
-Params sheet (`DownloadClosingPrices`) does after its confirmation (#721). The
+`DownloadClosingPrices_Silent([source])` writes the rates of the FX table from
+`source`, `Closing price` or `ECB reference rate`, or, when it is omitted, from
+the source chosen beside the button (`FX_Source`), without a confirmation or a
+message, as the **Download prices** button of the Params sheet
+(`DownloadClosingPrices`) does after its confirmation (#721, #745). An unknown
+source is refused.
+
+**Closing price.** It looks up the closing price of each currency pair with
+`STOCKHISTORY` and writes it as the rate of the currency. The
 price is the last closing price up to the reporting date, seven days back at
 most; the pair is built from the currency code and the reporting currency, so a
 currency appended below the table is looked up too. The formulas live in a
@@ -937,8 +942,33 @@ faults of `gTestFault`. It returns
 `RESULT=REFUSED; reason=...` with no rate changed: without `STOCKHISTORY` (an
 Excel that refuses the formula, or whose cell evaluates to `#NAME?`), or when the
 reporting date, the reporting currency or a code was changed while the prices
-came in. Results is not recalculated: `ResultsStatus()` returns `STALE` until
-the next **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
+came in.
+
+**ECB reference rate.** It sends one HTTPS request to the ECB data portal
+(`data-api.ecb.europa.eu`, the series `EXR` of the daily euro foreign exchange
+reference rates, as CSV) for the currencies of the table that are three-letter
+codes and the seven days up to the reporting date, and waits for the answer
+inside the call, `PRICE_WAIT_SECONDS` (30) at most. The request carries the
+currency codes and the two dates only, through the connection and the proxy
+settings of Windows (`MSXML2.XMLHTTP`); no web query and no connection is left
+in the workbook. Each currency takes the last fixing on or before the reporting
+date, as published, in units of the currency per euro; with another reporting
+currency the rate is crossed through the euro (the currency per euro over the
+reporting currency per euro, and the euro is 1 over the latter). A currency the
+ECB does not publish, such as TWD, keeps its rate. The rates are written all or
+none, with the reporting date into `FX_PriceDate` and the source into
+`FX_PriceSource`. It returns `RESULT=PRICED; rates=N; without_price=M`, then
+`; codes=...` when some currency got no rate, `; source=ECB`, and
+`; fixing=yyyy-mm-dd` when the reporting date has no fixing (a TARGET closing
+day) and an earlier one was used; or `RESULT=REFUSED; reason=...` with no rate
+changed: no connection, a time-out, an HTTP status other than 200 (404, which
+the portal gives when it has no series, is an empty answer), an answer that is
+not the CSV expected or has a malformed line, no rate of the reporting
+currency, or no rate for any currency.
+
+With either source, Results is not recalculated: `ResultsStatus()` returns
+`STALE` until the next **Run SA-CCR**. While an operation is running it raises
+`ERR_RUN_ACTIVE`.
 
 ### SetNavigationBar_Silent
 

@@ -130,6 +130,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
         Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
         Public Const NM_FX_PRICE_DATE As String = "FX_PriceDate"           'Hidden cell: the date of the closing prices (#721)
+        Public Const NM_FX_PRICE_SRC  As String = "FX_PriceSource"         'Hidden cell: the source of the rates downloaded (#745)
+        Public Const NM_FX_SOURCE     As String = "FX_Source"              'The source Download prices uses (#745)
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
@@ -366,8 +368,16 @@ Attribute VB_Name = "CORE_Config"
     '(#721): the rate; and column AR, where the price formulas of a lookup live until it empties them.
         Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
         Public Const FX_COL_PRICE As Long = 41    'Hidden scratch column AR: the closing price of the pair, a number or not
-    'Seconds Download prices waits for the data of STOCKHISTORY (#721).
+    'Seconds Download prices waits for the data of STOCKHISTORY (#721), or for the answer of the ECB (#745).
         Public Const PRICE_WAIT_SECONDS As Long = 30
+    'The sources of the rates Download prices writes, as the list of FX_Source holds them (#745): the
+    'closing price of the pair (STOCKHISTORY), or the euro foreign exchange reference rate of the ECB,
+    'asked of its data portal over HTTPS for the currencies of the FX table and the days before the
+    'reporting date (ECB_EXR_URL, then the currencies, ".EUR.SP00.A" and the query).
+        Public Const FX_SOURCE_CLOSING  As String = "Closing price"
+        Public Const FX_SOURCE_ECB      As String = "ECB reference rate"
+        Public Const ECB_EXR_URL        As String = "https://data-api.ecb.europa.eu/service/data/EXR/D."
+        Public Const ECB_LOOKBACK_DAYS  As Long = 7
     'The rate column's header before #725, when rates were units of the reporting currency per
     'unit of the currency: a workbook that still has it is refused with a message that says so.
         Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"
