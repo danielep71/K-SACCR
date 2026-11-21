@@ -7709,6 +7709,7 @@ Private Function LookUpClosingPrices( _
     Dim Code          As String       'A currency
     Dim TimedOut      As Boolean      'The data did not come within the wait
     Dim FirstState    As String       'What the first scratch cell returned
+    Dim CalcText      As String       'The calculation state after the wait
 
 '------------------------------------------------------------------------------
 ' FIND THE ROWS
@@ -7800,12 +7801,25 @@ Private Function LookUpClosingPrices( _
 '------------------------------------------------------------------------------
 ' WAIT FOR THE DATA
 '------------------------------------------------------------------------------
+    'Let Excel run the requests of the data service to the end, then check
+        On Error Resume Next
+        Application.CalculateUntilAsyncQueriesDone
+        Err.Clear
+        On Error GoTo Failed
         Deadline = Timer + PRICE_WAIT_SECONDS
         Do While (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count)) _
                  And Timer < Deadline
             DoEvents
         Loop
         TimedOut = (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count))
+        Select Case Application.CalculationState
+            Case xlDone
+                CalcText = "done"
+            Case xlCalculating
+                CalcText = "calculating"
+            Case Else
+                CalcText = "pending"
+        End Select
 
 '------------------------------------------------------------------------------
 ' CHECK WHAT CAME
@@ -7862,7 +7876,8 @@ Private Function LookUpClosingPrices( _
     'No price at all: no rate and no date changes
         If Priced = 0 Then
             If TimedOut Then
-                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (check the connection and try again)."
+                Problem = "no price came within " & PRICE_WAIT_SECONDS & " seconds (the first, " & PairsAsked(1) & _
+                          ", showed " & FirstState & "; the calculation was " & CalcText & "). Check the connection and try again."
             Else
                 Problem = "no price came for any currency (the first, " & PairsAsked(1) & ", returned " & FirstState & _
                           "). Check the connection and that this Excel can look up prices."

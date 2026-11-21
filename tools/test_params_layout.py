@@ -87,6 +87,7 @@ class ParamsLayoutTests(unittest.TestCase):
         self.assertIn('"LET(r,STOCKHISTORY("""', main)
         self.assertIn('Replace(Pair, "/", ":")', main)  # STOCKHISTORY takes EUR:USD
         self.assertIn("PricesPending(", main)  # waits while a cell shows #BUSY!
+        self.assertIn("Application.CalculateUntilAsyncQueriesDone", main)  # lets the data service finish
         self.assertNotIn("CVErr(2045)", main)  # 2045 is #SPILL!, not the busy state
         self.assertIn("Application.Cursor = xlWait", main)  # the wait shows
         self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function

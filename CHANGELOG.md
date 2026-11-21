@@ -116,7 +116,8 @@ Use only the categories needed by a release.
   `STOCKHISTORY` (also when the cell evaluates to `#NAME?`) and when the reporting date, the reporting
   currency or a code is changed while the prices come in. `DownloadClosingPrices_Silent` is its entry point
   and `params.download-closing-prices` its case (17 checks, 627 in TEST_MainState; the test faults
-  `prices-fixed` and `prices-none` stand for prices that came and for none). The macro waits while a
+  `prices-fixed` and `prices-none` stand for prices that came and for none). The macro lets Excel finish the requests of the
+  data service (`CalculateUntilAsyncQueriesDone`) and then waits while a
   scratch cell shows `#BUSY!` (a request that has not come back, which the calculation state does not
   tell), up to 30 seconds, the cursor shows the wait with a message in the status bar, and when no price
   comes for any currency it changes no rate and no date and says what the first lookup returned. Two repairs of the sheet that
