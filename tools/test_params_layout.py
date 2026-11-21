@@ -85,8 +85,8 @@ class ParamsLayoutTests(unittest.TestCase):
             self.assertIsNone(self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]'), row)
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
         self.assertIn('"LET(r,STOCKHISTORY("""', main)
-        for form in ('Base & ":" & Quote', 'Base & "/" & Quote', "Base & Quote"):  # the three names of a pair
-            self.assertIn(form, main)
+        self.assertIn('Replace(Pair, "/", ":")', main)  # STOCKHISTORY takes EUR:USD
+        self.assertIn("PricesPending(", main)  # waits while a cell shows #BUSY!
         self.assertIn("Application.Cursor = xlWait", main)  # the wait shows
         self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel

@@ -7801,10 +7801,11 @@ Private Function LookUpClosingPrices( _
 ' WAIT FOR THE DATA
 '------------------------------------------------------------------------------
         Deadline = Timer + PRICE_WAIT_SECONDS
-        Do While Application.CalculationState <> xlDone And Timer < Deadline
+        Do While (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count)) _
+                 And Timer < Deadline
             DoEvents
         Loop
-        TimedOut = (Application.CalculationState <> xlDone)
+        TimedOut = (Application.CalculationState <> xlDone Or PricesPending(ParamsSheet, KeyColumn, PairRows, Count))
 
 '------------------------------------------------------------------------------
 ' CHECK WHAT CAME
@@ -7907,10 +7908,8 @@ Private Function PriceFormula( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The formula that returns the last closing price up to the reporting date
-'   (seven days back at most) of a pair such as EUR/USD (#721). Excel is not
-'   consistent in how a plain text names a pair, so the pair is tried as
-'   EUR:USD, then EUR/USD, then EURUSD, and the first that returns a price is
-'   taken (an error moves to the next form, the last one shows its own).
+'   (seven days back at most) of a pair such as EUR/USD, which STOCKHISTORY
+'   takes as EUR:USD (#721).
 '
 ' UPDATED
 '   2026-11-21
@@ -7918,29 +7917,9 @@ Private Function PriceFormula( _
 '
 
 '------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim Base        As String    'The reporting currency
-    Dim Quote       As String    'The currency of the row
-    Dim Forms(1 To 3) As String  'The three names of the pair
-    Dim i           As Long      'Form
-
-'------------------------------------------------------------------------------
 ' BUILD
 '------------------------------------------------------------------------------
-        Base = Left$(Pair, InStr(Pair, "/") - 1)
-        Quote = Mid$(Pair, InStr(Pair, "/") + 1)
-        Forms(1) = Base & ":" & Quote
-        Forms(2) = Base & "/" & Quote
-        Forms(3) = Base & Quote
-        For i = 3 To 1 Step -1
-            If i = 3 Then
-                PriceFormula = PriceTerm(Forms(i))
-            Else
-                PriceFormula = "IFERROR(" & PriceTerm(Forms(i)) & "," & PriceFormula & ")"
-            End If
-        Next i
-        PriceFormula = "=" & PriceFormula
+        PriceFormula = "=" & PriceTerm(Replace(Pair, "/", ":"))
 
 End Function
 
@@ -7965,6 +7944,51 @@ Private Function PriceTerm( _
 ' BUILD
 '------------------------------------------------------------------------------
         PriceTerm = "LET(r,STOCKHISTORY(""" & Pair & """,AsOfDate-7,AsOfDate,0,0,1),INDEX(r,ROWS(r)))"
+
+End Function
+
+
+Private Function PricesPending( _
+    ByVal ParamsSheet As Worksheet, _
+    ByVal KeyColumn As Long, _
+    ByRef PairRows() As Long, _
+    ByVal Count As Long) _
+    As Boolean
+'
+'==============================================================================
+'                              PricesPending
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True while a scratch cell still waits for its data (#721): Excel shows
+'   #BUSY! for the request of STOCKHISTORY that has not come back, and the
+'   calculation can be reported done before it has.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Pair
+    Dim Value       As Variant   'What a scratch cell holds
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        For i = 1 To Count
+            Value = TableCell(ParamsSheet, PairRows(i), KeyColumn + FX_COL_PRICE).Value2
+            If IsError(Value) Then
+                If Value = CVErr(2045) Then
+                    PricesPending = True
+                    Exit Function
+                End If
+            ElseIf IsEmpty(Value) Then
+                PricesPending = True
+                Exit Function
+            End If
+        Next i
 
 End Function
 
