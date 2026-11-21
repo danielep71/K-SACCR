@@ -115,8 +115,12 @@ Use only the categories needed by a release.
   no data request stays in the workbook. The macro refuses, changing no rate, in an Excel without
   `STOCKHISTORY` (also when the cell evaluates to `#NAME?`) and when the reporting date, the reporting
   currency or a code is changed while the prices come in. `DownloadClosingPrices_Silent` is its entry point
-  and `params.download-closing-prices` its case (14 checks, 624 in TEST_MainState; the test fault
-  `prices-fixed` stands for prices that came). Two repairs of the sheet that
+  and `params.download-closing-prices` its case (17 checks, 627 in TEST_MainState; the test faults
+  `prices-fixed` and `prices-none` stand for prices that came and for none). Excel hands the requests of `STOCKHISTORY` back only when no macro runs, so the
+  button writes the formulas and returns, and a timer (`PollClosingPrices`, each second, 30 seconds at
+  most) writes the rates when the prices have come, with the wait in the status bar; saving or closing the
+  workbook meanwhile ends the lookup without changing a rate. When no price comes for any currency it
+  changes no rate and no date and says what the first cell showed. Two repairs of the sheet that
   the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
   validations follow their cells (Regime keeps its list, the currency check covers only the reporting
   currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the

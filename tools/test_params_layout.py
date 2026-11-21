@@ -84,7 +84,19 @@ class ParamsLayoutTests(unittest.TestCase):
         for row in range(61, 261):
             self.assertIsNone(self.sheet.find(f'.//{MAIN}c[@r="AR{row}"]'), row)
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
-        self.assertIn('"=LET(r,STOCKHISTORY("', main)
+        self.assertIn('"LET(r,STOCKHISTORY("""', main)
+        self.assertIn('Replace(Pair, "/", ":")', main)  # STOCKHISTORY takes EUR:USD
+        self.assertIn("PricesPending(", main)  # waits while a cell shows #BUSY!
+        # Excel hands the data back only when no macro runs: the button returns and a timer reads the prices
+        self.assertIn("Application.OnTime mPollAt, mPollName", main)
+        self.assertRegex(main, r"(?m)^Public Sub PollClosingPrices\(\)")
+        self.assertNotIn("CalculateUntilAsyncQueriesDone", main)
+        self.assertNotIn("CVErr(2045)", main)  # 2045 is #SPILL!, not the busy state
+        cancel = main[main.index("Public Sub CancelPriceLookup(") :]
+        self.assertIn("Application.EnableEvents = False", cancel[: cancel.index("End Sub")])  # no refresh on close
+        self.assertIn("M_Ribbon.RefreshRibbon", cancel[: cancel.index("End Sub")])  # a kept workbook keeps its Ribbon
+        self.assertIn('"Downloading the prices of "', main)  # the wait shows in the status bar
+        self.assertNotIn("from STOCKHISTORY?", main)  # the confirmation does not name the function
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
         self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")
         self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\(\) As String")
