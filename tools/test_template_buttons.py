@@ -34,7 +34,7 @@ BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLU
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
     "Reconciliation": CLEAR, "TradeReconciliation": CLEAR,
-    "Params": (("btn_RefreshClosingPrices", "RefreshClosingPrices", "Refresh prices", BLUE),
+    "Params": (("btn_DownloadClosingPrices", "DownloadClosingPrices", "Download prices", BLUE),
                ("btn_CopyClosingPrices", "CopyClosingPrices", "Copy values", NAVY)),
     "FormulaTest": (("btn_RandomizeInputs", "RandomizeFormulaTestInputs", "Randomize inputs", NAVY),
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
@@ -179,7 +179,7 @@ class ShapeButtonTests(unittest.TestCase):
         column_g = (sum(widths.get(index, 64) for index in range(1, 7)), sum(widths.get(index, 64) for index in range(1, 8)))
         copy_left, copy_right = edges["btn_CopyClosingPrices"]
         self.assertTrue(column_g[0] <= copy_left < column_g[1], (edges, column_g))  # Copy values starts in column G
-        self.assertLess(edges["btn_RefreshClosingPrices"][1], copy_left)  # Refresh prices is left of it, not over it
+        self.assertLess(edges["btn_DownloadClosingPrices"][1], copy_left)  # Download prices is left of it, not over it
         # nothing covers the title of the table of closing days in column I
         self.assertLessEqual(copy_right, sum(widths.get(index, 64) for index in range(1, 9)) + 2)
 

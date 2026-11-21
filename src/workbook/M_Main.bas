@@ -7683,10 +7683,10 @@ NoDate:
 End Function
 
 
-Public Sub RefreshClosingPrices()
+Public Sub DownloadClosingPrices()
 '
 '==============================================================================
-'                            RefreshClosingPrices
+'                            DownloadClosingPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Look up the closing price of each currency pair of the FX table on the
@@ -7697,8 +7697,8 @@ Public Sub RefreshClosingPrices()
 '   pending when a run recalculates its inputs.
 '
 ' USAGE
-'   Refresh prices on the Params sheet, or the Macros dialog. Automation
-'   calls RefreshClosingPrices_Silent.
+'   Download prices on the Params sheet, or the Macros dialog. Automation
+'   calls DownloadClosingPrices_Silent.
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
@@ -7730,7 +7730,7 @@ Public Sub RefreshClosingPrices()
         End If
         If gSilent Then
             Notify "Nothing was looked up." & vbLf & vbLf & "A lookup is confirmed in a dialog, which silent mode " & _
-                   "does not show. Automation calls RefreshClosingPrices_Silent.", vbExclamation
+                   "does not show. Automation calls DownloadClosingPrices_Silent.", vbExclamation
             Exit Sub
         End If
         Pairs = ClosingPricePairs()
@@ -7756,15 +7756,15 @@ Public Sub RefreshClosingPrices()
         Exit Sub
 
 Failed:
-        Notify "Refresh closing prices: " & Err.Description, vbCritical
+        Notify "Download closing prices: " & Err.Description, vbCritical
 
 End Sub
 
 
-Public Function RefreshClosingPrices_Silent() As String
+Public Function DownloadClosingPrices_Silent() As String
 '
 '==============================================================================
-'                         RefreshClosingPrices_Silent
+'                         DownloadClosingPrices_Silent
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Look up the closing prices of the FX table (#721), for automation and
@@ -7797,9 +7797,9 @@ Public Function RefreshClosingPrices_Silent() As String
 ' LOOK UP
 '------------------------------------------------------------------------------
         If mRunning Then
-            Err.Raise ERR_RUN_ACTIVE, "M_Main.RefreshClosingPrices_Silent", "An SA-CCR operation is already running."
+            Err.Raise ERR_RUN_ACTIVE, "M_Main.DownloadClosingPrices_Silent", "An SA-CCR operation is already running."
         End If
-        RefreshClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
+        DownloadClosingPrices_Silent = LookUpClosingPrices(Priced, Without, Problem)
 
 End Function
 

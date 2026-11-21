@@ -199,7 +199,7 @@ Public Sub RunMainStateTests()
         CaseRestoreParams
         CaseYearConvention
         CaseCopyClosingPrices
-        CaseRefreshClosingPrices
+        CaseDownloadClosingPrices
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1812,13 +1812,13 @@ Unexpected:
 End Sub
 
 
-Private Sub CaseRefreshClosingPrices()
+Private Sub CaseDownloadClosingPrices()
 '
 '==============================================================================
-'                        CaseRefreshClosingPrices
+'                        CaseDownloadClosingPrices
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Refresh prices on Params (#721) in an Excel without STOCKHISTORY, which the
+'   Download prices on Params (#721) in an Excel without STOCKHISTORY, which the
 '   fault "prices-unavailable" stands for: the lookup refuses and says why,
 '   the prices stay as they were, no formula is left in the column and the
 '   calculation mode is as it was.
@@ -1839,7 +1839,7 @@ Private Sub CaseRefreshClosingPrices()
     Dim i           As Long      'Price
 
         On Error GoTo Unexpected
-        TEST_Kit.BeginCase "params.refresh-closing-prices"
+        TEST_Kit.BeginCase "params.download-closing-prices"
         SetState xlCalculationAutomatic, True, True
         Set ParamsSheet = GetSheet(SH_PARAMS)
         HeaderRow = NamedRow(NM_FX_TABLE)
@@ -1851,7 +1851,7 @@ Private Sub CaseRefreshClosingPrices()
         Set Prices = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
         SavedPrices = Prices.Value2
         M_Main.gTestFault = "prices-unavailable"
-        Result = M_Main.RefreshClosingPrices_Silent()
+        Result = M_Main.DownloadClosingPrices_Silent()
         M_Main.gTestFault = ""
         TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "refusal: " & Result
         Same = True

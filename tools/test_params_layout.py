@@ -80,7 +80,7 @@ class ParamsLayoutTests(unittest.TestCase):
 
     def test_the_closing_prices_are_values_and_a_macro_looks_them_up(self) -> None:
         # A STOCKHISTORY formula left in the sheet is a data request that Excel may never finish: a run
-        # in manual calculation then refuses to start. The prices are values; Refresh prices writes them.
+        # in manual calculation then refuses to start. The prices are values; Download prices writes them.
         self.assertNotIn("STOCKHISTORY", self.xml)
         for row in range(62, 82):
             cell = self.sheet.find(f'.//{MAIN}c[@r="G{row}"]')
@@ -90,8 +90,8 @@ class ParamsLayoutTests(unittest.TestCase):
         main = (ROOT / "src" / "workbook" / "M_Main.bas").read_text(encoding="cp1252")
         self.assertIn('"=LET(r,STOCKHISTORY("', main)
         self.assertIn('CallByName PriceCell, "Formula2", VbLet', main)  # late bound: it compiles in any Excel
-        self.assertRegex(main, r"(?m)^Public Sub RefreshClosingPrices\(\)")
-        self.assertRegex(main, r"(?m)^Public Function RefreshClosingPrices_Silent\(\) As String")
+        self.assertRegex(main, r"(?m)^Public Sub DownloadClosingPrices\(\)")
+        self.assertRegex(main, r"(?m)^Public Function DownloadClosingPrices_Silent\(\) As String")
 
     def test_the_fx_table_is_filled_with_twenty_currencies_against_the_euro(self) -> None:
         codes = [self.text(f"C{row}") for row in range(61, 82)]
