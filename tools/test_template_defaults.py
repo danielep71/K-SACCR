@@ -31,7 +31,7 @@ class OpeningStateTests(unittest.TestCase):
         for name, part in self.parts.items():
             view = ElementTree.fromstring(self.package.read(part)).find(f"{MAIN}sheetViews/{MAIN}sheetView")
             assert view is not None
-            self.assertEqual(view.attrib.get("zoomScale"), "100", name)
+            self.assertEqual(view.attrib.get("zoomScale", "100"), "100", name)  # Excel leaves out the default
             self.assertEqual(view.attrib.get("zoomScaleNormal"), "100", name)
 
     def test_the_bank_sheets_default_to_a_relative_tolerance_of_one_percent(self) -> None:

@@ -97,8 +97,8 @@ CRE54.7) and are not entered: entered, they would only overstate the exposure
 
 | Column | Header | Content |
 | --- | --- | --- |
-| R | QCCP (Y/N) | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50.3 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. `N`: non-qualifying. The status is the user's attestation. Changes the risk weight only, not the exposure value |
-| S | CCP retains VM, collateral not protected (Y/N) | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
+| R | QCCP | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50.3 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. `N`: non-qualifying. The status is the user's attestation. Changes the risk weight only, not the exposure value |
+| S | CCP retains VM | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
 
 **Rules.** Each holds under both regimes unless stated.
 
@@ -238,8 +238,8 @@ Specified from [decision 4](#decisions) and implemented in #360.
 | Column | Header | Content |
 | --- | --- | --- |
 | Z | Economic trade ID | Unchanged (#38) |
-| AA | MtM leg (Y/N) | Unchanged (#38) |
-| AB | Settlement type (N/STM) | Blank or `N`: ordinary treatment. `STM`: settled-to-market; lower case is read as upper |
+| AA | MtM leg | Unchanged (#38) |
+| AB | Settlement type | Blank or `N`: ordinary treatment. `STM`: settled-to-market; lower case is read as upper |
 | AC | Next reset date | A date. Required for `STM`; must be blank for blank or `N` |
 | AD | Comment | Moved from AB; still not read |
 

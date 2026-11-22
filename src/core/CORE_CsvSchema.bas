@@ -15,7 +15,8 @@ Attribute VB_Name = "CORE_CsvSchema"
 '   None outside this VBA project. CsvSpecOf fills a CsvSpec for "Trades"
 '   or "NettingSets", with its columns (1 To ColumnCount, in contract
 '   order) and rules (1 To RuleCount; erased when there is none); the CSV_
-'   constants hold the format and type limits.
+'   constants hold the format and type limits, and NS_HEADERS, TR_HEADERS,
+'   BN_HEADERS and BT_HEADERS the sheet headers the engine expects (#756).
 '   Allowed values, reserved keys and column lists are separated by "|",
 '   which no listed value contains.
 '
@@ -43,6 +44,29 @@ Attribute VB_Name = "CORE_CsvSchema"
         Public Const CSV_FLAG_VALUES      As String = "Y|N"    'Allowed values of a flag
         Public Const CSV_DATE_MIN         As String = "1950-01-01"    'Earliest date, yyyy-mm-dd
         Public Const CSV_DATE_MAX         As String = "2200-12-31"    'Latest date, yyyy-mm-dd
+    'Sheet headers of each file in column order, separated by "|"; an
+    'empty entry is a column the engine does not read. The engine compares
+    'them with the header row, ignoring case, spaces, tabs and line breaks,
+    'and stops the run when one differs: a column was inserted, deleted or
+    'moved (#35).
+        Public Const NS_HEADERS As String = _
+            "NettingSetID|Counterparty|Margined|Client clearing role|Remargin freq. (BD)|" & _
+            "Large or illiquid|Margin disputes|MPOR override (BD)|Net VM|NICA|Threshold (TH)|" & _
+            "MTA|Alpha override|Regime override|Margin agreements|QCCP|CCP retains VM|" & _
+            "Counterparty sector"
+        Public Const TR_HEADERS As String = _
+            "TradeID|NettingSetID|Asset class|Sub-class|Risk factor / reference|Instrument|" & _
+            "Direction|Option type|Nature|Hedging-set label|Notional|Notional CCY|MtM|" & _
+            "MtM CCY|Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
+            "Underlying price (P)|Strike (K)|Lambda shift|Attachment (A)|Detachment (D)|" & _
+            "Economic trade ID|MtM leg|Settlement type|Next reset date|"
+        Public Const BN_HEADERS As String = _
+            "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|AddOn IR|AddOn FX|" & _
+            "AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
+        Public Const BT_HEADERS As String = _
+            "TradeID|Notional (rep ccy)|MtM (rep ccy)|M (years)|Supervisory duration|" & _
+            "Adjusted notional d|Supervisory delta|MF unmargined|MF margined|" & _
+            "Effective notional unmargined|Effective notional margined|Stand-alone add-on|"
 
 '------------------------------------------------------------------------------
 ' TYPES

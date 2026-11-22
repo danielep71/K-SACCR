@@ -55,19 +55,21 @@ not compare (nor `YearConvention` and `Calendar`, which are configuration). The 
 
 ## 🗂️ Matrix
 
+The matrix names cells by their workbook names wherever the template has one, so that a row moved in Excel, which keeps each name on its cell, needs no edit to the matrix (#756). Cells without a name, on the two test sheets, keep their addresses.
+
 | Sheet | Role | Unlocked | Also allowed |
 | --- | --- | --- | --- |
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
-| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E8` (Regime), `E26` (YearConvention), `E27` (Calendar), `C61:E260` (FX table and the rows below it for added currencies), `I61:J160` (the table of closing days of the calendar) | — |
-| `NettingSets` | Input | Columns `C:T` from row 7 down | Sorting, inserting rows |
-| `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
-| `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
-| `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
+| `Params` | Configuration and reference regulatory parameters | `AsOfDate`, `ReportingCcy`, `Regime`, `YearConvention`, `Calendar`, `FX_Source` (the source of the rates Download prices writes), the 200 rows below the header of `FX_Table` (the FX table and the rows below it for added currencies), the 100 rows below the header of `Holiday_Table` (the table of closing days of the calendar) | — |
+| `NettingSets` | Input | Columns `C:T` below `NettingSets_Header` | Sorting, inserting rows |
+| `Trades` | Input | Columns `C:AD` below `Trades_Header` | Sorting, filtering, inserting rows |
+| `Import_NettingSets` | Staging | Columns `D:U` below `ImportNettingSets_Header` | Inserting rows |
+| `Import_Trades` | Staging | Columns `D:AE` below `ImportTrades_Header` | Inserting rows |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |
-| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |
+| `BankNettingSets` | Bank figures | `BankNS_Scale`, `BankNS_AbsTol`, `BankNS_RelTol` (amount scale and tolerances) and columns `C:P` below `BankNettingSets_Header` | Sorting, inserting rows |
 | `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |
-| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
+| `BankTrades` | Bank figures | `BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol` and columns `C:O` below `BankTrades_Header` | Sorting, inserting rows |
 | `TradeReconciliation` | Working | — | Never protected, as `Reconciliation` |
 | `ReconSummary` | Output | — | — (formulas only) |
 | `TestCatalogue` | Test | `L7:L34` | — |

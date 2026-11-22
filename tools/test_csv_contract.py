@@ -316,7 +316,7 @@ class GateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.TEMPLATE, gate.EXPECTED, gate.CASES,
+        for path in (csv.CONTRACT, csv.DOCUMENT, gate.CONFIG, gate.SCHEMA, gate.TEMPLATE, gate.EXPECTED, gate.CASES,
                      gate.PORTFOLIO, gate.STAGED, import_spec.SPECIFICATION):
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / path, self.root / path)
@@ -393,7 +393,7 @@ class GateTests(unittest.TestCase):
     def test_sheet_headers_must_match_the_engine(self) -> None:
         self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"][2].update(sheet_header="Margin flag"))
         findings = gate.run_check(self.root)["findings"]
-        self.assertIn(f"NettingSets: sheet headers differ from NS_HEADERS in {gate.CONFIG}", findings)
+        self.assertIn(f"NettingSets: sheet headers differ from NS_HEADERS in {gate.SCHEMA}", findings)
 
     def test_templates_must_be_regenerated(self) -> None:
         self.edit_contract(lambda c: c["files"]["NettingSets"]["columns"][1].update(name="counterparty_name"))

@@ -47,6 +47,7 @@ EXPECTED = {
 # The shapes start no further than this right of the left edge of column C, and clear of the title (Params
 # is the exception: its Download prices button sits beside the FX table).
 NOTES = ("Import_NettingSets", "Import_Trades")  # the sheets with a note on D8 (#731)
+HEADER_NOTES = ("NettingSets", "Trades")  # the sheets with a note on every header (#756)
 LATEST_START_PX = 480
 EMU = 9525
 GAP_PX = 8
@@ -99,14 +100,14 @@ class ShapeButtonTests(unittest.TestCase):
         names = self.package.namelist()
         self.assertEqual([item for item in names if "ctrlProp" in item], [])
         self.assertNotIn("ctrlProp", self.package.read("[Content_Types].xml").decode("utf-8"))
-        # The only VML left holds the notes of #731: no object of it is a control.
+        # The only VML left holds the notes of #731 and #756: no object of it is a control.
         for item in (item for item in names if item.endswith(".vml")):
             vml = self.package.read(item).decode("utf-8")
             self.assertEqual(set(re.findall(r'ObjectType="(\w+)"', vml)), {"Note"}, item)
         for name, part in self.parts.items():
             sheet = self.package.read(part).decode("utf-8")
             self.assertNotIn("<controls>", sheet, name)
-            if name not in NOTES:
+            if name not in NOTES + HEADER_NOTES:
                 self.assertNotIn("legacyDrawing", sheet, name)
             drawing = self.package.read(drawing_of(self.package, part)).decode("utf-8")
             self.assertNotRegex(drawing, r'name="Button \d+"', name)
@@ -164,7 +165,7 @@ class ShapeButtonTests(unittest.TestCase):
         group = groups[0]
         first = int(group.findtext(f"{XDR}from/{XDR}row") or "0") + 1  # the sheet row where the shapes start
         self.assertIn(first, (title - 1, title))
-        self.assertEqual(group.find(XDR + "clientData").attrib["fLocksWithSheet"], "1")  # type: ignore[union-attr]
+        self.assertEqual(group.find(XDR + "clientData").attrib.get("fLocksWithSheet", "1"), "1")  # type: ignore[union-attr]  # 1 is the default
         widths = column_widths(sheet)
         origin = sum(widths.get(index, 64) for index in range(1, anchor_column(group) + 1)) + \
             int(group.findtext(f"{XDR}from/{XDR}colOff") or "0") // EMU

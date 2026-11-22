@@ -149,6 +149,15 @@ class ProtectionGateTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r"\$(?:script:)?sheetNames\s*=", script)), 1)
         self.assertIn('[string]$property.Value.role -eq "Working"', script)
 
+    def test_the_excel_script_finds_its_cells_by_name(self) -> None:
+        # #756: the cells the script writes are found from the workbook names, so that rows moved in the
+        # template need no edit to the script; the alpha it changes is the one named Alpha.
+        script = (ROOT / "tools" / "Check-SACCR-Protection.ps1").read_text(encoding="utf-8")
+        self.assertNotRegex(script, r'Worksheets\.Item\("(?:Params|NettingSets|Trades|Import_\w+|Bank\w+|Results)"\)'
+                                    r'\.Range\("')
+        self.assertIn('$alpha = Get-NamedCell $workbook "Alpha"', script)
+        self.assertIn("$Book.Names.Item($Name).RefersToRange", script)
+
     def test_sheet_protection_password(self) -> None:
         protection = PROTECTED.replace("/>", ' algorithmName="SHA-512" hashValue="x" saltValue="y" spinCount="1"/>')
         findings = run(OPEN_COLUMNS + f"<sheetData>{GOOD_ROWS}</sheetData>", protection=protection)
@@ -193,7 +202,21 @@ class ProtectionGateTests(unittest.TestCase):
             f"{gate.MATRIX}: Sheet: reversed range: 'B2:A1'",
             f"{gate.MATRIX}: Sheet: unknown allowed operation 'copying'",
             f"{gate.MATRIX}: Sheet: unlocked_columns.columns must be a column range such as C:S",
-            f"{gate.MATRIX}: Sheet: unlocked_columns.first_row must be an integer of at least 2"])
+            f"{gate.MATRIX}: Sheet: unlocked_columns.first_row must be an integer of at least 2 or a workbook name"])
+
+    def test_the_matrix_names_cells_by_workbook_name(self) -> None:
+        # #756: a name, NAME+N rows below it, and a first row given as the name of the header cell
+        names = {"Rate": "Params!$E$5", "Table": "Params!$C$9:$E$12", "Header": "Trades!$C$4"}
+        spec = {"role": "Input", "unlocked_cells": ["Rate", "Table+2", "B2"],
+                "unlocked_columns": {"columns": "C:D", "first_row": "Header"}}
+        self.assertEqual(gate.check_matrix({"schema_version": 1, "sheets": {"Sheet": spec}}), [])
+        cells, columns, first = gate.expected_unlocked(spec, names)
+        self.assertEqual(cells, {(5, 5), (3, 10), (4, 10), (5, 10), (3, 11), (4, 11), (5, 11), (2, 2)})
+        self.assertEqual((columns, first), ({3, 4}, 5))
+        with self.assertRaisesRegex(ValueError, "no workbook name 'Missing'"):
+            gate.expected_unlocked({"unlocked_cells": ["Missing"]}, names)
+        bad = gate.check_matrix({"schema_version": 1, "sheets": {"Sheet": {"role": "Input", "unlocked_cells": ["E5 F6"]}}})
+        self.assertEqual(bad, [f"{gate.MATRIX}: Sheet: not a cell address or workbook name: 'E5 F6'"])
 
 
 if __name__ == "__main__":

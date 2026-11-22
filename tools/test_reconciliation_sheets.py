@@ -14,6 +14,7 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
 
+from template_layout import formula_text, named_cell
 from test_template_buttons import sheet_parts
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -154,7 +155,7 @@ class ReconciliationSheetTests(unittest.TestCase):
             frozen = int(re.search(r'<pane xSplit="(\d+)"', self.package.read(self.parts[name]).decode("utf-8")).group(1))  # type: ignore[union-attr]
             self.assertGreaterEqual(int(anchor.findtext(f"{XDR}from/{XDR}col") or "0"), frozen, name)
             self.assertEqual(anchor.findtext(f"{XDR}from/{XDR}row"), "5", name)
-            self.assertEqual(anchor.find(XDR + "clientData").attrib["fLocksWithSheet"], "1", name)  # type: ignore[union-attr]
+            self.assertEqual(anchor.find(XDR + "clientData").attrib.get("fLocksWithSheet", "1"), "1", name)  # type: ignore[union-attr]  # 1 is the default
             shapes = {item.find(f"{XDR}nvSpPr/{XDR}cNvPr").attrib["name"]: item  # type: ignore[union-attr]
                       for item in anchor.iter(XDR + "sp")}
             self.assertEqual(len(shapes), 2 * len(TILES), name)
@@ -256,7 +257,7 @@ class ReconSummaryTests(unittest.TestCase):
         return self.strings[int(value)] if self.cell(ref).attrib.get("t") == "s" else value
 
     def formula(self, ref: str) -> str:
-        return self.cell(ref).findtext(MAIN + "f") or ""
+        return formula_text(self.sheet, self.cell(ref))
 
     def source_measures(self, constant: str) -> list[str]:
         reconcile = (ROOT / "src" / "core" / "CORE_Reconcile.bas").read_text(encoding="utf-8")
@@ -322,8 +323,9 @@ class ReconSummaryTests(unittest.TestCase):
         protection = self.sheet.find(MAIN + "sheetProtection")
         assert protection is not None
         self.assertEqual(protection.attrib.get("sheet"), "1")
-        for formula in self.sheet.iter(MAIN + "f"):  # formulas only: no cell is unlocked
-            self.assertTrue((formula.text or "").strip())
+        for cell in self.sheet.iter(MAIN + "c"):  # formulas only: no cell is unlocked
+            if cell.find(MAIN + "f") is not None:
+                self.assertTrue(formula_text(self.sheet, cell).strip(), cell.attrib.get("r"))
         styles = ElementTree.fromstring(self.package.read("xl/styles.xml"))
         xfs = list(styles.find(MAIN + "cellXfs"))  # type: ignore[arg-type]
         for cell in self.sheet.iter(MAIN + "c"):
@@ -350,8 +352,13 @@ class SampleBankFigureTests(unittest.TestCase):
             out.append(self.strings[int(value)] if cell is not None and cell.attrib.get("t") == "s" and value else value)
         return out
 
+    def first_row(self, name: str) -> int:
+        """The first data row of a sheet: the row below the header its workbook name locates."""
+        return named_cell(self.package, name).row + 1
+
     def test_the_sample_bank_rows_name_netting_sets_and_trades_of_the_sample_inputs(self) -> None:
-        sets = {name for name in self.column("NettingSets", "C", 7, 60) if name}
+        first = self.first_row("NettingSets_Header")
+        sets = {name for name in self.column("NettingSets", "C", first, first + 53) if name}
         ids = [name for name in self.column("BankNettingSets", "C", 9, 30) if name]
         self.assertGreaterEqual(len(ids), 6)
         self.assertEqual(len(ids), len(set(ids)))
@@ -359,7 +366,8 @@ class SampleBankFigureTests(unittest.TestCase):
         regimes = [value for value in self.column("BankNettingSets", "D", 9, 30) if value]
         self.assertEqual(len(regimes), len(ids))
         self.assertTrue(set(regimes) <= {"BCBS", "CRR"})
-        trades = {name for name in self.column("Trades", "C", 5, 400) if name}
+        first = self.first_row("Trades_Header")
+        trades = {name for name in self.column("Trades", "C", first, first + 395) if name}
         bank = [name for name in self.column("BankTrades", "C", 9, 30) if name]
         self.assertGreaterEqual(len(bank), 3)
         self.assertEqual([name for name in bank if name not in trades], ["BANK-ONLY-T1"])

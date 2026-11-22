@@ -262,7 +262,7 @@ Public Sub RunInputValidationTests()
 
         StartCase "layout-netting-sets-column-shifted", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold TH"
+        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold (TH)"
         ExpectStop DIAG_LAYOUT_HEADER
 
         StartCase "layout-params-value-header-renamed", "N"

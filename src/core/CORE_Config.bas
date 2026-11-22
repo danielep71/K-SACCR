@@ -347,22 +347,14 @@ Attribute VB_Name = "CORE_Config"
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
     'case, spaces, tabs and line breaks) means a column was inserted,
-    'deleted or moved, and the run stops (#35). The Params, factor and FX headers are
-    'checked from the cells that their workbook names locate.
-        Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)|Remargin frequency N (BD)|" & _
-            ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
-            "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
-            "Alpha override|Regime override (blank = Params)|" & _
-            "Margin agreements (blank / MIXED / SHARED)|QCCP (Y/N)|" & _
-            "CCP retains VM, collateral not protected (Y/N)|" & _
-            "Counterparty sector (CB / GG / CI / OFC / NFC / HH)"
-        Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
-            "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
-            "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
-            "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
-            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|" & _
-            "Economic trade ID|MtM leg (Y/N)|Settlement type (N/STM)|Next reset date|"
+    'deleted or moved, and the run stops (#35). The headers of NettingSets,
+    'Trades, BankNettingSets and BankTrades are NS_HEADERS, TR_HEADERS,
+    'BN_HEADERS and BT_HEADERS in CORE_CsvSchema, generated from the
+    'sheet_header of each column of docs/csv/contract.json (#756): a rename
+    'is an edit to the contract and the template, then
+    'python tools/generate_csv_vba.py. Every header row is found from its
+    'workbook name, never from a row number. The Params, factor and FX
+    'headers are checked from the cells that their workbook names locate.
         Public Const PRM_CODE_HEADER As String = "Code"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
@@ -524,8 +516,6 @@ Attribute VB_Name = "CORE_Config"
         Public Const BN_MULT        As Long = 13    'Multiplier: the one figure not scaled
         Public Const BN_COMMENT     As Long = 14    'Free-text comment, not read
         Public Const BN_NCOLS       As Long = 14    'Number of columns
-        Public Const BN_HEADERS As String = "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|" & _
-            "AddOn IR|AddOn FX|AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
     'The BankTrades sheet holds a bank's own figures per trade leg, to be
     'compared with TradeCalc, in the same way. Amounts are scaled; M, the
     'supervisory duration, the delta and the maturity factors are not.
@@ -537,9 +527,6 @@ Attribute VB_Name = "CORE_Config"
         Public Const BT_NOTIONAL    As Long = 2     'Notional; the figures follow in the order of the measures
         Public Const BT_COMMENT     As Long = 13    'Free-text comment, not read
         Public Const BT_NCOLS       As Long = 13    'Number of columns
-        Public Const BT_HEADERS As String = "TradeID|Notional (rep ccy)|MtM (rep ccy)|M (years)|" & _
-            "Supervisory duration|Adjusted notional d|Supervisory delta|MF unmargined|MF margined|" & _
-            "Effective notional unmargined|Effective notional margined|Stand-alone add-on|"
 
 '------------------------------------------------------------------------------
 ' RECONCILIATION
