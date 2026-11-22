@@ -1025,10 +1025,11 @@ Private Sub ReapplyOutputFilters()
 '                            ReapplyOutputFilters
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   After an operation has written the output tables, apply again the filter
-'   the user set on the header of Results, HedgingSets, Buckets, TradeCalc
-'   and Checks (#754): the rows written into hidden rows would otherwise stay
-'   as they were, shown or hidden, whatever the rule says. A sheet with no
+'   After an operation has written the output tables, or the validation of a
+'   staging sheet has written Checks, apply again the filter the user set on
+'   the header of Results, HedgingSets, Buckets, TradeCalc and Checks (#754):
+'   the rows written into hidden rows would otherwise stay as they were,
+'   shown or hidden, whatever the rule says. A sheet with no
 '   filter set, or without the buttons, is left as it is; no operation sets
 '   or clears a filter.
 '
@@ -7313,6 +7314,7 @@ Private Sub WriteStagingChecks( _
         If Listed > 0 Then
             TableRange(ChecksSheet, TopRow + 1, 1, TopRow + Listed, 1).Font.Bold = True
         End If
+        ReapplyOutputFilters
 
 End Sub
 

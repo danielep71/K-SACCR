@@ -71,6 +71,9 @@ class OutputFilterTests(unittest.TestCase):
         operation = main[main.index("Private Function ExecuteOperation("):]
         select = operation.index("        End Select\n        ReapplyOutputFilters")
         self.assertGreater(select, 0)  # after the run, the validation and Clear outputs alike
+        staging = main[main.index("Private Sub WriteStagingChecks("):]
+        staging = staging[: staging.index("\nEnd Sub")]
+        self.assertTrue(staging.rstrip().endswith("ReapplyOutputFilters"))  # the staging validation writes Checks too
 
 
 if __name__ == "__main__":
