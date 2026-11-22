@@ -104,7 +104,7 @@ Use only the categories needed by a release.
   results). Run SA-CCR, Validate inputs and Clear outputs keep the buttons and apply again a
   filter the user set, so that the new rows follow the rule. `PROTECT_FILTERING`, the protection
   matrix, `WORKBOOK_PROTECTION.md` and check 5 of `Check-SACCR-Protection.ps1` follow;
-  `TEST_MainState` gains `outputs.filter-buttons`, and `test_output_filters.py` checks the
+  `TEST_MainState` gains `outputs.filter-buttons` (31 checks), and `test_output_filters.py` checks the
   template.
 
 - Test the FX convention of #725 in every place the engine uses a rate. `TEST_InputValidation`
