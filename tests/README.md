@@ -103,12 +103,17 @@ that do not come from the catalogue; each records its own derivation:
   `illustrative-settled-to-market-*`: the scripts in
   [`derivations/`](derivations/), which share no code with the engine.
 
-The six expected files `rsaccr-portfolio-*.crr` are `independent` cases
+The eight expected files `rsaccr-portfolio-*.crr` are `independent` cases
 (#100): netting sets of the synthetic portfolio of #352 (seed 352) whose
 values come from the R package `SACCR` 3.4, the registered source
-`IMPL-R-SACCR`, and on which a workbook run agreed on every figure.
-`python tools/rsaccr_portfolio.py cases` writes them
-([tools](../tools/README.md)).
+`IMPL-R-SACCR`. On six of them, on the default day count, a workbook run
+agreed on every figure. The other two, `rsaccr-portfolio-rs-010-y250-target`
+and `rsaccr-portfolio-rs-011-y250-target`, are the netting sets of two of the
+six on 250 business days of the TARGET calendar (#721): their fixtures set
+`YearConvention` 250 and `Calendar` `TARGET`, the package ran on the times
+`tools/business_calendar.py` counts, and `TEST_Cases` is their first
+comparison with the workbook. `python tools/rsaccr_portfolio.py cases` writes
+them ([tools](../tools/README.md)).
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text

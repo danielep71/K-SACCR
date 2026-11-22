@@ -104,7 +104,7 @@ Attribute VB_Name = "CORE_Engine"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-09
+'   2026-11-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -283,7 +283,10 @@ Attribute VB_Name = "CORE_Engine"
 '------------------------------------------------------------------------------
     'Opens the text of every input fingerprint; changed whenever what the
     'fingerprint covers changes, so an older stored one never matches.
-        Private Const FP_FORMAT   As String = "FP2"    'Typed cells, headers, date system (#197)
+        Private Const FP_FORMAT   As String = "FP3"    'Typed cells, headers, date system (#197), download record (#745)
+    'Opens the text of the fingerprint of the FX table that Download prices
+    'stores (#745); changed whenever what it covers changes.
+        Private Const FX_FP_FORMAT As String = "FX1"    'The FX table from its header row
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -6131,14 +6134,16 @@ Private Function ParamsText() As String
 '   rows (ParamsLayoutValid checks the headers) to their last row with a
 '   value, or to the row above the other table when that follows
 '   (LoadSFTable, LoadFXTable). Other cells, such as descriptions and
-'   references, are left out.
+'   references, are left out. The record of the last Download prices
+'   (FxDownloadText) is part of it: rates of another source are other
+'   inputs, even when they are equal (#745).
 '
 ' ERROR POLICY
 '   Raises ERR_PARAMS_LAYOUT when a name is missing or broken, or when one
 '   of the four layout names is not on Params.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-22
 '==============================================================================
 '
 
@@ -6154,7 +6159,6 @@ Private Function ParamsText() As String
     Dim SFHeaderRow   As Long         'Header row of the factor table
     Dim FXHeaderRow   As Long         'Header row of the FX table
     Dim SFLastRow     As Long         'Last row of the factor block; 0 = last used
-    Dim FXLastRow     As Long         'Last row of the FX block; 0 = last used
 
 '------------------------------------------------------------------------------
 ' CHECK THE LAYOUT NAMES
@@ -6177,7 +6181,7 @@ Private Function ParamsText() As String
 '------------------------------------------------------------------------------
     'Code=value of each named cell, in the order of ParameterCodes.
         NameList = ParameterCodes()
-        ReDim Pieces(1 To UBound(NameList) - LBound(NameList) + 6)
+        ReDim Pieces(1 To UBound(NameList) - LBound(NameList) + 7)
         For i = LBound(NameList) To UBound(NameList)
             Set TopLeftCell = NamedCell(CStr(NameList(i)))
             If TopLeftCell Is Nothing Then
@@ -6193,23 +6197,362 @@ Private Function ParamsText() As String
 '------------------------------------------------------------------------------
     'A table starts at its header row, whose headers ParamsLayoutValid
     'checks, and stops above the other table when that follows it, as the
-    'loaders stop; otherwise at its last row with a value.
+    'loaders stop; otherwise at its last row with a value (FxBlockText).
         SFHeaderRow = NamedRow(NM_SF_TABLE)
         FXHeaderRow = NamedRow(NM_FX_TABLE)
         If FXHeaderRow > SFHeaderRow Then
             SFLastRow = FXHeaderRow - 1
-        ElseIf SFHeaderRow > FXHeaderRow Then
-            FXLastRow = SFHeaderRow - 1
         End If
         Pieces(PieceCount + 1) = BlockText(ParamsSheet, 1, 1, ParamsCodeCol())
         Pieces(PieceCount + 2) = BlockText(ParamsSheet, 1, 1, ParamsValueCol())
         Pieces(PieceCount + 3) = BlockText(ParamsSheet, SFHeaderRow, UBound(Split(SF_HEADERS, "|")) + 1, _
                                   NamedTableCol(NM_SF_TABLE), SFLastRow)
-        Pieces(PieceCount + 4) = BlockText(ParamsSheet, FXHeaderRow, UBound(Split(FX_HEADERS, "|")) + 1, _
-                                  NamedTableCol(NM_FX_TABLE), FXLastRow)
-        Pieces(PieceCount + 5) = BlockText(ParamsSheet, NamedRow(NM_HOLIDAY_TABLE), UBound(Split(HOLIDAY_HEADERS, "|")) + 1, _
-                                  NamedTableCol(NM_HOLIDAY_TABLE), NamedRow(NM_HOLIDAY_TABLE) + HOLIDAY_ROWS)
+        Pieces(PieceCount + 4) = FxBlockText()
+        Pieces(PieceCount + 5) = HolidayBlockText()
+        Pieces(PieceCount + 6) = FxDownloadText()
         ParamsText = Join(Pieces, Chr$(30))
+
+End Function
+
+
+Private Function FxBlockText() As String
+'
+'==============================================================================
+'                                 FxBlockText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The FX table as one text (BlockText), as InputFingerprint and the
+'   fingerprint of a download read it: from its header row to its last row
+'   with a value, or to the row above the factor table when that follows.
+'
+' ERROR POLICY
+'   Raises when the name FX_Table or SF_Table does not locate a row.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim FXHeaderRow   As Long    'Header row of the FX table
+    Dim SFHeaderRow   As Long    'Header row of the factor table
+    Dim FXLastRow     As Long    'Last row of the FX block; 0 = last used
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        FXHeaderRow = NamedRow(NM_FX_TABLE)
+        SFHeaderRow = NamedRow(NM_SF_TABLE)
+        If SFHeaderRow > FXHeaderRow Then
+            FXLastRow = SFHeaderRow - 1
+        End If
+        FxBlockText = BlockText(GetSheet(SH_PARAMS), FXHeaderRow, UBound(Split(FX_HEADERS, "|")) + 1, _
+                                NamedTableCol(NM_FX_TABLE), FXLastRow)
+
+End Function
+
+
+Private Function HolidayBlockText() As String
+'
+'==============================================================================
+'                               HolidayBlockText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The table of closing days as one text (BlockText), from its header row
+'   down the HOLIDAY_ROWS rows the run reads.
+'
+' ERROR POLICY
+'   Raises when the name Holiday_Table does not locate a row.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        HolidayBlockText = BlockText(GetSheet(SH_PARAMS), NamedRow(NM_HOLIDAY_TABLE), _
+                                     UBound(Split(HOLIDAY_HEADERS, "|")) + 1, NamedTableCol(NM_HOLIDAY_TABLE), _
+                                     NamedRow(NM_HOLIDAY_TABLE) + HOLIDAY_ROWS)
+
+End Function
+
+
+Private Function FxDownloadText() As String
+'
+'==============================================================================
+'                                FxDownloadText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The record of the last Download prices (#745) as one text: the source,
+'   the date and the fingerprint of the FX table it wrote, from the hidden
+'   cells FX_PriceSource, FX_PriceDate and FX_PriceFingerprint. A cell
+'   whose name is missing, in a workbook older than the cell, reads "-".
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim NameList   As Variant    'The three names
+    Dim Cell       As Range      'A named cell
+    Dim i          As Long       'Index into NameList
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        NameList = Array(NM_FX_PRICE_SRC, NM_FX_PRICE_DATE, NM_FX_PRICE_FP)
+        For i = LBound(NameList) To UBound(NameList)
+            Set Cell = NamedCell(CStr(NameList(i)))
+            If Cell Is Nothing Then
+                FxDownloadText = FxDownloadText & "|-"
+            Else
+                FxDownloadText = FxDownloadText & "|" & CellToken(Cell.Value2)
+            End If
+        Next i
+
+End Function
+
+
+Public Function FxTableFingerprint() As String
+'
+'==============================================================================
+'                              FxTableFingerprint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fingerprint the FX table as it is (#745): Download prices stores it in
+'   FX_PriceFingerprint once the rates are written, and FxSourceText
+'   compares it with the table at the run, so that a rate edited after the
+'   download shows.
+'
+' RETURNS
+'   An 8-digit hexadecimal fingerprint (CORE_Util.TextHash); "" when the
+'   table cannot be located.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        On Error GoTo Failed
+        FxTableFingerprint = TextHash(FX_FP_FORMAT & Chr$(29) & FxBlockText())
+        Exit Function
+
+Failed:
+        FxTableFingerprint = vbNullString
+
+End Function
+
+
+Public Function FxSourceText() As String
+'
+'==============================================================================
+'                                 FxSourceText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The source of the rates of the FX table, as the run, its summary and
+'   the evidence record it (#745):
+'   - "ECB reference rate of 2026-09-30" or "Closing price of 2026-09-30":
+'     the table is as Download prices wrote it, from that source, for that
+'     date;
+'   - "Manual (edited after ECB reference rate download)": a rate, a
+'     currency or a row changed after the download;
+'   - "Manual": no download is recorded, in a new workbook or one saved
+'     before the record existed.
+'   A currency the source had no rate for keeps its earlier rate and is
+'   part of the table as downloaded; the message of the download names it.
+'
+' ERROR POLICY
+'   Never raises: a record that cannot be read gives "Manual".
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Source      As String     'The source of the download
+    Dim Stored      As String     'The fingerprint of the table it wrote
+    Dim DateValue   As Variant    'The date of its rates
+    Dim Current     As String     'The fingerprint of the table now
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        FxSourceText = FX_SOURCE_MANUAL
+        On Error GoTo Failed
+        If NamedCell(NM_FX_PRICE_SRC) Is Nothing Or NamedCell(NM_FX_PRICE_FP) Is Nothing Or _
+           NamedCell(NM_FX_PRICE_DATE) Is Nothing Then
+            Exit Function
+        End If
+        Source = Trim$(SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2))
+        Stored = Trim$(SafeStr(NamedCell(NM_FX_PRICE_FP).Value2))
+        DateValue = NamedCell(NM_FX_PRICE_DATE).Value2
+        If Len(Source) = 0 Or Len(Stored) = 0 Then
+            Exit Function
+        End If
+        Current = FxTableFingerprint()
+        If Len(Current) > 0 And Current = Stored And VarType(DateValue) = vbDouble Then
+            FxSourceText = Source & " of " & Format$(CDate(DateValue), "yyyy-mm-dd")
+        Else
+            FxSourceText = FX_SOURCE_MANUAL & " (edited after " & Source & " download)"
+        End If
+        Exit Function
+
+Failed:
+        FxSourceText = FX_SOURCE_MANUAL
+
+End Function
+
+
+Public Function YearConventionText() As String
+'
+'==============================================================================
+'                              YearConventionText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The days of the conventional year (YearConvention) as the run reads
+'   them (ReadConvention), for its summary and the evidence (#721): a blank
+'   cell is the default, 365.
+'
+' ERROR POLICY
+'   Never raises: a value the run would refuse is written as it is.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim RawValue   As Variant    'The cell
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        RawValue = GetParam(PRM_DAYCOUNT)
+        If IsError(RawValue) Then
+            YearConventionText = "error"
+        ElseIf Len(Trim$(SafeStr(RawValue))) = 0 Then
+            YearConventionText = CORE_Export.NumberText(DAYCOUNT_DEFAULT)
+        ElseIf VarType(RawValue) <> vbBoolean And IsNum(RawValue) Then
+            YearConventionText = CORE_Export.NumberText(CDbl(RawValue))
+        Else
+            YearConventionText = Trim$(SafeStr(RawValue))
+        End If
+        Exit Function
+
+Failed:
+        YearConventionText = "unknown"
+
+End Function
+
+
+Public Function CalendarText() As String
+'
+'==============================================================================
+'                                 CalendarText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The calendar (Calendar) as the run reads it (ReadConvention), for its
+'   summary and the evidence (#721): in upper case, a blank cell being the
+'   default, TABLE.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim RawValue   As Variant    'The cell
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        RawValue = GetParam(PRM_CALENDAR)
+        If IsError(RawValue) Then
+            CalendarText = "error"
+        ElseIf Len(Trim$(SafeStr(RawValue))) = 0 Then
+            CalendarText = CALENDAR_DEFAULT
+        Else
+            CalendarText = UCase$(Trim$(SafeStr(RawValue)))
+        End If
+        Exit Function
+
+Failed:
+        CalendarText = "unknown"
+
+End Function
+
+
+Public Function HolidayTableText() As String
+'
+'==============================================================================
+'                               HolidayTableText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The table of closing days as the run uses it (#721), for its summary
+'   and the evidence: "unused" when the calendar is TARGET alone, "empty"
+'   when the table has no date, otherwise the number of entries and the
+'   fingerprint of the table, e.g. "3 days, 1A2B3C4D", so that two runs
+'   on different tables are not taken for one convention.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the table
+    Dim KeyColumn     As Long         'Its date column
+    Dim r             As Long         'Row
+    Dim Entries       As Long         'Rows with a date
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+        On Error GoTo Failed
+        If CalendarText() = CALENDAR_TARGET Then
+            HolidayTableText = "unused"
+            Exit Function
+        End If
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_HOLIDAY_TABLE)
+        KeyColumn = NamedTableCol(NM_HOLIDAY_TABLE)
+        For r = HeaderRow + 1 To HeaderRow + HOLIDAY_ROWS
+            If Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value) Then
+                Entries = Entries + 1
+            End If
+        Next r
+        If Entries = 0 Then
+            HolidayTableText = "empty"
+        Else
+            HolidayTableText = Entries & " days, " & TextHash(HolidayBlockText())
+        End If
+        Exit Function
+
+Failed:
+        HolidayTableText = "unknown"
 
 End Function
 
@@ -6814,7 +7157,8 @@ Private Function RunInfoText( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Compose the run summary written by WriteRunInfo: a failure, a
-'   validation-only run, a completed run with its counts, run class, input
+'   validation-only run, a completed run with its counts, run class, day
+'   count and calendar (#721), source of the FX rates (#745), input
 '   fingerprint and duration, or a run stopped by input errors.
 '
 ' INPUTS
@@ -6824,7 +7168,7 @@ Private Function RunInfoText( _
 '   Raises any error to WriteRunInfo, which writes a fallback line.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-22
 '==============================================================================
 '
         If Len(Failure) > 0 Then
@@ -6842,6 +7186,7 @@ Private Function RunInfoText( _
                           ", legs " & mTradesUsed & " of " & mTradesRead & _
                           " | errors " & mErrCount & ", warnings " & mWarnCount & _
                           RunClassText() & _
+                          ConventionSummary() & _
                           " | inputs " & mRunInputs & _
                           " | " & CORE_Export.NumberText(Round(RunSeconds, 2)) & " s"
             If mIncomplete > 0 Then
@@ -6852,6 +7197,42 @@ Private Function RunInfoText( _
             RunInfoText = "Last run " & Format$(Now, "yyyy-mm-dd hh:mm:ss") & _
                           " FAILED - see Checks sheet (" & mErrCount & " errors)"
         End If
+
+End Function
+
+
+Private Function ConventionSummary() As String
+'
+'==============================================================================
+'                              ConventionSummary
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The part of the run summary that says how the dates became years and
+'   where the rates came from, so that two results are never compared
+'   without it (#721, #745), e.g. " | year 250 days, calendar TARGET | FX
+'   ECB reference rate of 2026-09-30". A table of closing days in use adds
+'   its entries and fingerprint after the calendar.
+'
+' ERROR POLICY
+'   Never raises: the functions it reads never raise.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Holidays   As String    'HolidayTableText
+
+'------------------------------------------------------------------------------
+' COMPOSE
+'------------------------------------------------------------------------------
+        Holidays = HolidayTableText()
+        ConventionSummary = " | year " & YearConventionText() & " days, calendar " & CalendarText() & _
+                            IIf(Holidays = "unused" Or Holidays = "empty", vbNullString, " (" & Holidays & ")") & _
+                            " | FX " & FxSourceText()
 
 End Function
 

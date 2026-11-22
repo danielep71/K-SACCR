@@ -79,6 +79,7 @@ TRADE_FIELDS: dict[str, tuple[str, bool]] = {
 # the engine's range for that parameter (CORE_Engine.LoadParams).
 PARAMETERS: dict[str, str] = {
     "YearConvention": "year_basis",
+    "Calendar": "calendar",
     "IRBucketOffset": "bool",
 }
 ENUMS = {
@@ -89,6 +90,9 @@ ENUMS = {
     "nature": {"standard", "basis", "volatility"},
     "clearing_role": {"none", "clearing_member", "client", "ccp"},
     "settlement_type": {"ordinary", "settled_to_market"},
+    # Calendar: the calendars of CORE_Engine.ReadConvention. A fixture has no
+    # holiday table, so TABLE and TARGET+TABLE count as calendar days and TARGET.
+    "calendar": {"TARGET", "TARGET+TABLE", "TABLE"},
 }
 
 NETTING_SET_QUANTITIES = {

@@ -54,7 +54,7 @@ Attribute VB_Name = "TEST_CaseRunner"
 '   with RESULT=FAIL and exactly one failure.
 '
 ' UPDATED
-'   2026-10-22
+'   2026-11-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -625,20 +625,21 @@ Public Sub SetParameter( _
 ' PURPOSE
 '   Give one Params value for the current case, from a fixture's
 '   "parameters" object, for example YearConvention 360 so that a published
-'   maturity of 0.75 years can be entered as a date, or IRBucketOffset
-'   FALSE. Restored like PatchCell.
+'   maturity of 0.75 years can be entered as a date, IRBucketOffset FALSE
+'   or Calendar TARGET. Restored like PatchCell.
 '
 ' INPUTS
 '   Code: a PRM_ code, whose workbook name locates the value cell.
-'   ValueText: Y or N for a Boolean, written as TRUE or FALSE; otherwise
-'   the number as text with a "." decimal point.
+'   ValueText: Y or N for a Boolean, written as TRUE or FALSE; a number as
+'   text with a "." decimal point; any other text, such as a calendar,
+'   written as it is.
 '
 ' ERROR POLICY
 '   Raises ERR_TEST_SETUP when the parameter has no workbook name; the
 '   suite then ends as failed.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-22
 '==============================================================================
 '
 
@@ -657,10 +658,57 @@ Public Sub SetParameter( _
             Case "N"
                 PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, False
             Case Else
-                PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, Val(ValueText)
+                If IsNumericText(ValueText) Then
+                    PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, Val(ValueText)
+                Else
+                    PatchCell SH_PARAMS, ValueCell.Row, ValueCell.Column - COL_OFFSET, ValueText
+                End If
         End Select
 
 End Sub
+
+
+Private Function IsNumericText( _
+    ByVal ValueText As String) _
+    As Boolean
+'
+'==============================================================================
+'                                IsNumericText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether a fixture value is a number as the generator writes it: an
+'   optional minus sign, digits and at most one "." decimal point. Read
+'   without the locale, as Val reads it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i          As Long      'Position in ValueText
+    Dim Char       As String    'Character at i
+    Dim Digits     As Long      'Digits seen
+    Dim Points     As Long      'Decimal points seen
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+        For i = 1 To VBA.Len(ValueText)
+            Char = VBA.Mid$(ValueText, i, 1)
+            If Char Like "#" Then
+                Digits = Digits + 1
+            ElseIf Char = "." Then
+                Points = Points + 1
+            ElseIf Not (Char = "-" And i = 1) Then
+                Exit Function
+            End If
+        Next i
+        IsNumericText = (Digits > 0 And Points <= 1)
+
+End Function
 
 
 Public Sub RunCase()

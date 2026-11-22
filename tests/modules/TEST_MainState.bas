@@ -1747,8 +1747,10 @@ Private Sub CaseDownloadClosingPrices()
 '   price, the first keeps its rate, the reporting currency, set to 1.5
 '   before, takes 1, the
 '   date of the prices is the reporting date and the scratch column is
-'   empty, and the source of the prices is the closing price (#745). The
-'   rates, the date and the source are put back.
+'   empty, and the source of the prices is the closing price (#745), which
+'   a run records with the date while the table is as downloaded. The
+'   rates, the date, the source and the fingerprint of the table are put
+'   back.
 '
 ' UPDATED
 '   2026-11-22
@@ -1768,6 +1770,7 @@ Private Sub CaseDownloadClosingPrices()
     Dim SavedRates  As Variant   'The rates, formulas included
     Dim SavedDate   As Variant   'The date of the prices before
     Dim SavedSource As Variant   'The source of the prices before
+    Dim SavedPrint  As Variant   'The fingerprint of the table as downloaded before (#745)
     Dim Reporting   As Range     'The rate of the reporting currency
     Dim SavedReport As Variant   'It, as a formula
     Dim Count       As Long      'Currencies below the reporting currency
@@ -1792,6 +1795,7 @@ Private Sub CaseDownloadClosingPrices()
         SavedRates = Rates.Formula
         SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
         SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
         Set Reporting = TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE)
         SavedReport = Reporting.Formula
         M_Main.gTestFault = "prices-unavailable"
@@ -1830,11 +1834,15 @@ Private Sub CaseDownloadClosingPrices()
                        "the date of the prices is the reporting date"
         TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_CLOSING, _
                        "the source of the prices is the closing price"
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_CLOSING & " of " & _
+                       Format$(CDate(NamedCell(PRM_ASOF).Value2), "yyyy-mm-dd"), _
+                       "a run records the closing prices of the reporting date (#745): " & CORE_Engine.FxSourceText()
         TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after the prices the scratch column is empty"
         Rates.Formula = SavedRates
         Reporting.Formula = SavedReport
         NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
         Exit Sub
 
 Unexpected:
@@ -1844,6 +1852,7 @@ Unexpected:
             Rates.Formula = SavedRates
             NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+            PutPrintBack SavedPrint
         End If
         If Not Reporting Is Nothing Then
             Reporting.Formula = SavedReport
@@ -1971,12 +1980,15 @@ Private Sub CaseDownloadEcbRates()
 '   and the source written; the source read from FX_Source; on a closing
 '   day the fixing before it, named in the result; with USD as reporting
 '   currency every rate crossed through the euro; the rate of the
-'   reporting currency set to 1 each time. Refusals that change
+'   reporting currency set to 1 each time. A run records the ECB as the
+'   source while the table is as downloaded, "Manual (edited after ...)"
+'   once a rate is edited, and the ECB again when the rate is typed back.
+'   Refusals that change
 '   nothing: no rate of the reporting currency, no connection, HTTP 503, a
 '   time-out, an HTML page, an empty answer, a reporting date changed
 '   while the answer was awaited (fault "ecb-edit") and an unknown source. A
-'   failure while the rates are written puts them back with their date and
-'   source. Params is put back as the case found it.
+'   failure while the rates are written puts them back with their date,
+'   source and fingerprint. Params is put back as the case found it.
 '
 ' UPDATED
 '   2026-11-22
@@ -1995,6 +2007,7 @@ Private Sub CaseDownloadEcbRates()
     Dim SavedRates    As Variant      'The rates, formulas included
     Dim SavedDate     As Variant      'The date of the rates before
     Dim SavedSource   As Variant      'Their source before
+    Dim SavedPrint    As Variant      'The fingerprint of the table as downloaded before (#745)
     Dim SavedAsOf     As Variant      'The reporting date, as a formula
     Dim SavedCcy      As Variant      'The reporting currency
     Dim SavedChoice   As Variant      'FX_Source
@@ -2024,6 +2037,7 @@ Private Sub CaseDownloadEcbRates()
         SavedRates = AllRates.Formula
         SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
         SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
         SavedAsOf = NamedCell(PRM_ASOF).Formula
         SavedCcy = NamedCell(PRM_REPCCY).Formula
         SavedChoice = NamedCell(NM_FX_SOURCE).Formula
@@ -2044,6 +2058,17 @@ Private Sub CaseDownloadEcbRates()
         TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = CDbl(DateSerial(2026, 9, 30)), _
                        "the date of the rates is the reporting date"
         TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_ECB, "the source of the rates is the ECB"
+
+    'A run records the source while the table is as downloaded, and a
+    'rate edited after the download as manual (#745)
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "the source recorded: " & CORE_Engine.FxSourceText()
+        FxRateCell("USD").Value2 = 1.2
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_MANUAL & " (edited after " & FX_SOURCE_ECB & " download)", _
+                       "a rate edited after the download: " & CORE_Engine.FxSourceText()
+        FxRateCell("USD").Value2 = 1.1725
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "the rate typed back as downloaded: " & CORE_Engine.FxSourceText()
 
 '------------------------------------------------------------------------------
 ' FROM THE CELL, ON A CLOSING DAY, AND CROSSED
@@ -2072,6 +2097,7 @@ Private Sub CaseDownloadEcbRates()
         AllRates.Formula = SavedRates
         NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
         NamedCell(PRM_REPCCY).Value2 = "CNY"
         Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
         TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the ECB published no reference rate of the " & _
@@ -2096,8 +2122,9 @@ Private Sub CaseDownloadEcbRates()
         NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
         TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
                        ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
-                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource), _
-                       "after the refusals the rates, their date and their source are as they were"
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_FP).Value2) = SafeStr(SavedPrint), _
+                       "after the refusals the rates, their date, source and fingerprint are as they were"
         TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
 
 '------------------------------------------------------------------------------
@@ -2112,18 +2139,19 @@ Private Sub CaseDownloadEcbRates()
         TEST_Kit.Check ErrNumber = ERR_INJECTED_FAULT, "the failure is raised: " & ErrNumber
         TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
                        ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
-                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource), _
-                       "after the failure the rates, their date and their source are put back"
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_FP).Value2) = SafeStr(SavedPrint), _
+                       "after the failure the rates, their date, source and fingerprint are put back"
         M_Main.gTestFault = ""
         Result = M_Main.DownloadClosingPrices_Silent("Bloomberg")
         TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the source of the rates is 'Bloomberg'") = 1, _
                        "unknown source: " & Result
-        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice, SavedPrint
         Exit Sub
 
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
-        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice, SavedPrint
 
 End Sub
 
@@ -2135,8 +2163,9 @@ Private Sub CaseRebaseFxTable()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The rebase of the FX table on a new reporting currency (#725): with
-'   USD at 1.25, every rate is divided by 1.25, USD is 1 and EUR 0.8; a
-'   second rebase changes nothing; a rate that is a formula stays and is
+'   USD at 1.25, every rate is divided by 1.25, USD is 1 and EUR 0.8, and
+'   a table as downloaded is still as downloaded (#745); a second rebase
+'   changes nothing; a rate that is a formula stays and is
 '   listed; a currency not in the table, or whose own rate is a formula,
 '   is refused; a failure while the
 '   rates are written puts them back; events are on again. Params is put
@@ -2161,6 +2190,9 @@ Private Sub CaseRebaseFxTable()
     Dim SavedJpy      As Double       'The rate of JPY
     Dim Total         As Long         'Currencies of the table
     Dim ErrNumber     As Long         'An error raised by the rebase
+    Dim SavedDate     As Variant      'The date of the rates before
+    Dim SavedSource   As Variant      'Their source before
+    Dim SavedPrint    As Variant      'The fingerprint of the table as downloaded before (#745)
 
 '------------------------------------------------------------------------------
 ' REBASE ON USD
@@ -2176,14 +2208,23 @@ Private Sub CaseRebaseFxTable()
             LastRow = LastRow + 1
         Loop
         Total = LastRow - HeaderRow
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
         Set AllRates = TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
         SavedRates = AllRates.Formula
         SavedJpy = FxRateOf("JPY")
         FxRateCell("EUR").Value2 = 1#
         FxRateCell("USD").Value2 = 1.25
         SetUp = AllRates.Formula
+    'The table as an ECB download of the reporting date left it (#745)
+        NamedCell(NM_FX_PRICE_DATE).Value2 = CDbl(DateSerial(2026, 9, 30))
+        NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_ECB
+        PutPrintBack CORE_Engine.FxTableFingerprint()
         Result = M_Main.RebaseFxTable_Silent("USD")
         TEST_Kit.Check Result = "RESULT=REBASED; currency=USD; divisor=1.25; rates=" & Total, "rebase: " & Result
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "a table rebased is still as downloaded: " & CORE_Engine.FxSourceText()
         TEST_Kit.Check FxRateOf("USD") = 1# And Abs(FxRateOf("EUR") - 0.8) < 0.000000000001 And _
                        Abs(FxRateOf("JPY") - SavedJpy / 1.25) < 0.000000001, _
                        "every rate is divided by 1.25: EUR " & FxRateOf("EUR") & ", JPY " & FxRateOf("JPY")
@@ -2216,6 +2257,9 @@ Private Sub CaseRebaseFxTable()
         TEST_Kit.Check RatesAsSaved(AllRates, SetUp), "after the failure the rates are put back"
         TEST_Kit.Check Application.EnableEvents, "events are on again"
         AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
         Exit Sub
 
 Unexpected:
@@ -2223,6 +2267,9 @@ Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         If Not AllRates Is Nothing Then
             AllRates.Formula = SavedRates
+            NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+            PutPrintBack SavedPrint
         End If
 
 End Sub
@@ -2385,7 +2432,8 @@ Private Sub PutEcbCaseBack( _
     ByVal SavedSource As Variant, _
     ByVal SavedAsOf As Variant, _
     ByVal SavedCcy As Variant, _
-    ByVal SavedChoice As Variant)
+    ByVal SavedChoice As Variant, _
+    ByVal SavedPrint As Variant)
 '
 '==============================================================================
 '                               PutEcbCaseBack
@@ -2408,9 +2456,38 @@ Private Sub PutEcbCaseBack( _
         AllRates.Formula = SavedRates
         NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
         NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
         NamedCell(PRM_ASOF).Formula = SavedAsOf
         NamedCell(PRM_REPCCY).Formula = SavedCcy
         NamedCell(NM_FX_SOURCE).Formula = SavedChoice
+
+End Sub
+
+
+Private Sub PutPrintBack( _
+    ByVal SavedPrint As Variant)
+'
+'==============================================================================
+'                                 PutPrintBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Put back the fingerprint of the FX table as downloaded (#745) as the
+'   case found it: as text, with an apostrophe, as Download prices writes
+'   it, or empty.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        On Error Resume Next
+        If Len(SafeStr(SavedPrint)) = 0 Then
+            NamedCell(NM_FX_PRICE_FP).Value2 = vbNullString
+        Else
+            NamedCell(NM_FX_PRICE_FP).Value2 = "'" & SafeStr(SavedPrint)
+        End If
 
 End Sub
 

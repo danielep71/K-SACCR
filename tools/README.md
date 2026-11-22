@@ -201,17 +201,22 @@ one year; at most two trades share one commodity. It writes the portfolio in
 the fixture format and the two CSV files of the input contract, checked with
 its reference validator. `run` runs the package on the portfolio. After the
 workbook has imported the two files and run, with AsOfDate 2026-09-30,
-ReportingCcy EUR and the day count at its defaults (YearConvention 365, Calendar TABLE), `compare` reads the file Export evidence
+ReportingCcy EUR and the day count of the portfolio (by default YearConvention 365, Calendar TABLE; `generate
+--year-convention 250 --calendar TARGET` draws the same portfolio read on business days, #721), `compare` reads the file Export evidence
 writes and compares each netting set's regime, status, trades used, RC,
 add-on per asset class, aggregate add-on, multiplier, PFE and EAD with the
 package, within the full-precision tolerance of
 [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md#tolerance). It refuses
-evidence of another reporting date or currency, or of results out of date,
-and writes `comparison.csv` with a classification column for each
+evidence of another reporting date or currency, of results out of date, or of
+a run on another day count, calendar or table of closing days than the
+portfolio's, or one that does not record them (`RUN;year_convention`,
+`RUN;calendar`, `RUN;holiday_table`): figures of two day counts are never
+compared. It writes `comparison.csv` with a classification column for each
 difference:
 
 ```bash
-python tools/rsaccr_portfolio.py generate --out <folder> [--seed 352] [--netting-sets 40]
+python tools/rsaccr_portfolio.py generate --out <folder> [--seed 352] [--netting-sets 40] \
+    [--year-convention 365] [--calendar TABLE]
 python tools/rsaccr_portfolio.py run --out <folder> --rscript Rscript
 python tools/rsaccr_portfolio.py compare --out <folder> --evidence <evidence.csv>
 ```
@@ -225,8 +230,13 @@ every figure, and whose cap does not bind, as test cases of class
 `independent` with the package's values (#100):
 
 ```bash
-python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010
+python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010 [--unchecked]
 ```
+
+`--unchecked` writes the cases without a comparison, and their derivation
+says that `TEST_Cases` is their first comparison with the workbook: the two
+cases on business days were written so. A case of a portfolio on another day
+count carries it in its ID (`-y250-target`) and in its fixture's parameters.
 
 Its tests run in `tool-tests` without R or Excel.
 

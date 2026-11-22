@@ -12,8 +12,9 @@ the suite counts as complete. Sources and rule IDs come from the
 > ([consumption](#consumption)). Which rules they validate, and for which
 > regime, is in the [traceability](README.md#traceability) table. The mapping
 > is in [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
-> Since v1.3.0 (unreleased), six `independent` CRR cases, `rsaccr-portfolio-*`,
-> carry values from the R package `SACCR` (`IMPL-R-SACCR`, #100).
+> Since v1.3.0 (unreleased), eight `independent` CRR cases, `rsaccr-portfolio-*`,
+> carry values from the R package `SACCR` (`IMPL-R-SACCR`, #100); two of them
+> run on 250 business days of the TARGET calendar (#721).
 
 ## 📁 Files
 
@@ -339,18 +340,22 @@ with an output of the family is in exactly one of two lists:
   registered external implementation `IMPL-R-SACCR`) and the convention's
   tolerance. They test the claim without having shaped it.
 
-The contracts are stated on the default day count, ACTUAL calendar days over
-365 (`YearConvention` 365, `Calendar` `TABLE` with an empty table). The
-published cases and the CRR fixtures stay on it, and no case of the catalogue
-runs on a calendar of business days (#721): the day count is tested by the VBA
-suites (the business-day count against a count made day by day, the maturity
-of a trade on each day count, the Params checks) and by the Python
-cross-check, which translates a fixture with `YearConvention` 250 and
-`Calendar` `TARGET` into the package's times (`tools/rsaccr_crosscheck.py`).
-A case on business days with the package's figures as expected values needs a
-run of the workbook on that day count, as the cases of
-`tools/rsaccr_portfolio.py` do; none is committed yet, so the accuracy
-contracts do not claim anything on it.
+The contracts hold on both day counts the cases use. The published cases and
+the CRR fixtures stay on the default, ACTUAL calendar days over 365
+(`YearConvention` 365, `Calendar` `TABLE` with an empty table). Two held-out
+cases run on ACTUAL business days of the TARGET calendar over 250 (#721):
+`rsaccr-portfolio-rs-010-y250-target` and `rsaccr-portfolio-rs-011-y250-target`,
+the netting sets of two default-convention cases, whose expected values are the
+R package's on the times `tools/business_calendar.py` counts
+(`tools/rsaccr_portfolio.py generate --year-convention 250 --calendar TARGET`,
+then `cases --unchecked`, as no evidence comparison preceded them: `TEST_Cases`
+is their first comparison with the workbook). The figures of a netting set on
+the two day counts differ (by 1.0% and 1.6% of the EAD for these two), so the
+cases test the day count, not only the formulas. The day count is also tested
+by the VBA suites (the business-day count against a count made day by day, the
+maturity of a trade on each day count, the Params checks) and by the Python
+cross-check (`tools/rsaccr_crosscheck.py`). A table of closing days is not in
+any case: the contracts claim nothing for a calendar with one.
 
 A case whose expected value is rounded, such as a printed figure or a hand
 calculation to the cent, is listed under `rounded` with the rounding as its
@@ -424,9 +429,10 @@ Each fixture declares one `category`:
 - Since v1.3.0 (unreleased), the CRR rules that the production reconciliation
   of #667 exercises are validated by it: a real portfolio at 30 June 2026, about
   900 netting sets and 4,300 trades, against a bank's production SA-CCR engine.
-- Since v1.3.0 (unreleased), the CRR rules named by the outputs of the six
+- Since v1.3.0 (unreleased), the CRR rules named by the outputs of the eight
   `independent` cases `rsaccr-portfolio-*` (source `IMPL-R-SACCR`, #100) are
-  validated by them.
+  validated by them, two of them on 250 business days of the TARGET calendar
+  (#721).
 
 Where each [regime difference](README.md#regime-differences) is covered:
 

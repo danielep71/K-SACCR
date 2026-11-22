@@ -97,6 +97,30 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Record on every run how its dates became years and where its FX rates came from (#721, #745), so
+  that two results are never compared without it. The run summary on Results C4 adds
+  `| year 365 days, calendar TABLE | FX Manual` (with the entries and fingerprint of the table of
+  closing days when the calendar uses one); the result line of `RunSACCR_Silent` adds
+  `year_convention`, `calendar`, `holiday_table` and `fx_source`; the evidence report adds the same
+  four `RUN` lines. `fx_source` is `ECB reference rate of 2026-09-30` or `Closing price of
+  2026-09-30` while the FX table is as **Download prices** wrote it, `Manual (edited after ECB
+  reference rate download)` once a rate, a currency or a row changed after the download, and
+  `Manual` when no download is recorded: Download prices now stores the fingerprint of the table it
+  wrote in the hidden cell `FX_PriceFingerprint` (Params!AQ28), which a run compares with the
+  table; a rebase on a new reporting currency keeps a downloaded table downloaded. The record of
+  the download is part of the input fingerprint, so results show as out of date after a new
+  download even with the same rates. `tools/rsaccr_portfolio.py` gains `--year-convention` and
+  `--calendar`, and `compare` refuses an evidence file of a run on another day count, calendar or
+  holiday table, or one that does not say which. Two `independent` CRR cases on a year of 250
+  business days on the TARGET calendar, `rsaccr-portfolio-rs-010-y250-target` and
+  `rsaccr-portfolio-rs-011-y250-target`, carry the figures of the R package `SACCR` for the
+  netting sets of the two default-convention cases of the same name (`cases --unchecked`:
+  `TEST_Cases` is their first comparison with the workbook); a fixture may set `Calendar`, and the
+  accuracy contracts list both cases as held out. The README sheet names the day count and the FX
+  source among the parameters and lists `SACCR_BusinessDays`; the Home columns C and D are back to
+  55 and 150. `TEST_Cases` has 41 cases and 261 checks, `TEST_MainState` 711 checks and
+  `TEST_Reconcile` 239.
+
 - Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` freeze
   four rows, with the header on row 4, data from row 5 and rows 3 and 4 30 points high, so that the
   view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
