@@ -155,7 +155,7 @@ about 10 MB.
 
 A file with more records is rejected whole (`CSV-TOO-MANY-RECORDS`). These
 limits are the import's, and differ from two other numbers. The sheets'
-validation lists cover `NettingSets` rows 7 to 206 and `Trades` rows 5 to
+validation lists cover `NettingSets` rows 5 to 204 and `Trades` rows 5 to
 5,000, which bounds only typing on the sheet. The engine reads every row
 down to the last one used, and was measured with 500,000 legs
 ([portfolio size](../../INSTALLATION.md#portfolio-size)).
@@ -195,22 +195,22 @@ A bank file has no rule against the other files: an ID that is not on
 | --- | --- | --- | --- | --- | --- | --- |
 | `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Unique netting-set ID, compared case-insensitively; referenced by every trade. | `NS-001` |
 | `counterparty` | Counterparty | text (<= 500 characters) | no |  | Descriptive counterparty name or identifier. | `CPTY-A` |
-| `margined` | Margined (Y/N) | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
-| `clearing_role` | Client clearing role (N / CM / CLIENT / CCP; MULTI rejected) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
-| `remargin_period_business_days` | Remargin frequency N (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
-| `large_or_illiquid` | >5,000 trades or illiquid collateral (Y/N) | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
-| `margin_disputes` | Margin disputes (Y/N) | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |
+| `margined` | Margined | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
+| `clearing_role` | Client clearing role | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
+| `remargin_period_business_days` | Remargin freq. (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
+| `large_or_illiquid` | Large or illiquid | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
+| `margin_disputes` | Margin disputes | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |
 | `mpor_override_business_days` | MPOR override (BD) | integer (>= 1) | no | no override | MPOR in business days, applied only when not below the computed MPOR. | `20` |
-| `variation_margin_net_amount` | Net VM held (+) / posted (-) | number | no | 0 | Net variation margin: held positive, posted negative. | `-150000` |
+| `variation_margin_net_amount` | Net VM | number | no | 0 | Net variation margin: held positive, posted negative. | `-150000` |
 | `independent_collateral_net_amount` | NICA | number | no | 0 | Net independent collateral amount. | `250000` |
-| `threshold_amount` | Threshold TH | number (>= 0) | no | 0 | Margin threshold, unscaled. | `0` |
+| `threshold_amount` | Threshold (TH) | number (>= 0) | no | 0 | Margin threshold, unscaled. | `0` |
 | `minimum_transfer_amount` | MTA | number (>= 0) | no | 0 | Minimum transfer amount, unscaled. | `100000` |
 | `alpha_factor` | Alpha override | number (> 0) | no | the Params alpha | Alpha for this netting set; a value other than 1.4 classifies the run WHAT-IF. | `1.4` |
-| `regime_override` | Regime override (blank = Params) | code: `CRR`, `BCBS` | no | the Params regime | Regime of this netting set and all its trades. | `CRR` |
-| `margin_agreements` | Margin agreements (blank / MIXED / SHARED) | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
-| `qccp` | QCCP (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
-| `ccp_retains_variation_margin` | CCP retains VM, collateral not protected (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
-| `counterparty_sector` | Counterparty sector (CB / GG / CI / OFC / NFC / HH) | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
+| `regime_override` | Regime override | code: `CRR`, `BCBS` | no | the Params regime | Regime of this netting set and all its trades. | `CRR` |
+| `margin_agreements` | Margin agreements | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
+| `qccp` | QCCP | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
+| `ccp_retains_variation_margin` | CCP retains VM | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
+| `counterparty_sector` | Counterparty sector | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
 <!-- END GENERATED: NettingSets -->
 
 Reserved keys: `TOTAL`, `TOTAL CRR` and `TOTAL BCBS`, in any case, label the
@@ -230,23 +230,23 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `direction` | Direction | code: `Long`, `Short` | yes |  | Long or Short. | `Long` |
 | `option_type` | Option type | code: `Call`, `Put` | no |  | Call or Put; required by the engine for an option. |  |
 | `nature` | Nature | code: `Standard`, `Basis`, `Volatility` | no | Standard | Hedging-set nature. | `Standard` |
-| `hedging_set_label` | Basis / vol hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
+| `hedging_set_label` | Hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
 | `notional_amount` | Notional | number (>= 0) | yes |  | Unscaled notional of this leg. | `10000000` |
-| `notional_currency` | Notional ccy | currency | no | the reporting currency | Currency of the notional. | `EUR` |
+| `notional_currency` | Notional CCY | currency | no | the reporting currency | Currency of the notional. | `EUR` |
 | `market_value_amount` | MtM | number | yes |  | Mark-to-market of the leg; in an economic trade, only its MtM leg carries a value. | `250000` |
-| `market_value_currency` | MtM ccy | currency | no | the notional currency | Currency of the MtM. |  |
+| `market_value_currency` | MtM CCY | currency | no | the notional currency | Currency of the MtM. |  |
 | `start_date` | Start date (S) | date | no |  | Start date S. | `2026-10-01` |
 | `end_date` | End date (E) | date | no |  | End date E; after the start date when both are given. | `2031-10-01` |
 | `maturity_date` | Maturity date (M) | date | no |  | Contractual maturity M. | `2031-10-01` |
 | `option_expiry_date` | Option expiry (T) | date | no |  | Option expiry T; required by the engine for an option. |  |
-| `underlying_price` | Underlying price P | number | no |  | Option underlying price or rate P. |  |
-| `strike_price` | Strike K | number | no |  | Option strike K. |  |
+| `underlying_price` | Underlying price (P) | number | no |  | Option underlying price or rate P. |  |
+| `strike_price` | Strike (K) | number | no |  | Option strike K. |  |
 | `lambda_price` | Lambda shift | number (>= 0) | no |  | Lambda shift added to P and K. |  |
-| `attachment_rate` | Attachment A | number (>= 0, <= 0.9999) | no |  | CDO tranche attachment point, a fraction. |  |
-| `detachment_rate` | Detachment D | number (> 0, <= 1) | no |  | CDO tranche detachment point, a fraction above the attachment point. |  |
+| `attachment_rate` | Attachment (A) | number (>= 0, <= 0.9999) | no |  | CDO tranche attachment point, a fraction. |  |
+| `detachment_rate` | Detachment (D) | number (> 0, <= 1) | no |  | CDO tranche detachment point, a fraction above the attachment point. |  |
 | `economic_trade_id` | Economic trade ID | id (<= 64 characters) | no | the row is a whole trade | Groups the legs of one economic trade. | `TRD-101` |
-| `mtm_leg` | MtM leg (Y/N) | flag: `Y`, `N` | no |  | Y on the one leg of an economic trade that carries its whole MtM. | `Y` |
-| `settlement_type` | Settlement type (N/STM) | code: `N`, `STM` | no | N | STM for a settled-to-market trade. |  |
+| `mtm_leg` | MtM leg | flag: `Y`, `N` | no |  | Y on the one leg of an economic trade that carries its whole MtM. | `Y` |
+| `settlement_type` | Settlement type | code: `N`, `STM` | no | N | STM for a settled-to-market trade. |  |
 | `next_reset_date` | Next reset date | date | no |  | STM only, and then required: the first settlement date after the reporting date. |  |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free-text note; not read by the engine. |  |
 <!-- END GENERATED: Trades -->

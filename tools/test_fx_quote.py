@@ -13,6 +13,7 @@ from math import exp
 from pathlib import Path
 from xml.etree import ElementTree
 
+from template_layout import named_cell
 from test_template_buttons import sheet_parts
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,9 +45,11 @@ class FxQuoteTests(unittest.TestCase):
     def test_the_illustrative_rates_are_market_style(self) -> None:
         parts = sheet_parts(self.package)
         sheet = ElementTree.fromstring(self.package.read(parts["Params"]))
+        first = named_cell(self.package, "FX_Table").row + 1  # the first rate, below the header (#756)
+        cells = [f"E{row}" for row in range(first, first + 4)]
         rates = {item.attrib["r"]: float(item.findtext(f"{MAIN}v") or "nan")
-                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in {"E61", "E62", "E63", "E64"}}
-        self.assertEqual(rates, {"E61": 1.0, "E62": 1.1328, "E63": 178.29, "E64": 0.8536})
+                 for item in sheet.iter(f"{MAIN}c") if item.attrib["r"] in cells}
+        self.assertEqual([rates.get(cell) for cell in cells], [1.0, 1.1328, 178.29, 0.8536])
 
     def test_the_engine_divides_by_the_rate(self) -> None:
         engine = (ROOT / "src" / "core" / "CORE_Engine.bas").read_text(encoding="cp1252")

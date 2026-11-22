@@ -48,7 +48,7 @@ CONFIG = "src/core/CORE_Config.bas"           # names the groups for the VBA (#6
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 
 # ------------------------------------------------------------------ design ----
-NAV_COL_WIDTH = "21.7"           # characters of the default font; about 157 px
+NAV_COL_WIDTH = "21.75"          # characters of the default font, as Excel saves it; about 157 px
 PX = 9525                        # EMU per pixel at 96 dpi
 BAR_X = 8                        # left margin of the bar inside column A, px
 BAR_W = 141                      # bar width, px
@@ -377,8 +377,12 @@ def build(package: Package, contract: str) -> list[str]:
     style_xml = ('<xf numFmtId="0" fontId="0" fillId="%d" borderId="0" xfId="0" applyFill="1" '
                  'applyAlignment="1"><alignment vertical="center"/></xf>') % band
     old_style = '<xf numFmtId="0" fontId="0" fillId="%d" borderId="0" xfId="0" applyFill="1"/>' % band
+    # Excel, when it saves, leaves out applyAlignment of a format whose alignment it keeps (#756).
+    saved_style = style_xml.replace(' applyAlignment="1"', "")
     xfs = need(r'<cellXfs count="(\d+)">(.*?)</cellXfs>', styles, re.S)
     existing = re.findall(r"<xf\b[^>]*?(?:/>|>.*?</xf>)", xfs.group(2), re.S)
+    if saved_style in existing and style_xml not in existing:
+        style_xml = saved_style
     if old_style in existing and style_xml not in existing:
         nav_style = existing.index(old_style)
         styles = styles.replace(xfs.group(0), xfs.group(0).replace(old_style, style_xml, 1), 1)

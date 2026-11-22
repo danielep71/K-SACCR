@@ -87,7 +87,7 @@ class LineCountTests(unittest.TestCase):
         self.assertEqual(gate.wrapped_lines("a\nb", 20, 11), 2)
         self.assertEqual(gate.wrapped_lines("remargin_period_business_days", 10, 11), 3)
         self.assertGreater(gate.wrapped_lines("one two three four", 9, 16), gate.wrapped_lines("one two three four", 9, 11))
-        self.assertEqual(gate.row_height(1, 11), 18.96)
+        self.assertEqual(gate.row_height(1, 11), 14.96)
 
 
 class HeaderAndStyleTests(unittest.TestCase):

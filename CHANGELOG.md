@@ -97,6 +97,22 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` freeze
+  four rows, with the header on row 4, data from row 5 and rows 3 and 4 30 points high, so that the
+  view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+  column headers are short (`Margined`, `Client clearing role`, `Remargin freq. (BD)`, `Large or
+  illiquid`, `Net VM`, `Hedging-set label`, `Strike (K)`, ...), on the staging sheets too, and every
+  header of `NettingSets` and `Trades` carries a note: what the field is, the values allowed, what a
+  blank means, when it is required, the CSV field name and the regulatory reference. The input
+  columns are 15 wide. The expected headers that stop a run when a column moved (#35),
+  `NS_HEADERS`, `TR_HEADERS`, `BN_HEADERS` and `BT_HEADERS`, are now generated into
+  `CORE_CsvSchema` from the `sheet_header` of `contract.json`, so a rename is one edit to the
+  contract and the template. The Python tests, the protection matrix, the sheet-style rules and
+  `Check-SACCR-Protection.ps1` find header rows, tables and parameter cells from their workbook names
+  (`tools/template_layout.py`), not from row numbers, so rows moved in Excel need no code change;
+  the gates also accept what Excel writes on save (row heights rounded to a pixel, default
+  attributes left out, the font of the notes). `test_header_notes.py` checks the notes, the frozen
+  rows and the staging headers.
 - Put the filter buttons on the header row of the five output sheets (#754): `Results`,
   `HedgingSets`, `Buckets`, `TradeCalc` and `Checks`, as `Trades` and the two reconciliation sheets
   have them. They are in the template, over the table down to the last row of the sheet, so that a run of any size is inside the filter, and the sheets stay

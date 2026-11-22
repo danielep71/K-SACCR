@@ -32,7 +32,7 @@ class OutputFilterTests(unittest.TestCase):
         for name, (row, first, last) in OUTPUT_SHEETS.items():
             ref = f"{first}{row}:{last}{LAST_ROW}"
             xml = self.sheet(name)
-            self.assertEqual(re.findall(r"<autoFilter [^>]*>", xml), [f'<autoFilter ref="{ref}"/>'], name)
+            self.assertEqual(re.findall(r'<autoFilter ref="([^"]+)"[^>]*>', xml), [ref], name)
             database = (f'<definedName name="_xlnm._FilterDatabase" localSheetId="{self.order.index(name)}" hidden="1">'
                         f"{name}!${first}${row}:${last}${LAST_ROW}</definedName>")
             self.assertIn(database, self.workbook, name)

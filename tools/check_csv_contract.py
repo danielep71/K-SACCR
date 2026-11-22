@@ -30,6 +30,7 @@ from csv_contract import (
 from import_spec import example_findings, specification_findings
 
 CONFIG = "src/core/CORE_Config.bas"
+SCHEMA = "src/core/CORE_CsvSchema.bas"  # Holds the expected sheet headers, generated from the contract (#756)
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
@@ -53,12 +54,12 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 
 
-def vba_string(root: Path, constant: str) -> str:
-    """The value of a VBA string constant in CORE_Config, concatenated over continuation lines."""
-    text = (root / CONFIG).read_text(encoding="cp1252")
+def vba_string(root: Path, constant: str, module: str = CONFIG) -> str:
+    """The value of a VBA string constant of a module, concatenated over continuation lines."""
+    text = (root / module).read_text(encoding="cp1252")
     match = re.search(rf"Public Const {constant} As String = (.*?)\r?\n(?!\s*\")", text, re.S)
     if not match:
-        raise ValueError(f"{CONFIG}: {constant} not found")
+        raise ValueError(f"{module}: {constant} not found")
     return "".join(re.findall(r'"((?:[^"]|"")*)"', match.group(1))).replace('""', '"')
 
 
@@ -72,8 +73,8 @@ def vba_long(root: Path, constant: str) -> int:
 
 
 def engine_headers(root: Path, constant: str) -> list[str]:
-    """The headers of a "|"-separated VBA string constant."""
-    return vba_string(root, constant).split("|")
+    """The headers of a "|"-separated VBA string constant of CORE_CsvSchema."""
+    return vba_string(root, constant, SCHEMA).split("|")
 
 
 def header_key(text: str) -> str:
@@ -226,7 +227,7 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
         engine = [header_key(h) for h in engine_headers(root, ENGINE_HEADERS[kind])]
         read = [h for h in engine if h]
         if headers[:len(read)] != read or any(engine[len(read):]) or len(engine) != len(headers):
-            findings.append(f"{kind}: sheet headers differ from {ENGINE_HEADERS[kind]} in {CONFIG}")
+            findings.append(f"{kind}: sheet headers differ from {ENGINE_HEADERS[kind]} in {SCHEMA}")
         if vba_long(root, ENGINE_WIDTH[kind]) != len(headers):
             findings.append(f"{kind}: {ENGINE_WIDTH[kind]} in {CONFIG} is not the contract's {len(headers)} columns")
         sheet = workbook.sheet(spec["sheet"])

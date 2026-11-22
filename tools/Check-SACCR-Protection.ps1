@@ -263,6 +263,21 @@ function Close-Workbook {
     $script:workbook = $null
 }
 
+function Get-NamedCell {
+    # The first cell of a workbook name. The checks find their cells from the
+    # names the VBA code reads, so that rows moved in the template need no
+    # edit here (#756).
+    param($Book, [string]$Name)
+    # The comma keeps PowerShell from enumerating the Range into its cells.
+    return , $Book.Names.Item($Name).RefersToRange.Cells.Item(1, 1)
+}
+
+function Get-CellLabel {
+    # Sheet!A1 of a cell, for the messages.
+    param($Cell)
+    return $Cell.Worksheet.Name + "!" + $Cell.Address($false, $false)
+}
+
 function Get-HeaderColumn {
     # The column of Header in row Row of Sheet, or 0.
     param($Sheet, [int]$Row, [string]$Header)
@@ -386,29 +401,32 @@ try {
     # 2: typing into a header, a grey Params value, an output cell, a
     # staging metadata cell and Home is refused.
     $targets = @(
-        @("Trades", "C4"), @("Params", "E9"), @("Results", "K7"), @("Import_Trades", "D4"), @("Home", "D6")
+        (Get-NamedCell $workbook "Trades_Header"), (Get-NamedCell $workbook "Alpha"),
+        (Get-NamedCell $workbook "Results_Header").Offset(1, 8), (Get-NamedCell $workbook "ImportTR_File"),
+        $workbook.Worksheets.Item("Home").Range("D6")
     )
-    $accepted = @($targets | Where-Object { Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) "x" } |
-        ForEach-Object { $_[0] + "!" + $_[1] })
+    $accepted = @($targets | Where-Object { Test-Write $_ "x" } | ForEach-Object { Get-CellLabel $_ })
     Add-Result 2 ($accepted.Count -eq 0) `
-        ("Writes to Trades!C4, Params!E9, Results!K7, Import_Trades!D4 and Home!D6; accepted [" +
+        ("Writes to " + (($targets | ForEach-Object { Get-CellLabel $_ }) -join ", ") + "; accepted [" +
          ($accepted -join ", ") + "]")
 
     # 3: inputs, Params configuration, an FX rate, a bank figure and a bank
     # tolerance are accepted, also thousands of rows down.
+    $trade = Get-NamedCell $workbook "Trades_Header"
     $targets = @(
-        @("Trades", "C5", "T-CHECK"), @("Trades", "C4000", "T-CHECK"), @("NettingSets", "C7", "NS-CHECK"),
-        @("Params", "E6", 46022), @("Params", "E61", 1), @("BankNettingSets", "C9", "NS-CHECK"),
-        @("BankNettingSets", "D5", 0.5)
+        @($trade.Offset(1, 0), "T-CHECK"), @($trade.Offset(3996, 0), "T-CHECK"),
+        @((Get-NamedCell $workbook "NettingSets_Header").Offset(1, 0), "NS-CHECK"),
+        @((Get-NamedCell $workbook "AsOfDate"), 46022), @((Get-NamedCell $workbook "FX_Table").Offset(1, 2), 1),
+        @((Get-NamedCell $workbook "BankNettingSets_Header").Offset(1, 0), "NS-CHECK"),
+        @((Get-NamedCell $workbook "BankNS_AbsTol"), 0.5)
     )
-    $refused = @($targets | Where-Object { -not (Test-Write ($workbook.Worksheets.Item($_[0]).Range($_[1])) $_[2]) } |
-        ForEach-Object { $_[0] + "!" + $_[1] })
+    $refused = @($targets | Where-Object { -not (Test-Write $_[0] $_[1]) } | ForEach-Object { Get-CellLabel $_[0] })
     $reason = ""
     if ($refused.Count -gt 0) {
         $reason = "; last error: " + $script:lastWriteError
     }
     Add-Result 3 ($refused.Count -eq 0) `
-        ("Writes to Trades!C5, Trades!C4000, NettingSets!C7, Params!E6, Params!E61, BankNettingSets!C9 and D5; refused [" +
+        ("Writes to " + (($targets | ForEach-Object { Get-CellLabel $_[0] }) -join ", ") + "; refused [" +
          ($refused -join ", ") + "]" + $reason)
 
     # 4: several rows of values pasted into the input columns, then cleared.
@@ -418,7 +436,7 @@ try {
             $block[$row, $column] = "P" + $row + $column
         }
     }
-    $pasteRange = $workbook.Worksheets.Item("Trades").Range("C80:E82")
+    $pasteRange = (Get-NamedCell $workbook "Trades_Header").Offset(76, 0).Resize(3, 3)
     $pasted = Test-Write $pasteRange $block
     $reason = ""
     if (-not $pasted) {
@@ -431,7 +449,8 @@ try {
     catch {
         $cleared = $false
     }
-    Add-Result 4 ($pasted -and $cleared) "Three rows pasted into Trades!C80:E82: $pasted$reason; cleared: $cleared"
+    Add-Result 4 ($pasted -and $cleared) ("Three rows pasted into " + (Get-CellLabel $pasteRange) +
+        ": $pasted$reason; cleared: $cleared")
 
     # 5: what each sheet allows, as Excel enforces it, and formulas visible.
     $problems = New-Object System.Collections.Generic.List[string]
@@ -451,15 +470,16 @@ try {
             $problems.Add("$name does not allow inserting rows")
         }
     }
-    if ($workbook.Worksheets.Item("Results").Range("C5").FormulaHidden) {
-        $problems.Add("the formula of Results!C5 is hidden")
+    $summary = (Get-NamedCell $workbook "Results_Header").Offset(-1, 0)
+    if ($summary.FormulaHidden) {
+        $problems.Add("the formula of " + (Get-CellLabel $summary) + " is hidden")
     }
     # Copied into a new workbook rather than the clipboard, which a hidden
     # Excel may not reach.
     $scratch = $null
     try {
         $scratch = $excel.Workbooks.Add()
-        [void]$workbook.Worksheets.Item("Results").Range("C5:E7").Copy($scratch.Worksheets.Item(1).Range("A1"))
+        [void]$summary.Resize(3, 3).Copy($scratch.Worksheets.Item(1).Range("A1"))
     }
     catch {
         $problems.Add("output cells cannot be copied: " + $_.Exception.Message)
@@ -543,13 +563,14 @@ try {
     # 10: a changed Alpha after a maintenance unlock makes the run WHAT-IF;
     # the run protects Params again; the value is restored.
     $params = $workbook.Worksheets.Item("Params")
-    $alphaFormula = [string]$params.Range("E9").Formula
+    $alpha = Get-NamedCell $workbook "Alpha"
+    $alphaFormula = [string]$alpha.Formula
     $params.Unprotect()
-    $params.Range("E9").Value2 = 1.5
+    $alpha.Value2 = 1.5
     $whatIf = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $protectedAgain = [bool]$params.ProtectContents
     $params.Unprotect()
-    $params.Range("E9").Formula = $alphaFormula
+    $alpha.Formula = $alphaFormula
     $regular = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     Add-Result 10 ((Test-Run $whatIf) -and $whatIf.Contains("; run_class=WHAT-IF;") -and $protectedAgain -and
                    $regular.Contains("; run_class=REGULATORY;") -and [bool]$params.ProtectContents) `
@@ -560,7 +581,8 @@ try {
     $resultsSheet = $workbook.Worksheets.Item("Results")
     $evidence = Join-Path $work "evidence-edited.csv"
     $resultsSheet.Unprotect()
-    $resultsSheet.Range("K7").Value2 = 12345
+    $resultsHeader = Get-NamedCell $workbook "Results_Header"
+    $resultsHeader.Offset(1, 8).Value2 = 12345
     $refused = Invoke-Macro $excel $workbook "M_Main.ExportEvidence_Silent" @($evidence)
     $rebuilt = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $status = Invoke-Macro $excel $workbook "M_Main.ResultsStatus"
@@ -570,18 +592,19 @@ try {
 
     # 9: bank figures entered, a run reconciles them, the export succeeds.
     $bank = $workbook.Worksheets.Item("BankNettingSets")
-    $eadColumn = Get-HeaderColumn $resultsSheet 6 "EAD"
+    $eadColumn = Get-HeaderColumn $resultsSheet $resultsHeader.Row "EAD"
+    $bankRow = (Get-NamedCell $workbook "BankNettingSets_Header").Offset(1, 0)
     # Cast, so that Excel receives a plain string and number.
-    $bank.Range("C9").Value2 = [string]$resultsSheet.Range("C7").Value2
-    $bank.Range("D9").Value2 = [string]$resultsSheet.Range("E7").Value2
+    $bankRow.Value2 = [string]$resultsHeader.Offset(1, 0).Value2
+    $bankRow.Offset(0, 1).Value2 = [string]$resultsHeader.Offset(1, 2).Value2
     if ($eadColumn -gt 0) {
-        $bank.Range("E9").Value2 = [double]$resultsSheet.Cells.Item(7, $eadColumn).Value2
+        $bankRow.Offset(0, 2).Value2 = [double]$resultsSheet.Cells.Item($resultsHeader.Row + 1, $eadColumn).Value2
     }
     $reconciled = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
     $exported = Invoke-Macro $excel $workbook "M_Main.ExportEvidence_Silent" @((Join-Path $work "evidence.csv"))
     Add-Result 9 ($eadColumn -gt 0 -and (Test-Run $reconciled) -and $reconciled.Contains("; reconciliation=DONE;") -and
                   $exported.StartsWith("RESULT=OK;")) ("Run with bank figures: $reconciled; export: $exported")
-    [void]$bank.Range("C9:E9").ClearContents()
+    [void]$bankRow.Resize(1, 3).ClearContents()
 
     # 8: Export import specifications, Import CSV on both staging sheets, a
     # staged value corrected, Validate staging, Commit import, Run SA-CCR.
@@ -589,9 +612,11 @@ try {
     $loadedNs = Invoke-Macro $excel $workbook "M_Main.ImportCsv_Silent" @("NettingSets", $nettingSetsCsv, $true)
     $loadedTr = Invoke-Macro $excel $workbook "M_Main.ImportCsv_Silent" @("Trades", $tradesCsv, $true)
     $staged = $workbook.Worksheets.Item("Import_Trades")
-    $commentColumn = Get-HeaderColumn $staged 9 "Comment"
-    $editable = $commentColumn -gt 0 -and (Test-Write ($staged.Cells.Item(10, $commentColumn)) "Corrected in the check")
-    $lineLocked = [bool]$staged.Range("C10").Locked -and -not [bool]$staged.Range("D10").Locked
+    $stagedHeader = Get-NamedCell $workbook "ImportTrades_Header"
+    $stagedRow = $stagedHeader.Row + 1
+    $commentColumn = Get-HeaderColumn $staged $stagedHeader.Row "Comment"
+    $editable = $commentColumn -gt 0 -and (Test-Write ($staged.Cells.Item($stagedRow, $commentColumn)) "Corrected in the check")
+    $lineLocked = [bool]$stagedHeader.Offset(1, 0).Locked -and -not [bool]$stagedHeader.Offset(1, 1).Locked
     $validated = Invoke-Macro $excel $workbook "M_Main.ValidateStaging_Silent"
     $committed = Invoke-Macro $excel $workbook "M_Main.CommitStaging_Silent"
     $ran = Invoke-Macro $excel $workbook "M_Main.RunSACCR_Silent"
@@ -626,17 +651,17 @@ try {
     Open-WithMacros
     $excel = $script:excel
     $workbook = $script:workbook
-    $statusNs = [string]$workbook.Worksheets.Item("Import_NettingSets").Range("D7").Value2
-    $statusTr = [string]$workbook.Worksheets.Item("Import_Trades").Range("D7").Value2
+    $statusNs = [string](Get-NamedCell $workbook "ImportNS_Status").Value2
+    $statusTr = [string](Get-NamedCell $workbook "ImportTR_Status").Value2
     $current = [bool]$excel.Run("'" + $workbook.Name + "'!M_Main.StagingValidationCurrent")
     $staged = $workbook.Worksheets.Item("Import_Trades")
-    $staged.Cells.Item(10, $commentColumn).Value2 = "Changed before saving"
+    $staged.Cells.Item($stagedRow, $commentColumn).Value2 = "Changed before saving"
     [void]$workbook.Save()
     Close-Workbook
     Open-WithMacros
     $excel = $script:excel
     $workbook = $script:workbook
-    $edited = [string]$workbook.Worksheets.Item("Import_Trades").Range("D7").Value2
+    $edited = [string](Get-NamedCell $workbook "ImportTR_Status").Value2
     $refused = Invoke-Macro $excel $workbook "M_Main.CommitStaging_Silent"
     Add-Result 13 ($loadedNs.StartsWith("RESULT=LOADED;") -and $loadedTr.StartsWith("RESULT=LOADED;") -and
                    $validated.StartsWith("RESULT=VALID;") -and $statusNs -eq "VALID" -and $statusTr -eq "VALID" -and
