@@ -51,11 +51,15 @@ class CompareExportTests(unittest.TestCase):
         return code, out.getvalue() + err.getvalue()
 
     def workbook(self, name: str, project: bytes = b"vba project") -> Path:
-        """A stand-in for a built .xlsm: a zip holding a VBA project part."""
+        """A stand-in for a built .xlsm: a zip holding a VBA project part.
+
+        The entries carry a fixed date: a zip records the time of each entry, to two seconds, so two
+        stand-ins written a moment apart could differ in their bytes, and so in their hash, and a
+        renamed copy would no longer be the same workbook."""
         path = self.books / name
         with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr("[Content_Types].xml", "<Types/>")
-            archive.writestr("xl/vbaProject.bin", project)
+            for entry, data in (("[Content_Types].xml", b"<Types/>"), ("xl/vbaProject.bin", project)):
+                archive.writestr(zipfile.ZipInfo(entry, date_time=(2026, 1, 1, 0, 0, 0)), data)
         return path
 
     def write_manifest(self, workbook: Path) -> None:

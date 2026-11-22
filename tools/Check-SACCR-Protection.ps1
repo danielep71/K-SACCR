@@ -449,8 +449,8 @@ try {
     catch {
         $cleared = $false
     }
-    Add-Result 4 ($pasted -and $cleared) ("Three rows pasted into " + (Get-CellLabel $pasteRange) + ":" +
-        $pasteRange.Cells.Item(3, 3).Address($false, $false) + ": $pasted$reason; cleared: $cleared")
+    Add-Result 4 ($pasted -and $cleared) ("Three rows pasted into " + (Get-CellLabel $pasteRange) +
+        ": $pasted$reason; cleared: $cleared")
 
     # 5: what each sheet allows, as Excel enforces it, and formulas visible.
     $problems = New-Object System.Collections.Generic.List[string]
