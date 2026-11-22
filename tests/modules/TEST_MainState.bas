@@ -2321,7 +2321,7 @@ Private Sub CaseOutputFilters()
         Result = M_Main.RunSACCR_Silent()
         TEST_Kit.Check TradeCalc.FilterMode, "the filter on TradeCalc stays set after a run: " & Result
         TEST_Kit.Check Application.WorksheetFunction.Subtotal(103, TradeCalc.Range("C" & OutputFirstRow(SH_TRADECALC) & ":C" & _
-                       RECON_FILTER_LAST_ROW)) = 1, "the run shows only the rows the filter keeps"
+                       TradeCalc.Rows.Count)) = 1, "the run shows only the rows the filter keeps"
         TradeCalc.ShowAllData
 
 '------------------------------------------------------------------------------

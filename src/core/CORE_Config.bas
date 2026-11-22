@@ -88,7 +88,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
         Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
     'The output sheets whose header row carries the filter buttons (#754): an operation keeps them
-    'and applies again the filter the user set.
+    'and applies again the filter the user set. The template's filter runs to the last row of the
+    'sheet, so that a run of any size, 500,000 legs included, is inside it.
         Public Const OUTPUT_FILTER_SHEETS   As String = "Results|HedgingSets|Buckets|TradeCalc|Checks"
 
 '------------------------------------------------------------------------------

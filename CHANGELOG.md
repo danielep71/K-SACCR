@@ -99,7 +99,7 @@ Use only the categories needed by a release.
 
 - Put the filter buttons on the header row of the five output sheets (#754): `Results`,
   `HedgingSets`, `Buckets`, `TradeCalc` and `Checks`, as `Trades` and the two reconciliation sheets
-  have them. They are in the template, over the table down to row 100,000, and the sheets stay
+  have them. They are in the template, over the table down to the last row of the sheet, so that a run of any size is inside the filter, and the sheets stay
   protected with the permission to filter, the only one added (no sorting: the cells are
   results). Run SA-CCR, Validate inputs and Clear outputs keep the buttons and apply again a
   filter the user set, so that the new rows follow the rule. `PROTECT_FILTERING`, the protection

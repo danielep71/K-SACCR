@@ -14,7 +14,7 @@ TEMPLATE = ROOT / "src" / "workbook" / "SACCR_Template.xlsx"
 # sheet: the header row, and the first and last column, of its table
 OUTPUT_SHEETS = {"Results": (6, "C", "AD"), "HedgingSets": (5, "C", "P"), "Buckets": (5, "C", "M"),
                  "TradeCalc": (5, "C", "AA"), "Checks": (5, "C", "J")}
-LAST_ROW = 100000
+LAST_ROW = 1048576  # the last row of a sheet: a run of any size is inside the filter
 
 
 class OutputFilterTests(unittest.TestCase):

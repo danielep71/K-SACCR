@@ -114,7 +114,7 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
 - Filtering works only on `Trades`, `Basel_vs_CRR` and the five output sheets
   (`Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks`), through the
   AutoFilter the template gives them, over the rows it covers: on an output
-  sheet from the header row down to row 100,000. A run, a validation and
+  sheet from the header row to the last row of the sheet, so that a run of any size is inside it. A run, a validation and
   Clear outputs keep the buttons and apply again a filter the user set (#754).
 - A sheet protected by hand from the Review tab, with other options, gets the
   workbook's options back at the next operation.
