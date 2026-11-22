@@ -81,11 +81,15 @@ Attribute VB_Name = "CORE_Config"
     'never protected: the user works on them (#720). check_workbook_protection
     'compares these lists with the matrix and the template.
         Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
-        Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
+        Public Const PROTECT_FILTERING      As String = _
+            "|Trades|Basel_vs_CRR|Results|HedgingSets|Buckets|TradeCalc|Checks|"                              'Filtering of the sheet's AutoFilter allowed (#754)
         Public Const PROTECT_INSERTING_ROWS As String = _
             "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
         Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
+    'The output sheets whose header row carries the filter buttons (#754): an operation keeps them
+    'and applies again the filter the user set.
+        Public Const OUTPUT_FILTER_SHEETS   As String = "Results|HedgingSets|Buckets|TradeCalc|Checks"
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT

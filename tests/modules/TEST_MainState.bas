@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 45   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 46   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -202,6 +202,7 @@ Public Sub RunMainStateTests()
         CaseEcbAnswer
         CaseDownloadEcbRates
         CaseRebaseFxTable
+        CaseOutputFilters
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -2265,6 +2266,116 @@ Private Function FxRateCell( _
         Loop
 
 End Function
+
+
+Private Sub CaseOutputFilters()
+'
+'==============================================================================
+'                             CaseOutputFilters
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The filter buttons of the five output sheets (#754): the template has
+'   them on Results, HedgingSets, Buckets, TradeCalc and Checks, and the
+'   sheets allow their use while protected; a run and Clear outputs keep
+'   them; a filter the user sets on TradeCalc stays applied after the next
+'   run, which shows only the rows the rule keeps. The filter is cleared at
+'   the end.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Names       As Variant   'The five sheets
+    Dim i           As Long      'Sheet
+    Dim Sheet       As Worksheet 'One of them
+    Dim TradeCalc   As Worksheet 'TradeCalc
+    Dim FirstId     As String    'The first trade of TradeCalc
+    Dim Result      As String    'What a run returned
+
+'------------------------------------------------------------------------------
+' THE TEMPLATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "outputs.filter-buttons"
+        SetState xlCalculationAutomatic, False, False
+        Names = Split(OUTPUT_FILTER_SHEETS, "|")
+        For i = LBound(Names) To UBound(Names)
+            Set Sheet = GetSheet(CStr(Names(i)))
+            TEST_Kit.Check Sheet.AutoFilterMode, Names(i) & " has no filter buttons in the template"
+            TEST_Kit.Check Sheet.Protection.AllowFiltering, Names(i) & " does not allow filtering while protected"
+        Next i
+
+'------------------------------------------------------------------------------
+' A RUN, A FILTER, ANOTHER RUN
+'------------------------------------------------------------------------------
+        Result = M_Main.RunSACCR_Silent()
+        CheckFilterButtons "after a run"
+        Set TradeCalc = GetSheet(SH_TRADECALC)
+        FirstId = SafeStr(TableCell(TradeCalc, OutputFirstRow(SH_TRADECALC), TC_ID).Value2)
+        TradeCalc.AutoFilter.Range.AutoFilter Field:=1, Criteria1:="=" & FirstId
+        TEST_Kit.Check TradeCalc.FilterMode, "the filter on TradeCalc is set"
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check TradeCalc.FilterMode, "the filter on TradeCalc stays set after a run: " & Result
+        TEST_Kit.Check Application.WorksheetFunction.Subtotal(103, TradeCalc.Range("C" & OutputFirstRow(SH_TRADECALC) & ":C" & _
+                       RECON_FILTER_LAST_ROW)) = 1, "the run shows only the rows the filter keeps"
+        TradeCalc.ShowAllData
+
+'------------------------------------------------------------------------------
+' CLEAR OUTPUTS, AND ANOTHER RUN
+'------------------------------------------------------------------------------
+        M_Main.ClearOutputs
+        CheckFilterButtons "after Clear outputs"
+        Result = M_Main.RunSACCR_Silent()
+        CheckFilterButtons "after a new run"
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail "outputs.filter-buttons", "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not TradeCalc Is Nothing Then
+            If TradeCalc.FilterMode Then
+                TradeCalc.ShowAllData
+            End If
+        End If
+
+End Sub
+
+
+Private Sub CheckFilterButtons( _
+    ByVal Moment As String)
+'
+'==============================================================================
+'                              CheckFilterButtons
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check that each of the five output sheets still has the filter buttons
+'   on its header (#754): one check per sheet.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Names       As Variant   'The five sheets
+    Dim i           As Long      'Sheet
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Names = Split(OUTPUT_FILTER_SHEETS, "|")
+        For i = LBound(Names) To UBound(Names)
+            TEST_Kit.Check GetSheet(CStr(Names(i))).AutoFilterMode, Names(i) & " has no filter buttons " & Moment
+        Next i
+
+End Sub
 
 
 Private Sub PutEcbCaseBack( _

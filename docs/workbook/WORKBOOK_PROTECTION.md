@@ -64,7 +64,7 @@ not compare (nor `YearConvention` and `Calendar`, which are configuration). The 
 | `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
-| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
+| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |
 | `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |
 | `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |
 | `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
@@ -77,7 +77,7 @@ not compare (nor `YearConvention` and `Calendar`, which are configuration). The 
 Selecting and copying any cell is always allowed. Deleting rows or columns,
 formatting cells and inserting columns are not: to remove an input row, clear
 its cells. Filtering works through the AutoFilter the template gives a sheet
-(`Trades`, `Basel_vs_CRR`); a protected sheet cannot get a new one.
+(`Trades`, `Basel_vs_CRR` and the five output sheets); a protected sheet cannot get a new one.
 
 ## 📏 Rules
 
@@ -111,8 +111,11 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
 - Rows and columns cannot be deleted, and columns cannot be inserted,
   resized or formatted, on a protected sheet. To remove an input row, clear
   its cells; to change the layout, unprotect the sheet for maintenance.
-- Filtering works only on `Trades` and `Basel_vs_CRR`, through the
-  AutoFilter the template gives them, over the rows it covers.
+- Filtering works only on `Trades`, `Basel_vs_CRR` and the five output sheets
+  (`Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks`), through the
+  AutoFilter the template gives them, over the rows it covers: on an output
+  sheet from the header row down to row 100,000. A run, a validation and
+  Clear outputs keep the buttons and apply again a filter the user set (#754).
 - A sheet protected by hand from the Review tab, with other options, gets the
   workbook's options back at the next operation.
 - Protection prevents accidental edits only. Anyone can remove it; the

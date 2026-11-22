@@ -1019,6 +1019,55 @@ Failed:
 End Function
 
 
+Private Sub ReapplyOutputFilters()
+'
+'==============================================================================
+'                            ReapplyOutputFilters
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After an operation has written the output tables, apply again the filter
+'   the user set on the header of Results, HedgingSets, Buckets, TradeCalc
+'   and Checks (#754): the rows written into hidden rows would otherwise stay
+'   as they were, shown or hidden, whatever the rule says. A sheet with no
+'   filter set, or without the buttons, is left as it is; no operation sets
+'   or clears a filter.
+'
+' ERROR POLICY
+'   Never raises: the rows stay as written, and the user can apply the filter
+'   again from the buttons.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SheetNames  As Variant    'The five sheets
+    Dim i           As Long       'Sheet
+    Dim Sheet       As Worksheet  'One of them
+
+'------------------------------------------------------------------------------
+' APPLY AGAIN
+'------------------------------------------------------------------------------
+        On Error Resume Next
+        SheetNames = Split(OUTPUT_FILTER_SHEETS, "|")
+        For i = LBound(SheetNames) To UBound(SheetNames)
+            Set Sheet = Nothing
+            Set Sheet = GetSheet(CStr(SheetNames(i)))
+            If Not Sheet Is Nothing Then
+                If Sheet.AutoFilterMode Then
+                    If Sheet.FilterMode Then
+                        Sheet.AutoFilter.ApplyFilter
+                    End If
+                End If
+            End If
+        Next i
+
+End Sub
+
+
 Private Function ReconcileAfterRun( _
     ByVal ReconKind As Long) _
     As String
@@ -11115,6 +11164,7 @@ Private Function ExecuteOperation( _
                 ClearAllOutputs
                 Completed = True
         End Select
+        ReapplyOutputFilters
 
 '------------------------------------------------------------------------------
 ' RESTORE EXCEL AND REPORT
