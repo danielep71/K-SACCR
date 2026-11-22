@@ -164,7 +164,7 @@ Attribute VB_Name = "M_Main"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-09
+'   2026-11-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -273,6 +273,7 @@ Attribute VB_Name = "M_Main"
         Private mPriceKept()    As Variant    'The rate each row held before
         Private mPriceKeptDate  As Variant    'The date of the prices before
         Private mPriceKeptSource As Variant   'The source of the rates before (#745)
+        Private mPriceKeptPrint As Variant    'The fingerprint of the table as downloaded before (#745)
         Private mPriceReportRow As Long       'The row of the reporting currency; 0 for none (#745)
         Private mPriceReportKept As Variant   'Its rate before, set to 1 with the prices
         Private mPriceAsOf      As Variant    'The reporting date asked for
@@ -546,13 +547,17 @@ Public Function RunSACCR_Silent() As String
 '   operation=run, errors, warnings, trades_used, trades_read,
 '   economic_trades_used, economic_trades_read, incomplete,
 '   total_ead_crr, total_ead_bcbs, inputs, run_class, reconciliation,
-'   trade_reconciliation, codes and cleanup=PASS or FAIL, separated by "; ".
+'   trade_reconciliation, year_convention, calendar, holiday_table,
+'   fx_source, codes and cleanup=PASS or FAIL, separated by "; ".
 '   codes lists distinct ERROR/WARNING codes in encounter order, comma-separated;
 '   it is empty when the current run has none.
 '   incomplete counts netting sets whose EAD was withheld; total_ead_crr
 '   and total_ead_bcbs are the totals of each regime's VALID netting sets,
 '   0 when it has none (#198); inputs is the fingerprint of the inputs
 '   the results were calculated from, empty when there are none.
+'   year_convention, calendar and holiday_table say how the dates became
+'   years (#721), fx_source where the FX rates came from (#745), as
+'   CORE_Engine.FxSourceText writes it.
 '   RESULT=STOPPED means the inputs could not be loaded; see Checks.
 '
 ' STATE OWNERSHIP
@@ -564,7 +569,7 @@ Public Function RunSACCR_Silent() As String
 '   settings could not be restored, after gSilent has been restored.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-22
 '==============================================================================
 '
 
@@ -2204,14 +2209,15 @@ Private Function EvidenceText() As String
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Build the evidence report from the sheets as they are: RUN (the run
-'   identity), PARAMS, SF_TABLE, FX_TABLE and HOLIDAY_TABLE (the parameter
+'   identity, with the day count, the calendar and the source of the FX
+'   rates), PARAMS, SF_TABLE, FX_TABLE and HOLIDAY_TABLE (the parameter
 '   snapshot),
 '   RESULTS, RECONCILIATION, TRADE_RECONCILIATION, CHECKS and LIMITATIONS.
 '   Everything is read from the workbook, so the report is the same after
 '   the workbook is closed and reopened.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-22
 '==============================================================================
 '
 
@@ -2248,6 +2254,12 @@ Private Function EvidenceText() As String
         End If
         Report = Report & RunLine("reporting_ccy", NamedCell(PRM_REPCCY).Value2)
         Report = Report & RunLine("regime_default", NamedCell(PRM_REGIME).Value2)
+    'How the dates became years and where the rates came from (#721, #745):
+    'the inputs are those of the run, so these are the run's.
+        Report = Report & RunLine("year_convention", CORE_Engine.YearConventionText())
+        Report = Report & RunLine("calendar", CORE_Engine.CalendarText())
+        Report = Report & RunLine("holiday_table", CORE_Engine.HolidayTableText())
+        Report = Report & RunLine("fx_source", CORE_Engine.FxSourceText())
     'The set the template ships, not a claim about this run: whether the run
     'used it unchanged is in run_summary (regulatory or what-if).
         Report = Report & RunLine("reference_parameter_set", REF_SET_ID)
@@ -8228,6 +8240,9 @@ Private Function RebaseFxTable( _
 '   each rate is divided by the rate of Code, which becomes exactly 1. The
 '   rates are relative, so the conversion of every amount is unchanged.
 '   The date and the source of the rates stay: they are the same quotes.
+'   So does the record of the download (#745): a table as downloaded is
+'   still as downloaded once rebased, and its fingerprint is taken again;
+'   a table edited after the download stays edited.
 '
 ' METHOD
 '   Work out every new rate, then write them with events off, all or none.
@@ -8264,6 +8279,7 @@ Private Function RebaseFxTable( _
     Dim Skipped       As String       'Currencies whose rate stays
     Dim EventsOn      As Boolean      'Events were enabled
     Dim Started       As Boolean      'The writing began
+    Dim AsDownloaded  As Boolean      'The table was as Download prices wrote it
     Dim ErrNumber     As Long         'The error to raise again
     Dim ErrText       As String       'Its description
 
@@ -8318,6 +8334,10 @@ Private Function RebaseFxTable( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
+        If Not NamedCell(NM_FX_PRICE_FP) Is Nothing Then
+            AsDownloaded = Len(SafeStr(NamedCell(NM_FX_PRICE_FP).Value2)) > 0 And _
+                           SafeStr(NamedCell(NM_FX_PRICE_FP).Value2) = CORE_Engine.FxTableFingerprint()
+        End If
         On Error GoTo Failed
         mRunning = True
         EventsOn = Application.EnableEvents
@@ -8332,6 +8352,9 @@ Private Function RebaseFxTable( _
                 End If
             End If
         Next r
+        If AsDownloaded Then
+            PutFxPrint CORE_Engine.FxTableFingerprint()
+        End If
         Application.EnableEvents = EventsOn
         mRunning = False
         RebaseFxTable = "RESULT=REBASED; currency=" & Code & "; divisor=" & Trim$(Str$(Divisor)) & "; rates=" & Rebased & _
@@ -8353,6 +8376,34 @@ Failed:
         Err.Raise ErrNumber, "M_Main.RebaseFxTable", ErrText
 
 End Function
+
+
+Private Sub PutFxPrint( _
+    ByVal Fingerprint As Variant)
+'
+'==============================================================================
+'                                  PutFxPrint
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write a fingerprint of the FX table into the hidden cell
+'   FX_PriceFingerprint (#745) as text, with an apostrophe, so that Excel
+'   never reads one such as "00012E45" as a number; an empty one empties
+'   the cell.
+'
+' ERROR POLICY
+'   Raises when the name is missing; the callers check it first.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        If Len(SafeStr(Fingerprint)) = 0 Then
+            NamedCell(NM_FX_PRICE_FP).Value2 = vbNullString
+        Else
+            NamedCell(NM_FX_PRICE_FP).Value2 = "'" & SafeStr(Fingerprint)
+        End If
+
+End Sub
 
 
 Private Function FxTableRate( _
@@ -8511,6 +8562,7 @@ Private Function LookUpEcbRates( _
     Dim Kept()        As Variant      'The rate each row held
     Dim KeptDate      As Variant      'The date of the rates before
     Dim KeptSource    As Variant      'Their source before
+    Dim KeptPrint     As Variant      'The fingerprint of the table as downloaded before
     Dim Reporting     As String       'The reporting currency
     Dim AsOfValue     As Variant      'The reporting date as the cell holds it
     Dim AsOf          As Date         'The reporting date
@@ -8544,9 +8596,10 @@ Private Function LookUpEcbRates( _
             LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
-        If NamedCell(NM_FX_PRICE_DATE) Is Nothing Or NamedCell(NM_FX_PRICE_SRC) Is Nothing Then
-            Problem = "the workbook name '" & IIf(NamedCell(NM_FX_PRICE_DATE) Is Nothing, NM_FX_PRICE_DATE, NM_FX_PRICE_SRC) & _
-                      "' is missing."
+        If NamedCell(NM_FX_PRICE_DATE) Is Nothing Or NamedCell(NM_FX_PRICE_SRC) Is Nothing Or _
+           NamedCell(NM_FX_PRICE_FP) Is Nothing Then
+            Problem = "the workbook name '" & IIf(NamedCell(NM_FX_PRICE_DATE) Is Nothing, NM_FX_PRICE_DATE, _
+                      IIf(NamedCell(NM_FX_PRICE_SRC) Is Nothing, NM_FX_PRICE_SRC, NM_FX_PRICE_FP)) & "' is missing."
             LookUpEcbRates = "RESULT=REFUSED; reason=" & Problem
             Exit Function
         End If
@@ -8586,6 +8639,7 @@ Private Function LookUpEcbRates( _
         End If
         KeptDate = NamedCell(NM_FX_PRICE_DATE).Value2
         KeptSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        KeptPrint = NamedCell(NM_FX_PRICE_FP).Value2
 
 '------------------------------------------------------------------------------
 ' ASK THE ECB
@@ -8710,6 +8764,7 @@ Private Function LookUpEcbRates( _
         End If
         NamedCell(NM_FX_PRICE_DATE).Value2 = AsOfValue
         NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_ECB
+        PutFxPrint CORE_Engine.FxTableFingerprint()
         mRunning = False
         If Latest <> AsOf And Latest > 0 Then
             Fixing = Format$(Latest, "yyyy-mm-dd")
@@ -8733,6 +8788,7 @@ Failed:
             End If
             NamedCell(NM_FX_PRICE_DATE).Value2 = KeptDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = KeptSource
+            PutFxPrint KeptPrint
         End If
         mRunning = False
         On Error GoTo 0
@@ -9344,6 +9400,13 @@ Private Function StartPriceLookup( _
             Problem = "the workbook name '" & NM_FX_PRICE_SRC & "' is missing."
             Exit Function
         End If
+        mPriceKeptPrint = NamedCell(NM_FX_PRICE_FP).Value2
+        If Err.Number <> 0 Then
+            Err.Clear
+            On Error GoTo 0
+            Problem = "the workbook name '" & NM_FX_PRICE_FP & "' is missing."
+            Exit Function
+        End If
         On Error GoTo 0
         mPriceReportRow = 0
         For r = HeaderRow + 1 To mPriceLastRow
@@ -9560,6 +9623,7 @@ Private Function FinishPriceLookup( _
     'The date and the source of the rates, shown beside the button
         NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceAsOf
         NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_CLOSING
+        PutFxPrint CORE_Engine.FxTableFingerprint()
         ReleasePriceLookup True
         FinishPriceLookup = "RESULT=PRICED; rates=" & Priced & "; without_price=" & _
                             IIf(Len(Without) > 0, UBound(Split(Without, ",")) + 1, 0) & _
@@ -9613,6 +9677,7 @@ Private Sub AbandonPriceLookup()
             End If
             NamedCell(NM_FX_PRICE_DATE).Value2 = mPriceKeptDate
             NamedCell(NM_FX_PRICE_SRC).Value2 = mPriceKeptSource
+            PutFxPrint mPriceKeptPrint
         End If
         ReleasePriceLookup True
 
@@ -11496,16 +11561,18 @@ Private Function ReportOutcome( _
 '
 ' RETURNS
 '   The result line, for example "RESULT=OK; operation=run; ...;
-'   reconciliation=DONE; trade_reconciliation=NONE; codes=TR-MATURED;
-'   cleanup=PASS"; codes, the distinct diagnostic codes of the run, comes
-'   before cleanup for a run and a validation, not for a clear (#81).
+'   reconciliation=DONE; trade_reconciliation=NONE; year_convention=365;
+'   calendar=TABLE; holiday_table=empty; fx_source=Manual;
+'   codes=TR-MATURED; cleanup=PASS"; codes, the distinct diagnostic codes
+'   of the run, comes before cleanup for a run and a validation, not for a
+'   clear (#81).
 '
 ' ERROR POLICY
 '   In silent mode a cleanup failure raises ERR_CLEANUP_FAILED, with the
 '   result line in its description; otherwise it is added to the message.
 '
 ' UPDATED
-'   2026-11-09
+'   2026-11-22
 '==============================================================================
 '
 
@@ -11580,7 +11647,11 @@ Private Function ReportOutcome( _
                      "; inputs=" & CORE_Engine.RunInputs & _
                      "; run_class=" & CORE_Engine.RunClass & _
                      "; reconciliation=" & mReconState & _
-                     "; trade_reconciliation=" & mTradeReconState
+                     "; trade_reconciliation=" & mTradeReconState & _
+                     "; year_convention=" & CORE_Engine.YearConventionText() & _
+                     "; calendar=" & CORE_Engine.CalendarText() & _
+                     "; holiday_table=" & CORE_Engine.HolidayTableText() & _
+                     "; fx_source=" & CORE_Engine.FxSourceText()
         End If
         If Operation <> OP_CLEAR Then ResultLine = ResultLine & "; codes=" & CORE_Engine.DiagnosticCodes
         ResultLine = ResultLine & "; cleanup=" & IIf(Len(CleanupDetails) = 0, "PASS", "FAIL")

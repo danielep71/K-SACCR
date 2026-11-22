@@ -225,6 +225,18 @@ class ParamsLayoutTests(unittest.TestCase):
                          'FX_SOURCE_CLOSING  As String = "Closing price"', 'FX_SOURCE_ECB      As String = "ECB reference rate"'):
             self.assertIn(constant, config)
 
+    def test_the_fx_table_as_downloaded_is_kept_beside_its_source(self) -> None:
+        # #745: FX_PriceFingerprint, below FX_PriceSource in the hidden column, keeps the fingerprint of the FX table
+        # that Download prices wrote; a run compares it with the table to tell downloaded rates from edited ones.
+        # The template has no download, so its rates are recorded as Manual.
+        kept, fingerprint = self.at("FX_PriceSource"), self.at("FX_PriceFingerprint")
+        self.assertEqual((fingerprint.column, fingerprint.row), ("AQ", kept.row + 1))
+        self.assertEqual(self.text(f"AQ{fingerprint.row}"), "")
+        config = (ROOT / "src" / "core" / "CORE_Config.bas").read_text(encoding="cp1252")
+        for constant in ('NM_FX_PRICE_FP   As String = "FX_PriceFingerprint"',
+                         'FX_SOURCE_MANUAL   As String = "Manual"'):
+            self.assertIn(constant, config)
+
     def test_the_ecb_is_asked_over_https_with_currency_codes_and_dates_only(self) -> None:
         # #745: one HTTPS request from VBA, no web query and no connection left in the workbook, nothing sent
         # but three-letter codes and two dates, no credential.

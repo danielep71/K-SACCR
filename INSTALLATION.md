@@ -701,7 +701,7 @@ demonstration portfolio with the bank figures of the reconciliation
 screenshot:
 
 ```text
-RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
@@ -714,7 +714,16 @@ without the two sheets; `trade_reconciliation` says the same for BankTrades
 and TradeReconciliation. `total_ead_crr` and `total_ead_bcbs` are the totals
 of each regime's `VALID` netting sets, never added together. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results C4. `codes` lists the distinct
+run summary on Results C4. `year_convention`, `calendar` and `holiday_table`
+say how the dates became years (#721): the days of the conventional year, the
+calendar, and the table of closing days (`unused` with `TARGET`, `empty`, or
+its number of entries and fingerprint, such as `3 days, 1A2B3C4D`).
+`fx_source` says where the FX rates came from (#745): `ECB reference rate of
+2026-09-30` or `Closing price of 2026-09-30` while the table is as
+**Download prices** wrote it, `Manual (edited after ECB reference rate
+download)` once a rate, a currency or a row changed after the download, and
+`Manual` when no download is recorded. The run summary on Results C4 shows the
+same. `codes` lists the distinct
 [diagnostic codes](docs/DIAGNOSTICS.md) of the errors and warnings on Checks,
 comma-separated, and is empty when there are none; `cleanup` is always last.
 
@@ -781,7 +790,11 @@ without a byte-order mark; the first field of every line names its section
 `TRADE_RECONCILIATION`, `CHECKS`, `LIMITATIONS`), and the first line is
 `RUN;format;K-SACCR evidence 1`. `RUN;reference_parameter_set` names the set
 the template ships; whether the run used it unchanged (`REGULATORY`) or not
-(`WHAT-IF`) is in `RUN;run_summary`. A reconciliation reads `CURRENT` or
+(`WHAT-IF`) is in `RUN;run_summary`. `RUN;year_convention`, `RUN;calendar`,
+`RUN;holiday_table` and `RUN;fx_source` are the run's day count, calendar,
+table of closing days and source of the FX rates, as in the result line of
+`RunSACCR_Silent` (#721, #745): results of two day counts or two sources of
+rates are different results. A reconciliation reads `CURRENT` or
 `NOT MADE`; its summary says why one was not made. The workbook's file name
 is not in the report, as a Save As would change it for the same run. Text
 that Excel would read as a formula when the file is opened (starting with
@@ -933,7 +946,10 @@ currency appended below the table is looked up too. The formulas live in a
 hidden scratch column that is emptied afterwards: no formula stays in the
 workbook. A currency that gets no price keeps its rate; the rate of the
 reporting currency is set to 1, which a run requires (#745); the date of the prices is written into the hidden name `FX_PriceDate`,
-which the sheet shows beside the button. It needs Microsoft 365 and a
+which the sheet shows beside the button, and the fingerprint of the table into
+`FX_PriceFingerprint`, so that a run records `Closing price of` the date while
+the table is as written, and `Manual (edited after Closing price download)`
+once it is not (#745). It needs Microsoft 365 and a
 connection and waits `PRICE_WAIT_SECONDS` (30) at most. Excel hands the data of
 `STOCKHISTORY` back only when no macro runs, so the button does not wait inside
 a macro: it writes the formulas, returns, and a timer (`PollClosingPrices`) writes
@@ -959,8 +975,10 @@ currency the rate is crossed through the euro (the currency per euro over the
 reporting currency per euro, and the euro is 1 over the latter). A currency the
 ECB does not publish, such as TWD, keeps its rate, and the reporting currency
 takes 1. The rates are written all or
-none, with the reporting date into `FX_PriceDate` and the source into
-`FX_PriceSource`. It returns `RESULT=PRICED; rates=N; without_price=M`, then
+none, with the reporting date into `FX_PriceDate`, the source into
+`FX_PriceSource` and the fingerprint of the table it wrote into
+`FX_PriceFingerprint`, which a run compares with the table to record the
+source or `Manual (edited after ... download)` (#745). It returns `RESULT=PRICED; rates=N; without_price=M`, then
 `; codes=...` when some currency got no rate, `; source=ECB`, and
 `; fixing=yyyy-mm-dd` when the reporting date has no fixing (a TARGET closing
 day) and an earlier one was used; or `RESULT=REFUSED; reason=...` with no rate

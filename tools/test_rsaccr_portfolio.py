@@ -27,15 +27,18 @@ def package_results(generated: dict[str, Any]) -> dict[str, Any]:
             "portfolio_sha256": portfolio.fingerprint(generated)}
 
 
-def evidence(generated: dict[str, Any], package: dict[str, Any], **changes: str) -> str:
+def evidence(generated: dict[str, Any], package: dict[str, Any], **changes: str | None) -> str:
     """An evidence CSV whose Results equal the package figures."""
     header = ["NettingSetID", "Counterparty", "Regime", "Margined", "Trades used", "RC", "AddOn IR", "AddOn FX",
               "AddOn CR", "AddOn EQ", "AddOn CO", "AddOn OT", "AddOn aggregate", "Multiplier", "PFE", "EAD",
               "Status"]
+    convention = portfolio.convention(generated)
     run = {"format": "K-SACCR evidence 1", "results_status": "CURRENT", "reporting_date": "2026-09-30",
-           "reporting_ccy": "EUR"}
+           "reporting_ccy": "EUR", "year_convention": str(convention["YearConvention"]),
+           "calendar": convention["Calendar"],
+           "holiday_table": portfolio.expected_holiday_table(convention["Calendar"]), "fx_source": "Manual"}
     run.update({k: v for k, v in changes.items() if k in run})
-    lines = [f"RUN;{key};{value}" for key, value in run.items()]
+    lines = [f"RUN;{key};{value}" for key, value in run.items() if value is not None]
     lines.append("RESULTS;" + ";".join(header))
     by_id = {r["netting_set"]: r for r in package["results"]}
     for fixture in generated["netting_sets"]:
@@ -93,6 +96,23 @@ class GenerationTests(unittest.TestCase):
         for fixture in self.generated["netting_sets"]:
             names = [t["risk_factor"] for t in fixture["trades"] if t["asset_class"] == "commodity"]
             self.assertTrue(all(names.count(n) <= 2 for n in names), fixture["id"])
+
+    def test_the_convention_is_in_the_fixtures_only_when_it_is_not_the_default(self) -> None:
+        self.assertNotIn("parameters", self.generated)
+        self.assertEqual({json.dumps(f["parameters"]) for f in self.generated["netting_sets"]}, {"{}"})
+        self.assertEqual(json.dumps(portfolio.generate(352, 40, 365, "TABLE")), json.dumps(self.generated))
+        business = portfolio.generate(352, 40, 250, "TARGET")
+        self.assertEqual(business["parameters"], {"YearConvention": 250, "Calendar": "TARGET"})
+        self.assertEqual(portfolio.convention(self.generated), {"YearConvention": 365, "Calendar": "TABLE"})
+        for fixture, default in zip(business["netting_sets"], self.generated["netting_sets"]):
+            self.assertEqual(fixture["parameters"], business["parameters"])
+            self.assertEqual(fixture["trades"], default["trades"])  # the same draw, only read on other days
+        # The years differ: 250 business days on TARGET are not 365 calendar days.
+        trade = business["netting_sets"][0]["trades"][0]
+        on_business_days = crosscheck.translate_fixture(business["netting_sets"][0])["trades"][0]
+        on_calendar_days = crosscheck.translate_fixture(self.generated["netting_sets"][0])["trades"][0]
+        self.assertEqual(trade["id"], self.generated["netting_sets"][0]["trades"][0]["id"])
+        self.assertNotEqual(json.dumps(on_business_days), json.dumps(on_calendar_days))
 
     def test_csv_files_follow_the_contract(self) -> None:
         contract = csv_contract.load_contract(ROOT)
@@ -160,6 +180,22 @@ class ComparisonTests(unittest.TestCase):
                        {"results_status": "OUT OF DATE"}):
             with self.subTest(change=change), self.assertRaises(portfolio.EvidenceError):
                 self.rows(evidence(self.generated, self.package, **change))
+
+    def test_evidence_of_another_convention_is_refused(self) -> None:
+        # #721: figures of two day counts, calendars or holiday tables are never compared,
+        # nor are those of an evidence file that does not say which it used.
+        changes: tuple[dict[str, str | None], ...] = (
+            {"year_convention": "250"}, {"calendar": "TARGET"}, {"holiday_table": "3 days, 1A2B3C4D"},
+            {"year_convention": None}, {"calendar": None}, {"holiday_table": None})
+        for change in changes:
+            with self.subTest(change=change), self.assertRaisesRegex(portfolio.EvidenceError, "not a current run"):
+                self.rows(evidence(self.generated, self.package, **change))
+        business = portfolio.generate(352, 3, 250, "TARGET")
+        package = package_results(business)
+        self.assertTrue(all(r["agrees"] for r in portfolio.compare(business, package, evidence(business, package))))
+        on_calendar_days = evidence(business, package, year_convention="365", calendar="TABLE", holiday_table="empty")
+        with self.assertRaisesRegex(portfolio.EvidenceError, "year_convention is '365', expected '250'"):
+            portfolio.compare(business, package, on_calendar_days)
         with self.assertRaisesRegex(portfolio.EvidenceError, "no RESULTS"):
             self.rows("RUN;format;K-SACCR evidence 1\n")
 
@@ -214,6 +250,30 @@ class CaseTests(unittest.TestCase):
         self.assertEqual(fixture["id"], f"rsaccr-portfolio-{self.ids[0].lower()}")
         self.assertEqual(fixture["netting_set"]["id"], self.ids[0])
 
+    def test_unchecked_cases_on_another_convention(self) -> None:
+        business = portfolio.generate(352, 2, 250, "TARGET")
+        package = package_results(business)
+        ns_id = business["netting_sets"][0]["id"]
+        files = portfolio.cases(business, package, None, [ns_id], "2026-11-22")
+        name = f"rsaccr-portfolio-{ns_id.lower()}-y250-target"
+        self.assertEqual(sorted(files), [f"tests/expected/{name}.crr.json", f"tests/fixtures/{name}.json"])
+        fixture = files[f"tests/fixtures/{name}.json"]
+        self.assertEqual((fixture["id"], fixture["parameters"]), (name, {"YearConvention": 250, "Calendar": "TARGET"}))
+        self.assertIn("with a year of 250 days on the TARGET calendar", fixture["description"])
+        expected = files[f"tests/expected/{name}.crr.json"]
+        self.assertEqual(expected["fixture"], name)
+        for output in expected["outputs"]:
+            derivation = output["reference"]["derivation"]
+            self.assertIn("with a year of 250 days on the TARGET calendar by tools/business_calendar.py", derivation)
+            self.assertIn("TEST_Cases compares the workbook with it", derivation)
+            self.assertNotIn("agreed on every figure", derivation)
+        # A checked case on the default convention keeps its ID and its derivation.
+        checked = portfolio.cases(self.generated, self.package, self.comparison, self.ids[:1], "2026-11-11")
+        derivations = {o["reference"]["derivation"] for o in
+                       checked[f"tests/expected/rsaccr-portfolio-{self.ids[0].lower()}.crr.json"]["outputs"]}
+        self.assertEqual(len(derivations), 1)
+        self.assertTrue(derivations.pop().endswith("the workbook run of the same netting set agreed on every figure"))
+
     def test_refusals(self) -> None:
         first = self.ids[0]
         differing = self.comparison.replace(f"{first};EAD;", f"{first};EAD;x", 1)
@@ -236,14 +296,21 @@ class CaseTests(unittest.TestCase):
                 portfolio.cases(self.generated, package, comparison, chosen, "2026-11-11")
 
     def test_committed_cases_are_the_generated_netting_sets(self) -> None:
-        generated = {f["id"]: f for f in portfolio.generate(352, 40)["netting_sets"]}
+        portfolios: dict[str, dict[str, Any]] = {}
         committed = sorted((ROOT / "tests" / "fixtures").glob("rsaccr-portfolio-*.json"))
         self.assertTrue(committed)
+        self.assertTrue(any(json.loads(p.read_text(encoding="utf-8"))["parameters"] for p in committed),
+                        "a case on another convention than the default (#721)")
         for path in committed:
             with self.subTest(case=path.stem):
                 data = json.loads(path.read_text(encoding="utf-8"))
+                chosen = {**portfolio.DEFAULT_CONVENTION, **data["parameters"]}
+                key = json.dumps(chosen, sort_keys=True)
+                if key not in portfolios:
+                    portfolios[key] = {f["id"]: f for f in portfolio.generate(
+                        352, 40, chosen["YearConvention"], chosen["Calendar"])["netting_sets"]}
                 ns_id = data["netting_set"]["id"]
-                self.assertEqual(data, portfolio.case_fixture(generated[ns_id], 352))
+                self.assertEqual(data, portfolio.case_fixture(portfolios[key][ns_id], 352))
                 expected = json.loads((ROOT / "tests" / "expected" / f"{path.stem}.crr.json")
                                       .read_text(encoding="utf-8"))
                 self.assertEqual({o["reference"]["class"] for o in expected["outputs"]}, {"independent"})

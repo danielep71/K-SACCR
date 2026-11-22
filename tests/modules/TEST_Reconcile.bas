@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 23              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 237              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 239              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -1231,12 +1231,14 @@ Private Sub CaseExportWorkbook()
 '   reconciliation and an edited output cell each make the export refuse,
 '   as does a recalculation pending in manual calculation; undoing them,
 '   or a new run, allows it again. A currency added below the FX table's
-'   named range is in the report. The edited cells and the files are put
-'   back or removed. The case starts without the sample bank figures of the
-'   template, which it puts back at the end.
+'   named range is in the report. The day count, the calendar, the table
+'   of closing days and the source of the FX rates are in the run's result
+'   line, its summary on Results and the report (#721, #745). The edited
+'   cells and the files are put back or removed. The case starts without
+'   the sample bank figures of the template, which it puts back at the end.
 '
 ' UPDATED
-'   2026-11-21
+'   2026-11-22
 '==============================================================================
 '
 
@@ -1266,6 +1268,8 @@ Private Sub CaseExportWorkbook()
     Dim BankLegs      As Range        'The first rows of BankTrades, emptied for the case
     Dim SavedSets     As Variant      'Their formulas
     Dim SavedLegs     As Variant      'Their formulas
+    Dim Basis         As String       'The day count, calendar, closing days and FX source of the run
+    Dim RunResult     As String       'The result line of the first run
 
 '------------------------------------------------------------------------------
 ' EXPORT TWICE
@@ -1288,6 +1292,7 @@ Private Sub CaseExportWorkbook()
         BankSets.ClearContents
         BankLegs.ClearContents
         ResultLine = M_Main.RunSACCR_Silent()
+        RunResult = ResultLine
         ResultLine = M_Main.ExportEvidence_Silent(FirstFile)
         TEST_Kit.Check Left$(ResultLine, 9) = "RESULT=OK", "first export: " & ResultLine
         FirstText = FileText(FirstFile)
@@ -1295,6 +1300,18 @@ Private Sub CaseExportWorkbook()
         TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;results_status;CURRENT" & vbCrLf) > 0, "results status line missing"
         TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;reference_parameter_set;") > 0 And InStr(FirstText, "RUN;workbook;") = 0, _
                        "run identity lines"
+        Basis = "; year_convention=" & CORE_Engine.YearConventionText() & "; calendar=" & CORE_Engine.CalendarText() & _
+                "; holiday_table=" & CORE_Engine.HolidayTableText() & "; fx_source=" & CORE_Engine.FxSourceText() & "; codes="
+        TEST_Kit.Check InStr(RunResult, Basis) > 0 And _
+                       InStr(SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2), " | year " & CORE_Engine.YearConventionText() & _
+                             " days, calendar " & CORE_Engine.CalendarText()) > 0 And _
+                       InStr(SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2), " | FX " & CORE_Engine.FxSourceText() & " | ") > 0, _
+                       "the day count and the FX source in the result line and on Results: " & RunResult
+        TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;year_convention;" & CORE_Engine.YearConventionText() & vbCrLf & _
+                             "RUN;calendar;" & CORE_Engine.CalendarText() & vbCrLf & _
+                             "RUN;holiday_table;" & CORE_Engine.HolidayTableText() & vbCrLf & _
+                             "RUN;fx_source;" & CORE_Engine.FxSourceText() & vbCrLf) > 0, _
+                       "the day count, the calendar, the closing days and the FX source in the report"
         TEST_Kit.Check InStr(FirstText, vbCrLf & "RUN;reconciliation;NOT MADE" & vbCrLf) > 0 And _
                        InStr(FirstText, vbCrLf & "RUN;reconciliation_scale;") = 0, "settings of a reconciliation that was not made"
         TEST_Kit.Check Not (SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2) Like "*#,# s*"), _

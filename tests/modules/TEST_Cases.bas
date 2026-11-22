@@ -34,10 +34,10 @@ Public Sub RunCaseTests()
 '                                 RunCaseTests
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the 39 expected files in file-name order, then restore the workbook.
+'   Run the 41 expected files in file-name order, then restore the workbook.
 '==============================================================================
 '
-        If Not TEST_CaseRunner.BeginSuite("TEST_Cases", 39, 243) Then Exit Sub
+        If Not TEST_CaseRunner.BeginSuite("TEST_Cases", 41, 261) Then Exit Sub
         On Error GoTo Failed
         Case01
         Case02
@@ -78,6 +78,8 @@ Public Sub RunCaseTests()
         Case37
         Case38
         Case39
+        Case40
+        Case41
         TEST_CaseRunner.EndSuite ""
         Exit Sub
 
@@ -651,6 +653,34 @@ End Sub
 
 
 Private Sub Case35()
+    'tests/expected/rsaccr-portfolio-rs-010-y250-target.crr.json
+        TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-010-y250-target", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.SetParameter "Calendar", "TARGET"
+        TEST_CaseRunner.SetParameter "YearConvention", "250"
+        TEST_CaseRunner.AddNettingSet "RS-010", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T01", "CR", "IG_INDEX", "ITRAXX-MAIN", "Linear", "Long", "", "Standard", "", "26263000", "38760.76", "", "2032-05-08", "2032-05-08", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T02", "CR", "CQS1", "CORP-A", "Linear", "Long", "", "Standard", "", "48454000", "1389653.76", "", "2033-10-24", "2033-10-24", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T03", "IR", "", "USD", "Option", "Long", "Call", "Standard", "", "28432000", "-813641.92", "2026-12-15", "2040-03-10", "2040-03-10", "2026-12-15", "0.0427", "0.033", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T04", "CR", "IG_INDEX", "ITRAXX-MAIN", "Linear", "Short", "", "Standard", "", "34486000", "202047.87", "", "2035-09-02", "2035-09-02", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T05", "IR", "", "EUR", "Option", "Short", "Call", "Standard", "", "28649000", "-464007.33", "2027-12-07", "2038-05-20", "2038-05-20", "2027-12-07", "0.0448", "0.0289", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T06", "EQ", "SINGLE", "STOCK-1", "Linear", "Long", "", "Standard", "", "4368000", "24363.04", "", "", "2027-01-17", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T07", "IR", "", "EUR", "Linear", "Short", "", "Standard", "", "1706000", "4522.34", "2026-11-23", "2034-09-13", "2034-09-13", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T08", "IR", "", "GBP", "Linear", "Long", "", "Standard", "", "39460000", "-1121285.76", "", "2028-08-26", "2028-08-26", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-010-T09", "FX", "", "USD/EUR", "Linear", "Short", "", "Standard", "", "42415000", "755276.9", "", "", "2031-08-21", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectNumber "replacement_cost", "", "replacement_cost", "15689.66", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.interest_rate", "", "add_on.interest_rate", "2614149.6207926", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.foreign_exchange", "", "add_on.foreign_exchange", "1696600", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.credit", "", "add_on.credit", "1025675.24671285", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.equity", "", "add_on.equity", "765584.681978421", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "aggregate_add_on", "", "aggregate_add_on", "6102009.54948387", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "multiplier", "", "multiplier", "1", "0.000000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "potential_future_exposure", "", "potential_future_exposure", "6102009.54948387", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "exposure_value", "", "exposure_value", "8564778.89327742", "0.000001", "0.000000001", "independent"
+End Sub
+
+
+Private Sub Case36()
     'tests/expected/rsaccr-portfolio-rs-010.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-010", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-010", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -676,7 +706,36 @@ Private Sub Case35()
 End Sub
 
 
-Private Sub Case36()
+Private Sub Case37()
+    'tests/expected/rsaccr-portfolio-rs-011-y250-target.crr.json
+        TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-011-y250-target", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.SetParameter "Calendar", "TARGET"
+        TEST_CaseRunner.SetParameter "YearConvention", "250"
+        TEST_CaseRunner.AddNettingSet "RS-011", "Y", "N", "5", "N", "N", "", "198400.65", "492088.05", "250000", "0", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T01", "IR", "", "EUR", "Linear", "Long", "", "Standard", "", "36890000", "-74209.12", "", "2035-12-30", "2035-12-30", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T02", "CR", "CQS6", "CORP-F", "Linear", "Short", "", "Standard", "", "13886000", "-354243.88", "", "2029-04-01", "2029-04-01", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T03", "FX", "", "EUR/USD", "Linear", "Long", "", "Standard", "", "3749000", "89180.64", "", "", "2027-06-07", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T04", "IR", "", "EUR", "Linear", "Short", "", "Standard", "", "33655000", "-22501.6", "2027-06-16", "2033-02-09", "2033-02-09", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T05", "CR", "CQS2", "CORP-B", "Linear", "Short", "", "Standard", "", "35291000", "250309.61", "", "2034-03-02", "2034-03-02", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T06", "IR", "", "USD", "Linear", "Short", "", "Standard", "", "34178000", "-405540.38", "2027-03-26", "2041-06-29", "2041-06-29", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T07", "IR", "", "JPY", "Linear", "Long", "", "Standard", "", "20207000", "-455106.23", "", "2035-03-13", "2035-03-13", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T08", "CO", "OTHER", "TIMBER", "Linear", "Short", "", "Standard", "", "15827000", "436222.44", "", "", "2030-10-12", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T09", "IR", "", "EUR", "Linear", "Long", "", "Standard", "", "47261000", "-305992.68", "2026-12-07", "2032-05-28", "2032-05-28", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "RS-011-T10", "IR", "", "GBP", "Linear", "Short", "", "Standard", "", "8395000", "-219139.87", "", "2035-05-20", "2035-05-20", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectNumber "replacement_cost", "", "replacement_cost", "0", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.interest_rate", "", "add_on.interest_rate", "1581681.17278699", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.foreign_exchange", "", "add_on.foreign_exchange", "53230.5194564171", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.credit", "", "add_on.credit", "857896.131889499", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "add_on.commodity", "", "add_on.commodity", "1011244.98305287", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "aggregate_add_on", "", "aggregate_add_on", "3504052.80718578", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "multiplier", "", "multiplier", "0.780246164734256", "0.000000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "potential_future_exposure", "", "potential_future_exposure", "2734023.76383301", "0.000001", "0.000000001", "independent"
+        TEST_CaseRunner.ExpectNumber "exposure_value", "", "exposure_value", "3827633.26936621", "0.000001", "0.000000001", "independent"
+End Sub
+
+
+Private Sub Case38()
     'tests/expected/rsaccr-portfolio-rs-011.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-011", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-011", "Y", "N", "5", "N", "N", "", "198400.65", "492088.05", "250000", "0", "", "", ""
@@ -703,7 +762,7 @@ Private Sub Case36()
 End Sub
 
 
-Private Sub Case37()
+Private Sub Case39()
     'tests/expected/rsaccr-portfolio-rs-014.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-014", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-014", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -735,7 +794,7 @@ Private Sub Case37()
 End Sub
 
 
-Private Sub Case38()
+Private Sub Case40()
     'tests/expected/rsaccr-portfolio-rs-018.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-018", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-018", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -769,7 +828,7 @@ Private Sub Case38()
 End Sub
 
 
-Private Sub Case39()
+Private Sub Case41()
     'tests/expected/rsaccr-portfolio-rs-024.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-024", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-024", "Y", "N", "5", "N", "N", "", "-120373.5", "241557.27", "0", "0", "", "", ""
