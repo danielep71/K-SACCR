@@ -1170,8 +1170,8 @@ Private Sub CaseValidateContext()
 '==============================================================================
 ' PURPOSE
 '   Staged legs judged against Params (#209): T1 is valid; T2 has
-'   matured, its maturity not after the reporting date; T3 is in SEK,
-'   which has no FX rate; T4 is an OT leg of NS-T3, whose override is
+'   matured, its maturity not after the reporting date; T3 is in XXX,
+'   which the FX table does not hold, so it has no FX rate; T4 is an OT leg of NS-T3, whose override is
 '   BCBS; T5 is an FX leg on USD/GBP with its notional in EUR, outside the
 '   pair (#678). The validation is INVALID with four findings, in that
 '   order, each on its staged cell, which is marked; Import_NettingSets is VALID
@@ -1199,7 +1199,7 @@ Private Sub CaseValidateContext()
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf & TradeRow("T1", "1000", "") & vbLf & _
                  Replace(TradeRow("T2", "1000", ""), ";2031-01-02;2031-01-02;", ";2026-01-02;2026-01-02;") & vbLf & _
-                 Replace(TradeRow("T3", "1000", ""), ";1000;EUR;", ";1000;SEK;") & vbLf & _
+                 Replace(TradeRow("T3", "1000", ""), ";1000;EUR;", ";1000;XXX;") & vbLf & _
                  Replace(TradeRow("T4", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T3;OT;;LONGEVITY;") & vbLf & _
                  Replace(TradeRow("T5", "1000", ""), ";NS-T1;IR;;EUR;", ";NS-T1;FX;;USD/GBP;") & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True

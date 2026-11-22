@@ -1,0 +1,4 @@
+netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment
+NS-1;EUR;1,5;abc;;;;;;;;;-0.5;
+NS-2;;100;;;;;;;;;;;
+ns-1;CRR;1e400;;;;;;;;;;;=SUM(A1)

@@ -5,8 +5,8 @@
 
 | Location | Contents |
 | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared suite lifecycle `TEST_Kit.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import` suite, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
-| `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
+| `modules/` | The harness `TEST_Harness.bas`, the shared suite lifecycle `TEST_Kit.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import` and `TEST_FormulaRandom` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
+| `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)); `ecb/` holds a sample answer of the ECB data portal, with illustrative rates, which `TEST_MainState` reads for Download prices (#745) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, `expected.json` with the findings of each, `cases.json`, inline cases with their findings, `portfolio.json`, Trades files with the netting sets their legs may refer to and the findings between their records, `staged.json`, rows as a staging sheet holds them with their findings, and `context.json`, Trades records with the Params context they are checked against and their findings (#209); `tools/generate_csv_vba.py` turns all of them into `TEST_CsvReader` |
 | `derivations/` | Separate Python implementations, sharing no code with the engine, that compute the expected values an `expected/` file cites in its `derivation`; run from the repository root. Each defines `expected()`, which `tools/check_derivations.py` compares with the expected files |
@@ -18,8 +18,8 @@ summary. In the order it runs them, the entry points of the single suites are
 `TEST_MainState.RunMainStateTests`, `TEST_Cases.RunCaseTests`,
 `TEST_InputValidation.RunInputValidationTests`,
 `TEST_Aggregation.RunAggregationTests`, `TEST_Invariants.RunInvariantTests`,
-`TEST_Reconcile.RunReconcileTests`, `TEST_CsvReader.RunCsvReaderTests` and
-`TEST_Import.RunImportTests`;
+`TEST_Reconcile.RunReconcileTests`, `TEST_CsvReader.RunCsvReaderTests`,
+`TEST_Import.RunImportTests` and `TEST_FormulaRandom.RunFormulaRandomTests`;
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation` and `TEST_Invariants`
 need `TEST_CaseRunner`. How to run them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
@@ -103,19 +103,24 @@ that do not come from the catalogue; each records its own derivation:
   `illustrative-settled-to-market-*`: the scripts in
   [`derivations/`](derivations/), which share no code with the engine.
 
-The six expected files `rsaccr-portfolio-*.crr` are `independent` cases
+The eight expected files `rsaccr-portfolio-*.crr` are `independent` cases
 (#100): netting sets of the synthetic portfolio of #352 (seed 352) whose
 values come from the R package `SACCR` 3.4, the registered source
-`IMPL-R-SACCR`, and on which a workbook run agreed on every figure.
-`python tools/rsaccr_portfolio.py cases` writes them
-([tools](../tools/README.md)).
+`IMPL-R-SACCR`. On six of them, on the default day count, a workbook run
+agreed on every figure. The other two, `rsaccr-portfolio-rs-010-y250-target`
+and `rsaccr-portfolio-rs-011-y250-target`, are the netting sets of two of the
+six on 250 business days of the TARGET calendar (#721): their fixtures set
+`YearConvention` 250 and `Calendar` `TARGET`, the package ran on the times
+`tools/business_calendar.py` counts, and `TEST_Cases` is their first
+comparison with the workbook. `python tools/rsaccr_portfolio.py cases` writes
+them ([tools](../tools/README.md)).
 
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
 on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,
 and the workbook's TestCatalogue sheet now uses -0.2694 (#267). Example 3
 prints a residual maturity of 9 months for trade 1, so its case runs with
-`DaysPerYear` 360 and 270 days to give exactly 0.75 years. `illustrative`
+`YearConvention` 360 and 270 days to give exactly 0.75 years. `illustrative`
 values came from a Python implementation that is not in the repository, from
 hand calculations or from the scripts in `derivations/`, and stay
 illustrative unless an external implementation registered as a source

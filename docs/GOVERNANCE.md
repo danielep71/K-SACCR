@@ -98,6 +98,50 @@ fails after a merge, record the failure and fix or revert it through a new PR
 before closing the issue. Never rewrite shared history to conceal the failed
 candidate.
 
+The quick Excel check of a pull request also runs on the owner's self-hosted
+Windows runner and reports in the pull request
+([`excel-quick.yml`](../.github/workflows/excel-quick.yml); see
+[Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). It is a
+pull-request check, never release evidence, and not a required check. It counts
+as the Excel verification that a VBA or template change needs before its merge
+only when the owner says so in the pull request; the release certification stays
+manual. Write access to the repository is write access to that machine, so the
+workflow starts only for branches of this repository, and Actions requires
+approval for outside collaborators.
+
+<a id="continuity"></a>
+
+### Continuity
+
+K-SACCR has one maintainer. So that the project can go on without the owner:
+
+- A successor is designated in the owner's GitHub account (**Settings →
+  Account → Successor settings**) and has accepted. The successor has no
+  access while the owner can act. GitHub's process covers the owner's death:
+  the successor contacts GitHub Support with a death certificate and, after
+  seven days (21 with an obituary), can transfer this public repository to
+  their own account or to an organization, or archive it. The successor
+  cannot sign in to the owner's account; once the repository is transferred,
+  they administer it there: triage issues, merge pull requests and publish
+  releases. GitHub redirects the old repository address to the new one.
+- A lasting incapacity of the owner is not covered by GitHub's process, and
+  no one else holds the owner's credentials. In that case the project can
+  only continue as a fork, which its licence allows.
+- The successor can also edit the project's
+  [OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605)
+  entry.
+- Nothing else has to be handed over. Releases are signed by the release
+  workflow with Sigstore keyless signing, so there is no signing key; after a
+  transfer, its signatures name the new repository, and the verification
+  command in [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) must
+  name it too. The website is GitHub Pages, with no custom domain, and moves
+  with the repository. The one repository secret serves only the
+  [traffic history](../tools/README.md#traffic-history), never CI; a
+  successor replaces it with an App of their own.
+- Releasing needs Excel on Windows and follows
+  [`RELEASING.md`](../RELEASING.md); nothing in it depends on the owner's
+  machine.
+
 <a id="issue-metadata-and-completion"></a>
 
 ## Issue metadata and completion
@@ -211,6 +255,7 @@ configuration.
 | Automatic Dependabot updates | See [Dependency updates](../tools/README.md#dependency-updates). Alerts and update PRs are separate features. |
 | Automated review | The automated code review reviews every pull request; its review conversations must be resolved before merge (ruleset), like any other finding. It does not replace the owner's review. |
 | Repository integrity CI | See [GitHub Actions](../tools/README.md#github-actions). Static checks only; no Excel execution. |
+| Self-hosted runner | The owner's Windows machine with desktop Excel, registered for this repository with the label `excel`, started with its run command in a logged-in session, and used only by `excel-quick.yml` (see [Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). Keep Actions, General, Fork pull request workflows set to require approval for all outside collaborators. |
 | Labels | See [Labels](#labels). |
 | Pull-request milestones | Removed by the **Keep milestones issue-only** workflow; see [Issue metadata and completion](#issue-metadata-and-completion). |
 | Traffic history | See [Traffic history](../tools/README.md#traffic-history). Analytics only, never CI. |

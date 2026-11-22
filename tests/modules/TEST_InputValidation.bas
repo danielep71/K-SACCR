@@ -43,8 +43,8 @@ Attribute VB_Name = "TEST_InputValidation"
 '   alpha override at or below zero; a remargining frequency of 0 is raised
 '   to daily with a warning. A run with the regulatory parameter set is
 '   REGULATORY, and one with a different alpha, a zero factor or an alpha
-'   override is WHAT-IF with the difference on Checks (#41); a DaysPerYear of
-'   360 keeps it regulatory; a reporting-currency FX rate other than 1 stops
+'   override is WHAT-IF with the difference on Checks (#41); a day-count
+'   convention of 360 keeps it regulatory; a reporting-currency FX rate other than 1 stops
 '   the run. For the input conventions (#40): a text date is read only as
 '   yyyy-mm-dd, a workbook in the 1904 date system stops the run, the IR
 '   maturity buckets split at exactly 1 and 5 years with the regime's edge at
@@ -113,8 +113,8 @@ Attribute VB_Name = "TEST_InputValidation"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of every case
-        Private Const CASES       As Long = 183               'Cases in a complete run
-        Private Const CHECKS      As Long = 321               'Checks in a complete run
+        Private Const CASES       As Long = 197               'Cases in a complete run
+        Private Const CHECKS      As Long = 345               'Checks in a complete run
 
 
 '
@@ -262,7 +262,7 @@ Public Sub RunInputValidationTests()
 
         StartCase "layout-netting-sets-column-shifted", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold TH"
+        TEST_CaseRunner.PatchCell SH_NS, TableHeaderRow(SH_NS), NS_NICA, "Threshold (TH)"
         ExpectStop DIAG_LAYOUT_HEADER
 
         StartCase "layout-params-value-header-renamed", "N"
@@ -336,6 +336,85 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_BDYEAR), ParamsValueCol(), 250.5
         ExpectStop DIAG_PRM_RANGE
+
+        StartCase "params-day-count-unknown", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 361#
+        ExpectStop DIAG_PRM_DAYCOUNT
+
+        StartCase "params-day-count-numerator", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYNUM), ParamsValueCol(), "30/360"
+        ExpectStop DIAG_PRM_DAYCOUNT
+
+        StartCase "params-calendar-unknown", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "NATIONAL"
+        ExpectStop DIAG_PRM_CALENDAR
+
+    'The TARGET calendar starts on 1 January 1999 (31 December 1998 is 36160).
+        StartCase "params-target-reporting-date-before-1999", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_ASOF), ParamsValueCol(), 36160#
+        ExpectStop DIAG_PRM_CALENDAR
+
+        StartCase "params-holiday-not-a-date", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), "soon"
+        ExpectStop DIAG_PRM_HOLIDAY
+
+        StartCase "params-business-days-valid", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 250#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET"
+        ExpectStatus "VALID"
+
+    'A table with a closing day (8 December 2026 is 46364) and the rule.
+        StartCase "params-business-days-table-valid", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 250#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46364#
+        ExpectStatus "VALID"
+
+    'The calendar TABLE, the default, with a closing day: every day counts
+    'except that one.
+        StartCase "params-table-calendar-valid", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46364#
+        ExpectStatus "VALID"
+
+    'With a calendar of business days two dates apart can be the same number
+    'of days: the order is that of the dates. 3 and 4 October 2026 are a
+    'Saturday and a Sunday, both two business days after the reporting date.
+        StartCase "target-start-end-same-business-days", "N"
+        AddSwapTo "T1", "2026-10-04"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 250#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_START, DateSerial(2026, 10, 3)
+        ExpectStatus "VALID"
+
+        StartCase "target-end-before-start", "N"
+        AddSwapTo "T1", "2026-10-03"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 250#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_START, DateSerial(2026, 10, 4)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "date-order", SEV_ERROR, DIAG_TR_DATE_ORDER, "illustrative"
+
+    'With 1 and 2 October 2026 closed, an option expiring on Saturday 3
+    'October has no business day left: it is rejected, not priced.
+        StartCase "target-option-no-business-day-left", "N"
+        AddEquityCall "T1", "Long", "100", "30"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 250#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_CALENDAR), ParamsValueCol(), "TARGET+TABLE"
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 1, NamedTableCol(NM_HOLIDAY_TABLE), 46296#
+        TEST_CaseRunner.PatchCell SH_PARAMS, NamedRow(NM_HOLIDAY_TABLE) + 2, NamedTableCol(NM_HOLIDAY_TABLE), 46297#
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_EXPIRY, DateSerial(2026, 10, 3)
+        ExpectStatus "INCOMPLETE: 1 of 1 trade(s) rejected"
+        TEST_CaseRunner.ExpectChecksCode "expired", SEV_ERROR, DIAG_TR_EXPIRED, "illustrative"
 
         StartCase "factor-table-negative-factor", "N"
         AddSwap "T1"
@@ -769,7 +848,7 @@ Public Sub RunInputValidationTests()
     'Regulatory or what-if run (#41): a run whose parameters, factor table
     'and alpha overrides equal the regulatory set is REGULATORY and names
     'the set in the run summary; any difference makes it WHAT-IF and is
-    'listed on Checks. DaysPerYear is a convention. The reporting
+    'listed on Checks. The day-count convention does not change it. The reporting
     'currency's FX rate must be 1.
         StartCase "run-class-regulatory", "N"
         AddSwap "T1"
@@ -779,9 +858,9 @@ Public Sub RunInputValidationTests()
                                    InStr(SafeStr(GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value), REF_SET_ID) > 0, _
                                    "run summary does not name " & REF_SET_ID, "illustrative"
 
-        StartCase "run-class-days-per-year-convention", "N"
+        StartCase "run-class-day-count-convention", "N"
         AddSwap "T1"
-        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYSYEAR), ParamsValueCol(), 360#
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow(PRM_DAYCOUNT), ParamsValueCol(), 360#
         ExpectStatus "VALID"
         ExpectRunClass RUN_REGULATORY
 
@@ -810,6 +889,66 @@ Public Sub RunInputValidationTests()
         AddSwap "T1"
         TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("EUR"), TableCol(NM_FX_TABLE, 3), 0.9
         ExpectStop DIAG_FX_REPORTING_RATE
+
+    'FX rates are quoted as the market does (#725): units of the currency per
+    '1 unit of the reporting currency, so 10,000 USD at 1.25 USD per EUR is
+    '8,000 EUR. The five-year swap's adjusted notional is 44,261.18 for
+    '10,000 EUR and 44,261.18 / 1.25 = 35,408.94 for 10,000 USD.
+        StartCase "fx-rate-market-quote", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 1.25
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "35408.9431456818", _
+                                     "0.000001", "0", "illustrative"
+
+    'The rate the old convention gave for the same market, 0.80 EUR per USD,
+    'is read now as 0.80 USD per EUR (#725): the same 10,000 USD becomes
+    '12,500 EUR, and the adjusted notional 44,261.18 / 0.80 = 55,326.47, not
+    '35,408.94. A rate kept from before #725 is a wrong input, not a
+    'rounding: tools/test_fx_quote.py derives both values.
+        StartCase "fx-rate-old-convention-value", "N"
+        AddSwap "T1"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 0.8
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "55326.4736651278", _
+                                     "0.000001", "0", "illustrative"
+
+    'A netting set in four currencies under the market quote (#725): a USD
+    'swap with its MtM in USD, a EUR swap with its MtM in GBP, and a EUR/JPY
+    'forward with its notional in JPY, at 1.25 USD, 160 JPY and 0.85 GBP per
+    'EUR. Every amount is divided by its rate: MtM 500 USD + -300 GBP is
+    '47.06 EUR, the forward 10,000 EUR. tools/test_fx_quote.py derives every
+    'expected value independently of the engine.
+        StartCase "fx-rate-multi-currency", "N"
+        TEST_CaseRunner.AddTrade "T1", "IR", "", "USD", "Linear", "Long", "", "Standard", "", _
+                                 "10000", "500", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_NCCY, "USD"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 1, TR_MCCY, "USD"
+        TEST_CaseRunner.AddTrade "T2", "IR", "", "EUR", "Linear", "Long", "", "Standard", "", _
+                                 "20000", "-300", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_NCCY, "EUR"
+        TEST_CaseRunner.SetInputCell SH_TRADES, 2, TR_MCCY, "GBP"
+        TEST_CaseRunner.AddTrade "T3", "FX", "", "EUR/JPY", "Linear", "Long", "", "Standard", "", _
+                                 "1600000", "0", "", "2031-09-30", "2031-09-30", "", "", "", "", "", ""
+        TEST_CaseRunner.SetInputCell SH_TRADES, 3, TR_NCCY, "JPY"
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("USD"), TableCol(NM_FX_TABLE, 3), 1.25
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("JPY"), TableCol(NM_FX_TABLE, 3), 160
+        TEST_CaseRunner.PatchCell SH_PARAMS, ParamsRow("GBP"), TableCol(NM_FX_TABLE, 3), 0.85
+        ExpectStatus "VALID"
+        TEST_CaseRunner.ExpectNumber "adjusted-notional", "T1", "adjusted_notional", "35408.9431456818", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "fx-adjusted-notional", "T3", "adjusted_notional", "10000", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "replacement-cost", "", "replacement_cost", "47.0588235294118", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "ir-add-on", "", "add_on.interest_rate", "619.656505049432", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "fx-add-on", "", "add_on.foreign_exchange", "400", _
+                                     "0.000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "exposure-value", "", "exposure_value", "1493.40146001038", _
+                                     "0.000001", "0", "illustrative"
 
     'Reporting currency format (#147): three letters A to Z, case and
     'surrounding spaces ignored. Written by VBA, so the worksheet validation
@@ -1666,7 +1805,7 @@ Private Sub AddParamRow( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-        NewRow = ParamsRow(PRM_LAMCO) + 1
+        NewRow = ParamsRow(PRM_CALENDAR) + 1    'The row below the last parameter
         If Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsCodeCol()).Value) Or _
            Not IsBlankCell(TableCell(GetSheet(SH_PARAMS), NewRow, ParamsValueCol()).Value) Then
             Err.Raise ERR_TEST_SETUP, "TEST_InputValidation.AddParamRow", "Params row " & NewRow & " is not blank."

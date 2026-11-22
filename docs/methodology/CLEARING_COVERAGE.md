@@ -97,8 +97,8 @@ CRE54.7) and are not entered: entered, they would only overstate the exposure
 
 | Column | Header | Content |
 | --- | --- | --- |
-| R | QCCP (Y/N) | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50.3 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. `N`: non-qualifying. The status is the user's attestation. Changes the risk weight only, not the exposure value |
-| S | CCP retains VM, collateral not protected (Y/N) | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
+| R | QCCP | `Y`: the CCP qualifies under the netting set's regime. Under `CRR`, a CCP authorised or recognised under Regulation (EU) No 648/2012 (Art. 4(1)(88)); under `BCBS`, a QCCP as defined in CRE50.3 (licensed or permitted to operate, and supervised under rules consistent with the PFMI), so a CCP outside the EU can be `Y` for a `BCBS` netting set. `N`: non-qualifying. The status is the user's attestation. Changes the risk weight only, not the exposure value |
+| S | CCP retains VM | `Y`: the CCP retains variation margin against the trades and the bank's collateral is not protected against the CCP's insolvency (Art. 304(3)(d); CRE54.8(3)) |
 
 **Rules.** Each holds under both regimes unless stated.
 
@@ -238,8 +238,8 @@ Specified from [decision 4](#decisions) and implemented in #360.
 | Column | Header | Content |
 | --- | --- | --- |
 | Z | Economic trade ID | Unchanged (#38) |
-| AA | MtM leg (Y/N) | Unchanged (#38) |
-| AB | Settlement type (N/STM) | Blank or `N`: ordinary treatment. `STM`: settled-to-market; lower case is read as upper |
+| AA | MtM leg | Unchanged (#38) |
+| AB | Settlement type | Blank or `N`: ordinary treatment. `STM`: settled-to-market; lower case is read as upper |
 | AC | Next reset date | A date. Required for `STM`; must be blank for blank or `N` |
 | AD | Comment | Moved from AB; still not read |
 
@@ -249,7 +249,7 @@ substance (CRE52.37(5), CRE52.48; CRR Art. 279b(1)(a), 279c(1)(a), 279c(2)).
 | # | Rule | Inputs that break it |
 | --- | --- | --- |
 | 1 | `STM` declares that, on specified dates, the contract settles its outstanding exposure and its terms reset so that its value is zero. The settlement is a contractual payment of the same transaction (Art. 279b(1)(a)). Daily variation margin alone does not qualify: a contract margined daily but not settled is collateralised-to-market and belongs in a margined netting set with an MPOR (Basel FAQ to CRE52.31–.32). `STM` is the user's attestation of these contractual facts: no input can prove them, so the engine validates the declaration and the dates (rules 2–7), not the contract | — |
-| 2 | For an `STM` trade, the remaining maturity used in the unmargined maturity factor is the time from the reporting date to the next reset date, in years on the `DaysPerYear` basis. It keeps the floor of 10 business days (`MinMaturityBD` / `BusinessDaysPerYear`; CRE52.48; Art. 279c(1)(a)) | — |
+| 2 | For an `STM` trade, the remaining maturity used in the unmargined maturity factor is the time from the reporting date to the next reset date, in years on the day count of Params (`YearConvention`, `Calendar`). It keeps the floor of 10 business days (`MinMaturityBD` / `BusinessDaysPerYear`; CRE52.48; Art. 279c(1)(a)) | — |
 | 3 | The other dates keep their meaning. M stays the contractual maturity and keeps its checks, including that an option's expiry T is not after M. E and S keep the supervisory duration and the interest-rate maturity bucket (Basel FAQ to CRE52.31–.32). T keeps the supervisory delta. The reset date is compared with the contractual maturity as entered, before the reset replaces it in the maturity factor; a reset on the maturity date is accepted, since the final reset may fall on it | Next reset date after M (or, where M is blank, after the E or T used in its place) |
 | 4 | The MtM is the value at the reporting date after any settlement due that day, so the next reset date is the first reset after the reporting date. A reset on or before the reporting date is rejected: accepting the reporting date would give the 10-day floor even to a contract whose next reset is months away. The shortest horizon is the floor: a daily settled contract, reset the next business day, gets M = 10 business days and MF = √(10/250) = 0.2 with the regulatory parameters | Next reset date on or before the reporting date |
 | 5 | Blank or `N` with a next reset date is contradictory, and `STM` needs one | Blank or `N` with a date; `STM` without a date; any other settlement type; a reset date that is not a date |

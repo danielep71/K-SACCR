@@ -21,23 +21,23 @@
   "suites": [
     {
       "entry_point": "TEST_Formulas.RunFormulaTests",
-      "cases": 9,
-      "checks": {"32-bit": 80, "64-bit": 82}
+      "cases": 10,
+      "checks": {"32-bit": 115, "64-bit": 117}
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",
-      "cases": 40,
-      "checks": {"32-bit": 602, "64-bit": 602}
+      "cases": 46,
+      "checks": {"32-bit": 711, "64-bit": 711}
     },
     {
       "entry_point": "TEST_Cases.RunCaseTests",
-      "cases": 39,
-      "checks": {"32-bit": 243, "64-bit": 243}
+      "cases": 41,
+      "checks": {"32-bit": 261, "64-bit": 261}
     },
     {
       "entry_point": "TEST_InputValidation.RunInputValidationTests",
-      "cases": 183,
-      "checks": {"32-bit": 321, "64-bit": 321}
+      "cases": 197,
+      "checks": {"32-bit": 345, "64-bit": 345}
     },
     {
       "entry_point": "TEST_Aggregation.RunAggregationTests",
@@ -51,18 +51,23 @@
     },
     {
       "entry_point": "TEST_Reconcile.RunReconcileTests",
-      "cases": 21,
-      "checks": {"32-bit": 180, "64-bit": 180}
+      "cases": 23,
+      "checks": {"32-bit": 239, "64-bit": 239}
     },
     {
       "entry_point": "TEST_CsvReader.RunCsvReaderTests",
-      "cases": 132,
-      "checks": {"32-bit": 345, "64-bit": 345}
+      "cases": 144,
+      "checks": {"32-bit": 385, "64-bit": 385}
     },
     {
       "entry_point": "TEST_Import.RunImportTests",
       "cases": 39,
       "checks": {"32-bit": 236, "64-bit": 236}
+    },
+    {
+      "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",
+      "cases": 19,
+      "checks": {"32-bit": 47, "64-bit": 47}
     }
   ],
   "summary_entry_point": "TEST_Suite.Test_RunAll"

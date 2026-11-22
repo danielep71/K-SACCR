@@ -59,12 +59,12 @@ Attribute VB_Name = "TEST_Formulas"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 9                 'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 10                 'Cases in a complete run
     'Two checks of LongLong inputs run on 64-bit VBA only.
 #If Win64 Then
-        Private Const EXPECTED_CHECKS  As Long = 82                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 117                'Checks in a complete run
 #Else
-        Private Const EXPECTED_CHECKS  As Long = 80                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 115                'Checks in a complete run
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
@@ -100,6 +100,7 @@ Public Sub RunFormulaTests()
         CaseReplacementCost
         CaseAggregationShapes
         CaseAggregationElements
+        CaseBusinessDays
         CaseWorksheetCells
 
         TEST_Kit.EndSuite
@@ -373,6 +374,205 @@ Private Sub CaseAggregationElements()
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
+
+
+Private Sub CaseBusinessDays()
+'
+'==============================================================================
+' PURPOSE
+'   SACCR_BusinessDays (#721) against the Python reference (tools/
+'   business_calendar.py): published closing days of 2008, 2026 and 2038,
+'   the business days of whole years, an interval counted day by day with a
+'   second Easter method (Gauss), a table of closing days, dates before
+'   1999 and the errors of the table.
+'==============================================================================
+'
+
+    Dim Yr          As Long       'A year of the loop
+    Dim Expected      As Variant    'Business days of the years 2024 to 2028
+    Dim Mismatch      As String     'The first year or pair whose count differs
+    Dim Extra         As Variant    'A table of closing days
+    Dim Seed          As Double     'Generator of the pairs of dates
+    Dim FirstDate     As Long       'Start of a pair
+    Dim LastDate      As Long       'End of a pair
+    Dim Fast          As Variant    'Count of the function
+    Dim Slow          As Long       'Count made day by day
+    Dim i             As Long       'Pair
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "business-days.target-calendar"
+        CheckNear "the same day", 0#, SACCR_BusinessDays(DateSerial(2026, 6, 30), DateSerial(2026, 6, 30)), TOL
+        CheckNear "the next day", 1#, SACCR_BusinessDays(DateSerial(2026, 6, 30), DateSerial(2026, 7, 1)), TOL
+        CheckNear "Friday to Monday", 1#, SACCR_BusinessDays(DateSerial(2026, 7, 3), DateSerial(2026, 7, 6)), TOL
+        CheckNear "Saturday to Sunday", 0#, SACCR_BusinessDays(DateSerial(2026, 7, 4), DateSerial(2026, 7, 5)), TOL
+        CheckNear "Easter 2026: Good Friday and Easter Monday are closed", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 4, 2), DateSerial(2026, 4, 7)), TOL
+        CheckNear "Easter 2026 without TARGET", 3#, SACCR_BusinessDays(DateSerial(2026, 4, 2), DateSerial(2026, 4, 7), , False), TOL
+        CheckNear "the earliest Easter in range, 2008", 1#, SACCR_BusinessDays(DateSerial(2008, 3, 20), DateSerial(2008, 3, 25)), TOL
+        CheckNear "the latest Easter in range, 2038", 1#, SACCR_BusinessDays(DateSerial(2038, 4, 22), DateSerial(2038, 4, 27)), TOL
+        CheckNear "Christmas 2026", 1#, SACCR_BusinessDays(DateSerial(2026, 12, 24), DateSerial(2026, 12, 28)), TOL
+        Expected = Array(256#, 255#, 256#, 258#, 255#)
+        For Yr = 2024 To 2028
+            CheckNear "business days of " & Yr, CDbl(Expected(Yr - 2024)), _
+                      SACCR_BusinessDays(DateSerial(Yr - 1, 12, 31), DateSerial(Yr, 12, 31)), TOL
+        Next Yr
+        CheckNear "business days of 2000", 255#, SACCR_BusinessDays(DateSerial(1999, 12, 31), DateSerial(2000, 12, 31)), TOL
+        CheckNear "business days of 2001, with 31 December closed", 254#, _
+                  SACCR_BusinessDays(DateSerial(2000, 12, 31), DateSerial(2001, 12, 31)), TOL
+        CheckNear "ten years", 2561#, SACCR_BusinessDays(DateSerial(2026, 6, 30), DateSerial(2036, 6, 30)), TOL
+        CheckNear "two years and a half", 482#, SACCR_BusinessDays(DateSerial(2026, 6, 30), DateSerial(2028, 5, 15)), TOL
+        CheckNear "reversed interval", -482#, SACCR_BusinessDays(DateSerial(2028, 5, 15), DateSerial(2026, 6, 30)), TOL
+        CheckNear "a time of day is ignored", 1#, SACCR_BusinessDays(46203.75, 46204.25), TOL
+
+    'Every year from 2000 to 2099 against a count made day by day, with a
+    'second Easter method.
+        For Yr = 2000 To 2099
+            Fast = SACCR_BusinessDays(DateSerial(Yr - 1, 12, 31), DateSerial(Yr, 12, 31))
+            Slow = CountDayByDay(CLng(DateSerial(Yr - 1, 12, 31)), CLng(DateSerial(Yr, 12, 31)), Empty)
+            If IsError(Fast) Then
+                Mismatch = Mismatch & " " & Yr & ": error"
+            ElseIf CLng(Fast) <> Slow Then
+                Mismatch = Mismatch & " " & Yr & ": " & CLng(Fast) & " against " & Slow
+            End If
+        Next Yr
+        TEST_Kit.Check Len(Mismatch) = 0, "years 2000 to 2099 against a count day by day:" & Mismatch
+
+    'Pairs of dates from 2000 to 2032 with a table, against the same count.
+        Extra = Array(CDbl(DateSerial(2026, 8, 15)), CDbl(DateSerial(2026, 12, 8)), CDbl(DateSerial(2027, 1, 6)), _
+                      CDbl(DateSerial(2026, 8, 14)))
+        Mismatch = ""
+        Seed = 721#
+        For i = 1 To 300
+            Seed = NextSeed(Seed)
+            FirstDate = CLng(DateSerial(2000, 1, 1)) + CLng(Seed Mod 12000#)
+            Seed = NextSeed(Seed)
+            LastDate = FirstDate + CLng(Seed Mod 1500#)
+            Fast = SACCR_BusinessDays(FirstDate, LastDate, Extra)
+            Slow = CountDayByDay(FirstDate, LastDate, Extra)
+            If IsError(Fast) Then
+                Mismatch = Mismatch & " " & FirstDate & "-" & LastDate & ": error"
+            ElseIf CLng(Fast) <> Slow Then
+                Mismatch = Mismatch & " " & FirstDate & "-" & LastDate & ": " & CLng(Fast) & " against " & Slow
+            End If
+        Next i
+        TEST_Kit.Check Len(Mismatch) = 0, "300 pairs of dates with a table against a count day by day:" & Mismatch
+
+    'The table: a Friday counted, a Saturday and a duplicate not, a table
+    'alone, and no range of validity without the rule.
+        CheckNear "TARGET and a table, Friday 14 and Saturday 15 August 2026", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 8, 13), DateSerial(2026, 8, 17), _
+                                     Array(CDbl(DateSerial(2026, 8, 14)), CDbl(DateSerial(2026, 8, 15)), CDbl(DateSerial(2026, 8, 14)))), TOL
+        CheckNear "TARGET alone, the same days", 2#, SACCR_BusinessDays(DateSerial(2026, 8, 13), DateSerial(2026, 8, 17)), TOL
+        CheckNear "a table alone, Tuesday 8 December 2026", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), CDbl(DateSerial(2026, 12, 8)), False), TOL
+        CheckNear "a table alone has no TARGET days", 2#, SACCR_BusinessDays(DateSerial(2026, 12, 24), DateSerial(2026, 12, 28), , False), TOL
+        CheckNear "no range of validity without the rule", 5#, SACCR_BusinessDays(DateSerial(1990, 1, 1), DateSerial(1990, 1, 8), , False), TOL
+        CheckNear "a VBA Date as the table", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), DateSerial(2026, 12, 8), False), TOL
+        CheckNear "VBA Dates in an array", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), Array(DateSerial(2026, 12, 8), DateSerial(2026, 12, 8)), False), TOL
+        CheckNear "a blank entry of the table is skipped", 1#, _
+                  SACCR_BusinessDays(DateSerial(2026, 12, 7), DateSerial(2026, 12, 9), Array(Empty, CDbl(DateSerial(2026, 12, 8))), False), TOL
+
+    'Domain.
+        CheckError "an interval before 1999 under the rule", xlErrNum, SACCR_BusinessDays(DateSerial(1998, 12, 1), DateSerial(1999, 2, 1))
+        CheckError "a Saturday of 1998 under the rule", xlErrNum, SACCR_BusinessDays(DateSerial(1998, 12, 26), DateSerial(1998, 12, 27))
+        CheckError "a date before 1 March 1900", xlErrNum, SACCR_BusinessDays(1#, 100#, , False)
+        CheckError "text in the table", xlErrValue, SACCR_BusinessDays(DateSerial(2026, 1, 1), DateSerial(2026, 2, 1), Array("not a date"))
+        CheckError "an error value in the table", xlErrNA, SACCR_BusinessDays(DateSerial(2026, 1, 1), DateSerial(2026, 2, 1), Array(CVErr(xlErrNA)))
+        Exit Sub
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+End Sub
+
+
+Private Function NextSeed( _
+    ByVal Seed As Double) _
+    As Double
+    'A linear congruential generator in Double arithmetic, so that no Long overflows.
+        Dim Product   As Double    'Seed times the multiplier plus the increment
+
+        Product = Seed * 1103515245# + 12345#
+        NextSeed = Product - Int(Product / 2147483648#) * 2147483648#
+
+End Function
+
+
+Private Function CountDayByDay( _
+    ByVal FirstDate As Long, _
+    ByVal LastDate As Long, _
+    ByVal Extra As Variant) _
+    As Long
+    'Business days in (FirstDate, LastDate] by testing each day, with the
+    'closing days of TARGET from their own rule and the table.
+        Dim Probe     As Long    'Probe tested
+        Dim Total   As Long    'Business days so far
+        Dim k       As Long    'Entry of the table
+        Dim Listed  As Boolean 'The day is in the table
+
+        For Probe = FirstDate + 1 To LastDate
+            If Weekday(Probe, vbMonday) <= 5 And Not TargetClosed(Probe) Then
+                Listed = False
+                If IsArray(Extra) Then
+                    For k = LBound(Extra) To UBound(Extra)
+                        If CLng(Extra(k)) = Probe Then Listed = True
+                    Next k
+                End If
+                If Not Listed Then Total = Total + 1
+            End If
+        Next Probe
+        CountDayByDay = Total
+
+End Function
+
+
+Private Function TargetClosed( _
+    ByVal Probe As Long) _
+    As Boolean
+    'A closing day of TARGET from 2000 on (and 31 December 2001), with Easter by Gauss's rule
+    'and its two exceptions, valid for the years 1900 to 2099.
+        Dim Y   As Long
+        Dim a   As Long
+        Dim b   As Long
+        Dim c   As Long
+        Dim k   As Long
+        Dim p   As Long
+        Dim q   As Long
+        Dim m   As Long
+        Dim n   As Long
+        Dim d   As Long
+        Dim e   As Long
+        Dim Easter As Long    'Serial number of Easter Sunday
+
+        Y = Year(Probe)
+        If Month(Probe) = 1 And Day(Probe) = 1 Then TargetClosed = True
+        If Month(Probe) = 5 And Day(Probe) = 1 Then TargetClosed = True
+        If Month(Probe) = 12 And (Day(Probe) = 25 Or Day(Probe) = 26) Then TargetClosed = True
+        If Y = 2001 And Month(Probe) = 12 And Day(Probe) = 31 Then TargetClosed = True
+        a = Y Mod 19
+        b = Y Mod 4
+        c = Y Mod 7
+        k = Y \ 100
+        p = (13 + 8 * k) \ 25
+        q = k \ 4
+        m = (15 - p + k - q) Mod 30
+        n = (4 + k - q) Mod 7
+        d = (19 * a + m) Mod 30
+        e = (2 * b + 4 * c + 6 * d + n) Mod 7
+        If 22 + d + e > 31 Then
+            If d + e - 9 = 26 Then
+                Easter = CLng(DateSerial(Y, 4, 19))
+            ElseIf d + e - 9 = 25 And d = 28 And e = 6 And a > 10 Then
+                Easter = CLng(DateSerial(Y, 4, 18))
+            Else
+                Easter = CLng(DateSerial(Y, 4, d + e - 9))
+            End If
+        Else
+            Easter = CLng(DateSerial(Y, 3, 22 + d + e))
+        End If
+        If Probe = Easter - 2 Or Probe = Easter + 1 Then TargetClosed = True
+
+End Function
 
 
 Private Sub CaseWorksheetCells()

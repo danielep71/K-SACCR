@@ -3,7 +3,13 @@
 matrix (docs/workbook/protection.json), without running Excel.
 
 A cell is unlocked when the matrix lists it, or when its column is an
-unlocked input column and its row is at or below the first data row. Every
+unlocked input column and its row is at or below the first data row. The
+matrix names cells by workbook name wherever the template has one (#756):
+an entry of unlocked_cells is a cell or range address, a workbook name
+(its cells), or NAME+N (the N rows below the first row of the name, over
+its columns); first_row is a row number or a workbook name, whose next row
+is the first data row. So the owner can move rows in Excel, which keeps
+the names on their cells, without an edit to the matrix. Every
 other cell is locked. The effective style of a cell is its own style, else
 the style of a formatted row, else the style of its column; the check
 covers the cells the sheet stores, the rows it formats and the columns to
@@ -25,13 +31,17 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from _gatelib import parse_report_args, run_gate
+from template_layout import REFERENCE, defined_names
 
 MATRIX = "docs/workbook/protection.json"
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
-ROLES = {"Instructions", "Input", "Staging", "Output", "Bank figures", "Test", "Reference",
+ROLES = {"Instructions", "Input", "Staging", "Output", "Working", "Bank figures", "Test", "Reference",
          "Run configuration and reference regulatory parameters"}
 KEYS = {"role", "unlocked_cells", "unlocked_columns", "allow", "notes"}
 CONFIG = "src/core/CORE_Config.bas"
+# A sheet of this role is never protected: the template saves it without protection and CORE_Config lists it
+# in PROTECT_NONE, so that M_Main.ProtectWorkbook leaves it open (#720).
+WORKING = "Working"
 # What a protected sheet may allow: the sheetProtection flag the template saves ("0" = allowed) and the
 # CORE_Config list M_Main.ProtectWorkbook applies. Outlining is not saved with the file.
 ALLOW = {"sorting": ("sort", "PROTECT_SORTING"), "filtering": ("autoFilter", "PROTECT_FILTERING"),
@@ -48,6 +58,7 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 CELL = re.compile(r"^([A-Z]{1,3})([1-9][0-9]*)$")
 COLUMNS = re.compile(r"^([A-Z]{1,3}):([A-Z]{1,3})$")
+NAMED = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_.]*)(?:\+(?P<rows>[1-9][0-9]*))?$")
 
 
 def column_number(letters: str) -> int:
@@ -80,6 +91,43 @@ def range_cells(text: str) -> set[tuple[int, int]]:
     return {(c, r) for c in range(c1, c2 + 1) for r in range(r1, r2 + 1)}
 
 
+def is_address(text: str) -> bool:
+    first, _, last = text.partition(":")
+    return bool(CELL.match(first)) and (not last or bool(CELL.match(last)))
+
+
+def named_range(name: str, names: dict[str, str]) -> str:
+    """The cells of a workbook name on its sheet, as an address such as C59:E64."""
+    if name not in names:
+        raise ValueError(f"no workbook name {name!r} in the template")
+    reference = names[name]
+    if not REFERENCE.match(reference):
+        raise ValueError(f"workbook name {name!r} does not refer to cells: {reference!r}")
+    return reference.split("!", 1)[1].replace("$", "")
+
+
+def entry_cells(text: str, names: dict[str, str]) -> set[tuple[int, int]]:
+    """The cells of an unlocked_cells entry: an address, a workbook name, or NAME+N rows below it."""
+    if is_address(text):
+        return range_cells(text)
+    match = NAMED.match(text)
+    if not match:
+        raise ValueError(f"not a cell address or workbook name: {text!r}")
+    cells = range_cells(named_range(match["name"], names))
+    if not match["rows"]:
+        return cells
+    top = min(row for _, row in cells)
+    columns = sorted({column for column, _ in cells})
+    return {(c, top + r) for c in columns for r in range(1, int(match["rows"]) + 1)}
+
+
+def first_data_row(first: Any, names: dict[str, str]) -> int:
+    """first_row of unlocked_columns: a row number, or the row below the cell of a workbook name."""
+    if isinstance(first, str):
+        return min(row for _, row in range_cells(named_range(first, names))) + 1
+    return int(first)
+
+
 def check_matrix(matrix: dict[str, Any]) -> list[str]:
     """Shape of the matrix itself."""
     findings = []
@@ -96,34 +144,55 @@ def check_matrix(matrix: dict[str, Any]) -> list[str]:
             findings.append(f"{MATRIX}: {name}: unknown key {key!r}")
         if spec.get("role") not in ROLES:
             findings.append(f"{MATRIX}: {name}: unknown role {spec.get('role')!r}")
-        for text in spec.get("unlocked_cells", []):
-            try:
-                range_cells(text)
-            except ValueError as error:
-                findings.append(f"{MATRIX}: {name}: {error}")
+        findings += cell_entry_findings(name, spec.get("unlocked_cells", []))
         for item in spec.get("allow", []):
             if item not in ALLOW:
                 findings.append(f"{MATRIX}: {name}: unknown allowed operation {item!r}")
         rule = spec.get("unlocked_columns")
         if rule is not None:
-            match = COLUMNS.match(str(rule.get("columns", "")))
-            first = rule.get("first_row")
-            if not match or column_number(match.group(2)) < column_number(match.group(1)):
-                findings.append(f"{MATRIX}: {name}: unlocked_columns.columns must be a column range such as C:S")
-            if not isinstance(first, int) or isinstance(first, bool) or first < 2:
-                findings.append(f"{MATRIX}: {name}: unlocked_columns.first_row must be an integer of at least 2")
+            findings += column_rule_findings(name, rule)
     return findings
 
 
-def expected_unlocked(spec: dict[str, Any]) -> tuple[set[tuple[int, int]], set[int], int]:
+def cell_entry_findings(name: str, entries: list[Any]) -> list[str]:
+    """Each unlocked_cells entry is a cell or range address, a workbook name, or NAME+N."""
+    findings = []
+    for text in entries:
+        if not isinstance(text, str) or not (is_address(text) or NAMED.match(text)):
+            findings.append(f"{MATRIX}: {name}: not a cell address or workbook name: {text!r}")
+        elif is_address(text):
+            try:
+                range_cells(text)
+            except ValueError as error:
+                findings.append(f"{MATRIX}: {name}: {error}")
+    return findings
+
+
+def column_rule_findings(name: str, rule: dict[str, Any]) -> list[str]:
+    """unlocked_columns: a column range, and a first row that is a row number or a workbook name."""
+    findings = []
+    match = COLUMNS.match(str(rule.get("columns", "")))
+    first = rule.get("first_row")
+    if not match or column_number(match.group(2)) < column_number(match.group(1)):
+        findings.append(f"{MATRIX}: {name}: unlocked_columns.columns must be a column range such as C:S")
+    if isinstance(first, str):
+        if not NAMED.match(first) or "+" in first:
+            findings.append(f"{MATRIX}: {name}: unlocked_columns.first_row must be a row or a workbook name")
+    elif not isinstance(first, int) or isinstance(first, bool) or first < 2:
+        findings.append(f"{MATRIX}: {name}: unlocked_columns.first_row must be an integer of at least 2 "
+                        "or a workbook name")
+    return findings
+
+
+def expected_unlocked(spec: dict[str, Any], names: dict[str, str]) -> tuple[set[tuple[int, int]], set[int], int]:
     cells: set[tuple[int, int]] = set()
     for text in spec.get("unlocked_cells", []):
-        cells |= range_cells(text)
+        cells |= entry_cells(text, names)
     rule = spec.get("unlocked_columns")
     if not rule:
         return cells, set(), 0
     first, _, last = rule["columns"].partition(":")
-    return cells, set(range(column_number(first), column_number(last) + 1)), rule["first_row"]
+    return cells, set(range(column_number(first), column_number(last) + 1)), first_data_row(rule["first_row"], names)
 
 
 class Style(NamedTuple):
@@ -204,9 +273,13 @@ def listed(name: str, problem: str, addresses: list[str]) -> list[str]:
     return [f"{name}: {problem} at {', '.join(addresses[:8])}{more}"]
 
 
-def check_sheet(name: str, xml: bytes, styles: list[Style], spec: dict[str, Any]) -> list[str]:
+def check_sheet(name: str, xml: bytes, styles: list[Style], spec: dict[str, Any],
+                names: dict[str, str] | None = None) -> list[str]:
     sheet = read_sheet(xml)
-    cells, columns, first_row = expected_unlocked(spec)
+    try:
+        cells, columns, first_row = expected_unlocked(spec, names or {})
+    except ValueError as error:
+        return [f"{MATRIX}: {name}: {error}"]
 
     def style(index: int) -> Style:
         if index >= len(styles):
@@ -249,6 +322,10 @@ def vba_list(root: Path, constant: str) -> set[str]:
 
 def check_config(root: Path, sheets: dict[str, Any]) -> list[str]:
     findings = []
+    working = {name for name, spec in sheets.items() if spec.get("role") == WORKING}
+    unprotected = vba_list(root, "PROTECT_NONE")
+    if unprotected != working:
+        findings.append(f"{CONFIG}: PROTECT_NONE lists {sorted(unprotected)}, the matrix {sorted(working)}")
     for item, (_, constant) in ALLOW.items():
         expected = {name for name, spec in sheets.items() if item in spec.get("allow", [])}
         actual = vba_list(root, constant)
@@ -260,6 +337,8 @@ def check_config(root: Path, sheets: dict[str, Any]) -> list[str]:
 def check_saved_protection(name: str, xml: bytes, spec: dict[str, Any]) -> list[str]:
     """The sheet is saved protected, without a password, allowing exactly what the matrix allows."""
     protection = ET.fromstring(xml).find("m:sheetProtection", NS)
+    if spec.get("role") == WORKING:
+        return [f"{name}: a sheet of the role {WORKING} must not be saved protected"] if protection is not None else []
     if protection is None:
         return [f"{name}: the sheet is not saved protected"]
     findings = [f"{name}: the protection has a password" for key in PASSWORD_ATTRIBUTES if protection.get(key)][:1]
@@ -306,10 +385,11 @@ def run_check(root: Path) -> dict[str, Any]:
             findings.append(f"{MATRIX}: {name} is not a sheet of the template")
         if not findings:
             findings += check_structure(archive) + check_config(root, sheets)
+            names = defined_names(archive)
             for name, part in parts.items():
                 xml = archive.read(part)
                 findings += check_saved_protection(name, xml, sheets[name])
-                findings += check_sheet(name, xml, styles, sheets[name])
+                findings += check_sheet(name, xml, styles, sheets[name], names)
     return {"schema_version": 1, "status": "fail" if findings else "pass",
             "sheets": len(matrix.get("sheets", {})), "findings": findings}
 

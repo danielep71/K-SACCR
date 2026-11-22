@@ -1,12 +1,15 @@
 # CSV input contract
 
-This document specifies version 2 of the contract for the two CSV files that
-carry the inputs of the `NettingSets` and `Trades` sheets: what a file must
-contain, how each field is written and read, and how a file is rejected. It
-covers NettingSets files of version 2, which still reads version 1 files, and
-Trades files of version 1. The contract came with the CSV import of v1.1.0
+This document specifies version 3 of the contract for the CSV files of the
+workbook: the two files that carry the inputs of the `NettingSets` and `Trades`
+sheets, and the two that carry a bank's own figures for the `BankNettingSets` and
+`BankTrades` sheets. It says what a file must contain, how each field is written
+and read, and how a file is rejected. It covers NettingSets files of version 2,
+which still reads version 1 files, Trades files of version 1, and BankNettingSets
+and BankTrades files of version 1. The contract came with the CSV import of v1.1.0
 (#206); parsing, staging, validation and commit are built on it in #207 to
-#211, and NettingSets version 2 adds the counterparty sector (#674).
+#211, NettingSets version 2 adds the counterparty sector (#674), and the two
+bank files are the contract of the import of the reconciliation inputs (#718).
 
 The machine-readable contract is [`contract.json`](contract.json). The field
 tables below are generated from it, and
@@ -23,6 +26,8 @@ workbook exports, this document's tables and the
 | --- | --- | --- | --- | --- |
 | NettingSets | 2 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv) |
 | Trades | 1 | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| BankNettingSets | 1 | `BankNettingSets` | `netting_set_id` | [`K-SACCR_BankNettingSets_v1.csv`](templates/K-SACCR_BankNettingSets_v1.csv) |
+| BankTrades | 1 | `BankTrades` | `trade_id` | [`K-SACCR_BankTrades_v1.csv`](templates/K-SACCR_BankTrades_v1.csv) |
 
 A template is the header record alone. The version 1 NettingSets template,
 [`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv), is kept
@@ -31,9 +36,9 @@ column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, **NettingSets template** and **Trades template** in the
-**Templates** menu of the K-SACCR Ribbon tab write the same file, byte for
-byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
+In the workbook, **NettingSets template**, **Trades template**, **BankNettingSets
+template** and **BankTrades template** in the **Templates** menu of the K-SACCR Ribbon
+tab write the same file, byte for byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
 One record of `Trades` is one **leg**, not necessarily one economic trade. An
@@ -140,6 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
+| BankNettingSets | 200 |
+| BankTrades | 500 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
@@ -148,7 +155,7 @@ about 10 MB.
 
 A file with more records is rejected whole (`CSV-TOO-MANY-RECORDS`). These
 limits are the import's, and differ from two other numbers. The sheets'
-validation lists cover `NettingSets` rows 7 to 206 and `Trades` rows 5 to
+validation lists cover `NettingSets` rows 5 to 204 and `Trades` rows 5 to
 5,000, which bounds only typing on the sheet. The engine reads every row
 down to the last one used, and was measured with 500,000 legs
 ([portfolio size](../../INSTALLATION.md#portfolio-size)).
@@ -163,6 +170,24 @@ below the validation lists are read and calculated like the others, without
 dropdowns. Loading, validating and committing a file at these limits has not
 been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 
+The two bank files hold figures a user compares with the workbook's, not inputs
+of a run, and carry no scale and no tolerance: both stay on the sheet (the amount
+scale in `D4`, the absolute tolerance in `D5` and the relative tolerance in `D6`).
+An amount in a bank file is written in the scale of the sheet. A blank figure is
+not compared. Their limits are 10,000 netting sets (`BankNettingSets`) and 50,000
+legs (`BankTrades`): a file with more records is rejected whole
+(`CSV-TOO-MANY-RECORDS`), never truncated. The template formats and validates the
+first 200 rows of `BankNettingSets` and the first 500 of `BankTrades` (rows 9 to
+208 and 9 to 508: dropdowns, the warning on a repeated ID, the number formats);
+a load writes every record, and the rows below those have the number formats of
+the first row and no dropdown or warning, as the committed rows of the input
+sheets do. A reconciliation writes one row per figure, 11 for each trade leg, to a
+sheet that holds 1,048,576 rows: when the rows it needs do not fit, it is not made
+and the run message says how many it needs.
+A bank file has no rule against the other files: an ID that is not on
+`NettingSets` or on `Trades` is a row the reconciliation reports as
+`MISSING IN CALCULATOR`, not a finding of the file.
+
 ## 📋 NettingSets columns
 
 <!-- BEGIN GENERATED: NettingSets -->
@@ -170,22 +195,22 @@ been timed: `TEST_Benchmark.RunCsvBenchmark` times the reader only.
 | --- | --- | --- | --- | --- | --- | --- |
 | `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Unique netting-set ID, compared case-insensitively; referenced by every trade. | `NS-001` |
 | `counterparty` | Counterparty | text (<= 500 characters) | no |  | Descriptive counterparty name or identifier. | `CPTY-A` |
-| `margined` | Margined (Y/N) | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
-| `clearing_role` | Client clearing role (N / CM / CLIENT / CCP; MULTI rejected) | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
-| `remargin_period_business_days` | Remargin frequency N (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
-| `large_or_illiquid` | >5,000 trades or illiquid collateral (Y/N) | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
-| `margin_disputes` | Margin disputes (Y/N) | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |
+| `margined` | Margined | flag: `Y`, `N` | no | N | Y for a supported margin agreement. | `Y` |
+| `clearing_role` | Client clearing role | code: `N`, `CM`, `CLIENT`, `CCP`, `MULTI` | no | N | Bank's clearing role; MULTI is accepted by the file and makes the netting set INVALID in the engine. | `CM` |
+| `remargin_period_business_days` | Remargin freq. (BD) | integer (>= 0, <= 10000) | no | 1 | Remargining every N business days; 0 is read as daily with a warning. | `1` |
+| `large_or_illiquid` | Large or illiquid | flag: `Y`, `N` | no | N | Y applies the 20-business-day MPOR floor. | `N` |
+| `margin_disputes` | Margin disputes | flag: `Y`, `N` | no | N | Y doubles the MPOR. | `N` |
 | `mpor_override_business_days` | MPOR override (BD) | integer (>= 1) | no | no override | MPOR in business days, applied only when not below the computed MPOR. | `20` |
-| `variation_margin_net_amount` | Net VM held (+) / posted (-) | number | no | 0 | Net variation margin: held positive, posted negative. | `-150000` |
+| `variation_margin_net_amount` | Net VM | number | no | 0 | Net variation margin: held positive, posted negative. | `-150000` |
 | `independent_collateral_net_amount` | NICA | number | no | 0 | Net independent collateral amount. | `250000` |
-| `threshold_amount` | Threshold TH | number (>= 0) | no | 0 | Margin threshold, unscaled. | `0` |
+| `threshold_amount` | Threshold (TH) | number (>= 0) | no | 0 | Margin threshold, unscaled. | `0` |
 | `minimum_transfer_amount` | MTA | number (>= 0) | no | 0 | Minimum transfer amount, unscaled. | `100000` |
 | `alpha_factor` | Alpha override | number (> 0) | no | the Params alpha | Alpha for this netting set; a value other than 1.4 classifies the run WHAT-IF. | `1.4` |
-| `regime_override` | Regime override (blank = Params) | code: `CRR`, `BCBS` | no | the Params regime | Regime of this netting set and all its trades. | `CRR` |
-| `margin_agreements` | Margin agreements (blank / MIXED / SHARED) | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
-| `qccp` | QCCP (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
-| `ccp_retains_variation_margin` | CCP retains VM, collateral not protected (Y/N) | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
-| `counterparty_sector` | Counterparty sector (CB / GG / CI / OFC / NFC / HH) | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
+| `regime_override` | Regime override | code: `CRR`, `BCBS` | no | the Params regime | Regime of this netting set and all its trades. | `CRR` |
+| `margin_agreements` | Margin agreements | code: `MIXED`, `SHARED` | no | a single agreement or none | MIXED or SHARED declares an unsupported structure, which the engine rejects. |  |
+| `qccp` | QCCP | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
+| `ccp_retains_variation_margin` | CCP retains VM | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
+| `counterparty_sector` | Counterparty sector | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
 <!-- END GENERATED: NettingSets -->
 
 Reserved keys: `TOTAL`, `TOTAL CRR` and `TOTAL BCBS`, in any case, label the
@@ -205,26 +230,67 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `direction` | Direction | code: `Long`, `Short` | yes |  | Long or Short. | `Long` |
 | `option_type` | Option type | code: `Call`, `Put` | no |  | Call or Put; required by the engine for an option. |  |
 | `nature` | Nature | code: `Standard`, `Basis`, `Volatility` | no | Standard | Hedging-set nature. | `Standard` |
-| `hedging_set_label` | Basis / vol hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
+| `hedging_set_label` | Hedging-set label | id (<= 64 characters) | no |  | Label of a basis or volatility hedging set; required by the engine for those. |  |
 | `notional_amount` | Notional | number (>= 0) | yes |  | Unscaled notional of this leg. | `10000000` |
-| `notional_currency` | Notional ccy | currency | no | the reporting currency | Currency of the notional. | `EUR` |
+| `notional_currency` | Notional CCY | currency | no | the reporting currency | Currency of the notional. | `EUR` |
 | `market_value_amount` | MtM | number | yes |  | Mark-to-market of the leg; in an economic trade, only its MtM leg carries a value. | `250000` |
-| `market_value_currency` | MtM ccy | currency | no | the notional currency | Currency of the MtM. |  |
+| `market_value_currency` | MtM CCY | currency | no | the notional currency | Currency of the MtM. |  |
 | `start_date` | Start date (S) | date | no |  | Start date S. | `2026-10-01` |
 | `end_date` | End date (E) | date | no |  | End date E; after the start date when both are given. | `2031-10-01` |
 | `maturity_date` | Maturity date (M) | date | no |  | Contractual maturity M. | `2031-10-01` |
 | `option_expiry_date` | Option expiry (T) | date | no |  | Option expiry T; required by the engine for an option. |  |
-| `underlying_price` | Underlying price P | number | no |  | Option underlying price or rate P. |  |
-| `strike_price` | Strike K | number | no |  | Option strike K. |  |
+| `underlying_price` | Underlying price (P) | number | no |  | Option underlying price or rate P. |  |
+| `strike_price` | Strike (K) | number | no |  | Option strike K. |  |
 | `lambda_price` | Lambda shift | number (>= 0) | no |  | Lambda shift added to P and K. |  |
-| `attachment_rate` | Attachment A | number (>= 0, <= 0.9999) | no |  | CDO tranche attachment point, a fraction. |  |
-| `detachment_rate` | Detachment D | number (> 0, <= 1) | no |  | CDO tranche detachment point, a fraction above the attachment point. |  |
+| `attachment_rate` | Attachment (A) | number (>= 0, <= 0.9999) | no |  | CDO tranche attachment point, a fraction. |  |
+| `detachment_rate` | Detachment (D) | number (> 0, <= 1) | no |  | CDO tranche detachment point, a fraction above the attachment point. |  |
 | `economic_trade_id` | Economic trade ID | id (<= 64 characters) | no | the row is a whole trade | Groups the legs of one economic trade. | `TRD-101` |
-| `mtm_leg` | MtM leg (Y/N) | flag: `Y`, `N` | no |  | Y on the one leg of an economic trade that carries its whole MtM. | `Y` |
-| `settlement_type` | Settlement type (N/STM) | code: `N`, `STM` | no | N | STM for a settled-to-market trade. |  |
+| `mtm_leg` | MtM leg | flag: `Y`, `N` | no |  | Y on the one leg of an economic trade that carries its whole MtM. | `Y` |
+| `settlement_type` | Settlement type | code: `N`, `STM` | no | N | STM for a settled-to-market trade. |  |
 | `next_reset_date` | Next reset date | date | no |  | STM only, and then required: the first settlement date after the reporting date. |  |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free-text note; not read by the engine. |  |
 <!-- END GENERATED: Trades -->
+
+## 📋 BankNettingSets columns
+
+<!-- BEGIN GENERATED: BankNettingSets -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `netting_set_id` | NettingSetID | id (<= 64 characters) | yes |  | Netting-set ID of the bank's figures, matched to the ID on NettingSets case-insensitively. | `NS-001` |
+| `regime` | Regime (BCBS / CRR) | code: `BCBS`, `CRR` | yes |  | Regime of the bank's figures; figures are never compared across regimes. | `BCBS` |
+| `ead` | EAD | number | no | not compared | Bank EAD, in the amount scale of the sheet. | `350913.6` |
+| `rc` | RC | number | no | not compared | Bank replacement cost, in the amount scale of the sheet. | `120000` |
+| `pfe` | PFE | number | no | not compared | Bank potential future exposure, in the amount scale of the sheet. | `230913.6` |
+| `addon_aggregate` | AddOn aggregate | number | no | not compared | Bank aggregate add-on, in the amount scale of the sheet. | `225000` |
+| `addon_ir` | AddOn IR | number | no | not compared | Bank interest-rate add-on, in the amount scale of the sheet. | `200000` |
+| `addon_fx` | AddOn FX | number | no | not compared | Bank FX add-on, in the amount scale of the sheet. | `25000` |
+| `addon_cr` | AddOn CR | number | no | not compared | Bank credit add-on, in the amount scale of the sheet. | `0` |
+| `addon_eq` | AddOn EQ | number | no | not compared | Bank equity add-on, in the amount scale of the sheet. | `0` |
+| `addon_co` | AddOn CO | number | no | not compared | Bank commodity add-on, in the amount scale of the sheet. | `0` |
+| `addon_ot` | AddOn OT | number | no | not compared | Bank other add-on, in the amount scale of the sheet. | `0` |
+| `multiplier` | Multiplier | number (>= 0) | no | not compared | Bank multiplier, a ratio that is never scaled. | `1` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankNettingSets -->
+
+## 📋 BankTrades columns
+
+<!-- BEGIN GENERATED: BankTrades -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `trade_id` | TradeID | id (<= 64 characters) | yes |  | Leg ID of the bank's figures, matched to the TradeID on Trades case-insensitively. | `TRD-101-IR` |
+| `notional` | Notional (rep ccy) | number | no | not compared | Bank notional in the reporting currency, in the amount scale of the sheet. | `5000000` |
+| `mtm` | MtM (rep ccy) | number | no | not compared | Bank mark-to-market in the reporting currency, in the amount scale of the sheet. | `-1200000` |
+| `maturity` | M (years) | number | no | not compared | Bank maturity in years, never scaled. | `3` |
+| `supervisory_duration` | Supervisory duration | number | no | not compared | Bank supervisory duration, never scaled. | `2.8` |
+| `adjusted_notional` | Adjusted notional d | number | no | not compared | Bank adjusted notional, in the amount scale of the sheet. | `14000000` |
+| `supervisory_delta` | Supervisory delta | number | no | not compared | Bank supervisory delta, never scaled. | `-1` |
+| `mf_unmargined` | MF unmargined | number | no | not compared | Bank maturity factor of an unmargined netting set, never scaled. | `1` |
+| `mf_margined` | MF margined | number | no | not compared | Bank maturity factor of a margined netting set, never scaled. | `0.3` |
+| `effective_notional_unmargined` | Effective notional unmargined | number | no | not compared | Bank effective notional of an unmargined netting set, in the amount scale of the sheet. | `14000000` |
+| `effective_notional_margined` | Effective notional margined | number | no | not compared | Bank effective notional of a margined netting set, in the amount scale of the sheet. | `4200000` |
+| `standalone_addon` | Stand-alone add-on | number | no | not compared | Bank stand-alone add-on, in the amount scale of the sheet. | `70000` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the reconciliation. | `Month-end figures` |
+<!-- END GENERATED: BankTrades -->
 
 ## 🔗 Rules between fields of a record
 
@@ -430,6 +496,29 @@ record limit.
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 🏦 The bank files
+
+`BankNettingSets` and `BankTrades` files have no staging sheet: **BankNettingSets
+file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and the
+**Import CSV** button of each bank sheet (#718), read the file with the reader of this
+contract and write it onto the sheet at once, because the sheet holds figures only and
+the reconciliation reports what does not match.
+
+- A file is accepted or rejected **as a whole**. One finding, a record too many for the
+  sheet (`CSV-TOO-MANY-RECORDS`) or a header-only file changes nothing; the findings are
+  listed in the dialog and nothing is written to Checks.
+- A sheet that holds figures asks before they are replaced, with No as the default.
+- The figures and comments of the sheet are cleared and the records written from the
+  first row below the header. The identifier, the regime and the comment are written
+  as text, so `00731` keeps its leading zeros; a figure is written as a number, read
+  with the point of the file in every locale; a blank figure is an empty cell, which the
+  reconciliation does not compare. The amount scale and the tolerances above the table
+  are not read from the file and are not touched.
+- An error while the sheet is written puts the old figures back and restores the Excel
+  settings.
+- `ImportBankCsv_Silent` is the entry point for automation and tests
+  ([INSTALLATION](../../INSTALLATION.md#importbankcsv_silent)).
 
 ## 📦 Staging
 

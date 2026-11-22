@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import check_excel_evidence as evidence
+import measured_differences
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
@@ -28,6 +29,19 @@ SOURCES = {
 }
 
 
+def measured_lines() -> list[str]:
+    """The MEASURED lines a perfect run of the case suite prints: every numeric output at its expected value."""
+    _, expected = measured_differences.load(ROOT)
+    lines = []
+    for case, data in sorted(expected.items()):
+        for output in data["outputs"]:
+            if "value" in output:
+                value = output["value"]
+                lines.append(f"MEASURED={case}; trade={output.get('trade') or ''}; quantity={output['quantity']}; "
+                             f"expected={value}; actual={value}; difference=0")
+    return lines
+
+
 class ExcelEvidenceTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -40,6 +54,9 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.git("init", "-q", str(self.root))
         (self.root / ".github").mkdir()
         shutil.copy(ROOT / evidence.POLICY, self.root / evidence.POLICY)
+        (self.root / "tests").mkdir()
+        shutil.copy(ROOT / measured_differences.CONTRACTS, self.root / measured_differences.CONTRACTS)
+        shutil.copytree(ROOT / measured_differences.EXPECTED, self.root / measured_differences.EXPECTED)
         for name, text in SOURCES.items():
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -105,8 +122,10 @@ class ExcelEvidenceTests(unittest.TestCase):
         result = (f"RESULT={verdict}; cases={cases}; checks={checks}; failures={failures}; "
                   f"restore={'PASS' if restored else 'FAIL'}")
         names = [f"case-{index}" for index in range(cases)]
-        return "\n".join([f"CANDIDATE={candidate or self.sha}", "SUITE=" + spec["entry_point"].split(".")[0],
-                          "MODE=" + mode, *(f"CASE={name}" for name in names), result, ""])
+        module = spec["entry_point"].split(".")[0]
+        measured = measured_lines() if module == measured_differences.ACCURACY_SUITE else []
+        return "\n".join([f"CANDIDATE={candidate or self.sha}", "SUITE=" + module,
+                          "MODE=" + mode, *(f"CASE={name}" for name in names), *measured, result, ""])
 
     def suite(self, spec: dict[str, Any], log: str | None = None, *, status: str = "PASS",
               **counts: int) -> dict[str, Any]:
@@ -413,6 +432,59 @@ class ExcelEvidenceTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.record["suites"][position] = self.suite(spec, log)
                 self.assertInvalid(message)
+
+    def cases_log(self, change: Any) -> None:
+        """Record the case suite with a log whose MEASURED lines ``change`` has altered."""
+        spec = self.spec("TEST_Cases")
+        lines = self.suite_log(spec).split("\n")
+        self.record["suites"][self.index("TEST_Cases")] = self.suite(spec, "\n".join(change(lines)))
+
+    def test_measured_differences_are_checked_against_the_contracts(self) -> None:
+        self.assertEqual(self.evaluate()["status"], "pass")
+        lines = self.suite_log(self.spec("TEST_Cases")).split("\n")
+        self.assertGreater(sum(line.startswith("MEASURED=") for line in lines), 100)
+        # A held-out case, tested at the claimed tolerance of full precision.
+        full = next(i for i, line in enumerate(lines)
+                    if line.startswith("MEASURED=illustrative-ccp-non-qualifying.crr; trade=; quantity=exposure_value;"))
+
+        def drop(lines: list[str]) -> list[str]:
+            return lines[:full] + lines[full + 1:]
+
+        def twice(lines: list[str]) -> list[str]:
+            return lines[:full] + [lines[full]] + lines[full:]
+
+        def off(lines: list[str]) -> list[str]:
+            head, _, _ = lines[full].rpartition("; actual=")
+            value = float(head.rpartition("expected=")[2])
+            lines[full] = f"{head}; actual={value + 0.001!r}; difference=0.001"
+            return lines
+
+        def other_expected(lines: list[str]) -> list[str]:
+            lines[full] = lines[full].replace("expected=", "expected=1", 1)
+            return lines
+
+        def wrong_difference(lines: list[str]) -> list[str]:
+            lines[full] = lines[full].rsplit("; difference=", 1)[0] + "; difference=5"
+            return lines
+
+        def unreadable(lines: list[str]) -> list[str]:
+            lines[full] = "MEASURED=" + lines[full].split("=", 1)[1].split("; quantity=")[0]
+            return lines
+
+        for change, message in ((drop, "no measured difference"), (twice, "measured twice"),
+                                (off, "exceeds the contract"), (other_expected, "in the expected file"),
+                                (wrong_difference, "is not that of"), (unreadable, "unreadable measured line")):
+            with self.subTest(message=message):
+                self.cases_log(change)
+                self.assertInvalid(message)
+
+    def test_a_failed_case_suite_makes_no_measured_claim(self) -> None:
+        spec = self.spec("TEST_Cases")
+        failed = self.suite_log(spec, verdict="FAIL", failures=1)
+        failed = "\n".join(line for line in failed.split("\n") if not line.startswith("MEASURED="))
+        self.record["suites"][self.index("TEST_Cases")] = self.suite(spec, failed, status="FAIL", failures=1)
+        self.record["stages"]["regression"]["status"] = "FAIL"
+        self.assertNotIn("measured", " ".join(self.evaluate()["findings"]))
 
     def test_restoration_failure_cannot_pass(self) -> None:
         # Every suite reports its restoration, also those that once reported none.

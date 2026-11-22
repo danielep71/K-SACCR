@@ -9,8 +9,8 @@ Attribute VB_Name = "CORE_Reconcile"
 '   regimes are never compared; the bank's amounts are scaled to units;
 '   every ID that cannot be compared is named with the reason.
 '
-'     difference          = calculator - bank
-'     relative difference = difference / |bank|
+'     difference          = |calculator - bank|, written as an absolute value
+'     relative difference = (calculator - bank) / |bank|, which keeps the sign
 '     MATCH               : |difference| <= absolute tolerance, or
 '                           |relative difference| <= relative tolerance
 '
@@ -636,7 +636,7 @@ Private Sub CompareFigures( _
     Dim IsRatio              As Boolean    'Not scaled; relative tolerance only
     Dim BankValue            As Double     'Bank figure, in units for an amount
     Dim CalcValue            As Double     'Calculator figure
-    Dim Difference           As Double     'Calculator minus bank
+    Dim Difference           As Double     'Calculator minus bank; the sheet gets its absolute value (#720)
     Dim RelativeDifference   As Variant    'Relative difference; Empty when the bank figure is 0
     Dim IsMatch              As Boolean    'Within a tolerance
     Dim EnteredCount         As Long       'Figures entered on the row
@@ -680,7 +680,7 @@ Private Sub CompareFigures( _
                         IsMatch = IsMatch Or (Abs(RelativeDifference) <= RelTolerance)
                     End If
                     AddRow OutRows, OutCount, RowId, SheetRow, ThirdColumn, FourthColumn, CalcStatus, CStr(MeasureNames(m)), _
-                           BankValue, CalcValue, IIf(IsMatch, RES_MATCH, RES_DIFF), "", Difference, RelativeDifference
+                           BankValue, CalcValue, IIf(IsMatch, RES_MATCH, RES_DIFF), "", Abs(Difference), RelativeDifference
                     Counts(RCN_COMPARED) = Counts(RCN_COMPARED) + 1
                     If IsMatch Then
                         Counts(RCN_MATCH) = Counts(RCN_MATCH) + 1

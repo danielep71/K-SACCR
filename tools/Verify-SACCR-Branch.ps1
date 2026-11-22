@@ -37,6 +37,11 @@ For the branch of a pull request, with one command on the Windows host:
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
+   With -Commit the script checks nothing out: it verifies the commit the
+   checkout already is at, and stops when HEAD is another commit. The
+   automatic quick check of a pull request (#713) uses it, so that its result
+   belongs to the commit that triggered it even when the branch has moved on
+   while the run waited. -Branch then only names the branch in the summary;
 4. writes verify-summary.txt in the bundle and prints it: the branch, the
    commit, the mode, the duration, the Test_RunAll summary, the sheet review
    (quick run), the 14 protection checks and the result.
@@ -51,6 +56,8 @@ Check-SACCR-Protection.ps1; on an older branch it stops and says so.
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch chore/218-tooling-cleanup
 .EXAMPLE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick -Commit 0123456789abcdef0123456789abcdef01234567
+.EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick
 #>
 [CmdletBinding()]
@@ -64,7 +71,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$Operator,
     [Parameter(Mandatory = $false)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [Parameter(Mandatory = $false)]
+    [string]$Commit
 )
 
 Set-StrictMode -Version Latest
@@ -392,23 +401,37 @@ if (-not [string]::IsNullOrWhiteSpace($dirty)) {
     throw "The working tree has changes. Commit or stash them first; nothing was checked out."
 }
 
-Write-Host "Fetching $Branch from origin..."
-[void](Invoke-Git @("fetch", "origin", ("+refs/heads/" + $Branch + ":refs/remotes/origin/" + $Branch)) `
-    "Cannot fetch the branch from origin")
-if ((Invoke-GitRaw @("show-ref", "--verify", "--quiet", ("refs/heads/" + $Branch))).Code -eq 0) {
-    [void](Invoke-Git @("checkout", $Branch) "Cannot check out the branch")
-    [void](Invoke-Git @("merge", "--ff-only", ("origin/" + $Branch)) `
-        "The local branch has commits origin does not have; it was left as it is")
+if (-not [string]::IsNullOrWhiteSpace($Commit)) {
+    # The commit the checkout is at, as the automatic quick check asks (#713): nothing is fetched or
+    # checked out, so a branch that moved on cannot change what is verified.
+    if ($Commit -cnotmatch '^[0-9a-f]{40}$') {
+        throw "Not a full commit SHA: $Commit"
+    }
+    $sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
+    if ($sha -ne $Commit) {
+        throw "The checkout is at $sha, not at the commit asked for ($Commit); nothing was verified."
+    }
+    Write-Host "Verifying the checked-out commit $sha of $Branch."
 }
 else {
-    [void](Invoke-Git @("checkout", "-b", $Branch, "--track", ("origin/" + $Branch)) "Cannot check out the branch")
+    Write-Host "Fetching $Branch from origin..."
+    [void](Invoke-Git @("fetch", "origin", ("+refs/heads/" + $Branch + ":refs/remotes/origin/" + $Branch)) `
+        "Cannot fetch the branch from origin")
+    if ((Invoke-GitRaw @("show-ref", "--verify", "--quiet", ("refs/heads/" + $Branch))).Code -eq 0) {
+        [void](Invoke-Git @("checkout", $Branch) "Cannot check out the branch")
+        [void](Invoke-Git @("merge", "--ff-only", ("origin/" + $Branch)) `
+            "The local branch has commits origin does not have; it was left as it is")
+    }
+    else {
+        [void](Invoke-Git @("checkout", "-b", $Branch, "--track", ("origin/" + $Branch)) "Cannot check out the branch")
+    }
+    $sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
+    $remoteSha = Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin"
+    if ($sha -ne $remoteSha) {
+        throw "The checkout is at $sha, not at origin/$Branch ($remoteSha)."
+    }
+    Write-Host "Checked out $Branch at $sha."
 }
-$sha = Invoke-Git @("rev-parse", "HEAD") "Cannot read the checked-out commit"
-$remoteSha = Invoke-Git @("rev-parse", ("origin/" + $Branch)) "Cannot read the branch on origin"
-if ($sha -ne $remoteSha) {
-    throw "The checkout is at $sha, not at origin/$Branch ($remoteSha)."
-}
-Write-Host "Checked out $Branch at $sha."
 
 # ----------------------------------------------------------------------------
 # Certify, or the quick check

@@ -1,49 +1,50 @@
 {
-  "description": "Editability matrix of the workbook template (#420): the cells a user may change in normal use, and what else each protected sheet allows (sorting, filtering where the template has an AutoFilter, inserting rows, opening and closing row groups). Every other cell is locked. tools/check_workbook_protection.py checks the template and the PROTECT_ constants of CORE_Config against it.",
+  "description": "Editability matrix of the workbook template (#420): the cells a user may change in normal use, and what else each protected sheet allows (sorting, filtering where the template has an AutoFilter, inserting rows, opening and closing row groups). Every other cell is locked, except on a sheet of the role Working, which is never protected. tools/check_workbook_protection.py checks the template and the PROTECT_ constants of CORE_Config against it. An unlocked_cells entry is a cell or range address, a workbook name, or NAME+N for the N rows below the first row of the name over its columns; first_row is a row number or the workbook name of the header cell, whose next row is the first data row (#756).",
   "schema_version": 1,
   "sheets": {
     "Home": {"role": "Instructions"},
     "README": {"role": "Instructions", "allow": ["outlining"]},
     "Params": {
       "role": "Run configuration and reference regulatory parameters",
-      "unlocked_cells": ["E6", "E7", "E23", "C58:E257"],
-      "notes": "AsOfDate, ReportingCcy, Regime and the FX table, with rows below it for added currencies, are configuration. Every other value is a reference regulatory parameter, changed only after a maintenance unlock; a run on changed values stays WHAT-IF, except DaysPerYear and IRBucketOffset, conventions that do not change the run class."
+      "unlocked_cells": ["AsOfDate", "ReportingCcy", "Regime", "YearConvention", "Calendar", "FX_Source", "FX_Table+200", "Holiday_Table+100"],
+      "notes": "AsOfDate, ReportingCcy, Regime, the day-count convention (the days of the conventional year) and the Calendar, the source of the rates Download prices writes (FX_Source), the FX table, with rows below it for added currencies, and the table of closing days at its right are configuration. Every other value is a reference regulatory parameter, changed only after a maintenance unlock; a run on changed values stays WHAT-IF, except DaycountConvention and IRBucketOffset, conventions that do not change the run class (YearConvention and Calendar do not either)."
     },
-    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:T", "first_row": 7}, "allow": ["sorting", "inserting_rows"]},
-    "Trades": {"role": "Input", "unlocked_columns": {"columns": "C:AD", "first_row": 5}, "allow": ["sorting", "filtering", "inserting_rows"]},
+    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:T", "first_row": "NettingSets_Header"}, "allow": ["sorting", "inserting_rows"]},
+    "Trades": {"role": "Input", "unlocked_columns": {"columns": "C:AD", "first_row": "Trades_Header"}, "allow": ["sorting", "filtering", "inserting_rows"]},
     "Import_NettingSets": {
       "role": "Staging",
-      "unlocked_columns": {"columns": "D:U", "first_row": 10},
+      "unlocked_columns": {"columns": "D:U", "first_row": "ImportNettingSets_Header"},
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },
     "Import_Trades": {
       "role": "Staging",
-      "unlocked_columns": {"columns": "D:AE", "first_row": 10},
+      "unlocked_columns": {"columns": "D:AE", "first_row": "ImportTrades_Header"},
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },
-    "Results": {"role": "Output"},
-    "HedgingSets": {"role": "Output"},
-    "Buckets": {"role": "Output"},
-    "TradeCalc": {"role": "Output"},
-    "Checks": {"role": "Output"},
+    "Results": {"role": "Output", "allow": ["filtering"]},
+    "HedgingSets": {"role": "Output", "allow": ["filtering"]},
+    "Buckets": {"role": "Output", "allow": ["filtering"]},
+    "TradeCalc": {"role": "Output", "allow": ["filtering"]},
+    "Checks": {"role": "Output", "allow": ["filtering"]},
     "BankNettingSets": {
       "role": "Bank figures",
-      "unlocked_cells": ["D4:D6"],
-      "unlocked_columns": {"columns": "C:P", "first_row": 9},
+      "unlocked_cells": ["BankNS_Scale", "BankNS_AbsTol", "BankNS_RelTol"],
+      "unlocked_columns": {"columns": "C:P", "first_row": "BankNettingSets_Header"},
       "allow": ["sorting", "inserting_rows"]
     },
-    "Reconciliation": {"role": "Output"},
+    "Reconciliation": {"role": "Working", "notes": "Never protected (#720): the user sorts, filters and annotates the reconciliation. The run still writes the table."},
     "BankTrades": {
       "role": "Bank figures",
-      "unlocked_cells": ["D4:D6"],
-      "unlocked_columns": {"columns": "C:O", "first_row": 9},
+      "unlocked_cells": ["BankTR_Scale", "BankTR_AbsTol", "BankTR_RelTol"],
+      "unlocked_columns": {"columns": "C:O", "first_row": "BankTrades_Header"},
       "allow": ["sorting", "inserting_rows"]
     },
-    "TradeReconciliation": {"role": "Output"},
+    "TradeReconciliation": {"role": "Working", "notes": "Never protected (#720), as Reconciliation."},
+    "ReconSummary": {"role": "Output", "notes": "Formulas only: the sums and counts per measure of the two reconciliation sheets, which follow their filters."},
     "TestCatalogue": {"role": "Test", "unlocked_cells": ["L7:L34"]},
-    "FormulaTest": {"role": "Test", "unlocked_cells": ["E4", "E7:E28", "F7:F28", "G9:G28", "H13:J21", "K15"]},
+    "FormulaTest": {"role": "Test", "unlocked_cells": ["E4", "H4", "E7:E28", "F7:F28", "G9:G28", "H13:J21", "K15", "G33:H81", "K33:L81"]},
     "Basel_vs_CRR": {"role": "Reference", "allow": ["filtering"]}
   }
 }

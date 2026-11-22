@@ -26,16 +26,30 @@ Private Sub Workbook_SheetActivate(ByVal Sh As Object)
 End Sub
 
 Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+    'A new reporting currency: offer to rebase the FX table on it (#725).
     'An input edit recalculates Results C5: refresh the tab once Excel is idle (#216).
+        M_Main.ReportingCurrencyChanged Sh, Target
         M_Main.RibbonStateChanged
 
 End Sub
 
 Private Sub Workbook_BeforeSave(ByVal SaveAsUI As Boolean, Cancel As Boolean)
-    'Keep the Ribbon's pointer out of the saved file (#216), and save the
-    'navigation bar shown even while it is hidden (#620).
+    'Keep the Ribbon's pointer out of the saved file (#216), save the
+    'navigation bar shown even while it is hidden (#620), and end a lookup
+    'of closing prices that waits for its data, so that no price formula is
+    'saved (#721).
+        M_Main.CancelPriceLookup
         M_Ribbon.HidePointer
         M_Main.NavigationBarBeforeSave
+
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    'End a lookup of closing prices that waits for its data, so that the
+    'look scheduled for it does not reopen the workbook (#721), and cancel
+    'the scheduled selection of the K-SACCR tab for the same reason (#726).
+        M_Main.CancelPriceLookup
+        M_Ribbon.CancelTabActivation
 
 End Sub
 

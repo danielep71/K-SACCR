@@ -97,6 +97,340 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Record on every run how its dates became years and where its FX rates came from (#721, #745), so
+  that two results are never compared without it. The run summary on Results C4 adds
+  `| year 365 days, calendar TABLE | FX Manual` (with the entries and fingerprint of the table of
+  closing days when the calendar uses one); the result line of `RunSACCR_Silent` adds
+  `year_convention`, `calendar`, `holiday_table` and `fx_source`; the evidence report adds the same
+  four `RUN` lines. `fx_source` is `ECB reference rate of 2026-09-30` or `Closing price of
+  2026-09-30` while the FX table is as **Download prices** wrote it, `Manual (edited after ECB
+  reference rate download)` once a rate, a currency or a row changed after the download, and
+  `Manual` when no download is recorded: Download prices now stores the fingerprint of the table it
+  wrote in the hidden cell `FX_PriceFingerprint` (Params!AQ28), which a run compares with the
+  table; a rebase on a new reporting currency keeps a downloaded table downloaded. The record of
+  the download is part of the input fingerprint, so results show as out of date after a new
+  download even with the same rates. `tools/rsaccr_portfolio.py` gains `--year-convention` and
+  `--calendar`, and `compare` refuses an evidence file of a run on another day count, calendar or
+  holiday table, or one that does not say which. Two `independent` CRR cases on a year of 250
+  business days on the TARGET calendar, `rsaccr-portfolio-rs-010-y250-target` and
+  `rsaccr-portfolio-rs-011-y250-target`, carry the figures of the R package `SACCR` for the
+  netting sets of the two default-convention cases of the same name (`cases --unchecked`:
+  `TEST_Cases` is their first comparison with the workbook); a fixture may set `Calendar`, and the
+  accuracy contracts list both cases as held out. The README sheet names the day count and the FX
+  source among the parameters and lists `SACCR_BusinessDays`; the Home columns C and D are back to
+  55 and 150. `TEST_Cases` has 41 cases and 261 checks, `TEST_MainState` 711 checks and
+  `TEST_Reconcile` 239.
+
+- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` freeze
+  four rows, with the header on row 4, data from row 5 and rows 3 and 4 30 points high, so that the
+  view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+  column headers are short (`Margined`, `Client clearing role`, `Remargin freq. (BD)`, `Large or
+  illiquid`, `Net VM`, `Hedging-set label`, `Strike (K)`, ...), on the staging sheets too, and every
+  header of `NettingSets` and `Trades` carries a note: what the field is, the values allowed, what a
+  blank means, when it is required, the CSV field name and the regulatory reference. The input
+  columns are 15 wide. The expected headers that stop a run when a column moved (#35),
+  `NS_HEADERS`, `TR_HEADERS`, `BN_HEADERS` and `BT_HEADERS`, are now generated into
+  `CORE_CsvSchema` from the `sheet_header` of `contract.json`, so a rename is one edit to the
+  contract and the template. The Python tests, the protection matrix, the sheet-style rules and
+  `Check-SACCR-Protection.ps1` find header rows, tables and parameter cells from their workbook names
+  (`tools/template_layout.py`), not from row numbers, so rows moved in Excel need no code change;
+  the gates also accept what Excel writes on save (row heights rounded to a pixel, default
+  attributes left out, the font of the notes). `test_header_notes.py` checks the notes, the frozen
+  rows and the staging headers.
+- Put the filter buttons on the header row of the five output sheets (#754): `Results`,
+  `HedgingSets`, `Buckets`, `TradeCalc` and `Checks`, as `Trades` and the two reconciliation sheets
+  have them. They are in the template, over the table down to the last row of the sheet, so that a run of any size is inside the filter, and the sheets stay
+  protected with the permission to filter, the only one added (no sorting: the cells are
+  results). Run SA-CCR, Validate inputs and Clear outputs keep the buttons and apply again a
+  filter the user set, so that the new rows follow the rule. `PROTECT_FILTERING`, the protection
+  matrix, `WORKBOOK_PROTECTION.md` and check 5 of `Check-SACCR-Protection.ps1` follow;
+  `TEST_MainState` gains `outputs.filter-buttons` (31 checks), and `test_output_filters.py` checks the
+  template.
+
+- Test the FX convention of #725 in every place the engine uses a rate. `TEST_InputValidation`
+  gains `fx-rate-multi-currency`, a netting set in four currencies (a USD swap with its MtM in
+  USD, a EUR swap with its MtM in GBP, a EUR/JPY forward with its notional in JPY, at 1.25 USD,
+  160 JPY and 0.85 GBP per EUR), which checks the adjusted notionals, the replacement cost, both
+  add-ons and the exposure value, and `fx-rate-old-convention-value`, which shows that a rate
+  kept from the old convention (0.80 for the same market) gives another input, not a rounding
+  difference. `tools/test_fx_quote.py` derives every expected value of both cases separately
+  from the engine, from the rules and the market quote. The engine converts only the notional
+  and the MtM: option prices are ratios and collateral is entered in the reporting currency.
+
+- Offer to rebase the FX table when the reporting currency changes (#725). The rates are units
+  of each currency per 1 unit of the reporting currency, so after a change of the reporting
+  currency on Params they are still those of the old one, and a run stops because the new
+  reporting currency is not 1. The workbook now asks, with No as the default, whether to rebase
+  the table: every rate is divided by the rate of the new reporting currency, which becomes 1;
+  the conversions are unchanged, and the date and source of the rates stay. A rate that is a
+  formula or not a number above zero stays and is listed; a formula as the rate of the new
+  reporting currency refuses the rebase. Nothing is asked in silent mode or
+  while an operation runs; `RebaseFxTable_Silent` does it for automation. The run's error
+  `FX-REPORTING-RATE` now says what to do: accept the rebase, press Download prices, or divide
+  every rate by that of the reporting currency. `TEST_MainState` gains `params.rebase-fx-table`.
+
+- Let the user choose the source of the rates that Download prices writes (#745). A list
+  beside the button on Params (`FX_Source`, D59) holds `Closing price`, the default and the
+  behavior until now, and `ECB reference rate`: the euro foreign exchange reference rates of
+  the ECB, asked of its data portal with one HTTPS request from VBA (`MSXML2.XMLHTTP`, the
+  connection and proxy settings of Windows, no web query or connection left in the file) that
+  carries only the three-letter codes of the table and the seven days up to the reporting
+  date. Each currency takes the last fixing on or before the reporting date, as published;
+  with another reporting currency the rate is crossed through the euro. A currency the ECB
+  does not publish keeps its rate and is listed. The rates are written all or none; no
+  connection, a time-out, an HTTP error, an answer that is not the CSV expected (a proxy's
+  sign-in page, a decimal comma, a malformed line), no rate of the reporting currency, or a
+  reporting date, reporting currency or code changed while the answer was awaited is
+  refused with the reason and changes nothing. The source of the rates downloaded is kept in
+  the hidden name `FX_PriceSource` and stated beside the button with their date ("ECB
+  reference rates of 2026-09-30", "Closing prices of 2026-09-30"), and the confirmation and
+  the message name it. `DownloadClosingPrices_Silent` takes the source as an optional
+  argument. `TEST_MainState` gains `params.ecb-answer` and `params.download-ecb-rates`, which
+  read the sample answer of `tests/fixtures/ecb/EXR_D_sample.csv` through the fault
+  `ecb-answer` and cover the refusals with the faults `ecb-offline`, `ecb-http`, `ecb-timeout`,
+  `ecb-edit` and `ecb-write`, so that the quick check needs no network; `test_params_layout.py` checks the
+  template, the request and that the sample is the fixture. Restore parameters does not change
+  the source: like the FX table, it is an input. Last price is not offered yet, and the source
+  is not yet recorded on the run and in the evidence.
+
+- Take the second round of the owner's changes to the Params sheet into the template, and add Download prices
+  (#721). The parameters are in the owner's order, with Regime first (row 8), and the two day-count
+  codes are renamed: `DaycountConvention` for the numerator (`ACTUAL`, row 25, formerly
+  `DayCountNumerator`) and `YearConvention` for the days of the year (row 26, formerly
+  `DayCountConvention`), in the workbook names, the engine, the fixtures, the checks and the docs. The
+  headers of the tables are the owner's too: Currency Code and Currency Description for the FX table and
+  Bank Holiday for the table of closing days, which the engine checks. The FX table holds the euro and the
+  20 currencies most traded against it, with the Refinitiv closing prices as rates.
+  The new **Download prices** button, beside the FX table (`DownloadClosingPrices`), looks up
+  the closing price of each pair with `STOCKHISTORY` (Microsoft 365 and a connection) after a confirmation
+  with Cancel as the default: the last price up to the reporting date, seven days back at most, becomes the
+  rate of the currency, as a value. A currency that gets no price and the reporting currency keep their rate,
+  and the date of the prices is shown in G59 (the hidden cell `FX_PriceDate`, AQ27). The pair is built in
+  code from the currency code and `ReportingCcy`, so a currency appended below the table is looked up
+  too. The price formulas live in a hidden scratch column (AR) that is emptied afterwards, so no formula and
+  no data request stays in the workbook. The macro refuses, changing no rate, in an Excel without
+  `STOCKHISTORY` (also when the cell evaluates to `#NAME?`) and when the reporting date, the reporting
+  currency or a code is changed while the prices come in. `DownloadClosingPrices_Silent` is its entry point
+  and `params.download-closing-prices` its case (17 checks, 627 in TEST_MainState; the test faults
+  `prices-fixed` and `prices-none` stand for prices that came and for none). Excel hands the requests of `STOCKHISTORY` back only when no macro runs, so the
+  button writes the formulas and returns, and a timer (`PollClosingPrices`, each second, 30 seconds at
+  most) writes the rates when the prices have come, with the wait in the status bar; saving or closing the
+  workbook meanwhile ends the lookup without changing a rate. When no price comes for any currency it
+  changes no rate and no date and says what the first cell showed. Two repairs of the sheet that
+  the move of rows had broken: the hidden list of years is 366, 365, 364, 360, 252 and 250 again, and the
+  validations follow their cells (Regime keeps its list, the currency check covers only the reporting
+  currency, the code and rate checks cover the FX table). The table of closing days is 100 rows again, the
+  rows under the FX table are editable, and the instruction for new currencies is back under the last row. The rate header E60 is 10 pt, the one exception to the 11 pt of every header (`header_size_exceptions` in
+  `sheet-style.json`). The texts of the Home sheet are the owner's (the descriptions of the steps are
+  broken into lines). The formats the owner gave the cells are kept: the
+  reporting date in bold blue and centred, the day-count numerator and the added rates centred, the currency
+  codes in bold, the heading Bank Holiday
+  centred, and the added currency rows as high as the first ones.
+
+- Take the owner's changes to the Params sheet into the template (#721, follow-up). The list of day-count
+  denominators is 366, 365, 364, 360, 252 and 250 (365.25 and 264 are removed, 364 is added) and is kept
+  in the hidden cells AQ20:AQ25; the engine, the checks and the docs follow. The note of `Calendar`
+  runs over two rows, so every row below it moved down by one: the factor table starts on row 31, the FX
+  table on row 60 and `SF_Table`, `FX_Table` and `Holiday_Table` follow (the macros find them by name;
+  the validations on Trades, the editable cells, the check script and the matrix follow). The prices are
+  values: the new **Download prices** button looks them up with `STOCKHISTORY` (Microsoft
+  365 and a connection) and writes them as the rates; the template holds no such formula, because an unfinished data request keeps
+  Excel from reporting its calculation done and a run in manual calculation then refuses to start. The validated zone of the FX table holds the
+  reporting currency and 20 others (rows 61 to 81). The
+  illustrative rates are the euro against the dollar 1.1328, the pound 0.8536 and the yen 178.29. The
+  table of closing days moved from G:H to I:J.
+
+- Add the `ReconSummary` sheet, after `TradeReconciliation`, with one row per measure of the two
+  reconciliation sheets (#720). Each row shows the rows shown, the Match and Difference counts, the other
+  results, the sum of the bank figures, of the calculator figures and of the absolute differences, the
+  largest absolute difference and the sheet row where it is. The sums are formulas over the rows the
+  filters of `Reconciliation` and `TradeReconciliation` leave (`SUBTOTAL(103, ...)` as the tiles do), so
+  they change with a filter and need no macro. A factor (multiplier, M, supervisory duration and delta,
+  maturity factors) has no sum, only its counts and its largest difference, in six decimals. The amounts
+  are in units of the reporting currency (the bank figures times the amount scale). The
+  sheet holds formulas only and is protected as an output sheet (role Output). It has its own button in
+  the Reconciliation section of the Go to menu and of the navigation bar, and a link on Home, and the measures it lists are
+  tested against those of `CORE_Reconcile`. The workbook now has 20 sheets.
+
+- Put sample bank figures on `BankNettingSets` and `BankTrades` of the template (#720), so that a first
+  Run SA-CCR shows a reconciliation as the other input sheets show a run. Seven netting sets (the printed
+  figures of CRE99 examples 1 to 5, in thousands as the sample inputs, one EAD changed by 10% and one
+  netting set the calculator does not have) and four trade legs (a printed adjusted notional and delta,
+  an MtM changed on purpose and one leg the calculator does not have). The rows give Match, Difference,
+  Missing in calculator and, for the other sample netting sets, Not in bank file. Clear the cells to start
+  from empty bank sheets.
+
+- Lift the limits of the bank files (#718, follow-up). The files were limited to the rows the template
+  formats, 200 netting sets and 500 legs; they now hold up to 10,000 netting sets (as `NettingSets`)
+  and 50,000 legs, the limits of the contract (`CSV-TOO-MANY-RECORDS` above them, as before). The
+  template is unchanged: its first 200 and 500 rows keep the dropdowns, the warning on a repeated ID
+  and the number formats; a load writes every record, text as text, with the number formats of the
+  first row in the rows below, which have no dropdown or warning, as the committed rows of the input
+  sheets. A reconciliation writes one row per figure, 11 per trade leg, to a sheet of 1,048,576 rows;
+  one that does not fit is not made and the run message says how many rows it needs. The contract,
+  the generated modules, the import specification page and the contract page follow. New checks:
+  a file of 250 records is written whole (`TEST_Reconcile`), the "too many records" cases use
+  10,001 and 50,001 records, and a reconciliation too long for its sheet (test seam
+  `reconcile-rows`); `TEST_Reconcile` is 23 cases and 237 checks. Loading and reconciling files of
+  these sizes has not been timed.
+
+- Choose the days of the year and the calendar on Params (#721, follow-up). The first parts of
+  #721 offered a convention `CAL365` or `BD250`; it is replaced by the usual day counts. Years are
+  the ACTUAL days between the reporting date and the date, counted on a calendar, over the days of a
+  conventional year. `DayCountConvention` (yellow, unlocked, a list) is the denominator: 366, 365
+  (the default), 365.25, 264, 360, 252 or 250. `Calendar` (yellow, unlocked) decides which days are
+  counted: `TABLE` (the default) counts every day except those of the table of closing days, so an
+  empty table gives calendar days and every result is as before; `TARGET` counts the business days of
+  the EUR TARGET rule; `TARGET+TABLE` closes the days of the table too. The numerator is a new locked
+  cell, `DayCountNumerator` (`ACTUAL`, the only one for the moment); it takes the row of `DaysPerYear`,
+  which is retired, so a fixture sets `DayCountConvention` where it set `DaysPerYear`. Business days
+  are normally used only with a denominator of 252 or 250, which the notes of the cells say. The
+  convention and the calendar are settings of the run, like the reporting date: they do not change its
+  class, and Restore parameters leaves them (it still writes `DayCountNumerator` back). The new
+  `params-day-count-numerator` and `params-table-calendar-valid` cases and the changed ones bring
+  `TEST_InputValidation` to 195 cases and 336 checks. The Python reference
+  (`tools/business_calendar.py`, `counted_days` and `years_between`), the cross-check
+  (`tools/rsaccr_crosscheck.py`), the fixture checker, the methodology page, TEST_CASES,
+  INSTALLATION and the protection matrix follow.
+
+- Support the day count in the independent cross-check and document it (#721, third part).
+  `tools/rsaccr_crosscheck.py` reads the day count of a fixture's parameters and translates its
+  dates into the ACTUAL days after the valuation date on the calendar over the days of the year, as
+  the engine does; a date that is not after the valuation date keeps the calendar-day measure. A
+  fixture holds no table of closing days, so `TABLE` and `TARGET+TABLE` read an empty one; any other
+  parameter is `Unsupported`. The methodology page states the day count, the calendar rule with its
+  range of validity, its sources and what was not re-read, the support matrix and the
+  regulatory-versus-what-if note follow, TEST_CASES says that the accuracy contracts are on calendar
+  days over 365 and no case of the catalogue runs on business days, and INSTALLATION describes
+  Restore parameters. A case on business days with the package's figures needs a run of the workbook
+  on that day count and is not committed yet.
+
+- Read the day count on Params and use it (#721, second part of the engine). Reference parameters
+  below the others, `DayCountConvention` and `Calendar`, with list validations and workbook names, and
+  a table of closing days (`Holiday_Table`, 100 rows of date and description, unlocked) at the right of
+  the FX table. S, E, M, T and the time to a reset date are the days after the reporting date, up to
+  and including the date, that the calendar counts, over the days of the year; business days come from
+  `SACCR_BusinessDays`, with the whole years before the year of the date kept for the run, so that a
+  call spans one year at most. The floors in business days (`BusinessDaysPerYear`) are unchanged. A date
+  that is not after the reporting date keeps the calendar-day measure, which only the checks for a
+  matured or expired trade and the floor of S read. The order of start and end date is checked on the
+  dates, not on the years (two dates can be the same number of days apart, and the floor of the
+  supervisory duration then applies), and an option with no counted day left before its expiry is
+  rejected with `TR-EXPIRED` instead of failing the option delta. The day count is listed on the
+  evidence export with the other parameters (the closing days in a new `HOLIDAY_TABLE` section, every
+  row with a date) and is part of the fingerprint of the inputs together with the table. A convention or
+  a calendar that is not allowed, a TARGET calendar with a reporting date before 1 January 1999, and an
+  entry of the table that is not a date from 1 March 1900 stop the run with the new Checks codes
+  `PRM-DAYCOUNT`, `PRM-CALENDAR` and `PRM-HOLIDAY`. The rows of Params from the supervisory-factor table
+  down moved by two, so the table of factors is at `C30:K56` and the FX table at `C59:E64`; the
+  protection matrix, `sheet-style.json`, the protection check and the FX test follow. The prompt of the
+  FX rate cells, which still gave the rate the other way round after #725, now reads units of the
+  currency per 1 unit of the reporting currency.
+
+- Add the business-day count to the worksheet functions (#721, first part of the
+  engine). `SACCR_BusinessDays(StartDate, EndDate, [Holidays], [UseTarget])` counts the
+  business days in (start, end], the first date excluded and the last included as in the
+  Python reference (`tools/business_calendar.py`), negative for a reversed interval. Saturday
+  and Sunday are never counted; the EUR TARGET closing days come from a rule, not a yearly list
+  (1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December, with Easter by the
+  Anonymous Gregorian algorithm; 1999 and 2001 close also on 31 December and 1999 not on the
+  other four, and the rule starts on 1 January 1999); `Holidays` is a date, a range or an array of
+  extra closing days (a weekend date or a duplicate counts once, blank entries are skipped), and
+  `UseTarget` False counts weekends and the table only, with no range of validity. A date
+  before 1 March 1900 and, under the rule, an interval that touches a year before 1999 are
+  `#NUM!`; text in the table is `#VALUE!` and an error value in it is passed on. Nothing in the
+  calculation reads it yet: the day count on Params and the holiday
+  table follow in the next parts. A VBA `Date` is accepted in the table as a serial number, alone or in
+  an array. `TEST_Formulas` gains a case (10 cases, 117 checks; 115 on
+  32-bit VBA) that repeats the Python reference's checks (Easter 2008, 2026 and 2038, the business
+  days of 2024 to 2028, 2000 and 2001 and of ten years, a table with a Friday, a Saturday and a
+  duplicate, dates before 1999 and the errors), every year from 2000 to 2099 and 300
+  pairs of dates with a table against a count made day by day with Gauss's Easter rule.
+
+- Load the bank's own figures from a CSV file (#718, second part). **BankNettingSets
+  file...** and **BankTrades file...** in the Import CSV menu of the K-SACCR tab, and an
+  Import CSV button on each bank sheet, read a file against the contract of the first
+  part and replace the figures of the sheet with its records. There is no staging
+  sheet: the whole file is accepted or nothing changes. A file with a finding, one with
+  more records than the sheet holds (200 netting sets, 500 legs) and a header-only file
+  change nothing, and the dialog lists the findings; a sheet that holds figures asks
+  before they are replaced. An ID keeps its leading zeros (the cells are text), a figure
+  is read with the point of the file in every locale and written as a number, and a blank
+  figure is an empty cell, so the reconciliation does not compare it. The amount scale and
+  the tolerances above the table are not touched. A failure while the sheet is written puts
+  it back as it was (`gTestFault` `bank-write`). **BankNettingSets template...** and
+  **BankTrades template...** in the Templates menu, and an Export CSV template button on
+  each bank sheet, write the blank files. `ImportBankCsv_Silent` is the entry point for tests.
+  `TEST_Reconcile` gains two cases (23 cases, 230 checks): the figures of a file give
+  the same Reconciliation rows as the same figures typed, the leading zeros, the empty
+  cells, the rejected, oversized and empty files, the write failure and the four templates.
+  The Ribbon contract, the template buttons test and `check_csv_contract` follow.
+
+- Specify the CSV files of the bank's own figures (#718, first part). Version 3 of
+  the CSV contract adds `BankNettingSets` and `BankTrades` (version 1 of each): one
+  record per netting set or per trade leg, with an ID, for `BankNettingSets` the
+  regime (`BCBS` or `CRR`, required), the EAD, RC, PFE, the add-ons and the
+  multiplier, and for `BankTrades` the figures of TradeCalc, in the columns of the two
+  sheets and in their order, with a free comment. A blank figure is not compared
+  and is no finding; the amount scale and the tolerances stay on the sheet, and an
+  amount in a file is in the scale of the sheet. The limits are the rows of the
+  sheets, 200 netting sets and 500 legs; a longer file is rejected whole
+  (`CSV-TOO-MANY-RECORDS`), never truncated. An ID that is not on NettingSets or
+  Trades is no finding of the file: the reconciliation reports it as `MISSING IN
+  CALCULATOR`. The contract, the Python reference, the two blank templates
+  (`K-SACCR_BankNettingSets_v1.csv`, `K-SACCR_BankTrades_v1.csv`), the field
+  tables of `CSV_CONTRACT.md`, the import specification page, the generated
+  `CORE_CsvSchema` and `CORE_ImportSpec` modules and the fixtures
+  (`tests/csv`) follow the new files, and `check_csv_contract` compares the sheets'
+  header rows and validation lists with them. The import itself, which loads a file
+  onto the sheet, is the next part of the issue; the exported specification page
+  is now `K-SACCR_Import_Specification_v3.html`.
+
+- Make Clear outputs easy to find (#719). The command was only an item in the
+  drop-down menu of the Run split button, and no sheet had a button for it. It is
+  now a button of its own in the Calculation group of the K-SACCR tab, beside Run,
+  and every output sheet (Results, HedgingSets, Buckets, TradeCalc, Checks,
+  Reconciliation and TradeReconciliation) carries a Clear outputs button in its
+  title row, like the Import buttons of the staging sheets. Both call the same
+  macro as before and behave as before: the five output tables and both
+  reconciliations are emptied, and the inputs, Params and the evidence record stay.
+  `test_template_buttons.py` checks the template (a button and a shape of the
+  macro on each output sheet, shape identifiers unique in the workbook) and the
+  Ribbon source (a button of the Calculation group, mapped to the macro).
+
+- Add the Python reference of a business-day count on the EUR TARGET calendar
+  (#721), the first step of an alternative to the calendar-day year. The module
+  `tools/business_calendar.py` gives the TARGET closing days of every year by
+  rule (1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December, with
+  Easter from the Gregorian computus, so that no yearly list has to be
+  extended), a table of extra closing days that can be added to it or used
+  alone, the count of business days between two dates (the first date excluded,
+  the last included), a fingerprint of the calendar for the evidence of a run,
+  and the day count that turns dates into years (the days counted on a calendar
+  over the days of a conventional year). The rule is valid from 1 January 1999, when TARGET
+  opened; earlier dates are refused. Its tests, `test_business_calendar.py`, run
+  in `tool-tests`: the Easter dates against a second method and against known
+  dates, the closing days of 1999 to 2001 and of 2025 and 2026, the business days
+  of every year from 2000 to 2099 against a count made day by day, and a
+  weekend holiday counted once. Nothing in the workbook changes yet: the engine,
+  Params, the worksheet function and the evidence follow in the same issue.
+
+- Run the quick Excel check of a pull request automatically (#713). The workflow
+  `excel-quick.yml` runs `Verify-SACCR-Branch.ps1 -Quick` on the owner's
+  self-hosted Windows runner for a pull request from a branch of this repository,
+  or by hand, and posts the result in the pull request, one comment per commit.
+  The sheet pictures and the text results go into an artifact, kept for 14 days,
+  without the workbooks and with the machine's paths replaced. It is a
+  pull-request check, never release evidence; the certification stays manual.
+  `tools/Run-SACCR-QuickCheck.ps1` takes an Excel mutex so that two runs never
+  drive Excel at once, and verifies the commit the workflow checked out
+  (`Verify-SACCR-Branch.ps1 -Commit`), so that a branch that moves on while a
+  run waits cannot give a commit a result it did not earn. The workflow invariants gain a rule: only this workflow
+  may run on a self-hosted runner, and only for branches of this repository or
+  by hand, and its steps run with the execution policy `Bypass` of their own
+  process, which a Windows desktop's default policy would otherwise block.
+  `docs/EXCEL_EVIDENCE.md` and `docs/GOVERNANCE.md` describe it.
+
 - Checks diagnostics (#81): append stable Code/Field columns, preserve CSV staging
   identifiers, emit one row per trade violation, and include distinct codes in
   silent run/validation results. Add a registry gate and code-based validation
@@ -201,6 +535,31 @@ Use only the categories needed by a release.
   `check_accuracy_contracts` gate checks them against the expected files'
   tolerances. See [accuracy contracts](docs/methodology/TEST_CASES.md#accuracy-contracts).
 
+- Add reproducible randomized inputs to the **FormulaTest** sheet (#165): a
+  **Randomize inputs** button draws every input of every test within its
+  range, as values, from a seed that is written beside the tolerance (type a
+  seed and press the button to replay the draw); **Restore defaults** writes
+  the 22 shipped input sets back from a table on the sheet. The ranges, with
+  the limits of each function's domain and the branch points, are in a named,
+  editable table (`FormulaTest_Ranges`); a range that leaves a domain or that
+  no joint constraint can meet is refused with a message. No formula on the
+  sheet is volatile. The generator is the new production module
+  `M_FormulaTest`, and the new suite `TEST_FormulaRandom` (19 cases, 47
+  checks), run by `Test_RunAll`, makes 1,000 draws of each of the 14 range
+  sets from a fixed seed and draws at and around their branch points, judged
+  by the sheet's own comparison, and checks the buttons, the refusals and a
+  perturbed Expected. The evidence policy, the README counts and the component
+  list of INSTALLATION.md follow (11 suites, 502 cases, 2,100 checks).
+
+- Record the differences an Excel run measures and check them against the
+  accuracy contracts (#537): the case runner prints a `MEASURED=` line for
+  each numeric comparison, and the evidence validator requires, for a passing
+  `TEST_Cases`, one line for every output of a contract family, with the
+  expected value of the expected file and a difference within the contract's
+  bound or the case's rounding. `tools/measured_differences.py` prints the
+  largest difference of each family from a log. The lines are printed by the
+  suite's own run, not by `Test_RunAll`.
+
 - Add a **Navigation bar** toggle to the Navigate group of the K-SACCR tab
   (#620): it hides and shows column A and the navigation bar on every sheet at
   once, so that wide sheets such as Trades and TradeCalc get the space back.
@@ -242,6 +601,103 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Explain the row of CSV field names of the two staging sheets (#731). D8 of
+  `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
+  give the name each column has in the first line of a CSV file for the sheet, as
+  the CSV contract defines it, to prepare or check a file; the workbook does not
+  read the row (the header row is found by its name, and the rows start below it).
+  `test_template_buttons.py` checks the note, its comments and VML parts, and that
+  the only VML left in the template belongs to notes.
+
+- Replace the form-control buttons of the sheets with rounded-rectangle shapes
+  linked to the macros (#727). Import CSV, Validate staging, Commit import and
+  Export import specifications on the two staging sheets, Randomize inputs and
+  Restore defaults on FormulaTest, and Clear outputs on the seven output sheets are
+  now shapes: navy with white bold text for the commands, light blue with navy text
+  for the secondary one of a sheet, in the colors of the headers. Each sheet's shapes
+  are one group, anchored once in the title row right after the title and after the
+  frozen columns of the sheet (a group across the freeze would be cut when the sheet
+  scrolls), with an equal gap whatever the column widths, so they sit further left
+  than the buttons did and never cover the title. The form controls, their VML drawings, control properties,
+  relationships and content types are gone from the template, and so are the
+  fallback shapes of the old buttons in the drawings. The shapes keep stable names
+  (`btn_ImportCsv`, `btn_ValidateStaging`, ...), are locked with the sheet and run
+  their macros on a protected sheet. `test_template_buttons.py` checks that no form
+  control is left, that every sheet has its shapes with their macros, geometry,
+  colors and labels, that they sit in the title row clear of the title and with an
+  equal gap, and that the macros exist.
+
+- Open the workbook the way it is used (#726). Every sheet is saved at a zoom of
+  100% (three had 90%), and `Auto_Open` gives every visible sheet that zoom again
+  through `ApplyOpeningView`, so a copy saved at another zoom opens like the
+  template; the sheet that was active stays active, events are off meanwhile and
+  the Saved flag is kept. `RibbonOnLoad` selects the K-SACCR tab, so the commands
+  are in view when the workbook opens. The relative tolerance of `BankNettingSets`
+  and `BankTrades` defaults to 1% (0.01) instead of 0.01%; a workbook that holds a
+  value keeps it. `test_template_defaults.py` checks the template and the macro
+  source, and `TEST_MainState` checks the zoom of every sheet after the opening view.
+
+- Select the K-SACCR tab again after an add-in took it (#726). With think-cell
+  installed, its tab loads after ours and the workbook opened on it. `RibbonOnLoad`
+  now also schedules `ActivateRibbonTab`, which selects the K-SACCR tab once more
+  3 seconds later, only while this workbook is the active one, so another open
+  workbook keeps its tab and a tab the user chooses after that moment is left alone;
+  `Workbook_BeforeClose` cancels a selection still scheduled so that it cannot
+  reopen the workbook. `test_template_defaults.py` checks the source.
+
+- Quote the FX rates of Params as the market does (#725, behavior change). The rate
+  column of the FX table is now units of the currency per 1 unit of the reporting
+  currency, so that EUR/USD 1.16 is entered as 1.16 with a EUR reporting currency;
+  it was units of the reporting currency per unit, which asked for 0.86. The engine
+  divides a notional or an MtM by the rate where it multiplied. The header of the
+  column changed, so a workbook that still has the old one is refused by the layout
+  check, with a message that tells the user to invert every rate and rename the
+  header: the rates are never converted silently. The illustrative rates of the
+  template are market-style (USD 1.16, GBP 0.86, JPY 172, CHF 0.93). The case
+  `fx-rate-market-quote` of `TEST_InputValidation` runs a trade in USD at 1.25 and
+  checks the adjusted notional against the EUR one divided by 1.25, and
+  `test_fx_quote.py` checks the header, the rates and the division. Fixtures and
+  cases in their calculation currency keep the rate 1 and are unchanged.
+
+- Make the two reconciliation sheets easier to read and to work on (#720).
+  Bank figure, Calculator figure and the difference are shown in one number
+  format with two decimals (they were `#,##0.00########`, which displayed the
+  calculator's unrounded value next to the bank's two decimals), and the factor
+  rows (the multiplier on Reconciliation, M, the supervisory duration, the delta and the
+  maturity factors on TradeReconciliation) in a format with six, chosen by the
+  `Measure` column through a conditional format that covers the whole column, so that a sort, a filter or a long reconciliation keeps it.
+  The difference column is the absolute difference, `|calculator - bank|`, and the
+  relative difference keeps the sign; a bank figure of 0 has no relative difference, so
+  its direction is not shown. Both sheets carry an AutoFilter on the header row
+  (from the header row to row 100,000), and a run applies a filter the user set to the new rows; a reconciliation of more than 99,994 rows gets a new filter over all its rows, without the old criteria. The
+  sheets are never protected (role Working in the editability matrix, `PROTECT_NONE`
+  in `CORE_Config`): the user can sort, filter, add columns and write notes, and a
+  run or Clear outputs rewrites only the table. The gate of the matrix knows the
+  role, and `test_reconciliation_sheets.py` checks the template. The summary tiles of the
+  same issue are in the next entry.
+
+- Show a summary of the reconciliation as tiles above the table of the two
+  reconciliation sheets (#720). Eight tiles in two rows (Last reconciliation, Rows
+  shown, Figures compared, Match, Difference, Not in bank file, Missing in
+  calculator and Duplicate rows) and a ninth for the other results (withheld, invalid
+  input, regime mismatch, and on TradeReconciliation excluded and not applicable,
+  with their counts, or None). Each tile is a navy label shape and a value shape
+  beside it, in the style of the sheet buttons (the value of Match green and that of
+  Difference red), as one group right of the frozen columns, free of the column
+  widths and row heights. A value shape is linked to a helper cell (`textlink`), and
+  the helper cells (columns Q to V of rows 1 to 5, hidden, name
+  `Reconciliation_Tiles` and `TradeReconciliation_Tiles`) hold the formulas: counts
+  of the visible rows with `SUBTOTAL(103, ...)` to the last row of the sheet (a
+  reconciliation longer than the AutoFilter limit is counted whole), so the tiles
+  follow a filter and need no macro, and `0` or `None` when the table is empty. The shapes are part of
+  the template, locked, and outside the navigation-bar group. The header row moved from
+  row 6 to row 10 (and later to row 11) to make room (the name `Reconciliation_Header`, the frozen panes, the
+  AutoFilter, the conditional formats and `sheet-style.json` follow; the macros find
+  the table by its name). The Rows shown tile counts the rows of the table that the
+  filter leaves, not the rows of the bank sheet: a distinct count of bank rows
+  would recalculate over the whole table at each edit. The per-measure table of
+  amounts of the issue is not part of this change.
+
 - Give the Excel suites one shared lifecycle, `TEST_Kit` (#536). It owns the
   case, check and failure counts, the completeness check against the
   expected counts, and one log format: every suite prints `SUITE=` with its
@@ -272,6 +728,29 @@ Use only the categories needed by a release.
   their content is in `main`.
 
 ### Fixed
+
+- Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
+  figures, the sum of the absolute differences and the largest of them now count only the rows
+  compared, MATCH and DIFFERENCE. They counted every row shown, also those with a figure on one
+  side only (missing at the bank or in the calculator), so the two sums covered different rows:
+  with 66 notional rows of which 3 compared, the calculator's sum held 63 notionals the bank did
+  not have. The note above the tables and the two headers ("Sum of bank figures compared",
+  "Sum of calculator figures compared") say so; `test_reconciliation_sheets.py` checks the
+  formulas. Found by the owner in Excel.
+
+- Set the rate of the reporting currency to 1 when Download prices writes the rates (#745), with
+  either source. The row of the reporting currency has no pair, so it kept the rate it had: after
+  the reporting currency was changed, to USD for example, USD kept its rate against the euro and
+  a run refused the table, which needs 1 for the reporting currency. The 1 is written with the
+  other rates and put back with them when the lookup fails. `TEST_MainState` sets that rate to
+  1.5 before each lookup and checks that it comes back as 1. Found by the owner in Excel.
+
+- Post the report of the automatic quick Excel check on a pull request that has
+  no comment yet (#713): Windows PowerShell 5.1 returns an empty string for the
+  empty list of comments, which the upsert read as a comment without a body and
+  stopped with a warning, so the report reached the job summary and the
+  artifact but not the pull request. A test covers an empty string and a
+  comment without a body.
 
 - Correct the formatting the first sheet review found (#708), with the owner's
   decisions of 2026-11-15:
@@ -346,6 +825,15 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Document the CSV import of the bank sheets (#718, third part). The import
+  specification page has a section on how a bank file is loaded (as a whole, with a
+  question before figures are replaced, text for the identifier, regime and comment,
+  numbers for the figures, a blank figure not compared, scale and tolerances left on the
+  sheet) and says that the two bank templates are written from the Templates menu;
+  `CSV_CONTRACT.md` has a section on the bank files; the README macro table has the two import
+  entries and the four templates; INSTALLATION describes `ImportBankCsv_Silent`. The
+  page and the generated `CORE_ImportSpec` module follow, and a test checks the page.
+
 - State in GOVERNANCE when the PR that brings `main` back into the release
   branch needs no new automated review: its head is the integration merge
   commit, its diff against the release branch is empty and the integration
@@ -357,6 +845,13 @@ Use only the categories needed by a release.
   rulebook through the workbook's calculation chain, with worked examples, to
   the other uses of the exposure, calibration and limitations. The assets
   README describes it and the methodology links it.
+
+- Describe in GOVERNANCE how the project continues without its one
+  maintainer: a successor designated in the owner's GitHub account who, after
+  the owner's death and GitHub's waiting period, transfers the repository and
+  maintains it there; what a lasting incapacity leaves (a fork); the
+  OpenSSF Best Practices entry; and nothing else to hand over (no signing
+  key, no custom domain, one analytics-only secret).
 
 - The website's download buttons, checksum link, status line, certification
   note and release link point to release 1.2.0, now published.

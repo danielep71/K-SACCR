@@ -18,7 +18,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the navigation bar of the template (`test_navigation_bar.py`), the sheet style file and the template's tabs (`test_check_sheet_style.py`), the sheet review's functions that need no Excel (`test_review_sheets_script.py`, skipped without `pwsh`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the buttons of the sheets, rounded shapes with their macros, the note on the CSV field-name row of the staging sheets, and the Clear outputs button of the Ribbon (`test_template_buttons.py`), the reconciliation sheets of the template and their summary tiles (`test_reconciliation_sheets.py`), the opening state of the template and the limits Excel puts on its validation messages (`test_template_defaults.py`), the FX table convention of the template and the engine (`test_fx_quote.py`), the navigation bar of the template (`test_navigation_bar.py`), the sheet style file and the template's tabs (`test_check_sheet_style.py`), the sheet review's functions that need no Excel (`test_review_sheets_script.py`, skipped without `pwsh`), the automatic quick check's guard against forks, report, artifact and cleanup (`test_quick_check_script.py`, skipped without `pwsh`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the measured differences of an Excel run (`test_measured_differences.py`), the business-day calendar and its day-count conventions (`test_business_calendar.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
 | `*-fixtures` | The whitespace gate and the jump, conditional and public-API checkers run their own positive and negative self-tests first |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment) and no module-level code after the first procedure, where Excel allows only comments (#708); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one; VBA source outside string literals, comments included, is ASCII |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
@@ -26,9 +26,9 @@ pull request's whole range.
 | `check_vba_conditionals` | `#If`/`#ElseIf`/`#Else`/`#End If` are balanced and use only `VBA6`, `VBA7`, `Win32`, `Win64`; `Declare` in reachable 64-bit branches is `PtrSafe`; no `#Const` |
 | `check_vba_public_api` | Every `Public` declaration in `src/modules/` is listed, with its exact signature, in `docs/PUBLIC_API.txt`, and nothing else is; no implicit public procedures; one identifier per public `Const` or variable; no name collisions |
 | `check_test_cases` | Every fixture and expected file under `tests/` follows `docs/methodology/TEST_CASES.md`: envelope, declared fields with their types and units, quantity names and forms, trade references, tolerances, reference classes with their required fields and registered sources, the `illustrative-` naming rule and unique catalogue IDs; settlement, reset and CCP inputs that the engine rejects are declared in every expected file of the fixture (`trade_status` `EXCLUDED` for a trade, a `netting_set_status` starting with `INVALID` for the netting set); a registered EBA Q&A is cited by its source ID (such as `EBA-QA-2023_6962`), not in prose (`EBA Q&A 2023_6962` or `EBA Single Rulebook Q&A 2023_6962`), in the expected files, the VBA source and the methodology; only the source register's row that defines the ID may use the full name. It does not run any case |
-| `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS` in `CORE_Config` and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates, the field tables of `docs/csv/CSV_CONTRACT.md` and the import specification `docs/csv/K-SACCR_Import_Specification.html` are what the contract generates (`csv_contract.py --write-templates`, `import_spec.py --write`); the contract's example records, three to five per file, import together: each file is accepted and the Trades example has no finding between records or against the template's Params; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
-| `check_workbook_protection` | Every sheet of the template is in the editability matrix `docs/workbook/protection.json` and nothing else is; each cell is locked or unlocked as the matrix says, judged by its own format, else its row's, else its column's, so a cell the template does not store yet counts too; the input columns are unlocked to the last row and no other column is; no row format is unlocked; no locked cell has the yellow input fill; every sheet and the workbook structure are saved protected without a password, each sheet allowing sorting, filtering and inserting rows exactly as the matrix says, filtering only with an AutoFilter; the `PROTECT_` lists of `CORE_Config` name the same sheets |
-| `check_sheet_style` | `docs/workbook/sheet-style.json` has its keys, gridlines off, one tab color for each role of the editability matrix, the header fill and font size and the header rows of each sheet; every sheet of the template has the tab color of its role and its gridlines turned off; every font is the style's font and every cell format is vertically centered; every text cell of a header row is bold, white, of the header size, on the header fill, and the row is tall enough for its wrapped text, by a line count (`wrapped_lines`) that is the same on every host and never fewer than Excel shows; no shared formula refers to another sheet, which Excel refuses to open (#708). What Excel displays after a run is checked by the sheet review of the quick Excel run |
+| `check_csv_contract` | The CSV input contract `docs/csv/contract.json` has known types, valid row rules, and rules between records (`portfolio_rules`) whose codes are listed and whose columns exist; its sheet headers match `NS_HEADERS` and `TR_HEADERS`, which `generate_csv_vba.py` writes into `CORE_CsvSchema` from the contract (#756), and the template's header rows, compared as the engine compares them; the allowed values of every code and flag column match the template's list validation; the blank templates, the field tables of `docs/csv/CSV_CONTRACT.md` and the import specification `docs/csv/K-SACCR_Import_Specification.html` are what the contract generates (`csv_contract.py --write-templates`, `import_spec.py --write`); the contract's example records, three to five per file, import together: each file is accepted and the Trades example has no finding between records or against the template's Params; every fixture in `tests/csv/` gives exactly the findings recorded in `tests/csv/expected.json`, every portfolio case of `tests/csv/portfolio.json` exactly its findings between records, and every staged case of `tests/csv/staged.json` exactly its findings about a staging sheet's rows |
+| `check_workbook_protection` | Every sheet of the template is in the editability matrix `docs/workbook/protection.json` and nothing else is; each cell is locked or unlocked as the matrix says, judged by its own format, else its row's, else its column's, so a cell the template does not store yet counts too; the input columns are unlocked to the last row and no other column is; no row format is unlocked; no locked cell has the yellow input fill; every sheet and the workbook structure are saved protected without a password, each sheet allowing sorting, filtering and inserting rows exactly as the matrix says, filtering only with an AutoFilter; the `PROTECT_` lists of `CORE_Config` name the same sheets; the matrix names a cell by its workbook name wherever the template has one (#756) |
+| `check_sheet_style` | `docs/workbook/sheet-style.json` has its keys, gridlines off, one tab color for each role of the editability matrix, the header fill and font size and the header rows of each sheet; every sheet of the template has the tab color of its role and its gridlines turned off; every font is the style's font and every cell format is vertically centered; every text cell of a header row is bold, white, of the header size, on the header fill, and the row is tall enough for its wrapped text, by a line count (`wrapped_lines`) that is the same on every host and never fewer than Excel shows; no shared formula refers to another sheet, which Excel refuses to open (#708). What Excel displays after a run is checked by the sheet review of the quick Excel run; a header row is given by the workbook name of its header cell (#756), and a row may be a pixel shorter than the rule, as Excel rounds it on save |
 | `check_links` | Every relative link and anchor in tracked Markdown reaches an existing, non-empty file inside the repository and a heading or explicit anchor in it; code blocks, code spans and remote URLs are excluded; `check_external_links.py` checks those weekly, outside the gates |
 | `check_vba_identifiers` | Advisory: an inventory of the identifiers each VBA project configuration uses, with the names it cannot resolve; its findings never fail the run, an analysis failure does ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
 | `check_vba_dependencies` | Every reference between VBA modules follows the layer direction, apart from the reviewed #220 exceptions ([details](#vba-identifiers-dependencies-and-shared-lexer-538)) |
@@ -48,6 +48,19 @@ its own log, and the optional `Test_RunAll` summary. `--inventory` prints the
 source digests a record needs, and `--check-policy` is the
 `excel-evidence-policy` gate above. Its synthetic tests,
 `test_excel_evidence.py`, run in `tool-tests`. See [`docs/EXCEL_EVIDENCE.md`](../docs/EXCEL_EVIDENCE.md).
+
+`measured_differences.py` checks the `MEASURED=` lines the case suite prints
+(#537) against the accuracy contracts: `check_excel_evidence.py` calls it for a
+passing `TEST_Cases`, and run on a log it prints the largest measured
+difference of each family (`--log`). Its tests, `test_measured_differences.py`,
+run in `tool-tests`.
+
+`business_calendar.py` is the Python reference of the business-day count (#721):
+the EUR TARGET closing days by rule, a table of extra closing days, the count of
+business days between two dates and the day count of the workbook: the ACTUAL
+days counted on the calendar `TARGET`, `TARGET+TABLE` or `TABLE` over the days of
+the conventional year. It is not a gate; its tests, `test_business_calendar.py`,
+run in `tool-tests`.
 
 `Certify-SACCR.ps1` (or `Certify-SACCR.cmd`, double-clicked) runs the Excel
 certification of the checked-out commit with one command on the Windows host
@@ -104,6 +117,16 @@ checks pass. Either way
 the script never pushes or discards changes, and checks made by eye, such
 as the Ribbon's labels, stay with the operator.
 
+`Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
+owner's self-hosted runner (#713): it refuses a run that is not a branch of this
+repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Quick
+-Commit SHA` on the commit the workflow checked out (that switch fetches and checks
+out nothing, and stops when HEAD is another commit) and reports the result as a
+comment of the pull request and an artifact of the run. Its functions that need no
+Excel are in `QuickCheck-Report.ps1`; `test_quick_check_script.py` tests them and
+runs the script end to end against a fake verification; see the
+[automatic quick check](../docs/EXCEL_EVIDENCE.md#automatic-quick-check).
+
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
 The script opens a built workbook read-only in Excel and exports every VBA
@@ -121,7 +144,7 @@ Excel.
 expected values in `tests/expected` with an external implementation, the
 CRAN package `SACCR` 3.4 with `Trading` 3.2 (#352). The Python script
 translates each fixture into the package's trades, CSA and collateral, one
-counterparty per netting set, with times in years on the fixture's DaysPerYear;
+counterparty per netting set, with times in years on the fixture's YearConvention and Calendar;
 the R script runs the package, which this repository calls but does not copy
 (GPL-3); the comparison prints each value with its difference and the
 expected file's tolerance, the package's figures for fixtures with no numeric
@@ -178,17 +201,22 @@ one year; at most two trades share one commodity. It writes the portfolio in
 the fixture format and the two CSV files of the input contract, checked with
 its reference validator. `run` runs the package on the portfolio. After the
 workbook has imported the two files and run, with AsOfDate 2026-09-30,
-ReportingCcy EUR and DaysPerYear 365, `compare` reads the file Export evidence
+ReportingCcy EUR and the day count of the portfolio (by default YearConvention 365, Calendar TABLE; `generate
+--year-convention 250 --calendar TARGET` draws the same portfolio read on business days, #721), `compare` reads the file Export evidence
 writes and compares each netting set's regime, status, trades used, RC,
 add-on per asset class, aggregate add-on, multiplier, PFE and EAD with the
 package, within the full-precision tolerance of
 [`TEST_CASES.md`](../docs/methodology/TEST_CASES.md#tolerance). It refuses
-evidence of another reporting date or currency, or of results out of date,
-and writes `comparison.csv` with a classification column for each
+evidence of another reporting date or currency, of results out of date, or of
+a run on another day count, calendar or table of closing days than the
+portfolio's, or one that does not record them (`RUN;year_convention`,
+`RUN;calendar`, `RUN;holiday_table`): figures of two day counts are never
+compared. It writes `comparison.csv` with a classification column for each
 difference:
 
 ```bash
-python tools/rsaccr_portfolio.py generate --out <folder> [--seed 352] [--netting-sets 40]
+python tools/rsaccr_portfolio.py generate --out <folder> [--seed 352] [--netting-sets 40] \
+    [--year-convention 365] [--calendar TABLE]
 python tools/rsaccr_portfolio.py run --out <folder> --rscript Rscript
 python tools/rsaccr_portfolio.py compare --out <folder> --evidence <evidence.csv>
 ```
@@ -202,8 +230,13 @@ every figure, and whose cap does not bind, as test cases of class
 `independent` with the package's values (#100):
 
 ```bash
-python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010
+python tools/rsaccr_portfolio.py cases --out <folder> --netting-sets RS-004,RS-010 [--unchecked]
 ```
+
+`--unchecked` writes the cases without a comparison, and their derivation
+says that `TEST_Cases` is their first comparison with the workbook: the two
+cases on business days were written so. A case of a portfolio on another day
+count carries it in its ID (`-y250-target`) and in its fixture's parameters.
 
 Its tests run in `tool-tests` without R or Excel.
 
@@ -256,7 +289,7 @@ A full synchronization first asks which workbook it is building, unless
 
 | Mode | Components | Use |
 | --- | --- | --- |
-| Production | The `production` configuration of `tools/vba-projects.json` (the eleven standard modules of `src/`) and its document modules | A workbook that calculates |
+| Production | The `production` configuration of `tools/vba-projects.json` (the twelve standard modules of `src/`) and its document modules | A workbook that calculates |
 | Development | The `development` configuration: the production modules and every test module of `tests/modules/` | A workbook that runs the test suites, which write to the input and output sheets |
 
 Any other answer cancels with exit code 2 and the workbook is not changed.
@@ -404,7 +437,7 @@ Anything else is reported as *unknown*, never as a defect.
 
 | Configuration | Modules |
 | --- | --- |
-| `production` | The eleven standard modules of a workbook built from the template |
+| `production` | The twelve standard modules of a workbook built from the template |
 | `development` | Those plus the fourteen test modules of `tests/modules/`, as in INSTALLATION.md |
 
 The document modules (`ThisWorkbook` and the sheet modules) are listed under
@@ -459,6 +492,14 @@ checks out no code and refuses a release that already carries signatures.
 release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 
+`.github/workflows/excel-quick.yml`, **Excel quick check**, runs the quick Excel
+check on the owner's self-hosted runner (label `excel`, declared for actionlint in
+`.github/actionlint.yaml`) for a pull request from a branch of this repository, or by
+hand. It is the one workflow that may run on a self-hosted runner; its job holds
+`contents: read` and `pull-requests: write` and posts the result in the pull
+request. See the
+[automatic quick check](../docs/EXCEL_EVIDENCE.md#automatic-quick-check).
+
 <a id="workflow-invariants"></a>
 
 `check_workflows.py` holds those invariants; `test_check_workflows.py` runs
@@ -468,10 +509,11 @@ them against the repository and against a deliberate violation of each:
 | --- | --- |
 | Pins | A `uses:` is not pinned to a 40-character commit SHA, or an `actions/checkout` lacks `persist-credentials: false` |
 | Limits | A workflow declares no top-level `permissions`, or a job has no `timeout-minutes` |
-| Write permissions | A job holds a write permission other than `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, `pull-requests` in `pr-milestones.yml`/`reconcile`, or `contents` and `id-token` in `release-signing.yml`/`sign`; or a workflow grants one at its top level |
+| Write permissions | A job holds a write permission other than `pull-requests` in `excel-quick.yml`/`quick`, `issues` in `labels-sync.yml`/`reconcile`, `issues` in `external-links.yml`/`audit`, `contents` in `daily-traffic.yml`/`traffic`, `issues` in `daily-traffic.yml`/`alert`, `pull-requests` in `pr-milestones.yml`/`reconcile`, or `contents` and `id-token` in `release-signing.yml`/`sign`; or a workflow grants one at its top level |
 | Repository integrity | The `static-checks.yml` job has an `if` or a `strategy`, another name, `pull_request` or `push` filters other than branches `main` and `release/**`, or `docs/GOVERNANCE.md` no longer names it as the required check |
 | Label sync | The `reconcile` job of `labels-sync.yml` is not limited to the default branch |
 | Milestones | `pr-milestones.yml` changes its events, its permissions, its concurrency (one group per pull request and one for the full scan) or its condition, or is not one inline step whose script contains no `${{` |
+| Self-hosted runner | A job other than `excel-quick.yml`/`quick` may run on a self-hosted runner (an expression or a group counts as one), or that job is started by an event other than `pull_request` (with `branches`) and `workflow_dispatch`, loses its condition (this repository's branches, or a run by hand), holds permissions other than `contents: read` and `pull-requests: write`, has no `timeout-minutes` of at most 120, may be cancelled while running, uses a secret, has a `run` step with `${{` or a `run` step whose `shell` lacks `-ExecutionPolicy Bypass`; its workflow has top-level permissions other than `{}` |
 | Dependabot | An ecosystem the repository pins (`github-actions`, `pip`) has no block or more than one, or a block sets a milestone, lacks the `bug.yml` assignee, or has a priority other than exactly `P3` |
 
 The traffic tests also enforce step-scoped App credentials, the exact token

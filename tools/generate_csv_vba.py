@@ -31,6 +31,11 @@ from csv_contract import (
 from import_spec import example_text, render
 
 SCHEMA = "src/core/CORE_CsvSchema.bas"
+# The constant of the expected sheet headers of each file, which the engine compares with the header row (#35).
+HEADER_CONSTANTS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS",
+                    "BankNettingSets": "BN_HEADERS", "BankTrades": "BT_HEADERS"}
+UNREAD_COLUMNS = {"comment"}   # Columns the engine does not read: an empty entry in the expected headers
+HEADER_PIECE = 80              # Characters of a header constant per continuation line
 SPECIFICATION_MODULE = "src/core/CORE_ImportSpec.bas"
 SPECIFICATION_FILE = "K-SACCR_Import_Specification_v{version}.html"
 PIECE_LENGTH = 200     # Characters of the page per VBA statement
@@ -119,7 +124,8 @@ SCHEMA_HEADER = '''Attribute VB_Name = "CORE_CsvSchema"
 '   None outside this VBA project. CsvSpecOf fills a CsvSpec for "Trades"
 '   or "NettingSets", with its columns (1 To ColumnCount, in contract
 '   order) and rules (1 To RuleCount; erased when there is none); the CSV_
-'   constants hold the format and type limits.
+'   constants hold the format and type limits, and NS_HEADERS, TR_HEADERS,
+'   BN_HEADERS and BT_HEADERS the sheet headers the engine expects (#756).
 '   Allowed values, reserved keys and column lists are separated by "|",
 '   which no listed value contains.
 '
@@ -260,6 +266,32 @@ End Sub
 '''
 
 
+def header_constant_lines(contract: dict[str, Any]) -> list[str]:
+    """The expected sheet headers of each file, "|"-separated in column order, an unread column empty (#756)."""
+    lines = ["    'Sheet headers of each file in column order, separated by \"|\"; an",
+             "    'empty entry is a column the engine does not read. The engine compares",
+             "    'them with the header row, ignoring case, spaces, tabs and line breaks,",
+             "    'and stops the run when one differs: a column was inserted, deleted or",
+             "    'moved (#35)."]
+    for kind, constant in HEADER_CONSTANTS.items():
+        headers = ["" if c["name"] in UNREAD_COLUMNS else c["sheet_header"] for c in contract["files"][kind]["columns"]]
+        text = joined(headers)
+        if not text.isascii() or '"' in text:
+            raise ValueError(f"{kind}: a sheet header a VBA constant cannot hold: {text}")
+        pieces, piece = [], ""
+        for header in headers:
+            entry = header + "|"
+            if piece and len(piece) + len(entry) > HEADER_PIECE:
+                pieces.append(piece)
+                piece = ""
+            piece += entry
+        pieces.append(piece)
+        pieces[-1] = pieces[-1][:-1]
+        body = " & _\n            ".join(f'"{p}"' for p in pieces)
+        lines.append(f"        Public Const {constant} As String = _\n            {body}")
+    return lines
+
+
 def schema_module(contract: dict[str, Any]) -> str:
     check_supported(contract)
     types = contract["types"]
@@ -279,6 +311,7 @@ def schema_module(contract: dict[str, Any]) -> str:
     lines = [SCHEMA_HEADER.rstrip("\n")]
     for name, kind, value, comment in constants:
         lines.append(f"        Public Const {name.ljust(width)} As {kind} = {value}    '{comment}")
+    lines += header_constant_lines(contract)
     lines.append(SCHEMA_TYPES.rstrip("\n"))
     for kind, spec in contract["files"].items():
         columns, rules = spec["columns"], spec.get("row_rules", [])

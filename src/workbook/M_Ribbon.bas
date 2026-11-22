@@ -100,6 +100,10 @@ Attribute VB_Name = "M_Ribbon"
         Private Const MSG_TITLE     As String = "K-SACCR"
     'The hidden workbook name that holds the Ribbon's pointer (#216).
         Private Const RIBBON_POINTER_NAME   As String = "ksRibbonPointer"
+    'The id of the K-SACCR tab in customUI14.xml, selected when the workbook opens (#726).
+        Private Const RIBBON_TAB_ID         As String = "ksTab"
+    'Seconds after the load of the Ribbon at which the tab is selected once more (#726).
+        Private Const TAB_RETRY_SECONDS     As Long = 3
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -107,6 +111,8 @@ Attribute VB_Name = "M_Ribbon"
         Private mRibbon             As IRibbonUI    'The Ribbon, from RibbonOnLoad
         Private mInCallback         As Boolean      'A state callback is running
         Private mHeldPointer        As String       'The stored pointer while a save runs
+        Private mTabAt              As Date         'When the next selection of the tab is scheduled
+        Private mTabName            As String       'The procedure it was scheduled with
 
 '------------------------------------------------------------------------------
 ' PUBLIC PROCEDURES
@@ -121,14 +127,115 @@ Public Sub RibbonOnLoad( _
 ' PURPOSE
 '   Keep the Ribbon object Excel passes when it loads the tab, and store
 '   its pointer with this session's window handle in the hidden name
-'   RIBBON_POINTER_NAME, without marking the workbook changed (#216).
+'   RIBBON_POINTER_NAME, without marking the workbook changed (#216), and
+'   open the tab K-SACCR (#726). An add-in that loads its own tab after
+'   this one (think-cell) takes the selection away, so the tab is selected
+'   again once, a moment later, by ActivateRibbonTab.
+'
+' ERROR POLICY
+'   Selecting the tab is best effort: a failure never stops the load.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-21
 '==============================================================================
 '
         Set mRibbon = Ribbon
         WritePointer PointerText(ObjPtr(Ribbon), Application.Hwnd)
+        On Error Resume Next
+        Ribbon.ActivateTab RIBBON_TAB_ID
+        On Error GoTo 0
+        ScheduleTabActivation
+
+End Sub
+
+
+Public Sub ActivateRibbonTab()
+'
+'==============================================================================
+'                             ActivateRibbonTab
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Select the tab K-SACCR once more, TAB_RETRY_SECONDS after the Ribbon
+'   loaded, for an add-in that took the selection when its own tab loaded
+'   (#726). Application.OnTime runs it, once. It selects the tab only while
+'   this workbook is the active one, so that another open workbook keeps its
+'   own tab. Only the load of the workbook starts it: a sheet change or a tab
+'   the user chooses after that moment is left alone. Excel cannot say which
+'   tab is selected, so a tab the user chose within those seconds is replaced.
+'
+' ERROR POLICY
+'   Never raises: the tab stays where it is when it cannot be selected.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        mTabAt = 0
+        On Error GoTo Done
+        If mRibbon Is Nothing Then GoTo Done
+        If Not Application.ActiveWorkbook Is ThisWorkbook Then GoTo Done
+        mRibbon.ActivateTab RIBBON_TAB_ID
+
+Done:
+
+End Sub
+
+
+Public Sub CancelTabActivation()
+'
+'==============================================================================
+'                            CancelTabActivation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Cancel the selection of the tab that is scheduled, when there is one,
+'   so that Application.OnTime does not reopen a workbook that was closed
+'   before it ran (#726). ThisWorkbook.Workbook_BeforeClose calls it.
+'
+' ERROR POLICY
+'   Never raises: a selection that already ran cannot be cancelled, and that
+'   is the expected case.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error Resume Next
+        If mTabAt <> 0 Then
+            Application.OnTime mTabAt, mTabName, , False
+        End If
+        On Error GoTo 0
+        mTabAt = 0
+        mTabName = vbNullString
+
+End Sub
+
+
+Private Sub ScheduleTabActivation()
+'
+'==============================================================================
+'                           ScheduleTabActivation
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Schedule ActivateRibbonTab TAB_RETRY_SECONDS from now. The
+'   workbook name is quoted, with an apostrophe in it doubled, as Excel
+'   requires (#726).
+'
+' ERROR POLICY
+'   Never raises: when it cannot be scheduled, the tab is not selected again.
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+        On Error GoTo Failed
+        mTabAt = Now + TimeSerial(0, 0, TAB_RETRY_SECONDS)
+        mTabName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!M_Ribbon.ActivateRibbonTab"
+        Application.OnTime mTabAt, mTabName
+        Exit Sub
+
+Failed:
+        mTabAt = 0
+        mTabName = vbNullString
 
 End Sub
 
@@ -167,6 +274,10 @@ Public Sub RibbonAction( _
                 M_Main.ImportNettingSetsCsv
             Case "ImportTradesCsv"
                 M_Main.ImportTradesCsv
+            Case "ImportBankNettingSetsCsv"
+                M_Main.ImportBankNettingSetsCsv
+            Case "ImportBankTradesCsv"
+                M_Main.ImportBankTradesCsv
             Case "ValidateStaging"
                 M_Main.ValidateStaging
             Case "CommitImport"
@@ -175,6 +286,10 @@ Public Sub RibbonAction( _
                 M_Main.ExportNettingSetsCsvTemplate
             Case "ExportTradesCsvTemplate"
                 M_Main.ExportTradesCsvTemplate
+            Case "ExportBankNettingSetsCsvTemplate"
+                M_Main.ExportBankNettingSetsCsvTemplate
+            Case "ExportBankTradesCsvTemplate"
+                M_Main.ExportBankTradesCsvTemplate
             Case "ExportImportSpecification"
                 M_Main.ExportImportSpecification
             Case "ExportEvidence"
@@ -429,6 +544,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ImportNettingSetsCsv"
             Case "ksImportTrades"
                 RibbonMacro = "ImportTradesCsv"
+            Case "ksImportBankNettingSets"
+                RibbonMacro = "ImportBankNettingSetsCsv"
+            Case "ksImportBankTrades"
+                RibbonMacro = "ImportBankTradesCsv"
             Case "ksValidateStaging"
                 RibbonMacro = "ValidateStaging"
             Case "ksCommitImport"
@@ -437,6 +556,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ExportNettingSetsCsvTemplate"
             Case "ksTemplateTrades"
                 RibbonMacro = "ExportTradesCsvTemplate"
+            Case "ksTemplateBankNettingSets"
+                RibbonMacro = "ExportBankNettingSetsCsvTemplate"
+            Case "ksTemplateBankTrades"
+                RibbonMacro = "ExportBankTradesCsvTemplate"
             Case "ksImportSpecification"
                 RibbonMacro = "ExportImportSpecification"
             Case "ksExportEvidence"
@@ -501,6 +624,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shBankTrades"
             Case "ksGoTradeReconciliation"
                 RibbonSheet = "shTradeReconciliation"
+            Case "ksGoReconSummary"
+                RibbonSheet = "shReconSummary"
             Case "ksGoTestCatalogue"
                 RibbonSheet = "shTestCatalogue"
             Case "ksGoFormulaTest"

@@ -96,6 +96,21 @@
       "description": "Parameter must be TRUE or FALSE (found",
       "status": "active"
     },
+    "PRM-DAYCOUNT": {
+      "constant": "DIAG_PRM_DAYCOUNT",
+      "description": "Day-count convention must be 366, 365, 364, 360, 252 or 250, or the day-count numerator ACTUAL (found",
+      "status": "active"
+    },
+    "PRM-CALENDAR": {
+      "constant": "DIAG_PRM_CALENDAR",
+      "description": "Calendar must be TARGET, TARGET+TABLE or TABLE, or the TARGET calendar starts on 1 January 1999 and the reporting date is earlier.",
+      "status": "active"
+    },
+    "PRM-HOLIDAY": {
+      "constant": "DIAG_PRM_HOLIDAY",
+      "description": "Closing day on a row of the Params table is not a date from 1 March 1900.",
+      "status": "active"
+    },
     "PRM-REGIME": {
       "constant": "DIAG_PRM_REGIME",
       "description": "Regime must be BCBS or CRR (found an error value).",
@@ -573,7 +588,7 @@
     },
     "TR-EXPIRED": {
       "constant": "DIAG_TR_EXPIRED",
-      "description": "The option has expired on or before the reporting date.",
+      "description": "The option has expired on or before the reporting date, or no counted day is left before its expiry on the calendar.",
       "status": "active"
     },
     "TR-EXPIRY-MATURITY": {

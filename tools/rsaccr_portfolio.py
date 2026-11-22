@@ -4,6 +4,7 @@
 Three steps, each a command:
 
     python tools/rsaccr_portfolio.py generate --out DIR [--seed 352] [--netting-sets 40]
+        [--year-convention 365] [--calendar TABLE]
     python tools/rsaccr_portfolio.py run --out DIR [--rscript Rscript]
     python tools/rsaccr_portfolio.py compare --out DIR --evidence EVIDENCE.csv
 
@@ -12,21 +13,32 @@ the fixture format of tests/fixtures, one entry per netting set, and the two
 CSV files of the input contract, ``K-SACCR_NettingSets_v2.csv`` and
 ``K-SACCR_Trades_v1.csv``, which the workbook imports. Every trade is one the
 package represents as the engine does (tools/rsaccr_crosscheck.py), and every
-amount is in EUR, so no FX conversion enters. ``run`` translates the portfolio
+amount is in EUR, so no FX conversion enters. ``--year-convention`` and
+``--calendar`` set the convention that turns the dates into years (#721): the
+days of the conventional year and the calendar whose days are counted, as on
+Params; the default, 365 on the calendar TABLE, counts calendar days.
+``run`` translates the portfolio
 with rsaccr_crosscheck.translate_fixture and runs tools/rsaccr_run.R.
 ``compare`` reads the evidence CSV that Export evidence writes after the
 workbook's run of the same files, and compares each netting set's Results with
 the package: RC, the add-on of each asset class, the aggregate add-on, the
 multiplier, PFE and EAD, with the full-precision tolerance of
 docs/methodology/TEST_CASES.md. It writes ``comparison.csv`` with an empty
-classification column for each difference.
+classification column for each difference. It refuses an evidence file of a run
+on another convention, calendar or holiday table than the portfolio's: figures
+of two conventions are never compared.
 
 ``cases`` writes netting sets of the portfolio as numerical test cases of
 class ``independent`` (#100): their expected values are the package's, the
 external implementation registered as ``IMPL-R-SACCR``. It takes only netting
 sets on which the comparison agreed on every figure.
 
-    python tools/rsaccr_portfolio.py cases --out DIR --netting-sets RS-004,RS-010
+    python tools/rsaccr_portfolio.py cases --out DIR --netting-sets RS-004,RS-010 [--unchecked]
+
+``--unchecked`` writes the cases without a comparison with a workbook run: the
+derivation then says so, and TEST_Cases is the first comparison with the
+workbook. A case of a portfolio on another convention than the default carries
+the convention in its ID and its parameters.
 
 This is not a gate of tools/check.py and needs R.
 """
@@ -46,6 +58,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import business_calendar as bc
 import csv_contract
 import rsaccr_crosscheck as crosscheck
 
@@ -58,6 +71,8 @@ TR_FILE = "K-SACCR_Trades_v1.csv"
 # The external implementation, as the source register names it (#100).
 SOURCE = "IMPL-R-SACCR"
 CASE_PREFIX = "rsaccr-portfolio-"
+# The convention of the engine's defaults (#721): calendar days over a year of 365.
+DEFAULT_CONVENTION = {"YearConvention": 365, "Calendar": bc.CALENDAR_TABLE}
 # Add-on of each asset class: the package's key, the quantity and the rule.
 CLASS_OUTPUTS = (("IRD", "add_on.interest_rate", "CRR.280a"), ("FX", "add_on.foreign_exchange", "CRR.280b"),
                  ("Credit", "add_on.credit", "CRR.280c"), ("EQ", "add_on.equity", "CRR.280d"),
@@ -193,7 +208,7 @@ def make_trade(trade_id: str, rng: random.Random, linear_only: bool, used: dict[
     return trade
 
 
-def make_netting_set(index: int, rng: random.Random) -> dict[str, Any]:
+def make_netting_set(index: int, rng: random.Random, parameters: dict[str, Any]) -> dict[str, Any]:
     ns_id = f"RS-{index:03d}"
     margined = rng.random() < 0.3
     netting_set = {"id": ns_id, "margined": margined, "clearing_role": "none",
@@ -210,18 +225,36 @@ def make_netting_set(index: int, rng: random.Random) -> dict[str, Any]:
     trades = [make_trade(f"{ns_id}-T{t:02d}", rng, t == 1, used) for t in range(1, rng.randint(3, 15) + 1)]
     return {"schema_version": 1, "kind": "saccr-fixture", "id": ns_id, "synthetic": True,
             "description": f"Synthetic netting set {index} of the #352 portfolio", "category": "nominal",
-            "calculation_currency": CURRENCY, "valuation_date": VALUATION.isoformat(), "parameters": {},
+            "calculation_currency": CURRENCY, "valuation_date": VALUATION.isoformat(), "parameters": dict(parameters),
             "netting_set": netting_set, "trades": trades}
 
 
-def generate(seed: int, count: int) -> dict[str, Any]:
-    """The portfolio: ``count`` netting sets drawn from ``seed``, each one the package can run."""
+def convention_parameters(year_convention: int, calendar: str) -> dict[str, Any]:
+    """The Params of the convention, only those that differ from the default, so that a portfolio
+    on the default convention is the one it always was."""
+    chosen = {"YearConvention": year_convention, "Calendar": calendar}
+    return {code: value for code, value in chosen.items() if value != DEFAULT_CONVENTION[code]}
+
+
+def convention(portfolio: dict[str, Any]) -> dict[str, Any]:
+    """YearConvention and Calendar of a portfolio, the defaults filled in."""
+    return {**DEFAULT_CONVENTION, **portfolio.get("parameters", {})}
+
+
+def generate(seed: int, count: int, year_convention: int = 365,
+             calendar: str = bc.CALENDAR_TABLE) -> dict[str, Any]:
+    """The portfolio: ``count`` netting sets drawn from ``seed``, each one the package can run,
+    with its dates turned into years on the convention given."""
+    parameters = convention_parameters(year_convention, calendar)
     rng = random.Random(seed)
-    netting_sets = [make_netting_set(i, rng) for i in range(1, count + 1)]
+    netting_sets = [make_netting_set(i, rng, parameters) for i in range(1, count + 1)]
     for fixture in netting_sets:
         crosscheck.translate_fixture(fixture)  # Raises Unsupported if the generator strays.
-    return {"seed": seed, "valuation_date": VALUATION.isoformat(), "reporting_currency": CURRENCY,
-            "regime": REGIME, "netting_sets": netting_sets}
+    portfolio = {"seed": seed, "valuation_date": VALUATION.isoformat(), "reporting_currency": CURRENCY,
+                 "regime": REGIME, "netting_sets": netting_sets}
+    if parameters:
+        portfolio["parameters"] = parameters
+    return portfolio
 
 
 # ---------------------------------------------------------------------------
@@ -320,9 +353,18 @@ def number(text: str) -> float | None:
     return value if math.isfinite(value) else None
 
 
+def expected_holiday_table(calendar: str) -> str:
+    """The evidence's holiday_table for a portfolio, which has no table: unused by TARGET, else empty."""
+    return "unused" if calendar == bc.CALENDAR_TARGET else "empty"
+
+
 def check_run(run: dict[str, str], portfolio: dict[str, Any]) -> None:
+    """The evidence is a current run of the portfolio on its convention (#721): the reporting date
+    and currency, and the year, the calendar and the holiday table that turned its dates into years."""
+    chosen = convention(portfolio)
     expected = {"reporting_date": portfolio["valuation_date"], "reporting_ccy": portfolio["reporting_currency"],
-                "results_status": "CURRENT"}
+                "results_status": "CURRENT", "year_convention": str(chosen["YearConvention"]),
+                "calendar": chosen["Calendar"], "holiday_table": expected_holiday_table(chosen["Calendar"])}
     wrong = [f"{key} is {run.get(key)!r}, expected {value!r}" for key, value in expected.items()
              if run.get(key) != value]
     if wrong:
@@ -411,15 +453,32 @@ def summary(portfolio: dict[str, Any], package: dict[str, Any], rows: list[dict[
 # Independent test cases
 # ---------------------------------------------------------------------------
 
-def case_id(ns_id: str) -> str:
-    return CASE_PREFIX + ns_id.lower()
+def convention_suffix(parameters: dict[str, Any]) -> str:
+    """"" on the default convention; otherwise the year and the calendar, e.g. "-y250-target"."""
+    if not parameters:
+        return ""
+    chosen = {**DEFAULT_CONVENTION, **parameters}
+    return f"-y{chosen['YearConvention']}-{str(chosen['Calendar']).lower().replace('+', '-')}"
+
+
+def convention_words(parameters: dict[str, Any]) -> str:
+    """" with a year of 250 days on the TARGET calendar", or "" on the default convention."""
+    if not parameters:
+        return ""
+    chosen = {**DEFAULT_CONVENTION, **parameters}
+    return f" with a year of {chosen['YearConvention']} days on the {chosen['Calendar']} calendar"
+
+
+def case_id(ns_id: str, parameters: dict[str, Any] | None = None) -> str:
+    return CASE_PREFIX + ns_id.lower() + convention_suffix(parameters or {})
 
 
 def case_fixture(fixture: dict[str, Any], seed: int) -> dict[str, Any]:
     """The netting set as a fixture of tests/fixtures."""
     case: dict[str, Any] = json.loads(json.dumps(fixture))
-    case["id"] = case_id(fixture["id"])
-    case["description"] = (f"Synthetic netting set {fixture['id']} of the #352 portfolio (seed {seed}); "
+    case["id"] = case_id(fixture["id"], fixture["parameters"])
+    case["description"] = (f"Synthetic netting set {fixture['id']} of the #352 portfolio (seed {seed})"
+                           f"{convention_words(fixture['parameters'])}; "
                            "its expected values come from the R package SACCR")
     for trade in case["trades"]:
         trade["description"] = f"Synthetic {trade['asset_class'].replace('_', ' ')} trade of the #352 portfolio"
@@ -427,28 +486,34 @@ def case_fixture(fixture: dict[str, Any], seed: int) -> dict[str, Any]:
 
 
 def independent(value: float, quantity: str, rule: str, unit: str, ns_id: str,
-                versions: dict[str, str], seed: int, today: str) -> dict[str, Any]:
+                versions: dict[str, str], seed: int, today: str, checked: bool = True,
+                parameters: dict[str, Any] | None = None) -> dict[str, Any]:
     tolerance = FACTOR_TOLERANCE if unit == "1" else AMOUNT_TOLERANCE
+    workbook = ("the workbook run of the same netting set agreed on every figure" if checked else
+                "not compared with a workbook run when written: TEST_Cases compares the workbook with it")
+    years = ("" if not parameters else
+             f"; the dates are turned into years{convention_words(parameters)} by tools/business_calendar.py")
     return {"quantity": quantity, "rule": rule, "value": value, "unit": unit,
             "tolerance": {"absolute": tolerance[0], "relative": tolerance[1]},
             "reference": {"class": "independent", "source": SOURCE,
                           "locator": f"runExampleCalcs, netting set {ns_id}",
                           "derivation": f"tools/rsaccr_portfolio.py run, seed {seed}: tools/rsaccr_run.R runs the "
-                                        "package on the netting set as tools/rsaccr_crosscheck.py translates it; "
-                                        "the workbook run of the same netting set agreed on every figure",
+                                        "package on the netting set as tools/rsaccr_crosscheck.py translates it"
+                                        f"{years}; {workbook}",
                           "derived_by": ", ".join(f"{k} {v}" for k, v in versions.items()
                                                   if k in ("SACCR", "Trading", "R")),
                           "reviewed_by": None, "date": today}}
 
 
 def case_expected(fixture: dict[str, Any], result: dict[str, Any], versions: dict[str, str],
-                  seed: int, today: str) -> dict[str, Any]:
+                  seed: int, today: str, checked: bool = True) -> dict[str, Any]:
     """The expected file of the case: the package's figures, under CRR, the package's regime."""
     ns_id = fixture["id"]
     margined = fixture["netting_set"]["margined"]
 
     def out(value: Any, quantity: str, rule: str, unit: str = CURRENCY) -> dict[str, Any]:
-        return independent(float(value), quantity, rule, unit, ns_id, versions, seed, today)
+        return independent(float(value), quantity, rule, unit, ns_id, versions, seed, today, checked,
+                           fixture["parameters"])
 
     outputs = [out(result["RC"], "replacement_cost", "CRR.275.2" if margined else "CRR.275.1")]
     by_class = result.get("add_on_by_class") or {}
@@ -457,7 +522,8 @@ def case_expected(fixture: dict[str, Any], result: dict[str, Any], versions: dic
                 out(result["multiplier"], "multiplier", "CRR.278.3", "1"),
                 out(result["PFE"], "potential_future_exposure", "CRR.278.1"),
                 out(result["EAD"], "exposure_value", "CRR.274.2")]
-    return {"schema_version": 1, "kind": "saccr-expected", "fixture": case_id(ns_id), "regime": REGIME,
+    return {"schema_version": 1, "kind": "saccr-expected", "fixture": case_id(ns_id, fixture["parameters"]),
+            "regime": REGIME,
             "outputs": outputs}
 
 
@@ -479,9 +545,10 @@ def agreed(comparison: str, ns_id: str, result: dict[str, Any]) -> bool:
             and all(number(text) == figures[label] for label, text in compared.items()))
 
 
-def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, chosen: list[str],
+def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str | None, chosen: list[str],
           today: str) -> dict[str, dict[str, Any]]:
-    """The fixture and expected file of each chosen netting set, by repository path."""
+    """The fixture and expected file of each chosen netting set, by repository path. Without a
+    comparison (None) the cases are written unchecked, and their derivation says so."""
     if package.get("portfolio_sha256") != fingerprint(portfolio):
         raise EvidenceError("the package results are of another portfolio: run the package again")
     fixtures = {f["id"]: f for f in portfolio["netting_sets"]}
@@ -490,15 +557,16 @@ def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, c
     for ns_id in chosen:
         if ns_id not in fixtures:
             raise EvidenceError(f"{ns_id} is not a netting set of the portfolio")
-        if not agreed(comparison, ns_id, results[ns_id]):
+        if comparison is not None and not agreed(comparison, ns_id, results[ns_id]):
             raise EvidenceError(f"{ns_id}: the comparison does not show these package figures agreeing "
                                 "with the workbook on every figure; compare again")
         if results[ns_id].get("cap_applied"):
             raise EvidenceError(f"{ns_id}: the cap binds, and the cap is rebuilt outside the package")
-        name = case_id(ns_id)
+        name = case_id(ns_id, fixtures[ns_id]["parameters"])
         files[f"tests/fixtures/{name}.json"] = case_fixture(fixtures[ns_id], portfolio["seed"])
         files[f"tests/expected/{name}.crr.json"] = case_expected(fixtures[ns_id], results[ns_id],
-                                                                 package["versions"], portfolio["seed"], today)
+                                                                 package["versions"], portfolio["seed"], today,
+                                                                 comparison is not None)
     return files
 
 
@@ -507,7 +575,7 @@ def cases(portfolio: dict[str, Any], package: dict[str, Any], comparison: str, c
 # ---------------------------------------------------------------------------
 
 def command_generate(options: argparse.Namespace) -> int:
-    portfolio = generate(options.seed, options.netting_sets)
+    portfolio = generate(options.seed, options.netting_sets, options.year_convention, options.calendar)
     files = csv_files(portfolio, csv_contract.load_contract(options.root))
     options.out.mkdir(parents=True, exist_ok=True)
     # Results of an earlier portfolio must not survive into a comparison of this one.
@@ -519,7 +587,7 @@ def command_generate(options: argparse.Namespace) -> int:
     trades = sum(len(f["trades"]) for f in portfolio["netting_sets"])
     print(f"RESULT=GENERATED; seed={options.seed}; netting_sets={len(portfolio['netting_sets'])}; "
           f"trades={trades}; reporting_date={portfolio['valuation_date']}; reporting_ccy={CURRENCY}; "
-          f"regime={REGIME}")
+          f"regime={REGIME}; year_convention={options.year_convention}; calendar={options.calendar}")
     return 0
 
 
@@ -555,7 +623,7 @@ def command_compare(options: argparse.Namespace) -> int:
 def command_cases(options: argparse.Namespace) -> int:
     portfolio = json.loads((options.out / "portfolio.json").read_text(encoding="utf-8"))
     package = json.loads((options.out / "rsaccr-results.json").read_text(encoding="utf-8"))
-    comparison = (options.out / "comparison.csv").read_text(encoding="utf-8")
+    comparison = None if options.unchecked else (options.out / "comparison.csv").read_text(encoding="utf-8")
     chosen = [n.strip() for n in options.netting_sets.split(",") if n.strip()]
     try:
         files = cases(portfolio, package, comparison, chosen, options.date)
@@ -577,6 +645,10 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--out", type=Path, required=True)
     gen.add_argument("--seed", type=int, default=352)
     gen.add_argument("--netting-sets", type=int, default=40)
+    gen.add_argument("--year-convention", type=int, default=365, choices=(366, 365, 364, 360, 252, 250),
+                     help="days of the conventional year, as YearConvention on Params")
+    gen.add_argument("--calendar", default=bc.CALENDAR_TABLE, choices=bc.CALENDARS,
+                     help="the calendar whose days are counted, as Calendar on Params")
     run = commands.add_parser("run", help="run the package on the portfolio")
     run.add_argument("--out", type=Path, required=True)
     run.add_argument("--rscript", default="Rscript")
@@ -587,6 +659,8 @@ def main(argv: list[str] | None = None) -> int:
     cas.add_argument("--out", type=Path, required=True)
     cas.add_argument("--netting-sets", required=True, help="comma-separated netting-set IDs")
     cas.add_argument("--date", default=dt.date.today().isoformat(), help="date of the reference")
+    cas.add_argument("--unchecked", action="store_true",
+                     help="write the cases without a comparison with a workbook run; TEST_Cases makes the first")
     options = parser.parse_args(argv)
     handlers = {"generate": command_generate, "run": command_run, "compare": command_compare,
                 "cases": command_cases}

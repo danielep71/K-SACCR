@@ -27,7 +27,7 @@ Attribute VB_Name = "TEST_Suite"
 ' DEPENDENCIES
 '   CORE_Export.Utf8Bytes, to write the log files as UTF-8; TEST_Harness, TEST_Formulas, TEST_MainState, TEST_Cases,
 '   TEST_InputValidation, TEST_Aggregation, TEST_Invariants,
-'   TEST_Reconcile, TEST_CsvReader and TEST_Import, with TEST_CaseRunner
+'   TEST_Reconcile, TEST_CsvReader, TEST_Import and TEST_FormulaRandom, with TEST_CaseRunner
 '   for TEST_Cases, TEST_InputValidation, TEST_Aggregation and
 '   TEST_Invariants, and TEST_Kit, the lifecycle every suite shares
 '   (#536), which prints through Say;
@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 10    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 11    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -518,7 +518,7 @@ Private Function SuiteEntries() As Variant
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
-                       "TEST_Import.RunImportTests")
+                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests")
         SuiteEntries = Suites
 
 End Function
@@ -559,6 +559,8 @@ Private Sub RunEntry( _
                 TEST_CsvReader.RunCsvReaderTests
             Case "TEST_Import.RunImportTests"
                 TEST_Import.RunImportTests
+            Case "TEST_FormulaRandom.RunFormulaRandomTests"
+                TEST_FormulaRandom.RunFormulaRandomTests
         End Select
 
 End Sub

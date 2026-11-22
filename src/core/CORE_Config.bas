@@ -36,7 +36,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-09
+'   2026-11-22
 '
 ' AUTHOR
 '   Daniele Penza
@@ -77,13 +77,20 @@ Attribute VB_Name = "CORE_Config"
     'M_Main.ProtectWorkbook, #421). The sheets named below, between bars,
     'also let the user sort, filter, insert rows or open and close row
     'groups; filtering uses the AutoFilter the template gives the sheet, as
-    'a protected sheet cannot get a new one. check_workbook_protection
+    'a protected sheet cannot get a new one. The sheets of PROTECT_NONE are
+    'never protected: the user works on them (#720). check_workbook_protection
     'compares these lists with the matrix and the template.
         Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
-        Public Const PROTECT_FILTERING      As String = "|Trades|Basel_vs_CRR|"                             'Filtering of the sheet's AutoFilter allowed
+        Public Const PROTECT_FILTERING      As String = _
+            "|Trades|Basel_vs_CRR|Results|HedgingSets|Buckets|TradeCalc|Checks|"                              'Filtering of the sheet's AutoFilter allowed (#754)
         Public Const PROTECT_INSERTING_ROWS As String = _
             "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
+        Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
+    'The output sheets whose header row carries the filter buttons (#754): an operation keeps them
+    'and applies again the filter the user set. The template's filter runs to the last row of the
+    'sheet, so that a run of any size, 500,000 legs included, is inside it.
+        Public Const OUTPUT_FILTER_SHEETS   As String = "Results|HedgingSets|Buckets|TradeCalc|Checks"
 
 '------------------------------------------------------------------------------
 ' COMMON LAYOUT
@@ -127,11 +134,14 @@ Attribute VB_Name = "CORE_Config"
         Public Const NM_PRM_VALUE     As String = "Params_Value"           'Header cell "Value"
         Public Const NM_SF_TABLE      As String = "SF_Table"               'Factor table, from its header
         Public Const NM_FX_TABLE      As String = "FX_Table"               'FX table, from its header
+        Public Const NM_FX_PRICE_DATE As String = "FX_PriceDate"           'Hidden cell: the date of the closing prices (#721)
+        Public Const NM_FX_PRICE_SRC  As String = "FX_PriceSource"         'Hidden cell: the source of the rates downloaded (#745)
+        Public Const NM_FX_PRICE_FP   As String = "FX_PriceFingerprint"    'Hidden cell: the FX table as downloaded (#745)
+        Public Const NM_FX_SOURCE     As String = "FX_Source"              'The source Download prices uses (#745)
         Public Const PRM_ASOF         As String = "AsOfDate"               'Reporting date
         Public Const PRM_REPCCY       As String = "ReportingCcy"           'Reporting currency
         Public Const PRM_ALPHA        As String = "Alpha"                  'Alpha
         Public Const PRM_FLOOR        As String = "MultiplierFloor"        'Multiplier floor
-        Public Const PRM_DAYSYEAR     As String = "DaysPerYear"            'Days per year for S, E, M, T
         Public Const PRM_BDYEAR       As String = "BusinessDaysPerYear"    'Business days per year
         Public Const PRM_MINMAT       As String = "MinMaturityBD"          'Floor on M, BD
         Public Const PRM_SDFLOOR      As String = "SDFloorBD"              'Floor on SD, BD
@@ -147,6 +157,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const PRM_REGIME       As String = "Regime"                 'Default regime
         Public Const PRM_LAMIR        As String = "LambdaThresholdIR"      'CRR lambda threshold, IR
         Public Const PRM_LAMCO        As String = "LambdaThresholdCO"      'CRR lambda threshold, CO
+        Public Const PRM_DAYNUM       As String = "DaycountConvention"     'ACTUAL, the only numerator for the moment (#721)
+        Public Const PRM_DAYCOUNT     As String = "YearConvention"         'Days of the conventional year, the denominator (#721)
+        Public Const PRM_CALENDAR     As String = "Calendar"               'TARGET, TARGET+TABLE or TABLE (#721)
+        Public Const NM_HOLIDAY_TABLE As String = "Holiday_Table"          'Closing days of the calendar, from its header (#721)
 
 '------------------------------------------------------------------------------
 ' RUN FINGERPRINT
@@ -184,14 +198,28 @@ Attribute VB_Name = "CORE_Config"
     'Delegated Regulation (EU) 2021/931 as amended by 2025/855, checked on
     '2026-10-09. A run whose parameters, factor table and alpha overrides
     'all equal this set is REGULATORY and names REF_SET_ID; any difference
-    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaysPerYear and
-    'IRBucketOffset are conventions and do not change the class.
+    'makes it WHAT-IF (CORE_Engine.ClassifyRun). DaycountConvention, YearConvention,
+    'Calendar and IRBucketOffset are conventions and do not change the class.
         Public Const REF_SET_ID       As String = "CRE52-CRR-2026-10-09"    'Identity of the set
         Public Const RUN_REGULATORY   As String = "REGULATORY"              'Every parameter as the set
         Public Const RUN_WHATIF       As String = "WHAT-IF"                 'Some parameter differs
         Public Const REF_ALPHA        As Double = 1.4       'CRE52.1; CRR Art. 274(2)
         Public Const REF_FLOOR        As Double = 0.05      'CRE52.23; CRR Art. 278(3)
         Public Const REF_BDYEAR       As Double = 250       'CRE52.49, 52.53; CRR Art. 279c(1)
+    'The day count of Params (#721): years = ACTUAL days between the reporting
+    'date and the date, counted on the Calendar, over the days of the
+    'conventional year of YearConvention. None of the three cells changes
+    'the class of a run; YearConvention and Calendar are run settings, as
+    'Regime is, and DaycountConvention is a convention that Restore parameters
+    'puts back.
+        Public Const DAYNUM_ACTUAL    As String = "ACTUAL"          'The only numerator for the moment
+        Public Const DAYCOUNT_DEFAULT As Double = 365               'Days of the year by default
+        Public Const DAYCOUNT_LIST    As String = "366, 365, 364, 360, 252 or 250"
+        Public Const CALENDAR_DEFAULT As String = "TABLE"           'Calendar days while the table is empty
+        Public Const CALENDAR_TARGET  As String = "TARGET"          'The EUR TARGET rule
+        Public Const CALENDAR_BOTH    As String = "TARGET+TABLE"    'The rule and the table of closing days
+        Public Const CALENDAR_TABLE   As String = "TABLE"           'The table of closing days alone
+        Public Const HOLIDAY_ROWS     As Long = 100                 'Rows of the table of closing days below its header
         Public Const REF_MINMAT       As Double = 10        'CRE52.48; CRR Art. 279c(1)(a)
         Public Const REF_SDFLOOR      As Double = 10        'CRE52.34; CRR Art. 279b(1)(a)
         Public Const REF_MPOR_BIL     As Double = 10        'CRE52.50; CRR Art. 285(2)(b)
@@ -204,10 +232,9 @@ Attribute VB_Name = "CORE_Config"
         Public Const REF_RHO13        As Double = 0.3       'CRE52.57; CRR Art. 280a(3)
         Public Const REF_LAMIR        As Double = 0.001     'CRR-RTS Art. 5(2)
         Public Const REF_LAMCO        As Double = 0.1       'CRR-RTS Art. 5(2)
-    'The two conventions of Params, outside the comparison: Restore
+    'The conventions of Params, outside the comparison: Restore
     'regulatory parameters (M_Main, #357) writes them back with the set, so
     'that a restored workbook calculates as the template does.
-        Public Const REF_DAYSYEAR     As Double = 365       'Calendar days per year for S, E, M, T
         Public Const REF_IRFULL       As Boolean = True     'CRE52.57(5); the CRR allows TRUE only
 
 '------------------------------------------------------------------------------
@@ -248,8 +275,8 @@ Attribute VB_Name = "CORE_Config"
 '------------------------------------------------------------------------------
     'Header text of the first column of each lookup table, at the top-left
     'cell of its workbook name. The table runs down to the first blank key.
-        Public Const HDR_SF   As String = "SF_Key"    'Supervisory-factor table
-        Public Const HDR_FX   As String = "FX_Ccy"    'FX-rate table
+        Public Const HDR_SF   As String = "SF_Key"           'Supervisory-factor table
+        Public Const HDR_FX   As String = "Currency Code"    'FX-rate table
 
 '------------------------------------------------------------------------------
 ' NETTINGSETS INPUT COLUMNS
@@ -321,27 +348,38 @@ Attribute VB_Name = "CORE_Config"
     'separated by "|"; an empty entry is a column the engine does not read.
     'The engine reads by column number, so a header that differs (ignoring
     'case, spaces, tabs and line breaks) means a column was inserted,
-    'deleted or moved, and the run stops (#35). The Params, factor and FX headers are
-    'checked from the cells that their workbook names locate.
-        Public Const NS_HEADERS As String = "NettingSetID|Counterparty|Margined (Y/N)|" & _
-            "Client clearing role (N / CM / CLIENT / CCP; MULTI rejected)|Remargin frequency N (BD)|" & _
-            ">5,000 trades or illiquid collateral (Y/N)|Margin disputes (Y/N)|" & _
-            "MPOR override (BD)|Net VM held (+) / posted (-)|NICA|Threshold TH|MTA|" & _
-            "Alpha override|Regime override (blank = Params)|" & _
-            "Margin agreements (blank / MIXED / SHARED)|QCCP (Y/N)|" & _
-            "CCP retains VM, collateral not protected (Y/N)|" & _
-            "Counterparty sector (CB / GG / CI / OFC / NFC / HH)"
-        Public Const TR_HEADERS As String = "TradeID|NettingSetID|Asset class|Sub-class|" & _
-            "Risk factor / reference|Instrument|Direction|Option type|Nature|" & _
-            "Basis / vol hedging-set label|Notional|Notional ccy|MtM|MtM ccy|" & _
-            "Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
-            "Underlying price P|Strike K|Lambda shift|Attachment A|Detachment D|" & _
-            "Economic trade ID|MtM leg (Y/N)|Settlement type (N/STM)|Next reset date|"
+    'deleted or moved, and the run stops (#35). The headers of NettingSets,
+    'Trades, BankNettingSets and BankTrades are NS_HEADERS, TR_HEADERS,
+    'BN_HEADERS and BT_HEADERS in CORE_CsvSchema, generated from the
+    'sheet_header of each column of docs/csv/contract.json (#756): a rename
+    'is an edit to the contract and the template, then
+    'python tools/generate_csv_vba.py. Every header row is found from its
+    'workbook name, never from a row number. The Params, factor and FX
+    'headers are checked from the cells that their workbook names locate.
         Public Const PRM_CODE_HEADER As String = "Code"
         Public Const PRM_VALUE_HEADER As String = "Value"
         Public Const SF_HEADERS As String = "SF_Key|Asset class|Category|Supervisory factor|" & _
             "Correlation|Supervisory option vol|Commodity hedging set|Regimes"
-        Public Const FX_HEADERS As String = "FX_Ccy||Units of reporting ccy per 1 unit"
+        Public Const FX_HEADERS As String = "Currency Code||Units of ccy per 1 unit of reporting ccy"
+        Public Const HOLIDAY_HEADERS As String = "Bank Holiday|Description"
+    'Where the rate and the hidden scratch column of Download prices are, in columns from the key
+    '(#721): the rate; and column AR, where the price formulas of a lookup live until it empties them.
+        Public Const FX_COL_RATE  As Long = 2     'Units of ccy per 1 unit of reporting ccy
+        Public Const FX_COL_PRICE As Long = 41    'Hidden scratch column AR: the closing price of the pair, a number or not
+    'Seconds Download prices waits for the data of STOCKHISTORY (#721), or for the answer of the ECB (#745).
+        Public Const PRICE_WAIT_SECONDS As Long = 30
+    'The sources of the rates Download prices writes, as the list of FX_Source holds them (#745): the
+    'closing price of the pair (STOCKHISTORY), or the euro foreign exchange reference rate of the ECB,
+    'asked of its data portal over HTTPS for the currencies of the FX table and the days before the
+    'reporting date (ECB_EXR_URL, then the currencies, ".EUR.SP00.A" and the query).
+        Public Const FX_SOURCE_CLOSING  As String = "Closing price"
+        Public Const FX_SOURCE_ECB      As String = "ECB reference rate"
+        Public Const FX_SOURCE_MANUAL   As String = "Manual"    'Rates not downloaded, or edited after (#745)
+        Public Const ECB_EXR_URL        As String = "https://data-api.ecb.europa.eu/service/data/EXR/D."
+        Public Const ECB_LOOKBACK_DAYS  As Long = 7
+    'The rate column's header before #725, when rates were units of the reporting currency per
+    'unit of the currency: a workbook that still has it is refused with a message that says so.
+        Public Const FX_HEADER_BEFORE_725 As String = "Units of reporting ccy per 1 unit"
 
 '------------------------------------------------------------------------------
 ' CSV TEMPLATES
@@ -366,6 +404,13 @@ Attribute VB_Name = "CORE_Config"
             "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
             "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
             "mtm_leg;settlement_type;next_reset_date;comment"
+        Public Const CSV_BN_FILE As String = "K-SACCR_BankNettingSets_v1.csv"
+        Public Const CSV_BN_HEADER As String = "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;" & _
+            "addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment"
+        Public Const CSV_BT_FILE As String = "K-SACCR_BankTrades_v1.csv"
+        Public Const CSV_BT_HEADER As String = "trade_id;notional;mtm;maturity;supervisory_duration;" & _
+            "adjusted_notional;supervisory_delta;mf_unmargined;mf_margined;" & _
+            "effective_notional_unmargined;effective_notional_margined;standalone_addon;comment"
 
 '------------------------------------------------------------------------------
 ' CSV STAGING
@@ -473,8 +518,6 @@ Attribute VB_Name = "CORE_Config"
         Public Const BN_MULT        As Long = 13    'Multiplier: the one figure not scaled
         Public Const BN_COMMENT     As Long = 14    'Free-text comment, not read
         Public Const BN_NCOLS       As Long = 14    'Number of columns
-        Public Const BN_HEADERS As String = "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|" & _
-            "AddOn IR|AddOn FX|AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
     'The BankTrades sheet holds a bank's own figures per trade leg, to be
     'compared with TradeCalc, in the same way. Amounts are scaled; M, the
     'supervisory duration, the delta and the maturity factors are not.
@@ -486,9 +529,6 @@ Attribute VB_Name = "CORE_Config"
         Public Const BT_NOTIONAL    As Long = 2     'Notional; the figures follow in the order of the measures
         Public Const BT_COMMENT     As Long = 13    'Free-text comment, not read
         Public Const BT_NCOLS       As Long = 13    'Number of columns
-        Public Const BT_HEADERS As String = "TradeID|Notional (rep ccy)|MtM (rep ccy)|M (years)|" & _
-            "Supervisory duration|Adjusted notional d|Supervisory delta|MF unmargined|MF margined|" & _
-            "Effective notional unmargined|Effective notional margined|Stand-alone add-on|"
 
 '------------------------------------------------------------------------------
 ' RECONCILIATION
@@ -499,6 +539,7 @@ Attribute VB_Name = "CORE_Config"
     'The hidden name RECON_INPUTS_NAME holds the fingerprint of the bank
     'figures and inputs it was made from; it is empty when there is none.
         Public Const RECON_INPUTS_NAME   As String = "SACCR_ReconInputs"    'Empty when no reconciliation exists
+        Public Const RECON_FILTER_LAST_ROW As Long = 100000   'Last row of the AutoFilter the template gives a reconciliation sheet (#720)
         Public Const RECON_INFO_CELL     As String = "C4"                   'Reconciliation: summary line
         Public Const RECON_STATUS_CELL   As String = "C5"                   'Reconciliation: status formula
     'TradeReconciliation has the same layout, with its own hidden name,
@@ -696,11 +737,14 @@ Attribute VB_Name = "CORE_Config"
         Public Const DIAG_PRM_ALPHA As String = "PRM-ALPHA"    'active
         Public Const DIAG_PRM_ASOF As String = "PRM-ASOF"    'active
         Public Const DIAG_PRM_BOOLEAN As String = "PRM-BOOLEAN"    'active
+        Public Const DIAG_PRM_CALENDAR As String = "PRM-CALENDAR"    'active
         Public Const DIAG_PRM_CURRENCY As String = "PRM-CURRENCY"    'active
         Public Const DIAG_PRM_CURRENCY_MISSING As String = "PRM-CURRENCY-MISSING"    'active
+        Public Const DIAG_PRM_DAYCOUNT As String = "PRM-DAYCOUNT"    'active
         Public Const DIAG_PRM_DEFAULT As String = "PRM-DEFAULT"    'active
         Public Const DIAG_PRM_DUP As String = "PRM-DUP"    'active
         Public Const DIAG_PRM_DUP_SAME As String = "PRM-DUP-SAME"    'active
+        Public Const DIAG_PRM_HOLIDAY As String = "PRM-HOLIDAY"    'active
         Public Const DIAG_PRM_IR_CORRELATION As String = "PRM-IR-CORRELATION"    'active
         Public Const DIAG_PRM_NAME As String = "PRM-NAME"    'active
         Public Const DIAG_PRM_NUMBER As String = "PRM-NUMBER"    'active

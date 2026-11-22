@@ -30,23 +30,30 @@
               <button id="ksValidateInputs" label="Validate inputs" imageMso="DataValidation" keytip="V"
                       supertip="Clear the outputs and check every input; the findings are listed on Checks. Nothing is calculated."
                       onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-              <button id="ksClearOutputs" label="Clear outputs" imageMso="ClearAll" keytip="C"
-                      supertip="Empty the five output tables and both reconciliations."
-                      onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             </menu>
           </splitButton>
+          <button id="ksClearOutputs" label="Clear outputs" size="large" imageMso="ClearAll" keytip="C"
+                  screentip="Clear outputs"
+                  supertip="Empty the five output tables and both reconciliations. The inputs, Params and the evidence record stay."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
         </group>
 
         <group id="ksGrpImport" label="CSV import">
           <menu id="ksImportMenu" label="Import CSV" size="large" imageMso="ImportTextFile" keytip="I"
                 screentip="Import CSV"
-                supertip="Load a CSV file onto its staging sheet as text. The input sheets do not change until Commit import."
+                supertip="Load a NettingSets or Trades file onto its staging sheet as text: the input sheets do not change until Commit import. A bank file replaces the figures on BankNettingSets or BankTrades at once."
                 getEnabled="RibbonGetEnabled">
             <button id="ksImportNettingSets" label="NettingSets file..." keytip="N"
                     supertip="Load a NettingSets CSV file onto Import_NettingSets."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             <button id="ksImportTrades" label="Trades file..." keytip="T"
                     supertip="Load a Trades CSV file onto Import_Trades."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportBankNettingSets" label="BankNettingSets file..." keytip="B"
+                    supertip="Replace the figures on BankNettingSets with those of a CSV file that follows the contract; nothing changes if it does not."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksImportBankTrades" label="BankTrades file..." keytip="L"
+                    supertip="Replace the figures on BankTrades with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
           <button id="ksValidateStaging" label="Validate staging" imageMso="DataValidation" keytip="V"
@@ -64,8 +71,14 @@
             <button id="ksTemplateTrades" label="Trades template..." keytip="T"
                     supertip="Write the blank Trades CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksTemplateBankNettingSets" label="BankNettingSets template..." keytip="B"
+                    supertip="Write the blank BankNettingSets CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksTemplateBankTrades" label="BankTrades template..." keytip="L"
+                    supertip="Write the blank BankTrades CSV template, its header line alone."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             <button id="ksImportSpecification" label="Import specification..." keytip="S"
-                    supertip="Save one HTML page describing both CSV files, every column, rule and finding code, with an example of each file."
+                    supertip="Save one HTML page describing the four CSV files, every column, rule and finding code, with an example of each file."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
         </group>
@@ -123,6 +136,7 @@
               <button id="ksGoReconciliation" label="Reconciliation" onAction="RibbonGoTo" supertip="Bank figures against Results."/>
               <button id="ksGoBankTrades" label="BankTrades" onAction="RibbonGoTo" supertip="A bank's own figures per trade leg."/>
               <button id="ksGoTradeReconciliation" label="TradeReconciliation" onAction="RibbonGoTo" supertip="Bank figures against TradeCalc."/>
+              <button id="ksGoReconSummary" label="ReconSummary" onAction="RibbonGoTo" supertip="Sums, counts and the largest difference per measure, from the rows the reconciliation filters leave."/>
               <menuSeparator id="ksGoSepReference" title="Reference and tests"/>
               <button id="ksGoTestCatalogue" label="TestCatalogue" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
               <button id="ksGoFormulaTest" label="FormulaTest" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>

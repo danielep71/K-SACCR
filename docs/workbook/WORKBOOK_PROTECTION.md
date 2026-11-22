@@ -17,7 +17,9 @@ lists of `CORE_Config` that the macros apply.
 ## 🔒 How it works
 
 - **Saved protected.** The template, and so every workbook built from it, is
-  saved with every sheet and the structure protected. The protection holds
+  saved with every sheet protected except `Reconciliation` and
+  `TradeReconciliation` (role Working, #720), which are never protected, and
+  with the structure protected. The protection holds
   with macros disabled too; the macros themselves need macros enabled.
 - **Macros write, users edit inputs.** When the workbook opens with macros
   enabled, `Auto_Open` runs `M_Main.ProtectWorkbook`, which protects every
@@ -47,34 +49,37 @@ Params, unprotect that sheet (Review > Unprotect Sheet), make the change and
 either protect it again (macro `ProtectWorkbook`) or simply start the next
 operation: every operation protects every sheet and the structure again
 first. The change itself is kept, and a run on changed regulatory
-parameters is still classified `WHAT-IF`, except for `DaysPerYear` and
-`IRBucketOffset`: they are conventions, which `CORE_Engine.ClassifyRun` does
-not compare. The freshness status and the evidence checks work as before.
+parameters is still classified `WHAT-IF`, except for `DaycountConvention`
+and `IRBucketOffset`: they are conventions, which `CORE_Engine.ClassifyRun` does
+not compare (nor `YearConvention` and `Calendar`, which are configuration). The freshness status and the evidence checks work as before.
 
 ## 🗂️ Matrix
+
+The matrix names cells by their workbook names wherever the template has one, so that a row moved in Excel, which keeps each name on its cell, needs no edit to the matrix (#756). Cells without a name, on the two test sheets, keep their addresses.
 
 | Sheet | Role | Unlocked | Also allowed |
 | --- | --- | --- | --- |
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
-| `Params` | Configuration and reference regulatory parameters | `E6` (AsOfDate), `E7` (ReportingCcy), `E23` (Regime), `C58:E257` (FX table and the rows below it for added currencies) | — |
-| `NettingSets` | Input | Columns `C:T` from row 7 down | Sorting, inserting rows |
-| `Trades` | Input | Columns `C:AD` from row 5 down | Sorting, filtering, inserting rows |
-| `Import_NettingSets` | Staging | Columns `D:U` from row 10 down | Inserting rows |
-| `Import_Trades` | Staging | Columns `D:AE` from row 10 down | Inserting rows |
-| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | — |
-| `BankNettingSets` | Bank figures | `D4:D6` (amount scale and tolerances) and columns `C:P` from row 9 down | Sorting, inserting rows |
-| `Reconciliation` | Output | — | — |
-| `BankTrades` | Bank figures | `D4:D6` and columns `C:O` from row 9 down | Sorting, inserting rows |
-| `TradeReconciliation` | Output | — | — |
+| `Params` | Configuration and reference regulatory parameters | `AsOfDate`, `ReportingCcy`, `Regime`, `YearConvention`, `Calendar`, `FX_Source` (the source of the rates Download prices writes), the 200 rows below the header of `FX_Table` (the FX table and the rows below it for added currencies), the 100 rows below the header of `Holiday_Table` (the table of closing days of the calendar) | — |
+| `NettingSets` | Input | Columns `C:T` below `NettingSets_Header` | Sorting, inserting rows |
+| `Trades` | Input | Columns `C:AD` below `Trades_Header` | Sorting, filtering, inserting rows |
+| `Import_NettingSets` | Staging | Columns `D:U` below `ImportNettingSets_Header` | Inserting rows |
+| `Import_Trades` | Staging | Columns `D:AE` below `ImportTrades_Header` | Inserting rows |
+| `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |
+| `BankNettingSets` | Bank figures | `BankNS_Scale`, `BankNS_AbsTol`, `BankNS_RelTol` (amount scale and tolerances) and columns `C:P` below `BankNettingSets_Header` | Sorting, inserting rows |
+| `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |
+| `BankTrades` | Bank figures | `BankTR_Scale`, `BankTR_AbsTol`, `BankTR_RelTol` and columns `C:O` below `BankTrades_Header` | Sorting, inserting rows |
+| `TradeReconciliation` | Working | — | Never protected, as `Reconciliation` |
+| `ReconSummary` | Output | — | — (formulas only) |
 | `TestCatalogue` | Test | `L7:L34` | — |
-| `FormulaTest` | Test | `E4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15` | — |
+| `FormulaTest` | Test | `E4`, `H4`, `E7:E28`, `F7:F28`, `G9:G28`, `H13:J21`, `K15`, `G33:H81`, `K33:L81` | — |
 | `Basel_vs_CRR` | Reference | — | Filtering |
 
 Selecting and copying any cell is always allowed. Deleting rows or columns,
 formatting cells and inserting columns are not: to remove an input row, clear
 its cells. Filtering works through the AutoFilter the template gives a sheet
-(`Trades`, `Basel_vs_CRR`); a protected sheet cannot get a new one.
+(`Trades`, `Basel_vs_CRR` and the five output sheets); a protected sheet cannot get a new one.
 
 ## 📏 Rules
 
@@ -83,12 +88,13 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
   stores, so a pasted or appended row is editable however many rows the
   portfolio has. The header rows above stay locked.
 - **Params separates configuration from reference parameters.** The reporting
-  date, the reporting currency, the default regime and the FX rates are
-  configuration and keep the yellow input fill. Every other value on Params
+  date, the reporting currency, the default regime, the day-count convention
+  and the calendar, and the FX rates are configuration and keep the yellow
+  input fill. Every other value on Params
   is a reference regulatory parameter, filled grey: it is changed only on an
   unprotected sheet, by a deliberate maintenance unlock, and a run on changed
-  values stays `WHAT-IF`, as today. The exceptions are `DaysPerYear` and
-  `IRBucketOffset`, conventions that do not change the run class.
+  values stays `WHAT-IF`, as today. The exceptions are `DaycountConvention`
+  and `IRBucketOffset`, conventions that do not change the run class.
   **Restore parameters** on the K-SACCR tab puts them all back to the
   regulatory set without an unlock (#357).
 - **Staging keeps its provenance.** On `Import_NettingSets` and
@@ -107,8 +113,11 @@ its cells. Filtering works through the AutoFilter the template gives a sheet
 - Rows and columns cannot be deleted, and columns cannot be inserted,
   resized or formatted, on a protected sheet. To remove an input row, clear
   its cells; to change the layout, unprotect the sheet for maintenance.
-- Filtering works only on `Trades` and `Basel_vs_CRR`, through the
-  AutoFilter the template gives them, over the rows it covers.
+- Filtering works only on `Trades`, `Basel_vs_CRR` and the five output sheets
+  (`Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks`), through the
+  AutoFilter the template gives them, over the rows it covers: on an output
+  sheet from the header row to the last row of the sheet, so that a run of any size is inside it. A run, a validation and
+  Clear outputs keep the buttons and apply again a filter the user set (#754).
 - A sheet protected by hand from the Review tab, with other options, gets the
   workbook's options back at the next operation.
 - Protection prevents accidental edits only. Anyone can remove it; the
@@ -122,7 +131,7 @@ protection. Build a new workbook from the current template, as in
 [INSTALLATION.md](../../INSTALLATION.md), and bring the inputs across: paste
 values into the unlocked columns of `NettingSets`, `Trades` and the bank
 sheets, or import them as CSV files through the staging sheets, and copy the
-reporting date, reporting currency, regime and FX rates on Params. Run
+reporting date, reporting currency, regime, day-count convention, calendar and FX rates on Params. Run
 SA-CCR once to rebuild the outputs.
 
 <a id="manual-checks"></a>

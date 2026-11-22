@@ -99,6 +99,15 @@ class ImportSpecificationTests(unittest.TestCase):
             self.assertIn(f"<code>{code}</code>", self.page)
         self.assertIn(f"<code>{self.contract['format']['delimiter']}</code>", self.page)
 
+    def test_page_says_how_a_bank_file_is_loaded(self) -> None:
+        for kind in ("BankNettingSets", "BankTrades"):
+            self.assertIn(f"<h2>{kind} file</h2>", self.page, kind)
+            self.assertIn(f"{kind} file...", self.page, kind)
+            self.assertIn(f"{kind} template...", self.page, kind)
+        for fragment in ("How a file is loaded", "as a whole", "asks before they are replaced",
+                         "keeps its leading zeros", "is not compared"):
+            self.assertIn(fragment, self.page, fragment)
+
     def test_quoting(self) -> None:
         self.assertEqual(spec.csv_field("plain"), "plain")
         self.assertEqual(spec.csv_field("a, b"), "a, b")

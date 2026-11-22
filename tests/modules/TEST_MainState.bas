@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 40   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 46   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -197,6 +197,12 @@ Public Sub RunMainStateTests()
         CaseStaleParams False
         CaseStaleParams True
         CaseRestoreParams
+        CaseYearConvention
+        CaseDownloadClosingPrices
+        CaseEcbAnswer
+        CaseDownloadEcbRates
+        CaseRebaseFxTable
+        CaseOutputFilters
         CaseRestoreFailures
         CaseRestoreRefused
         CaseRibbonEnabledStates
@@ -1596,7 +1602,7 @@ Private Sub CaseRestoreParams()
         TEST_Kit.Check InStr(1, BaseRun, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & BaseRun
         NamedCell(PRM_ALPHA).Value = 1.5
         NamedCell(PRM_MPOR_LARGE).Value = 25
-        NamedCell(PRM_DAYSYEAR).Value = 360
+        NamedCell(PRM_BDYEAR).Value = 252
         NamedCell(PRM_IRFULL).Value = False
         FactorCell("CR_A", 4).Value = 0.005
         FactorCell("CO_CLIMATIC", 8).Value = "BOTH"
@@ -1646,6 +1652,951 @@ Unexpected:
         PutParamsBack
 
 End Sub
+
+
+Private Sub CaseYearConvention()
+'
+'==============================================================================
+'                          CaseYearConvention
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The day count of Params (#721): with a year of 365 days and the calendar
+'   TABLE, empty, the maturity of the first trade is its calendar days over
+'   365; with a year of 250 days and the calendar TARGET it is the business
+'   days after the reporting date, as SACCR_BusinessDays counts them, over
+'   250; the day count does not change the class of the run.
+'
+' UPDATED
+'   2026-11-20
+'==============================================================================
+'
+
+    Dim Result      As String    'What a call returned
+    Dim TradeSheet  As Worksheet 'TradeCalc
+    Dim Inputs      As Worksheet 'Trades
+    Dim FirstRow    As Long      'First TradeCalc row
+    Dim TradeId     As String    'Its trade
+    Dim InputRow    As Long      'The row of that trade on Trades
+    Dim LastInput   As Long      'Last row of Trades
+    Dim Maturity    As Double    'Its maturity date, or its end date
+    Dim AsOf        As Double    'Reporting date
+    Dim CalendarM   As Double    'M in calendar days over 365
+    Dim BusinessM   As Double    'M in business days over 250
+    Dim BusinessDays As Variant  'The count of the function
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.day-count"
+        SetState xlCalculationAutomatic, True, True
+        SaveParams
+        Result = M_Main.RestoreRegulatoryParameters_Silent()
+        NamedCell(PRM_DAYCOUNT).Value = 365
+        NamedCell(PRM_CALENDAR).Value = "TABLE"
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "run on the set: " & Result
+        Set TradeSheet = GetSheet(SH_TRADECALC)
+        Set Inputs = GetSheet(SH_TRADES)
+        FirstRow = OutputFirstRow(SH_TRADECALC)
+        TradeId = SafeStr(TableCell(TradeSheet, FirstRow, TC_ID).Value2)
+        LastInput = LastDataRow(Inputs, TableFirstRow(SH_TRADES), TR_ID)
+        For InputRow = TableFirstRow(SH_TRADES) To LastInput
+            If StrComp(SafeStr(TableCell(Inputs, InputRow, TR_ID).Value2), TradeId, vbTextCompare) = 0 Then
+                Exit For
+            End If
+        Next InputRow
+        Maturity = Val(SafeStr(TableCell(Inputs, InputRow, TR_MAT).Value2))
+        If Maturity <= 0# Then
+            Maturity = Val(SafeStr(TableCell(Inputs, InputRow, TR_END).Value2))
+        End If
+        AsOf = CDbl(NamedCell(PRM_ASOF).Value2)
+        CalendarM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
+        TEST_Kit.Check Abs(CalendarM - (Maturity - AsOf) / 365#) < 0.000000000001, _
+                       "M on 365 days and the empty table is not the calendar days over 365: " & CStr(CalendarM)
+
+        NamedCell(PRM_DAYCOUNT).Value = 250
+        NamedCell(PRM_CALENDAR).Value = "TARGET"
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(1, Result, "run_class=REGULATORY", vbBinaryCompare) > 0, "the day count changed the class of the run: " & Result
+        BusinessM = CDbl(TableCell(TradeSheet, FirstRow, TC_M).Value2)
+        BusinessDays = SACCR_BusinessDays(AsOf, Maturity)
+        TEST_Kit.Check Not IsError(BusinessDays), "SACCR_BusinessDays: " & CStr(BusinessDays)
+        TEST_Kit.Check Abs(BusinessM - CDbl(BusinessDays) / 250#) < 0.000000000001, _
+                       "M on 250 days and TARGET is not the business days over 250: " & CStr(BusinessM)
+        TEST_Kit.Check Abs(BusinessM - CalendarM) > 0.000000001, "M is the same on both conventions: " & CStr(BusinessM)
+        PutParamsBack
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutParamsBack
+
+End Sub
+
+
+Private Sub CaseDownloadClosingPrices()
+'
+'==============================================================================
+'                        CaseDownloadClosingPrices
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Download prices on Params (#721). In an Excel without STOCKHISTORY, which
+'   the faults "prices-unavailable" and "prices-name-error" stand for, the
+'   lookup refuses and says why, the rates stay as they were, no formula is
+'   left in the hidden scratch column and the calculation mode is as it
+'   was. With the fault "prices-fixed", which stands for prices that came
+'   (2 for every pair, none for the first), the rates of the others take the
+'   price, the first keeps its rate, the reporting currency, set to 1.5
+'   before, takes 1, the
+'   date of the prices is the reporting date and the scratch column is
+'   empty, and the source of the prices is the closing price (#745), which
+'   a run records with the date while the table is as downloaded. The
+'   rates, the date, the source and the fingerprint of the table are put
+'   back.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result      As String    'What a call returned
+    Dim ParamsSheet As Worksheet 'Params
+    Dim HeaderRow   As Long      'Header row of the FX table
+    Dim KeyColumn   As Long      'Its key column
+    Dim LastRow     As Long      'Last row of the FX table
+    Dim Rates       As Range     'The rates of the currencies below the reporting currency
+    Dim Scratch     As Range     'The hidden scratch column of the lookup
+    Dim SavedRates  As Variant   'The rates, formulas included
+    Dim SavedDate   As Variant   'The date of the prices before
+    Dim SavedSource As Variant   'The source of the prices before
+    Dim SavedPrint  As Variant   'The fingerprint of the table as downloaded before (#745)
+    Dim Reporting   As Range     'The rate of the reporting currency
+    Dim SavedReport As Variant   'It, as a formula
+    Dim Count       As Long      'Currencies below the reporting currency
+    Dim i           As Long      'Currency
+
+'------------------------------------------------------------------------------
+' LOOK UP WITH FAULTS
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.download-closing-prices"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Count = LastRow - HeaderRow - 1
+        Set Rates = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        Set Scratch = TableRange(ParamsSheet, HeaderRow + 2, KeyColumn + FX_COL_PRICE, LastRow, KeyColumn + FX_COL_PRICE)
+        SavedRates = Rates.Formula
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
+        Set Reporting = TableCell(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE)
+        SavedReport = Reporting.Formula
+        M_Main.gTestFault = "prices-unavailable"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "refusal: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "the rates are as they were"
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "the scratch column is empty"
+        TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+        M_Main.gTestFault = "prices-name-error"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=STOCKHISTORY is not available") = 1, "#NAME? refusal: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "after #NAME? the rates are as they were"
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after #NAME? the scratch column is empty"
+        M_Main.gTestFault = "prices-none"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=no price came for any currency") = 1, "no price: " & Result
+        TEST_Kit.Check RatesAsSaved(Rates, SavedRates), "with no price the rates are as they were"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#), "with no price the date is as it was"
+
+'------------------------------------------------------------------------------
+' LOOK UP WITH PRICES
+'------------------------------------------------------------------------------
+        Reporting.Value2 = 1.5
+        M_Main.gTestFault = "prices-fixed"
+        Result = M_Main.DownloadClosingPrices_Silent()
+        M_Main.gTestFault = ""
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=" & (Count - 1) & "; without_price=1; codes=") = 1, "prices: " & Result
+        TEST_Kit.Check CStr(Rates.Cells(1, 1).Formula) = CStr(SavedRates(1, 1)), "a currency with no price keeps its rate"
+        TEST_Kit.Check ToDbl(Rates.Cells(2, 1).Value2, 0#) = 2#, "a rate takes the price"
+        TEST_Kit.Check ToDbl(Rates.Cells(Count, 1).Value2, 0#) = 2#, "the last rate takes the price"
+        TEST_Kit.Check ToDbl(Reporting.Value2, 0#) = 1#, "the rate of the reporting currency is set to 1"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(NamedCell(PRM_ASOF).Value2, -1#), _
+                       "the date of the prices is the reporting date"
+        TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_CLOSING, _
+                       "the source of the prices is the closing price"
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_CLOSING & " of " & _
+                       Format$(CDate(NamedCell(PRM_ASOF).Value2), "yyyy-mm-dd"), _
+                       "a run records the closing prices of the reporting date (#745): " & CORE_Engine.FxSourceText()
+        TEST_Kit.Check Application.WorksheetFunction.CountA(Scratch) = 0, "after the prices the scratch column is empty"
+        Rates.Formula = SavedRates
+        Reporting.Formula = SavedReport
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not Rates Is Nothing Then
+            Rates.Formula = SavedRates
+            NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+            PutPrintBack SavedPrint
+        End If
+        If Not Reporting Is Nothing Then
+            Reporting.Formula = SavedReport
+        End If
+
+End Sub
+
+
+Private Sub CaseEcbAnswer()
+'
+'==============================================================================
+'                                CaseEcbAnswer
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The reading of an answer of the ECB data portal (#745), on the sample
+'   of tests/fixtures/ecb/EXR_D_sample.csv (EcbSample): for each currency
+'   the latest fixing on or before the date, as published, a later one
+'   left aside; on a closing day the fixing before it; no rate for a
+'   currency the ECB does not publish, nor in an empty answer; the full
+'   layout of the portal, with quoted fields; and a refusal, with the line
+'   and the reason, for a missing column, an HTML page, a decimal comma, a
+'   number that is not one, a date that does not exist, an unclosed quote
+'   and a rate not against the euro. The address of the request.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Codes(1 To 4)   As String    'USD, JPY, GBP and TWD
+    Dim Pair(1 To 2)    As String    'USD and JPY
+    Dim PerEuro()       As Double    'The rates read
+    Dim Days()          As Date      'Their days
+    Dim Problem         As String    'Why an answer was refused
+    Dim Ok              As Boolean   'The answer was read
+    Dim Header          As String    'The header of the sample
+    Dim Line            As String    'A line of the sample
+
+'------------------------------------------------------------------------------
+' READ THE SAMPLE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.ecb-answer"
+        Codes(1) = "USD"
+        Codes(2) = "JPY"
+        Codes(3) = "GBP"
+        Codes(4) = "TWD"
+        Ok = M_Main.EcbLatestRates(EcbSample(), Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And Len(Problem) = 0, "the sample is read: " & Problem
+        TEST_Kit.Check PerEuro(1) = 1.1725 And Days(1) = DateSerial(2026, 9, 30), _
+                       "USD is the fixing of the date as published, not the later one: " & PerEuro(1)
+        TEST_Kit.Check PerEuro(2) = 174.25 And PerEuro(3) = 0.8725, "JPY and GBP: " & PerEuro(2) & " " & PerEuro(3)
+        TEST_Kit.Check PerEuro(4) = 0#, "a currency the ECB does not publish has no rate: " & PerEuro(4)
+        Ok = M_Main.EcbLatestRates(EcbSample(), Codes, DateSerial(2026, 9, 27), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(1) = 1.165 And Days(1) = DateSerial(2026, 9, 25), _
+                       "on a closing day the fixing before it: " & PerEuro(1)
+        Ok = M_Main.EcbLatestRates(vbNullString, Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(1) = 0# And PerEuro(2) = 0# And PerEuro(3) = 0#, "an empty answer has no rate"
+        Header = "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE,OBS_STATUS,OBS_CONF," & _
+                 "OBS_PRE_BREAK,OBS_COM,TIME_FORMAT,BREAKS,COLLECTION,COMPILING_ORG,DISS_ORG,DOM_SER_IDS,PUBL_ECB," & _
+                 "PUBL_MU,PUBL_PUBLIC,UNIT_INDEX_BASE,COMPILATION,COVERAGE,DECIMALS,NAT_TITLE,SOURCE_AGENCY," & _
+                 "SOURCE_PUB,TITLE,TITLE_COMPL,UNIT,UNIT_MULT"
+        Line = "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-30,175.5,A,F,,,P1D,,A,,,,,,,99Q1=100,,,2,,4F0,," & _
+               "Japanese yen/Euro ECB reference exchange rate," & _
+               """ECB reference exchange rate, Japanese yen/Euro, 2.15 pm (C.E.T.)"",JPY,0"
+        Ok = M_Main.EcbLatestRates(Header & vbCrLf & Line & vbCrLf, Codes, DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Ok And PerEuro(2) = 175.5, "the full layout, with quoted fields: " & Problem
+
+'------------------------------------------------------------------------------
+' REFUSE WHAT IS NOT THE CSV EXPECTED
+'------------------------------------------------------------------------------
+        Header = Split(EcbSample(), vbLf)(0)
+        Ok = M_Main.EcbLatestRates("KEY,FREQ,CURRENCY" & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "no column TIME_PERIOD") > 0, "a missing column: " & Problem
+        Ok = M_Main.EcbLatestRates("<!DOCTYPE html><html><body>Sign in to the proxy</body></html>", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "is not the CSV expected") > 0, "an HTML page: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1,17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "line 2 of the answer") = 1 And InStr(Problem, "9 fields, the header 8") > 0, _
+                       "a decimal comma: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.17x", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "is not a number") > 0, "a rate that is not a number: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-02-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "does not exist") > 0, "a date that does not exist: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & """EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "a quote is not closed") > 0, "an unclosed quote: " & Problem
+        Ok = M_Main.EcbLatestRates(Header & vbLf & "EXR.D.USD.GBP.SP00.A,D,USD,GBP,SP00,A,2026-09-30,1.17", Codes, _
+                                   DateSerial(2026, 9, 30), PerEuro, Days, Problem)
+        TEST_Kit.Check Not Ok And InStr(Problem, "not against the euro") > 0, "a rate not against the euro: " & Problem
+
+'------------------------------------------------------------------------------
+' THE REQUEST
+'------------------------------------------------------------------------------
+        Pair(1) = "USD"
+        Pair(2) = "JPY"
+        TEST_Kit.Check M_Main.EcbRequestUrl(Pair, DateSerial(2026, 9, 30)) = _
+                       "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+JPY.EUR.SP00.A?startPeriod=2026-09-23" & _
+                       "&endPeriod=2026-09-30&format=csvdata&detail=dataonly", _
+                       "the request: " & M_Main.EcbRequestUrl(Pair, DateSerial(2026, 9, 30))
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseDownloadEcbRates()
+'
+'==============================================================================
+'                            CaseDownloadEcbRates
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Download prices from the ECB (#745), with the fault "ecb-answer" that
+'   hands the sample (EcbSample) back in place of the portal: the rates of
+'   the reporting date as published, the other currencies kept, the date
+'   and the source written; the source read from FX_Source; on a closing
+'   day the fixing before it, named in the result; with USD as reporting
+'   currency every rate crossed through the euro; the rate of the
+'   reporting currency set to 1 each time. A run records the ECB as the
+'   source while the table is as downloaded, "Manual (edited after ...)"
+'   once a rate is edited, and the ECB again when the rate is typed back.
+'   Refusals that change
+'   nothing: no rate of the reporting currency, no connection, HTTP 503, a
+'   time-out, an HTML page, an empty answer, a reporting date changed
+'   while the answer was awaited (fault "ecb-edit") and an unknown source. A
+'   failure while the rates are written puts them back with their date,
+'   source and fingerprint. Params is put back as the case found it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result        As String       'What a call returned
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the FX table
+    Dim AllRates      As Range        'Every rate of the table
+    Dim SavedRates    As Variant      'The rates, formulas included
+    Dim SavedDate     As Variant      'The date of the rates before
+    Dim SavedSource   As Variant      'Their source before
+    Dim SavedPrint    As Variant      'The fingerprint of the table as downloaded before (#745)
+    Dim SavedAsOf     As Variant      'The reporting date, as a formula
+    Dim SavedCcy      As Variant      'The reporting currency
+    Dim SavedChoice   As Variant      'FX_Source
+    Dim SavedCny      As Double       'The rate of CNY, which the sample does not have
+    Dim SavedUsd      As Double       'The rate of USD
+    Dim Count         As Long         'Currencies below the reporting currency
+    Dim Faults        As Variant      'Faults that refuse
+    Dim Reasons       As Variant      'The start of each refusal
+    Dim f             As Long         'Fault
+    Dim ErrNumber     As Long         'An error raised by the lookup
+
+'------------------------------------------------------------------------------
+' FROM THE SAMPLE ANSWER
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.download-ecb-rates"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Count = LastRow - HeaderRow - 1
+        Set AllRates = TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        SavedRates = AllRates.Formula
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
+        SavedAsOf = NamedCell(PRM_ASOF).Formula
+        SavedCcy = NamedCell(PRM_REPCCY).Formula
+        SavedChoice = NamedCell(NM_FX_SOURCE).Formula
+        SavedCny = FxRateOf("CNY")
+        SavedUsd = FxRateOf("USD")
+        NamedCell(PRM_REPCCY).Value2 = "EUR"
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        AllRates.Cells(1, 1).Value2 = 1.5
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-answer"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=3; without_price=" & (Count - 3) & "; codes=") = 1 And _
+                       InStr(Result, "; source=ECB") > 0 And InStr(Result, "; fixing=") = 0, "ECB: " & Result
+        TEST_Kit.Check FxRateOf("USD") = 1.1725 And FxRateOf("JPY") = 174.25 And FxRateOf("GBP") = 0.8725, _
+                       "the rates are the fixings of the reporting date as published: " & FxRateOf("USD")
+        TEST_Kit.Check FxRateOf("CNY") = SavedCny, "a currency the answer has no rate for keeps its rate"
+        TEST_Kit.Check FxRateOf("EUR") = 1#, "the rate of the reporting currency, 1.5 before, is set to 1"
+        TEST_Kit.Check ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = CDbl(DateSerial(2026, 9, 30)), _
+                       "the date of the rates is the reporting date"
+        TEST_Kit.Check SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = FX_SOURCE_ECB, "the source of the rates is the ECB"
+
+    'A run records the source while the table is as downloaded, and a
+    'rate edited after the download as manual (#745)
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "the source recorded: " & CORE_Engine.FxSourceText()
+        FxRateCell("USD").Value2 = 1.2
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_MANUAL & " (edited after " & FX_SOURCE_ECB & " download)", _
+                       "a rate edited after the download: " & CORE_Engine.FxSourceText()
+        FxRateCell("USD").Value2 = 1.1725
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "the rate typed back as downloaded: " & CORE_Engine.FxSourceText()
+
+'------------------------------------------------------------------------------
+' FROM THE CELL, ON A CLOSING DAY, AND CROSSED
+'------------------------------------------------------------------------------
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_SOURCE).Value2 = FX_SOURCE_ECB
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 27))
+        Result = M_Main.DownloadClosingPrices_Silent()
+        TEST_Kit.Check InStr(Result, "; source=ECB; fixing=2026-09-25") > 0, "the source in the cell, on a Sunday: " & Result
+        TEST_Kit.Check FxRateOf("USD") = 1.165, "on a closing day the rate is the fixing before it: " & FxRateOf("USD")
+        AllRates.Formula = SavedRates
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        NamedCell(PRM_REPCCY).Value2 = "USD"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=PRICED; rates=3; without_price=" & (Count - 3) & "; codes=") = 1, _
+                       "crossed: " & Result
+        TEST_Kit.Check Abs(FxRateOf("EUR") - 1# / 1.1725) < 0.000000000001 And _
+                       Abs(FxRateOf("JPY") - 174.25 / 1.1725) < 0.000000000001 And _
+                       Abs(FxRateOf("GBP") - 0.8725 / 1.1725) < 0.000000000001, _
+                       "the rates are crossed through the euro: " & FxRateOf("EUR") & " " & FxRateOf("JPY")
+        TEST_Kit.Check FxRateOf("USD") = 1# And SavedUsd <> 1#, "the rate of the reporting currency USD is set to 1"
+
+'------------------------------------------------------------------------------
+' REFUSALS CHANGE NOTHING
+'------------------------------------------------------------------------------
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
+        NamedCell(PRM_REPCCY).Value2 = "CNY"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the ECB published no reference rate of the " & _
+                       "reporting currency CNY") = 1, "no rate of the reporting currency: " & Result
+        NamedCell(PRM_REPCCY).Value2 = "EUR"
+        Faults = Array("ecb-offline", "ecb-http", "ecb-timeout", "ecb-answer", "ecb-answer")
+        Reasons = Array("the ECB data portal could not be reached", "the ECB data portal answered HTTP 503", _
+                        "the ECB data portal did not answer within", _
+                        "the answer of the ECB data portal is not the CSV expected", _
+                        "the ECB published no reference rate for any currency")
+        For f = 0 To 4
+            M_Main.gTestEcbAnswer = IIf(f = 3, "<html><body>Sign in to the proxy</body></html>", vbNullString)
+            M_Main.gTestFault = CStr(Faults(f))
+            Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+            TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=" & Reasons(f)) = 1, Faults(f) & ": " & Result
+        Next f
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-edit"
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the reporting date, the reporting currency or a currency " & _
+                       "code was changed while the rates came in") = 1, "an input changed while waiting: " & Result
+        NamedCell(PRM_ASOF).Value2 = CDbl(DateSerial(2026, 9, 30))
+        TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
+                       ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_FP).Value2) = SafeStr(SavedPrint), _
+                       "after the refusals the rates, their date, source and fingerprint are as they were"
+        TEST_Kit.Check Application.Calculation = xlCalculationAutomatic, "the calculation mode is as it was"
+
+'------------------------------------------------------------------------------
+' A FAILURE WHILE THE RATES ARE WRITTEN, AN UNKNOWN SOURCE
+'------------------------------------------------------------------------------
+        M_Main.gTestEcbAnswer = EcbSample()
+        M_Main.gTestFault = "ecb-write"
+        On Error Resume Next
+        Result = M_Main.DownloadClosingPrices_Silent(FX_SOURCE_ECB)
+        ErrNumber = Err.Number
+        On Error GoTo Unexpected
+        TEST_Kit.Check ErrNumber = ERR_INJECTED_FAULT, "the failure is raised: " & ErrNumber
+        TEST_Kit.Check RatesAsSaved(AllRates, SavedRates) And _
+                       ToDbl(NamedCell(NM_FX_PRICE_DATE).Value2, 0#) = ToDbl(SavedDate, 0#) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_SRC).Value2) = SafeStr(SavedSource) And _
+                       SafeStr(NamedCell(NM_FX_PRICE_FP).Value2) = SafeStr(SavedPrint), _
+                       "after the failure the rates, their date, source and fingerprint are put back"
+        M_Main.gTestFault = ""
+        Result = M_Main.DownloadClosingPrices_Silent("Bloomberg")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the source of the rates is 'Bloomberg'") = 1, _
+                       "unknown source: " & Result
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice, SavedPrint
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutEcbCaseBack AllRates, SavedRates, SavedDate, SavedSource, SavedAsOf, SavedCcy, SavedChoice, SavedPrint
+
+End Sub
+
+
+Private Sub CaseRebaseFxTable()
+'
+'==============================================================================
+'                              CaseRebaseFxTable
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rebase of the FX table on a new reporting currency (#725): with
+'   USD at 1.25, every rate is divided by 1.25, USD is 1 and EUR 0.8, and
+'   a table as downloaded is still as downloaded (#745); a second rebase
+'   changes nothing; a rate that is a formula stays and is
+'   listed; a currency not in the table, or whose own rate is a formula,
+'   is refused; a failure while the
+'   rates are written puts them back; events are on again. Params is put
+'   back as the case found it.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result        As String       'What a call returned
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim HeaderRow     As Long         'Header row of the FX table
+    Dim KeyColumn     As Long         'Its key column
+    Dim LastRow       As Long         'Last row of the FX table
+    Dim AllRates      As Range        'Every rate of the table
+    Dim SavedRates    As Variant      'The rates, formulas included
+    Dim SetUp         As Variant      'The rates with USD at 1.25
+    Dim SavedJpy      As Double       'The rate of JPY
+    Dim Total         As Long         'Currencies of the table
+    Dim ErrNumber     As Long         'An error raised by the rebase
+    Dim SavedDate     As Variant      'The date of the rates before
+    Dim SavedSource   As Variant      'Their source before
+    Dim SavedPrint    As Variant      'The fingerprint of the table as downloaded before (#745)
+
+'------------------------------------------------------------------------------
+' REBASE ON USD
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "params.rebase-fx-table"
+        SetState xlCalculationAutomatic, True, True
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        HeaderRow = NamedRow(NM_FX_TABLE)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        LastRow = HeaderRow + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, LastRow + 1, KeyColumn).Value)
+            LastRow = LastRow + 1
+        Loop
+        Total = LastRow - HeaderRow
+        SavedDate = NamedCell(NM_FX_PRICE_DATE).Value2
+        SavedSource = NamedCell(NM_FX_PRICE_SRC).Value2
+        SavedPrint = NamedCell(NM_FX_PRICE_FP).Value2
+        Set AllRates = TableRange(ParamsSheet, HeaderRow + 1, KeyColumn + FX_COL_RATE, LastRow, KeyColumn + FX_COL_RATE)
+        SavedRates = AllRates.Formula
+        SavedJpy = FxRateOf("JPY")
+        FxRateCell("EUR").Value2 = 1#
+        FxRateCell("USD").Value2 = 1.25
+        SetUp = AllRates.Formula
+    'The table as an ECB download of the reporting date left it (#745)
+        NamedCell(NM_FX_PRICE_DATE).Value2 = CDbl(DateSerial(2026, 9, 30))
+        NamedCell(NM_FX_PRICE_SRC).Value2 = FX_SOURCE_ECB
+        PutPrintBack CORE_Engine.FxTableFingerprint()
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check Result = "RESULT=REBASED; currency=USD; divisor=1.25; rates=" & Total, "rebase: " & Result
+        TEST_Kit.Check CORE_Engine.FxSourceText() = FX_SOURCE_ECB & " of 2026-09-30", _
+                       "a table rebased is still as downloaded: " & CORE_Engine.FxSourceText()
+        TEST_Kit.Check FxRateOf("USD") = 1# And Abs(FxRateOf("EUR") - 0.8) < 0.000000000001 And _
+                       Abs(FxRateOf("JPY") - SavedJpy / 1.25) < 0.000000001, _
+                       "every rate is divided by 1.25: EUR " & FxRateOf("EUR") & ", JPY " & FxRateOf("JPY")
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check Result = "RESULT=UNCHANGED; currency=USD", "a second rebase changes nothing: " & Result
+
+'------------------------------------------------------------------------------
+' A FORMULA, AN UNKNOWN CURRENCY, A FAILURE
+'------------------------------------------------------------------------------
+        AllRates.Formula = SetUp
+        FxRateCell("GBP").Formula = "=0.86"
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check InStr(Result, "; not_rebased=GBP") > 0 And FxRateCell("GBP").Formula = "=0.86", _
+                       "a rate that is a formula stays and is listed: " & Result
+        Result = M_Main.RebaseFxTable_Silent("XYZ")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=XYZ is not in the FX table") = 1, "unknown currency: " & Result
+        AllRates.Formula = SetUp
+        FxRateCell("USD").Formula = "=1.25"
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        TEST_Kit.Check InStr(Result, "RESULT=REFUSED; reason=the rate of USD is a formula") = 1 And _
+                       FxRateCell("USD").Formula = "=1.25", "a formula as the divisor is refused and kept: " & Result
+        AllRates.Formula = SetUp
+        M_Main.gTestFault = "rebase-write"
+        On Error Resume Next
+        Result = M_Main.RebaseFxTable_Silent("USD")
+        ErrNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        TEST_Kit.Check ErrNumber = ERR_INJECTED_FAULT, "the failure is raised: " & ErrNumber
+        TEST_Kit.Check RatesAsSaved(AllRates, SetUp), "after the failure the rates are put back"
+        TEST_Kit.Check Application.EnableEvents, "events are on again"
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
+        Exit Sub
+
+Unexpected:
+        M_Main.gTestFault = ""
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        If Not AllRates Is Nothing Then
+            AllRates.Formula = SavedRates
+            NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+            NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+            PutPrintBack SavedPrint
+        End If
+
+End Sub
+
+
+Private Function FxRateCell( _
+    ByVal Code As String) _
+    As Range
+'
+'==============================================================================
+'                                 FxRateCell
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rate cell of Code in the FX table; Nothing when the table has no
+'   such currency (#725).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim KeyColumn     As Long         'Key column of the FX table
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                Set FxRateCell = TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE)
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Sub CaseOutputFilters()
+'
+'==============================================================================
+'                             CaseOutputFilters
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The filter buttons of the five output sheets (#754): the template has
+'   them on Results, HedgingSets, Buckets, TradeCalc and Checks, and the
+'   sheets allow their use while protected; a run and Clear outputs keep
+'   them; a filter the user sets on TradeCalc stays applied after the next
+'   run, which shows only the rows the rule keeps. The filter is cleared at
+'   the end.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Names       As Variant   'The five sheets
+    Dim i           As Long      'Sheet
+    Dim Sheet       As Worksheet 'One of them
+    Dim TradeCalc   As Worksheet 'TradeCalc
+    Dim FirstId     As String    'The first trade of TradeCalc
+    Dim Result      As String    'What a run returned
+
+'------------------------------------------------------------------------------
+' THE TEMPLATE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "outputs.filter-buttons"
+        SetState xlCalculationAutomatic, False, False
+        Names = Split(OUTPUT_FILTER_SHEETS, "|")
+        For i = LBound(Names) To UBound(Names)
+            Set Sheet = GetSheet(CStr(Names(i)))
+            TEST_Kit.Check Sheet.AutoFilterMode, Names(i) & " has no filter buttons in the template"
+            TEST_Kit.Check Sheet.Protection.AllowFiltering, Names(i) & " does not allow filtering while protected"
+        Next i
+
+'------------------------------------------------------------------------------
+' A RUN, A FILTER, ANOTHER RUN
+'------------------------------------------------------------------------------
+        Result = M_Main.RunSACCR_Silent()
+        CheckFilterButtons "after a run"
+        Set TradeCalc = GetSheet(SH_TRADECALC)
+        FirstId = SafeStr(TableCell(TradeCalc, OutputFirstRow(SH_TRADECALC), TC_ID).Value2)
+        TradeCalc.AutoFilter.Range.AutoFilter Field:=1, Criteria1:="=" & FirstId
+        TEST_Kit.Check TradeCalc.FilterMode, "the filter on TradeCalc is set"
+        Result = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check TradeCalc.FilterMode, "the filter on TradeCalc stays set after a run: " & Result
+        TEST_Kit.Check Application.WorksheetFunction.Subtotal(103, TradeCalc.Range("C" & OutputFirstRow(SH_TRADECALC) & ":C" & _
+                       TradeCalc.Rows.Count)) = 1, "the run shows only the rows the filter keeps"
+        TradeCalc.ShowAllData
+
+'------------------------------------------------------------------------------
+' CLEAR OUTPUTS, AND ANOTHER RUN
+'------------------------------------------------------------------------------
+        M_Main.ClearOutputs
+        CheckFilterButtons "after Clear outputs"
+        Result = M_Main.RunSACCR_Silent()
+        CheckFilterButtons "after a new run"
+        CheckState xlCalculationAutomatic, False, False
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail "outputs.filter-buttons", "unexpected error " & Err.Number & ": " & Err.Description
+        On Error Resume Next
+        If Not TradeCalc Is Nothing Then
+            If TradeCalc.FilterMode Then
+                TradeCalc.ShowAllData
+            End If
+        End If
+
+End Sub
+
+
+Private Sub CheckFilterButtons( _
+    ByVal Moment As String)
+'
+'==============================================================================
+'                              CheckFilterButtons
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Check that each of the five output sheets still has the filter buttons
+'   on its header (#754): one check per sheet.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Names       As Variant   'The five sheets
+    Dim i           As Long      'Sheet
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        Names = Split(OUTPUT_FILTER_SHEETS, "|")
+        For i = LBound(Names) To UBound(Names)
+            TEST_Kit.Check GetSheet(CStr(Names(i))).AutoFilterMode, Names(i) & " has no filter buttons " & Moment
+        Next i
+
+End Sub
+
+
+Private Sub PutEcbCaseBack( _
+    ByVal AllRates As Range, _
+    ByVal SavedRates As Variant, _
+    ByVal SavedDate As Variant, _
+    ByVal SavedSource As Variant, _
+    ByVal SavedAsOf As Variant, _
+    ByVal SavedCcy As Variant, _
+    ByVal SavedChoice As Variant, _
+    ByVal SavedPrint As Variant)
+'
+'==============================================================================
+'                               PutEcbCaseBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Put Params back as CaseDownloadEcbRates found it, and clear the faults
+'   (#745). Does nothing to the rates when the case stopped before it read
+'   them.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        On Error Resume Next
+        M_Main.gTestFault = ""
+        M_Main.gTestEcbAnswer = vbNullString
+        If AllRates Is Nothing Then
+            Exit Sub
+        End If
+        AllRates.Formula = SavedRates
+        NamedCell(NM_FX_PRICE_DATE).Value2 = SavedDate
+        NamedCell(NM_FX_PRICE_SRC).Value2 = SavedSource
+        PutPrintBack SavedPrint
+        NamedCell(PRM_ASOF).Formula = SavedAsOf
+        NamedCell(PRM_REPCCY).Formula = SavedCcy
+        NamedCell(NM_FX_SOURCE).Formula = SavedChoice
+
+End Sub
+
+
+Private Sub PutPrintBack( _
+    ByVal SavedPrint As Variant)
+'
+'==============================================================================
+'                                 PutPrintBack
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Put back the fingerprint of the FX table as downloaded (#745) as the
+'   case found it: as text, with an apostrophe, as Download prices writes
+'   it, or empty.
+'
+' ERROR POLICY
+'   Never raises.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        On Error Resume Next
+        If Len(SafeStr(SavedPrint)) = 0 Then
+            NamedCell(NM_FX_PRICE_FP).Value2 = vbNullString
+        Else
+            NamedCell(NM_FX_PRICE_FP).Value2 = "'" & SafeStr(SavedPrint)
+        End If
+
+End Sub
+
+
+Private Function FxRateOf( _
+    ByVal Code As String) _
+    As Double
+'
+'==============================================================================
+'                                  FxRateOf
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rate of Code in the FX table; -1 when the table has no such
+'   currency or its rate is not a number (#745).
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ParamsSheet   As Worksheet    'Params
+    Dim KeyColumn     As Long         'Key column of the FX table
+    Dim r             As Long         'Row
+
+'------------------------------------------------------------------------------
+' FIND
+'------------------------------------------------------------------------------
+        FxRateOf = -1#
+        Set ParamsSheet = GetSheet(SH_PARAMS)
+        KeyColumn = NamedTableCol(NM_FX_TABLE)
+        r = NamedRow(NM_FX_TABLE) + 1
+        Do While Not IsBlankCell(TableCell(ParamsSheet, r, KeyColumn).Value)
+            If UCase$(Trim$(SafeStr(TableCell(ParamsSheet, r, KeyColumn).Value2))) = Code Then
+                FxRateOf = ToDbl(TableCell(ParamsSheet, r, KeyColumn + FX_COL_RATE).Value2, -1#)
+                Exit Function
+            End If
+            r = r + 1
+        Loop
+
+End Function
+
+
+Private Function EcbSample() As String
+'
+'==============================================================================
+'                                  EcbSample
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The answer of the ECB data portal in tests/fixtures/ecb/EXR_D_sample.csv,
+'   line by line, with illustrative rates (#745). test_params_layout.py
+'   checks that the two hold the same lines.
+'
+' UPDATED
+'   2026-11-22
+'==============================================================================
+'
+        EcbSample = Join(Array( _
+            "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-25,0.865", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-29,0.87", _
+            "EXR.D.GBP.EUR.SP00.A,D,GBP,EUR,SP00,A,2026-09-30,0.8725", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-25,172.1", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-29,173.5", _
+            "EXR.D.JPY.EUR.SP00.A,D,JPY,EUR,SP00,A,2026-09-30,174.25", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-25,1.165", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-29,1.17", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-30,1.1725", _
+            "EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-10-01,1.18"), vbLf)
+
+End Function
+
+
+Private Function RatesAsSaved( _
+    ByVal Rates As Range, _
+    ByVal SavedRates As Variant) _
+    As Boolean
+'
+'==============================================================================
+'                              RatesAsSaved
+'------------------------------------------------------------------------------
+' PURPOSE
+'   True when every cell of Rates holds, as a formula or a value, what
+'   SavedRates holds (Rates.Formula read before): the rates are as they
+'   were (#721).
+'
+' UPDATED
+'   2026-11-21
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim i           As Long      'Cell
+
+'------------------------------------------------------------------------------
+' COMPARE
+'------------------------------------------------------------------------------
+        RatesAsSaved = True
+        For i = 1 To Rates.Rows.Count
+            If CStr(Rates.Cells(i, 1).Formula) <> CStr(SavedRates(i, 1)) Then
+                RatesAsSaved = False
+            End If
+        Next i
+
+End Function
 
 
 Private Sub CaseRestoreFailures()
@@ -1872,7 +2823,7 @@ Private Sub CaseNavigationBar()
         TEST_Kit.Check Result = "RESULT=HIDDEN; sheets=" & SheetCount, "hide: " & Result
         TEST_Kit.Check Not M_Main.NavigationBarShown(), "NavigationBarShown after the hide"
         TEST_Kit.Check BarSheets(False) = SheetCount, "sheets with the bar hidden: " & BarSheets(False) & " of " & SheetCount
-        TEST_Kit.Check ProtectedSheets() = SheetCount, "sheets protected after the hide: " & ProtectedSheets() & " of " & SheetCount
+        TEST_Kit.Check ProtectedSheets() = SheetCount - NeverProtected(), "sheets protected after the hide: " & ProtectedSheets() & " of " & SheetCount - NeverProtected()
         TEST_Kit.Check ThisWorkbook.Saved = WasSaved, "the hide changed the Saved flag"
 
 '------------------------------------------------------------------------------
@@ -1892,7 +2843,7 @@ Private Sub CaseNavigationBar()
         TEST_Kit.Check Result = "RESULT=SHOWN; sheets=" & SheetCount, "show: " & Result
         TEST_Kit.Check M_Main.NavigationBarShown(), "NavigationBarShown after the show"
         TEST_Kit.Check BarSheets(True) = SheetCount, "sheets with the bar shown: " & BarSheets(True) & " of " & SheetCount
-        TEST_Kit.Check ProtectedSheets() = SheetCount, "sheets protected after the show: " & ProtectedSheets() & " of " & SheetCount
+        TEST_Kit.Check ProtectedSheets() = SheetCount - NeverProtected(), "sheets protected after the show: " & ProtectedSheets() & " of " & SheetCount - NeverProtected()
         M_Main.NavigationBarBeforeSave
         M_Main.NavigationBarAfterSave
         TEST_Kit.Check BarSheets(True) = SheetCount, "a save with the bar shown left it on " & BarSheets(True) & " of " & SheetCount
@@ -2013,6 +2964,64 @@ Private Function BarSheets( _
             Next Item
             If Groups = 2 And Sheet.Columns(1).Hidden = Not Shown Then
                 BarSheets = BarSheets + 1
+            End If
+        Next Sheet
+
+End Function
+
+
+Private Function ZoomsAfterOpening() As String
+'
+'==============================================================================
+'                              ZoomsAfterOpening
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Set the zoom of the Results sheet to 80%, run ApplyOpeningView, and return
+'   the names of the sheets whose zoom is not 100% afterwards, or "" when
+'   every sheet is at 100% and the sheet that was active still is (#726).
+'==============================================================================
+'
+    Dim Sheet      As Worksheet    'Each worksheet
+    Dim Original   As Object       'The sheet that was active
+    Dim Wrong      As String       'Sheets not at 100%
+
+        Set Original = ThisWorkbook.ActiveSheet
+        ThisWorkbook.Worksheets(SH_RESULTS).Activate
+        ThisWorkbook.Windows(1).Zoom = 80
+        Original.Activate
+        M_Main.ApplyOpeningView
+        If Not ThisWorkbook.ActiveSheet Is Original Then
+            Wrong = Wrong & " (the active sheet changed)"
+        End If
+        For Each Sheet In ThisWorkbook.Worksheets
+            If Sheet.Visible = xlSheetVisible Then
+                Sheet.Activate
+                If ThisWorkbook.Windows(1).Zoom <> 100 Then
+                    Wrong = Wrong & " " & Sheet.Name
+                End If
+            End If
+        Next Sheet
+        Original.Activate
+        ZoomsAfterOpening = Wrong
+
+End Function
+
+
+Private Function NeverProtected() As Long
+'
+'==============================================================================
+'                               NeverProtected
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The number of sheets that PROTECT_NONE lists: they are never protected
+'   (#720), so the protected sheets are the others.
+'==============================================================================
+'
+    Dim Sheet   As Worksheet    'Each worksheet
+
+        For Each Sheet In ThisWorkbook.Worksheets
+            If InStr(1, PROTECT_NONE, "|" & Sheet.Name & "|") > 0 Then
+                NeverProtected = NeverProtected + 1
             End If
         Next Sheet
 
@@ -2209,12 +3218,16 @@ Private Sub SaveParams()
 '------------------------------------------------------------------------------
 ' KEEP
 '------------------------------------------------------------------------------
+    'The day count and the calendar are settings of the run, not in the
+    'restore (#721), and cases change them: they are kept too.
         Codes = CORE_Engine.RegulatoryParameterCodes()
-        ReDim Kept(LBound(Codes) To UBound(Codes) + 1)
+        ReDim Kept(LBound(Codes) To UBound(Codes) + 3)
         For i = LBound(Codes) To UBound(Codes)
             Kept(i) = NamedCell(CStr(Codes(i))).Formula
         Next i
-        Kept(UBound(Codes) + 1) = FactorBlock().Formula
+        Kept(UBound(Codes) + 1) = NamedCell(PRM_DAYCOUNT).Formula
+        Kept(UBound(Codes) + 2) = NamedCell(PRM_CALENDAR).Formula
+        Kept(UBound(Codes) + 3) = FactorBlock().Formula
         mSavedParams = Kept
         mParamsBefore = CORE_Engine.InputFingerprint()
 
@@ -2250,7 +3263,9 @@ Private Sub PutParamsBack()
         For i = LBound(Codes) To UBound(Codes)
             NamedCell(CStr(Codes(i))).Formula = mSavedParams(i)
         Next i
-        FactorBlock().Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_DAYCOUNT).Formula = mSavedParams(UBound(Codes) + 1)
+        NamedCell(PRM_CALENDAR).Formula = mSavedParams(UBound(Codes) + 2)
+        FactorBlock().Formula = mSavedParams(UBound(Codes) + 3)
         TEST_Kit.Check CORE_Engine.InputFingerprint() = mParamsBefore, "Params was not put back as the case found it"
         Exit Sub
 
@@ -2607,7 +3622,8 @@ Private Sub CaseProtectionApplied()
 '                            CaseProtectionApplied
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   After ProtectWorkbook every worksheet is protected for the user
+'   After ProtectWorkbook every worksheet, except those PROTECT_NONE lists,
+'   which stay unprotected (#720), is protected for the user
 '   interface only, with its drawing objects and scenarios, and allows
 '   sorting, filtering, inserting rows and opening row groups exactly as
 '   the PROTECT_ lists of CORE_Config say; the structure is protected
@@ -2628,6 +3644,7 @@ Private Sub CaseProtectionApplied()
     Dim Sheet   As Worksheet    'Each worksheet
     Dim Listed  As String       'Its name between bars
     Dim Wrong   As String       'Sheets protected otherwise
+    Dim ZoomWrong As String     'Sheets not at 100% after the opening view (#726)
 
 '------------------------------------------------------------------------------
 ' RUN CASE
@@ -2635,9 +3652,15 @@ Private Sub CaseProtectionApplied()
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "protection.applied"
         M_Main.ProtectWorkbook
+        ZoomWrong = ZoomsAfterOpening()
+        TEST_Kit.Check Len(ZoomWrong) = 0, "sheets not at 100% after ApplyOpeningView:" & ZoomWrong
         For Each Sheet In ThisWorkbook.Worksheets
             Listed = "|" & Sheet.Name & "|"
-            If Not SheetProtected(Sheet.Name) Then
+            If InStr(1, PROTECT_NONE, Listed) > 0 Then
+                If Sheet.ProtectContents Then
+                    Wrong = Wrong & " " & Sheet.Name
+                End If
+            ElseIf Not SheetProtected(Sheet.Name) Then
                 Wrong = Wrong & " " & Sheet.Name
             ElseIf Sheet.Protection.AllowSorting <> (InStr(1, PROTECT_SORTING, Listed) > 0) Or _
                    Sheet.Protection.AllowFiltering <> (InStr(1, PROTECT_FILTERING, Listed) > 0) Or _

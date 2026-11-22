@@ -30,16 +30,19 @@ from csv_contract import (
 from import_spec import example_findings, specification_findings
 
 CONFIG = "src/core/CORE_Config.bas"
+SCHEMA = "src/core/CORE_CsvSchema.bas"  # Holds the expected sheet headers, generated from the contract (#756)
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 FIXTURES = "tests/csv"
 EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
 PORTFOLIO = "tests/csv/portfolio.json"
 STAGED = "tests/csv/staged.json"
-ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS"}
-ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS"}
-EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER")}
-KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID"}
+ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS",
+                  "BankNettingSets": "BN_HEADERS", "BankTrades": "BT_HEADERS"}
+ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS", "BankNettingSets": "BN_NCOLS", "BankTrades": "BT_NCOLS"}
+EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER"),
+                    "BankNettingSets": ("CSV_BN_FILE", "CSV_BN_HEADER"), "BankTrades": ("CSV_BT_FILE", "CSV_BT_HEADER")}
+KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID", "BankNettingSets": "NettingSetID", "BankTrades": "TradeID"}
 # Staging sheet and its header anchor per file (#208); the header row starts with the CSV line column.
 STAGING = {"NettingSets": ("Import_NettingSets", "ImportNettingSets_Header"),
            "Trades": ("Import_Trades", "ImportTrades_Header")}
@@ -51,12 +54,12 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 
 
-def vba_string(root: Path, constant: str) -> str:
-    """The value of a VBA string constant in CORE_Config, concatenated over continuation lines."""
-    text = (root / CONFIG).read_text(encoding="cp1252")
+def vba_string(root: Path, constant: str, module: str = CONFIG) -> str:
+    """The value of a VBA string constant of a module, concatenated over continuation lines."""
+    text = (root / module).read_text(encoding="cp1252")
     match = re.search(rf"Public Const {constant} As String = (.*?)\r?\n(?!\s*\")", text, re.S)
     if not match:
-        raise ValueError(f"{CONFIG}: {constant} not found")
+        raise ValueError(f"{module}: {constant} not found")
     return "".join(re.findall(r'"((?:[^"]|"")*)"', match.group(1))).replace('""', '"')
 
 
@@ -70,8 +73,8 @@ def vba_long(root: Path, constant: str) -> int:
 
 
 def engine_headers(root: Path, constant: str) -> list[str]:
-    """The headers of a "|"-separated VBA string constant."""
-    return vba_string(root, constant).split("|")
+    """The headers of a "|"-separated VBA string constant of CORE_CsvSchema."""
+    return vba_string(root, constant, SCHEMA).split("|")
 
 
 def header_key(text: str) -> str:
@@ -224,14 +227,15 @@ def check_workbook(root: Path, contract: dict[str, Any]) -> list[str]:
         engine = [header_key(h) for h in engine_headers(root, ENGINE_HEADERS[kind])]
         read = [h for h in engine if h]
         if headers[:len(read)] != read or any(engine[len(read):]) or len(engine) != len(headers):
-            findings.append(f"{kind}: sheet headers differ from {ENGINE_HEADERS[kind]} in {CONFIG}")
+            findings.append(f"{kind}: sheet headers differ from {ENGINE_HEADERS[kind]} in {SCHEMA}")
         if vba_long(root, ENGINE_WIDTH[kind]) != len(headers):
             findings.append(f"{kind}: {ENGINE_WIDTH[kind]} in {CONFIG} is not the contract's {len(headers)} columns")
         sheet = workbook.sheet(spec["sheet"])
         first, template = workbook.header(sheet, KEY_COLUMN[kind])
         if [header_key(h) for h in template] != headers:
             findings.append(f"{kind}: sheet headers differ from the {spec['sheet']} header row of {TEMPLATE}")
-        findings += check_staging(workbook, kind, spec)
+        if kind in STAGING:  # the bank files are loaded onto their sheet, with no staging sheet (#718)
+            findings += check_staging(workbook, kind, spec)
         lists = workbook.lists(sheet)
         for offset, column in enumerate(spec["columns"]):
             if column["type"] in ("code", "flag"):

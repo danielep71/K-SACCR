@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, nine suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, ten suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -235,7 +235,7 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 19 sheets, named ranges, formulas, the staging-sheet buttons and
+   holds the 20 sheets, named ranges, formulas, the rounded shapes that act as the buttons of the sheets and
    the Ribbon part, and no VBA. Built
    workbooks are never committed.
 
@@ -269,8 +269,8 @@ The layout and file conventions are defined in
    1. every file in `src/core/`;
    2. every file in `src/classes/` (none at present);
    3. every file in `src/modules/`;
-   4. every standard module (`.bas`) in `src/workbook/`, currently `M_Main`
-      and `M_Ribbon`;
+   4. every standard module (`.bas`) in `src/workbook/`, currently
+      `M_FormulaTest`, `M_Main` and `M_Ribbon`;
       the `.cls` document modules there are pasted, not imported (step 5);
    5. every `.frm` in `src/forms/` (none at present; its `.frx` loads with it;
       never import a `.frx`);
@@ -290,28 +290,32 @@ The layout and file conventions are defined in
    | 7 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 8 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 9 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
-   | 10 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it, and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
-   | 11 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object, `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
-   | 12 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
-   | 13 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
-   | 14 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
-   | 15 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
-   | 16 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
-   | 17 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
-   | 18 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
-   | 19 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
-   | 20 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
-   | 21 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
-   | 22 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
-   | 23 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
-   | 24 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 25 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 10 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
+   | 11 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
+   | 13 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
+   | 14 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
+   | 15 | `tests/modules/TEST_CaseRunner.bas` | `TEST_CaseRunner` | Shared runner for the case suites and the benchmark; development workbook only |
+   | 16 | `tests/modules/TEST_Cases.bas` | `TEST_Cases` | Generated numerical test cases; development workbook only |
+   | 17 | `tests/modules/TEST_CsvReader.bas` | `TEST_CsvReader` | Test suite, generated from `tests/csv`; the CSV reader against the reference implementation; development workbook only |
+   | 18 | `tests/modules/TEST_FormulaRandom.bas` | `TEST_FormulaRandom` | Test suite; the FormulaTest comparison at scale on reproducible random draws and at branch points; development workbook only |
+   | 19 | `tests/modules/TEST_Formulas.bas` | `TEST_Formulas` | Test suite; domain and error contract of the worksheet functions; development workbook only |
+   | 20 | `tests/modules/TEST_Harness.bas` | `TEST_Harness` | Regression harness for the worksheet functions; development workbook only |
+   | 21 | `tests/modules/TEST_Import.bas` | `TEST_Import` | Test suite; loading a CSV file into the staging sheets and validating them; development workbook only |
+   | 22 | `tests/modules/TEST_InputValidation.bas` | `TEST_InputValidation` | Test suite; rejection of malformed inputs; development workbook only |
+   | 23 | `tests/modules/TEST_Invariants.bas` | `TEST_Invariants` | Test suite; relations every result must satisfy; development workbook only |
+   | 24 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
+   | 25 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
+   | 26 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
+   | 27 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The K-SACCR Ribbon tab of the template calls every command through
    `M_Ribbon`, and the buttons of the two staging sheets call
    `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`,
-   `CommitImport` and `ExportImportSpecification`, so they work once
-   `M_Main` and `M_Ribbon` are imported; until then a click shows that Excel
+   `CommitImport` and `ExportImportSpecification`, and the two buttons of the
+   FormulaTest sheet call `RandomizeFormulaTestInputs` and
+   `RestoreFormulaTestDefaults` of `M_FormulaTest`, so they work once
+   `M_Main`, `M_Ribbon` and `M_FormulaTest` are imported; until then a click shows that Excel
    cannot find the macro.
 5. **Document modules** in `src/workbook/` (`ThisWorkbook.cls` and sheet
    modules) cannot be imported: the VBE would create a new class such as
@@ -356,7 +360,7 @@ match the file name.
 To run every suite at once, type `Test_RunAll` in the Immediate window
 (**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`,
-`TEST_Reconcile`, `TEST_CsvReader` and `TEST_Import` in turn and prints only a
+`TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import` and `TEST_FormulaRandom` in turn and prints only a
 summary: one line per suite with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final `RESULT=` line with the number of suites passed and
 failed. An error raised by a suite counts as its failure and the next suite
@@ -601,6 +605,37 @@ input sheets back after each commit. The live inputs and the run fingerprints mu
 be unchanged at the end. Both staging sheets and Checks are put back as they
 were, as values. It needs a workbook built from the current template.
 
+### Randomized formula tests
+
+```text
+TEST_FormulaRandom.RunFormulaRandomTests
+```
+
+Runs the comparison of the **FormulaTest** sheet at scale (#165). For each range
+set of the sheet's range table (`FormulaTest_Ranges`) it draws 1,000 inputs from
+a fixed seed, writes them to a test row of that set, and lets the sheet judge
+them: `|Function - Expected| / max(1, |Expected|)` at most
+`FormulaTest_Tolerance`. It adds draws at and a step either side of each branch
+point the table lists, and for the replacement cost around both
+`TH + MTA - NICA` and 0. An error in Expected or Function is a failure. The
+suite also checks the two buttons' macros: the shipped inputs come back and
+pass, a seed replays its draw, a range table that cannot give a valid draw is
+refused with nothing written, no formula on the sheet is volatile, and a
+perturbed Expected formula is caught; the report names the seed and the first
+failing draw. The inputs, the seed cells, the range table, the tolerance and the
+Excel settings are put back, and `restore=` reports that apart from the
+comparison.
+
+On the sheet, **Randomize inputs** draws new inputs for every test, as values,
+and writes the seed beside the tolerance (cell `H4`); type a seed there and
+press the button to replay that draw, or press it again for a new one.
+**Restore defaults** writes the 22 shipped input sets back from the table of
+defaults on the sheet. The ranges, with the limits of each function's domain
+(#42) and the branch points, are visible and editable in the range table below
+the tests; a range that leaves a domain, a Min above a Max, or a joint
+constraint that no draw can meet (A below D, P and K above minus lambda, E after
+S) is refused with a message.
+
 ### Benchmark
 
 ```text
@@ -666,7 +701,7 @@ demonstration portfolio with the bank figures of the reconciliation
 screenshot:
 
 ```text
-RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
@@ -679,7 +714,16 @@ without the two sheets; `trade_reconciliation` says the same for BankTrades
 and TradeReconciliation. `total_ead_crr` and `total_ead_bcbs` are the totals
 of each regime's `VALID` netting sets, never added together. `inputs` is the
 fingerprint of the inputs the results were calculated from, also shown in the
-run summary on Results C4. `codes` lists the distinct
+run summary on Results C4. `year_convention`, `calendar` and `holiday_table`
+say how the dates became years (#721): the days of the conventional year, the
+calendar, and the table of closing days (`unused` with `TARGET`, `empty`, or
+its number of entries and fingerprint, such as `3 days, 1A2B3C4D`).
+`fx_source` says where the FX rates came from (#745): `ECB reference rate of
+2026-09-30` or `Closing price of 2026-09-30` while the table is as
+**Download prices** wrote it, `Manual (edited after ECB reference rate
+download)` once a rate, a currency or a row changed after the download, and
+`Manual` when no download is recorded. The run summary on Results C4 shows the
+same. `codes` lists the distinct
 [diagnostic codes](docs/DIAGNOSTICS.md) of the errors and warnings on Checks,
 comma-separated, and is empty when there are none; `cleanup` is always last.
 
@@ -742,11 +786,15 @@ which every operation empties first, and the report gives it as
 
 The file is `;`-separated, with a `.` decimal point, CR LF line ends and UTF-8
 without a byte-order mark; the first field of every line names its section
-(`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`, `RESULTS`, `RECONCILIATION`,
+(`RUN`, `PARAMS`, `SF_TABLE`, `FX_TABLE`, `HOLIDAY_TABLE`, `RESULTS`, `RECONCILIATION`,
 `TRADE_RECONCILIATION`, `CHECKS`, `LIMITATIONS`), and the first line is
 `RUN;format;K-SACCR evidence 1`. `RUN;reference_parameter_set` names the set
 the template ships; whether the run used it unchanged (`REGULATORY`) or not
-(`WHAT-IF`) is in `RUN;run_summary`. A reconciliation reads `CURRENT` or
+(`WHAT-IF`) is in `RUN;run_summary`. `RUN;year_convention`, `RUN;calendar`,
+`RUN;holiday_table` and `RUN;fx_source` are the run's day count, calendar,
+table of closing days and source of the FX rates, as in the result line of
+`RunSACCR_Silent` (#721, #745): results of two day counts or two sources of
+rates are different results. A reconciliation reads `CURRENT` or
 `NOT MADE`; its summary says why one was not made. The workbook's file name
 is not in the report, as a Save As would change it for the same run. Text
 that Excel would read as a formula when the file is opened (starting with
@@ -754,9 +802,12 @@ that Excel would read as a formula when the file is opened (starting with
 apostrophe; numbers keep their sign. Error values are written by their Excel
 names (`#N/A`, `#SPILL!`, ...). A reconciliation's scale and tolerances are in
 `RUN` only when it was made, as they are then part of its fingerprint.
-`SF_TABLE` and `FX_TABLE` hold the rows the run read: from the header of
+`SF_TABLE` and `FX_TABLE` hold the rows the run read (the FX rates in units of
+the currency per 1 unit of the reporting currency, as the market quotes them,
+#725): from the header of
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
-range.
+range. `HOLIDAY_TABLE` holds the header of `Holiday_Table` and every closing day in
+its 100 rows, also below a blank row, as the engine reads them all.
 
 ### ReadCsv_Silent
 
@@ -789,6 +840,26 @@ than a cell holds (32,767 characters), raise `ERR_STAGING_WRITE` before the
 sheet changes; while an operation is running it raises `ERR_RUN_ACTIVE`. The buttons
 **Import CSV** on the two staging sheets do the same for a file chosen in a
 dialog, list the findings, and ask before they replace changes.
+
+### ImportBankCsv_Silent
+
+`ImportBankCsv_Silent(kind, filePath, [replaceExisting])` loads a CSV file of
+the bank's own figures, `kind` `BankNettingSets` or `BankTrades`, onto its
+sheet without a dialog (#718). It returns `RESULT=LOADED; records=N; file=...`
+when the records were written; `RESULT=REJECTED; findings=N;
+first=CODE|line|record|column; file=...` when the file does not follow the
+[contract](docs/csv/CSV_CONTRACT.md#-the-bank-files), a file with more
+records than the contract allows (10,000 netting sets, 50,000 legs) included; or
+`RESULT=REFUSED; reason=...; file=...` when the file has no record, or the
+sheet holds figures and `replaceExisting` is not True. The sheet changes only
+on `LOADED`; an error while it is written puts it back as it was, and
+settings that could not be restored are added to the error. An unknown kind,
+which includes `Trades` and `NettingSets`, and a file that cannot be read
+raise `ERR_CSV_READ`; a missing bank header and a value longer than a cell
+holds raise `ERR_STAGING_WRITE` before the sheet changes; while an operation
+is running it raises `ERR_RUN_ACTIVE`. The buttons **Import CSV** on the two
+bank sheets do the same for a file chosen in a dialog, list the findings and
+ask before they replace figures.
 
 ### ValidateStaging_Silent
 
@@ -843,8 +914,10 @@ running it raises `ERR_RUN_ACTIVE`.
 `RestoreRegulatoryParameters_Silent()` writes the regulatory parameter set
 back to Params without a confirmation or a message, as **Restore parameters**
 on the K-SACCR tab (`RestoreRegulatoryParameters`) does after its
-confirmation (#357): the reference parameters, `DaysPerYear` and
-`IRBucketOffset`, and the rows of the supervisory-factor table, key to
+confirmation (#357): the reference parameters and the conventions
+`DaycountConvention` (`ACTUAL`) and `IRBucketOffset` (`YearConvention` and
+`Calendar` are settings of the run and are not touched, nor is the table of
+closing days), and the rows of the supervisory-factor table, key to
 regimes ([scope](docs/workbook/RIBBON.md#-commands)). Only the cells that
 differ from the set are written, and each is read back; on any failure the
 cells kept before the write are written back and read back. It returns
@@ -855,6 +928,88 @@ stands below the regulatory rows of the factor table, or `RESULT=FAILED; error=.
 `NONE`, `VERIFIED` or `FAILED: ...` as for `CommitStaging_Silent`. Results is
 not recalculated: `ResultsStatus()` returns `STALE` until the next
 **Run SA-CCR**. While an operation is running it raises `ERR_RUN_ACTIVE`.
+
+### DownloadClosingPrices_Silent
+
+`DownloadClosingPrices_Silent([source])` writes the rates of the FX table from
+`source`, `Closing price` or `ECB reference rate`, or, when it is omitted, from
+the source chosen beside the button (`FX_Source`), without a confirmation or a
+message, as the **Download prices** button of the Params sheet
+(`DownloadClosingPrices`) does after its confirmation (#721, #745). An unknown
+source is refused.
+
+**Closing price.** It looks up the closing price of each currency pair with
+`STOCKHISTORY` and writes it as the rate of the currency. The
+price is the last closing price up to the reporting date, seven days back at
+most; the pair is built from the currency code and the reporting currency, so a
+currency appended below the table is looked up too. The formulas live in a
+hidden scratch column that is emptied afterwards: no formula stays in the
+workbook. A currency that gets no price keeps its rate; the rate of the
+reporting currency is set to 1, which a run requires (#745); the date of the prices is written into the hidden name `FX_PriceDate`,
+which the sheet shows beside the button, and the fingerprint of the table into
+`FX_PriceFingerprint`, so that a run records `Closing price of` the date while
+the table is as written, and `Manual (edited after Closing price download)`
+once it is not (#745). It needs Microsoft 365 and a
+connection and waits `PRICE_WAIT_SECONDS` (30) at most. Excel hands the data of
+`STOCKHISTORY` back only when no macro runs, so the button does not wait inside
+a macro: it writes the formulas, returns, and a timer (`PollClosingPrices`) writes
+the rates when the prices have come. This entry point waits inside the call, so
+with real data it refuses with `no price came`; it is meant for tests, with the
+faults of `gTestFault`. It returns
+`RESULT=PRICED; rates=N; without_price=M` (and `; codes=...`), or
+`RESULT=REFUSED; reason=...` with no rate changed: without `STOCKHISTORY` (an
+Excel that refuses the formula, or whose cell evaluates to `#NAME?`), or when the
+reporting date, the reporting currency or a code was changed while the prices
+came in.
+
+**ECB reference rate.** It sends one HTTPS request to the ECB data portal
+(`data-api.ecb.europa.eu`, the series `EXR` of the daily euro foreign exchange
+reference rates, as CSV) for the currencies of the table that are three-letter
+codes and the seven days up to the reporting date, and waits for the answer
+inside the call, `PRICE_WAIT_SECONDS` (30) at most. The request carries the
+currency codes and the two dates only, through the connection and the proxy
+settings of Windows (`MSXML2.XMLHTTP`); no web query and no connection is left
+in the workbook. Each currency takes the last fixing on or before the reporting
+date, as published, in units of the currency per euro; with another reporting
+currency the rate is crossed through the euro (the currency per euro over the
+reporting currency per euro, and the euro is 1 over the latter). A currency the
+ECB does not publish, such as TWD, keeps its rate, and the reporting currency
+takes 1. The rates are written all or
+none, with the reporting date into `FX_PriceDate`, the source into
+`FX_PriceSource` and the fingerprint of the table it wrote into
+`FX_PriceFingerprint`, which a run compares with the table to record the
+source or `Manual (edited after ... download)` (#745). It returns `RESULT=PRICED; rates=N; without_price=M`, then
+`; codes=...` when some currency got no rate, `; source=ECB`, and
+`; fixing=yyyy-mm-dd` when the reporting date has no fixing (a TARGET closing
+day) and an earlier one was used; or `RESULT=REFUSED; reason=...` with no rate
+changed: no connection, a time-out, an HTTP status other than 200 (404, which
+the portal gives when it has no series, is an empty answer), an answer that is
+not the CSV expected or has a malformed line, no rate of the reporting
+currency, no rate for any currency, or a reporting date, reporting currency or
+code changed while the answer was awaited (Params stays editable meanwhile).
+
+With either source, Results is not recalculated: `ResultsStatus()` returns
+`STALE` until the next **Run SA-CCR**. While an operation is running it raises
+`ERR_RUN_ACTIVE`.
+
+### RebaseFxTable_Silent
+
+`RebaseFxTable_Silent([currency])` expresses every rate of the FX table in units
+per 1 unit of `currency`, or of the reporting currency when it is omitted,
+without a question or a message (#725), as a change of the reporting currency on
+Params offers to do after a question (`ReportingCurrencyChanged`, asked only
+outside silent mode and while no operation runs). Each rate is divided by the
+rate of that currency, which becomes exactly 1; the rates are relative, so every
+conversion is unchanged, and their date and source stay. The rates are written
+all or none, with events off; a rate that is a formula, or not a number above
+zero, stays and is listed; when the rate of that currency is itself a formula,
+the rebase is refused, as it would replace it by 1. The divisor is written with
+a decimal point whatever the locale. It returns
+`RESULT=REBASED; currency=XXX; divisor=D; rates=N` (and `; not_rebased=...`),
+`RESULT=UNCHANGED; currency=XXX` when the rate is already 1, or
+`RESULT=REFUSED; reason=...` when the currency is not a three-letter code in the
+table with a rate above zero. While an operation is running it raises
+`ERR_RUN_ACTIVE`.
 
 ### SetNavigationBar_Silent
 
