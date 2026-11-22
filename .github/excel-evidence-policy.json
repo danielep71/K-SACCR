@@ -26,8 +26,8 @@
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",
-      "cases": 45,
-      "checks": {"32-bit": 675, "64-bit": 675}
+      "cases": 46,
+      "checks": {"32-bit": 706, "64-bit": 706}
     },
     {
       "entry_point": "TEST_Cases.RunCaseTests",

@@ -439,6 +439,13 @@ try {
     if (-not ($trades.Protection.AllowFiltering -and $trades.AutoFilterMode)) {
         $problems.Add("Trades cannot be filtered from its header")
     }
+    # The five output sheets are filtered from their header too (#754).
+    foreach ($name in @("Results", "HedgingSets", "Buckets", "TradeCalc", "Checks")) {
+        $output = $workbook.Worksheets.Item($name)
+        if (-not ($output.Protection.AllowFiltering -and $output.AutoFilterMode)) {
+            $problems.Add("$name cannot be filtered from its header")
+        }
+    }
     foreach ($name in @("Trades", "NettingSets")) {
         if (-not $workbook.Worksheets.Item($name).Protection.AllowInsertingRows) {
             $problems.Add("$name does not allow inserting rows")

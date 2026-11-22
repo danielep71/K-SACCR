@@ -23,11 +23,11 @@
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },
-    "Results": {"role": "Output"},
-    "HedgingSets": {"role": "Output"},
-    "Buckets": {"role": "Output"},
-    "TradeCalc": {"role": "Output"},
-    "Checks": {"role": "Output"},
+    "Results": {"role": "Output", "allow": ["filtering"]},
+    "HedgingSets": {"role": "Output", "allow": ["filtering"]},
+    "Buckets": {"role": "Output", "allow": ["filtering"]},
+    "TradeCalc": {"role": "Output", "allow": ["filtering"]},
+    "Checks": {"role": "Output", "allow": ["filtering"]},
     "BankNettingSets": {
       "role": "Bank figures",
       "unlocked_cells": ["D4:D6"],

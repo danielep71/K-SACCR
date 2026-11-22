@@ -97,6 +97,16 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Put the filter buttons on the header row of the five output sheets (#754): `Results`,
+  `HedgingSets`, `Buckets`, `TradeCalc` and `Checks`, as `Trades` and the two reconciliation sheets
+  have them. They are in the template, over the table down to the last row of the sheet, so that a run of any size is inside the filter, and the sheets stay
+  protected with the permission to filter, the only one added (no sorting: the cells are
+  results). Run SA-CCR, Validate inputs and Clear outputs keep the buttons and apply again a
+  filter the user set, so that the new rows follow the rule. `PROTECT_FILTERING`, the protection
+  matrix, `WORKBOOK_PROTECTION.md` and check 5 of `Check-SACCR-Protection.ps1` follow;
+  `TEST_MainState` gains `outputs.filter-buttons` (31 checks), and `test_output_filters.py` checks the
+  template.
+
 - Test the FX convention of #725 in every place the engine uses a rate. `TEST_InputValidation`
   gains `fx-rate-multi-currency`, a netting set in four currencies (a USD swap with its MtM in
   USD, a EUR swap with its MtM in GBP, a EUR/JPY forward with its notional in JPY, at 1.25 USD,
