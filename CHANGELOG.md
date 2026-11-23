@@ -121,9 +121,9 @@ Use only the categories needed by a release.
   55 and 150. `TEST_Cases` has 41 cases and 261 checks, `TEST_MainState` 711 checks and
   `TEST_Reconcile` 239.
 
-- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` freeze
-  four rows, with the header on row 4, data from row 5 and rows 3 and 4 30 points high, so that the
-  view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` have the
+  header on row 4, data from row 5 and rows 3 and 4 30 points high, and freeze the same rows 1 to 3
+  (the header scrolls with the data), so that the view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
   column headers are short (`Margined`, `Client clearing role`, `Remargin freq. (BD)`, `Large or
   illiquid`, `Net VM`, `Hedging-set label`, `Strike (K)`, ...), on the staging sheets too, and every
   header of `NettingSets` and `Trades` carries a note: what the field is, the values allowed, what a
