@@ -702,6 +702,15 @@ class ExcelEvidenceTests(unittest.TestCase):
         del policy["suites"][1]
         (copy_root / evidence.POLICY).write_text(json.dumps(policy))
         self.assertIn("not the policy suites", " ".join(evidence.policy_problems(copy_root)))
+        # Every listed suite and negative run has a branch in RunEntry (#675).
+        (copy_root / evidence.POLICY).write_text(json.dumps(self.policy))
+        suite_path = copy_root / "tests" / "modules" / "TEST_Suite.bas"
+        suite_text = suite_path.read_bytes()
+        suite_path.write_bytes(suite_text.replace(b'            Case "TEST_Import.RunImportTests"\r\n'
+                                                  b'                TEST_Import.RunImportTests\r\n', b""))
+        self.assertIn("RunEntry has no branch that runs TEST_Import.RunImportTests",
+                      " ".join(evidence.policy_problems(copy_root)))
+        suite_path.write_bytes(suite_text)
         # Each module starts one suite under its own name, directly through TEST_Kit or
         # through TEST_CaseRunner; its SUITE line then names it (#536).
         (copy_root / evidence.POLICY).write_text(json.dumps(self.policy))
