@@ -119,6 +119,11 @@ class FigureTest(unittest.TestCase):
         self.assertEqual(self.row("Dashboard_KeyFigures", "counterparties"), [2, 2])
         self.assertEqual(self.row("Dashboard_Counts", "counterparties"), [4])
 
+    def test_counterparties_ignore_case_and_spaces(self) -> None:
+        run = portfolio()
+        run.results[1].counterparty = " bank x "
+        self.assertEqual(db.compute(run, self.spec)["Dashboard_KeyFigures"][11], [2, 2])
+
     def test_counts_and_checks(self) -> None:
         self.assertEqual(self.blocks["Dashboard_Counts"], [[7], [5], [2], [0], [4], [2], [2], [1]])
         self.assertEqual(self.blocks["Dashboard_DataQuality"], [[2], [2]])

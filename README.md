@@ -12,8 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-11%2F11_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-540_cases_%C2%B7_2399_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-12%2F12_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-546_cases_%C2%B7_2463_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -176,7 +176,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Eleven `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Eleven Excel suites (540 cases, 2399 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Twelve Excel suites (546 cases, 2463 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -380,7 +380,8 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
   PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
-RESULT=PASS; suites=11; passed=11; failed=0; seconds=120,1
+  PASS  TEST_Dashboard        cases=6; checks=64; failures=0; restore=PASS  (9,0 s)
+RESULT=PASS; suites=12; passed=12; failed=0; seconds=120,1
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
@@ -706,7 +707,8 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 144 | 385 |
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
 | `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
-| **Total** | | **540** | **2399** |
+| `TEST_Dashboard` | The Dashboard after a run: every block against the figures computed from Results, TradeCalc, Checks, NettingSets and the reconciliation sheets, on the demonstration portfolio, on both regimes with netting sets in and out of the money, holding collateral and invalid, and on a netting set with no trade; the reading of the path from notional to EAD; Clear outputs, a failed run and an edited input | 6 | 64 |
+| **Total** | | **546** | **2463** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (129).

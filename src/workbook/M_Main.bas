@@ -1350,6 +1350,205 @@ Private Sub ClearReconciliation( _
 End Sub
 
 
+Private Sub WriteDashboard()
+'
+'==============================================================================
+'                                WriteDashboard
+'------------------------------------------------------------------------------
+' PURPOSE
+'   After a completed run and its reconciliations, write every block of
+'   the Dashboard (#675): read Results, TradeCalc, Checks, NettingSets and
+'   the two reconciliation sheets, let CORE_Engine compute the blocks,
+'   and write each into its workbook name.
+'
+' ERROR POLICY
+'   A workbook without the Dashboard sheet, built from an older template,
+'   is left alone. A block name that is missing or of another size than
+'   its values is ERR_OUTPUT_LAYOUT. Every block is computed before one is
+'   written; any error clears every block, best effort, and is raised
+'   again, so the sheet never shows part of a run.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim BlockList   As Variant    'Block names
+    Dim Values      As Variant    'The blocks' values, in BlockList order
+    Dim RunInfo     As Variant    'Date, time, currency, regime, class, inputs
+    Dim Index       As Long       'Block position
+    Dim ErrNumber   As Long       'Error captured before the cleanup
+    Dim ErrSource   As String     'Its source
+    Dim ErrText     As String     'Its description
+
+'------------------------------------------------------------------------------
+' COMPUTE EVERY BLOCK
+'------------------------------------------------------------------------------
+        If Not SheetExists(SH_DASHBOARD) Then Exit Sub
+        On Error GoTo Failed
+        RunInfo = Array(GetParam(PRM_ASOF), Now, GetParam(PRM_REPCCY), GetParam(PRM_REGIME), _
+                        CORE_Engine.RunClass, CORE_Engine.RunInputs)
+        Values = CORE_Engine.DashboardBlocks( _
+                     DashboardRows(SH_RESULTS, RS_NCOLS), DashboardRows(SH_TRADECALC, TC_NCOLS), _
+                     DashboardRows(SH_CHECKS, CK_NCOLS), DashboardRows(SH_NS, NS_NCOLS), _
+                     DashboardRows(SH_RECON, RC_RESULT), DashboardRows(SH_TRADE_RECON, RC_RESULT), RunInfo)
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+        BlockList = CORE_Engine.DashboardBlockNames()
+        For Index = LBound(BlockList) To UBound(BlockList)
+            DashboardRange(CStr(BlockList(Index)), Values(Index)).Value = Values(Index)
+        Next Index
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' CLEAR AND RAISE AGAIN
+'------------------------------------------------------------------------------
+Failed:
+        ErrNumber = Err.Number
+        ErrSource = Err.Source
+        ErrText = Err.Description
+        ClearDashboard
+        Err.Raise ErrNumber, ErrSource, "Dashboard not written: " & ErrText
+
+End Sub
+
+
+Private Sub ClearDashboard()
+'
+'==============================================================================
+'                                ClearDashboard
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Empty the value cells of every Dashboard block (#675); the labels,
+'   headers, formats and charts stay. Every operation starts with this, so
+'   that no Dashboard outlives the results it summarised.
+'
+' ERROR POLICY
+'   Best effort, and never raises: a workbook without the sheet or a name
+'   is left as it is.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+    Dim BlockList   As Variant    'Block names
+    Dim Index       As Long       'Block position
+        On Error Resume Next
+        BlockList = CORE_Engine.DashboardBlockNames()
+        For Index = LBound(BlockList) To UBound(BlockList)
+            ThisWorkbook.Names(CStr(BlockList(Index))).RefersToRange.ClearContents
+        Next Index
+        Err.Clear
+
+End Sub
+
+
+Private Function DashboardRows( _
+    ByVal SheetName As String, _
+    ByVal ColumnCount As Long) _
+    As Variant
+'
+'==============================================================================
+'                                DashboardRows
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The rows of a table for the Dashboard, from its first row down to the
+'   last with a value in its first column, as a 1-based two-dimensional
+'   array; Empty when there is none. A reconciliation sheet missing from
+'   an older workbook reads as Empty.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+    Dim Sheet      As Worksheet    'The table's sheet
+    Dim FirstRow   As Long         'First data row
+    Dim LastRow    As Long         'Last data row
+    Dim Values     As Variant      'The cells
+    Dim OneCell(1 To 1, 1 To 1) As Variant    'A one-cell table as an array
+        DashboardRows = Empty
+        If (SheetName = SH_RECON Or SheetName = SH_TRADE_RECON) And Not SheetExists(SheetName) Then Exit Function
+        Set Sheet = GetSheet(SheetName)
+        FirstRow = OutputFirstRow(SheetName)
+        LastRow = LastDataRow(Sheet, FirstRow, 1)
+        If LastRow < FirstRow Then Exit Function
+        Values = TableRange(Sheet, FirstRow, 1, LastRow, ColumnCount).Value2
+        If Not IsArray(Values) Then
+            OneCell(1, 1) = Values
+            Values = OneCell
+        End If
+        DashboardRows = Values
+
+End Function
+
+
+Private Function SheetExists( _
+    ByVal SheetName As String) _
+    As Boolean
+'
+'==============================================================================
+'                                 SheetExists
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tell whether the workbook has a worksheet of this name.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+    Dim Sheet   As Worksheet    'The sheet; Nothing when absent
+        On Error Resume Next
+        Set Sheet = ThisWorkbook.Worksheets(SheetName)
+        On Error GoTo 0
+        SheetExists = Not (Sheet Is Nothing)
+
+End Function
+
+
+Private Function DashboardRange( _
+    ByVal BlockName As String, _
+    ByVal Values As Variant) _
+    As Range
+'
+'==============================================================================
+'                                DashboardRange
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The value cells of a Dashboard block, through its workbook name,
+'   checked to be on the Dashboard and of the size of Values.
+'
+' ERROR POLICY
+'   ERR_OUTPUT_LAYOUT when the name is missing, elsewhere or of another
+'   size.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+    Dim Target   As Range    'The name's cells
+        On Error Resume Next
+        Set Target = ThisWorkbook.Names(BlockName).RefersToRange
+        On Error GoTo 0
+        If Target Is Nothing Then
+            Err.Raise ERR_OUTPUT_LAYOUT, "M_Main.DashboardRange", _
+                      "Workbook name '" & BlockName & "' is missing - rebuild the workbook from the template."
+        End If
+        If Target.Worksheet.Name <> SH_DASHBOARD Or Target.Rows.Count <> UBound(Values, 1) Or _
+           Target.Columns.Count <> UBound(Values, 2) Then
+            Err.Raise ERR_OUTPUT_LAYOUT, "M_Main.DashboardRange", _
+                      "Workbook name '" & BlockName & "' does not cover " & UBound(Values, 1) & " x " & _
+                      UBound(Values, 2) & " cells of the " & SH_DASHBOARD & " sheet - rebuild the workbook from the template."
+        End If
+        Set DashboardRange = Target
+
+End Function
+
+
 Private Function ReconFingerprint( _
     ByVal ReconKind As Long) _
     As String
@@ -11168,13 +11367,15 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
 ' WITHDRAW THE RECONCILIATION
 '------------------------------------------------------------------------------
-    'Every operation first withdraws both reconciliations (#45) and the
-    'fingerprint of the output sheets, before anything that can stop it,
-    'the recalculation included; only a run that completes makes new ones.
+    'Every operation first withdraws both reconciliations (#45), the
+    'fingerprint of the output sheets and the Dashboard (#675), before
+    'anything that can stop it, the recalculation included; only a run that
+    'completes makes new ones, so a run that fails leaves no Dashboard.
         mReconState = "NONE"
         mTradeReconState = "NONE"
         mReconLine = ""
         ForgetRunOutputs
+        ClearDashboard
         Select Case Operation
             Case OP_RUN
                 ClearReconciliation "Reconciliation pending: the SA-CCR run has not completed."
@@ -11221,6 +11422,7 @@ Private Function ExecuteOperation( _
                 If Completed Then
                     mReconState = ReconcileAfterRun(RECON_NS)
                     mTradeReconState = ReconcileAfterRun(RECON_TR)
+                    WriteDashboard
                     RememberRunOutputs
                 Else
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."

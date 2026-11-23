@@ -68,6 +68,11 @@
       "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",
       "cases": 19,
       "checks": {"32-bit": 47, "64-bit": 47}
+    },
+    {
+      "entry_point": "TEST_Dashboard.RunDashboardTests",
+      "cases": 6,
+      "checks": {"32-bit": 64, "64-bit": 64}
     }
   ],
   "negative_runs": [

@@ -46,8 +46,8 @@ portfolio.
   - *notional*: notional amounts.
 
   The largest absolute amount of the family, over both regimes, gives
-  k = floor(log10(amount) / 3), held between 0 and 3 (0 when every amount is
-  0). The family's amounts are written divided by 1, 1,000, 1,000,000 or
+  k = floor(log10(amount) / 3), held between 0 and 3 (0 below 1,000), found by
+  comparing the amount with 1,000, 1,000,000 and 1,000,000,000. The family's amounts are written divided by 1, 1,000, 1,000,000 or
   1,000,000,000, and `Dashboard_Scale` gives the factor and the unit, for
   example `EUR thousand`. Every card and chart axis names its unit from that
   block. Counts, shares and the Herfindahl index have no scale.
@@ -60,7 +60,7 @@ portfolio.
 | --- | --- | --- | --- |
 | `Dashboard_Run` | Run header | 6 × 1 | Reporting date and reporting currency of Params, the run's date and time, the default regime of Params, the parameter set (`REGULATORY` and the set's ID, or `WHAT-IF`) and the input fingerprint of the run summary on Results C4. The status of the results is not written: the sheet shows it with the formula of Results C5, so that it turns out of date when the inputs change |
 | `Dashboard_Scale` | Units | 2 × 2 | Factor and unit of the exposure and notional families |
-| `Dashboard_KeyFigures` | Key figures | 12 × 2 | Per regime: EAD, RC and PFE of the valid netting sets; netting sets in total, valid, invalid (status starting `INVALID`), incomplete (starting `INCOMPLETE`) and with no trades (`NO TRADES`); margined and unmargined (Margined `Y` or `N`); valid netting sets with the cap applied (`Y`); distinct counterparties (non-blank Counterparty names, compared after trimming) |
+| `Dashboard_KeyFigures` | Key figures | 12 × 2 | Per regime: EAD, RC and PFE of the valid netting sets; netting sets in total, valid, invalid (status starting `INVALID`), incomplete (starting `INCOMPLETE`) and with no trades (`NO TRADES`); margined and unmargined (Margined `Y` or `N`); valid netting sets with the cap applied (`Y`); distinct counterparties (non-blank Counterparty names, compared after trimming and ignoring case) |
 | `Dashboard_Counts` | Key figures | 8 × 1 | Trade legs on TradeCalc, used (`OK`) and excluded (`EXCLUDED`); netting sets whose regime is neither CRR nor BCBS; distinct counterparties over both regimes; rows of Checks by severity, ERROR, WARNING and INFO, without the single `RUN-CLEAN` row of a clean run |
 | `Dashboard_Sector` | 1. EAD by counterparty sector | 7 × 2 | EAD by the counterparty sector of NettingSets (#674): `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH`, and *Not classified* for a blank or unknown sector |
 | `Dashboard_ClearingRole` | 2. EAD by clearing role | 5 × 2 | EAD by the client clearing role of NettingSets: bilateral (`N` or blank), clearing member (`CM`), client (`CLIENT`), CCP qualifying (`CCP` with QCCP `Y`) and not qualifying (`CCP` otherwise). `MULTI` makes a netting set invalid, so it has no EAD |
@@ -105,13 +105,24 @@ status formula and charts that read only the Dashboard.
 
 ## 🔄 Life cycle
 
-These rules are delivered with the sheet and the writer (#675):
+`M_Main` reads the sheets and writes the blocks; `CORE_Dashboard` computes
+them from the rows it is given, reached through `CORE_Engine.DashboardBlocks`,
+and reads no sheet.
 
-- **Run:** a run that completes writes every block. A run that fails clears
-  them, like the other output sheets, so the Dashboard never shows a partial
-  run.
+- **Run:** every operation (Run, Validate inputs, Clear outputs) first empties
+  every block. A run that completes writes them all after its two
+  reconciliations, computing every block before it writes one; an error clears
+  them again and the run reports it. So a run that fails, or stops before its
+  results, leaves no Dashboard, and the sheet never shows part of a run.
 - **Clear outputs** empties every block.
 - **Out of date:** the sheet's status cell shows the status of Results, so
   the Dashboard reads as out of date as soon as an input changes.
 - **Reconciliation:** view 10 is written after the reconciliations that a
   run refreshes.
+- **Older workbooks:** a workbook built from a template without the sheet is
+  left as it is.
+- **Tests:** `TEST_Dashboard` checks every block against the figures computed
+  from the sheets on the demonstration portfolio, on both regimes with netting
+  sets in and out of the money, holding collateral and invalid, and on a
+  netting set with no trade; the reading in words; and that Clear outputs, a
+  failed run and an edited input behave as above.

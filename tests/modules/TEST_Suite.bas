@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 11    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 12    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -535,7 +535,8 @@ Private Function SuiteEntries() As Variant
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
-                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests")
+                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests", _
+                       "TEST_Dashboard.RunDashboardTests")
         SuiteEntries = Suites
 
 End Function
