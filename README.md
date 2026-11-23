@@ -365,7 +365,9 @@ Test_RunAll
 
 Expected summary in Windows Excel 64-bit. The format and counts are those of
 the shared suite lifecycle (#536); the timings, which vary, are from the quick
-run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19:
+run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19, and for
+`TEST_Dashboard` from the quick run of `feat/675-dashboard-writer` at c0d1b8f on
+2026-11-23:
 
 ```text
 SACCR TEST SUMMARY 2026-11-19 09:36:50
@@ -380,8 +382,8 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
   PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
-  PASS  TEST_Dashboard        cases=6; checks=65; failures=0; restore=PASS  (9,0 s)
-RESULT=PASS; suites=12; passed=12; failed=0; seconds=120,1
+  PASS  TEST_Dashboard        cases=6; checks=65; failures=0; restore=PASS  (6,5 s)
+RESULT=PASS; suites=12; passed=12; failed=0; seconds=126,6
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
