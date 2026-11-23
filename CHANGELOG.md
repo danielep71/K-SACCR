@@ -97,8 +97,9 @@ Use only the categories needed by a release.
 
 ### Added
 
-- A **Dashboard** sheet, the first output tab (#675): the last run in one page, as tables and eight
-  charts that read them. It holds key figures per regime, EAD by counterparty sector and clearing
+- A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
+  the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
+  and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing
   role, the add-on by asset class, the composition of EAD, the ten largest netting sets with the
   concentration, the maturity profile and the trades by asset class. It also shows data quality,
   the reconciliation and the path from notional to EAD. Each regime is shown on its own, and each

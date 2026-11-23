@@ -135,7 +135,7 @@ class DashboardSheetTests(unittest.TestCase):
         drawing = "xl/drawings/" + found.group(1)
         drawing_rels = self.parts[f"xl/drawings/_rels/{Path(drawing).name}.rels"].decode("utf-8")
         charts = ["xl/charts/" + name for name in re.findall(r'Target="\.\./charts/([^"]+)"', drawing_rels)]
-        self.assertEqual(len(charts), 8)
+        self.assertEqual(len(charts), 10)
         for chart in charts:
             formulas = [f.text or "" for f in ElementTree.fromstring(self.parts[chart]).iter(f"{CHART}f")]
             self.assertTrue(formulas, chart)

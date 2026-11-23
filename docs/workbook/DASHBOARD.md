@@ -79,29 +79,39 @@ portfolio.
 ## 🗺️ The sheet
 
 The sheet is the first output tab, before Results, and is protected like the
-other output sheets. Rows 1 to 3 hold the title and stay frozen; C4 says what
-the sheet is and C5 shows the status of the results with the formula of
-Results C5, red when they are out of date. Below, each block is a small table:
-its row labels and column headers come from `dashboard.json`, and the value
-cells under them are the block's workbook name. The left half (columns C to G)
-holds the tables, the right half (columns I to M) the key figures, the units,
-the tables that sit side by side and the eight charts, each beside the table it
-reads:
+other output sheets. Rows 1 to 3 hold the title band and stay frozen. Row 4
+names the page, C5 shows the status of the results with the formula of Results
+C5, red when they are out of date, and row 6 gives the parameter set, the
+reporting currency and the unit of the amounts.
+
+**At a glance** (rows 8 to 16) shows four cards, shapes whose figures are
+linked to cells of the sheet: EAD, RC and PFE, each with its CRR and BCBS
+value and its unit, and the share of the regime's EAD held by its ten largest
+netting sets.
+
+Below, each block is a small table with shaded alternate rows: its row labels
+and column headers come from `dashboard.json`, and the value cells under them
+are the block's workbook name. The left half (columns C to G) holds the tables,
+the right half (columns I to M) the key figures, the units, the tables that sit
+side by side and the ten charts, each beside or below the table it reads. Bars
+and columns carry their values and no gridlines:
 
 | View | Chart |
 | --- | --- |
 | 1, 2 | Horizontal bars, one series per regime |
 | 3 | One doughnut per regime |
 | 4 | Stacked columns per regime: RC and PFE; EAD of the margined and unmargined netting sets |
+| 5 | Horizontal bars of the ten largest netting sets, one chart per regime |
 | 7 | Columns by maturity band, one series per regime |
 | 11 | Horizontal bars from gross positive value to EAD, one series per regime, on one exposure scale; the notional stays in the table |
 
-The two rankings of view 5 carry data bars on their EAD. Every amount column
+The two rankings of view 5 also carry data bars on their EAD. A footnote closes
+the page. Every amount column
 names its unit in the table's title row, from `Dashboard_Scale`. The charts and
 these titles read only the sheet's own cells, and only C5 reads another sheet.
 `tools/test_dashboard_sheet.py` checks the template against the specification:
 a name of the right size per block, its labels and headers, empty values, the
-status formula and charts that read only the Dashboard.
+status formula and ten charts that read only the Dashboard.
 
 ## 🔄 Life cycle
 
