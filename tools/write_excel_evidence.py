@@ -1,7 +1,8 @@
 """Write the host.json of an Excel evidence bundle from the logs a certification run left.
 
-tools/Certify-SACCR.ps1 runs the harness and every suite in Excel and writes their
-logs, session.log and session.json into the bundle (#535). This script reads them,
+tools/Certify-SACCR.ps1 runs the harness, every suite and the harness's two negative
+controls in Excel and writes their logs, session.log and session.json into the bundle
+(#535). This script reads them,
 with the policy and the source inventory of the candidate, and writes host.json as
 docs/EXCEL_EVIDENCE.md describes the record; it then validates the bundle with
 check_excel_evidence.py and returns its exit code. It never runs Excel and records
@@ -95,6 +96,19 @@ def suite_record(bundle: Path, spec: dict[str, Any], ran: bool) -> dict[str, Any
     return item
 
 
+def negative_record(bundle: Path, spec: dict[str, Any], ran: bool) -> dict[str, Any]:
+    """A negative control as its log shows it: PASS when it failed as designed, FAIL when it did
+    not, TIMEOUT without a RESULT line, NOT_RUN without a log."""
+    log = read(bundle, spec["log"]) if ran else None
+    if log is None:
+        return {"entry_point": spec["entry_point"], "status": "NOT_RUN", "log": None}
+    if not re.search(r"^RESULT=", log, re.MULTILINE):
+        status = "TIMEOUT"
+    else:
+        status = "FAIL" if evidence.negative_behaviour(spec, log) else "PASS"
+    return {"entry_point": spec["entry_point"], "status": status, "log": reference(bundle, spec["log"])}
+
+
 def build_record(root: Path, sha: str, bundle: Path) -> dict[str, Any]:
     """The evidence record the bundle's logs and session.json support."""
     evidence.require_commit(root, sha)
@@ -108,11 +122,16 @@ def build_record(root: Path, sha: str, bundle: Path) -> dict[str, Any]:
     harness_log = read(bundle, "harness.log") if ran else None
     harness_status, harness, cleanup = harness_record(policy, harness_log)
     suites = [suite_record(bundle, spec, harness_status != "NOT_RUN") for spec in policy["suites"]]
+    negatives = [negative_record(bundle, spec, harness_status != "NOT_RUN") for spec in policy["negative_runs"]]
     environment = environment_line(harness_log) if harness_log else {}
     if harness_status in ("PASS", "FAIL"):
-        failed = harness_status == "FAIL" or any(item["status"] == "FAIL" for item in suites)
+        # A negative control that did not fail as designed is a failed regression; one that did
+        # not run or finish is INCOMPLETE or EXECUTION_TIMEOUT, as a suite is.
+        failed = (harness_status == "FAIL" or any(item["status"] == "FAIL" for item in suites)
+                  or any(item["status"] == "FAIL" for item in negatives))
         regression = stage("FAIL" if failed else "PASS",
-                           "Certify-SACCR: harness and every suite run once each, on their own",
+                           "Certify-SACCR: harness and every suite run once each, on their own, "
+                           "then the harness's negative controls",
                            reference(bundle, "harness.log"))
     elif harness_status == "TIMEOUT":
         regression = stage("TIMEOUT", "The harness log has no RESULT line", reference(bundle, "harness.log"))
@@ -127,7 +146,7 @@ def build_record(root: Path, sha: str, bundle: Path) -> dict[str, Any]:
             and (bundle / "summary.log").is_file():
         summary = reference(bundle, "summary.log")
     return {
-        "schema_version": 2, "repository": policy["repository"], "candidate_sha": sha,
+        "schema_version": 3, "repository": policy["repository"], "candidate_sha": sha,
         "execution": "manual", "availability_reason": None,
         "started_at": session["started_at"], "finished_at": session["finished_at"],
         "operator": session["operator"],
@@ -146,7 +165,7 @@ def build_record(root: Path, sha: str, bundle: Path) -> dict[str, Any]:
                              compiled["detail"], session_log),
             "regression": regression,
             "cleanup": stage(cleanup_status, cleanup_detail, session_log)},
-        "harness": harness, "suites": suites, "summary": summary,
+        "harness": harness, "suites": suites, "negative_runs": negatives, "summary": summary,
     }
 
 

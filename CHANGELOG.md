@@ -916,6 +916,17 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Make the Excel evidence record prove that a failed run is never silent, as K-TEMPLATE's
+  certification does. `TEST_Harness.RunTestsWithSkippedCase` runs the harness without its last
+  case, beside `RunTestsWithInjectedFailure`; `TEST_Suite.Certify` runs both after the suites, into
+  `harness-injected.log` and `harness-skipped.log`, each ending with the suite failure error that
+  reached it. The evidence policy (schema 4) lists them as `negative_runs`, and the record (schema 3)
+  binds each to its log: `PASS` when it failed as designed (its mode, a failed `RESULT` with the
+  expected completeness and counts, the one failure named, the error reaching the caller), `FAIL`,
+  a test failure, when it did not. `--check-policy` checks the runs against the harness and
+  `TEST_Suite.NegativeEntries`; `write_excel_evidence.py` records them; `docs/EXCEL_EVIDENCE.md`
+  describes them.
+
 - Bring the issue audit and the issue forms in line with the K-TEMPLATE baseline. Every open issue
   needs a start date, a real `YYYY-MM-DD` date not after its target date, from the new required
   **Start date** field of the bug, feature and documentation forms or from a `Planned start date`
