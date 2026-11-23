@@ -322,7 +322,8 @@ Both reconciliation scripts are generic, schema-2 scripts: they read
 the live catalogue is exactly the manifest's 20 labels. Every checkout in the
 two workflows sets `persist-credentials: false`, so code under review never
 receives Git credentials. The workflows are K-SACCR's own in two respects:
-pull-request checks run only for pull requests into `main` or `release/**`.
+their pull-request checks run only for pull requests into `main` or `release/**`
+(Repository integrity runs for every pull request, whatever its base).
 The reconciliation job runs only on the default branch, for a push to `main`
 or a manual run on `main`; a manual run on any other branch skips it.
 

@@ -916,6 +916,18 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Bring the repository's workflows and checks in line with the K-TEMPLATE baseline. Dependabot
+  waits 14 days after a release for GitHub Actions too, as for pip (`check_workflows.py` requires
+  it on both). `mypy` also reports unreachable code (`warn_unreachable`); it found nothing. Repository
+  integrity runs for every pull request, whatever its base, and pushes are still checked on `main` and
+  `release/**`. Issue triage also runs when a milestone is opened, edited, closed or deleted. The label
+  sync and drift jobs that read the issues collection declare `pull-requests: read`, without which the
+  collection omits pull requests and a label that only pull requests carry could be pruned. The label
+  scripts write names in code spans whose fence is longer than any backtick they hold, and the refusal to
+  prune names up to ten of the issues and pull requests that still carry a label (`and others` beyond
+  that). The milestone workflow reads a pull request again after removing its milestone, and its job
+  summary lists each pull request and the title of the milestone removed.
+
 - Add a quick, unattended mode to the branch verification for pull-request
   checks (#618): `tools/Verify-SACCR-Branch.ps1 -Branch NAME -Quick`, or
   `quick` as the second argument of the `.cmd`, builds the development

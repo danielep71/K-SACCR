@@ -96,8 +96,11 @@ class ViolationTests(unittest.TestCase):
                 "strategy", {"matrix": {"python": ["3.10"]}}), "'strategy'"),
             (lambda w: job(w, "static-checks.yml", "repository-integrity").__setitem__(
                 "name", "Integrity"), "name is not"),
-            (lambda w: cw.events(w["static-checks.yml"])["pull_request"].__setitem__(
-                "branches", ["main"]), "pull_request branches"),
+            (lambda w: cw.events(w["static-checks.yml"]).__setitem__(
+                "pull_request", {"branches": ["main"]}), "pull_request has a filter"),
+            (lambda w: cw.events(w["static-checks.yml"]).pop("pull_request"), "pull_request is missing"),
+            (lambda w: cw.events(w["static-checks.yml"])["push"].__setitem__(
+                "branches", ["main"]), "push branches"),
             (lambda w: cw.events(w["static-checks.yml"])["push"].__setitem__(
                 "paths", ["src/**"]), "push has a filter"),
         ]
@@ -238,6 +241,8 @@ class ViolationTests(unittest.TestCase):
             (lambda d: d["updates"][1].__setitem__("assignees", ["someone"]), "assignees"),
             (lambda d: d["updates"][0].__setitem__("labels", ["ci", "P2"]), "not ['P3']"),
             (lambda d: d["updates"][1].__setitem__("labels", ["ci", "P3", "P2"]), "not ['P3']"),
+            (lambda d: d["updates"][0].pop("cooldown"), "github-actions: cooldown default-days is not 14"),
+            (lambda d: d["updates"][1]["cooldown"].__setitem__("default-days", 7), "pip: cooldown default-days is not 14"),
         ]
         for change, fragment in cases:
             with self.subTest(fragment=fragment):
@@ -343,19 +348,54 @@ class MilestoneScriptTests(unittest.TestCase):
         namespace: dict[str, Any] = {"__name__": "pr_milestones"}
         exec(compile(cw.milestone_script(WORKFLOWS["pr-milestones.yml"]), "pr-milestones", "exec"),
              namespace)
-        script: Callable[[Any, str, dict[str, Any]], None] = namespace["reconcile"]
+        script: Callable[[Any, str, dict[str, Any]], list[tuple[int, str]]] = namespace["reconcile"]
+        self.run_all: Callable[[Any, str, dict[str, Any], Callable[[str], None]], None] = namespace["run"]
 
-        def quiet(request: Any, repository: str, event: dict[str, Any]) -> None:
+        def quiet(request: Any, repository: str, event: dict[str, Any]) -> list[tuple[int, str]]:
             with contextlib.redirect_stdout(io.StringIO()):
-                script(request, repository, event)
+                return script(request, repository, event)
         self.reconcile = quiet
 
     def test_pull_request_event_clears_its_milestone(self) -> None:
         api = FakeApi({7: {"pull_request": {}, "milestone": {"title": "v1.1.0"}}})
         self.reconcile(api, "owner/repo", {"pull_request": {}, "number": 7})
         self.assertIsNone(api.items[7]["milestone"])
+        # The pull request is read again after the write, for what GitHub keeps.
         self.assertEqual(api.calls, [("GET", "/repos/owner/repo/issues/7"),
-                                     ("PATCH", "/repos/owner/repo/issues/7")])
+                                     ("PATCH", "/repos/owner/repo/issues/7"),
+                                     ("GET", "/repos/owner/repo/issues/7")])
+
+    def test_a_milestone_that_stays_after_the_write_is_an_error(self) -> None:
+        class Sticky(FakeApi):
+            def __call__(self, method: str, path: str, data: Any = None) -> Any:
+                if method == "PATCH":  # The response says it is gone; the object keeps it.
+                    self.calls.append((method, path))
+                    return {"milestone": None}
+                return super().__call__(method, path, data)
+
+        api = Sticky({4: {"pull_request": {}, "milestone": {"title": "v1.3.0"}}})
+        with self.assertRaisesRegex(ValueError, "PR #4 still has a milestone after the change"):
+            self.reconcile(api, "owner/repo", {"pull_request": {}, "number": 4})
+
+    def test_the_summary_lists_each_removal_and_treats_the_title_as_data(self) -> None:
+        api = FakeApi({3: {"pull_request": {}, "milestone": {"title": "v1|2\n# x\\"}},
+                       5: {"pull_request": {}, "milestone": {"title": "v1.3.0"}},
+                       6: {"pull_request": {}, "milestone": None}})
+        written: list[str] = []
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.run_all(api, "owner/repo", {}, written.append)
+        text = "".join(written)
+        self.assertIn("## Keep milestones issue-only", text)
+        self.assertIn("Scope: every pull request.", text)
+        self.assertIn("| #3 | v1\\|2 # x\\\\ |", text)  # pipe escaped, line break and backslash neutralised
+        self.assertIn("| #5 | v1.3.0 |", text)
+        self.assertNotIn("#6", text)
+        quiet_api = FakeApi({8: {"pull_request": {}, "milestone": None}})
+        written.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.run_all(quiet_api, "owner/repo", {"pull_request": {}, "number": 8}, written.append)
+        self.assertIn("Scope: pull request #8.", "".join(written))
+        self.assertIn("nothing was removed", "".join(written))
 
     def test_scan_clears_every_page(self) -> None:
         items: dict[int, dict[str, Any]] = {n: {"pull_request": {}, "milestone": None} for n in range(1, 151)}

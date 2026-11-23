@@ -23,6 +23,13 @@ on:
       - unassigned
       - milestoned
       - demilestoned
+  # Triage compares each issue with its milestone's state and due date.
+  milestone:
+    types:
+      - edited
+      - closed
+      - opened
+      - deleted
   workflow_dispatch:
 
 permissions:

@@ -58,6 +58,9 @@ jobs:
     permissions:
       contents: read
       issues: read
+      # Without it the issues API omits pull requests, and the usage of a
+      # label scheduled for deletion would be under-counted.
+      pull-requests: read
 
     steps:
       - name: Check out the exact SHA to inspect

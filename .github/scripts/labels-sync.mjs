@@ -269,9 +269,14 @@ async function listLiveLabels(repository, token) {
 
 // The issues collection includes PRs and state=all includes closed records.
 // Scan it once, rather than using label filters (label names can contain commas).
+export const USAGE_SAMPLE = 10;
+
+// What each label scheduled for deletion is used by: `{ name, count, items, more }`,
+// the lowest USAGE_SAMPLE numbers of the issues and pull requests that carry it,
+// ascending, and whether more carry it than the sample names.
 export async function deletionUsage(changes, readPage) {
   const counts = new Map(changes.filter(change => change.action === "delete")
-    .map(change => [change.name.toLowerCase(), { name: change.name, count: 0 }]));
+    .map(change => [change.name.toLowerCase(), { name: change.name, count: 0, numbers: [] }]));
   if (counts.size === 0) return [];
   const seen = new Set();
   for (let page = 1; page <= 100; page += 1) {
@@ -285,10 +290,19 @@ export async function deletionUsage(changes, readPage) {
       if (seen.has(item.number)) throw new Error("Issue usage pagination repeated a record");
       seen.add(item.number);
       for (const name of new Set(item.labels.map(label => label.name.toLowerCase()))) {
-        if (counts.has(name)) counts.get(name).count += 1;
+        if (counts.has(name)) {
+          const used = counts.get(name);
+          used.count += 1;
+          used.numbers.push(item.number);
+        }
       }
     }
-    if (items.length < 100) return [...counts.values()];
+    if (items.length < 100) {
+      return [...counts.values()].map(({ name, count, numbers }) => {
+        const sorted = [...numbers].sort((left, right) => left - right);
+        return { name, count, items: sorted.slice(0, USAGE_SAMPLE), more: sorted.length > USAGE_SAMPLE };
+      });
+    }
   }
   throw new Error("Issue usage pagination exceeded 100 pages; refusing reconciliation");
 }
@@ -298,10 +312,16 @@ export async function liveDeletionUsage(changes, repository, token) {
     `/issues?state=all&sort=created&direction=asc&per_page=100&page=${page}`));
 }
 
+// Where a label is used, such as "#3, #7 and others": "and others" only when more
+// items carry it than the sample names.
+export function renderUsage(label) {
+  return `${label.items.map(number => `#${number}`).join(", ")}${label.more ? " and others" : ""}`;
+}
+
 export function deletionRefusal(usage) {
   const used = (usage ?? []).filter(label => label.count > 0);
   return used.length ? "Refusing all label changes: labels still in use: "
-    + used.map(label => `${JSON.stringify(label.name)} (${label.count} issue/PR records)`).join(", ") : null;
+    + used.map(label => `${JSON.stringify(label.name)} (${label.count} issue/PR records: ${renderUsage(label)})`).join(", ") : null;
 }
 
 export function usageSummary(usage) {
@@ -325,13 +345,30 @@ async function applyChanges(repository, token, changes) {
   }
 }
 
-function markdownEscape(value) {
-  return String(value).replaceAll("|", "\\|").replaceAll("\n", " ");
+function singleLine(value) {
+  return String(value).replace(/\r\n?|\n/g, " ");
+}
+
+// Plain text in a table cell: one line, with pipes escaped.
+export function markdownEscape(value) {
+  return singleLine(value).replaceAll("|", "\\|");
+}
+
+// A code span that the value cannot close: its delimiter is longer than any run
+// of backticks in the value, and a value that starts or ends with a backtick or a
+// space is padded. In a table cell, pipes are escaped as well.
+export function inlineCode(value, { table = false } = {}) {
+  let text = singleLine(value);
+  if (table) text = text.replaceAll("|", "\\|");
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map(run => run.length));
+  const fence = "`".repeat(longest + 1);
+  const padding = /^[` ]|[` ]$/.test(text) ? " " : "";
+  return `${fence}${padding}${text}${padding}${fence}`;
 }
 
 function renderLabelNames(labels) {
   if (labels.length === 0) return "none";
-  return labels.map(label => markdownEscape(JSON.stringify(label.name))).join(", ");
+  return labels.map(label => inlineCode(JSON.stringify(label.name))).join(", ");
 }
 
 function renderSummary({
@@ -356,7 +393,7 @@ function renderSummary({
     "# Repository label synchronization",
     "",
     `- Mode: \`${mode}\`${dryRun ? " (dry run)" : ""}`,
-    `- Label manifest: \`${manifestPath ?? "unavailable"}\``,
+    `- Label manifest: ${inlineCode(manifestPath ?? "unavailable")}`,
     `- Schema: **${manifest?.schema_version ?? "unavailable"}**`,
     `- Labels: **${resolvedLabels.length}**`,
     `- Prune: **${manifest ? (manifest.prune ? "enabled" : "disabled") : "unavailable"}**`,
@@ -372,7 +409,7 @@ function renderSummary({
     `- Labels (${resolvedLabels.length}): ${renderLabelNames(resolvedLabels)}`
   );
   if (error) {
-    lines.push("", "## Failure", "", `\`${markdownEscape(error)}\``);
+    lines.push("", "## Failure", "", inlineCode(error));
     if (partial) {
       lines.push("", "The failure happened during or after reconciliation: some changes may already be applied. Compare the live labels with the manifest.");
     }
@@ -384,7 +421,7 @@ function renderSummary({
     lines.push("", "| Action | Label | Detail |", "|---|---|---|");
     for (const change of changes) {
       const detail = change.action === "update" ? change.fields.join(", ") : change.action === "delete" ? "outside the manifest" : "missing live label";
-      lines.push(`| ${change.action} | \`${markdownEscape(change.name)}\` | ${markdownEscape(detail)} |`);
+      lines.push(`| ${change.action} | ${inlineCode(change.name, { table: true })} | ${markdownEscape(detail)} |`);
     }
   }
   return `${lines.join("\n")}\n`;
@@ -408,7 +445,14 @@ async function testUsageGuard(manifestPath, desired) {
       : [{ number: 101, state: "closed", pull_request: {}, labels: [{ name: "USED, LABEL" }] }];
   });
   assert.deepEqual(pages, [1, 2]);
-  assert.deepEqual(usage, [{ name: "Used, label", count: 1 }]);
+  assert.deepEqual(usage, [{ name: "Used, label", count: 1, items: [101], more: false }]);
+  // The refusal names the issues and pull requests that carry the label: the lowest ten, then "and others".
+  const crowded = await deletionUsage(deletion, async page => page === 1
+    ? Array.from({ length: 12 }, (_, index) => ({ number: 40 - index, labels: [{ name: "used, label" }] })) : []);
+  assert.deepEqual(crowded[0].items, [29, 30, 31, 32, 33, 34, 35, 36, 37, 38]);
+  assert.equal(crowded[0].more, true);
+  assert.match(deletionRefusal(crowded), /12 issue\/PR records: #29, #30, #31, #32, #33, #34, #35, #36, #37, #38 and others/);
+  assert.match(deletionRefusal(usage), /1 issue\/PR records: #101\)/);
   for (const response of [null, [{ number: 1 }], [{ number: 1, labels: [null] }]]) {
     await assert.rejects(deletionUsage(deletion, async () => response), /Malformed/);
   }
@@ -539,6 +583,17 @@ async function runSelfTest(manifestPath) {
   const caseDrift = structuredClone(desired);
   caseDrift[0].name = desired[0].name.toUpperCase();
   assert.deepEqual(planChanges(desired, caseDrift)[0].fields, ["name"]);
+
+  // A value that holds backticks, pipes or line breaks cannot close its code span or its table cell.
+  assert.equal(inlineCode("a`b"), "``a`b``");
+  assert.equal(inlineCode("`a`"), "`` `a` ``");
+  assert.equal(inlineCode("a``b`c"), "```a``b`c```");
+  assert.equal(inlineCode("a|b", { table: true }), "`a\\|b`");
+  assert.equal(inlineCode("a\nb"), "`a b`");
+  assert.equal(markdownEscape("x|y\r\nz"), "x\\|y z");
+  const tricky = [{ action: "delete", name: "odd`|name", target: null }];
+  assert.match(renderSummary({ mode: "plan", manifest, manifestPath: "m`.json", desiredLabels: desired, changes: tricky }),
+    /\| delete \| ``odd`\\\|name`` \| outside the manifest \|/);
 
   const summary = renderSummary({
     mode: "plan",
