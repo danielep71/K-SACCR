@@ -39,6 +39,21 @@
     "Import_Trades": [
       "ImportTrades_Header"
     ],
+    "Dashboard": [
+      19,
+      34,
+      45,
+      63,
+      81,
+      99,
+      117,
+      147,
+      156,
+      174,
+      183,
+      192,
+      200
+    ],
     "Results": [
       "Results_Header"
     ],

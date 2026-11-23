@@ -15,6 +15,7 @@
     "src/workbook/shBaselVsCRR.cls",
     "src/workbook/shBuckets.cls",
     "src/workbook/shChecks.cls",
+    "src/workbook/shDashboard.cls",
     "src/workbook/shHedgingSets.cls",
     "src/workbook/shHome.cls",
     "src/workbook/shImportNettingSets.cls",

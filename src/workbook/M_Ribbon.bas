@@ -606,6 +606,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shImportNettingSets"
             Case "ksGoImportTrades"
                 RibbonSheet = "shImportTrades"
+            Case "ksGoDashboard"
+                RibbonSheet = "shDashboard"
             Case "ksGoResults"
                 RibbonSheet = "shResults"
             Case "ksGoHedgingSets"

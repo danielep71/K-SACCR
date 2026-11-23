@@ -66,6 +66,7 @@ The matrix names cells by their workbook names wherever the template has one, so
 | `Trades` | Input | Columns `C:AD` below `Trades_Header` | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:U` below `ImportNettingSets_Header` | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` below `ImportTrades_Header` | Inserting rows |
+| `Dashboard` | Output | — | — (written by every run, #675) |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |
 | `BankNettingSets` | Bank figures | `BankNS_Scale`, `BankNS_AbsTol`, `BankNS_RelTol` (amount scale and tolerances) and columns `C:P` below `BankNettingSets_Header` | Sorting, inserting rows |
 | `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |

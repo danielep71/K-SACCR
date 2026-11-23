@@ -132,6 +132,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Inputs | `ksGoTrades` | Trades | `shTrades` |
 | Staging | `ksGoImportNettingSets` | Import_NettingSets | `shImportNettingSets` |
 | Staging | `ksGoImportTrades` | Import_Trades | `shImportTrades` |
+| Outputs | `ksGoDashboard` | Dashboard | `shDashboard` |
 | Outputs | `ksGoResults` | Results | `shResults` |
 | Outputs | `ksGoHedgingSets` | HedgingSets | `shHedgingSets` |
 | Outputs | `ksGoBuckets` | Buckets | `shBuckets` |
