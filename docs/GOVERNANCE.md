@@ -192,16 +192,25 @@ audits every open issue:
 - exactly one of `P1`, `P2` and `P3`, and `P1` only together with `bug`;
 - a milestone;
 - only labels of `.github/labels.json`;
-- a dependency section whose issue references exist;
+- a start date;
+- a dependency section that is not empty, whose issue references exist;
 - `blocked` only with an open prerequisite or an external condition, and
-  always with an external condition.
+  always with an external condition;
+- no cycle among blocked issues: issues that wait for one another can never
+  be unblocked by finishing work.
 
 The audit reports open issues in closed milestones and target dates after the
-milestone deadline (equality is allowed). The optional **Target date** form field
+milestone deadline (equality is allowed); a target whose milestone has no
+deadline is a finding too, as it cannot be checked. The **Start date** form
+field is required: a real `YYYY-MM-DD` date (Europe/Rome), not after the target
+date; existing **Planned start date** entries under **Planning dates** are
+also recognized. The optional **Target date** form field
 uses `YYYY-MM-DD`; existing **Target completion date** / **Target date** entries
-under **Planning dates** are also recognized. Invalid or conflicting target dates
-are findings; absent dates remain optional. Dates elsewhere in the body are not
-interpreted as planning fields. Triage and repository integrity explicitly install
+under **Planning dates** are also recognized. Invalid or conflicting start or
+target dates are findings; an absent start date is one, an absent target date is
+not. Dates elsewhere in the body are not
+interpreted as planning fields. A dependency section may name related issues,
+so only a `blocked` issue is taken to wait for the open issues its section names. Triage and repository integrity explicitly install
 Python 3.10.19 and Node 22.21.1, with setup actions pinned by commit SHA.
 
 Traffic alerts need no milestone or dependency section. The workflow never
@@ -322,7 +331,8 @@ Both reconciliation scripts are generic, schema-2 scripts: they read
 the live catalogue is exactly the manifest's 20 labels. Every checkout in the
 two workflows sets `persist-credentials: false`, so code under review never
 receives Git credentials. The workflows are K-SACCR's own in two respects:
-pull-request checks run only for pull requests into `main` or `release/**`.
+their pull-request checks run only for pull requests into `main` or `release/**`
+(Repository integrity runs for every pull request, whatever its base).
 The reconciliation job runs only on the default branch, for a push to `main`
 or a manual run on `main`; a manual run on any other branch skips it.
 

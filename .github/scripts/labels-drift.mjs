@@ -8,7 +8,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 
-import { deletionUsage, liveDeletionUsage, usageSummary } from "./labels-sync.mjs";
+import { deletionUsage, inlineCode, liveDeletionUsage, usageSummary } from "./labels-sync.mjs";
 
 const execFileAsync = promisify(execFile);
 const TOOL_NAME = "Repository label drift";
@@ -219,9 +219,13 @@ function canonicalRows(stdout) {
   if (!countMatch) throw new Error("Canonical plan summary has no planned-change count");
   const rows = [];
   for (const line of stdout.split("\n")) {
-    const match = line.match(/^\| (update|create|delete) \| `([^`]*)` \| ([^|]*) \|$/);
+    // The label is a code span whose fence is longer than any run of backticks in the name
+    // (inlineCode), padded by a space when the name starts or ends with a backtick or a space.
+    const match = line.match(/^\| (update|create|delete) \| (`+)(.+?)\2 \| ([^|]*) \|$/);
     if (match) {
-      rows.push({ action: match[1], name: match[2], detail: match[3].trim() });
+      const padded = match[3].length >= 2 && match[3].startsWith(" ") && match[3].endsWith(" ");
+      const name = (padded ? match[3].slice(1, -1) : match[3]).replaceAll("\\|", "|");
+      rows.push({ action: match[1], name, detail: match[4].trim() });
     }
   }
   return { count: Number(countMatch[1]), rows };
@@ -230,7 +234,7 @@ function canonicalRows(stdout) {
 function localRows(changes) {
   return changes.map(change => ({
     action: change.action,
-    name: change.name,
+    name: change.name.replace(/\r\n?|\n/g, " "),
     detail: change.action === "update"
       ? change.fields.join(", ")
       : change.action === "delete"
@@ -309,7 +313,7 @@ function markdownEscape(value) {
 
 function compactLabel(label) {
   if (label === null) return "—";
-  return `\`${markdownEscape(label.name)}\` / \`${label.color}\` / ${markdownEscape(label.description)}`;
+  return `${inlineCode(label.name, { table: true })} / ${inlineCode(label.color)} / ${markdownEscape(label.description)}`;
 }
 
 function markdownReport(report) {
@@ -317,8 +321,8 @@ function markdownReport(report) {
     "# Repository label drift",
     "",
     `- Status: **${String(report.status).toUpperCase()}**`,
-    `- Repository: \`${report.repository ?? "fixture"}\``,
-    `- Manifest: \`${report.manifest}\``,
+    `- Repository: ${inlineCode(report.repository ?? "fixture")}`,
+    `- Manifest: ${inlineCode(report.manifest)}`,
     `- Desired / observed: **${report.counts.desired} / ${report.counts.observed}**`,
     `- Differences: **${report.counts.differences}**`,
     `- Create / update / delete: **${report.counts.create} / ${report.counts.update} / ${report.counts.delete}**`,
@@ -335,7 +339,7 @@ function markdownReport(report) {
     );
     for (const difference of report.differences) {
       lines.push(
-        `| ${difference.action} | \`${markdownEscape(difference.name)}\` | `
+        `| ${difference.action} | ${inlineCode(difference.name, { table: true })} | `
         + `${difference.fields.length > 0 ? difference.fields.join(", ") : "—"} | `
         + `${compactLabel(difference.observed)} | ${compactLabel(difference.desired)} |`
       );
@@ -440,7 +444,7 @@ async function runSelfTest(manifestPath) {
     { number: 9, state: "closed", pull_request: {}, labels: [{ name: "out-of-band" }] }
   ]);
   assert.match(markdownReport({ ...driftFirst, deletion_usage: usage }),
-    /Refusing all label changes.*out-of-band.*1 issue\/PR records/);
+    /Refusing all label changes.*out-of-band.*1 issue\/PR records: #9/);
   assert.match(markdownReport({ ...driftFirst, deletion_usage: [] }), /no label scheduled for deletion is in use/);
   assert.match(markdownReport(driftFirst), /NOT CHECKED/);
 

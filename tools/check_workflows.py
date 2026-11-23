@@ -62,6 +62,8 @@ SELF_HOSTED_MAX_MINUTES = 120
 # Every ecosystem whose versions the repository pins.
 PINNED_ECOSYSTEMS = ("github-actions", "pip")
 PRIORITIES = ("P1", "P2", "P3")
+# A version update waits this many days after its release (Dependabot cooldown); security updates do not.
+COOLDOWN_DAYS = 14
 
 Docs = dict[str, Any]
 
@@ -156,11 +158,15 @@ def check_integrity_job(workflows: Docs, governance: str) -> list[str]:
         if key in job:
             findings.append(f"{INTEGRITY_FILE}/{INTEGRITY_JOB}: has '{key}', so the required check can be skipped")
     on = events(workflow) or {}
-    for event in ("pull_request", "push"):
-        if ((on.get(event) or {}).get("branches")) != INTEGRITY_BRANCHES:
-            findings.append(f"{INTEGRITY_FILE}: {event} branches are not {INTEGRITY_BRANCHES}")
-        if (on.get(event) or {}).keys() - {"branches"}:
-            findings.append(f"{INTEGRITY_FILE}: {event} has a filter besides branches")
+    # A pull request is checked whatever its base (a stacked branch included); a push, where it lands.
+    if on.get("pull_request"):
+        findings.append(f"{INTEGRITY_FILE}: pull_request has a filter, so a pull request on another base is not checked")
+    if "pull_request" not in on:
+        findings.append(f"{INTEGRITY_FILE}: pull_request is missing")
+    if ((on.get("push") or {}).get("branches")) != INTEGRITY_BRANCHES:
+        findings.append(f"{INTEGRITY_FILE}: push branches are not {INTEGRITY_BRANCHES}")
+    if (on.get("push") or {}).keys() - {"branches"}:
+        findings.append(f"{INTEGRITY_FILE}: push has a filter besides branches")
     if f"**{INTEGRITY_NAME}** required" not in governance:
         findings.append(f"docs/GOVERNANCE.md does not name '{INTEGRITY_NAME}' as the required check")
     return findings
@@ -306,6 +312,8 @@ def check_dependabot(config: Any, bug_form: str) -> list[str]:
             findings.append(f"dependabot.yml/{label}: sets a milestone")
         if not assignee or block.get("assignees") != [assignee]:
             findings.append(f"dependabot.yml/{label}: assignees are not ['{assignee}'] (bug.yml)")
+        if (block.get("cooldown") or {}).get("default-days") != COOLDOWN_DAYS:
+            findings.append(f"dependabot.yml/{label}: cooldown default-days is not {COOLDOWN_DAYS}")
         priorities = [p for p in block.get("labels") or [] if p in PRIORITIES]
         if priorities != ["P3"]:
             findings.append(f"dependabot.yml/{label}: priority labels are {priorities}, not ['P3']")

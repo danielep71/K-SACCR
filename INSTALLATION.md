@@ -392,7 +392,12 @@ report `PASS`, and it raises an error after printing a failed result.
 `TEST_Harness.RunTestsWithInjectedFailure` runs the same cases with one
 deliberately wrong expectation, in `replacement-cost.exact`, and must print
 `MODE=INJECTED_FAILURE` and a `RESULT=FAIL` line with `failures=1`, followed
-by the suite failure error. If a run is interrupted, run
+by the suite failure error. `TEST_Harness.RunTestsWithSkippedCase` runs it
+without its last case and must print `MODE=SKIPPED_CASE` and
+`RESULT=FAIL; completeness=INCOMPLETE`, also followed by the suite failure
+error. `TEST_Suite.Certify` runs both as the negative controls of the
+evidence record ([negative controls](docs/EXCEL_EVIDENCE.md#negative-controls)).
+If a run is interrupted, run
 `TEST_Harness.ResetTests` before running again. If another suite was
 interrupted, the next suite refuses the workbook (`restore=NOT_RUN`): close
 it without saving or rebuild it, or, once it is checked, run

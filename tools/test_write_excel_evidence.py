@@ -62,6 +62,8 @@ class WriteEvidenceTests(unittest.TestCase):
         self.write("harness.log", self.harness_log())
         for spec in self.policy["suites"]:
             self.write(writer.log_name(spec["entry_point"]), self.suite_log(spec))
+        for spec in self.policy["negative_runs"]:
+            self.write(spec["log"], self.negative_log(spec))
 
     def git(self, *args: str) -> str:
         return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
@@ -79,6 +81,17 @@ class WriteEvidenceTests(unittest.TestCase):
         if result != "none":
             lines.append(result or "RESULT=PASS; completeness=COMPLETE; cases=4; assertions=6; "
                                    "failures=0; cleanup=PASS")
+        return "\n".join(lines + [""])
+
+    def negative_log(self, spec: dict[str, Any], error: bool = True) -> str:
+        """A negative control's log as Certify writes it: the designed failure, then its ERROR= line."""
+        lines = [f"CANDIDATE={self.sha}", "SACCR TESTS", f"MODE={spec['mode']}",
+                 *("CASE=" + case for case in self.policy["cases"][:spec["cases"]]),
+                 f"FAILURE_DETAILS={spec['failure']}: designed failure",
+                 f"RESULT=FAIL; completeness={spec['completeness']}; cases={spec['cases']}; "
+                 f"assertions={spec['assertions']}; failures=1; cleanup=PASS"]
+        if error:
+            lines.append(f"ERROR={spec['error']}: Regression failed; review the Immediate window report.")
         return "\n".join(lines + [""])
 
     def suite_log(self, spec: dict[str, Any], verdict: str = "PASS", failures: int = 0) -> str:
@@ -115,6 +128,27 @@ class WriteEvidenceTests(unittest.TestCase):
         code, record = self.run_writer()
         self.assertEqual(code, 0)
         self.assertEqual(self.outcomes(), ["PASS"])
+        self.assertEqual([(item["entry_point"], item["status"], item["log"]["path"]) for item in record["negative_runs"]],
+                         [(spec["entry_point"], "PASS", spec["log"]) for spec in self.policy["negative_runs"]])
+
+    def test_a_negative_control_that_does_not_fail_as_designed_fails_the_regression(self) -> None:
+        # The injected failure reaches no caller: a failed run that is silent is a test failure.
+        injected = self.policy["negative_runs"][0]
+        self.write(injected["log"], self.negative_log(injected, error=False))
+        code, record = self.run_writer()
+        self.assertEqual(code, 1)
+        self.assertEqual(record["negative_runs"][0]["status"], "FAIL")
+        self.assertEqual(record["stages"]["regression"]["status"], "FAIL")
+        self.assertEqual(self.outcomes(), ["TEST_FAILED"])
+
+    def test_a_missing_negative_control_is_incomplete(self) -> None:
+        skipped = self.policy["negative_runs"][1]
+        (self.bundle / skipped["log"]).unlink()
+        code, record = self.run_writer()
+        self.assertEqual(code, 1)
+        self.assertEqual((record["negative_runs"][1]["status"], record["negative_runs"][1]["log"]), ("NOT_RUN", None))
+        self.assertEqual(record["stages"]["regression"]["status"], "PASS")
+        self.assertEqual(self.outcomes(), ["INCOMPLETE"])
         self.assertEqual(record["environment"]["office_bitness"], "64-bit")
         self.assertIsNone(record["summary"])
 

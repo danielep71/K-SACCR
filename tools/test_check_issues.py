@@ -18,11 +18,16 @@ from check_issues import Issue
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "example-org/sample-project"
 BLOCKED_LABEL = check_issues.BLOCKED
+START = "### 🗓️ Start date (Europe/Rome)\n\n2027-01-04\n\n"
 READY = "## Dependencies and blocking status\n\n**Ready to start**: none.\n"
 
 
 def issue(number: int, *labels: str, state: str = "open", body: str = READY,
-          assignees: tuple[str, ...] = ("triage-person",), milestone: str | None = "v0.1.0") -> Issue:
+          assignees: tuple[str, ...] = ("triage-person",), milestone: str | None = "v0.1.0",
+          start: bool = True) -> Issue:
+    """An issue that meets every rule; the start date every open issue needs is added unless the body has one."""
+    if start and "start date" not in body.lower():
+        body = START + body
     return Issue(number, state, labels or ("P3",), assignees, milestone, body)
 
 
@@ -59,7 +64,7 @@ class MetadataTests(unittest.TestCase):
         # The exemption needs both the workflow's author and its title.
         by_person = Issue(5, "open", ("P3",), ("triage-person",), None, "x",
                           "Traffic alert: 2026-10-31", "someone")
-        self.assertEqual(rules([by_person]), [(5, "milestone"), (5, "dependencies")])
+        self.assertEqual(rules([by_person]), [(5, "milestone"), (5, "start-date"), (5, "dependencies")])
         unassigned = Issue(5, "open", (), (), None, "x", "Traffic alert: 2026-10-31",
                            check_issues.TRAFFIC_ALERT_AUTHOR)
         self.assertEqual(rules([unassigned]), [(5, "assignee"), (5, "priority")])
@@ -95,17 +100,77 @@ class PlanningTests(unittest.TestCase):
                      READY + "## Notes\nTarget date: 2099-01-01\n",
                      READY + "## Planning dates\n```\nTarget date: 2099-01-01\n```\n"):
             self.assertEqual(rules([issue(1, body=body)]), [])
+        def due(body: str) -> Issue:
+            return replace(issue(1, body=body), milestone_due="2027-12-31T00:00:00Z")
+
         for value in ("2027-02-30", "15/01/2027", "2027-1-15", "tomorrow"):
-            self.assertEqual(rules([issue(1, body=READY + "### Target date\n" + value)]), [(1, "target-date")])
+            self.assertEqual(rules([due(READY + "### Target date\n" + value)]), [(1, "target-date")])
         body = READY + "### Target date\n2027-01-15\n## Planning dates\n- Target date: 2027-01-16\n"
-        self.assertEqual(rules([issue(1, body=body)]), [(1, "target-date")])
-        self.assertEqual(rules([issue(1, body=body.replace("2027-01-16", "2027-01-15"))]), [])
+        self.assertEqual(rules([due(body)]), [(1, "target-date")])
+        self.assertEqual(rules([due(body.replace("2027-01-16", "2027-01-15"))]), [])
         candidate = replace(issue(1, body=READY + "### Target date\n2027-01-15"), milestone_due="bad")
         self.assertEqual(rules([candidate]), [(1, "milestone-date")])
         self.assertEqual(rules([replace(candidate, state="closed", milestone_state="closed")]), [])
 
 
+    def test_a_target_needs_a_milestone_with_a_due_date_to_be_checked_against(self) -> None:
+        # The deadline is inclusive (docs/GOVERNANCE.md), so a target on the due date is fine; a milestone
+        # with no due date cannot check any target, and says so.
+        body = READY + "### Target date\n2027-01-15\n"
+        self.assertEqual(rules([issue(1, body=body)]), [(1, "milestone-date")])
+        self.assertEqual(rules([issue(1, body=READY)]), [])  # no target, nothing to check
+        self.assertEqual(rules([issue(1, body=body, milestone=None)]), [(1, "milestone")])
+
+    def test_the_start_date_is_required_valid_and_not_after_the_target(self) -> None:
+        for body in (START + READY, "## Planning dates\n- Planned start date: `2027-01-04`\n" + READY,
+                     "## Planning dates\n- **Start date:** 2027-01-04\n" + READY,
+                     "### 🗓️ Start date\n\n2027-01-04\n" + READY):
+            self.assertEqual(rules([issue(1, body=body, start=False)]), [], body)
+        for body in (READY, "### 🗓️ Start date (Europe/Rome)\n\n_No response_\n" + READY,
+                     "## Notes\nStart date: 2027-01-04\n" + READY,
+                     "## Planning dates\n```\n- Start date: 2027-01-04\n```\n" + READY):
+            self.assertEqual(rules([issue(1, body=body, start=False)]), [(1, "start-date")], body)
+        for value in ("2027-02-30", "04/01/2027", "2027-1-4", "soon"):
+            body = f"### 🗓️ Start date (Europe/Rome)\n\n{value}\n" + READY
+            self.assertEqual(rules([issue(1, body=body, start=False)]), [(1, "start-date")], value)
+        conflicting = START + "## Planning dates\n- Planned start date: 2027-01-05\n" + READY
+        self.assertEqual(rules([issue(1, body=conflicting, start=False)]), [(1, "start-date")])
+        late = replace(issue(1, body=START + READY + "### Target date\n2027-01-03\n"),
+                       milestone_due="2027-12-31T00:00:00Z")
+        self.assertEqual(rules([late]), [(1, "start-date")])
+        same_day = replace(issue(1, body=START + READY + "### Target date\n2027-01-04\n"),
+                           milestone_due="2027-12-31T00:00:00Z")
+        self.assertEqual(rules([same_day]), [])
+        self.assertEqual(rules([issue(1, "P3", body=READY, state="closed", start=False)]), [])
+
+
 class DependencyTests(unittest.TestCase):
+    def test_an_empty_dependency_section_is_a_finding(self) -> None:
+        for body in ("## Dependencies and blocking status\n\n", "## Dependencies and blocking status\n\n_No response_\n",
+                     "## Dependencies and blocking status\n   \n\n## Tracking\n\n#99\n"):
+            self.assertEqual(rules([issue(1, body=body)]), [(1, "dependencies")], body)
+        self.assertEqual(rules([issue(1, body="## Dependencies and blocking status\n\nNone\n")]), [])
+
+    def test_blocked_issues_that_wait_for_each_other_are_a_cycle(self) -> None:
+        a, b, c = (issue(n, "P3", BLOCKED_LABEL, body=blocked_by(m)) for n, m in ((1, 2), (2, 3), (3, 1)))
+        self.assertEqual(rules([a, b, c]), [(1, "dependency-cycle"), (2, "dependency-cycle"), (3, "dependency-cycle")])
+        findings = check_issues.cycle_findings([a, b, c], {1: "open", 2: "open", 3: "open"}, REPOSITORY)
+        self.assertIn("#1, #2, #3", findings[0].message)
+        # A chain is not a cycle, nor is a closed member.
+        self.assertEqual(rules([a, b, issue(3, "P3", BLOCKED_LABEL, body=blocked_by(1), state="closed")]),
+                         [(2, "blocked")])  # 2 waits only for a closed 3: it must be unblocked, and there is no cycle
+        self.assertEqual(rules([issue(1, "P3", BLOCKED_LABEL, body=blocked_by(2)), issue(2)]), [])
+
+    def test_related_issues_that_name_each_other_are_not_a_cycle(self) -> None:
+        # A dependency section may name related issues: only a blocked issue waits for the ones it names.
+        self.assertEqual(rules([issue(1, "P3", body=blocked_by(2)), issue(2, "P3", body=blocked_by(1))]), [])
+        self.assertEqual(rules([issue(1, "P3", BLOCKED_LABEL, body=blocked_by(2)),
+                                issue(2, "P3", body=blocked_by(1))]), [])
+
+    def test_a_long_chain_does_not_exceed_the_recursion_limit(self) -> None:
+        chain = [issue(n, "P3", BLOCKED_LABEL, body=blocked_by(n + 1)) for n in range(1, 3001)] + [issue(3001)]
+        self.assertEqual(rules(chain), [])
+
     def test_blocked_by_an_open_prerequisite(self) -> None:
         self.assertEqual(rules([issue(2, "P3", BLOCKED_LABEL, body=blocked_by(1)), issue(1)]), [])
 
@@ -205,7 +270,7 @@ class MainTests(unittest.TestCase):
         items = [
             {"number": 1, "state": "open", "labels": [{"name": "P3"}],
              "assignees": [{"login": "triage-person"}], "milestone": None,
-             "body": READY + "Delivered in #2, a pull request.\n"},
+             "body": START + READY + "Delivered in #2, a pull request.\n"},
             {"number": 2, "state": "open", "labels": [], "assignees": [],
              "milestone": None, "body": READY, "pull_request": {}},
         ]
