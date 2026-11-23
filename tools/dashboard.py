@@ -185,7 +185,8 @@ def scale_step(amounts: list[float]) -> int:
 
 def percent_text(fraction: float) -> str:
     """A fraction as a percentage with one decimal, halves away from zero: 0.3846 -> 38.5%."""
-    value = Decimal(repr(fraction * 100)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    # The fraction's shortest decimal form first, so that 0.0045 is the half 0.45%, not 0.44999...%.
+    value = (Decimal(repr(fraction)) * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
     return f"{value}%"
 
 

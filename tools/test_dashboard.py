@@ -78,6 +78,9 @@ class RuleTest(unittest.TestCase):
 
     def test_percent_rounds_halves_away_from_zero(self) -> None:
         self.assertEqual(db.percent_text(0.38455), "38.5%")
+        self.assertEqual(db.percent_text(0.0045), "0.5%")  # 0.0045 * 100 is 0.44999... in binary
+        self.assertEqual(db.reading(2000.0, 1991.0, 1991.0),
+                         "Netting removes 0.5% of gross positive value; collateral a further 0.0%.")
         self.assertEqual(db.percent_text(0.0), "0.0%")
         self.assertEqual(db.percent_text(1.0), "100.0%")
 
