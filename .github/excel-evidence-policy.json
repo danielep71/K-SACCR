@@ -72,7 +72,7 @@
     {
       "entry_point": "TEST_Dashboard.RunDashboardTests",
       "cases": 6,
-      "checks": {"32-bit": 64, "64-bit": 64}
+      "checks": {"32-bit": 65, "64-bit": 65}
     }
   ],
   "negative_runs": [

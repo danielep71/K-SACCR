@@ -107,7 +107,7 @@ Use only the categories needed by a release.
   in [`docs/workbook/DASHBOARD.md`](docs/workbook/DASHBOARD.md), with a Python reference in
   `tools/dashboard.py`. The Go to menu, the navigation bar, Home and README list the sheet. Every run
   writes it after its reconciliations; every operation empties it first, so a run that fails leaves
-  none. `TEST_Dashboard` (6 cases, 64 checks) checks every block against the output sheets.
+  none. `TEST_Dashboard` (6 cases, 65 checks) checks every block against the output sheets.
 - Independent values for more of the rules of #100. The R package `SACCR` 3.4 (`IMPL-R-SACCR`)
   reproduces at full precision six checks of the ported catalogue, T15, T19, T21, T24, T25 and T28,
   which are now `independent`. Because a case named `illustrative-*` holds only illustrative

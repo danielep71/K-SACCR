@@ -11480,14 +11480,15 @@ Private Sub RefreshResultsStatus()
 '   fingerprint. In manual calculation Excel would otherwise keep the value
 '   computed during the recalculation before the run, when the fingerprint
 '   had already been withdrawn (#204), and show "No results" after a
-'   completed run.
+'   completed run. The Dashboard is recalculated whole: its status, title
+'   and unit formulas read the blocks the operation wrote or emptied (#675).
 '
 ' ERROR POLICY
 '   Best effort: a status that cannot be recalculated here is refreshed by
 '   the next recalculation, and the outcome of the operation is unchanged.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-23
 '==============================================================================
 '
         On Error GoTo Failed
@@ -11497,6 +11498,9 @@ Private Sub RefreshResultsStatus()
         End If
         If ReconciliationSheetsPresent(RECON_TR) Then
             GetSheet(SH_TRADE_RECON).Range(RECON_STATUS_CELL).Calculate
+        End If
+        If SheetExists(SH_DASHBOARD) Then
+            GetSheet(SH_DASHBOARD).Calculate
         End If
 
 Failed:

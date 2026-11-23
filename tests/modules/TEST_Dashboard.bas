@@ -49,7 +49,7 @@ Attribute VB_Name = "TEST_Dashboard"
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of the built cases
         Private Const CASES       As Long = 6                 'Cases in a complete run
-        Private Const CHECKS      As Long = 64                'Checks in a complete run
+        Private Const CHECKS      As Long = 65                'Checks in a complete run
         Private Const REL_TOL     As Double = 0.000000001     'Relative tolerance of a figure
         Private Const CLASS_TAG   As String = "illustrative"  'Reference class of every check
 
@@ -129,6 +129,13 @@ Public Sub RunDashboardTests()
         TEST_CaseRunner.BeginCase "dashboard-stale", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         Result = M_Main.RunSACCR_Silent()
+    'In manual calculation, as the suite runs, the run itself refreshes the
+    'sheet's formulas: the status and the subtitle.
+        TEST_CaseRunner.ExpectTrue "status-after-run", _
+            Left$(SafeStr(GetSheet(SH_DASHBOARD).Range("C5").Value), 16) = "Inputs unchanged" And _
+            Left$(SafeStr(GetSheet(SH_DASHBOARD).Range("C6").Value), 10) <> "No results", _
+            SafeStr(GetSheet(SH_DASHBOARD).Range("C5").Value) & " | " & _
+            SafeStr(GetSheet(SH_DASHBOARD).Range("C6").Value), CLASS_TAG
         TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM).Value = _
             ToDbl(TableCell(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_MTM).Value, 0#) + 1#
         GetSheet(SH_DASHBOARD).Range("C5").Calculate
