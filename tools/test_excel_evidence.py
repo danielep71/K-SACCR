@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +76,7 @@ class ExcelEvidenceTests(unittest.TestCase):
             "RESULT=PASS; completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS", "",
         ])
         self.record: dict[str, Any] = {
-            "schema_version": 2, "repository": "danielep71/K-SACCR", "candidate_sha": self.sha,
+            "schema_version": 3, "repository": "danielep71/K-SACCR", "candidate_sha": self.sha,
             "execution": "manual", "availability_reason": None,
             "started_at": "2026-10-06T09:00:00+02:00", "finished_at": "2026-10-06T09:10:00+02:00",
             "operator": "Synthetic operator, synthetic workstation",
@@ -97,6 +98,7 @@ class ExcelEvidenceTests(unittest.TestCase):
                             {"case": "cdo-delta.invalid-tranche", "status": "PASS",
                              "detail": "Implied by the complete passing suite"}]},
             "suites": [self.suite(spec) for spec in self.policy["suites"]],
+            "negative_runs": [self.negative(spec) for spec in self.policy["negative_runs"]],
             "summary": None,
         }
 
@@ -137,6 +139,31 @@ class ExcelEvidenceTests(unittest.TestCase):
                 "log": {"path": name, "sha256": hashlib.sha256(text.encode()).hexdigest()}}
         item.update(counts)
         return item
+
+    def negative_log(self, spec: dict[str, Any], **changes: str) -> str:
+        """A negative control's log as Certify writes it, failing as designed unless changed."""
+        lines = {"mode": spec["mode"],
+                 "result": (f"FAIL; completeness={spec['completeness']}; cases={spec['cases']}; "
+                            f"assertions={spec['assertions']}; failures=1; cleanup=PASS"),
+                 "details": f"{spec['failure']}: expected=71; actual=70",
+                 "error": f"{spec['error']}: Regression failed; review the Immediate window report."}
+        lines.update(changes)
+        body = [f"CANDIDATE={self.sha}", "SACCR TESTS", f"MODE={lines['mode']}",
+                "ENVIRONMENT=host=Microsoft Excel; version=16.0; os=Windows (64-bit) NT 10.00; "
+                "office=64-bit; runtime=VBA7+",
+                *("CASE=" + case for case in self.policy["cases"][:spec["cases"]]),
+                f"CASES={spec['cases']}", f"ASSERTIONS={spec['assertions']}", "FAILURES=1",
+                "CLEANUP=PASS; detail=unchanged"]
+        body += [f"FAILURE_DETAILS={lines['details']}"] if lines["details"] else []
+        body += [f"RESULT={lines['result']}"] if lines["result"] else []
+        body += [f"ERROR={lines['error']}"] if lines["error"] else []
+        return "\n".join(body + [""])
+
+    def negative(self, spec: dict[str, Any], log: str | None = None, *, status: str = "PASS") -> dict[str, Any]:
+        text = self.negative_log(spec) if log is None else log
+        (self.bundle / spec["log"]).write_text(text)
+        return {"entry_point": spec["entry_point"], "status": status,
+                "log": {"path": spec["log"], "sha256": hashlib.sha256(text.encode()).hexdigest()}}
 
     def summary(self, lines: dict[str, str] | None = None, result: str | None = None) -> None:
         """Write a Test_RunAll summary consistent with the individual reports, unless overridden."""
@@ -241,6 +268,8 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.assertInvalid("no suite can run")
         for item in self.record["suites"]:
             item.update(status="NOT_RUN", cases=None, checks=None, failures=None, log=None)
+        for item in self.record["negative_runs"]:
+            item.update(status="NOT_RUN", log=None)
         self.assertEqual(self.evaluate()["outcomes"], ["INCOMPLETE"])
         self.record["harness"] = {"cases": 2}
         self.assertInvalid()
@@ -323,11 +352,85 @@ class ExcelEvidenceTests(unittest.TestCase):
         self.record["harness"] = None
         for item in self.record["suites"]:
             item.update(status="NOT_RUN", cases=None, checks=None, failures=None, log=None)
+        self.assertInvalid("no negative run can run")
+        for item in self.record["negative_runs"]:
+            item.update(status="NOT_RUN", log=None)
         self.assertEqual(self.evaluate()["outcomes"], ["COMPILE_FAILED", "INCOMPLETE"])
         self.record["stages"]["import"]["status"] = "TIMEOUT"
         self.assertInvalid("compile cannot run")
         self.record["stages"]["compile"] = self.not_run()
         self.assertEqual(self.evaluate()["outcomes"], ["EXECUTION_TIMEOUT", "INCOMPLETE"])
+
+    def test_the_negative_controls_pass_when_they_fail_as_designed(self) -> None:
+        self.assertEqual(self.evaluate()["outcomes"], ["PASS"])
+        injected, skipped = self.policy["negative_runs"]
+        self.assertEqual((injected["mode"], injected["completeness"], skipped["mode"], skipped["completeness"]),
+                         ("INJECTED_FAILURE", "COMPLETE", "SKIPPED_CASE", "INCOMPLETE"))
+        self.assertEqual(evidence.negative_behaviour(skipped, self.negative_log(skipped)), "")
+
+    def test_a_negative_control_that_does_not_fail_as_designed(self) -> None:
+        injected = self.policy["negative_runs"][0]
+        original = copy.deepcopy(self.record)
+        wrong = {
+            "mode": {"mode": "NORMAL"},
+            "RESULT": {"result": "PASS; completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS"},
+            "failure reported": {"details": "option-delta.repeatability: expected=1; actual=2"},
+            "caller did not receive": {"error": ""},
+            "error 5": {"error": "5: Invalid procedure call"},
+        }
+        for fragment, change in wrong.items():
+            with self.subTest(fragment=fragment):
+                self.record = copy.deepcopy(original)
+                log = self.negative_log(injected, **change)
+                self.assertTrue(evidence.negative_behaviour(injected, log))
+                # Recorded as passing, the record contradicts its log.
+                self.record["negative_runs"][0] = self.negative(injected, log)
+                self.assertInvalid("PASS contradicts its log")
+                # Recorded as failed, it is a test failure, and the regression cannot pass.
+                self.record["negative_runs"][0] = self.negative(injected, log, status="FAIL")
+                self.assertInvalid("cannot hide a negative control")
+                self.record["stages"]["regression"]["status"] = "FAIL"
+                report = self.evaluate()
+                self.assertIn("TEST_FAILED", report["outcomes"], report)
+                self.assertNotIn("EVIDENCE_INVALID", report["outcomes"], report)
+        # A designed failure recorded as FAIL is a contradiction too.
+        self.record = copy.deepcopy(original)
+        self.record["negative_runs"][0] = self.negative(injected, status="FAIL")
+        self.record["stages"]["regression"]["status"] = "FAIL"
+        self.assertInvalid("FAIL contradicts a log that shows the designed failure")
+
+    def test_negative_runs_are_recorded_once_in_policy_order_with_their_own_logs(self) -> None:
+        original = copy.deepcopy(self.record)
+        self.record["negative_runs"].reverse()
+        self.assertInvalid("negative runs differ from the policy")
+        self.record = copy.deepcopy(original)
+        self.record["negative_runs"].pop()
+        self.assertInvalid("negative runs differ from the policy")
+        self.record = copy.deepcopy(original)
+        injected, skipped = self.policy["negative_runs"]
+        self.record["negative_runs"][1]["log"] = dict(self.record["negative_runs"][0]["log"])
+        self.assertInvalid(f"log must be {skipped['log']}")
+        self.record = copy.deepcopy(original)
+        (self.bundle / injected["log"]).write_text("changed")
+        self.assertInvalid("digest mismatch")
+        self.record = copy.deepcopy(original)
+        self.record["negative_runs"][0] = self.negative(injected, self.negative_log(injected).replace(self.sha, "0" * 40))
+        self.assertInvalid("names another candidate")
+        # An unfinished control is a timeout, as an unfinished suite is, and a missing one incomplete.
+        self.record = copy.deepcopy(original)
+        unfinished = "\n".join(line for line in self.negative_log(injected).splitlines()
+                               if not line.startswith(("RESULT=", "ERROR=")))
+        self.record["negative_runs"][0] = self.negative(injected, unfinished, status="TIMEOUT")
+        self.assertEqual(self.evaluate()["outcomes"], ["EXECUTION_TIMEOUT"])
+        self.record["negative_runs"][1].update(status="NOT_RUN", log=None)
+        self.assertEqual(self.evaluate()["outcomes"], ["EXECUTION_TIMEOUT", "INCOMPLETE"])
+        self.record["negative_runs"][0] = self.negative(injected, status="TIMEOUT")
+        self.assertInvalid("has a RESULT line")
+
+    def test_one_log_cannot_serve_a_suite_and_a_negative_control(self) -> None:
+        injected = self.policy["negative_runs"][0]
+        self.record["negative_runs"][0] = self.negative(injected, self.log)
+        self.assertInvalid()
 
     def test_injected_failure_or_repeated_runs_rejected(self) -> None:
         for raw in (self.log.replace("MODE=NORMAL", "MODE=INJECTED_FAILURE"), self.log + self.log):
@@ -362,7 +465,7 @@ class ExcelEvidenceTests(unittest.TestCase):
     def test_unavailable_is_never_pass(self) -> None:
         self.record.update(execution="unavailable", availability_reason="No Excel host",
                            operator=None, environment=None, harness=None, sources=[], stages={},
-                           suites=[], summary=None)
+                           suites=[], negative_runs=[], summary=None)
         report = self.evaluate()
         self.assertEqual((report["status"], report["outcomes"]), ("fail", ["UNAVAILABLE"]))
         self.record["harness"] = {"cases": 4}
@@ -627,6 +730,53 @@ class ExcelEvidenceTests(unittest.TestCase):
             policy = copy.deepcopy(self.policy)
             policy["suites"][0][key] = None
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "policy suite"):
+                evidence.parse_policy(json.dumps(policy).encode())
+
+    def test_policy_negative_runs_match_the_harness_and_certify(self) -> None:
+        copy_root = self.area / "copy"
+        shutil.copytree(ROOT / "tests" / "modules", copy_root / "tests" / "modules")
+        shutil.copy(ROOT / "README.md", copy_root / "README.md")
+        (copy_root / ".github").mkdir()
+
+        def problems(policy: dict[str, Any]) -> str:
+            (copy_root / evidence.POLICY).write_text(json.dumps(policy))
+            return " ".join(evidence.policy_problems(copy_root))
+
+        self.assertEqual(problems(self.policy), "")
+        mismatches: list[tuple[Callable[[dict[str, Any]], Any], str]] = [
+                (lambda p: p["negative_runs"][0].__setitem__("cases", 3), "do not follow from the harness"),
+                (lambda p: p["negative_runs"][1].__setitem__("completeness", "COMPLETE"), "do not follow from the harness"),
+                (lambda p: p["negative_runs"][1].__setitem__("assertions", 6), "do not follow from the harness"),
+                (lambda p: p["negative_runs"][0].__setitem__("error", -2147219444), "suite failure error"),
+                (lambda p: p["negative_runs"].reverse(), "NegativeEntries differs"),
+                (lambda p: p["negative_runs"][0].__setitem__("log", "injected.log"), "does not write injected.log"),
+                (lambda p: p["negative_runs"][1].__setitem__("entry_point", "TEST_Harness.RunTestsSkipping"),
+                 "no such public procedure")]
+        for change, message in mismatches:
+            policy = copy.deepcopy(self.policy)
+            change(policy)
+            with self.subTest(message=message):
+                self.assertIn(message, problems(policy))
+        harness = copy_root / "tests" / "modules" / "TEST_Harness.bas"
+        source = harness.read_text(encoding="cp1252")
+        harness.write_text(source.replace('"SKIPPED_CASE"', '"SKIPPED"'), encoding="cp1252")
+        self.assertIn("never prints MODE=SKIPPED_CASE", problems(self.policy))
+        harness.write_text(source, encoding="cp1252")
+        refusals: list[tuple[Callable[[dict[str, Any]], Any], str]] = [
+                (lambda p: p.__setitem__("negative_runs", []), "policy needs negative runs"),
+                (lambda p: p["negative_runs"][1].__setitem__("mode", "INJECTED_FAILURE"), "distinct modes"),
+                (lambda p: p["negative_runs"][0].__setitem__("mode", "NORMAL"), "mode must be one of"),
+                (lambda p: p["negative_runs"][0].__setitem__("entry_point", "TEST_Formulas.RunInjected"),
+                 "entry point of the harness module"),
+                (lambda p: p["negative_runs"][0].__setitem__("entry_point", "TEST_Harness.RunTests"),
+                 "not the normal harness entry point"),
+                (lambda p: p["negative_runs"][0].__setitem__("log", "../x.log"), "needs a log file name"),
+                (lambda p: p["negative_runs"][0].__setitem__("error", "-1"), "error number"),
+                (lambda p: p["negative_runs"][0].pop("failure"), "policy negative run")]
+        for change, message in refusals:
+            policy = copy.deepcopy(self.policy)
+            change(policy)
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
                 evidence.parse_policy(json.dumps(policy).encode())
 
     def test_readme_counts_match_the_policy(self) -> None:

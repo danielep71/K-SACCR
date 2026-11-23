@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "repository": "danielep71/K-SACCR",
   "entry_point": "TEST_Harness.RunTests",
   "cases": [
@@ -68,6 +68,28 @@
       "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",
       "cases": 19,
       "checks": {"32-bit": 47, "64-bit": 47}
+    }
+  ],
+  "negative_runs": [
+    {
+      "entry_point": "TEST_Harness.RunTestsWithInjectedFailure",
+      "mode": "INJECTED_FAILURE",
+      "log": "harness-injected.log",
+      "completeness": "COMPLETE",
+      "cases": 4,
+      "assertions": 6,
+      "failure": "SACCR_ReplacementCost(100, 30)",
+      "error": -2147219443
+    },
+    {
+      "entry_point": "TEST_Harness.RunTestsWithSkippedCase",
+      "mode": "SKIPPED_CASE",
+      "log": "harness-skipped.log",
+      "completeness": "INCOMPLETE",
+      "cases": 3,
+      "assertions": 5,
+      "failure": "suite.completeness",
+      "error": -2147219443
     }
   ],
   "summary_entry_point": "TEST_Suite.Test_RunAll"

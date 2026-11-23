@@ -53,7 +53,7 @@ Attribute VB_Name = "TEST_Suite"
 '   tools\Verify-SACCR-Branch.ps1 -Quick, which calls Verify.
 '
 ' UPDATED
-'   2026-11-07
+'   2026-11-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -176,8 +176,11 @@ Public Function Certify( _
 '   Write the test logs of an Excel evidence bundle (#535). Run the harness
 '   and every suite once each, on its own and in the order Test_RunAll
 '   runs them, each into its own log file in Folder: harness.log for
-'   TEST_Harness, then TEST_Formulas.log and so on. Then run Test_RunAll
-'   into summary.log. Each log starts with the line CANDIDATE=Candidate,
+'   TEST_Harness, then TEST_Formulas.log and so on. Then run the harness's
+'   two negative controls, which must fail (NegativeEntries):
+'   harness-injected.log with a wrong expectation and harness-skipped.log
+'   without its last case. Then run Test_RunAll into summary.log. Each log
+'   starts with the line CANDIDATE=Candidate,
 '   written here, not typed, followed by every line the run prints, as the
 '   Immediate window shows it. The files are UTF-8, with CRLF line ends.
 '
@@ -187,7 +190,7 @@ Public Function Certify( _
 '      commit, as tools\Certify-SACCR.ps1 reads it from Git.
 '
 ' RETURNS
-'   "RESULT=DONE; logs=11; write_errors=0" once every run has ended, the
+'   "RESULT=DONE; logs=14; write_errors=0" once every run has ended, the
 '   count of lines that could not be written last. "RESULT=REFUSED;
 '   reason=..." when the candidate is not a full lowercase SHA, the folder
 '   does not exist, or one of the logs exists already: a log is never
@@ -196,11 +199,13 @@ Public Function Certify( _
 '
 ' ERROR POLICY
 '   An error raised by a suite is printed and written to its log as an
-'   ERROR= line, and the next suite runs. A line that cannot be written is
-'   counted in write_errors; the validator then rejects the log.
+'   ERROR= line, and the next suite runs: a negative control's suite error
+'   is its expected outcome, and its ERROR= line shows that the failure
+'   reached the caller. A line that cannot be written is counted in
+'   write_errors; the validator then rejects the log.
 '
 ' UPDATED
-'   2026-11-07
+'   2026-11-23
 '==============================================================================
 '
 
@@ -208,8 +213,9 @@ Public Function Certify( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Dim Suites      As Variant    'Entry points, as Module.Procedure
+    Dim Negatives   As Variant    'The negative controls, as Module.Procedure
     Dim Base        As String     'Folder with one path separator at its end
-    Dim i           As Long       'Index into Suites
+    Dim i           As Long       'Index into Suites or Negatives
 
 '------------------------------------------------------------------------------
 ' CHECK
@@ -219,9 +225,16 @@ Public Function Certify( _
             Exit Function
         End If
         Suites = SuiteEntries()
+        Negatives = NegativeEntries()
         For i = LBound(Suites) To UBound(Suites)
             If FileExists(Base & LogNameOf(CStr(Suites(i)))) Then
                 Certify = "RESULT=REFUSED; reason=a log exists already: " & LogNameOf(CStr(Suites(i)))
+                Exit Function
+            End If
+        Next i
+        For i = LBound(Negatives) To UBound(Negatives)
+            If FileExists(Base & LogNameOf(CStr(Negatives(i)))) Then
+                Certify = "RESULT=REFUSED; reason=a log exists already: " & LogNameOf(CStr(Negatives(i)))
                 Exit Function
             End If
         Next i
@@ -233,11 +246,15 @@ Public Function Certify( _
         For i = LBound(Suites) To UBound(Suites)
             RunLogged Base & LogNameOf(CStr(Suites(i))), Candidate, CStr(Suites(i))
         Next i
+        For i = LBound(Negatives) To UBound(Negatives)
+            RunLogged Base & LogNameOf(CStr(Negatives(i))), Candidate, CStr(Negatives(i))
+        Next i
         mLogPath = Base & "summary.log"
         WriteLogLine "CANDIDATE=" & Candidate
         Test_RunAll
         mLogPath = ""
-        Certify = "RESULT=DONE; logs=" & (UBound(Suites) - LBound(Suites) + 2) & "; write_errors=" & mLogErrors
+        Certify = "RESULT=DONE; logs=" & (UBound(Suites) - LBound(Suites) + UBound(Negatives) - LBound(Negatives) + 3) & _
+                  "; write_errors=" & mLogErrors
 
 End Function
 
@@ -524,6 +541,27 @@ Private Function SuiteEntries() As Variant
 End Function
 
 
+Private Function NegativeEntries() As Variant
+'
+'==============================================================================
+'                               NegativeEntries
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The harness's negative controls, in the order of negative_runs in
+'   .github/excel-evidence-policy.json, as Module.Procedure: a run with one
+'   deliberately wrong expectation and a run without its last case. Each must
+'   fail as designed and reach Certify as the suite failure error. The
+'   policy gate reads this list.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+        NegativeEntries = Array("TEST_Harness.RunTestsWithInjectedFailure", "TEST_Harness.RunTestsWithSkippedCase")
+
+End Function
+
+
 Private Sub RunEntry( _
     ByVal EntryPoint As String)
 '
@@ -531,16 +569,20 @@ Private Sub RunEntry( _
 '                                   RunEntry
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run one entry point of SuiteEntries. An error it raises goes to the
-'   caller.
+'   Run one entry point of SuiteEntries or NegativeEntries. An error it
+'   raises goes to the caller.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-23
 '==============================================================================
 '
         Select Case EntryPoint
             Case "TEST_Harness.RunTests"
                 TEST_Harness.RunTests
+            Case "TEST_Harness.RunTestsWithInjectedFailure"
+                TEST_Harness.RunTestsWithInjectedFailure
+            Case "TEST_Harness.RunTestsWithSkippedCase"
+                TEST_Harness.RunTestsWithSkippedCase
             Case "TEST_Formulas.RunFormulaTests"
                 TEST_Formulas.RunFormulaTests
             Case "TEST_MainState.RunMainStateTests"
@@ -672,14 +714,19 @@ Private Function LogNameOf( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The log file of an entry point in an evidence bundle: harness.log for
-'   the harness, the module name with .log for a suite.
+'   the harness, harness-injected.log and harness-skipped.log for its two
+'   negative controls, the module name with .log for a suite.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-23
 '==============================================================================
 '
         If EntryPoint = "TEST_Harness.RunTests" Then
             LogNameOf = "harness.log"
+        ElseIf EntryPoint = "TEST_Harness.RunTestsWithInjectedFailure" Then
+            LogNameOf = "harness-injected.log"
+        ElseIf EntryPoint = "TEST_Harness.RunTestsWithSkippedCase" Then
+            LogNameOf = "harness-skipped.log"
         Else
             LogNameOf = Split(EntryPoint, ".")(0) & ".log"
         End If
