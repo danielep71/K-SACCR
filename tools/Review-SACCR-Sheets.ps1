@@ -113,17 +113,21 @@ function Test-CellStyle {
         (-not ($wholeAlign -is [System.DBNull]) -and [int]$wholeAlign -eq $script:xlCenter)) {
         return @{ Fonts = $fonts; Aligns = $aligns }
     }
+    # Each column as the range from its first to its last cell of the used
+    # range, and each cell through Cells.Item(row, column), as Test-CellValue
+    # reads them (#675: Columns.Item failed on a COM range under StrictMode).
+    $rowCount = [int]$used.Rows.Count
     for ($c = 1; $c -le $used.Columns.Count; $c++) {
-        $column = $used.Columns.Item($c)
+        $column = $Sheet.Range($used.Cells.Item(1, $c), $used.Cells.Item($rowCount, $c))
         $columnFont = $column.Font.Name
         $columnAlign = $column.VerticalAlignment
         $fontMixed = -not ($columnFont -is [string] -and $columnFont -eq $Font)
-        $alignMixed = ($columnAlign -is [System.DBNull]) -or [int]$columnAlign -ne $script:xlCenter
+        $alignMixed = ($columnAlign -is [System.DBNull]) -or ($null -eq $columnAlign) -or [int]$columnAlign -ne $script:xlCenter
         if (-not ($fontMixed -or $alignMixed)) {
             continue
         }
-        for ($r = 1; $r -le $column.Rows.Count; $r++) {
-            $cell = $column.Cells.Item($r, 1)
+        for ($r = 1; $r -le $rowCount; $r++) {
+            $cell = $used.Cells.Item($r, $c)
             if ($fontMixed -and [string]$cell.Font.Name -ne $Font) {
                 $fonts.Add(($cell.Address($false, $false) + " " + [string]$cell.Font.Name))
             }
@@ -257,8 +261,18 @@ function Invoke-SheetState {
         $results = New-Object System.Collections.Generic.List[string]
         $details = New-Object System.Collections.Generic.List[string]
 
-        $cellStyle = Test-CellStyle $sheet $Style.font
-        $cellValues = Test-CellValue $sheet $Style.date_format
+        # A check that raises fails its sheet with the message and the line,
+        # and the review goes on to the next sheet (#675).
+        try {
+            $cellStyle = Test-CellStyle $sheet $Style.font
+            $cellValues = Test-CellValue $sheet $Style.date_format
+        }
+        catch {
+            $lines.Add(("{0} {1}: error FAIL" -f $State, $name))
+            $lines.Add(("  error: line {0}: {1}" -f $_.InvocationInfo.ScriptLineNumber, $_.Exception.Message))
+            $failed++
+            continue
+        }
         $checks = @(
             @("font", $cellStyle.Fonts, ("not " + $Style.font)),
             @("valign", $cellStyle.Aligns, "not vertically centered"),
