@@ -76,6 +76,33 @@ portfolio.
 | `Dashboard_NotionalToEAD` | 11. From notional to EAD | 6 × 4 | Per regime, each with its share of the notional: the notional of the used legs; their gross positive value, Σ max(MtM, 0) over the legs; the value after close-out netting, Σ max(V, 0) over the valid netting sets; RC; PFE; EAD. The notional is on the notional scale and is a card only; the five other rows are bars on one exposure scale, none magnified |
 | `Dashboard_Reading` | 11. Reading | 2 × 1 | Per regime: "Netting removes X% of gross positive value; collateral a further Y%.", with X = (gross − netted) / gross and Y = (netted − RC) / gross, percentages to one decimal with halves away from zero. When Y is negative (a threshold, an MTA or collateral posted raises RC): "…; collateral and margin terms add Z%." with Z = −Y. "No trade has a positive market value." when gross is 0; blank for a regime with no valid netting set |
 
+## 🗺️ The sheet
+
+The sheet is the first output tab, before Results, and is protected like the
+other output sheets. Rows 1 to 3 hold the title and stay frozen; C4 says what
+the sheet is and C5 shows the status of the results with the formula of
+Results C5, red when they are out of date. Below, each block is a small table:
+its row labels and column headers come from `dashboard.json`, and the value
+cells under them are the block's workbook name. The left half (columns C to G)
+holds the tables, the right half (columns I to M) the key figures, the units,
+the tables that sit side by side and the eight charts, each beside the table it
+reads:
+
+| View | Chart |
+| --- | --- |
+| 1, 2 | Horizontal bars, one series per regime |
+| 3 | One doughnut per regime |
+| 4 | Stacked columns per regime: RC and PFE; EAD of the margined and unmargined netting sets |
+| 7 | Columns by maturity band, one series per regime |
+| 11 | Horizontal bars from gross positive value to EAD, one series per regime, on one exposure scale; the notional stays in the table |
+
+The two rankings of view 5 carry data bars on their EAD. Every amount column
+names its unit in the table's title row, from `Dashboard_Scale`. The charts and
+these titles read only the sheet's own cells, and only C5 reads another sheet.
+`tools/test_dashboard_sheet.py` checks the template against the specification:
+a name of the right size per block, its labels and headers, empty values, the
+status formula and charts that read only the Dashboard.
+
 ## 🔄 Life cycle
 
 These rules are delivered with the sheet and the writer (#675):

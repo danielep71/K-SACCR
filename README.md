@@ -450,6 +450,7 @@ the exposure value (select it to open it full size):
 | `Params` | Run parameters, supervisory-factor table, FX rates as the market quotes them: units of the currency per 1 unit of the reporting currency, such as EUR/USD 1.16 with EUR as reporting currency, an amount being divided by its rate (#725) |
 | `NettingSets` · `Trades` | Inputs |
 | `Import_NettingSets` · `Import_Trades` | CSV staging: a file's records as text, to check and correct before they replace the inputs |
+| `Dashboard` | The last run in one page: EAD, RC and PFE per regime, netting sets and trade legs, EAD by counterparty sector and clearing role, add-on by asset class, the ten largest netting sets and the concentration, the maturity profile, data quality, reconciliation and the path from notional to EAD, with their charts; each regime apart ([contract](docs/workbook/DASHBOARD.md)) |
 | `Results` | One row per netting set: RC, add-ons by asset class, multiplier, PFE, EAD, MPOR, cap flag, status; a TOTAL row per regime over its `VALID` netting sets; run summary and stale-result indicator |
 | `HedgingSets` · `Buckets` | Effective notionals and add-ons per hedging set and bucket |
 | `TradeCalc` | Every trade-level quantity, or the reasons a trade was excluded |
