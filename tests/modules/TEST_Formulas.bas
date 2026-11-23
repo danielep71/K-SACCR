@@ -20,7 +20,9 @@ Attribute VB_Name = "TEST_Formulas"
 '   SACCR_Formulas; M_Main.ProtectWorkbook, which protects the workbook
 '   structure again when the last case could not; and TEST_Kit for the
 '   suite lifecycle and the log lines (#536). Expected values are hand calculations from the formulas
-'   in the functions' headers; they check the contract, not the regulation.
+'   in the functions' headers; they check the contract, not the regulation,
+'   except in formula-test.independent, whose values the R package SACCR
+'   computes (tools/rsaccr_formulas.R, #100).
 '
 ' WORKSHEET SAFETY
 '   The last case unprotects the workbook structure when it is protected,
@@ -43,7 +45,7 @@ Attribute VB_Name = "TEST_Formulas"
 '   Delegated Regulation (EU) 2021/931 Art. 5.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -59,12 +61,12 @@ Attribute VB_Name = "TEST_Formulas"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 10                 'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 11                 'Cases in a complete run
     'Two checks of LongLong inputs run on 64-bit VBA only.
 #If Win64 Then
-        Private Const EXPECTED_CHECKS  As Long = 117                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 131                'Checks in a complete run
 #Else
-        Private Const EXPECTED_CHECKS  As Long = 115                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 129                'Checks in a complete run
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
@@ -101,6 +103,7 @@ Public Sub RunFormulaTests()
         CaseAggregationShapes
         CaseAggregationElements
         CaseBusinessDays
+        CaseIndependentValues
         CaseWorksheetCells
 
         TEST_Kit.EndSuite
@@ -279,6 +282,50 @@ Private Sub CaseReplacementCost()
         CheckNear "margined, NICA negative", 12#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, -2#), TOL
         CheckNear "margined, TH + MTA - NICA", 8#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, 2#), TOL
         CheckError "overflow of V - C", xlErrNum, SACCR_ReplacementCost(1E+308, -1E+308)
+        Exit Sub
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+End Sub
+
+
+Private Sub CaseIndependentValues()
+'
+'==============================================================================
+' PURPOSE
+'   The FormulaTest checks the R package SACCR can compute (#100): each
+'   worksheet function on the inputs of its FormulaTest row, against the
+'   value the package gives, printed by tools/rsaccr_formulas.R (R 4.3.3,
+'   SACCR 3.4, Trading 3.2; source IMPL-R-SACCR). Rows 24 and 25 check the
+'   CRR lambda through the delta it shifts, as the package does: a bought
+'   call with P = -0.2% and K = 0.1%, then with P = 2% and K = 3%, T = 2,
+'   volatility 50%. The rows the package cannot compute, or computes on
+'   another rule (9, 11, 15, 17, 18, 26, 27, 28), are listed in
+'   docs/methodology/README.md.
+'==============================================================================
+'
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "formula-test.independent"
+        CheckNear "row 7, SD, S=0, E=10", 7.86938680574733, SACCR_SupervisoryDuration(0#, 10#), 0.000000000001
+        CheckNear "row 8, SD, S=1, E=11", 7.48559228240455, SACCR_SupervisoryDuration(1#, 11#), 0.000000000001
+        CheckNear "row 10, MF unmargined, M=0.75", 0.866025403784439, SACCR_MaturityFactor(0.75), 0.000000000001
+        CheckNear "row 12, MF margined, MPOR 10 BD", 0.3, SACCR_MaturityFactor(0#, True, 10#), 0.000000000001
+        CheckNear "row 13, delta, bought put", -0.269395217710533, _
+                  SACCR_OptionDelta(0.06, 0.05, 1#, 0.5, False, True), 0.000000000001
+        CheckNear "row 14, delta, sold call", -0.379011345827803, _
+                  SACCR_OptionDelta(100#, 110#, 0.5, 0.32, True, False), 0.000000000001
+        CheckNear "row 16, CDO delta, protection bought", 5.74096754439682, _
+                  SACCR_CDODelta(0.03, 0.06, True), 0.000000000001
+        CheckNear "row 19, multiplier, V - C = -20", 0.965192681187194, SACCR_Multiplier(-20#, 282#), 0.000000000001
+        CheckNear "row 20, multiplier, V - C = 10", 1#, SACCR_Multiplier(10#, 282#), 0.000000000001
+        CheckNear "row 21, RC margined", 8#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, 2#), 0.000000000001
+        CheckNear "row 22, normal CDF(1.96)", 0.97500210485178, SACCR_NormCDF(1.96), 0.000000000001
+        CheckNear "row 23, normal CDF(-4)", 3.16712418331199E-05, SACCR_NormCDF(-4#), 0.000000000000001
+        CheckNear "row 24, delta with the CRR lambda", 5.40312538068138E-02, _
+                  SACCR_OptionDelta(-0.002, 0.001, 2#, 0.5, True, True, SACCR_LambdaCRR(-0.002, 0.001, True)), _
+                  0.000000000001
+        CheckNear "row 25, delta with no shift", 0.412989758121121, _
+                  SACCR_OptionDelta(0.02, 0.03, 2#, 0.5, True, True, SACCR_LambdaCRR(0.02, 0.03, True)), _
+                  0.000000000001
         Exit Sub
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
