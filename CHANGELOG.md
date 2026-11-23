@@ -916,6 +916,15 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
+- Bring the issue audit and the issue forms in line with the K-TEMPLATE baseline. Every open issue
+  needs a start date, a real `YYYY-MM-DD` date not after its target date, from the new required
+  **Start date** field of the bug, feature and documentation forms or from a `Planned start date`
+  line under Planning dates. A dependency section with nothing in it is a finding, and so is a
+  target date whose milestone has no due date, which cannot be checked; a target on the due date
+  itself stays allowed, and the target date stays optional. Blocked issues that wait for one
+  another are reported as a cycle (only a `blocked` issue is taken to wait for the open issues its
+  section names, as a section may name related ones). The 31 open issues pass the new rules.
+
 - Bring the repository's workflows and checks in line with the K-TEMPLATE baseline. Dependabot
   waits 14 days after a release for GitHub Actions too, as for pip (`check_workflows.py` requires
   it on both). `mypy` also reports unreachable code (`warn_unreachable`); it found nothing. Repository
