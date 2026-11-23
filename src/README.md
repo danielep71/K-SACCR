@@ -18,6 +18,8 @@ Current source:
   example files, generated from `docs/csv/contract.json` by
   `tools/generate_csv_vba.py`, for **Import specification...** on the Ribbon
   and the **Export import specifications** button;
+- `core/CORE_Dashboard.bas`: the blocks of the Dashboard, computed from the
+  rows of the output sheets that `M_Main` reads (#675); it reads no sheet;
 - `core/CORE_Engine.bas`: the calculation of EAD per netting set, which reads
   the input sheets and writes the output sheets;
 - `core/CORE_Export.bas`: the CSV encoding of the evidence report; it reads no

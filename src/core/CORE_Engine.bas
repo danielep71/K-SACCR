@@ -7260,6 +7260,51 @@ Private Function RunClassText() As String
 End Function
 
 
+Public Function DashboardBlocks( _
+    ByVal ResultsRows As Variant, _
+    ByVal LegRows As Variant, _
+    ByVal CheckRows As Variant, _
+    ByVal InputRows As Variant, _
+    ByVal ReconRows As Variant, _
+    ByVal TradeReconRows As Variant, _
+    ByVal RunInfo As Variant) _
+    As Variant
+'
+'==============================================================================
+'                               DashboardBlocks
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The facade's entry to CORE_Dashboard (#675): the values of every
+'   Dashboard block, computed from the rows M_Main read, in the order of
+'   DashboardBlockNames. See CORE_Dashboard.DashboardBlocks.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+        DashboardBlocks = CORE_Dashboard.DashboardBlocks(ResultsRows, LegRows, CheckRows, InputRows, _
+                                                         ReconRows, TradeReconRows, RunInfo)
+
+End Function
+
+
+Public Function DashboardBlockNames() As Variant
+'
+'==============================================================================
+'                             DashboardBlockNames
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The workbook names of the Dashboard's blocks (CORE_Dashboard.BlockNames).
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+        DashboardBlockNames = CORE_Dashboard.BlockNames()
+
+End Function
+
+
 Public Function DiagnosticCodes() As String
 '
 '==============================================================================

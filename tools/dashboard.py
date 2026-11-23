@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
@@ -176,11 +175,13 @@ def check_block(block: dict[str, Any], names: set[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def scale_step(amounts: list[float]) -> int:
-    """k of the scale: floor(log10(max |amount|) / 3), between 0 and 3; 0 when every amount is 0."""
+    """k of the scale: the largest k of 0 to 3 with 1000**k <= max |amount|; 0 below 1,000.
+
+    This is floor(log10(amount) / 3) held between 0 and 3, compared without a logarithm, whose
+    rounding would put 1,000 below its own step.
+    """
     largest = max((abs(a) for a in amounts), default=0.0)
-    if largest == 0:
-        return 0
-    return max(0, min(3, math.floor(math.log10(largest) / 3)))
+    return sum(largest >= 1000 ** k for k in (1, 2, 3))
 
 
 def percent_text(fraction: float) -> str:
@@ -324,7 +325,7 @@ def compute(run: Run, spec: dict[str, Any] | None = None) -> dict[str, Block]:
     blocks["Dashboard_Scale"] = [[fx, unit(k_exposure)], [fn, unit(k_notional)]]
 
     def counterparties(rows: list[NettingSetResult]) -> int:
-        return len({r.counterparty.strip() for r in rows if r.counterparty.strip()})
+        return len({r.counterparty.strip().upper() for r in rows if r.counterparty.strip()})
 
     def key_column(g: str) -> list[Cell]:
         rows = every[g]

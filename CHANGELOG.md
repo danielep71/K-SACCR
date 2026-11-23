@@ -105,8 +105,9 @@ Use only the categories needed by a release.
   the reconciliation and the path from notional to EAD. Each regime is shown on its own, and each
   table states its unit. The status cell turns red when the inputs change. The figures are defined
   in [`docs/workbook/DASHBOARD.md`](docs/workbook/DASHBOARD.md), with a Python reference in
-  `tools/dashboard.py`. The Go to menu, the navigation bar, Home and README list the sheet. In this
-  change the template carries the sheet empty; the run writes it from the follow-up change.
+  `tools/dashboard.py`. The Go to menu, the navigation bar, Home and README list the sheet. Every run
+  writes it after its reconciliations; every operation empties it first, so a run that fails leaves
+  none. `TEST_Dashboard` (6 cases, 65 checks) checks every block against the output sheets.
 - Independent values for more of the rules of #100. The R package `SACCR` 3.4 (`IMPL-R-SACCR`)
   reproduces at full precision six checks of the ported catalogue, T15, T19, T21, T24, T25 and T28,
   which are now `independent`. Because a case named `illustrative-*` holds only illustrative

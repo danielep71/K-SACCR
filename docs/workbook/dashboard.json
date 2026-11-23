@@ -14,7 +14,7 @@
       {"factor": 1000000, "word": "million"},
       {"factor": 1000000000, "word": "billion"}
     ],
-    "rule": "The largest absolute amount of the family, over both regimes, sets k = floor(log10(amount) / 3), held between 0 and 3, and 0 when every amount is 0; the family's amounts are written divided by steps[k].factor"
+    "rule": "The largest absolute amount of the family, over both regimes, sets k, the largest of 0 to 3 with 1000^k not above it; the family's amounts are written divided by steps[k].factor"
   },
   "blocks": [
     {
