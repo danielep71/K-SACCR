@@ -25,3 +25,5 @@ show_error_codes = true
 warn_unused_configs = true
 # Every module, tests included, is held to the full strict bundle.
 strict = true
+# A branch that narrowing has made unreachable is reported, not skipped.
+warn_unreachable = true

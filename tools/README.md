@@ -676,7 +676,10 @@ Monday at 06:00 Europe/Rome:
 - GitHub Actions pinned in the workflows.
 - Python quality-tool dependencies in `/tools`, including the hash-locked
   `requirements-quality-ci.txt`. Eligible Python updates are grouped into one
-  `python-tools` pull request, after a 14-day cooldown from each package release.
+  `python-tools` pull request.
+
+Both ecosystems wait 14 days after the release of a version before it is
+proposed (`cooldown`, checked by `check_workflows.py`).
 
 Both ecosystems target the active release branch (`target-branch`), use
 labels `ci` and `P3` and assign `danielep71`. Dependabot reads this
