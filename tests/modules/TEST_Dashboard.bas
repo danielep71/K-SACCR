@@ -76,7 +76,8 @@ Public Sub RunDashboardTests()
 '   2026-11-23
 '==============================================================================
 '
-    Dim Result   As String    'Result line of a run
+    Dim Result        As String    'Result line of a run
+    Dim ErrorNumber   As Long      'Error the failed run raised
 
         If Not TEST_CaseRunner.BeginSuite("TEST_Dashboard", CASES, CHECKS) Then Exit Sub
         On Error GoTo Failed
@@ -115,14 +116,19 @@ Public Sub RunDashboardTests()
         M_Main.ClearOutputs
         TEST_CaseRunner.ExpectTrue "empty", BlocksEmpty(), FirstFilled(), CLASS_TAG
 
-    'A run that fails after the Dashboard was withdrawn leaves it empty.
+    'A run that fails after the Dashboard was withdrawn leaves it empty. The
+    'silent entry point raises the failure to its caller.
         TEST_CaseRunner.BeginCase "dashboard-failed-run", "CRR", VALUATION, "EUR"
         TEST_CaseRunner.LoadSavedInputs
         Result = M_Main.RunSACCR_Silent()
         M_Main.gTestFault = "operation"
+        On Error Resume Next
         Result = M_Main.RunSACCR_Silent()
+        ErrorNumber = Err.Number
+        On Error GoTo Failed
         M_Main.gTestFault = ""
-        TEST_CaseRunner.ExpectTrue "failed", Left$(Result, 9) <> "RESULT=OK", Result, CLASS_TAG
+        TEST_CaseRunner.ExpectTrue "failed", ErrorNumber = ERR_INJECTED_FAULT, _
+            "expected the injected error, got " & ErrorNumber, CLASS_TAG
         TEST_CaseRunner.ExpectTrue "empty", BlocksEmpty(), FirstFilled(), CLASS_TAG
 
     'An edited input shows the Dashboard out of date, as Results.
