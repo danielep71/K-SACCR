@@ -1,0 +1,227 @@
+{
+  "schema": "k-saccr-dashboard",
+  "version": 1,
+  "description": "The figures of the Dashboard sheet (#675): the blocks of its data table, which a run writes and the sheet's charts and cards read; see docs/workbook/DASHBOARD.md.",
+  "regimes": ["CRR", "BCBS"],
+  "scales": {
+    "families": {
+      "exposure": "EAD, RC, PFE, add-ons, gross positive value and value after netting",
+      "notional": "Notional amounts"
+    },
+    "steps": [
+      {"factor": 1, "word": ""},
+      {"factor": 1000, "word": "thousand"},
+      {"factor": 1000000, "word": "million"},
+      {"factor": 1000000000, "word": "billion"}
+    ],
+    "rule": "The largest absolute amount of the family, over both regimes, sets k, the largest of 0 to 3 with 1000^k not above it; the family's amounts are written divided by steps[k].factor"
+  },
+  "blocks": [
+    {
+      "name": "Dashboard_Run",
+      "view": "Run header",
+      "columns": ["Value"],
+      "rows": [
+        {"key": "reporting_date", "label": "Reporting date", "kind": "date"},
+        {"key": "run_time", "label": "Run time", "kind": "datetime"},
+        {"key": "reporting_currency", "label": "Reporting currency", "kind": "text"},
+        {"key": "default_regime", "label": "Default regime", "kind": "text"},
+        {"key": "parameter_set", "label": "Regulatory parameter set", "kind": "text"},
+        {"key": "inputs", "label": "Input fingerprint", "kind": "text"}
+      ]
+    },
+    {
+      "name": "Dashboard_Scale",
+      "view": "Units",
+      "columns": ["Factor", "Unit"],
+      "rows": [
+        {"key": "exposure", "label": "Exposure amounts", "kind": "scale"},
+        {"key": "notional", "label": "Notional amounts", "kind": "scale"}
+      ]
+    },
+    {
+      "name": "Dashboard_KeyFigures",
+      "view": "Key figures",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "ead", "label": "EAD", "kind": "exposure"},
+        {"key": "rc", "label": "RC", "kind": "exposure"},
+        {"key": "pfe", "label": "PFE", "kind": "exposure"},
+        {"key": "netting_sets", "label": "Netting sets", "kind": "count"},
+        {"key": "valid", "label": "Valid", "kind": "count"},
+        {"key": "invalid", "label": "Invalid", "kind": "count"},
+        {"key": "incomplete", "label": "Incomplete", "kind": "count"},
+        {"key": "no_trades", "label": "No trades", "kind": "count"},
+        {"key": "margined", "label": "Margined", "kind": "count"},
+        {"key": "unmargined", "label": "Unmargined", "kind": "count"},
+        {"key": "cap_applied", "label": "Cap applied", "kind": "count"},
+        {"key": "counterparties", "label": "Counterparties", "kind": "count"}
+      ]
+    },
+    {
+      "name": "Dashboard_Counts",
+      "view": "Key figures",
+      "columns": ["Value"],
+      "rows": [
+        {"key": "legs_read", "label": "Trade legs read", "kind": "count"},
+        {"key": "legs_used", "label": "Trade legs used", "kind": "count"},
+        {"key": "legs_excluded", "label": "Trade legs excluded", "kind": "count"},
+        {"key": "no_regime", "label": "Netting sets without a regime", "kind": "count"},
+        {"key": "counterparties", "label": "Counterparties", "kind": "count"},
+        {"key": "errors", "label": "Errors", "kind": "count"},
+        {"key": "warnings", "label": "Warnings", "kind": "count"},
+        {"key": "information", "label": "Information", "kind": "count"}
+      ]
+    },
+    {
+      "name": "Dashboard_Sector",
+      "view": "1. EAD by counterparty sector",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "CB", "label": "Central banks", "kind": "exposure"},
+        {"key": "GG", "label": "General governments", "kind": "exposure"},
+        {"key": "CI", "label": "Credit institutions", "kind": "exposure"},
+        {"key": "OFC", "label": "Other financial corporations", "kind": "exposure"},
+        {"key": "NFC", "label": "Non-financial corporations", "kind": "exposure"},
+        {"key": "HH", "label": "Households", "kind": "exposure"},
+        {"key": "NC", "label": "Not classified", "kind": "exposure"}
+      ]
+    },
+    {
+      "name": "Dashboard_ClearingRole",
+      "view": "2. EAD by clearing role",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "N", "label": "Bilateral", "kind": "exposure"},
+        {"key": "CM", "label": "Clearing member", "kind": "exposure"},
+        {"key": "CLIENT", "label": "Client", "kind": "exposure"},
+        {"key": "CCP_Q", "label": "CCP, qualifying", "kind": "exposure"},
+        {"key": "CCP_NQ", "label": "CCP, not qualifying", "kind": "exposure"}
+      ]
+    },
+    {
+      "name": "Dashboard_AddOn",
+      "view": "3. Add-on by asset class",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "IR", "label": "Interest rate", "kind": "exposure"},
+        {"key": "FX", "label": "Foreign exchange", "kind": "exposure"},
+        {"key": "CR", "label": "Credit", "kind": "exposure"},
+        {"key": "EQ", "label": "Equity", "kind": "exposure"},
+        {"key": "CO", "label": "Commodity", "kind": "exposure"},
+        {"key": "OT", "label": "Other risks", "kind": "exposure"}
+      ]
+    },
+    {
+      "name": "Dashboard_Composition",
+      "view": "4. EAD composition",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "rc", "label": "RC", "kind": "exposure"},
+        {"key": "pfe", "label": "PFE", "kind": "exposure"},
+        {"key": "ead_margined", "label": "EAD, margined netting sets", "kind": "exposure"},
+        {"key": "ead_unmargined", "label": "EAD, unmargined netting sets", "kind": "exposure"}
+      ]
+    },
+    {
+      "name": "Dashboard_TopCRR",
+      "view": "5. Ten largest netting sets by EAD, CRR",
+      "regime": "CRR",
+      "columns": ["Netting set", "Counterparty", "EAD", "Share"],
+      "kinds": ["text", "text", "exposure", "share"],
+      "rank_rows": 10
+    },
+    {
+      "name": "Dashboard_TopBCBS",
+      "view": "5. Ten largest netting sets by EAD, BCBS",
+      "regime": "BCBS",
+      "columns": ["Netting set", "Counterparty", "EAD", "Share"],
+      "kinds": ["text", "text", "exposure", "share"],
+      "rank_rows": 10
+    },
+    {
+      "name": "Dashboard_Concentration",
+      "view": "6. Concentration",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "top10_share", "label": "Share of the ten largest", "kind": "share"},
+        {"key": "herfindahl", "label": "Herfindahl index", "kind": "share"}
+      ]
+    },
+    {
+      "name": "Dashboard_Maturity",
+      "view": "7. Maturity profile of the notional",
+      "columns": ["CRR", "BCBS"],
+      "rows": [
+        {"key": "under_1y", "label": "Under 1 year", "kind": "notional"},
+        {"key": "1y_5y", "label": "1 to 5 years", "kind": "notional"},
+        {"key": "over_5y", "label": "Over 5 years", "kind": "notional"}
+      ]
+    },
+    {
+      "name": "Dashboard_AssetClass",
+      "view": "8. Trades by asset class",
+      "columns": ["CRR legs", "CRR notional", "BCBS legs", "BCBS notional"],
+      "kinds": ["count", "notional", "count", "notional"],
+      "rows": [
+        {"key": "IR", "label": "Interest rate"},
+        {"key": "FX", "label": "Foreign exchange"},
+        {"key": "CR", "label": "Credit"},
+        {"key": "EQ", "label": "Equity"},
+        {"key": "CO", "label": "Commodity"},
+        {"key": "OT", "label": "Other risks"}
+      ]
+    },
+    {
+      "name": "Dashboard_DataQuality",
+      "view": "9. Data quality",
+      "columns": ["Value"],
+      "rows": [
+        {"key": "legs_excluded", "label": "Trade legs excluded", "kind": "count"},
+        {"key": "withheld", "label": "Netting sets withheld", "kind": "count"}
+      ]
+    },
+    {
+      "name": "Dashboard_Codes",
+      "view": "9. Most frequent diagnostic codes",
+      "columns": ["Code", "Severity", "Rows"],
+      "kinds": ["text", "text", "count"],
+      "rank_rows": 5
+    },
+    {
+      "name": "Dashboard_Reconciliation",
+      "view": "10. Reconciliation with the bank's figures",
+      "columns": ["Netting sets", "Trades"],
+      "rows": [
+        {"key": "loaded", "label": "Loaded", "kind": "flag"},
+        {"key": "MATCH", "label": "Matched", "kind": "count"},
+        {"key": "DIFFERENCE", "label": "Different", "kind": "count"},
+        {"key": "MISSING IN CALCULATOR", "label": "Missing in the calculator", "kind": "count"},
+        {"key": "other", "label": "Other results", "kind": "count"}
+      ]
+    },
+    {
+      "name": "Dashboard_NotionalToEAD",
+      "view": "11. From notional to EAD",
+      "columns": ["CRR", "CRR share", "BCBS", "BCBS share"],
+      "kinds": ["amount", "share", "amount", "share"],
+      "rows": [
+        {"key": "notional", "label": "Notional", "kind": "notional"},
+        {"key": "gross_positive", "label": "Gross positive value", "kind": "exposure"},
+        {"key": "netted", "label": "After close-out netting", "kind": "exposure"},
+        {"key": "rc", "label": "RC", "kind": "exposure"},
+        {"key": "pfe", "label": "PFE", "kind": "exposure"},
+        {"key": "ead", "label": "EAD", "kind": "exposure"}
+      ]
+    },
+    {
+      "name": "Dashboard_Reading",
+      "view": "11. Reading",
+      "columns": ["Value"],
+      "rows": [
+        {"key": "CRR", "label": "CRR", "kind": "text"},
+        {"key": "BCBS", "label": "BCBS", "kind": "text"}
+      ]
+    }
+  ]
+}

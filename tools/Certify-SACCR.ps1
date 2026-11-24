@@ -18,7 +18,9 @@ For the commit checked out in this repository, with a clean working tree:
 5. compiles the project (Debug > Compile VBAProject) and runs
    TEST_Suite.Certify, which runs the harness and every suite once each, on
    its own, writing each report to its own log with the commit's SHA as its
-   first line, and then Test_RunAll into summary.log;
+   first line, then the harness's two negative controls, which must fail as
+   designed (harness-injected.log and harness-skipped.log), and then
+   Test_RunAll into summary.log;
 6. closes the workbook without saving and runs
    tools\Check-SACCR-Protection.ps1: the 14 manual protection checks on a
    production workbook built from the same checkout, written to
@@ -326,7 +328,7 @@ try {
     # ------------------------------------------------------------------------
     # Run the certification
     # ------------------------------------------------------------------------
-    Write-Session "Running TEST_Suite.Certify: the harness and the nine suites, then Test_RunAll"
+    Write-Session "Running TEST_Suite.Certify: the harness and every suite, the two negative controls, then Test_RunAll"
     $certifyResult = [string]$excel.Run($qualified + "TEST_Suite.Certify", $BundleDir, $sha)
     Write-Session "Certify: $certifyResult"
 }

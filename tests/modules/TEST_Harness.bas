@@ -11,9 +11,12 @@ Attribute VB_Name = "TEST_Harness"
 '
 ' PUBLIC SURFACE
 '   RunTests is the documented test entry point. RunTestsWithInjectedFailure
-'   runs the same suite with one deliberately wrong expectation, to show what a
-'   failing run reports. ResetTests is a recovery command for an interrupted
-'   run. Option Private Module keeps all three out of the external workbook
+'   runs the same suite with one deliberately wrong expectation, and
+'   RunTestsWithSkippedCase without its last case, to show what a failed and
+'   an incomplete run report: TEST_Suite.Certify runs both, and the evidence
+'   validator requires each to fail as designed and to reach its caller as
+'   an error. ResetTests is a recovery command for an interrupted run.
+'   Option Private Module keeps all four out of the external workbook
 '   automation API.
 '
 ' DEPENDENCIES
@@ -51,7 +54,7 @@ Attribute VB_Name = "TEST_Harness"
 '   TEST_Harness.RunTests from the VBE Immediate window.
 '
 ' UPDATED
-'   2026-10-21
+'   2026-11-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -84,6 +87,7 @@ Attribute VB_Name = "TEST_Harness"
         Private mFailureCount     As Long       'Failures recorded, including runner errors
         Private mFailureDetails   As String     'Diagnostics retained until the next reset
         Private mInjectFailure    As Boolean    'True only inside RunTestsWithInjectedFailure
+        Private mSkipCase         As Boolean    'True only inside RunTestsWithSkippedCase
         Private mRunActive        As Boolean    'Re-entry guard; cleared by cleanup or reset
         Private mSuiteCompleted   As Boolean    'True only when both expected counts match
 
@@ -117,7 +121,7 @@ Public Sub RunTests()
 '   A dirty start raises immediately and does not run cleanup.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-23
 '==============================================================================
 '
 
@@ -180,7 +184,11 @@ Public Sub RunTests()
         TestReplacementCost
         TestMaturityFactor
         TestCdoDeltaError
-        TestRepeatability
+    'The skipped-case mode leaves out the last case, so that the run must be
+    'reported INCOMPLETE and failed.
+        If Not mSkipCase Then
+            TestRepeatability
+        End If
 
     'Require both counts so an early return cannot produce a complete PASS.
         mSuiteCompleted = _
@@ -258,11 +266,11 @@ Public Sub ResetTests()
 '
 ' SIDE EFFECTS
 '   Clear counters, failure text, completion, the active-run flag and the
-'   injected-failure flag. Print confirmation; do not alter Excel application
-'   properties.
+'   injected-failure and skipped-case flags. Print confirmation; do not
+'   alter Excel application properties.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-11-23
 '==============================================================================
 '
 
@@ -273,6 +281,7 @@ Public Sub ResetTests()
     'confirmation distinguishes an explicit reset from a completed test run.
         ResetRun
         mInjectFailure = False
+        mSkipCase = False
         TEST_Suite.Say "SACCR TESTS RESET; run_active=no; counters=0; injection=off"
 
 End Sub
@@ -334,6 +343,70 @@ RestoreMode:
         SavedDescription = Err.Description
         On Error GoTo 0
         mInjectFailure = False
+        If SavedNumber <> 0 Then
+            Err.Raise SavedNumber, SavedSource, SavedDescription
+        End If
+
+End Sub
+
+
+Public Sub RunTestsWithSkippedCase()
+'
+'==============================================================================
+'                           RunTestsWithSkippedCase
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Demonstrate the completeness check: run the suite without its last case,
+'   option-delta.repeatability, so that the run stops short of the expected
+'   counts.
+'
+' USAGE
+'   Run TEST_Harness.RunTestsWithSkippedCase from the VBE Immediate window.
+'   Expected report: MODE=SKIPPED_CASE, FAILURE_DETAILS=suite.completeness:
+'   ... and RESULT=FAIL; completeness=INCOMPLETE; cases=3; assertions=5;
+'   failures=1; cleanup=PASS, followed by the suite failure error.
+'
+' STATE OWNERSHIP
+'   Sets the skipped-case flag only for this run and always clears it again,
+'   whether RunTests returns or raises.
+'
+' ERROR POLICY
+'   Re-raise whatever RunTests raised, after clearing the flag. The expected
+'   outcome is the suite failure error.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    'Keep the suite error so it survives clearing the skipped-case flag.
+    Dim SavedDescription   As String    'Suite error description for re-raise
+    Dim SavedNumber        As Long      'Suite error number for re-raise
+    Dim SavedSource        As String    'Suite error source for re-raise
+
+'------------------------------------------------------------------------------
+' RUN WITHOUT THE LAST CASE
+'------------------------------------------------------------------------------
+    'Leave out the last case, then run the normal suite unchanged.
+        mSkipCase = True
+        On Error GoTo RestoreMode
+
+        RunTests
+
+'------------------------------------------------------------------------------
+' RESTORE MODE
+'------------------------------------------------------------------------------
+RestoreMode:
+    'Capture any suite error before clearing the flag, then re-raise it so the
+    'caller still sees the failed outcome.
+        SavedNumber = Err.Number
+        SavedSource = Err.Source
+        SavedDescription = Err.Description
+        On Error GoTo 0
+        mSkipCase = False
         If SavedNumber <> 0 Then
             Err.Raise SavedNumber, SavedSource, SavedDescription
         End If
@@ -899,7 +972,7 @@ Private Sub PrintEnvironment()
 '   Host-property read failures propagate to the runner error path.
 '
 ' UPDATED
-'   2026-10-06
+'   2026-11-23
 '==============================================================================
 '
 
@@ -909,7 +982,7 @@ Private Sub PrintEnvironment()
     'Write the preamble before the host fields so retained output can be
     'recognized and attributed to the environment that produced it.
         TEST_Suite.Say "SACCR TESTS"
-        TEST_Suite.Say "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", "NORMAL")
+        TEST_Suite.Say "MODE=" & IIf(mInjectFailure, "INJECTED_FAILURE", IIf(mSkipCase, "SKIPPED_CASE", "NORMAL"))
         TEST_Suite.Say "ENVIRONMENT=" & EnvironmentSummary()
 
 End Sub

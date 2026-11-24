@@ -172,8 +172,8 @@ its original structure until it is refactored:
 | Naming rules in `VBA_HOUSE_STYLE.md` | `M_Main` keeps the prototype's `M_` prefix, and `M_Ribbon` follows it; they have no role prefix of their own until they move out of the standard modules |
 | Dependency direction | `CORE_Engine` calls `SACCR_*` worksheet functions in `src/modules` |
 | Facade holds no formulas | `SACCR_Formulas` implements the SA-CCR formulas itself |
-| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec`, `CORE_Config` and `CORE_Util` directly; `M_Ribbon` also calls `CORE_Config` and `CORE_Util` |
-| No module state in `src/core` | `CORE_Engine` keeps run state in module variables |
+| `src/workbook` calls only the facade | `M_Main` calls `CORE_Engine`, `CORE_Reconcile`, `CORE_CsvReader`, `CORE_CsvSchema`, `CORE_Export`, `CORE_ImportSpec`, `CORE_Config` and `CORE_Util` directly; `M_Ribbon` also calls `CORE_Config` and `CORE_Util`. `CORE_Dashboard` is reached through the facade (`CORE_Engine.DashboardBlocks`, #675) |
+| No module state in `src/core` | `CORE_Engine` keeps run state in module variables; `CORE_Dashboard` keeps the rows of one call of `DashboardBlocks` and releases them before it returns (#675) |
 
 `tools/check_vba_dependencies.py` enforces static module/member/type references
 against these layers. Its exact source/target exceptions are recorded in

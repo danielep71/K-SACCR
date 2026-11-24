@@ -41,9 +41,15 @@ DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 SCOPE = ("Checks a retained manual record and its source and log bindings; "
          "does not run Excel or authenticate the operator.")
 RECORD_KEYS = ("schema_version repository candidate_sha execution availability_reason "
-               "started_at finished_at operator environment sources stages harness suites summary")
+               "started_at finished_at operator environment sources stages harness suites "
+               "negative_runs summary")
 POLICY_KEYS = ("schema_version repository entry_point cases assertions expected_error_cases "
-               "required_references suites summary_entry_point")
+               "required_references suites negative_runs summary_entry_point")
+# The harness's negative controls (E03 of the K-TEMPLATE alignment): runs that must fail as
+# designed, reported as such, and reach their caller as the suite failure error.
+NEGATIVE_POLICY_KEYS = "entry_point mode log completeness cases assertions failure error"
+NEGATIVE_RECORD_KEYS = "entry_point status log"
+NEGATIVE_MODES = ("INJECTED_FAILURE", "SKIPPED_CASE")
 SUITE_POLICY_KEYS = "entry_point cases checks"
 SUITE_RECORD_KEYS = "entry_point status cases checks failures log"
 BITNESS = ("32-bit", "64-bit")
@@ -145,7 +151,7 @@ def parse_suite_policy(value: Any) -> dict[str, Any]:
 
 def parse_policy(raw: bytes) -> dict[str, Any]:
     policy = object_keys(decode(raw), POLICY_KEYS, "evidence policy")
-    require(type(policy["schema_version"]) is int and policy["schema_version"] == 3,
+    require(type(policy["schema_version"]) is int and policy["schema_version"] == 4,
             "unsupported evidence policy schema")
     require(nonempty(policy["repository"]) and nonempty(policy["entry_point"]),
             "policy needs a repository and an entry point")
@@ -165,7 +171,33 @@ def parse_policy(raw: bytes) -> dict[str, Any]:
     modules = [module_name(entry) for entry in entries]
     require(len(set(modules)) == len(modules), "policy suites must be in distinct modules")
     require(nonempty(policy["summary_entry_point"]), "policy needs the summary entry point")
+    parse_negative_policy(policy)
     return policy
+
+
+def parse_negative_policy(policy: dict[str, Any]) -> None:
+    """The negative controls: each a distinct mode of the harness module, with its own log."""
+    runs = policy["negative_runs"]
+    require(isinstance(runs, list) and bool(runs), "policy needs negative runs")
+    harness = module_name(policy["entry_point"])
+    for run in runs:
+        run = object_keys(run, NEGATIVE_POLICY_KEYS, "policy negative run")
+        require(isinstance(run["entry_point"], str) and module_name(run["entry_point"]) == harness
+                and re.fullmatch(r"TEST_\w+\.\w+", run["entry_point"]) is not None,
+                "a negative run is an entry point of the harness module")
+        require(run["mode"] in NEGATIVE_MODES, f"negative run mode must be one of {NEGATIVE_MODES}")
+        require(relative(run["log"]) and run["log"].endswith(".log") and "/" not in run["log"],
+                "a negative run needs a log file name")
+        require(run["completeness"] in ("COMPLETE", "INCOMPLETE"), "invalid negative run completeness")
+        count(run["cases"], "negative run cases")
+        count(run["assertions"], "negative run assertions")
+        require(nonempty(run["failure"]), "a negative run names the failure it must report")
+        require(type(run["error"]) is int, "a negative run names the error number that reaches its caller")
+    for key in ("entry_point", "mode", "log"):
+        values = [run[key] for run in runs]
+        require(len(set(values)) == len(values), f"negative runs need distinct {key}s")
+    require(policy["entry_point"] not in [run["entry_point"] for run in runs],
+            "a negative run is not the normal harness entry point")
 
 
 def load_policy(root: Path, sha: str) -> dict[str, Any]:
@@ -174,7 +206,7 @@ def load_policy(root: Path, sha: str) -> dict[str, Any]:
 
 def validate_identity(value: Any, policy: dict[str, Any], sha: str) -> dict[str, Any]:
     record = object_keys(value, RECORD_KEYS, "evidence record")
-    require(type(record["schema_version"]) is int and record["schema_version"] == 2,
+    require(type(record["schema_version"]) is int and record["schema_version"] == 3,
             "unsupported evidence record schema")
     require(record["repository"] == policy["repository"], "record repository differs from policy")
     require(record["candidate_sha"] == sha, "record candidate_sha differs from the candidate")
@@ -306,7 +338,10 @@ def validate_report(record: dict[str, Any], policy: dict[str, Any], log: str) ->
     # The suites are validated after the harness; read their statuses defensively here.
     suites_failed = isinstance(record["suites"], list) and any(
         isinstance(suite, dict) and suite.get("status") == "FAIL" for suite in record["suites"])
-    require(regression == "PASS" or not passed or suites_failed,
+    # A negative control that did not fail as designed fails the regression too.
+    negatives_failed = isinstance(record["negative_runs"], list) and any(
+        isinstance(run, dict) and run.get("status") == "FAIL" for run in record["negative_runs"])
+    require(regression == "PASS" or not passed or suites_failed or negatives_failed,
             "regression FAIL contradicts a passing report")
     require(cleanup == "PASS" or record["stages"]["cleanup"]["status"] == "FAIL",
             "a harness cleanup failure must be recorded as cleanup FAIL")
@@ -465,10 +500,80 @@ def validate_measured(root: Path, sha: str, record: dict[str, Any], logs: dict[s
             measured_differences.validate(root, sha, logs[item["entry_point"]])
 
 
+def negative_behaviour(spec: dict[str, Any], log: str) -> str:
+    """"" when the log shows the negative control failing as designed; otherwise what it shows
+    instead. As designed: one run in the policy's mode, a failed RESULT with the policy's
+    completeness and counts, exactly one failure, the one the policy names, a clean cleanup, and
+    the suite failure error reaching the caller (Certify's ERROR= line)."""
+    if re.findall(r"^SACCR TESTS[ \t]*$", log, re.MULTILINE) != ["SACCR TESTS"]:
+        return "the log does not hold exactly one harness run"
+    modes = [mode.strip() for mode in re.findall(r"^MODE=(.*)$", log, re.MULTILINE)]
+    if modes != [spec["mode"]]:
+        return f"the run is in mode {modes}, not {spec['mode']}"
+    expected = (f"FAIL; completeness={spec['completeness']}; cases={spec['cases']}; "
+                f"assertions={spec['assertions']}; failures=1; cleanup=PASS")
+    results = [result.strip() for result in re.findall(r"^RESULT=(.*)$", log, re.MULTILINE)]
+    if results != [expected]:
+        return f"RESULT is {results}, not [{expected!r}]"
+    details = [detail.strip() for detail in re.findall(r"^FAILURE_DETAILS=(.*)$", log, re.MULTILINE)]
+    if len(details) != 1 or not details[0].startswith(spec["failure"] + ": "):
+        return f"the failure reported is {details}, not {spec['failure']!r}"
+    errors = [error.strip() for error in re.findall(r"^ERROR=(.*)$", log, re.MULTILINE)]
+    number, _, description = (errors[0] if len(errors) == 1 else "").partition(": ")
+    if len(errors) != 1 or number != str(spec["error"]) or not description.strip():
+        return f"the caller did not receive the suite failure error {spec['error']} (ERROR lines: {errors})"
+    return ""
+
+
+def validate_negative_runs(record: dict[str, Any], policy: dict[str, Any],
+                           directory: Path) -> tuple[list[str], dict[str, str]]:
+    """Each negative control is recorded once, in policy order, and its log binds its status:
+    PASS when it failed as designed, FAIL when it did not, which is a test failure."""
+    runs = record["negative_runs"]
+    require(isinstance(runs, list), "negative_runs must be an array")
+    require([item.get("entry_point") if isinstance(item, dict) else None for item in runs]
+            == [spec["entry_point"] for spec in policy["negative_runs"]],
+            "negative runs differ from the policy: every one is recorded once, in policy order")
+    regression = record["stages"]["regression"]["status"]
+    outcomes: list[str] = []
+    logs: dict[str, str] = {}
+    for spec, value in zip(policy["negative_runs"], runs):
+        item = object_keys(value, NEGATIVE_RECORD_KEYS, "negative run")
+        label = spec["entry_point"]
+        require(item["status"] in STATUSES, f"invalid {label} status")
+        require(regression != "NOT_RUN" or item["status"] == "NOT_RUN",
+                "no negative run can run when the regression did not")
+        if item["status"] == "NOT_RUN":
+            require(item["log"] is None, f"NOT_RUN {label} cannot cite a log")
+            outcomes.append("INCOMPLETE")
+            continue
+        require(isinstance(item["log"], dict) and item["log"].get("path") == spec["log"],
+                f"{label} log must be {spec['log']}")
+        log = retained_log(directory, item["log"])
+        require_candidate(log, record["candidate_sha"], label)
+        logs[label] = log
+        if item["status"] == "TIMEOUT":
+            require(not re.search(r"^RESULT=", log, re.M),
+                    f"{label} log has a RESULT line; record it as PASS or FAIL, not TIMEOUT")
+            outcomes.append("EXECUTION_TIMEOUT")
+            continue
+        problem = negative_behaviour(spec, log)
+        if item["status"] == "PASS":
+            require(not problem, f"{label} PASS contradicts its log: {problem}")
+        else:
+            require(bool(problem), f"{label} FAIL contradicts a log that shows the designed failure")
+            outcomes.append("TEST_FAILED")
+    # As for a suite, a control that did not run or finish is INCOMPLETE or EXECUTION_TIMEOUT.
+    require(regression != "PASS" or all(item["status"] != "FAIL" for item in runs),
+            "regression PASS cannot hide a negative control that did not fail as designed")
+    return outcomes, logs
+
+
 def validate_unavailable(record: dict[str, Any]) -> list[str]:
     require(nonempty(record["availability_reason"]), "unavailable needs a reason")
     require(all(record[key] is None for key in ("operator", "environment", "harness", "summary"))
-            and record["sources"] == [] and record["stages"] == {} and record["suites"] == [],
+            and record["sources"] == [] and record["stages"] == {} and record["suites"] == []
+            and record["negative_runs"] == [],
             "unavailable cannot carry execution claims")
     return ["UNAVAILABLE"]
 
@@ -496,15 +601,17 @@ def validate_manual(root: Path, sha: str, policy: dict[str, Any], record: dict[s
     else:
         validate_harness(record, policy, logs["regression"])
     suite_outcomes, suite_logs = validate_suites(record, policy, directory)
+    negative_outcomes, negative_logs = validate_negative_runs(record, policy, directory)
     if regression in ("PASS", "FAIL"):
         suite_logs[policy["entry_point"]] = logs["regression"]
     validate_summary(record, policy, directory, suite_logs)
     validate_measured(root, sha, record, suite_logs)
     # One log cited for two runs is one run, whatever blank lines or trailing
     # spaces were added to a copy: the validator reads past both.
-    runs = {normalized(log) for log in suite_logs.values()}
-    require(len(runs) == len(suite_logs), "the same log is cited for two test runs")
-    return list(dict.fromkeys(outcomes + suite_outcomes))
+    every = [*suite_logs.values(), *negative_logs.values()]
+    runs = {normalized(log) for log in every}
+    require(len(runs) == len(every), "the same log is cited for two test runs")
+    return list(dict.fromkeys(outcomes + suite_outcomes + negative_outcomes))
 
 
 def declared(text: str, names: str, position: int) -> set[int]:
@@ -623,6 +730,54 @@ def measured_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     return problems
 
 
+def negative_problems(root: Path, policy: dict[str, Any]) -> list[str]:
+    """The negative runs of the policy against the harness and Certify: each entry point is a public
+    procedure of the harness that prints its mode, Certify runs them in policy order, and their
+    counts and error follow from the harness's own (E03)."""
+    harness = module_text(root, policy["entry_point"])
+    problems = []
+    for run in policy["negative_runs"]:
+        procedure = run["entry_point"].split(".")[1]
+        if not re.search(rf"^Public Sub {procedure}\(\)", harness, re.MULTILINE):
+            problems.append(f"{run['entry_point']}: no such public procedure in the harness")
+        if f'"{run["mode"]}"' not in harness:
+            problems.append(f"{run['entry_point']}: the harness never prints MODE={run['mode']}")
+    cases, assertions = len(policy["cases"]), policy["assertions"]
+    expected = {"INJECTED_FAILURE": ("COMPLETE", cases, assertions),
+                "SKIPPED_CASE": ("INCOMPLETE", cases - 1, None)}
+    for run in policy["negative_runs"]:
+        completeness, run_cases, run_assertions = expected[run["mode"]]
+        if (run["completeness"], run["cases"]) != (completeness, run_cases) or \
+                (run_assertions is not None and run["assertions"] != run_assertions) or \
+                (run_assertions is None and not 0 < run["assertions"] < assertions):
+            problems.append(f"{run['entry_point']}: completeness and counts do not follow from the harness's "
+                            f"{cases} cases and {assertions} assertions")
+    base = re.search(r"Const TEST_ERROR_FAILURES\s+As Long = vbObjectError \+ (\d+)", harness)
+    error = -2147221504 + int(base.group(1)) if base else None
+    if any(run["error"] != error for run in policy["negative_runs"]):
+        problems.append(f"the negative runs' error must be the harness's suite failure error {error}")
+    suite = module_text(root, policy["summary_entry_point"])
+    listed = re.search(r"NegativeEntries = Array\(([^)]*)\)", suite)
+    if not listed or re.findall(r'"(TEST_\w+\.\w+)"', listed.group(1)) != \
+            [run["entry_point"] for run in policy["negative_runs"]]:
+        problems.append("TEST_Suite.NegativeEntries differs from the policy's negative runs")
+    for run in policy["negative_runs"]:
+        if f'"{run["log"]}"' not in suite:
+            problems.append(f"TEST_Suite does not write {run['log']}")
+    return problems
+
+
+def dispatch_problems(runner: str, entries: list[str]) -> list[str]:
+    """Check that RunEntry has a branch calling each entry point: a missing branch would
+    skip the suite and leave only 'no RESULT line' in the summary."""
+    body = re.search(r"Private Sub RunEntry\((.*?)\nEnd Sub", runner, re.DOTALL)
+    if not body:
+        return ["TEST_Suite has no RunEntry procedure"]
+    return [f"TEST_Suite.RunEntry has no branch that runs {entry}" for entry in entries
+            if not re.search(rf'Case "{re.escape(entry)}"\s*\r?\n\s*{re.escape(entry)}\s*\r?\n',
+                             body.group(1))]
+
+
 def policy_problems(root: Path) -> list[str]:
     """Check that the working tree's policy matches the test modules, Test_RunAll and README."""
     try:
@@ -635,6 +790,7 @@ def policy_problems(root: Path) -> list[str]:
         for spec in policy["suites"]:
             problems += suite_problems(root, spec)
         problems += measured_problems(root, policy)
+        problems += negative_problems(root, policy)
         runner = module_text(root, policy["summary_entry_point"])
         # VBA names are case-insensitive: the list may be named suites or Suites.
         array = re.split(r"suites = Array\(", runner, maxsplit=1, flags=re.IGNORECASE)[-1]
@@ -644,6 +800,7 @@ def policy_problems(root: Path) -> list[str]:
             problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")
         if declared(runner, "SUITE_COUNT", 0) != {len(entries)}:
             problems.append("SUITE_COUNT differs from the number of policy suites")
+        problems += dispatch_problems(runner, entries + [run["entry_point"] for run in policy["negative_runs"]])
         return problems + readme_problems(root, policy)
     except (ValueError, OSError) as error:
         return [str(error)]

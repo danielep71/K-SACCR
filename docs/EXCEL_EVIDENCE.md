@@ -94,7 +94,9 @@ or double-click `tools\Certify-SACCR.cmd`. The script:
    compile result records that the operator saw it. It then runs
    `TEST_Suite.Certify`. That runs the harness and every suite of the policy
    once each, on its own, each into its own log (`harness.log`,
-   `TEST_Formulas.log`, …), then `Test_RunAll` into `summary.log`. Each log
+   `TEST_Formulas.log`, …), then the harness's two
+   [negative controls](#negative-controls) into `harness-injected.log` and
+   `harness-skipped.log`, then `Test_RunAll` into `summary.log`. Each log
    starts with `CANDIDATE=` and the SHA, written by the workbook, followed by
    every line the run printed, as UTF-8; the Immediate window's 200-line limit
    no longer applies. An existing log is never replaced;
@@ -285,6 +287,11 @@ clone, to print the inventory and validate the bundle.
    `CANDIDATE=FULL_SHA`, typed before the pasted output, so that it cannot be
    cited for another commit. Keep a failing report as it is: never replace it
    with a later passing one. Do not put an injected-failure run in these logs.
+   Then run the two [negative controls](#negative-controls) the same way, each
+   into its own log after a `CANDIDATE=` line: `harness-injected.log` and
+   `harness-skipped.log`. Each must stop with an error; copy the error
+   number and description into the log as the last line,
+   `ERROR=NUMBER: DESCRIPTION`, as `TEST_Suite.Certify` writes it.
    Optionally, run `TEST_Suite.Test_RunAll` last and keep its output, after a
    `CANDIDATE=` line, as `summary.log`; it must then agree with every suite's
    own log. `TEST_Benchmark` is not a suite of the policy: its output is not
@@ -392,7 +399,7 @@ Replace every value with what was observed. This shape is not evidence.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "repository": "danielep71/K-SACCR",
   "candidate_sha": "FULL_40_CHARACTER_SHA",
   "execution": "manual",
@@ -438,6 +445,12 @@ Replace every value with what was observed. This shape is not evidence.
     {"entry_point": "TEST_Formulas.RunFormulaTests", "status": "PASS", "cases": 9, "checks": 82, "failures": 0,
      "log": {"path": "TEST_Formulas.log", "sha256": "FORMULAS_LOG_DIGEST"}},
     "... one object for each suite in .github/excel-evidence-policy.json, in its order ..."
+  ],
+  "negative_runs": [
+    {"entry_point": "TEST_Harness.RunTestsWithInjectedFailure", "status": "PASS",
+     "log": {"path": "harness-injected.log", "sha256": "INJECTED_LOG_DIGEST"}},
+    {"entry_point": "TEST_Harness.RunTestsWithSkippedCase", "status": "PASS",
+     "log": {"path": "harness-skipped.log", "sha256": "SKIPPED_LOG_DIGEST"}}
   ],
   "summary": {"path": "summary.log", "sha256": "SUMMARY_LOG_DIGEST"}
 }
@@ -486,10 +499,18 @@ Rules the validator applies:
   ([accuracy contracts](methodology/TEST_CASES.md#accuracy-contracts)). A failed
   run makes no such claim.
 - Each test run has its own log: the same log cannot be cited for two suites,
-  even with blank lines or trailing spaces added to a copy.
-- The regression stage is `FAIL` when the harness or a suite failed, and
-  `PASS` otherwise; a suite that did not finish makes the record `INCOMPLETE`
-  or `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
+  or for a suite and a negative control, even with blank lines or trailing
+  spaces added to a copy.
+- `negative_runs` lists every [negative control](#negative-controls) of the
+  policy once, in its order, each citing the log the policy names. `PASS`
+  means that the log shows the control failing as designed, `FAIL` that it
+  does not: a test failure. A control that did not run is `NOT_RUN` with a
+  `null` log, and one abandoned as hung is `TIMEOUT`, with a log without a
+  `RESULT=` line; it is not run when the regression is not.
+- The regression stage is `FAIL` when the harness or a suite failed, or a
+  negative control did not fail as designed, and `PASS` otherwise; a suite or
+  a negative control that did not finish makes the record `INCOMPLETE` or
+  `EXECUTION_TIMEOUT`, not `TEST_FAILED`.
 - A summary needs every suite's own report; its line for each suite must show
   the same verdict and `RESULT` fields, and its `RESULT` line the right
   counts.
@@ -517,7 +538,32 @@ Rules the validator applies:
 When Excel was not run, use the same identity and time fields with
 `"execution": "unavailable"`, a nonempty `availability_reason`, `operator`,
 `environment`, `harness` and `summary` set to `null`, `"sources": []`,
-`"stages": {}` and `"suites": []`.
+`"stages": {}`, `"suites": []` and `"negative_runs": []`.
+
+<a id="negative-controls"></a>
+
+### Negative controls
+
+A passing harness shows that its cases pass; it does not show that a failure
+would be reported. The policy's `negative_runs` are runs of the harness that
+must fail, and the record binds each to its own log (as in K-TEMPLATE's
+`INJECTED_FAILURE` and `SKIPPED_CASE` modes):
+
+| Entry point | Log | Its log must show |
+| --- | --- | --- |
+| `TEST_Harness.RunTestsWithInjectedFailure` | `harness-injected.log` | `MODE=INJECTED_FAILURE`, `RESULT=FAIL; completeness=COMPLETE; cases=4; assertions=6; failures=1; cleanup=PASS`, the one failure on `SACCR_ReplacementCost(100, 30)` |
+| `TEST_Harness.RunTestsWithSkippedCase` | `harness-skipped.log` | `MODE=SKIPPED_CASE`, `RESULT=FAIL; completeness=INCOMPLETE; cases=3; assertions=5; failures=1; cleanup=PASS`, the one failure `suite.completeness` |
+
+Each log must also end in exactly one `ERROR=` line with the harness's suite
+failure error (`-2147219443`, `vbObjectError + 2061`) and its description:
+the failure reached the caller, so that a failed run is never silent. The
+injected run changes one expectation and the skipped run leaves out the last
+case, `option-delta.repeatability`; both put the harness back in its normal
+mode, whether they return or raise. `check_excel_evidence.py --check-policy`
+checks that the policy's entry points are public procedures of the harness
+that print their modes, that their counts and error follow from the
+harness's, and that `TEST_Suite.Certify` runs them in the policy's order
+(`NegativeEntries`) into the logs the policy names.
 
 <a id="validating-a-bundle"></a>
 

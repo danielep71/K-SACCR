@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "saccr-expected",
-  "fixture": "illustrative-other-risks",
+  "fixture": "other-risks",
   "regime": "CRR",
   "outputs": [
     {
@@ -14,13 +14,13 @@
         "relative": 0
       },
       "reference": {
-        "class": "illustrative",
-        "source": "CRR",
-        "locator": "CRR Art. 280f",
-        "derivation": "Prototype TestCatalogue T24 (Other risks add-on = 8% x (|6,000| + |5,000|); CRR Art. 280f; hand calculation from the regulation; workbook reference CRR-OTHER, AddOn OT). Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
-        "derived_by": "danielep71",
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, add-on of the OtherExposure class",
+        "derivation": "tools/rsaccr_crosscheck.py translates the fixture and tools/rsaccr_run.R runs the package on it; the package's figure agrees with this value at full precision (#100)",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
         "reviewed_by": null,
-        "date": "2026-10-06"
+        "date": "2026-11-23"
       },
       "catalogue": "T24"
     },
@@ -34,13 +34,13 @@
         "relative": 0
       },
       "reference": {
-        "class": "illustrative",
-        "source": "CRR",
-        "locator": "CRR Art. 274(2), 280f",
-        "derivation": "Prototype TestCatalogue T25 (Other risks EAD = 1.4 x 880; CRR Art. 274(2), 280f; hand calculation from the regulation; workbook reference CRR-OTHER, EAD). Value from a hand calculation from the regulation; illustrative unless an external implementation registered as a source reproduces it (#100).",
-        "derived_by": "danielep71",
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, the other-risks netting set",
+        "derivation": "tools/rsaccr_crosscheck.py translates the fixture and tools/rsaccr_run.R runs the package on it; the package's figure agrees with this value at full precision (#100)",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
         "reviewed_by": null,
-        "date": "2026-10-06"
+        "date": "2026-11-23"
       },
       "catalogue": "T25"
     },

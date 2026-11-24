@@ -118,10 +118,26 @@ def metadata_findings(issue: Issue, assignee: str) -> list[Finding]:
 
 
 TARGET_LABEL = re.compile(r"^(?:planned )?target(?: completion)? date$", re.I)
+START_LABEL = re.compile(r"^(?:planned )?start date$", re.I)
+ROME_SUFFIX = re.compile(r"\s*\(Europe/Rome\)$", re.I)
+ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+# What GitHub writes for an issue form field left empty.
+NO_RESPONSE = "_No response_"
 
 
 def target_values(body: str) -> list[str]:
     """Read the optional form field and labelled legacy Planning dates entries."""
+    return date_values(body, TARGET_LABEL)
+
+
+def start_values(body: str) -> list[str]:
+    """Read the start date as target_values reads the target date."""
+    return date_values(body, START_LABEL)
+
+
+def date_values(body: str, label_pattern: re.Pattern[str]) -> list[str]:
+    """The values of a planning date: the issue form's field and the labelled entries under
+    Planning dates. Dates elsewhere in the body are not planning fields."""
     values = []
     section = ""
     fenced = False
@@ -133,35 +149,66 @@ def target_values(body: str) -> list[str]:
             continue
         heading = HEADING.match(line)
         if heading:
-            title = re.sub(r"^[^A-Za-z]+", "", heading.group(1)).strip()
-            section = "target" if TARGET_LABEL.fullmatch(title) else (
+            title = ROME_SUFFIX.sub("", re.sub(r"^[^A-Za-z]+", "", heading.group(1)).strip())
+            section = "field" if label_pattern.fullmatch(title) else (
                 "planning" if title.lower() == "planning dates" else "")
             continue
         clean = line.strip().replace("**", "")
         if section == "planning":
             label, separator, value = clean.lstrip("-* ").partition(":")
-            if separator and TARGET_LABEL.fullmatch(label.strip()):
+            if separator and label_pattern.fullmatch(label.strip()):
                 values.append(value.strip().strip("`"))
-        elif section == "target" and clean:
+        elif section == "field" and clean:
             values.append(clean.strip("`"))
     return [value for value in values if value and value.lower() not in {"_no response_", "none", "n/a"}]
+
+
+def iso_dates(values: Iterable[str], issue: Issue, rule: str, what: str) -> tuple[set[date], list[Finding]]:
+    """The valid dates among values, and a finding for each that is not a real ISO date."""
+    dates: set[date] = set()
+    findings = []
+    for value in values:
+        try:
+            if not ISO_DATE.fullmatch(value):
+                raise ValueError("expected ISO date")
+            dates.add(date.fromisoformat(value))
+        except ValueError:
+            findings.append(Finding(issue.number, rule, f"invalid {what} {value!r}; use YYYY-MM-DD"))
+    return dates, findings
+
+
+def start_date_findings(issue: Issue) -> list[Finding]:
+    """The start date is required: one real ISO date, not after the target date when there is one."""
+    values = start_values(issue.body)
+    if not values:
+        return [Finding(issue.number, "start-date",
+                        "needs a start date (Europe/Rome): the Start date form field, or a "
+                        "`- Planned start date:` line under Planning dates, as YYYY-MM-DD")]
+    dates, findings = iso_dates(values, issue, "start-date", "start date")
+    if len(dates) > 1:
+        findings.append(Finding(issue.number, "start-date", "conflicting start dates in the issue body"))
+    targets, _ = iso_dates(target_values(issue.body), issue, "target-date", "target date")
+    for start in sorted(dates):
+        for target in sorted(targets):
+            if start > target:
+                findings.append(Finding(issue.number, "start-date",
+                                        f"start date {start} is after the target date {target}"))
+    return findings
 
 
 def planning_findings(issue: Issue) -> list[Finding]:
     findings = []
     if issue.milestone_state == "closed":
         findings.append(Finding(issue.number, "milestone-closed", "open issue belongs to a closed milestone"))
-    values = target_values(issue.body)
-    dates = set()
-    for value in values:
-        try:
-            if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
-                raise ValueError("expected ISO date")
-            dates.add(date.fromisoformat(value))
-        except ValueError:
-            findings.append(Finding(issue.number, "target-date", f"invalid target date {value!r}; use YYYY-MM-DD"))
+    dates, invalid = iso_dates(target_values(issue.body), issue, "target-date", "target date")
+    findings += invalid
     if len(dates) > 1:
         findings.append(Finding(issue.number, "target-date", "conflicting target dates in the issue body"))
+    # A target on the due date itself is allowed: the deadline is inclusive (docs/GOVERNANCE.md).
+    if dates and issue.milestone and not issue.milestone_due:
+        findings.append(Finding(issue.number, "milestone-date",
+                                f"milestone {issue.milestone!r} has no due date, so the target date "
+                                "cannot be checked against it"))
     if dates and issue.milestone_due:
         try:
             due = date.fromisoformat(issue.milestone_due[:10])
@@ -187,6 +234,10 @@ def dependency_findings(issue: Issue, states: Mapping[int, str], repository: str
     section = dependency_section(issue.body)
     if section is None:
         return [Finding(issue.number, "dependencies", "has no dependency section")]
+    if not any(line.strip() not in ("", NO_RESPONSE) for line in section):
+        return [Finding(issue.number, "dependencies",
+                        "has an empty dependency section: write None, link each prerequisite "
+                        "or add an External condition: line")]
     named = references(section, repository, issue.number)
     missing = sorted(n for n in named if n not in states and n not in pulls)
     open_prerequisites = sorted(n for n in named if states.get(n) == "open")
@@ -204,6 +255,81 @@ def dependency_findings(issue: Issue, states: Mapping[int, str], repository: str
     return findings
 
 
+def strongly_connected(graph: Mapping[int, Sequence[int]]) -> list[list[int]]:
+    """The strongly connected components of a directed graph, by Tarjan's method.
+
+    Iterative, so that a long chain of dependencies cannot exceed the recursion
+    limit; nodes and edges are visited in ascending order, so the result is
+    deterministic.
+    """
+    index: dict[int, int] = {}
+    low: dict[int, int] = {}
+    stack: list[int] = []
+    on_stack: set[int] = set()
+    components: list[list[int]] = []
+    for start in sorted(graph):
+        if start in index:
+            continue
+        work: list[tuple[int, int]] = [(start, 0)]
+        while work:
+            node, position = work.pop()
+            if position == 0:
+                index[node] = low[node] = len(index)
+                stack.append(node)
+                on_stack.add(node)
+            successors = graph.get(node, ())
+            for offset, successor in enumerate(successors[position:], start=position):
+                if successor not in index:
+                    work.append((node, offset + 1))
+                    work.append((successor, 0))
+                    break
+                if successor in on_stack:
+                    low[node] = min(low[node], index[successor])
+            else:
+                if low[node] == index[node]:
+                    component = []
+                    while True:
+                        member = stack.pop()
+                        on_stack.discard(member)
+                        component.append(member)
+                        if member == node:
+                            break
+                    components.append(sorted(component))
+                if work:
+                    parent = work[-1][0]
+                    low[parent] = min(low[parent], low[node])
+    return components
+
+
+def cycle_findings(issues: Sequence[Issue], states: Mapping[int, str], repository: str) -> list[Finding]:
+    """A finding for each open issue in a cycle of blocked issues.
+
+    A dependency section may also name related issues, so only a `blocked` issue
+    waits for the open issues its section names: an edge runs from it to each of
+    them. Closed issues, pull requests, missing numbers, external conditions and
+    references outside the section form none. Issues that wait for one another
+    can never be unblocked by finishing work."""
+    graph: dict[int, list[int]] = {}
+    for issue in issues:
+        if issue.state != "open":
+            continue
+        section = dependency_section(issue.body) if BLOCKED in issue.labels else None
+        named = references(section, repository, issue.number) if section is not None else set()
+        graph[issue.number] = sorted(n for n in named if states.get(n) == "open")
+    open_numbers = set(graph)
+    graph = {node: [n for n in edges if n in open_numbers] for node, edges in graph.items()}
+    findings = []
+    for component in strongly_connected(graph):
+        if len(component) < 2:
+            continue
+        listed = ", ".join(f"#{n}" for n in component)
+        findings += [Finding(number, "dependency-cycle",
+                             f"is in a dependency cycle of blocked issues: {listed}; remove one of the "
+                             "dependencies, or name what each waits for on an External condition: line")
+                     for number in component]
+    return sorted(findings, key=lambda finding: finding.number)
+
+
 def audit(issues: Sequence[Issue], states: Mapping[int, str], repository: str,
           catalogue: set[str] | None = None, pulls: Collection[int] = (),
           *, assignee: str) -> list[Finding]:
@@ -215,12 +341,14 @@ def audit(issues: Sequence[Issue], states: Mapping[int, str], repository: str,
             continue
         findings += metadata_findings(issue, assignee)
         findings += planning_findings(issue)
+        if not is_traffic_alert(issue):
+            findings += start_date_findings(issue)
         findings += dependency_findings(issue, states, repository, pulls)
         if catalogue is not None:
             findings += [Finding(issue.number, "catalogue", f"has label {label!r}, "
                                  "which is not in .github/labels.json")
                          for label in issue.labels if label not in catalogue]
-    return findings
+    return findings + cycle_findings(issues, states, repository)
 
 
 def catalogue_labels(root: Path) -> set[str]:
@@ -270,6 +398,10 @@ def config_findings(root: Path) -> list[str]:
             problems.append(f"{name} must assign {assignee}")
         if not re.search(r"^\s*id:\s*target_date\s*$", text, re.M):
             problems.append(f"{name} has no target_date field")
+        if not re.search(r"^\s*id:\s*start_date\s*$", text, re.M):
+            problems.append(f"{name} has no start_date field")
+        elif not re.search(r"^\s*id:\s*start_date\b(?:(?!^\s*- type:).)*?required:\s*true", text, re.M | re.S):
+            problems.append(f"{name} must require the start_date field")
         if not re.search(r"^\s*id:\s*dependencies\s*$", text, re.M):
             problems.append(f"{name} has no dependencies field")
     config = forms / "config.yml"
