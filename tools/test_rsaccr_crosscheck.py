@@ -103,11 +103,11 @@ class TranslateTests(unittest.TestCase):
         self.assertNotEqual(first["args"]["Ei"], calendar_days)
 
     def test_credit_quality_step_maps_to_rating_with_same_factor(self) -> None:
-        netting_set = xc.translate_fixture(fixture("illustrative-credit-quality-step"))
+        netting_set = xc.translate_fixture(fixture("credit-quality-step"))
         self.assertEqual(netting_set["trades"][0]["args"]["SubClass"], "A")
 
     def test_credit_distinct_maturity_is_unsupported(self) -> None:
-        data = fixture("illustrative-credit-quality-step")
+        data = fixture("credit-quality-step")
         data["trades"][0]["maturity_date"] = "2037-09-27"
         with self.assertRaisesRegex(xc.Unsupported, "maturity differs"):
             xc.translate_fixture(data)
@@ -227,7 +227,7 @@ class RegimeDifferenceTests(unittest.TestCase):
         self.assertIsNone(xc.regime_difference(fixture("cre99-example-1")))
         self.assertIn("other risks", xc.regime_difference(fixture("illustrative-other-risks")) or "")
         self.assertIn("climatic", xc.regime_difference(fixture("illustrative-climatic-commodity")) or "")
-        self.assertIn("credit quality", xc.regime_difference(fixture("illustrative-credit-quality-step")) or "")
+        self.assertIn("credit quality", xc.regime_difference(fixture("credit-quality-step")) or "")
         self.assertIn("lambda", xc.regime_difference(fixture("illustrative-negative-ir-forward")) or "")
         data = fixture("illustrative-ir-swap-unmargined")
         data["trades"][0]["end_date"] = data["trades"][0]["maturity_date"] = "2027-01-02"
@@ -305,7 +305,7 @@ class ReviewFollowupTests(unittest.TestCase):
         for subclass, name, mapped in [(" cqs2 ", "CDS", "A"), (" ig_index ", "CDX", "IG"),
                                        (" sg_index ", "CDX", "SG")]:
             with self.subTest(subclass=subclass):
-                data = fixture("illustrative-credit-quality-step")
+                data = fixture("credit-quality-step")
                 data["trades"][0]["sub_class"] = subclass
                 trade = xc.translate_fixture(data)["trades"][0]
                 self.assertEqual((trade["class"], trade["args"]["SubClass"]), (name, mapped))

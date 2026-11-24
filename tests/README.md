@@ -5,7 +5,7 @@
 
 | Location | Contents |
 | --- | --- |
-| `modules/` | The harness `TEST_Harness.bas`, the shared suite lifecycle `TEST_Kit.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import` and `TEST_FormulaRandom` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
+| `modules/` | The harness `TEST_Harness.bas`, the shared suite lifecycle `TEST_Kit.bas`, the shared case runner `TEST_CaseRunner.bas`, the generated `TEST_Cases.bas`, the `TEST_Formulas`, `TEST_MainState`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants` and `TEST_Reconcile` suites, the generated `TEST_CsvReader` suite, the `TEST_Import`, `TEST_FormulaRandom` and `TEST_Dashboard` suites, `TEST_Suite.bas`, whose `Test_RunAll` runs them all, and the benchmark `TEST_Benchmark.bas` |
 | `fixtures/` | Synthetic inputs: trades, netting sets, collateral terms ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)); `ecb/` holds a sample answer of the ECB data portal, with illustrative rates, which `TEST_MainState` reads for Download prices (#745) |
 | `expected/` | Expected values per regime, each with its reference class and source ([`TEST_CASES.md`](../docs/methodology/TEST_CASES.md)) |
 | `csv/` | Synthetic CSV input files of the [CSV contract](../docs/csv/CSV_CONTRACT.md): `valid/` files that must be accepted, `invalid/` files that must be rejected, `expected.json` with the findings of each, `cases.json`, inline cases with their findings, `portfolio.json`, Trades files with the netting sets their legs may refer to and the findings between their records, `staged.json`, rows as a staging sheet holds them with their findings, and `context.json`, Trades records with the Params context they are checked against and their findings (#209); `tools/generate_csv_vba.py` turns all of them into `TEST_CsvReader` |
@@ -19,7 +19,7 @@ summary. In the order it runs them, the entry points of the single suites are
 `TEST_InputValidation.RunInputValidationTests`,
 `TEST_Aggregation.RunAggregationTests`, `TEST_Invariants.RunInvariantTests`,
 `TEST_Reconcile.RunReconcileTests`, `TEST_CsvReader.RunCsvReaderTests`,
-`TEST_Import.RunImportTests` and `TEST_FormulaRandom.RunFormulaRandomTests`;
+`TEST_Import.RunImportTests`, `TEST_FormulaRandom.RunFormulaRandomTests` and `TEST_Dashboard.RunDashboardTests`;
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation` and `TEST_Invariants`
 need `TEST_CaseRunner`. How to run them and what a passing log looks like is in
 [`INSTALLATION.md`](../INSTALLATION.md#running-the-harness).
@@ -54,10 +54,15 @@ catalogue's expected value. Inputs come from the template's NettingSets and
 Trades sheets, valued on 2026-09-30. The `cre99-example-*` cases are in USD,
 unscaled: CRE99 prints USD thousands, so their amounts and expected values are
 the printed figures times 1,000, with a tolerance of half a printed unit
-(500 USD). The other cases keep the template's figures, labelled EUR. Netting sets
-that the workbook duplicates per regime with identical inputs (`BCBS-EX5` and
-`CRR-EX5`, `BCBS-VMCAP` and `CRR-VMCAP`, `BCBS-NEGIR` and `CRR-NEGIR`) are one
-fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
+(500 USD), except T15, which holds the R package's figure at full precision. The
+other cases keep the template's figures, labelled EUR. Netting sets that the
+workbook duplicates per regime with identical inputs (`BCBS-EX5` and `CRR-EX5`,
+`BCBS-VMCAP` and `CRR-VMCAP`, `BCBS-NEGIR` and `CRR-NEGIR`) are one fixture with
+an expected file per regime, except where the CRR values became `independent`
+(#100): a case named `illustrative-*` holds only illustrative values, so
+`negative-ir-forward` and `other-risks` hold the CRR expected file and
+`illustrative-negative-ir-forward` and `illustrative-other-risks` the BCBS one,
+on the same inputs. T22 and T26 read trades `NIR-B` and
 `OT-X` in the workbook; the fixtures hold the same inputs as `NIR-C` and
 `OT-1`. T28 needs only trade `B03` of `NS-GAMMA`.
 
@@ -77,20 +82,20 @@ fixture with an expected file per regime. T22 and T26 read trades `NIR-B` and
 | T12 | `cre99-example-5.bcbs` | `aggregate_add_on` | 1,401,000 USD | published |
 | T13 | `cre99-example-5.bcbs` | `multiplier` | 0.958 | published |
 | T14 | `cre99-example-5.bcbs` | `exposure_value` | 1,879,000 USD | published |
-| T15 | `cre99-example-5.crr` | `exposure_value` | 1,879,000 USD | illustrative |
+| T15 | `cre99-example-5.crr` | `exposure_value` | 1879212.63150155 USD | independent |
 | T16 | `illustrative-posted-vm-cap.bcbs` | `exposure_value` | 40774849.34860364 EUR | illustrative |
 | T17 | `illustrative-posted-vm-cap.crr` | `exposure_value` | 40774849.34860364 EUR | illustrative |
 | T18 | `illustrative-posted-vm-cap.crr` | `cap_applied` | `Y` | illustrative |
-| T19 | `illustrative-swaption-forward-1pct.crr` | `exposure_value` | 760.4939328393385 EUR | illustrative |
-| T20 | `illustrative-negative-ir-forward.crr` | `lambda_shift` (NIR-C) | 0.003 | illustrative |
-| T21 | `illustrative-negative-ir-forward.crr` | `supervisory_delta` (NIR-C) | -0.9941752720429311 | illustrative |
+| T19 | `swaption-forward-1pct.crr` | `exposure_value` | 760.4939328393385 EUR | independent |
+| T20 | `negative-ir-forward.crr` | `lambda_shift` (NIR-C) | 0.003 | illustrative |
+| T21 | `negative-ir-forward.crr` | `supervisory_delta` (NIR-C) | -0.9941752720429311 | independent |
 | T22 | `illustrative-negative-ir-forward.bcbs` | `trade_status` (NIR-C) | `EXCLUDED` | illustrative |
 | T23 | `illustrative-negative-commodity-price.crr` | `lambda_shift` (NCO-1) | 5.5 price | illustrative |
-| T24 | `illustrative-other-risks.crr` | `add_on.other` | 880 EUR | illustrative |
-| T25 | `illustrative-other-risks.crr` | `exposure_value` | 1,232 EUR | illustrative |
+| T24 | `other-risks.crr` | `add_on.other` | 880 EUR | independent |
+| T25 | `other-risks.crr` | `exposure_value` | 1,232 EUR | independent |
 | T26 | `illustrative-other-risks.bcbs` | `trade_status` (OT-1) | `EXCLUDED` | illustrative |
 | T27 | `illustrative-climatic-commodity.crr` | `hedging_set` (CL-1) | `CO\|CLIMATIC\|STD` | illustrative |
-| T28 | `illustrative-credit-quality-step.crr` | `supervisory_factor` (B03) | 0.0042 | illustrative |
+| T28 | `credit-quality-step.crr` | `supervisory_factor` (B03) | 0.0042 | independent |
 
 The 17 expected files with no catalogue ID are additional illustrative cases
 that do not come from the catalogue; each records its own derivation:
@@ -115,6 +120,19 @@ six on 250 business days of the TARGET calendar (#721): their fixtures set
 comparison with the workbook. `python tools/rsaccr_portfolio.py cases` writes
 them ([tools](../tools/README.md)).
 
+T15, T19, T21, T24, T25 and T28 are `independent` too (#100): the R
+package, run on their fixtures by `tools/rsaccr_crosscheck.py`, gives the
+same value at full precision (T15 within the catalogue's rounding of CRE99's
+1,879,000 USD, so the case now holds the package's figure). The other
+catalogue values stay illustrative: the package follows CRR2, so it gives no
+BCBS value where the regimes differ (T22, T26); its own cap ignores NICA, so
+the cross-check rebuilds the cap on the engine's rule and its agreement on
+the binding cap (T16, T17, T18) is not independent; it does not report the
+lambda itself (T20, which T21's delta depends on); it has no commodity option (T23); and it computes the climatic
+commodity hedging set on another rule (T27). `TEST_Formulas` checks 14 of the
+22 FormulaTest rows against the package in the same way (#100,
+[methodology](../docs/methodology/README.md#independent-values-of-the-formulatest-checks)).
+
 `published` values are printed in the Basel Framework chapter CRE99 (and BCBS
 279 Annex 4a), rounded to the printed digit, and were checked against the text
 on 2026-10-09. T02 is printed as -0.2694; the prototype catalogue had -0.27,
@@ -125,5 +143,5 @@ values came from a Python implementation that is not in the repository, from
 hand calculations or from the scripts in `derivations/`, and stay
 illustrative unless an external implementation registered as a source
 reproduces them (#100). The values and tolerances of
-T15 to T28 are the catalogue's, except T16, revised in #39 (#130) to the cap
-with C = NICA only.
+T15 to T28 are the catalogue's, except T15, which holds the R package's figure
+(#100), and T16, revised in #39 (#130) to the cap with C = NICA only.

@@ -126,6 +126,7 @@
               <button id="ksGoImportNettingSets" label="Import_NettingSets" onAction="RibbonGoTo" supertip="Netting sets loaded from a CSV file, before Commit import."/>
               <button id="ksGoImportTrades" label="Import_Trades" onAction="RibbonGoTo" supertip="Trade legs loaded from a CSV file, before Commit import."/>
               <menuSeparator id="ksGoSepOutputs" title="Outputs"/>
+              <button id="ksGoDashboard" label="Dashboard" onAction="RibbonGoTo" supertip="The last run in one page: key figures, breakdowns and the path from notional to EAD."/>
               <button id="ksGoResults" label="Results" onAction="RibbonGoTo" supertip="EAD per netting set and the totals per regime."/>
               <button id="ksGoHedgingSets" label="HedgingSets" onAction="RibbonGoTo" supertip="Effective notionals and add-ons per hedging set."/>
               <button id="ksGoBuckets" label="Buckets" onAction="RibbonGoTo" supertip="Maturity buckets, FX pairs, entities and commodity types."/>

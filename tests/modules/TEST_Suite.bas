@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 11    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 12    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -535,7 +535,8 @@ Private Function SuiteEntries() As Variant
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
-                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests")
+                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests", _
+                       "TEST_Dashboard.RunDashboardTests")
         SuiteEntries = Suites
 
 End Function
@@ -570,7 +571,8 @@ Private Sub RunEntry( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run one entry point of SuiteEntries or NegativeEntries. An error it
-'   raises goes to the caller.
+'   raises goes to the caller, and so does an entry point with no branch
+'   here, which would otherwise be skipped without a RESULT line.
 '
 ' UPDATED
 '   2026-11-23
@@ -603,6 +605,11 @@ Private Sub RunEntry( _
                 TEST_Import.RunImportTests
             Case "TEST_FormulaRandom.RunFormulaRandomTests"
                 TEST_FormulaRandom.RunFormulaRandomTests
+            Case "TEST_Dashboard.RunDashboardTests"
+                TEST_Dashboard.RunDashboardTests
+            Case Else
+                Err.Raise vbObjectError + 513, "TEST_Suite.RunEntry", _
+                    "No branch runs " & EntryPoint
         End Select
 
 End Sub

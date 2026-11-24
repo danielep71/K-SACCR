@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "saccr-fixture",
-  "id": "illustrative-credit-quality-step",
+  "id": "credit-quality-step",
   "synthetic": true,
   "description": "Single-name credit derivative mapped by credit quality step 2.",
   "category": "nominal",

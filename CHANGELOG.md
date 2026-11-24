@@ -97,6 +97,30 @@ Use only the categories needed by a release.
 
 ### Added
 
+- A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
+  the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
+  and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing
+  role, the add-on by asset class, the composition of EAD, the ten largest netting sets with the
+  concentration, the maturity profile and the trades by asset class. It also shows data quality,
+  the reconciliation and the path from notional to EAD. Each regime is shown on its own, and each
+  table states its unit. The status cell turns red when the inputs change. The figures are defined
+  in [`docs/workbook/DASHBOARD.md`](docs/workbook/DASHBOARD.md), with a Python reference in
+  `tools/dashboard.py`. The Go to menu, the navigation bar, Home and README list the sheet. Every run
+  writes it after its reconciliations; every operation empties it first, so a run that fails leaves
+  none. `TEST_Dashboard` (6 cases, 65 checks) checks every block against the output sheets.
+- Independent values for more of the rules of #100. The R package `SACCR` 3.4 (`IMPL-R-SACCR`)
+  reproduces at full precision six checks of the ported catalogue, T15, T19, T21, T24, T25 and T28,
+  which are now `independent`. Because a case named `illustrative-*` holds only illustrative
+  values, their CRR files move to `swaption-forward-1pct`, `credit-quality-step`,
+  `negative-ir-forward` and `other-risks`; the BCBS files of the last two stay in
+  `illustrative-negative-ir-forward` and `illustrative-other-risks`. T15 now holds the package's
+  figure, 1,879,212.63 USD, instead of CRE99's rounded 1,879,000. `TEST_Formulas` has a case,
+  `formula-test.independent`, that checks 14 of the 22 FormulaTest rows against the values
+  `tools/rsaccr_formulas.R` computes with the package (11 cases, 131 checks). The methodology lists
+  the rows and rules no external source covers, and records why Open Source Risk Engine 1.8.17 is
+  not registered as a source: its SA-CCR analytic adds interest-rate effective notionals with their
+  signs and without maturity buckets, leaves credit default swaps out, swaps volatility and time in
+  an option delta and reports the netting set's value in USD (`tools/ore_saccr_probe.py`).
 - Record on every run how its dates became years and where its FX rates came from (#721, #745), so
   that two results are never compared without it. The run summary on Results C4 adds
   `| year 365 days, calendar TABLE | FX Manual` (with the entries and fingerprint of the table of

@@ -176,11 +176,21 @@ Private Sub Case06()
         TEST_CaseRunner.AddTrade "EX5-COT2", "CO", "OIL_GAS", "CRUDE OIL", "Linear", "Short", "", "Standard", "", "20000000", "-30000", "", "", "2028-09-29", "", "", "", "", "", "", "", ""
         TEST_CaseRunner.AddTrade "EX5-COT3", "CO", "METALS", "SILVER", "Linear", "Long", "", "Standard", "", "10000000", "100000", "", "", "2031-09-29", "", "", "", "", "", "", "", ""
         TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T15", "", "exposure_value", "1879000", "500", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "T15", "", "exposure_value", "1879212.63150155", "0.000001", "0.000000001", "independent"
 End Sub
 
 
 Private Sub Case07()
+    'tests/expected/credit-quality-step.crr.json
+        TEST_CaseRunner.BeginCase "credit-quality-step", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.AddNettingSet "CQS", "Y", "N", "1", "N", "N", "", "1500000", "2000000", "0", "250000", "", "", ""
+        TEST_CaseRunner.AddTrade "B03", "CR", "CQS2", "OMEGA AG", "Linear", "Short", "", "Standard", "", "8000000", "120000", "", "2030-09-29", "2030-09-29", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectNumber "T28", "B03", "supervisory_factor", "0.0042", "0.000000000001", "0", "independent"
+End Sub
+
+
+Private Sub Case08()
     'tests/expected/illustrative-ccp-non-qualifying.crr.json
         TEST_CaseRunner.BeginCase "illustrative-ccp-non-qualifying", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CCP-A", "Y", "CCP", "1", "N", "N", "", "0", "0", "0", "0", "", "N", "N"
@@ -201,7 +211,7 @@ Private Sub Case07()
 End Sub
 
 
-Private Sub Case08()
+Private Sub Case09()
     'tests/expected/illustrative-ccp-retained-vm.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-ccp-retained-vm", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CCP-A", "Y", "CCP", "1", "N", "N", "", "0", "0", "0", "0", "", "Y", "Y"
@@ -223,7 +233,7 @@ Private Sub Case08()
 End Sub
 
 
-Private Sub Case09()
+Private Sub Case10()
     'tests/expected/illustrative-ccp-retained-vm.crr.json
         TEST_CaseRunner.BeginCase "illustrative-ccp-retained-vm", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CCP-A", "Y", "CCP", "1", "N", "N", "", "0", "0", "0", "0", "", "Y", "Y"
@@ -245,7 +255,7 @@ Private Sub Case09()
 End Sub
 
 
-Private Sub Case10()
+Private Sub Case11()
     'tests/expected/illustrative-ccp-trade-exposure.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-ccp-trade-exposure", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CCP-A", "Y", "CCP", "1", "N", "N", "", "0", "0", "0", "0", "", "Y", "N"
@@ -266,7 +276,7 @@ Private Sub Case10()
 End Sub
 
 
-Private Sub Case11()
+Private Sub Case12()
     'tests/expected/illustrative-ccp-trade-exposure.crr.json
         TEST_CaseRunner.BeginCase "illustrative-ccp-trade-exposure", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CCP-A", "Y", "CCP", "1", "N", "N", "", "0", "0", "0", "0", "", "Y", "N"
@@ -287,7 +297,7 @@ Private Sub Case11()
 End Sub
 
 
-Private Sub Case12()
+Private Sub Case13()
     'tests/expected/illustrative-clearing-client-listed.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-clearing-client-listed", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CLI", "Y", "CLIENT", "5", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -305,7 +315,7 @@ Private Sub Case12()
 End Sub
 
 
-Private Sub Case13()
+Private Sub Case14()
     'tests/expected/illustrative-clearing-client-listed.crr.json
         TEST_CaseRunner.BeginCase "illustrative-clearing-client-listed", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CLI", "Y", "CLIENT", "5", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -323,7 +333,7 @@ Private Sub Case13()
 End Sub
 
 
-Private Sub Case14()
+Private Sub Case15()
     'tests/expected/illustrative-clearing-member-listed.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-clearing-member-listed", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CM", "Y", "CM", "1", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -341,7 +351,7 @@ Private Sub Case14()
 End Sub
 
 
-Private Sub Case15()
+Private Sub Case16()
     'tests/expected/illustrative-clearing-member-listed.crr.json
         TEST_CaseRunner.BeginCase "illustrative-clearing-member-listed", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CM", "Y", "CM", "1", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -359,23 +369,13 @@ Private Sub Case15()
 End Sub
 
 
-Private Sub Case16()
+Private Sub Case17()
     'tests/expected/illustrative-climatic-commodity.crr.json
         TEST_CaseRunner.BeginCase "illustrative-climatic-commodity", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "CLIMATE", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
         TEST_CaseRunner.AddTrade "CL-1", "CO", "CLIMATIC", "HDD LONDON", "Linear", "Long", "", "Standard", "", "1000", "5", "", "", "2027-03-31", "", "", "", "", "", "", "", ""
         TEST_CaseRunner.RunCase
         TEST_CaseRunner.ExpectText "T27", "CL-1", "hedging_set", "CO|CLIMATIC|STD", "illustrative"
-End Sub
-
-
-Private Sub Case17()
-    'tests/expected/illustrative-credit-quality-step.crr.json
-        TEST_CaseRunner.BeginCase "illustrative-credit-quality-step", "CRR", "2026-09-30", "EUR"
-        TEST_CaseRunner.AddNettingSet "CQS", "Y", "N", "1", "N", "N", "", "1500000", "2000000", "0", "250000", "", "", ""
-        TEST_CaseRunner.AddTrade "B03", "CR", "CQS2", "OMEGA AG", "Linear", "Short", "", "Standard", "", "8000000", "120000", "", "2030-09-29", "2030-09-29", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T28", "B03", "supervisory_factor", "0.0042", "0.000000000001", "0", "illustrative"
 End Sub
 
 
@@ -435,17 +435,6 @@ End Sub
 
 
 Private Sub Case23()
-    'tests/expected/illustrative-negative-ir-forward.crr.json
-        TEST_CaseRunner.BeginCase "illustrative-negative-ir-forward", "CRR", "2026-09-30", "EUR"
-        TEST_CaseRunner.AddNettingSet "NEGIR", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
-        TEST_CaseRunner.AddTrade "NIR-C", "IR", "", "EUR", "Option", "Long", "Put", "Standard", "", "10000", "15", "2027-09-30", "2032-09-28", "2032-09-28", "2027-09-30", "-0.002", "0.001", "", "", "", "", ""
-        TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T20", "NIR-C", "lambda_shift", "0.003", "0.000000000001", "0", "illustrative"
-        TEST_CaseRunner.ExpectNumber "T21", "NIR-C", "supervisory_delta", "-0.9941752720429311", "0.000000001", "0.000000001", "illustrative"
-End Sub
-
-
-Private Sub Case24()
     'tests/expected/illustrative-other-risks.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-other-risks", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "OTHER", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -458,21 +447,7 @@ Private Sub Case24()
 End Sub
 
 
-Private Sub Case25()
-    'tests/expected/illustrative-other-risks.crr.json
-        TEST_CaseRunner.BeginCase "illustrative-other-risks", "CRR", "2026-09-30", "EUR"
-        TEST_CaseRunner.AddNettingSet "OTHER", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
-        TEST_CaseRunner.AddTrade "OT-1", "OT", "", "LONGEVITY INDEX X", "Linear", "Long", "", "Standard", "", "10000", "0", "", "", "2028-09-29", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.AddTrade "OT-2", "OT", "", "LONGEVITY INDEX X", "Linear", "Short", "", "Standard", "", "4000", "0", "", "", "2029-09-29", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.AddTrade "OT-3", "OT", "", "CAT LOSS INDEX Y", "Linear", "Long", "", "Standard", "", "5000", "0", "", "", "2028-03-31", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T24", "", "add_on.other", "880", "0.000000001", "0", "illustrative"
-        TEST_CaseRunner.ExpectNumber "T25", "", "exposure_value", "1232", "0.000000001", "0", "illustrative"
-        TEST_CaseRunner.ExpectText "netting_set_status", "", "netting_set_status", "VALID", "illustrative"
-End Sub
-
-
-Private Sub Case26()
+Private Sub Case24()
     'tests/expected/illustrative-partly-rejected.crr.json
         TEST_CaseRunner.BeginCase "illustrative-partly-rejected", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "PARTLY", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -485,7 +460,7 @@ Private Sub Case26()
 End Sub
 
 
-Private Sub Case27()
+Private Sub Case25()
     'tests/expected/illustrative-posted-vm-cap.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-posted-vm-cap", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "VMCAP", "Y", "N", "1", "N", "N", "", "-1300000000", "0", "0", "0", "", "", ""
@@ -496,7 +471,7 @@ Private Sub Case27()
 End Sub
 
 
-Private Sub Case28()
+Private Sub Case26()
     'tests/expected/illustrative-posted-vm-cap.crr.json
         TEST_CaseRunner.BeginCase "illustrative-posted-vm-cap", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "VMCAP", "Y", "N", "1", "N", "N", "", "-1300000000", "0", "0", "0", "", "", ""
@@ -507,7 +482,7 @@ Private Sub Case28()
 End Sub
 
 
-Private Sub Case29()
+Private Sub Case27()
     'tests/expected/illustrative-settled-to-market-daily.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-settled-to-market-daily", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "STM-DAILY", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -529,7 +504,7 @@ Private Sub Case29()
 End Sub
 
 
-Private Sub Case30()
+Private Sub Case28()
     'tests/expected/illustrative-settled-to-market-daily.crr.json
         TEST_CaseRunner.BeginCase "illustrative-settled-to-market-daily", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "STM-DAILY", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -551,7 +526,7 @@ Private Sub Case30()
 End Sub
 
 
-Private Sub Case31()
+Private Sub Case29()
     'tests/expected/illustrative-settled-to-market-periodic.bcbs.json
         TEST_CaseRunner.BeginCase "illustrative-settled-to-market-periodic", "BCBS", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "STM-MONTHLY", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -580,7 +555,7 @@ Private Sub Case31()
 End Sub
 
 
-Private Sub Case32()
+Private Sub Case30()
     'tests/expected/illustrative-settled-to-market-periodic.crr.json
         TEST_CaseRunner.BeginCase "illustrative-settled-to-market-periodic", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "STM-MONTHLY", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -609,19 +584,32 @@ Private Sub Case32()
 End Sub
 
 
-Private Sub Case33()
-    'tests/expected/illustrative-swaption-forward-1pct.crr.json
-        TEST_CaseRunner.BeginCase "illustrative-swaption-forward-1pct", "CRR", "2026-09-30", "EUR"
-        TEST_CaseRunner.AddNettingSet "EX1-1PCT", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
-        TEST_CaseRunner.AddTrade "EU1P-T1", "IR", "", "USD", "Linear", "Long", "", "Standard", "", "10000", "30", "", "2036-09-27", "2036-09-27", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.AddTrade "EU1P-T2", "IR", "", "USD", "Linear", "Short", "", "Standard", "", "10000", "-20", "", "2030-09-29", "2030-09-29", "", "", "", "", "", "", "", ""
-        TEST_CaseRunner.AddTrade "EU1P-T3", "IR", "", "EUR", "Option", "Long", "Put", "Standard", "", "5000", "50", "2027-09-30", "2037-09-27", "2037-09-27", "2027-09-30", "0.01", "0.05", "", "", "", "", ""
+Private Sub Case31()
+    'tests/expected/negative-ir-forward.crr.json
+        TEST_CaseRunner.BeginCase "negative-ir-forward", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.AddNettingSet "NEGIR", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
+        TEST_CaseRunner.AddTrade "NIR-C", "IR", "", "EUR", "Option", "Long", "Put", "Standard", "", "10000", "15", "2027-09-30", "2032-09-28", "2032-09-28", "2027-09-30", "-0.002", "0.001", "", "", "", "", ""
         TEST_CaseRunner.RunCase
-        TEST_CaseRunner.ExpectNumber "T19", "", "exposure_value", "760.4939328393385", "0.000000001", "0.000000001", "illustrative"
+        TEST_CaseRunner.ExpectNumber "T20", "NIR-C", "lambda_shift", "0.003", "0.000000000001", "0", "illustrative"
+        TEST_CaseRunner.ExpectNumber "T21", "NIR-C", "supervisory_delta", "-0.9941752720429311", "0.000000001", "0.000000001", "independent"
 End Sub
 
 
-Private Sub Case34()
+Private Sub Case32()
+    'tests/expected/other-risks.crr.json
+        TEST_CaseRunner.BeginCase "other-risks", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.AddNettingSet "OTHER", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
+        TEST_CaseRunner.AddTrade "OT-1", "OT", "", "LONGEVITY INDEX X", "Linear", "Long", "", "Standard", "", "10000", "0", "", "", "2028-09-29", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "OT-2", "OT", "", "LONGEVITY INDEX X", "Linear", "Short", "", "Standard", "", "4000", "0", "", "", "2029-09-29", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "OT-3", "OT", "", "CAT LOSS INDEX Y", "Linear", "Long", "", "Standard", "", "5000", "0", "", "", "2028-03-31", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectNumber "T24", "", "add_on.other", "880", "0.000000001", "0", "independent"
+        TEST_CaseRunner.ExpectNumber "T25", "", "exposure_value", "1232", "0.000000001", "0", "independent"
+        TEST_CaseRunner.ExpectText "netting_set_status", "", "netting_set_status", "VALID", "illustrative"
+End Sub
+
+
+Private Sub Case33()
     'tests/expected/rsaccr-portfolio-rs-004.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-004", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-004", "Y", "N", "1", "N", "N", "", "-167294.57", "358008.27", "250000", "50000", "", "", ""
@@ -652,7 +640,7 @@ Private Sub Case34()
 End Sub
 
 
-Private Sub Case35()
+Private Sub Case34()
     'tests/expected/rsaccr-portfolio-rs-010-y250-target.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-010-y250-target", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.SetParameter "Calendar", "TARGET"
@@ -680,7 +668,7 @@ Private Sub Case35()
 End Sub
 
 
-Private Sub Case36()
+Private Sub Case35()
     'tests/expected/rsaccr-portfolio-rs-010.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-010", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-010", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -706,7 +694,7 @@ Private Sub Case36()
 End Sub
 
 
-Private Sub Case37()
+Private Sub Case36()
     'tests/expected/rsaccr-portfolio-rs-011-y250-target.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-011-y250-target", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.SetParameter "Calendar", "TARGET"
@@ -735,7 +723,7 @@ Private Sub Case37()
 End Sub
 
 
-Private Sub Case38()
+Private Sub Case37()
     'tests/expected/rsaccr-portfolio-rs-011.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-011", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-011", "Y", "N", "5", "N", "N", "", "198400.65", "492088.05", "250000", "0", "", "", ""
@@ -762,7 +750,7 @@ Private Sub Case38()
 End Sub
 
 
-Private Sub Case39()
+Private Sub Case38()
     'tests/expected/rsaccr-portfolio-rs-014.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-014", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-014", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -794,7 +782,7 @@ Private Sub Case39()
 End Sub
 
 
-Private Sub Case40()
+Private Sub Case39()
     'tests/expected/rsaccr-portfolio-rs-018.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-018", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-018", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
@@ -828,7 +816,7 @@ Private Sub Case40()
 End Sub
 
 
-Private Sub Case41()
+Private Sub Case40()
     'tests/expected/rsaccr-portfolio-rs-024.crr.json
         TEST_CaseRunner.BeginCase "rsaccr-portfolio-rs-024", "CRR", "2026-09-30", "EUR"
         TEST_CaseRunner.AddNettingSet "RS-024", "Y", "N", "5", "N", "N", "", "-120373.5", "241557.27", "0", "0", "", "", ""
@@ -856,4 +844,16 @@ Private Sub Case41()
         TEST_CaseRunner.ExpectNumber "multiplier", "", "multiplier", "0.941531857928017", "0.000000001", "0.000000001", "independent"
         TEST_CaseRunner.ExpectNumber "potential_future_exposure", "", "potential_future_exposure", "6848517.65364127", "0.000001", "0.000000001", "independent"
         TEST_CaseRunner.ExpectNumber "exposure_value", "", "exposure_value", "9587924.71509777", "0.000001", "0.000000001", "independent"
+End Sub
+
+
+Private Sub Case41()
+    'tests/expected/swaption-forward-1pct.crr.json
+        TEST_CaseRunner.BeginCase "swaption-forward-1pct", "CRR", "2026-09-30", "EUR"
+        TEST_CaseRunner.AddNettingSet "EX1-1PCT", "N", "N", "", "N", "N", "", "0", "0", "0", "0", "", "", ""
+        TEST_CaseRunner.AddTrade "EU1P-T1", "IR", "", "USD", "Linear", "Long", "", "Standard", "", "10000", "30", "", "2036-09-27", "2036-09-27", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "EU1P-T2", "IR", "", "USD", "Linear", "Short", "", "Standard", "", "10000", "-20", "", "2030-09-29", "2030-09-29", "", "", "", "", "", "", "", ""
+        TEST_CaseRunner.AddTrade "EU1P-T3", "IR", "", "EUR", "Option", "Long", "Put", "Standard", "", "5000", "50", "2027-09-30", "2037-09-27", "2037-09-27", "2027-09-30", "0.01", "0.05", "", "", "", "", ""
+        TEST_CaseRunner.RunCase
+        TEST_CaseRunner.ExpectNumber "T19", "", "exposure_value", "760.4939328393385", "0.000000001", "0.000000001", "independent"
 End Sub

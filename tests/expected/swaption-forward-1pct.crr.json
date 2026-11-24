@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "kind": "saccr-expected",
+  "fixture": "swaption-forward-1pct",
+  "regime": "CRR",
+  "outputs": [
+    {
+      "quantity": "exposure_value",
+      "rule": "CRR.274.2",
+      "value": 760.4939328393385,
+      "unit": "EUR",
+      "tolerance": {
+        "absolute": 1e-09,
+        "relative": 1e-09
+      },
+      "reference": {
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, the swaption netting set",
+        "derivation": "tools/rsaccr_crosscheck.py translates the fixture and tools/rsaccr_run.R runs the package on it; the package's figure agrees with this value at full precision (#100)",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
+        "reviewed_by": null,
+        "date": "2026-11-23"
+      },
+      "catalogue": "T19"
+    }
+  ]
+}

@@ -8,13 +8,15 @@ the suite counts as complete. Sources and rule IDs come from the
 > [!IMPORTANT]
 > The prototype's 28 TestCatalogue checks are ported as cases (#59): 14 values
 > printed in CRE99 (the BCBS 279 Annex 4a examples) are `published`; the other
-> 14 are `illustrative`. They run in Excel through `TEST_Cases.RunCaseTests`
+> 14 are `illustrative`, apart from the six below that became `independent`. They run in Excel through `TEST_Cases.RunCaseTests`
 > ([consumption](#consumption)). Which rules they validate, and for which
 > regime, is in the [traceability](README.md#traceability) table. The mapping
 > is in [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
 > Since v1.3.0 (unreleased), eight `independent` CRR cases, `rsaccr-portfolio-*`,
 > carry values from the R package `SACCR` (`IMPL-R-SACCR`, #100); two of them
-> run on 250 business days of the TARGET calendar (#721).
+> run on 250 business days of the TARGET calendar (#721). Six of the 14
+> catalogue checks, T15, T19, T21, T24, T25 and T28, are `independent` since
+> 2026-11-23: the package reproduces them ([coverage and limits](README.md#independent-validation)).
 
 ## 📁 Files
 
@@ -439,10 +441,10 @@ Where each [regime difference](README.md#regime-differences) is covered:
 | Regime difference | Covered by |
 | --- | --- |
 | Interest-rate aggregation across maturity buckets | Fixture `illustrative-ir-sum-of-absolutes` (`BCBS`); `TEST_InputValidation` cases `params-ir-sum-of-absolutes-crr` and `params-ir-sum-of-absolutes-bcbs` |
-| Asset classes (other risks) | Fixture `illustrative-other-risks`, both regimes (T24–T26) |
+| Asset classes (other risks) | Fixtures `other-risks`, `CRR` (T24, T25, `independent`), and `illustrative-other-risks`, `BCBS` (T26), on the same inputs |
 | Commodity hedging sets (climatic conditions) | Fixture `illustrative-climatic-commodity`, `CRR` only (T27) |
-| Single-name credit factor | Fixture `illustrative-credit-quality-step`, `CRR` only (T28) |
-| Supervisory delta of interest-rate and commodity options | Fixture `illustrative-negative-ir-forward`, both regimes (T20–T22); fixture `illustrative-negative-commodity-price`, `CRR` only (T23) |
+| Single-name credit factor | Fixture `credit-quality-step`, `CRR` only (T28, `independent`) |
+| Supervisory delta of interest-rate and commodity options | Fixtures `negative-ir-forward`, `CRR` (T20, T21; T21 `independent`), and `illustrative-negative-ir-forward`, `BCBS` (T22), on the same inputs; fixture `illustrative-negative-commodity-price`, `CRR` only (T23) |
 | Interest-rate maturity bucket 1 | `TEST_InputValidation` cases `ir-bucket-boundaries-crr`, `ir-bucket-boundaries-bcbs`, `ir-bucket-offset-crr` and `ir-bucket-offset-bcbs` |
 | MPOR floor of a client facing its clearing member | Fixture `illustrative-clearing-client-listed`, both regimes (MPOR 9 under `CRR`, 14 under `BCBS`); `TEST_InputValidation` cases `netting-set-clearing-client-crr` and `netting-set-clearing-client-bcbs` |
 | Variation margin posted under a one-way margin agreement | `TEST_InputValidation` cases `netting-set-unmargined-vm-posted-crr` and `netting-set-unmargined-vm-posted-bcbs` |
