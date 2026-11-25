@@ -61,12 +61,12 @@ Attribute VB_Name = "TEST_Formulas"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 11                 'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 12                 'Cases in a complete run
     'Two checks of LongLong inputs run on 64-bit VBA only.
 #If Win64 Then
-        Private Const EXPECTED_CHECKS  As Long = 131                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 135                'Checks in a complete run
 #Else
-        Private Const EXPECTED_CHECKS  As Long = 129                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 133                'Checks in a complete run
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
@@ -80,20 +80,52 @@ Attribute VB_Name = "TEST_Formulas"
 '
 
 Public Sub RunFormulaTests()
+
 '
-'==============================================================================
-'                               RunFormulaTests
+'------------------------------------------------------------------------------
+'                            RUN THE FORMULA TESTS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run every case and print one CASE line per case, each failed check,
-'   and a final RESULT line.
+'   Runs every case and prints one CASE line per case, each failed check,
+'   and a final RESULT line
+'
+' WHY THIS EXISTS
+'   The entry point of the suite for Test_RunAll and for a run by hand
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Starts the suite with its expected counts, runs the cases in order and
+'   ends the suite, which prints the RESULT line
+'
+' ERROR POLICY
+'   Each case contains its own errors as failures of the case
+'
+' DEPENDENCIES
+'   TEST_Kit.BeginSuite, TEST_Kit.EndSuite and the Case procedures below
+'
+' NOTES
+'   CaseEngineCalendar compares the engine's list of closing days with
+'   SACCR_BusinessDays (#771)
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' START
+'------------------------------------------------------------------------------
+    'Stop when another suite is running
         If Not TEST_Kit.BeginSuite("TEST_Formulas", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
 
+'------------------------------------------------------------------------------
+' RUN CASES
+'------------------------------------------------------------------------------
+    'Every case, in order
         CaseSupervisoryDuration
         CaseMaturityFactor
         CaseLambdaThreshold
@@ -103,9 +135,14 @@ Public Sub RunFormulaTests()
         CaseAggregationShapes
         CaseAggregationElements
         CaseBusinessDays
+        CaseEngineCalendar
         CaseIndependentValues
         CaseWorksheetCells
 
+'------------------------------------------------------------------------------
+' REPORT
+'------------------------------------------------------------------------------
+    'Print the RESULT line
         TEST_Kit.EndSuite
 
 End Sub
@@ -287,6 +324,183 @@ Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
 End Sub
 
+Private Sub CaseEngineCalendar()
+
+'
+'------------------------------------------------------------------------------
+'               COMPARE THE ENGINE'S CALENDAR WITH THE FUNCTION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Checks that the engine's list of closing days (#771) counts the business
+'   days of every day of its window, and of intervals across it, as
+'   SACCR_BusinessDays does
+'
+' WHY THIS EXISTS
+'   On a business-day convention the engine counts on its own list, built
+'   once from its own copy of the TARGET rule; a copy that drifted from the
+'   function would change S, E, M and T without an error
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Every day from 2 January 1999 to 31 December 2100, one day at a time,
+'     on TARGET and on TARGET with a table of closing days
+'   - 2,000 intervals of up to 40 years, from a fixed sequence, on both
+'   - Dates outside the window, and a reversed interval, are left uncounted
+'
+' ERROR POLICY
+'   An unexpected error is a failure of the case
+'
+' DEPENDENCIES
+'   CORE_Engine.WindowBusinessDays, SACCR_BusinessDays, TEST_Kit
+'
+' NOTES
+'   The table holds a Monday, a Saturday, a TARGET day twice, a fraction of
+'   a day, two days outside the window and is not sorted, as
+'   tools/test_closing_list.py, which compares the same list with the
+'   Python reference of the calendar
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "TEST_Formulas.CaseEngineCalendar"
+    Const WINDOW_FIRST  As Long = 36161      '1 January 1999
+    Const WINDOW_LAST   As Long = 73415      '31 December 2100
+
+    Dim Table           As Variant    'Table of closing days
+    Dim Holidays        As Variant    'Table of the calendar being compared
+    Dim Calendar        As Long       '1 for TARGET, 2 for TARGET with the table
+    Dim LastDay         As Long       'Last day of a one-day interval
+    Dim FirstDay        As Long       'Day before the first day of an interval
+    Dim Seed            As Long       'State of the fixed sequence
+    Dim Pair            As Long       'Interval of the sequence
+    Dim Wrong           As String     'First difference found
+    Dim Differences     As Long       'Differences found
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Contain an unexpected error as a failure
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "business-days.engine-calendar"
+        Table = Array(CDbl(DateSerial(2030, 6, 3)), CDbl(DateSerial(2030, 6, 1)), _
+            CDbl(DateSerial(2026, 12, 25)), CDbl(DateSerial(2026, 12, 25)), _
+            CDbl(DateSerial(2024, 8, 15)) + 0.5, CDbl(DateSerial(1998, 6, 1)), _
+            CDbl(DateSerial(2101, 3, 1)), CDbl(DateSerial(2099, 11, 2)), CDbl(DateSerial(2000, 1, 3)))
+
+'------------------------------------------------------------------------------
+' EVERY DAY OF THE WINDOW
+'------------------------------------------------------------------------------
+    'Each day alone, on TARGET and on TARGET with the table
+        For Calendar = 1 To 2
+            Holidays = Empty
+            If Calendar = 2 Then Holidays = Table
+            Differences = 0
+            Wrong = vbNullString
+            For LastDay = WINDOW_FIRST + 1 To WINDOW_LAST
+                If Not SameCount(LastDay - 1, LastDay, Holidays) Then
+                    Differences = Differences + 1
+                    If Len(Wrong) = 0 Then Wrong = Format$(CDate(LastDay), "yyyy-mm-dd")
+                End If
+            Next LastDay
+            TEST_Kit.Check Differences = 0, "every day, calendar " & Calendar & ": " & Differences & _
+                " day(s) differ, the first " & Wrong
+        Next Calendar
+
+'------------------------------------------------------------------------------
+' INTERVALS
+'------------------------------------------------------------------------------
+    'Intervals of up to 40 years from a fixed sequence, on both calendars
+        Differences = 0
+        Wrong = vbNullString
+        Seed = 771
+        For Pair = 1 To 2000
+            Seed = (Seed * 1103 + 12345) Mod 1000003
+            FirstDay = WINDOW_FIRST + (Seed Mod (WINDOW_LAST - WINDOW_FIRST + 1))
+            Seed = (Seed * 1103 + 12345) Mod 1000003
+            LastDay = FirstDay + (Seed Mod 14610)
+            If LastDay > WINDOW_LAST Then LastDay = WINDOW_LAST
+            For Calendar = 1 To 2
+                Holidays = Empty
+                If Calendar = 2 Then Holidays = Table
+                If Not SameCount(FirstDay, LastDay, Holidays) Then
+                    Differences = Differences + 1
+                    If Len(Wrong) = 0 Then Wrong = FirstDay & " to " & LastDay & ", calendar " & Calendar
+                End If
+            Next Calendar
+        Next Pair
+        TEST_Kit.Check Differences = 0, "intervals: " & Differences & " differ, the first " & Wrong
+
+'------------------------------------------------------------------------------
+' OUTSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'Before 1999, after 2100 and a reversed interval are not counted
+        TEST_Kit.Check IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_FIRST - 1, WINDOW_FIRST + 40, Empty)) And _
+            IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_LAST - 40, WINDOW_LAST + 1, Empty)) And _
+            IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_FIRST + 40, WINDOW_FIRST + 39, Empty)), _
+            "a date outside the window or a reversed interval was counted"
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+Unexpected:
+    'Report the error as a failure of the case
+        TEST_Kit.Fail "business-days.engine-calendar", PROC_NAME & ": unexpected error " & Err.Number & _
+            ": " & Err.Description
+
+End Sub
+
+Private Function SameCount( _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long, _
+    ByVal Holidays As Variant) _
+    As Boolean
+'
+'------------------------------------------------------------------------------
+'                    COMPARE ONE INTERVAL OF BUSINESS DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns True when the engine's list and SACCR_BusinessDays give the
+'   same business days in (FirstDay, LastDay] for a table of closing days
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Expected   As Variant    'SACCR_BusinessDays
+    Dim Actual     As Variant    'The engine's count
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Both counts, numbers and equal
+        If IsEmpty(Holidays) Then
+            Expected = SACCR_BusinessDays(CDbl(FirstDay), CDbl(LastDay))
+        Else
+            Expected = SACCR_BusinessDays(CDbl(FirstDay), CDbl(LastDay), Holidays)
+        End If
+        Actual = CORE_Engine.WindowBusinessDays(CDbl(FirstDay), CDbl(LastDay), Holidays)
+        If IsError(Expected) Or IsEmpty(Actual) Then Exit Function
+        SameCount = (CDbl(Expected) = CDbl(Actual))
+
+End Function
 
 Private Sub CaseIndependentValues()
 '
