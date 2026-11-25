@@ -2,8 +2,8 @@
 
 Every column header of NettingSets and Trades carries a note: its title is the header, and its text
 says what the field is, the values allowed, what a blank means and the CSV field name. The three input
-sheets have the header on row 5, below an empty row 4 of 30 points, and freeze rows 1 to 4, the same on
-Home, so that the view does not jump from one sheet to the next. The header rows are found from their workbook names.
+sheets have the header on row 5, below an empty row 4 of 30 points, and freeze rows 1 to 4, as Home does,
+so that the view does not jump from one sheet to the next. The header rows are found from their workbook names.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ CONTRACT = ROOT / "docs" / "csv" / "contract.json"
 INPUT_SHEETS = {"Params": "Params_Code", "NettingSets": "NettingSets_Header", "Trades": "Trades_Header"}
 HEADER_ROW = 5
 FROZEN_ROWS = 4  # rows 1 to 4, the empty row included; the header row scrolls with the data (owner, 2026-11-25)
-TOP_ROW_HEIGHT = 30.0  # rows 3, 4 and 5 of the three input sheets, row 4 of Home
+TOP_ROW_HEIGHT = 30.0  # rows 3, 4 and 5 of the three input sheets
 
 
 class HeaderNoteTests(unittest.TestCase):
@@ -90,13 +90,28 @@ class HeaderNoteTests(unittest.TestCase):
         panes = {name: self.sheet(name).find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane") for name in INPUT_SHEETS}
         self.assertEqual({name: pane.attrib.get("topLeftCell") for name, pane in panes.items() if pane is not None},
                          {"Params": "D5", "NettingSets": "D5", "Trades": "E5"})
-        # Home freezes the same four rows, its row 4 as high
-        home = self.sheet("Home")
-        pane = home.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
-        assert pane is not None
-        self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS))
-        heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in home.iter(MAIN + "row")}
-        self.assertEqual(heights.get("4"), TOP_ROW_HEIGHT)
+        # Home freezes the same four rows, as high as on the input sheets (owner, 2026-11-25)
+        frozen = {}
+        for name in ("Home", *INPUT_SHEETS):
+            sheet = self.sheet(name)
+            pane = sheet.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+            assert pane is not None, name
+            self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS), name)
+            heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
+            frozen[name] = [heights.get(str(row)) for row in range(1, FROZEN_ROWS + 1)]
+        self.assertEqual(len({tuple(rows) for rows in frozen.values()}), 1, frozen)
+
+    def test_the_two_staging_sheets_freeze_rows_of_the_same_height(self) -> None:
+        # Moving between Import_NettingSets and Import_Trades leaves the view where it was (owner, 2026-11-25).
+        frozen = {}
+        for name in ("Import_NettingSets", "Import_Trades"):
+            sheet = self.sheet(name)
+            pane = sheet.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+            assert pane is not None, name
+            rows = int(pane.attrib.get("ySplit", "0"))
+            heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
+            frozen[name] = (rows, [heights.get(str(row), 15.0) for row in range(1, rows + 1)])
+        self.assertEqual(frozen["Import_NettingSets"], frozen["Import_Trades"])
 
     def test_the_staging_sheets_show_the_same_headers(self) -> None:
         for kind, anchor in (("NettingSets", "ImportNettingSets_Header"), ("Trades", "ImportTrades_Header")):

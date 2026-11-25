@@ -105,6 +105,24 @@ Use only the categories needed by a release.
   `Verify-SACCR-Branch.ps1 -Quick -BenchmarkSizes` refuses sizes that are not a list of at most
   ten whole numbers.
 
+- **Hide and show the navigation bar from the sheet** (#777). A small triangle at the far left of
+  B1 of every sheet does what the Ribbon's Navigation bar toggle does, on every sheet at once: ◀
+  while the bar is shown hides it, ▶ while it is hidden shows it again, in the same place. The bar
+  in column A is narrower (width 18 instead of 21.75) and the margin column B narrower (2 instead
+  of 4); every sheet freezes at least columns A and B, so the triangle stays in view when the
+  sheet scrolls, and the titles move from B1 and B2 to C1 and C2, without indent, so the freeze
+  line never crosses them. `tools/navigation_bar.py` draws the triangles with the bar and checks
+  them; `TEST_MainState` (`navigation.bar-toggle`) checks the triangle shown on every sheet after
+  a hide, a save and a show.
+
+- **The same height of frozen rows from sheet to sheet** (#777). Moving from one sheet to another no
+  longer makes the view jump. Every sheet has the same title band (rows 1 to 3 at 24, 26.1 and 30
+  points). Home, the three input sheets, Dashboard and ReconSummary freeze rows 1 to 4, 110.1 points
+  high. The output tables (Results, HedgingSets, Buckets, TradeCalc, Checks) start their column
+  header at the same point, 110.1 points down, with the same height, 63.75 points: 173.85 points are
+  frozen on all five. The two staging sheets freeze the same 235.35 points, the two bank sheets the
+  same 205.5 and the two reconciliation sheets the same 269.85. `tools/test_frozen_rows.py` checks it.
+
 - A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
   the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
   and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing
@@ -155,8 +173,8 @@ Use only the categories needed by a release.
 
 - Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` have the
   header on row 5, below an empty row 4, data from row 6 and rows 3 to 5 30 points high, and freeze
-  rows 1 to 4 (the header scrolls with the data), as `Home` does, whose row 4 is as high, so that the
-  view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+  rows 1 to 4 (the header scrolls with the data), as `Home` does, whose rows 3 and 4 are as high,
+  so that the frozen rows are the same height and the view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
   workbook names move with the rows, so no code or test reads a row number. The
   column headers are short (`Margined`, `Client clearing role`, `Remargin freq. (BD)`, `Large or
   illiquid`, `Net VM`, `Hedging-set label`, `Strike (K)`, ...), on the staging sheets too, and every
