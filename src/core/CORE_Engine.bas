@@ -4570,79 +4570,107 @@ Private Sub AddWarn( _
 
 End Sub
 
-
 Private Sub CheckEconomicTrades( _
-    ByVal InputBlock As Variant, _
+    ByRef InputBlock As Variant, _
     ByVal DataRowCount As Long, _
     ByVal TopRow As Long)
 '
-'==============================================================================
-'                             CheckEconomicTrades
+'------------------------------------------------------------------------------
+'                     GROUP THE LEGS INTO ECONOMIC TRADES
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Group the Trades rows into economic trades (#38) and find the groups
-'   that cannot be used. Each row is a leg with a unique Trade ID; legs
-'   sharing an Economic trade ID form one economic trade, and a row with a
-'   blank Economic trade ID is a whole trade on its own. An economic trade
-'   with legs is rejected, every leg with it, when:
-'   - not exactly one leg has MtM leg = Y, or a leg that is not the MtM leg
-'     has a MtM other than 0: the economic MtM must be counted once;
-'   - its legs are in different netting sets (and so possibly different
-'     regimes);
-'   - two of its legs are in the same asset class and not both options:
-'     only option structures may be split into options [CRE52 FAQ on
-'     decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs in
-'     different asset classes map one transaction to several risk
-'     categories [CRE52.28; CRR Art. 277(3)];
-'   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N;
-'   - its legs differ in settlement type (blank read as N) or next reset
-'     date (#360).
+'   Groups the Trades rows into economic trades (#38) and finds the groups
+'   that cannot be used
+'
+' WHY THIS EXISTS
+'   Each row is a leg with a unique Trade ID; legs sharing an Economic
+'   trade ID form one economic trade, and a row with a blank Economic trade
+'   ID is a whole trade on its own. The rules below keep a decomposed trade
+'   from counting its MtM twice or from being split where the regulation
+'   does not allow it
 '
 ' INPUTS
-'   InputBlock: the Trades block read by ProcessTrades, (row, column).
-'   DataRowCount: rows in InputBlock.
-'   TopRow: sheet row of InputBlock row 1, for the messages.
+'   InputBlock
+'     The Trades block read by ProcessTrades, (row, column); read only
+'
+'   DataRowCount
+'     Rows in InputBlock
+'
+'   TopRow
+'     Sheet row of InputBlock row 1, for the messages
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   An economic trade with legs is rejected, every leg with it, when:
+'     - not exactly one leg has MtM leg = Y, or a leg that is not the MtM
+'       leg has a MtM other than 0: the economic MtM must be counted once
+'     - its legs are in different netting sets, and so possibly different
+'       regimes
+'     - two of its legs are in the same asset class and not both options:
+'       only option structures may be split into options [CRE52 FAQ on
+'       decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs
+'       in different asset classes map one transaction to several risk
+'       categories [CRE52.28; CRR Art. 277(3)]
+'     - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N
+'     - its legs differ in settlement type (blank read as N) or next reset
+'       date (#360)
+'
+' ERROR POLICY
+'   A rule broken is recorded with AddGroupError, not raised; an unexpected
+'   error raises to ProcessTrades
+'
+' DEPENDENCIES
+'   AddGroupError, KeyIndex, KeyAdd, SafeStr, UTxt, ToSerial, IsNum,
+'   DescribeValue
+'
+' NOTES
+'   InputBlock is passed by reference so that the block is not copied
+'   (#771); nothing here writes to it
 '
 ' STATE OWNERSHIP
 '   Fills mRowGroup, mGrpError and mGrpRejected (zeroed) and sets
 '   mEconRead; adds one economic trade per group to its netting set's
-'   EconTrades.
+'   EconTrades
 '
 ' UPDATED
-'   2026-10-20
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Groups                 As Collection    'Group number by key: E|economic ID or L|trade ID
-    Dim ClassEntries           As Collection    'Per group and asset class: index into ClassLegs
-    Dim GroupName()            As String        'Economic trade ID, or the Trade ID of a whole trade
-    Dim GroupNS()              As String        'Netting set of the first leg
-    Dim GroupLegs()            As Long          'Legs of the group
-    Dim GroupMtmLegs()         As Long          'Legs flagged Y
-    Dim GroupHasEconomicID()   As Boolean       'The group has an Economic trade ID
-    Dim GroupSettlement()      As String        'Settlement type of the first leg, blank read as N
-    Dim GroupReset()           As Double        'Next reset date of the first leg; -1 when blank
-    Dim ClassLegs()            As Long          'Legs in one asset class of one group
-    Dim ClassLinearLegs()      As Long          'Of those, legs that are not options
-    Dim ClassGroup()           As Long          'Group of each asset-class entry
-    Dim ClassName()            As String        'Asset class of each entry
-    Dim ClassCount             As Long          'Asset-class entries
-    Dim i                      As Long          'Data row
-    Dim g                      As Long          'Group number
-    Dim a                      As Long          'Asset-class entry
-    Dim TradeID                As String        'Trade ID of the row
-    Dim EconomicID             As String        'Economic trade ID of the row
-    Dim GroupKey               As String        'Key of the row's group
-    Dim MtmLegFlag             As String        'MtM leg flag of the row
-    Dim NSPosition             As Long          'Netting set of a new group; 0 if unknown
-    Dim Settlement             As String        'Settlement type of the row, blank read as N
+    Const PROC_NAME              As String = "CORE_Engine.CheckEconomicTrades"
+
+    Dim Groups                   As Collection    'Group number by key: E|economic ID or L|trade ID
+    Dim ClassEntries             As Collection    'Per group and asset class: index into ClassLegs
+    Dim GroupName()              As String        'Economic trade ID, or the Trade ID of a whole trade
+    Dim GroupNS()                As String        'Netting set of the first leg
+    Dim GroupLegs()              As Long          'Legs of the group
+    Dim GroupMtmLegs()           As Long          'Legs flagged Y
+    Dim GroupHasEconomicID()     As Boolean       'The group has an Economic trade ID
+    Dim GroupSettlement()        As String        'Settlement type of the first leg, blank read as N
+    Dim GroupReset()             As Double        'Next reset date of the first leg; -1 when blank
+    Dim ClassLegs()              As Long          'Legs in one asset class of one group
+    Dim ClassLinearLegs()        As Long          'Of those, legs that are not options
+    Dim ClassGroup()             As Long          'Group of each asset-class entry
+    Dim ClassName()              As String        'Asset class of each entry
+    Dim ClassCount               As Long          'Asset-class entries
+    Dim RowIndex                 As Long          'Data row
+    Dim GroupIndex               As Long          'Group number
+    Dim ClassIndex               As Long          'Asset-class entry
+    Dim TradeID                  As String        'Trade ID of the row
+    Dim EconomicID               As String        'Economic trade ID of the row
+    Dim GroupKey                 As String        'Key of the row's group
+    Dim MtmLegFlag               As String        'MtM leg flag of the row
+    Dim NSPosition               As Long          'Netting set of a new group; 0 if unknown
+    Dim Settlement               As String        'Settlement type of the row, blank read as N
 
 '------------------------------------------------------------------------------
-' GROUP THE LEGS
+' INITIALIZE
 '------------------------------------------------------------------------------
+    'One slot per row for the module's arrays and the group's working arrays
         ReDim mRowGroup(0 To DataRowCount)
         ReDim mGrpError(0 To DataRowCount)
         ReDim mGrpFindings(0 To DataRowCount)
@@ -4658,129 +4686,147 @@ Private Sub CheckEconomicTrades( _
         ReDim ClassLinearLegs(1 To DataRowCount + 1)
         ReDim ClassGroup(1 To DataRowCount + 1)
         ReDim ClassName(1 To DataRowCount + 1)
+    'No group and no asset-class entry yet
         Set Groups = New Collection
         Set ClassEntries = New Collection
         mEconRead = 0
         ClassCount = 0
-        For i = 1 To DataRowCount
-            TradeID = SafeStr(InputBlock(i, TR_ID))
+
+'------------------------------------------------------------------------------
+' GROUP THE LEGS
+'------------------------------------------------------------------------------
+    'Each row with a Trade ID joins the group of its Economic trade ID, or
+    'is a group of its own
+        For RowIndex = 1 To DataRowCount
+            TradeID = SafeStr(InputBlock(RowIndex, TR_ID))
             If Len(TradeID) > 0 Then
-                EconomicID = SafeStr(InputBlock(i, TR_ECON))
-                Settlement = UTxt(InputBlock(i, TR_SETTLE))
-                If Len(Settlement) = 0 Then Settlement = ST_NONE
+                EconomicID = SafeStr(InputBlock(RowIndex, TR_ECON))
+                Settlement = UTxt(InputBlock(RowIndex, TR_SETTLE))
+                If Len(Settlement) = 0 Then
+                    Settlement = ST_NONE
+                End If
                 If Len(EconomicID) = 0 Then
                     GroupKey = "L|" & UCase$(TradeID)
                 Else
                     GroupKey = "E|" & UCase$(EconomicID)
                 End If
-                g = KeyIndex(Groups, GroupKey)
-                If g = 0 Then
+                GroupIndex = KeyIndex(Groups, GroupKey)
+                If GroupIndex = 0 Then
                     mEconRead = mEconRead + 1
-                    g = mEconRead
-                    KeyAdd Groups, GroupKey, g
-                    GroupName(g) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
-                    GroupHasEconomicID(g) = (Len(EconomicID) > 0)
-                    GroupSettlement(g) = Settlement
-                    GroupReset(g) = ToSerial(InputBlock(i, TR_RESET))
-                    GroupNS(g) = UTxt(InputBlock(i, TR_NS))
-                    NSPosition = KeyIndex(mNSIndex, GroupNS(g))
+                    GroupIndex = mEconRead
+                    KeyAdd Groups, GroupKey, GroupIndex
+                    GroupName(GroupIndex) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
+                    GroupHasEconomicID(GroupIndex) = (Len(EconomicID) > 0)
+                    GroupSettlement(GroupIndex) = Settlement
+                    GroupReset(GroupIndex) = ToSerial(InputBlock(RowIndex, TR_RESET))
+                    GroupNS(GroupIndex) = UTxt(InputBlock(RowIndex, TR_NS))
+                    NSPosition = KeyIndex(mNSIndex, GroupNS(GroupIndex))
                     If NSPosition > 0 Then
                         mNS(NSPosition).EconTrades = mNS(NSPosition).EconTrades + 1
                     End If
-                ElseIf GroupHasEconomicID(g) Then
-                    If UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
-                        AddGroupError DIAG_ECON_NETTING_SET, "Netting set ID", g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
-                                      UTxt(InputBlock(i, TR_NS)) & ")"
+                ElseIf GroupHasEconomicID(GroupIndex) Then
+                    If UTxt(InputBlock(RowIndex, TR_NS)) <> GroupNS(GroupIndex) Then
+                        AddGroupError DIAG_ECON_NETTING_SET, "Netting set ID", GroupIndex, _
+                            "its legs are in different netting sets (" & GroupNS(GroupIndex) & ", " & _
+                            UTxt(InputBlock(RowIndex, TR_NS)) & ")"
                     End If
-
     'The legs decompose one contractual trade, so they share its settlement
     'arrangement; separately contracted trades have their own Economic
-    'trade ID, or none, and may differ (#360).
-                    If Settlement <> GroupSettlement(g) Then
-                        AddGroupError DIAG_ECON_SETTLEMENT, "Settlement type", g, "its legs have different settlement types (" & GroupSettlement(g) & _
-                                      ", " & Settlement & ")"
-                    ElseIf ToSerial(InputBlock(i, TR_RESET)) <> GroupReset(g) Then
-                        AddGroupError DIAG_ECON_RESET, "Next reset date", g, "its legs have different next reset dates"
+    'trade ID, or none, and may differ (#360)
+                    If Settlement <> GroupSettlement(GroupIndex) Then
+                        AddGroupError DIAG_ECON_SETTLEMENT, "Settlement type", GroupIndex, _
+                            "its legs have different settlement types (" & GroupSettlement(GroupIndex) & _
+                            ", " & Settlement & ")"
+                    ElseIf ToSerial(InputBlock(RowIndex, TR_RESET)) <> GroupReset(GroupIndex) Then
+                        AddGroupError DIAG_ECON_RESET, "Next reset date", GroupIndex, _
+                            "its legs have different next reset dates"
                     End If
                 End If
-                mRowGroup(i) = g
-                GroupLegs(g) = GroupLegs(g) + 1
-                If IsError(InputBlock(i, TR_ECON)) Then
-                    AddGroupError DIAG_ECON_ID, "Economic trade ID", g, "Economic trade ID must be text or blank (found an error value on row " & _
-                                  (TopRow + i - 1) & ")"
+                mRowGroup(RowIndex) = GroupIndex
+                GroupLegs(GroupIndex) = GroupLegs(GroupIndex) + 1
+                If IsError(InputBlock(RowIndex, TR_ECON)) Then
+                    AddGroupError DIAG_ECON_ID, "Economic trade ID", GroupIndex, _
+                        "Economic trade ID must be text or blank (found an error value on row " & _
+                        (TopRow + RowIndex - 1) & ")"
                 End If
-
-    'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade).
-    'An error value is not read as blank.
-                MtmLegFlag = UTxt(InputBlock(i, TR_MTMLEG))
-                If IsError(InputBlock(i, TR_MTMLEG)) Then
-                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found an error value on row " & _
-                                  (TopRow + i - 1) & ")"
+    'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade); an
+    'error value is not read as blank
+                MtmLegFlag = UTxt(InputBlock(RowIndex, TR_MTMLEG))
+                If IsError(InputBlock(RowIndex, TR_MTMLEG)) Then
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", GroupIndex, _
+                        "MtM leg must be Y or N (found an error value on row " & (TopRow + RowIndex - 1) & ")"
                 ElseIf MtmLegFlag = "Y" Then
-                    GroupMtmLegs(g) = GroupMtmLegs(g) + 1
+                    GroupMtmLegs(GroupIndex) = GroupMtmLegs(GroupIndex) + 1
                 ElseIf MtmLegFlag = "N" Then
-                    If Not GroupHasEconomicID(g) Then
-                        AddGroupError DIAG_ECON_WHOLE_MTM, "MtM leg", g, "a trade without an Economic trade ID carries its own MtM, so " & _
-                                      "MtM leg must be Y or blank"
+                    If Not GroupHasEconomicID(GroupIndex) Then
+                        AddGroupError DIAG_ECON_WHOLE_MTM, "MtM leg", GroupIndex, _
+                            "a trade without an Economic trade ID carries its own MtM, so " & _
+                            "MtM leg must be Y or blank"
                     End If
                 ElseIf Len(MtmLegFlag) > 0 Then
-                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found " & DescribeValue(InputBlock(i, TR_MTMLEG)) & _
-                                  " on row " & (TopRow + i - 1) & ")"
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", GroupIndex, _
+                        "MtM leg must be Y or N (found " & DescribeValue(InputBlock(RowIndex, TR_MTMLEG)) & _
+                        " on row " & (TopRow + RowIndex - 1) & ")"
                 End If
-
-    'Asset classes of the group's legs, for the decomposition rule.
-                a = KeyIndex(ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)))
-                If a = 0 Then
+    'Asset classes of the group's legs, for the decomposition rule
+                ClassIndex = KeyIndex(ClassEntries, GroupIndex & "|" & UTxt(InputBlock(RowIndex, TR_AC)))
+                If ClassIndex = 0 Then
                     ClassCount = ClassCount + 1
-                    a = ClassCount
-                    KeyAdd ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)), a
-                    ClassGroup(a) = g
-                    ClassName(a) = UTxt(InputBlock(i, TR_AC))
+                    ClassIndex = ClassCount
+                    KeyAdd ClassEntries, GroupIndex & "|" & UTxt(InputBlock(RowIndex, TR_AC)), ClassIndex
+                    ClassGroup(ClassIndex) = GroupIndex
+                    ClassName(ClassIndex) = UTxt(InputBlock(RowIndex, TR_AC))
                 End If
-                ClassLegs(a) = ClassLegs(a) + 1
-                If UTxt(InputBlock(i, TR_INSTR)) <> "OPTION" Then
-                    ClassLinearLegs(a) = ClassLinearLegs(a) + 1
+                ClassLegs(ClassIndex) = ClassLegs(ClassIndex) + 1
+                If UTxt(InputBlock(RowIndex, TR_INSTR)) <> "OPTION" Then
+                    ClassLinearLegs(ClassIndex) = ClassLinearLegs(ClassIndex) + 1
                 End If
             End If
-        Next i
+        Next RowIndex
 
 '------------------------------------------------------------------------------
 ' CHECK EACH ECONOMIC TRADE
 '------------------------------------------------------------------------------
-    'The MtM is counted once: exactly one MtM leg, and 0 on every other leg.
-        For g = 1 To mEconRead
-            If GroupHasEconomicID(g) And GroupMtmLegs(g) <> 1 Then
-                AddGroupError DIAG_ECON_MTM_COUNT, "MtM leg", g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(g)
+    'The MtM is counted once: exactly one MtM leg
+        For GroupIndex = 1 To mEconRead
+            If GroupHasEconomicID(GroupIndex) And GroupMtmLegs(GroupIndex) <> 1 Then
+                AddGroupError DIAG_ECON_MTM_COUNT, "MtM leg", GroupIndex, _
+                    "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(GroupIndex)
             End If
-        Next g
-        For i = 1 To DataRowCount
-            g = mRowGroup(i)
-            If g > 0 Then
-                If GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_MTMLEG)) <> "Y" And IsNum(InputBlock(i, TR_MTM)) Then
-                    If CDbl(InputBlock(i, TR_MTM)) <> 0# Then
-                        AddGroupError DIAG_ECON_MTM_VALUE, "MtM", g, "leg " & SafeStr(InputBlock(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
-                                      "must be 0 (found " & DescribeValue(InputBlock(i, TR_MTM)) & ")"
+        Next GroupIndex
+    'And 0 on every other leg
+        For RowIndex = 1 To DataRowCount
+            GroupIndex = mRowGroup(RowIndex)
+            If GroupIndex > 0 Then
+                If GroupHasEconomicID(GroupIndex) And UTxt(InputBlock(RowIndex, TR_MTMLEG)) <> "Y" And _
+                    IsNum(InputBlock(RowIndex, TR_MTM)) Then
+                    If CDbl(InputBlock(RowIndex, TR_MTM)) <> 0# Then
+                        AddGroupError DIAG_ECON_MTM_VALUE, "MtM", GroupIndex, _
+                            "leg " & SafeStr(InputBlock(RowIndex, TR_ID)) & " is not the MtM leg, so its MtM " & _
+                            "must be 0 (found " & DescribeValue(InputBlock(RowIndex, TR_MTM)) & ")"
                     End If
                 End If
             End If
-        Next i
-
+        Next RowIndex
     'Legs in one asset class must all be options: a linear product is not
     'split into legs of the same class. A Trade ID repeated without an
-    'Economic trade ID is not a group: ProcessTrades rejects the repeat.
-        For a = 1 To ClassCount
-            If GroupHasEconomicID(ClassGroup(a)) And ClassLegs(a) > 1 And ClassLinearLegs(a) > 0 Then
-                AddGroupError DIAG_ECON_ASSET_CLASS, "", ClassGroup(a), "it has " & ClassLegs(a) & " legs in asset class " & ClassName(a) & _
-                              " that are not all options: only an option structure may be split into " & _
-                              "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
-                              "one leg (CRR Art. 277(3))"
+    'Economic trade ID is not a group: ProcessTrades rejects the repeat
+        For ClassIndex = 1 To ClassCount
+            If GroupHasEconomicID(ClassGroup(ClassIndex)) And ClassLegs(ClassIndex) > 1 And _
+                ClassLinearLegs(ClassIndex) > 0 Then
+                AddGroupError DIAG_ECON_ASSET_CLASS, "", ClassGroup(ClassIndex), _
+                    "it has " & ClassLegs(ClassIndex) & " legs in asset class " & ClassName(ClassIndex) & _
+                    " that are not all options: only an option structure may be split into " & _
+                    "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
+                    "one leg (CRR Art. 277(3))"
             End If
-        Next a
-        For g = 1 To mEconRead
-            If Len(mGrpError(g)) > 0 Then
-                mGrpError(g) = "economic trade " & GroupName(g) & ": " & mGrpError(g)
+        Next ClassIndex
+    'Name the economic trade in front of its errors
+        For GroupIndex = 1 To mEconRead
+            If Len(mGrpError(GroupIndex)) > 0 Then
+                mGrpError(GroupIndex) = "economic trade " & GroupName(GroupIndex) & ": " & mGrpError(GroupIndex)
             End If
-        Next g
+        Next GroupIndex
 
 End Sub
 
@@ -4828,66 +4874,96 @@ Private Sub LogGroupFindings(ByVal GroupNumber As Long)
         Next Finding
 End Sub
 
-
 Private Sub ProcessTrades( _
     ByVal WriteOutputs As Boolean)
 '
-'==============================================================================
-'                                ProcessTrades
+'------------------------------------------------------------------------------
+'                            CALCULATE EVERY TRADE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Validate and calculate every trade on the Trades sheet: classification,
-'   supervisory factor, amounts in the reporting currency, time to maturity,
-'   supervisory delta, adjusted notional, maturity factor and effective
-'   notional. Each valid trade is added to its bucket; every trade, valid or
-'   not, gets one TradeCalc row. The steps run in this order for each
-'   trade, on one tTrade record: ReadTradeClass, ReadTradeAmounts,
-'   ReadTradeDates, ReadTradeSettlement, TradeDelta, TradeHedgingSet,
-'   UseTrade and TradeCalcRow (#60, #360).
+'   Validates and calculates every trade on the Trades sheet, adds each
+'   valid trade to its bucket, and writes one TradeCalc row per trade,
+'   valid or not
+'
+' WHY THIS EXISTS
+'   The trade-level quantities feed the hedging sets, the add-ons and the
+'   checks: one pass over the Trades block computes them all, in a fixed
+'   order on one tTrade record (#60, #360)
 '
 ' INPUTS
-'   WriteOutputs: True writes the TradeCalc sheet.
+'   WriteOutputs
+'     True writes the TradeCalc sheet
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Reads the Trades block once, as Value2; with no trade, logs
+'     DIAG_TR_EMPTY and clears TradeCalc
+'   - Groups the legs into economic trades (CheckEconomicTrades)
+'   - For each row: classification, supervisory factor, amounts in the
+'     reporting currency, time to maturity, supervisory delta, adjusted
+'     notional, maturity factor and effective notional, in the order
+'     ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
+'     ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade and
+'     TradeCalcRow
+'   - Counts the economic trades none of whose legs was rejected
+'   - Writes TradeCalc, formats its columns, and formats the lambda of the
+'     commodity rows as a number (FormatCommodityLambdas, #708)
+'
+' ERROR POLICY
+'   An invalid trade is logged with all its reasons and left out of the
+'   calculation; an unexpected error raises to the caller
+'
+' DEPENDENCIES
+'   CheckEconomicTrades, ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
+'   ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade,
+'   TradeCalcRow, WriteBlock, FormatColumns, FormatCommodityLambdas
+'
+' NOTES
+'   Trade starts from FreshTrade for every row, so nothing of the previous
+'   trade reaches the next output row
 '
 ' STATE OWNERSHIP
 '   Adds to mBk through AddToBucket, adds MtM and trade counts to mNS, and
 '   updates mTradesRead, mTradesUsed, mGrpRejected and mEconUsed;
-'   CheckEconomicTrades fills the economic-trade arrays first. An invalid
-'   trade is logged with all its reasons and left out of the calculation.
+'   CheckEconomicTrades fills the economic-trade arrays first
 '
 ' REFERENCE
 '   CRE52.30 to CRE52.52 for the trade-level quantities; CRR Art. 277 to
-'   280f for OT and the regime rules.
+'   280f for OT and the regime rules
 '
 ' UPDATED
-'   2026-11-15
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim TradesSheet      As Worksheet     'Trades sheet
-    Dim TradeCalcSheet   As Worksheet     'TradeCalc sheet
-    Dim OutputTop        As Long          'First TradeCalc data row
-    Dim LastRow          As Long          'Last row with a trade ID
-    Dim TopRow           As Long          'First data row, below the headers
-    Dim DataRowCount     As Long          'Number of rows to read
-    Dim i                As Long          'Row within InputBlock
-    Dim RowNumber        As Long          'Sheet row of InputBlock row i
-    Dim InputBlock       As Variant       'Input block, (row, column)
-    Dim OutputBlock()    As Variant       'TradeCalc rows, (row, column)
-    Dim OutputCount      As Long          'TradeCalc rows filled
-    Dim SeenIDs          As Collection    'Trade IDs seen so far, mapped to their sheet row
-    Dim NSPosition       As Long          'Netting set of a row without a trade ID
-    Dim Trade            As tTrade        'The trade being processed
-    Dim FreshTrade       As tTrade        'Every field at its default, to reset Trade
-    Dim OutputRow        As Long          'Row of OutputBlock, when formatting
+    Const PROC_NAME        As String = "CORE_Engine.ProcessTrades"
+
+    Dim TradesSheet        As Worksheet     'Trades sheet
+    Dim TradeCalcSheet     As Worksheet     'TradeCalc sheet
+    Dim OutputTop          As Long          'First TradeCalc data row
+    Dim LastRow            As Long          'Last row with a trade ID
+    Dim TopRow             As Long          'First data row, below the headers
+    Dim DataRowCount       As Long          'Number of rows to read
+    Dim RowIndex           As Long          'Row within InputBlock
+    Dim RowNumber          As Long          'Sheet row of InputBlock row RowIndex
+    Dim InputBlock         As Variant       'Input block, (row, column)
+    Dim OutputBlock()      As Variant       'TradeCalc rows, (row, column)
+    Dim OutputCount        As Long          'TradeCalc rows filled
+    Dim SeenIDs            As Collection    'Trade IDs seen so far, mapped to their sheet row
+    Dim NSPosition         As Long          'Netting set of a row without a trade ID
+    Dim Trade              As tTrade        'The trade being processed
+    Dim FreshTrade         As tTrade        'Every field at its default, to reset Trade
+    Dim GroupIndex         As Long          'Economic trade
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
     'With no trades there is nothing to calculate; the old TradeCalc rows
-    'are cleared so they cannot be mistaken for results.
+    'are cleared so they cannot be mistaken for results
         Set TradesSheet = GetSheet(SH_TRADES)
         TopRow = TableFirstRow(SH_TRADES)
         LastRow = LastDataRowAny(TradesSheet, TopRow, TR_NCOLS, TR_COMMENT)
@@ -4901,7 +4977,7 @@ Private Sub ProcessTrades( _
         DataRowCount = LastRow - TopRow + 1
     'Value2 gives the stored values: a Currency or Accounting format would
     'otherwise round a price or rate to four decimals, and dates come as
-    'serials, which ToSerial reads (#196).
+    'serials, which ToSerial reads (#196)
         InputBlock = TableRange(TradesSheet, TopRow, 1, LastRow, TR_NCOLS).Value2
         ReDim OutputBlock(1 To DataRowCount, 1 To TC_NCOLS)
         OutputCount = 0
@@ -4909,52 +4985,65 @@ Private Sub ProcessTrades( _
 '------------------------------------------------------------------------------
 ' PROCESS EACH TRADE
 '------------------------------------------------------------------------------
-    'An empty row is skipped. A row with data but no trade ID is rejected,
-    'and so is a repeated trade ID; either makes its netting set INCOMPLETE
-    '(#35). Trade starts from FreshTrade for every trade, so nothing leaks
-    'from the previous trade into the output row.
+    'Group the legs into economic trades before any leg is used
         CheckEconomicTrades InputBlock, DataRowCount, TopRow
         Set SeenIDs = New Collection
-        For i = 1 To DataRowCount
-            RowNumber = TopRow + i - 1
+    'An empty row is skipped. A row with data but no trade ID is rejected,
+    'and so is a repeated trade ID; either makes its netting set INCOMPLETE
+    '(#35)
+        For RowIndex = 1 To DataRowCount
+            RowNumber = TopRow + RowIndex - 1
             Trade = FreshTrade
-            Trade.tid = SafeStr(InputBlock(i, TR_ID))
+            Trade.tid = SafeStr(InputBlock(RowIndex, TR_ID))
             mDiagnosticTradeID = Trade.tid
             mDiagnosticTradeRow = RowNumber
             If Len(Trade.tid) = 0 Then
-                If RowHasData(InputBlock, i, TR_NCOLS, TR_COMMENT) Then
+                If RowHasData(InputBlock, RowIndex, TR_NCOLS, TR_COMMENT) Then
                     mTradesRead = mTradesRead + 1
-                    LogMsg DIAG_TR_ID_MISSING, "Trade ID", SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", RowNumber
-                    NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(i, TR_NS)))
-                    If NSPosition > 0 Then mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
+                    LogMsg DIAG_TR_ID_MISSING, "Trade ID", SEV_ERROR, SH_TRADES, "", _
+                        "Row has trade data but no Trade ID - trade rejected.", RowNumber
+                    NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(RowIndex, TR_NS)))
+                    If NSPosition > 0 Then
+                        mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
+                    End If
                 End If
                 GoTo NextTrade
             End If
             mTradesRead = mTradesRead + 1
             Trade.ok = True
             Trade.pairSign = 1#
-            ReadTradeClass Trade, InputBlock, i, RowNumber, SeenIDs
-            ReadTradeAmounts Trade, InputBlock, i
-            ReadTradeDates Trade, InputBlock, i
-            ReadTradeSettlement Trade, InputBlock, i
-            TradeDelta Trade, InputBlock, i
+            ReadTradeClass Trade, InputBlock, RowIndex, RowNumber, SeenIDs
+            ReadTradeAmounts Trade, InputBlock, RowIndex
+            ReadTradeDates Trade, InputBlock, RowIndex
+            ReadTradeSettlement Trade, InputBlock, RowIndex
+            TradeDelta Trade, InputBlock, RowIndex
             TradeHedgingSet Trade
             UseTrade Trade, RowNumber
-            If Not Trade.ok And Trade.nsIdx > 0 Then mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
-            If Not Trade.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
+            If Not Trade.ok And Trade.nsIdx > 0 Then
+                mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
+            End If
+            If Not Trade.ok Then
+                mGrpRejected(mRowGroup(RowIndex)) = mGrpRejected(mRowGroup(RowIndex)) + 1
+            End If
             OutputCount = OutputCount + 1
             TradeCalcRow Trade, OutputBlock, OutputCount
 NextTrade:
-        Next i
-        For i = 1 To mEconRead
-            If mGrpRejected(i) = 0 Then
+        Next RowIndex
+
+'------------------------------------------------------------------------------
+' COUNT THE ECONOMIC TRADES USED
+'------------------------------------------------------------------------------
+    'An economic trade is used when none of its legs was rejected
+        For GroupIndex = 1 To mEconRead
+            If mGrpRejected(GroupIndex) = 0 Then
                 mEconUsed = mEconUsed + 1
             End If
-        Next i
+        Next GroupIndex
 
 '------------------------------------------------------------------------------
 ' WRITE TRADECALC
 '------------------------------------------------------------------------------
+    'Write the rows, format the columns, and the commodity lambdas apart
         If WriteOutputs Then
             Set TradeCalcSheet = GetSheet(SH_TRADECALC)
             OutputTop = OutputFirstRow(SH_TRADECALC)
@@ -4962,12 +5051,89 @@ NextTrade:
             WriteBlock TradeCalcSheet, OutputTop, OutputBlock, OutputCount, TC_NCOLS
             FormatColumns TradeCalcSheet, OutputTop, OutputCount, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
-            'A commodity lambda shifts a price, not a rate: it is a number (#708).
-            For OutputRow = 1 To OutputCount
-                If OutputBlock(OutputRow, TC_AC) = "CO" Then
-                    TableCell(TradeCalcSheet, OutputTop + OutputRow - 1, TC_LAMBDA).NumberFormat = "0.0000"
-                End If
-            Next OutputRow
+            FormatCommodityLambdas TradeCalcSheet, OutputTop, OutputBlock, OutputCount
+        End If
+
+End Sub
+
+Private Sub FormatCommodityLambdas( _
+    ByVal TradeCalcSheet As Worksheet, _
+    ByVal OutputTop As Long, _
+    ByRef OutputBlock() As Variant, _
+    ByVal OutputCount As Long)
+'
+'------------------------------------------------------------------------------
+'                         FORMAT THE COMMODITY LAMBDAS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Formats the lambda of the commodity rows of TradeCalc as a number,
+'   one range per run of consecutive commodity rows
+'
+' WHY THIS EXISTS
+'   A commodity lambda shifts a price, not a rate, so it is a number where
+'   the column shows a percentage (#708); setting the format once per run
+'   rather than once per row saves a call of Excel per commodity trade
+'   (#771)
+'
+' INPUTS
+'   TradeCalcSheet
+'     The TradeCalc sheet
+'
+'   OutputTop
+'     The first TradeCalc data row
+'
+'   OutputBlock
+'     The TradeCalc rows written, (row, column)
+'
+'   OutputCount
+'     The rows of OutputBlock written
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Walks the rows once; a run of rows whose asset class is CO gets the
+'   format 0.0000 in the lambda column when it ends
+'
+' ERROR POLICY
+'   None here: an error raises to ProcessTrades
+'
+' DEPENDENCIES
+'   TableRange
+'
+' NOTES
+'   The rows outside the runs keep the column's percentage format
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "CORE_Engine.FormatCommodityLambdas"
+
+    Dim OutputRow       As Long    'Row of OutputBlock
+    Dim RunStart        As Long    'First row of the current commodity run; 0 outside one
+
+'------------------------------------------------------------------------------
+' FORMAT EACH RUN
+'------------------------------------------------------------------------------
+    'Open a run at a commodity row and format it at the first other row
+        RunStart = 0
+        For OutputRow = 1 To OutputCount
+            If OutputBlock(OutputRow, TC_AC) = "CO" Then
+                If RunStart = 0 Then RunStart = OutputRow
+            ElseIf RunStart > 0 Then
+                TableRange(TradeCalcSheet, OutputTop + RunStart - 1, TC_LAMBDA, _
+                    OutputTop + OutputRow - 2, TC_LAMBDA).NumberFormat = "0.0000"
+                RunStart = 0
+            End If
+        Next OutputRow
+    'Format a run that reaches the last row
+        If RunStart > 0 Then
+            TableRange(TradeCalcSheet, OutputTop + RunStart - 1, TC_LAMBDA, _
+                OutputTop + OutputCount - 1, TC_LAMBDA).NumberFormat = "0.0000"
         End If
 
 End Sub
