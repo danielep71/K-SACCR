@@ -770,7 +770,9 @@ Use only the categories needed by a release.
   Dashboard (#675) this happened in every quick check, right after the sheet review created its
   picture workbook, and could happen to a user who switched workbooks after an edit.
   `RefreshRibbon` now leaves the Ribbon alone while another workbook is active;
-  `Workbook_Activate` refreshes it on the way back. Every script that starts Excel also
+  `Workbook_Activate` refreshes it on the way back. An invalidation is served at the next redraw,
+  so the sheet review also activates the workbook and leaves Excel idle for two seconds before
+  it creates its picture workbook, letting a refresh the suites left pending run there. Every script that starts Excel also
   registers an OLE message filter, `tools/Excel-BusyRetry.ps1`, which retries for up to two
   minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
   rejected, the verify log names the windows of that Excel and pictures its dialogs.

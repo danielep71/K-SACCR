@@ -48,6 +48,15 @@ class ScriptsRegisterTheFilter(unittest.TestCase):
         # A dialog's text cannot be read, so it is pictured into the artifact's sheets folder.
         self.assertIn('Write-Log (Save-ExcelDialogPictures $script:excelProcess (Join-Path $Bundle "sheets"))', text)
 
+    def test_the_review_lets_excel_idle_on_its_workbook_before_the_picture_workbook(self) -> None:
+        text = (TOOLS / "Review-SACCR-Sheets.ps1").read_text(encoding="utf-8-sig")
+        activate = text.index("[void]$Workbook.Activate()")
+        idle = text.index("Start-Sleep -Seconds $IdleSecondsBeforePictures")
+        add = text.index("$pictureBook = $Excel.Workbooks.Add()")
+        self.assertLess(activate, idle)
+        self.assertLess(idle, add)
+        self.assertIn("$IdleSecondsBeforePictures = 2", text)
+
     def test_the_filter_retries_only_retry_later_within_its_limit(self) -> None:
         text = HELPER.read_text(encoding="utf-8")
         self.assertIn('Guid("00000016-0000-0000-C000-000000000046")', text)

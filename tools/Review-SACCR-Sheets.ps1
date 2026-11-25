@@ -353,6 +353,10 @@ function Invoke-SheetState {
     return @{ Lines = $lines; Failed = $failed; Pictures = $pictures; Sheets = $index }
 }
 
+# Seconds Excel is left idle, with the workbook active, before the picture
+# workbook is created (#773).
+$IdleSecondsBeforePictures = 2
+
 function Invoke-SheetReview {
     # The sheet review of the quick run; writes sheet-review.txt and the
     # pictures, and returns the last line of sheet-review.txt.
@@ -371,6 +375,13 @@ function Invoke-SheetReview {
     $pictures = 0
     $sheets = 0
     try {
+        # Let Excel run, while the workbook is active, what the suites left it
+        # to do once idle: a refresh of the K-SACCR tab calls the tab's
+        # callbacks, which Excel looks for in the active workbook, and with
+        # the picture workbook active it stopped on "Cannot run the macro
+        # 'RibbonGetEnabled'" (#773).
+        [void]$Workbook.Activate()
+        Start-Sleep -Seconds $IdleSecondsBeforePictures
         $pictureBook = $Excel.Workbooks.Add()
         $pictureSheet = $pictureBook.Worksheets.Item(1)
         foreach ($step in @(@("cleared", "M_Main.ClearOutputs_Silent"), @("run", "M_Main.RunSACCR_Silent"))) {
