@@ -18,11 +18,11 @@ Go to menu (src/workbook/customUI14.xml), with the menu's tooltips:
 * each button carries an internal hyperlink to its sheet, so the bar works
   with macros disabled; the current sheet is highlighted and not linked; the
   shapes are not printed;
-* a triangle at the far left of B1 hides or shows the bar (#777): ◀ while the
-  bar is shown, ▶ (saved hidden) while it is hidden, both running
-  M_Main.ToggleNavigationBar; the titles in B1 and B2 are indented twice so
-  that the triangle never covers them, and columns A and B are frozen so
-  that it stays in view.
+* a triangle hides or shows the bar (#777), both running
+  M_Main.ToggleNavigationBar: ◀ at the right of A1, on the bar's right edge,
+  while the bar is shown; ▶ at the far left of B1 (saved hidden) while it is
+  hidden; the titles in B1 and B2 are indented twice so that ▶ never covers
+  them, and columns A and B are frozen so that it stays in view.
 
 The package is edited as XML, so every other part of the template (the
 Ribbon, form controls, validation extensions, protection) is kept byte for
@@ -80,12 +80,13 @@ DARK_STRIP = "8FAADC"            # used when a tab colour would vanish on the bu
 GROUP_TOP = "NavBarTop"
 GROUP_REST = "NavBar"
 
-# The triangles that hide and show the bar (#777), in B1, left of the title.
-TOGGLE_HIDE = "NavBarHide"       # ◀, shown while the bar is shown
-TOGGLE_SHOW = "NavBarShow"       # ▶, shown while the bar is hidden; saved hidden
+# The triangles that hide and show the bar (#777).
+TOGGLE_HIDE = "NavBarHide"       # ◀ in A1, shown while the bar is shown
+TOGGLE_SHOW = "NavBarShow"       # ▶ in B1, left of the title, shown while the bar is hidden; saved hidden
 TOGGLE_MACRO = "[0]!ToggleNavigationBar"
-TOGGLE_X = 4                     # from the left of column B, px
 TOGGLE_W = 9
+TOGGLE_HIDE_X = BAR_X + BAR_W - TOGGLE_W    # from the left of column A, px: on the bar's right edge
+TOGGLE_SHOW_X = 4                # from the left of column B, px
 TOGGLE_H = 12
 TOGGLE_COLOR = BTN_TEXT
 TITLE_CELLS = ("B1", "B2")       # the title lines, indented to leave the triangle its space
@@ -279,9 +280,11 @@ def group(name: str, block: Block, sheet: str, ids: Iterator[int], link_for: Cal
             '<xdr:clientData fPrintsWithSheet="0"/></xdr:oneCellAnchor>') % (x0, row, BAR_W * PX, height, xml)
 
 
-def toggle(shape_id: int, name: str, points_left: bool, hidden: bool, row_px: int) -> str:
-    """One triangle of B1 (#777), centred on row 1 of row_px pixels, running ToggleNavigationBar."""
-    x, y = TOGGLE_X, (row_px - TOGGLE_H) // 2
+def toggle(shape_id: int, name: str, points_left: bool, row_px: int) -> str:
+    """One triangle of row 1 (#777), centred on its row_px pixels, running ToggleNavigationBar: the one
+    that hides the bar in A1, shown; the one that shows it in B1, hidden."""
+    column, x, hidden = (0, TOGGLE_HIDE_X, False) if points_left else (1, TOGGLE_SHOW_X, True)
+    y = (row_px - TOGGLE_H) // 2
     tip, base = (0, TOGGLE_W) if points_left else (TOGGLE_W, 0)
     path = ('<a:path w="%d" h="%d"><a:moveTo><a:pt x="%d" y="0"/></a:moveTo><a:lnTo><a:pt x="%d" y="%d"/></a:lnTo>'
             '<a:lnTo><a:pt x="%d" y="%d"/></a:lnTo><a:close/></a:path>') % (
@@ -293,11 +296,11 @@ def toggle(shape_id: int, name: str, points_left: bool, hidden: bool, row_px: in
           '<a:pathLst>%s</a:pathLst></a:custGeom><a:solidFill><a:srgbClr val="%s"/></a:solidFill>'
           '<a:ln><a:noFill/></a:ln></xdr:spPr></xdr:sp>') % (
               TOGGLE_MACRO, shape_id, name, what, ' hidden="1"' if hidden else "",
-              (NAV_COL_PX + x) * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, path, TOGGLE_COLOR)
-    return ('<xdr:oneCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>'
+              (NAV_COL_PX * column + x) * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, path, TOGGLE_COLOR)
+    return ('<xdr:oneCellAnchor><xdr:from><xdr:col>%d</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>'
             '<xdr:rowOff>%d</xdr:rowOff></xdr:from><xdr:ext cx="%d" cy="%d"/>%s'
             '<xdr:clientData fPrintsWithSheet="0"/></xdr:oneCellAnchor>') % (
-                x * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, sp)
+                column, x * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, sp)
 
 
 def indent_titles(package: Package, sheets: list[tuple[str, str]]) -> None:
@@ -536,8 +539,8 @@ def build(package: Package, contract: str) -> list[str]:
         row_px = int(round(row_offset_points(xml, 1) * 4 / 3))
         anchors = (group(GROUP_TOP, top, name, ids, link_for, colours, 0, 0)
                    + group(GROUP_REST, rest, name, ids, link_for, colours, rest_row - 1, rest_y)
-                   + toggle(next(ids), TOGGLE_HIDE, True, False, row_px)
-                   + toggle(next(ids), TOGGLE_SHOW, False, True, row_px))
+                   + toggle(next(ids), TOGGLE_HIDE, True, row_px)
+                   + toggle(next(ids), TOGGLE_SHOW, False, row_px))
         if 'xmlns:a="' not in drawing.split(">", 2)[1]:
             drawing = drawing.replace("<xdr:wsDr ", '<xdr:wsDr xmlns:a="http://schemas.openxmlformats.org/'
                                                     'drawingml/2006/main" ', 1)
@@ -570,12 +573,12 @@ def bar_problems(package: Package, contract: str) -> list[str]:
         for group_name in (GROUP_TOP, GROUP_REST, TOGGLE_HIDE, TOGGLE_SHOW):
             if drawing.count('name="%s"' % group_name) != 1:
                 found.append(f"{name}: {group_name} missing or repeated")
-        for toggle_name, hidden in ((TOGGLE_HIDE, False), (TOGGLE_SHOW, True)):
+        for toggle_name, cell, column, hidden in ((TOGGLE_HIDE, "A1", 0, False), (TOGGLE_SHOW, "B1", 1, True)):
             anchor = next((m.group(0) for m in ANCHOR.finditer(drawing) if 'name="%s"' % toggle_name in m.group(0)), "")
             if anchor and ('macro="%s"' % TOGGLE_MACRO not in anchor
-                           or "<xdr:col>1</xdr:col>" not in anchor or "<xdr:row>0</xdr:row>" not in anchor
+                           or "<xdr:col>%d</xdr:col>" % column not in anchor or "<xdr:row>0</xdr:row>" not in anchor
                            or ('hidden="1"' in anchor) != hidden):
-                found.append(f"{name}: {toggle_name} is not in B1, running {TOGGLE_MACRO}, "
+                found.append(f"{name}: {toggle_name} is not in {cell}, running {TOGGLE_MACRO}, "
                              f"{'hidden' if hidden else 'shown'}")
         pane = re.search(r'<pane xSplit="(\d+)"', package.text(part))
         if not pane or int(pane.group(1)) < FROZEN_COLS:

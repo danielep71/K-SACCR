@@ -89,8 +89,9 @@ class NavigationBarTests(unittest.TestCase):
             found[name] = package.text(bar.posixpath.normpath(bar.posixpath.join(bar.posixpath.dirname(part), target)))
         return found
 
-    def test_every_sheet_has_one_triangle_shown_in_b1_left_of_the_title(self) -> None:
-        # #777: one triangle at a time, in B1, running the toggle; the other is saved hidden.
+    def test_every_sheet_has_one_triangle_shown_at_the_edge_of_the_bar(self) -> None:
+        # #777: one triangle at a time, both running the toggle: the one that hides the bar on its right edge
+        # in A1, shown; the one that shows it at the far left of B1, saved hidden.
         package = bar.Package(ROOT / bar.TEMPLATE)
         drawings = self.drawings(package)
         self.assertEqual(len(drawings), 21)
@@ -101,8 +102,9 @@ class NavigationBarTests(unittest.TestCase):
                 self.assertEqual(sorted(anchors), sorted((bar.TOGGLE_HIDE, bar.TOGGLE_SHOW)))
                 for toggle, anchor in anchors.items():
                     self.assertIn('macro="[0]!ToggleNavigationBar"', anchor)
-                    self.assertIn("<xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>"
-                                  % (bar.TOGGLE_X * bar.PX), anchor)
+                    column, x = (0, bar.TOGGLE_HIDE_X) if toggle == bar.TOGGLE_HIDE else (1, bar.TOGGLE_SHOW_X)
+                    self.assertIn("<xdr:col>%d</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>"
+                                  % (column, x * bar.PX), anchor)
                     self.assertIn('fPrintsWithSheet="0"', anchor)
                     self.assertEqual('hidden="1"' in anchor, toggle == bar.TOGGLE_SHOW)
                 # The one that hides the bar points left: its tip is on the left edge.
@@ -112,7 +114,9 @@ class NavigationBarTests(unittest.TestCase):
 
     def test_the_triangle_fits_in_the_indent_of_the_title(self) -> None:
         # An indent level is three spaces of the default font, about 9 px; two leave the triangle its room.
-        self.assertLessEqual(bar.TOGGLE_X + bar.TOGGLE_W, bar.TITLE_INDENT * 9 - 4)
+        self.assertLessEqual(bar.TOGGLE_SHOW_X + bar.TOGGLE_W, bar.TITLE_INDENT * 9 - 4)
+        # The one in A1 ends on the bar's right edge, inside the column.
+        self.assertEqual(bar.TOGGLE_HIDE_X + bar.TOGGLE_W, bar.BAR_X + bar.BAR_W)
         package = bar.Package(ROOT / bar.TEMPLATE)
         styles = package.text("xl/styles.xml")
         xfs = re.findall(r"<xf\b[^>]*?(?:/>|>.*?</xf>)",

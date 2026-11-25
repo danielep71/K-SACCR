@@ -97,10 +97,11 @@ Use only the categories needed by a release.
 
 ### Added
 
-- **Hide and show the navigation bar from the sheet** (#777). A small triangle at the far left of B1
-  of every sheet does what the Ribbon's Navigation bar toggle does: ◀ while the bar is shown hides
-  it, ▶ while it is hidden shows it, on every sheet at once, one triangle at a time. The titles in
-  B1 and B2 are indented twice, about 10 px further right, so that the triangle never covers them,
+- **Hide and show the navigation bar from the sheet** (#777). A small triangle in row 1 of
+  every sheet does what the Ribbon's Navigation bar toggle does, on every sheet at once, one
+  triangle at a time: ◀ at the right of A1, on the bar's edge, hides the bar; ▶ at the far left of
+  B1 shows it again. The titles in B1 and B2 are indented twice, about 10 px further right, so
+  that ▶ never covers them,
   and the eight sheets that froze only column A (Home, Import_NettingSets, Import_Trades,
   Dashboard, BankNettingSets, BankTrades, Basel_vs_CRR, README) now freeze columns A and B, so
   that the triangle stays in view when the sheet scrolls. `tools/navigation_bar.py` draws the

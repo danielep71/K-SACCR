@@ -2938,7 +2938,7 @@ Private Function BarSheets( _
 '
 ' WHY THIS EXISTS
 '   CaseNavigationBar checks the state after a hide, a save and a show
-'   (#620), the triangles of B1 included (#777)
+'   (#620), the triangles of row 1 included (#777)
 '
 ' INPUTS
 '   Shown
