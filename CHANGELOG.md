@@ -775,6 +775,20 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Refresh the K-SACCR tab only while its workbook is active (#773). A refresh scheduled with
+  `OnTime` (`ScheduleRefresh`) invalidated the Ribbon whenever Excel was next idle; with another
+  workbook active, Excel looked for the tab's callbacks there and stopped on "Cannot run the
+  macro 'RibbonGetEnabled'", a message that kept Excel busy until it was closed. Since the
+  Dashboard (#675) this happened in every quick check, right after the sheet review created its
+  picture workbook, and could happen to a user who switched workbooks after an edit.
+  `RefreshRibbon` now leaves the Ribbon alone while another workbook is active;
+  `Workbook_Activate` refreshes it on the way back. An invalidation is served at the next redraw,
+  so the sheet review also activates the workbook and leaves Excel idle for two seconds before
+  it creates its picture workbook, letting a refresh the suites left pending run there. Every script that starts Excel also
+  registers an OLE message filter, `tools/Excel-BusyRetry.ps1`, which retries for up to two
+  minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
+  rejected, the verify log names the windows of that Excel and pictures its dialogs.
+
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows
   compared, MATCH and DIFFERENCE. They counted every row shown, also those with a figure on one
