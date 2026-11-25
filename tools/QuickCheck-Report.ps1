@@ -117,11 +117,13 @@ function New-QuickReport {
 }
 
 function Get-QuickArtifactFiles {
-    # The files of a bundle that go into the artifact: the text results and the
-    # sheet pictures, never the workbooks.
+    # The files of a bundle that go into the artifact: the text results, the
+    # benchmark's log when one ran (#771), and the sheet pictures, never the
+    # workbooks.
     param([string]$Bundle)
     $found = New-Object System.Collections.Generic.List[object]
-    foreach ($name in @("verify-summary.txt", "verify.log", "summary.log", "sheet-review.txt", "protection-checks.txt")) {
+    foreach ($name in @("verify-summary.txt", "verify.log", "summary.log", "sheet-review.txt", "protection-checks.txt",
+                       "benchmark.log")) {
         $path = Join-Path $Bundle $name
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $found.Add([pscustomobject]@{ Source = $path; Relative = $name; Text = $true })

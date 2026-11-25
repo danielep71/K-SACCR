@@ -200,6 +200,13 @@ pull request's head, or the branch tip when a run by hand starts), then:
   with the machine's paths and user name replaced and without any workbook;
 - fails the job when the quick check fails, so the pull request shows a red check.
 
+A run by hand may also give **benchmark sizes**, the legs of each scenario as
+`TEST_Benchmark.RunBenchmark` reads them (for example `1000,10000`; #771). The quick
+check then runs the benchmark too, in the same Excel session after the sheet review,
+into `benchmark.log`, which goes into the artifact; its BENCH lines are added to the
+summary. The benchmark measures the machine, so it never changes the result of the
+quick check, and a pull request never runs it.
+
 The commit is fixed before the wait for Excel: a push that moves the branch while the run
 is queued changes nothing, so a result is never attached to a commit whose workbook was
 not tested, and a re-run of an older run verifies that older commit. The new push has
