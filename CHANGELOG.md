@@ -763,6 +763,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Retry the calls Excel rejects while busy (#773). Since the Dashboard's charts (#675), the
+  sheet review of every quick check stopped at its first call after `Test_RunAll` with
+  `RPC_E_CALL_REJECTED`: Excel was still busy and asked the script to retry later, and no
+  script retried. Every script that starts Excel now registers an OLE message filter,
+  `tools/Excel-BusyRetry.ps1`, which retries such a call every 250 ms for up to two minutes;
+  the verify log reports the retries.
+
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows
   compared, MATCH and DIFFERENCE. They counted every row shown, also those with a figure on one

@@ -222,10 +222,11 @@ OTHER = "f" * 40
 
 
 def make_repo(root: Path, *scripts: str) -> tuple[Path, str]:
-    """A git repository of the tools folder with one commit; returns it and the commit."""
+    """A git repository of the tools folder with one commit; returns it and the commit. The
+    scripts that start Excel load Excel-BusyRetry.ps1 (#773), so it is always copied."""
     repo = root / "work" / "K-SACCR"
     (repo / "tools").mkdir(parents=True)
-    for name in scripts:
+    for name in dict.fromkeys((*scripts, "Excel-BusyRetry.ps1")):
         shutil.copy(TOOLS / name, repo / "tools" / name)
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run([*GIT, "-C", str(repo), "add", "-A"], check=True)
