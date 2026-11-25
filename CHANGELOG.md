@@ -625,6 +625,18 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- **Business days counted on a list of closing days** (#771). On a business-day convention
+  (TARGET or TARGET+TABLE) the engine counted each date of a trade by a call of
+  `SACCR_BusinessDays`, which recomputed a year of TARGET closing days and read the whole table
+  every time. It now builds once the sorted list of the closing weekdays of 1 January 1999 to
+  31 December 2100, TARGET and the table, and counts a date as its weekdays less the closing
+  weekdays before it, by binary search; the list is rebuilt only when the table changes, and a
+  date outside the window is counted as before. Every count is the same: `TEST_Formulas` (12
+  cases, 135 checks) compares it with `SACCR_BusinessDays` on every day of the window and on 2,000
+  intervals, with and without a table, and `tools/test_closing_list.py` with the calendar's
+  Python reference. `TEST_Benchmark` adds the largest size on a year of 250 business days and
+  TARGET, and every BENCH line gives the day count and the calendar.
+
 - **Faster fingerprints, same values** (#771). `CORE_Util.TextHash`, which every fingerprint
   uses (inputs, outputs, reconciliation, staging, FX and holiday tables), adds the bytes three at
   a time and takes the modulus once per three, where it took it after every byte. Every

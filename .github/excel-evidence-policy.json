@@ -21,8 +21,8 @@
   "suites": [
     {
       "entry_point": "TEST_Formulas.RunFormulaTests",
-      "cases": 11,
-      "checks": {"32-bit": 129, "64-bit": 131}
+      "cases": 12,
+      "checks": {"32-bit": 133, "64-bit": 135}
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",

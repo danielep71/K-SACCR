@@ -287,6 +287,16 @@ Attribute VB_Name = "CORE_Engine"
     'Opens the text of the fingerprint of the FX table that Download prices
     'stores (#745); changed whenever what it covers changes.
         Private Const FX_FP_FORMAT As String = "FX1"    'The FX table from its header row
+    'The window of the business-day list (#771): from the first day of the
+    'TARGET calendar to the end of 2100. A date outside it is counted by
+    'SACCR_BusinessDays, as before the list.
+        Private Const BD_WINDOW_FIRST        As Long = 36161    '1 January 1999
+        Private Const BD_WINDOW_LAST         As Long = 73415    '31 December 2100
+    'The TARGET rule, as SACCR_BusinessDays applies it (#721): from 1999 New
+    'Year's Day and Christmas; from 2000 also Good Friday, Easter Monday,
+    '1 May and 26 December; 31 December in 1999 and 2001 only.
+        Private Const BD_TARGET_FIRST_YEAR   As Long = 1999     'First year of TARGET
+        Private Const BD_TARGET_FULL_YEAR    As Long = 2000     'First year of the six closing days
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -376,6 +386,11 @@ Attribute VB_Name = "CORE_Engine"
         Private pUseTarget    As Boolean    'The calendar holds the TARGET rule: its business days are counted
         Private pHolidays     As Variant    'Closing days of the table, sorted, each once, as serial numbers; Empty for none
         Private mYearEnds     As Collection 'Business days from the reporting date to 31 December of a year, by year
+        Private mClosingDays  As Variant    'Closing weekdays of the window, sorted, each once: TARGET and the table (#771)
+        Private mClosingCount As Long       'Closing weekdays in mClosingDays
+        Private mClosingKey   As String     'The table of closing days mClosingDays was built with (HolidayKey)
+        Private mClosingBuilt As Boolean    'mClosingDays has been built at least once
+        Private mClosingRun   As Collection 'mYearEnds of the run that last loaded mClosingDays
         Private pMinMatBD     As Double     'Floor on M, business days
         Private pSDFloorBD    As Double     'Floor on supervisory duration, business days
         Private pMPORBil      As Double     'MPOR floor, bilateral
@@ -1992,35 +2007,574 @@ Private Function ClosedDaysTo( _
 
 End Function
 
-
 Private Function BusinessDaysTo( _
     ByVal Target As Double) _
     As Double
 '
-'==============================================================================
-'                              BusinessDaysTo
+'------------------------------------------------------------------------------
+'                        COUNT BUSINESS DAYS TO A DATE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The business days in (reporting date, Target] on the chosen calendar,
-'   from SACCR_BusinessDays: the whole years before the year of Target from
-'   a cache kept for the run, and the rest of that year by one call, so that
-'   a call spans at most one year however far the date is.
+'   Returns the business days in (reporting date, Target] on the run's
+'   calendar, as SACCR_BusinessDays counts them
+'
+' WHY THIS EXISTS
+'   YearsTo reads up to four dates per trade on a business-day convention
+'   (#721). Counting each date from the calendar's rules redid a year of
+'   closing days and read the whole table on every call; the list of closing
+'   days, built once, answers in two searches (#771)
+'
+' INPUTS
+'   Target
+'     The date, after the reporting date, as a serial number
+'
+' RETURNS
+'   The business days, a whole number
+'
+' BEHAVIOR
+'   - Both dates in the window, 1 January 1999 to 31 December 2100: the
+'     weekdays between them less the closing weekdays between them, on the
+'     list LoadClosingDays loads once per run
+'   - Otherwise: the whole years before the year of Target from the run's
+'     cache of year ends, and the rest of that year by one call of
+'     SACCR_BusinessDays
+'
+' ERROR POLICY
+'   An error value of SACCR_BusinessDays raises through FormulaNumber
+'
+' DEPENDENCIES
+'   LoadClosingDays, ListBusinessDays, YearEndCount, SACCR_BusinessDays,
+'   FormulaNumber
+'
+' NOTES
+'   ReadConvention starts every run with a new mYearEnds: a run has loaded
+'   the list once mClosingRun is its mYearEnds. The caller uses this count
+'   only on a calendar that holds the TARGET rule (pUseTarget)
 '
 ' UPDATED
-'   2026-11-20
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.BusinessDaysTo"
 
     Dim TargetYear   As Long    'Year of the date
 
+'------------------------------------------------------------------------------
+' COUNT INSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'Count on the list of closing days, loaded once per run
+        If pAsOf >= BD_WINDOW_FIRST And Target < BD_WINDOW_LAST + 1 Then
+            If Not mClosingRun Is mYearEnds Then
+                LoadClosingDays pHolidays
+                Set mClosingRun = mYearEnds
+            End If
+            BusinessDaysTo = ListBusinessDays(CLng(Int(pAsOf)), CLng(Int(Target)))
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' COUNT OUTSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'The whole years from the cache of year ends, the rest by one call
         TargetYear = Year(Target)
         If TargetYear = Year(pAsOf) Then
-            BusinessDaysTo = FormulaNumber(SACCR_BusinessDays(pAsOf, Target, pHolidays, pUseTarget), "SACCR_BusinessDays")
+            BusinessDaysTo = FormulaNumber(SACCR_BusinessDays(pAsOf, Target, pHolidays, pUseTarget), _
+                "SACCR_BusinessDays")
         Else
             BusinessDaysTo = YearEndCount(TargetYear - 1) + _
-                             FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(TargetYear - 1, 12, 31)), Target, pHolidays, pUseTarget), _
-                                           "SACCR_BusinessDays")
+                FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(TargetYear - 1, 12, 31)), Target, _
+                pHolidays, pUseTarget), "SACCR_BusinessDays")
         End If
+
+End Function
+
+Public Function WindowBusinessDays( _
+    ByVal StartDate As Double, _
+    ByVal EndDate As Double, _
+    ByVal Holidays As Variant) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'                   COUNT BUSINESS DAYS ON THE CLOSING LIST
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the business days in (StartDate, EndDate] on the TARGET calendar
+'   and a table of closing days, counted on the list the engine builds
+'
+' WHY THIS EXISTS
+'   The engine counts business days on its own list of closing days (#771),
+'   which must agree with SACCR_BusinessDays on every day; TEST_Formulas
+'   compares the two through this function
+'
+' INPUTS
+'   StartDate
+'     The day before the first day counted, as a serial number
+'
+'   EndDate
+'     The last day counted, not before StartDate
+'
+'   Holidays
+'     The table of closing days: a one-dimensional array of serial numbers,
+'     as pHolidays, or Empty
+'
+' RETURNS
+'   The business days as a Double; Empty when either date is outside the
+'   window, 1 January 1999 to 31 December 2100, or EndDate is before
+'   StartDate
+'
+' BEHAVIOR
+'   Loads the list for Holidays (LoadClosingDays) and counts on it
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   LoadClosingDays, ListBusinessDays
+'
+' NOTES
+'   Loading for another table replaces the run's list; the next run loads
+'   its own again, as every run does
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Leave a date outside the window, or a reversed interval, uncounted
+        If StartDate < BD_WINDOW_FIRST Or EndDate >= BD_WINDOW_LAST + 1 Or EndDate < StartDate Then
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Count on the list of the table
+        LoadClosingDays Holidays
+        Set mClosingRun = Nothing
+        WindowBusinessDays = CDbl(ListBusinessDays(CLng(Int(StartDate)), CLng(Int(EndDate))))
+
+End Function
+
+Private Function ListBusinessDays( _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                       COUNT BUSINESS DAYS ON THE LIST
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the business days in (FirstDay, LastDay]: the weekdays less the
+'   closing weekdays of the list loaded last
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Weekdays less closing weekdays, both counted up to each end
+        ListBusinessDays = (WeekdaysThrough(LastDay) - WeekdaysThrough(FirstDay)) - _
+            (ClosingThrough(LastDay) - ClosingThrough(FirstDay))
+
+End Function
+
+Private Function WeekdaysThrough( _
+    ByVal Serial As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                          COUNT WEEKDAYS UP TO A DAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the Mondays to Fridays from a fixed Monday up to and including
+'   Serial, the count SACCR_BusinessDays starts from
+'
+' NOTES
+'   Serial 2 is a Monday in the 1900 date system; dates of the window are
+'   far after it, so Mod and \ see only positive numbers
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Offset   As Long    'Days from the Monday that day 0 stands for
+    Dim Part     As Long    'Position in the week, 1 for Monday, at most 5
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Five weekdays per whole week, and the weekdays of the week begun
+        Offset = Serial - 2
+        Part = (Offset Mod 7) + 1
+        If Part > 5 Then Part = 5
+        WeekdaysThrough = 5 * (Offset \ 7) + Part
+
+End Function
+
+Private Function ClosingThrough( _
+    ByVal Serial As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                        COUNT CLOSING DAYS UP TO A DAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the closing weekdays of the list loaded last that are not after
+'   Serial, by binary search
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Low    As Long    'Entries known not after Serial
+    Dim High   As Long    'Entries that may be not after Serial
+    Dim Probe  As Long    'Entry tried
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+    'Keep Low entries not after Serial and the entries after High after it
+        Low = 0
+        High = mClosingCount
+        Do While Low < High
+            Probe = (Low + High + 1) \ 2
+            If mClosingDays(Probe) <= Serial Then
+                Low = Probe
+            Else
+                High = Probe - 1
+            End If
+        Loop
+        ClosingThrough = Low
+
+End Function
+
+Private Sub LoadClosingDays( _
+    ByVal Holidays As Variant)
+'
+'------------------------------------------------------------------------------
+'                        LOAD THE LIST OF CLOSING DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Builds the sorted list of the closing weekdays of the window for a table
+'   of closing days, unless the list was last built for the same table
+'
+' WHY THIS EXISTS
+'   The business days between two dates are their weekdays less the closing
+'   weekdays between them; with the closing weekdays sorted, each count is
+'   two binary searches (#771)
+'
+' INPUTS
+'   Holidays
+'     The table of closing days: a one-dimensional array of serial numbers,
+'     in any order, or Empty
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - The TARGET closing days of 1999 to 2100, in date order
+'   - The days of the table inside the window, whole, sorted
+'   - Both merged, weekends and repeats left out: a day is closed once,
+'     as SACCR_BusinessDays takes it off once
+'
+' ERROR POLICY
+'   None: an entry of the table that is not a number is left out, as
+'   SACCR_BusinessDays leaves out an empty one; the engine reads only
+'   numbers into pHolidays
+'
+' DEPENDENCIES
+'   HolidayKey, TargetEaster
+'
+' NOTES
+'   About 600 TARGET days; the build takes well under a second and runs
+'   again only when the table changes
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.LoadClosingDays"
+
+    Dim Key          As String    'HolidayKey of the table
+    Dim TargetDays() As Long      'TARGET closing days, in date order
+    Dim TargetCount  As Long      'Entries of Target
+    Dim TableDays()  As Long      'Days of the table inside the window, sorted
+    Dim TableCount   As Long      'Entries of Table
+    Dim Merged()     As Long      'Closing weekdays, sorted, each once
+    Dim MergedCount  As Long      'Entries of Merged
+    Dim Easter       As Long      'Easter Sunday of the year
+    Dim Yr           As Long      'Year
+    Dim Item         As Variant   'Entry of the table
+    Dim Closing      As Long      'Day being placed or merged
+    Dim TargetIndex  As Long      'Next entry of Target to merge
+    Dim TableIndex   As Long      'Next entry of Table to merge
+    Dim Position     As Long      'Place of the day in TableDays
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Keep a list already built for the same table
+        Key = HolidayKey(Holidays)
+        If mClosingBuilt And Key = mClosingKey Then Exit Sub
+
+'------------------------------------------------------------------------------
+' COLLECT THE TARGET DAYS
+'------------------------------------------------------------------------------
+    'Each year's closing days, in date order: Easter falls from 22 March to
+    '25 April, so Good Friday and Easter Monday come between 1 January and
+    '1 May
+        ReDim TargetDays(1 To 7 * (2100 - BD_TARGET_FIRST_YEAR + 1))
+        For Yr = BD_TARGET_FIRST_YEAR To 2100
+            TargetCount = TargetCount + 1
+            TargetDays(TargetCount) = CLng(DateSerial(Yr, 1, 1))
+            If Yr >= BD_TARGET_FULL_YEAR Then
+                Easter = TargetEaster(Yr)
+                TargetDays(TargetCount + 1) = Easter - 2
+                TargetDays(TargetCount + 2) = Easter + 1
+                TargetDays(TargetCount + 3) = CLng(DateSerial(Yr, 5, 1))
+                TargetCount = TargetCount + 3
+            End If
+            TargetCount = TargetCount + 1
+            TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 25))
+            If Yr >= BD_TARGET_FULL_YEAR Then
+                TargetCount = TargetCount + 1
+                TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 26))
+            End If
+            If Yr = 1999 Or Yr = 2001 Then
+                TargetCount = TargetCount + 1
+                TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 31))
+            End If
+        Next Yr
+
+'------------------------------------------------------------------------------
+' COLLECT THE TABLE DAYS
+'------------------------------------------------------------------------------
+    'The whole days of the window, placed in order as they come
+        If HolidayKey(Holidays) <> "-" Then
+            ReDim TableDays(1 To UBound(Holidays) - LBound(Holidays) + 1)
+            For Each Item In Holidays
+                If IsNum(Item) Then
+                    If Item >= BD_WINDOW_FIRST And Item < BD_WINDOW_LAST + 1 Then
+                        Closing = CLng(Int(Item))
+                        Position = TableCount
+                        Do While Position > 0
+                            If TableDays(Position) <= Closing Then Exit Do
+                            TableDays(Position + 1) = TableDays(Position)
+                            Position = Position - 1
+                        Loop
+                        TableDays(Position + 1) = Closing
+                        TableCount = TableCount + 1
+                    End If
+                End If
+            Next Item
+        End If
+
+'------------------------------------------------------------------------------
+' MERGE
+'------------------------------------------------------------------------------
+    'Take the earlier day of the two lists; keep a weekday not kept yet
+        ReDim Merged(1 To TargetCount + TableCount + 1)
+        TargetIndex = 1
+        TableIndex = 1
+        Do While TargetIndex <= TargetCount Or TableIndex <= TableCount
+            If TableIndex > TableCount Then
+                Closing = TargetDays(TargetIndex)
+                TargetIndex = TargetIndex + 1
+            ElseIf TargetIndex > TargetCount Then
+                Closing = TableDays(TableIndex)
+                TableIndex = TableIndex + 1
+            ElseIf TargetDays(TargetIndex) <= TableDays(TableIndex) Then
+                Closing = TargetDays(TargetIndex)
+                TargetIndex = TargetIndex + 1
+            Else
+                Closing = TableDays(TableIndex)
+                TableIndex = TableIndex + 1
+            End If
+            If ((Closing - 2) Mod 7) <= 4 Then
+                If MergedCount = 0 Then
+                    MergedCount = 1
+                    Merged(MergedCount) = Closing
+                ElseIf Merged(MergedCount) <> Closing Then
+                    MergedCount = MergedCount + 1
+                    Merged(MergedCount) = Closing
+                End If
+            End If
+        Loop
+
+'------------------------------------------------------------------------------
+' STORE THE LIST
+'------------------------------------------------------------------------------
+    'Keep the list and the table it was built for
+        mClosingDays = Merged
+        mClosingCount = MergedCount
+        mClosingKey = Key
+        mClosingBuilt = True
+
+End Sub
+
+Private Function HolidayKey( _
+    ByVal Holidays As Variant) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                       DESCRIBE A TABLE OF CLOSING DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns a text that names a table of closing days, its numbers in order,
+'   so that LoadClosingDays can tell the same table from another
+'
+' WHY THIS EXISTS
+'   The list of closing days is kept while the table stays the same; the
+'   table is an array, compared through this text
+'
+' INPUTS
+'   Holidays
+'     The table of closing days: a one-dimensional array, or Empty
+'
+' RETURNS
+'   The entries joined by commas, an entry that is not a number by its
+'   type; "-" for Empty or an empty array
+'
+' BEHAVIOR
+'   Writes each entry in the order of the array
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   IsNum
+'
+' NOTES
+'   The engine's table is sorted and holds each day once, so the same table
+'   gives the same text
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.HolidayKey"
+
+    Dim Parts()   As String     'Text of each entry
+    Dim Count     As Long       'Entries written
+    Dim Item      As Variant    'Entry of the table
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'No table
+        HolidayKey = "-"
+        If Not IsArray(Holidays) Then Exit Function
+        If UBound(Holidays) < LBound(Holidays) Then Exit Function
+    'Every entry, numbers as numbers and the rest by type
+        ReDim Parts(1 To UBound(Holidays) - LBound(Holidays) + 1)
+        For Each Item In Holidays
+            Count = Count + 1
+            If IsNum(Item) Then
+                Parts(Count) = CStr(CDbl(Item))
+            Else
+                Parts(Count) = "?" & TypeName(Item)
+            End If
+        Next Item
+        HolidayKey = Join(Parts, ",")
+
+End Function
+
+Private Function TargetEaster( _
+    ByVal Yr As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                              FIND EASTER SUNDAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns Easter Sunday of a year of the Gregorian calendar as a serial
+'   number, by the anonymous Gregorian algorithm SACCR_BusinessDays uses
+'
+' WHY THIS EXISTS
+'   Good Friday and Easter Monday are TARGET closing days from 2000; the
+'   list of closing days needs them for every year of its window
+'
+' INPUTS
+'   Yr
+'     The year, 1999 to 2100 in the window
+'
+' RETURNS
+'   Easter Sunday as a serial number
+'
+' BEHAVIOR
+'   The steps of the algorithm, each named; the same arithmetic as
+'   BDEasterSunday of SACCR_Formulas
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   TEST_Formulas compares the engine's business days with
+'   SACCR_BusinessDays on every day of the window, Easter included
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.TargetEaster"
+
+    Dim Golden       As Long    'Year in the 19-year cycle
+    Dim Century      As Long    'Century
+    Dim YearInCent   As Long    'Year in the century
+    Dim LeapSkip     As Long    'Century leap years left out
+    Dim CentMod      As Long    'Century modulo 4
+    Dim MoonFix      As Long    'Correction of the moon's orbit
+    Dim MoonShift    As Long    'Century correction of the full moon
+    Dim Epact        As Long    'Days from 21 March to the full moon
+    Dim YearLeap     As Long    'Leap years of the century so far
+    Dim YearMod      As Long    'Year in the century modulo 4
+    Dim ToSunday     As Long    'Days from the full moon to Sunday
+    Dim Correction   As Long    'Correction for late full moons
+    Dim MonthDay     As Long    'Month and day in one number
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The steps of the algorithm, named
+        Golden = Yr Mod 19
+        Century = Yr \ 100
+        YearInCent = Yr Mod 100
+        LeapSkip = Century \ 4
+        CentMod = Century Mod 4
+        MoonFix = (Century + 8) \ 25
+        MoonShift = (Century - MoonFix + 1) \ 3
+        Epact = (19 * Golden + Century - LeapSkip - MoonShift + 15) Mod 30
+        YearLeap = YearInCent \ 4
+        YearMod = YearInCent Mod 4
+        ToSunday = (32 + 2 * CentMod + 2 * YearLeap - Epact - YearMod) Mod 7
+        Correction = (Golden + 11 * Epact + 22 * ToSunday) \ 451
+        MonthDay = Epact + ToSunday - 7 * Correction + 114
+        TargetEaster = CLng(DateSerial(Yr, MonthDay \ 31, (MonthDay Mod 31) + 1))
 
 End Function
 
