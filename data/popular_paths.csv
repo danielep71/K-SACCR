@@ -489,3 +489,13 @@ snapshot_date,rank,path,title,count,uniques
 2026-11-24,8,/danielep71/K-SACCR/milestone/6,/milestone/6,2,1
 2026-11-24,9,/danielep71/K-SACCR/milestones/5/edit,/milestones/5/edit,2,1
 2026-11-24,10,/danielep71/K-SACCR/blob/400871e8a7ed410709f6909326031262ad31f664/tests/fixtures/illustrative-negative-ir-forward.json,/blob/400871e8a7ed410709f6909326031262ad31f664/tests/fixtures/illustrative-negative-ir-forward.json,1,1
+2026-11-25,1,/danielep71/K-SACCR,Overview,13,9
+2026-11-25,2,/danielep71/K-SACCR/milestones,/milestones,5,1
+2026-11-25,3,/danielep71/K-SACCR/milestones/1/edit,/milestones/1/edit,3,1
+2026-11-25,4,/danielep71/K-SACCR/milestones/new,/milestones/new,3,1
+2026-11-25,5,/danielep71/K-SACCR/issues/39,/issues/39,2,2
+2026-11-25,6,/danielep71/K-SACCR/issues/667,/issues/667,2,2
+2026-11-25,7,/danielep71/K-SACCR/milestone/5,/milestone/5,2,1
+2026-11-25,8,/danielep71/K-SACCR/milestone/6,/milestone/6,2,1
+2026-11-25,9,/danielep71/K-SACCR/milestones/5/edit,/milestones/5/edit,2,1
+2026-11-25,10,/danielep71/K-SACCR/blob/400871e8a7ed410709f6909326031262ad31f664/tests/fixtures/illustrative-negative-ir-forward.json,/blob/400871e8a7ed410709f6909326031262ad31f664/tests/fixtures/illustrative-negative-ir-forward.json,1,1
