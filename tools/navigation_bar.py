@@ -263,7 +263,7 @@ def group(name: str, block: Block, sheet: str, ids: Iterator[int], link_for: Cal
             y += SECTION_GAP
         children.append(shape(next(ids), "Nav_Section_" + re.sub(r"\W", "", title.title()), x0, y0 + y * PX,
                               BAR_W * PX, HEAD_H * PX, None, title.upper(), HEAD_COLOR, True, 700,
-                              anchor="b", inset=4, spacing=60))
+                              anchor="b", inset=4, spacing=30))
         y += HEAD_H
         for target, tip in items:
             current = target == sheet
