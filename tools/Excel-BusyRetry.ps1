@@ -139,6 +139,25 @@ namespace KSaccr
             return name.ToString();
         }
 
+        // The visible dialogs of a process: classes #32770 (Win32) and NUIDialog
+        // (Office), whose text the window functions cannot read.
+        public static long[] Dialogs(uint processId)
+        {
+            List<long> found = new List<long>();
+            EnumWindows(delegate (IntPtr hWnd, IntPtr lParam)
+            {
+                uint owner;
+                GetWindowThreadProcessId(hWnd, out owner);
+                string name = ClassOf(hWnd);
+                if (owner == processId && IsWindowVisible(hWnd) && (name == "#32770" || name == "NUIDialog"))
+                {
+                    found.Add(hWnd.ToInt64());
+                }
+                return true;
+            }, IntPtr.Zero);
+            return found.ToArray();
+        }
+
         public static string Describe(uint processId)
         {
             List<string> found = new List<string>();
@@ -173,6 +192,106 @@ namespace KSaccr
     }
 }
 "@
+}
+
+# A picture of a window, for a dialog whose text cannot be read (#773). It
+# needs System.Drawing, which Windows PowerShell has: elsewhere it is not
+# compiled and Save-ExcelDialogPictures saves nothing.
+if ($PSVersionTable.PSEdition -eq "Desktop" -and -not ("KSaccr.WindowPicture" -as [type])) {
+    try {
+        Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @"
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+
+namespace KSaccr
+{
+    public static class WindowPicture
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+        [DllImport("user32.dll")]
+        private static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
+
+        // PW_RENDERFULLCONTENT (2) draws windows that Office renders itself.
+        public static bool Save(long hWnd, string path)
+        {
+            RECT rect;
+            if (!GetWindowRect(new IntPtr(hWnd), out rect))
+            {
+                return false;
+            }
+            int width = rect.Right - rect.Left;
+            int height = rect.Bottom - rect.Top;
+            if (width <= 0 || height <= 0)
+            {
+                return false;
+            }
+            using (Bitmap picture = new Bitmap(width, height))
+            {
+                using (Graphics canvas = Graphics.FromImage(picture))
+                {
+                    IntPtr hdc = canvas.GetHdc();
+                    try
+                    {
+                        PrintWindow(new IntPtr(hWnd), hdc, 2);
+                    }
+                    finally
+                    {
+                        canvas.ReleaseHdc(hdc);
+                    }
+                }
+                picture.Save(path, ImageFormat.Png);
+            }
+            return true;
+        }
+    }
+}
+"@
+    }
+    catch {
+    }
+}
+
+function Save-ExcelDialogPictures {
+    # Save a picture of each visible dialog of the process in Folder, as
+    # busy-dialog-N.png; returns one line for the log.
+    param([uint32]$ProcessId, [string]$Folder)
+    if ($ProcessId -eq 0) {
+        return "Excel dialogs: the process is not known"
+    }
+    if (-not ("KSaccr.WindowPicture" -as [type])) {
+        return "Excel dialogs: no picture taken here (System.Drawing is not available)"
+    }
+    try {
+        New-Item -ItemType Directory -Path $Folder -Force | Out-Null
+        $saved = New-Object System.Collections.Generic.List[string]
+        $index = 0
+        foreach ($handle in [KSaccr.ProcessWindows]::Dialogs($ProcessId)) {
+            $index++
+            $file = Join-Path $Folder ("busy-dialog-" + $index + ".png")
+            if ([KSaccr.WindowPicture]::Save($handle, $file)) {
+                $saved.Add((Split-Path -Leaf $file))
+            }
+        }
+        if ($saved.Count -eq 0) {
+            return "Excel dialogs: none pictured"
+        }
+        return ("Excel dialogs: pictured in " + ($saved -join ", "))
+    }
+    catch {
+        return ("Excel dialogs: not pictured (" + $_.Exception.Message + ")")
+    }
 }
 
 function Register-ExcelBusyRetry {

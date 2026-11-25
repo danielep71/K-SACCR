@@ -45,6 +45,8 @@ class ScriptsRegisterTheFilter(unittest.TestCase):
         # When a call is abandoned, and when the workbook cannot be closed, the log
         # names the windows Excel shows, a dialog with its text.
         self.assertEqual(text.count("Write-Log (Get-ExcelWindowsSummary $script:excelProcess)"), 2)
+        # A dialog's text cannot be read, so it is pictured into the artifact's sheets folder.
+        self.assertIn('Write-Log (Save-ExcelDialogPictures $script:excelProcess (Join-Path $Bundle "sheets"))', text)
 
     def test_the_filter_retries_only_retry_later_within_its_limit(self) -> None:
         text = HELPER.read_text(encoding="utf-8")
@@ -76,6 +78,12 @@ class FilterInPowerShell(unittest.TestCase):
         lines = output.splitlines()
         self.assertEqual(lines[0], "Excel windows: the process is not known")
         self.assertTrue(lines[1].startswith("Excel windows: "), lines[1])
+
+    def test_dialog_pictures_need_a_process_and_windows_powershell(self) -> None:
+        output = self.run_pwsh("Save-ExcelDialogPictures 0 '.'; Save-ExcelDialogPictures 4242 '.'")
+        lines = output.splitlines()
+        self.assertEqual(lines[0], "Excel dialogs: the process is not known")
+        self.assertEqual(lines[1], "Excel dialogs: no picture taken here (System.Drawing is not available)")
 
     def test_registering_off_an_sta_thread_does_nothing(self) -> None:
         output = self.run_pwsh(

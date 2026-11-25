@@ -334,6 +334,7 @@ function Invoke-QuickRun {
             Write-Log (Get-ExcelBusyRetrySummary)
             if ([KSaccr.ExcelBusyRetry]::Abandoned -gt 0) {
                 Write-Log (Get-ExcelWindowsSummary $script:excelProcess)
+                Write-Log (Save-ExcelDialogPictures $script:excelProcess (Join-Path $Bundle "sheets"))
             }
         }
         else {
