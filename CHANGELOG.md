@@ -647,6 +647,14 @@ Use only the categories needed by a release.
   method, kept in the tests, on edge cases found by `tools/test_text_hash.py`; `TEST_Benchmark`
   prints the time of both on the inputs it writes.
 
+- **Fewer small costs in a run** (#771). `CORE_Engine.ProcessTrades` sets the lambda format of
+  the commodity rows of TradeCalc (#708) once per run of consecutive commodity rows instead of
+  once per row, and `CheckEconomicTrades` receives the trades block by reference instead of a
+  copy. The formats and results are unchanged: `TEST_MainState` (48 cases, 719 checks) checks
+  after a run of the demo portfolio, whose commodity rows come in runs of one, three and five,
+  the last at the end of TradeCalc, that every commodity lambda shows as 0.0000 and every other
+  as the column's percentage.
+
 - Explain the row of CSV field names of the two staging sheets (#731). D8 of
   `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
   give the name each column has in the first line of a CSV file for the sheet, as
