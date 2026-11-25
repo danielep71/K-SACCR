@@ -678,16 +678,23 @@ commodity forwards and other-risks forwards, all valid; then, last, a
 portfolio of 1,000 legs with a
 stray comment 100,000 rows below the end of the Trades used range, which
 inflates the sheet's used range. For each it times the writing of the inputs
-and the engine run, prints a `BENCH` line such as this one, with the seconds
+and the engine run, and then what the input fingerprint costs (#771): a
+complete Run SA-CCR (`op_s`), the recalculation of the two status cells that
+read only the inputs, `Results!C5` and `Dashboard!C5`, which every input edit
+also recalculates (`status_s`), one input fingerprint (`fingerprint_s`), the
+text of the trades it reads (`text_chars`, `text_s`), and the hash of that
+text by `TextHash` and by the method before #771 (`hash_s`, `hash_ref_s`),
+which must agree. It prints a `BENCH` line such as this one, with the seconds
 in the locale's number format,
 
 ```text
-BENCH case=bench-10000; legs=10000; netting_sets=20; used=10000; withheld=0; errors=0; warnings=0; tradecalc_rows=10000; results_rows=21; write_s=<seconds>; run_s=<seconds>
+BENCH case=bench-10000; legs=10000; netting_sets=20; used=10000; withheld=0; errors=0; warnings=0; tradecalc_rows=10000; results_rows=21; write_s=<seconds>; run_s=<seconds>; op_s=<seconds>; status_s=<seconds>; fingerprint_s=<seconds>; text_chars=<characters>; text_s=<seconds>; hash_s=<seconds>; hash_ref_s=<seconds>
 ```
 
 and checks that the run completed with every leg used, every netting set
 `VALID`, no error on Checks, one Results row per netting set and the `TOTAL
-CRR` row, and one TradeCalc row per leg; the used-range scenario also shows
+CRR` row, and one TradeCalc row per leg, that Run SA-CCR completed and that
+both hashes agree; the used-range scenario also shows
 `used_last_row` and checks that the comment did inflate the used range and
 that deleting its row gives the used range back its extent. After every
 scenario the rows it wrote below the sheets' original extent are deleted and

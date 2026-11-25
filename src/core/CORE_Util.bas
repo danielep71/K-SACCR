@@ -1413,10 +1413,17 @@ Public Function TextHash( _
 ' METHOD
 '   Polynomial hash over the UTF-16 bytes of the text, modulo the prime
 '   2^31 - 1, computed in Double, which holds every intermediate value
-'   exactly.
+'   exactly. The bytes are added three at a time and the modulus taken once
+'   per three (#771): from a hash below 2^31 - 1, three steps of
+'   Hash * 131 + Byte stay below 4.83E+15, under 2^53, so the sum is exact;
+'   and below that bound the rounded quotient Hash / (2^31 - 1) errs by
+'   less than 2.5E-10, less than the 4.66E-10 between a quotient that is
+'   not a whole number and the next one, so Int gives the exact quotient.
+'   The result is the one of a modulus after every byte, the method before
+'   #771: every stored fingerprint stays valid.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-25
 '==============================================================================
 '
 
@@ -1425,15 +1432,25 @@ Public Function TextHash( _
 '------------------------------------------------------------------------------
     Const HASH_MODULUS As Double = 2147483647#    'Prime 2^31 - 1
     Const HASH_BASE    As Double = 131#           'Multiplier per byte
-    Dim Bytes()   As Byte      'UTF-16 bytes of the text
-    Dim Hash      As Double    'Running hash, 0 to HASH_MODULUS - 1
-    Dim i         As Long      'Byte being added
+    Dim Bytes()     As Byte      'UTF-16 bytes of the text
+    Dim Hash        As Double    'Running hash, 0 to HASH_MODULUS - 1
+    Dim ByteCount   As Long      'Bytes of the text
+    Dim GroupEnd    As Long      'First byte after the last whole group of three
+    Dim i           As Long      'Byte being added
 
 '------------------------------------------------------------------------------
 ' HASH
 '------------------------------------------------------------------------------
+    'Whole groups of three bytes, one modulus each.
         Bytes = Content
-        For i = 0 To UBound(Bytes)
+        ByteCount = UBound(Bytes) + 1
+        GroupEnd = ByteCount - ByteCount Mod 3
+        For i = 0 To GroupEnd - 1 Step 3
+            Hash = ((Hash * HASH_BASE + Bytes(i)) * HASH_BASE + Bytes(i + 1)) * HASH_BASE + Bytes(i + 2)
+            Hash = Hash - Int(Hash / HASH_MODULUS) * HASH_MODULUS
+        Next i
+    'The last one or two bytes, one at a time.
+        For i = GroupEnd To ByteCount - 1
             Hash = Hash * HASH_BASE + Bytes(i)
             Hash = Hash - Int(Hash / HASH_MODULUS) * HASH_MODULUS
         Next i

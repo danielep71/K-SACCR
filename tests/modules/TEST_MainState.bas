@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 46   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 47   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -221,6 +221,7 @@ Public Sub RunMainStateTests()
         CaseProtectionKeepsSaved
         CaseNavigationBar
         CaseDirtyWorkbook
+        CaseTextHashUnchanged
 
 '------------------------------------------------------------------------------
 ' RESTORE THE CALLER AND REPORT
@@ -3826,6 +3827,188 @@ Unexpected:
         UnprotectOutput SH_CHECKS
 
 End Sub
+
+
+Private Sub CaseTextHashUnchanged()
+'
+'==============================================================================
+'                            CaseTextHashUnchanged
+'------------------------------------------------------------------------------
+' PURPOSE
+'   CORE_Util.TextHash, which adds three bytes per modulus since #771,
+'   returns the same fingerprint as ReferenceTextHash, the method before
+'   it, which takes the modulus after every byte: on values computed
+'   independently in Python (tools/test_text_hash.py), on texts of 0 to 12
+'   bytes, on every byte value, on texts whose groups of three bytes reach
+'   a multiple of 2^31 - 1 or one less with a quotient near 2.2 million,
+'   where a rounded quotient would be most at risk, on a long text and on
+'   the text of the demo trades. Stored fingerprints stay valid.
+'
+' UPDATED
+'   2026-11-25
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Known       As Variant    'Text and expected fingerprint, in pairs
+    Dim Edges       As Variant    'Byte sequences, in hexadecimal, and fingerprint
+    Dim Fill        As Variant    'Byte values the short texts repeat
+    Dim Text        As String     'Text being hashed
+    Dim LongText    As String     'Text of 200,000 characters
+    Dim Ascending   As String     'Bytes 0 to 255
+    Dim Descending  As String     'Bytes 255 to 0
+    Dim Wrong       As String     'Texts whose fingerprint differs
+    Dim Length      As Long       'Bytes of a short text
+    Dim k           As Long       'Entry or character
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "fingerprint.text-hash-unchanged"
+
+    'Values of the method before #771, computed in Python.
+        Known = Array("", "00000000", "A", "00002143", "K-SACCR", "6F1505D8", _
+                      "EUR|2026-09-30|" & ChrW$(8364), "0BCB808F")
+        Wrong = ""
+        For k = LBound(Known) To UBound(Known) Step 2
+            If TextHash(Known(k)) <> Known(k + 1) Or ReferenceTextHash(Known(k)) <> Known(k + 1) Then
+                Wrong = Wrong & " '" & Known(k) & "' gives " & TextHash(Known(k)) & " and " & _
+                        ReferenceTextHash(Known(k)) & ", not " & Known(k + 1)
+            End If
+        Next k
+        TEST_Kit.Check Len(Wrong) = 0, "known values:" & Wrong
+
+    'Every length from 0 to 12 bytes, so every count of bytes left after
+    'the whole groups of three.
+        Fill = Array("00", "FF", "7F")
+        Wrong = ""
+        For k = LBound(Fill) To UBound(Fill)
+            For Length = 0 To 12
+                Text = BytesText(Replace$(Space$(Length), " ", Fill(k)))
+                If TextHash(Text) <> ReferenceTextHash(Text) Then
+                    Wrong = Wrong & " " & Length & " bytes of " & Fill(k)
+                End If
+            Next Length
+        Next k
+        TEST_Kit.Check Len(Wrong) = 0, "short texts differ:" & Wrong
+
+    'Every byte value, in both orders.
+        For k = 0 To 255
+            Ascending = Ascending & Right$("0" & Hex$(k), 2)
+            Descending = Descending & Right$("0" & Hex$(255 - k), 2)
+        Next k
+        Ascending = BytesText(Ascending)
+        Descending = BytesText(Descending)
+        TEST_Kit.Check TextHash(Ascending) = "4DACC373" And ReferenceTextHash(Ascending) = "4DACC373" And _
+                       TextHash(Descending) = "7BD9AFBA" And ReferenceTextHash(Descending) = "7BD9AFBA", _
+                       "bytes 0 to 255 give " & TextHash(Ascending) & " and " & ReferenceTextHash(Ascending) & _
+                       "; 255 to 0 give " & TextHash(Descending) & " and " & ReferenceTextHash(Descending)
+
+    'Groups of three bytes that reach k * (2^31 - 1), or one less, with a
+    'quotient near 2.2 million (found by tools/test_text_hash.py).
+        Edges = Array("459ABE7E9E24D4123F", "00000000", "20BE26A2B54CB55366", "00000000", _
+                      "2B9539906EF2713631", "00000000", "459ABE7E9E24D4123E", "7FFFFFFE", _
+                      "20BE26A2B54CB55365", "7FFFFFFE", "2B9539906EF2713630", "7FFFFFFE")
+        Wrong = ""
+        For k = LBound(Edges) To UBound(Edges) Step 2
+            Text = BytesText(Edges(k))
+            If TextHash(Text) <> Edges(k + 1) Or ReferenceTextHash(Text) <> Edges(k + 1) Then
+                Wrong = Wrong & " " & Edges(k) & " gives " & TextHash(Text) & " and " & ReferenceTextHash(Text)
+            End If
+        Next k
+        TEST_Kit.Check Len(Wrong) = 0, "edge groups:" & Wrong
+
+    'A long text over the whole range of characters.
+        LongText = Space$(200000)
+        For k = 1 To 200000
+            Mid$(LongText, k, 1) = ChrW$(CLng((k * 7919&) Mod 65536) - 32768)
+        Next k
+        TEST_Kit.Check TextHash(LongText) = ReferenceTextHash(LongText), _
+                       "a long text gives " & TextHash(LongText) & ", not " & ReferenceTextHash(LongText)
+
+    'The text the input fingerprint reads from the demo trades.
+        Text = CORE_Engine.BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        TEST_Kit.Check Len(Text) > 0 And TextHash(Text) = ReferenceTextHash(Text), _
+                       "the trades text (" & Len(Text) & " characters) gives " & TextHash(Text) & _
+                       ", not " & ReferenceTextHash(Text)
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        TEST_Kit.Fail "fingerprint.text-hash-unchanged", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Public Function ReferenceTextHash( _
+    ByVal Content As String) _
+    As String
+'
+'==============================================================================
+'                              ReferenceTextHash
+'------------------------------------------------------------------------------
+' PURPOSE
+'   CORE_Util.TextHash as it was before #771, kept unchanged as the
+'   reference of CaseTextHashUnchanged and of TEST_Benchmark: the
+'   polynomial hash over the UTF-16 bytes of the text, base 131, with the
+'   modulus 2^31 - 1 taken after every byte.
+'
+' RETURNS
+'   The fingerprint as 8 hexadecimal digits.
+'
+' UPDATED
+'   2026-11-25
+'==============================================================================
+'
+    Const HASH_MODULUS As Double = 2147483647#    'Prime 2^31 - 1
+    Const HASH_BASE    As Double = 131#           'Multiplier per byte
+    Dim Bytes()   As Byte      'UTF-16 bytes of the text
+    Dim Hash      As Double    'Running hash, 0 to HASH_MODULUS - 1
+    Dim i         As Long      'Byte being added
+
+        Bytes = Content
+        For i = 0 To UBound(Bytes)
+            Hash = Hash * HASH_BASE + Bytes(i)
+            Hash = Hash - Int(Hash / HASH_MODULUS) * HASH_MODULUS
+        Next i
+        ReferenceTextHash = Right$("0000000" & Hex$(CLng(Hash)), 8)
+
+End Function
+
+
+Private Function BytesText( _
+    ByVal HexDigits As String) _
+    As String
+'
+'==============================================================================
+'                                  BytesText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The text whose bytes are HexDigits, two hexadecimal digits per byte,
+'   also an odd number of bytes; an empty text for no digits.
+'
+' UPDATED
+'   2026-11-25
+'==============================================================================
+'
+    Dim Bytes()   As Byte    'The bytes
+    Dim k         As Long    'Byte
+
+        If Len(HexDigits) = 0 Then
+            Exit Function
+        End If
+        ReDim Bytes(0 To Len(HexDigits) \ 2 - 1)
+        For k = 0 To UBound(Bytes)
+            Bytes(k) = CByte("&H" & Mid$(HexDigits, 2 * k + 1, 2))
+        Next k
+        BytesText = Bytes
+
+End Function
 
 
 '

@@ -255,10 +255,11 @@ Private Sub RunScenario( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write a portfolio, time the writing and the engine run, record the
-'   checks and print the BENCH line, then delete the rows written below
-'   each sheet's extent before the run. In the used-range scenario a stray
-'   comment is written STRAY_OFFSET rows below the end of the Trades used
-'   range before the run, and its row deleted after it.
+'   checks, time the fingerprints (MeasureFingerprints) and print the BENCH
+'   line, then delete the rows written below each sheet's extent before
+'   the run. In the used-range scenario a stray comment is written
+'   STRAY_OFFSET rows below the end of the Trades used range before the
+'   run, and its row deleted after it.
 '
 ' INPUTS
 '   CaseId: the case label.
@@ -270,7 +271,7 @@ Private Sub RunScenario( _
 '   stray comment and the added rows.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-25
 '==============================================================================
 '
 
@@ -358,6 +359,7 @@ Private Sub RunScenario( _
             BenchLine = BenchLine & "; used_last_row=" & UsedRangeEnd
         End If
         BenchLine = BenchLine & "; write_s=" & Format$(WriteSeconds, "0.00") & "; run_s=" & Format$(RunSeconds, "0.00")
+        BenchLine = BenchLine & MeasureFingerprints()
         TEST_Suite.Say BenchLine
 
 '------------------------------------------------------------------------------
@@ -1129,6 +1131,78 @@ Private Function MonthsAfterValuation( _
         MonthsAfterValuation = DateAdd("m", Months, DateSerial(CInt(Left$(VALUATION, 4)), _
                                                                CInt(Mid$(VALUATION, 6, 2)), _
                                                                CInt(Right$(VALUATION, 2))))
+
+End Function
+
+
+Private Function MeasureFingerprints() As String
+'
+'==============================================================================
+'                             MeasureFingerprints
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Time what the input fingerprint costs on the portfolio written (#771):
+'   a complete Run SA-CCR, which recalculates before the engine and the
+'   status cells after it; the recalculation of the two status cells that
+'   read only the inputs, Results!C5 and Dashboard!C5, which an input edit
+'   also recalculates; one InputFingerprint; the text of the trades it
+'   reads; and CORE_Util.TextHash and the method before #771,
+'   TEST_MainState.ReferenceTextHash, on that text, which must agree.
+'
+' RETURNS
+'   The fields for the BENCH line: op_s, status_s, fingerprint_s,
+'   text_chars, text_s, hash_s and hash_ref_s, in seconds and characters.
+'
+' ERROR POLICY
+'   An error propagates to RunBenchmark, as in the rest of the scenario.
+'
+' UPDATED
+'   2026-11-25
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim StartTime       As Double    'Timer at the start of a measure
+    Dim Fields          As String    'The fields measured so far
+    Dim Result          As String    'Result line of the operation
+    Dim Text            As String    'Text of the trades
+    Dim Hash            As String    'TextHash of it
+    Dim ReferenceHash   As String    'ReferenceTextHash of it
+
+'------------------------------------------------------------------------------
+' OPERATION AND STATUS CELLS
+'------------------------------------------------------------------------------
+    'The run stores the fingerprint the status cells compare with, so they
+    'compute it rather than show that there are no results.
+        StartTime = Timer
+        Result = M_Main.RunSACCR_Silent()
+        Fields = "; op_s=" & Format$(SecondsSince(StartTime), "0.00")
+        TEST_CaseRunner.ExpectTrue "operation", Left$(Result, 9) = "RESULT=OK", Result, REFERENCE_CLASS
+        StartTime = Timer
+        GetSheet(SH_RESULTS).Range("C5").Calculate
+        GetSheet(SH_DASHBOARD).Range("C5").Calculate
+        Fields = Fields & "; status_s=" & Format$(SecondsSince(StartTime), "0.00")
+
+'------------------------------------------------------------------------------
+' FINGERPRINT, TEXT AND HASH
+'------------------------------------------------------------------------------
+        StartTime = Timer
+        CORE_Engine.InputFingerprint
+        Fields = Fields & "; fingerprint_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        Text = CORE_Engine.BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        Fields = Fields & "; text_chars=" & Len(Text) & "; text_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        Hash = TextHash(Text)
+        Fields = Fields & "; hash_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        ReferenceHash = TEST_MainState.ReferenceTextHash(Text)
+        Fields = Fields & "; hash_ref_s=" & Format$(SecondsSince(StartTime), "0.00")
+        TEST_CaseRunner.ExpectTrue "hash-unchanged", Hash = ReferenceHash, _
+                                   "TextHash gives " & Hash & ", the method before #771 " & ReferenceHash, REFERENCE_CLASS
+        MeasureFingerprints = Fields
 
 End Function
 

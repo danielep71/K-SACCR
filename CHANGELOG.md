@@ -625,6 +625,16 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- **Faster fingerprints, same values** (#771). `CORE_Util.TextHash`, which every fingerprint
+  uses (inputs, outputs, reconciliation, staging, FX and holiday tables), adds the bytes three at
+  a time and takes the modulus once per three, where it took it after every byte. Every
+  intermediate value stays below 2^53 and every quotient is exact, so every fingerprint, stored
+  ones included, is unchanged. The status cells of Results, Dashboard and the reconciliation
+  sheets recompute the input fingerprint on every recalculation, so the gain is paid back on each
+  input edit. `TEST_MainState` (47 cases, 717 checks) compares the new hash with the previous
+  method, kept in the tests, on edge cases found by `tools/test_text_hash.py`; `TEST_Benchmark`
+  prints the time of both on the inputs it writes.
+
 - Explain the row of CSV field names of the two staging sheets (#731). D8 of
   `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
   give the name each column has in the first line of a CSV file for the sheet, as
