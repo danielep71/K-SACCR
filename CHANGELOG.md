@@ -97,16 +97,23 @@ Use only the categories needed by a release.
 
 ### Added
 
-- **Hide and show the navigation bar from the sheet** (#777). A small triangle in row 1 of
-  every sheet does what the Ribbon's Navigation bar toggle does, on every sheet at once, one
-  triangle at a time: ◀ at the right of A1, on the bar's edge, hides the bar; ▶ at the far left of
-  B1 shows it again. The titles in B1 and B2 are indented twice, about 10 px further right, so
-  that ▶ never covers them,
-  and the eight sheets that froze only column A (Home, Import_NettingSets, Import_Trades,
-  Dashboard, BankNettingSets, BankTrades, Basel_vs_CRR, README) now freeze columns A and B, so
-  that the triangle stays in view when the sheet scrolls. `tools/navigation_bar.py` draws the
-  triangles with the bar and checks them; `TEST_MainState` (`navigation.bar-toggle`) checks the
-  triangle shown on every sheet after a hide, a save and a show.
+- **The benchmark on the self-hosted runner** (#771). A run of the Excel quick check started by
+  hand may give benchmark sizes (`1000,10000`, for example): the quick check then also runs
+  `TEST_Benchmark.RunBenchmark` after the sheet review, through the new `TEST_Suite.Benchmark`,
+  into `benchmark.log`, which the artifact carries, and adds the BENCH lines to its summary. The
+  benchmark never changes the result of the quick check, and a pull request never runs it.
+  `Verify-SACCR-Branch.ps1 -Quick -BenchmarkSizes` refuses sizes that are not a list of at most
+  ten whole numbers.
+
+- **Hide and show the navigation bar from the sheet** (#777). A small triangle at the far left of
+  B1 of every sheet does what the Ribbon's Navigation bar toggle does, on every sheet at once: ◀
+  while the bar is shown hides it, ▶ while it is hidden shows it again, in the same place. The bar
+  in column A is narrower (width 18 instead of 21.75) and the margin column B narrower (2 instead
+  of 4); every sheet freezes at least columns A and B, so the triangle stays in view when the
+  sheet scrolls, and the titles move from B1 and B2 to C1 and C2, without indent, so the freeze
+  line never crosses them. `tools/navigation_bar.py` draws the triangles with the bar and checks
+  them; `TEST_MainState` (`navigation.bar-toggle`) checks the triangle shown on every sheet after
+  a hide, a save and a show.
 
 - A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
   the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
@@ -657,6 +664,14 @@ Use only the categories needed by a release.
   input edit. `TEST_MainState` (47 cases, 717 checks) compares the new hash with the previous
   method, kept in the tests, on edge cases found by `tools/test_text_hash.py`; `TEST_Benchmark`
   prints the time of both on the inputs it writes.
+
+- **Fewer small costs in a run** (#771). `CORE_Engine.ProcessTrades` sets the lambda format of
+  the commodity rows of TradeCalc (#708) once per run of consecutive commodity rows instead of
+  once per row, and `CheckEconomicTrades` receives the trades block by reference instead of a
+  copy. The formats and results are unchanged: `TEST_MainState` (48 cases, 719 checks) checks
+  after a run of the demo portfolio, whose commodity rows come in runs of one, three and five,
+  the last at the end of TradeCalc, that every commodity lambda shows as 0.0000 and every other
+  as the column's percentage.
 
 - Explain the row of CSV field names of the two staging sheets (#731). D8 of
   `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
