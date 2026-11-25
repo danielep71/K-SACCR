@@ -90,13 +90,28 @@ class HeaderNoteTests(unittest.TestCase):
         panes = {name: self.sheet(name).find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane") for name in INPUT_SHEETS}
         self.assertEqual({name: pane.attrib.get("topLeftCell") for name, pane in panes.items() if pane is not None},
                          {"Params": "D5", "NettingSets": "D5", "Trades": "E5"})
-        # Home freezes the same four rows; its row 4 stays the narrow gap it was (owner, 2026-11-25)
-        home = self.sheet("Home")
-        pane = home.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
-        assert pane is not None
-        self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS))
-        heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in home.iter(MAIN + "row")}
-        self.assertAlmostEqual(heights.get("4") or 0.0, 9.95, places=2)
+        # Home freezes the same four rows, as high as on the input sheets (owner, 2026-11-25)
+        frozen = {}
+        for name in ("Home", *INPUT_SHEETS):
+            sheet = self.sheet(name)
+            pane = sheet.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+            assert pane is not None, name
+            self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS), name)
+            heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
+            frozen[name] = [heights.get(str(row)) for row in range(1, FROZEN_ROWS + 1)]
+        self.assertEqual(len({tuple(rows) for rows in frozen.values()}), 1, frozen)
+
+    def test_the_two_staging_sheets_freeze_rows_of_the_same_height(self) -> None:
+        # Moving between Import_NettingSets and Import_Trades leaves the view where it was (owner, 2026-11-25).
+        frozen = {}
+        for name in ("Import_NettingSets", "Import_Trades"):
+            sheet = self.sheet(name)
+            pane = sheet.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+            assert pane is not None, name
+            rows = int(pane.attrib.get("ySplit", "0"))
+            heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
+            frozen[name] = (rows, [heights.get(str(row), 15.0) for row in range(1, rows + 1)])
+        self.assertEqual(frozen["Import_NettingSets"], frozen["Import_Trades"])
 
     def test_the_staging_sheets_show_the_same_headers(self) -> None:
         for kind, anchor in (("NettingSets", "ImportNettingSets_Header"), ("Trades", "ImportTrades_Header")):
