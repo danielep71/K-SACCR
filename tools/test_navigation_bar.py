@@ -1,4 +1,5 @@
 """The sheet navigation bar of the workbook template (#615): tools/navigation_bar.py."""
+import posixpath
 import re
 import shutil
 import tempfile
@@ -86,7 +87,7 @@ class NavigationBarTests(unittest.TestCase):
             sheet_rels = package.text(bar.rels_path(part))
             rid = re.search(r'<drawing r:id="([^"]+)"/>', package.text(part)).group(1)  # type: ignore[union-attr]
             target = bar.relationships(sheet_rels)[rid][1]
-            found[name] = package.text(bar.posixpath.normpath(bar.posixpath.join(bar.posixpath.dirname(part), target)))
+            found[name] = package.text(posixpath.normpath(posixpath.join(posixpath.dirname(part), target)))
         return found
 
     def test_every_sheet_has_one_triangle_shown_at_the_edge_of_the_bar(self) -> None:
