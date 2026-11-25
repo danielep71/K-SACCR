@@ -767,6 +767,17 @@ def negative_problems(root: Path, policy: dict[str, Any]) -> list[str]:
     return problems
 
 
+def dispatch_problems(runner: str, entries: list[str]) -> list[str]:
+    """Check that RunEntry has a branch calling each entry point: a missing branch would
+    skip the suite and leave only 'no RESULT line' in the summary."""
+    body = re.search(r"Private Sub RunEntry\((.*?)\nEnd Sub", runner, re.DOTALL)
+    if not body:
+        return ["TEST_Suite has no RunEntry procedure"]
+    return [f"TEST_Suite.RunEntry has no branch that runs {entry}" for entry in entries
+            if not re.search(rf'Case "{re.escape(entry)}"\s*\r?\n\s*{re.escape(entry)}\s*\r?\n',
+                             body.group(1))]
+
+
 def policy_problems(root: Path) -> list[str]:
     """Check that the working tree's policy matches the test modules, Test_RunAll and README."""
     try:
@@ -789,6 +800,7 @@ def policy_problems(root: Path) -> list[str]:
             problems.append(f"{policy['summary_entry_point']} runs {listed}, not the policy suites")
         if declared(runner, "SUITE_COUNT", 0) != {len(entries)}:
             problems.append("SUITE_COUNT differs from the number of policy suites")
+        problems += dispatch_problems(runner, entries + [run["entry_point"] for run in policy["negative_runs"]])
         return problems + readme_problems(root, policy)
     except (ValueError, OSError) as error:
         return [str(error)]

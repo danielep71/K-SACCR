@@ -23,6 +23,7 @@
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },
+    "Dashboard": {"role": "Output", "notes": "Written by every run (#675): the values of the data table, which its charts read."},
     "Results": {"role": "Output", "allow": ["filtering"]},
     "HedgingSets": {"role": "Output", "allow": ["filtering"]},
     "Buckets": {"role": "Output", "allow": ["filtering"]},

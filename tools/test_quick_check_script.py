@@ -111,14 +111,15 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
             (bundle / "protection" / "K-SACCR_Production.xlsm").write_bytes(b"workbook")
             (bundle / "verify-summary.txt").write_text("log at D:\\runner\\x\n", encoding="utf-8")
             (bundle / "summary.log").write_text("RESULT=PASS\n", encoding="utf-8")
+            (bundle / "benchmark.log").write_text("BENCH case=bench-1000; legs=1000\n", encoding="utf-8")
             picture = bytes(range(256))
             (bundle / "sheets" / "01-Home-run.png").write_bytes(picture)
             destination = Path(folder) / "artifact"
             body = (f"$map = @{{ 'D:\\runner' = '<runner>' }}\n"
                     f"Copy-QuickArtifacts -Bundle '{bundle}' -Destination '{destination}' -Replacements $map")
-            self.assertEqual(run(body), "3")
+            self.assertEqual(run(body), "4")
             copied = sorted(str(p.relative_to(destination)).replace("\\", "/") for p in destination.rglob("*") if p.is_file())
-            self.assertEqual(copied, ["sheets/01-Home-run.png", "summary.log", "verify-summary.txt"])
+            self.assertEqual(copied, ["benchmark.log", "sheets/01-Home-run.png", "summary.log", "verify-summary.txt"])
             self.assertEqual((destination / "sheets" / "01-Home-run.png").read_bytes(), picture)
             self.assertEqual((destination / "verify-summary.txt").read_text(encoding="utf-8"), "log at <runner>\\x\n")
 
@@ -191,7 +192,8 @@ $found -join "`n"
 
 
 FAKE_VERIFY = r"""
-param([string]$Branch, [switch]$Quick, [string]$RepoRoot, [string]$Commit)
+param([string]$Branch, [switch]$Quick, [string]$RepoRoot, [string]$Commit, [string]$BenchmarkSizes)
+Write-Output ('Benchmark sizes: [' + $BenchmarkSizes + ']')
 $parent = Split-Path -Parent $RepoRoot
 $sha = $Commit
 $bundle = Join-Path $parent ('saccr-verify-' + $sha.Substring(0, 7))
@@ -222,10 +224,11 @@ OTHER = "f" * 40
 
 
 def make_repo(root: Path, *scripts: str) -> tuple[Path, str]:
-    """A git repository of the tools folder with one commit; returns it and the commit."""
+    """A git repository of the tools folder with one commit; returns it and the commit. The
+    scripts that start Excel load Excel-BusyRetry.ps1 (#773), so it is always copied."""
     repo = root / "work" / "K-SACCR"
     (repo / "tools").mkdir(parents=True)
-    for name in scripts:
+    for name in dict.fromkeys((*scripts, "Excel-BusyRetry.ps1")):
         shutil.copy(TOOLS / name, repo / "tools" / name)
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run([*GIT, "-C", str(repo), "add", "-A"], check=True)
@@ -299,6 +302,17 @@ class QuickCheckRunnerTests(unittest.TestCase):
             self.assertIn("not at the commit of the event", completed.stdout + completed.stderr)
             self.assertFalse((work / ("saccr-verify-" + sha[:7])).exists())
 
+    def test_benchmark_sizes_reach_the_quick_check_only_on_a_run_by_hand(self) -> None:
+        # #771: the benchmark's timings belong to the machine, so a pull request never runs it.
+        for event, repo, expected in (("workflow_dispatch", "", "[1000,10000]"),
+                                      ("pull_request", "danielep71/K-SACCR", "[]")):
+            with self.subTest(event=event), tempfile.TemporaryDirectory() as name:
+                completed, _, _ = self.run_runner(Path(name), "feat/713-x", EVENT_NAME=event, HEAD_REPO=repo,
+                                                  FAKE_RESULT="PASS", FAKE_CODE="0", HEAD_SHA="",
+                                                  BENCHMARK_SIZES=" 1000,10000 ")
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                self.assertIn("Benchmark sizes: " + expected, completed.stdout)
+
     def test_the_commit_is_passed_to_the_quick_check(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             folder = Path(name)
@@ -324,6 +338,19 @@ class VerifyCommitTests(unittest.TestCase):
             self.assertNotEqual(completed.returncode, 0)
             self.assertIn("nothing was verified", output)
             self.assertFalse(any(p.name.startswith("saccr-verify-") for p in repo.parent.iterdir()))
+
+    def test_benchmark_sizes_need_the_quick_check_and_a_list_of_numbers(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            repo, sha = make_repo(Path(name), "Verify-SACCR-Branch.ps1")
+            for arguments, message in ((["-Quick", "-BenchmarkSizes", "1000;calc"], "Not a list of benchmark sizes"),
+                                       (["-Quick", "-BenchmarkSizes", "1,2,3,4,5,6,7,8,9,10,11"],
+                                        "Not a list of benchmark sizes"),
+                                       (["-BenchmarkSizes", "1000"], "-BenchmarkSizes needs -Quick")):
+                completed = run_script(repo / "tools" / "Verify-SACCR-Branch.ps1",
+                                       ["-Branch", "feat/713-x", "-Commit", sha, *arguments], dict(os.environ))
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn(message, completed.stdout + completed.stderr)
+                self.assertFalse(any(p.name.startswith("saccr-") for p in repo.parent.iterdir()))
 
     def test_a_short_or_upper_case_sha_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as name:

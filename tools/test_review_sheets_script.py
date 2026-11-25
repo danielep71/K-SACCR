@@ -47,6 +47,31 @@ $one = [pscustomobject]@{ UsedRange = [pscustomobject]@{ Row = 1; Column = 1; Fo
 """
         self.assertEqual(run(body).splitlines(), ["4,4", "0,0"])
 
+    def test_mixed_cells_are_listed_through_cells_item(self) -> None:
+        # A used range whose fonts differ: the column is read as a range of the
+        # sheet and each cell through Cells.Item(row, column) (#675).
+        body = r"""
+function New-Cell([string]$font, [int]$align, [string]$address) {
+    $cell = [pscustomobject]@{ Font = [pscustomobject]@{ Name = $font }; VerticalAlignment = $align }
+    $cell | Add-Member -MemberType ScriptMethod -Name Address -Value { param($a, $b) $address }.GetNewClosure()
+    return $cell
+}
+$cells = @{ '1,1' = (New-Cell 'Aptos' -4108 'C1'); '2,1' = (New-Cell 'Calibri' -4107 'C2') }
+$items = [pscustomobject]@{}
+$items | Add-Member -MemberType ScriptMethod -Name Item -Value { param($r, $c) $cells["$r,$c"] }.GetNewClosure()
+$used = [pscustomobject]@{ Font = [pscustomobject]@{ Name = [System.DBNull]::Value }
+                           VerticalAlignment = [System.DBNull]::Value
+                           Rows = [pscustomobject]@{ Count = 2 }; Columns = [pscustomobject]@{ Count = 1 }
+                           Cells = $items }
+$column = [pscustomobject]@{ Font = [pscustomobject]@{ Name = [System.DBNull]::Value }
+                             VerticalAlignment = [System.DBNull]::Value }
+$sheet = [pscustomobject]@{ UsedRange = $used }
+$sheet | Add-Member -MemberType ScriptMethod -Name Range -Value { param($a, $b) $column }.GetNewClosure()
+$found = Test-CellStyle $sheet 'Aptos'
+($found.Fonts -join ';') + '|' + ($found.Aligns -join ';')
+"""
+        self.assertEqual(run(body), "C2 Calibri|C2 bottom")
+
     def test_listing_is_capped(self) -> None:
         body = r"""
 $items = New-Object System.Collections.Generic.List[string]

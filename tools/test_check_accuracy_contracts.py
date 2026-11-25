@@ -55,9 +55,9 @@ class AccuracyContractTests(unittest.TestCase):
         self.assertFinding("RC: illustrative-ir-swap-unmargined.crr is listed more than once")
 
     def test_unknown_case_and_case_without_family_output(self) -> None:
-        self.contract("RC")["held_out"] += ["missing-case.crr", "illustrative-other-risks.crr"]
+        self.contract("RC")["held_out"] += ["missing-case.crr", "other-risks.crr"]
         self.assertFinding("RC: missing-case.crr has no expected file")
-        self.assertFinding("RC: illustrative-other-risks.crr has no output of the family")
+        self.assertFinding("RC: other-risks.crr has no output of the family")
 
     def test_rounded_entry_not_needed(self) -> None:
         self.contract("RC")["rounded"]["illustrative-ir-swap-unmargined.crr"] = {"absolute": 1, "relative": 0}

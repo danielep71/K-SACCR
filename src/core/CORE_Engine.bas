@@ -287,6 +287,16 @@ Attribute VB_Name = "CORE_Engine"
     'Opens the text of the fingerprint of the FX table that Download prices
     'stores (#745); changed whenever what it covers changes.
         Private Const FX_FP_FORMAT As String = "FX1"    'The FX table from its header row
+    'The window of the business-day list (#771): from the first day of the
+    'TARGET calendar to the end of 2100. A date outside it is counted by
+    'SACCR_BusinessDays, as before the list.
+        Private Const BD_WINDOW_FIRST        As Long = 36161    '1 January 1999
+        Private Const BD_WINDOW_LAST         As Long = 73415    '31 December 2100
+    'The TARGET rule, as SACCR_BusinessDays applies it (#721): from 1999 New
+    'Year's Day and Christmas; from 2000 also Good Friday, Easter Monday,
+    '1 May and 26 December; 31 December in 1999 and 2001 only.
+        Private Const BD_TARGET_FIRST_YEAR   As Long = 1999     'First year of TARGET
+        Private Const BD_TARGET_FULL_YEAR    As Long = 2000     'First year of the six closing days
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -376,6 +386,11 @@ Attribute VB_Name = "CORE_Engine"
         Private pUseTarget    As Boolean    'The calendar holds the TARGET rule: its business days are counted
         Private pHolidays     As Variant    'Closing days of the table, sorted, each once, as serial numbers; Empty for none
         Private mYearEnds     As Collection 'Business days from the reporting date to 31 December of a year, by year
+        Private mClosingDays  As Variant    'Closing weekdays of the window, sorted, each once: TARGET and the table (#771)
+        Private mClosingCount As Long       'Closing weekdays in mClosingDays
+        Private mClosingKey   As String     'The table of closing days mClosingDays was built with (HolidayKey)
+        Private mClosingBuilt As Boolean    'mClosingDays has been built at least once
+        Private mClosingRun   As Collection 'mYearEnds of the run that last loaded mClosingDays
         Private pMinMatBD     As Double     'Floor on M, business days
         Private pSDFloorBD    As Double     'Floor on supervisory duration, business days
         Private pMPORBil      As Double     'MPOR floor, bilateral
@@ -1992,35 +2007,574 @@ Private Function ClosedDaysTo( _
 
 End Function
 
-
 Private Function BusinessDaysTo( _
     ByVal Target As Double) _
     As Double
 '
-'==============================================================================
-'                              BusinessDaysTo
+'------------------------------------------------------------------------------
+'                        COUNT BUSINESS DAYS TO A DATE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The business days in (reporting date, Target] on the chosen calendar,
-'   from SACCR_BusinessDays: the whole years before the year of Target from
-'   a cache kept for the run, and the rest of that year by one call, so that
-'   a call spans at most one year however far the date is.
+'   Returns the business days in (reporting date, Target] on the run's
+'   calendar, as SACCR_BusinessDays counts them
+'
+' WHY THIS EXISTS
+'   YearsTo reads up to four dates per trade on a business-day convention
+'   (#721). Counting each date from the calendar's rules redid a year of
+'   closing days and read the whole table on every call; the list of closing
+'   days, built once, answers in two searches (#771)
+'
+' INPUTS
+'   Target
+'     The date, after the reporting date, as a serial number
+'
+' RETURNS
+'   The business days, a whole number
+'
+' BEHAVIOR
+'   - Both dates in the window, 1 January 1999 to 31 December 2100: the
+'     weekdays between them less the closing weekdays between them, on the
+'     list LoadClosingDays loads once per run
+'   - Otherwise: the whole years before the year of Target from the run's
+'     cache of year ends, and the rest of that year by one call of
+'     SACCR_BusinessDays
+'
+' ERROR POLICY
+'   An error value of SACCR_BusinessDays raises through FormulaNumber
+'
+' DEPENDENCIES
+'   LoadClosingDays, ListBusinessDays, YearEndCount, SACCR_BusinessDays,
+'   FormulaNumber
+'
+' NOTES
+'   ReadConvention starts every run with a new mYearEnds: a run has loaded
+'   the list once mClosingRun is its mYearEnds. The caller uses this count
+'   only on a calendar that holds the TARGET rule (pUseTarget)
 '
 ' UPDATED
-'   2026-11-20
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.BusinessDaysTo"
 
     Dim TargetYear   As Long    'Year of the date
 
+'------------------------------------------------------------------------------
+' COUNT INSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'Count on the list of closing days, loaded once per run
+        If pAsOf >= BD_WINDOW_FIRST And Target < BD_WINDOW_LAST + 1 Then
+            If Not mClosingRun Is mYearEnds Then
+                LoadClosingDays pHolidays
+                Set mClosingRun = mYearEnds
+            End If
+            BusinessDaysTo = ListBusinessDays(CLng(Int(pAsOf)), CLng(Int(Target)))
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' COUNT OUTSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'The whole years from the cache of year ends, the rest by one call
         TargetYear = Year(Target)
         If TargetYear = Year(pAsOf) Then
-            BusinessDaysTo = FormulaNumber(SACCR_BusinessDays(pAsOf, Target, pHolidays, pUseTarget), "SACCR_BusinessDays")
+            BusinessDaysTo = FormulaNumber(SACCR_BusinessDays(pAsOf, Target, pHolidays, pUseTarget), _
+                "SACCR_BusinessDays")
         Else
             BusinessDaysTo = YearEndCount(TargetYear - 1) + _
-                             FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(TargetYear - 1, 12, 31)), Target, pHolidays, pUseTarget), _
-                                           "SACCR_BusinessDays")
+                FormulaNumber(SACCR_BusinessDays(CDbl(DateSerial(TargetYear - 1, 12, 31)), Target, _
+                pHolidays, pUseTarget), "SACCR_BusinessDays")
         End If
+
+End Function
+
+Public Function WindowBusinessDays( _
+    ByVal StartDate As Double, _
+    ByVal EndDate As Double, _
+    ByVal Holidays As Variant) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'                   COUNT BUSINESS DAYS ON THE CLOSING LIST
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the business days in (StartDate, EndDate] on the TARGET calendar
+'   and a table of closing days, counted on the list the engine builds
+'
+' WHY THIS EXISTS
+'   The engine counts business days on its own list of closing days (#771),
+'   which must agree with SACCR_BusinessDays on every day; TEST_Formulas
+'   compares the two through this function
+'
+' INPUTS
+'   StartDate
+'     The day before the first day counted, as a serial number
+'
+'   EndDate
+'     The last day counted, not before StartDate
+'
+'   Holidays
+'     The table of closing days: a one-dimensional array of serial numbers,
+'     as pHolidays, or Empty
+'
+' RETURNS
+'   The business days as a Double; Empty when either date is outside the
+'   window, 1 January 1999 to 31 December 2100, or EndDate is before
+'   StartDate
+'
+' BEHAVIOR
+'   Loads the list for Holidays (LoadClosingDays) and counts on it
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   LoadClosingDays, ListBusinessDays
+'
+' NOTES
+'   Loading for another table replaces the run's list; the next run loads
+'   its own again, as every run does
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Leave a date outside the window, or a reversed interval, uncounted
+        If StartDate < BD_WINDOW_FIRST Or EndDate >= BD_WINDOW_LAST + 1 Or EndDate < StartDate Then
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Count on the list of the table
+        LoadClosingDays Holidays
+        Set mClosingRun = Nothing
+        WindowBusinessDays = CDbl(ListBusinessDays(CLng(Int(StartDate)), CLng(Int(EndDate))))
+
+End Function
+
+Private Function ListBusinessDays( _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                       COUNT BUSINESS DAYS ON THE LIST
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the business days in (FirstDay, LastDay]: the weekdays less the
+'   closing weekdays of the list loaded last
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Weekdays less closing weekdays, both counted up to each end
+        ListBusinessDays = (WeekdaysThrough(LastDay) - WeekdaysThrough(FirstDay)) - _
+            (ClosingThrough(LastDay) - ClosingThrough(FirstDay))
+
+End Function
+
+Private Function WeekdaysThrough( _
+    ByVal Serial As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                          COUNT WEEKDAYS UP TO A DAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the Mondays to Fridays from a fixed Monday up to and including
+'   Serial, the count SACCR_BusinessDays starts from
+'
+' NOTES
+'   Serial 2 is a Monday in the 1900 date system; dates of the window are
+'   far after it, so Mod and \ see only positive numbers
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Offset   As Long    'Days from the Monday that day 0 stands for
+    Dim Part     As Long    'Position in the week, 1 for Monday, at most 5
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Five weekdays per whole week, and the weekdays of the week begun
+        Offset = Serial - 2
+        Part = (Offset Mod 7) + 1
+        If Part > 5 Then Part = 5
+        WeekdaysThrough = 5 * (Offset \ 7) + Part
+
+End Function
+
+Private Function ClosingThrough( _
+    ByVal Serial As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                        COUNT CLOSING DAYS UP TO A DAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the closing weekdays of the list loaded last that are not after
+'   Serial, by binary search
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Low    As Long    'Entries known not after Serial
+    Dim High   As Long    'Entries that may be not after Serial
+    Dim Probe  As Long    'Entry tried
+
+'------------------------------------------------------------------------------
+' SEARCH
+'------------------------------------------------------------------------------
+    'Keep Low entries not after Serial and the entries after High after it
+        Low = 0
+        High = mClosingCount
+        Do While Low < High
+            Probe = (Low + High + 1) \ 2
+            If mClosingDays(Probe) <= Serial Then
+                Low = Probe
+            Else
+                High = Probe - 1
+            End If
+        Loop
+        ClosingThrough = Low
+
+End Function
+
+Private Sub LoadClosingDays( _
+    ByVal Holidays As Variant)
+'
+'------------------------------------------------------------------------------
+'                        LOAD THE LIST OF CLOSING DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Builds the sorted list of the closing weekdays of the window for a table
+'   of closing days, unless the list was last built for the same table
+'
+' WHY THIS EXISTS
+'   The business days between two dates are their weekdays less the closing
+'   weekdays between them; with the closing weekdays sorted, each count is
+'   two binary searches (#771)
+'
+' INPUTS
+'   Holidays
+'     The table of closing days: a one-dimensional array of serial numbers,
+'     in any order, or Empty
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - The TARGET closing days of 1999 to 2100, in date order
+'   - The days of the table inside the window, whole, sorted
+'   - Both merged, weekends and repeats left out: a day is closed once,
+'     as SACCR_BusinessDays takes it off once
+'
+' ERROR POLICY
+'   None: an entry of the table that is not a number is left out, as
+'   SACCR_BusinessDays leaves out an empty one; the engine reads only
+'   numbers into pHolidays
+'
+' DEPENDENCIES
+'   HolidayKey, TargetEaster
+'
+' NOTES
+'   About 600 TARGET days; the build takes well under a second and runs
+'   again only when the table changes
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.LoadClosingDays"
+
+    Dim Key          As String    'HolidayKey of the table
+    Dim TargetDays() As Long      'TARGET closing days, in date order
+    Dim TargetCount  As Long      'Entries of Target
+    Dim TableDays()  As Long      'Days of the table inside the window, sorted
+    Dim TableCount   As Long      'Entries of Table
+    Dim Merged()     As Long      'Closing weekdays, sorted, each once
+    Dim MergedCount  As Long      'Entries of Merged
+    Dim Easter       As Long      'Easter Sunday of the year
+    Dim Yr           As Long      'Year
+    Dim Item         As Variant   'Entry of the table
+    Dim Closing      As Long      'Day being placed or merged
+    Dim TargetIndex  As Long      'Next entry of Target to merge
+    Dim TableIndex   As Long      'Next entry of Table to merge
+    Dim Position     As Long      'Place of the day in TableDays
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Keep a list already built for the same table
+        Key = HolidayKey(Holidays)
+        If mClosingBuilt And Key = mClosingKey Then Exit Sub
+
+'------------------------------------------------------------------------------
+' COLLECT THE TARGET DAYS
+'------------------------------------------------------------------------------
+    'Each year's closing days, in date order: Easter falls from 22 March to
+    '25 April, so Good Friday and Easter Monday come between 1 January and
+    '1 May
+        ReDim TargetDays(1 To 7 * (2100 - BD_TARGET_FIRST_YEAR + 1))
+        For Yr = BD_TARGET_FIRST_YEAR To 2100
+            TargetCount = TargetCount + 1
+            TargetDays(TargetCount) = CLng(DateSerial(Yr, 1, 1))
+            If Yr >= BD_TARGET_FULL_YEAR Then
+                Easter = TargetEaster(Yr)
+                TargetDays(TargetCount + 1) = Easter - 2
+                TargetDays(TargetCount + 2) = Easter + 1
+                TargetDays(TargetCount + 3) = CLng(DateSerial(Yr, 5, 1))
+                TargetCount = TargetCount + 3
+            End If
+            TargetCount = TargetCount + 1
+            TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 25))
+            If Yr >= BD_TARGET_FULL_YEAR Then
+                TargetCount = TargetCount + 1
+                TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 26))
+            End If
+            If Yr = 1999 Or Yr = 2001 Then
+                TargetCount = TargetCount + 1
+                TargetDays(TargetCount) = CLng(DateSerial(Yr, 12, 31))
+            End If
+        Next Yr
+
+'------------------------------------------------------------------------------
+' COLLECT THE TABLE DAYS
+'------------------------------------------------------------------------------
+    'The whole days of the window, placed in order as they come
+        If HolidayKey(Holidays) <> "-" Then
+            ReDim TableDays(1 To UBound(Holidays) - LBound(Holidays) + 1)
+            For Each Item In Holidays
+                If IsNum(Item) Then
+                    If Item >= BD_WINDOW_FIRST And Item < BD_WINDOW_LAST + 1 Then
+                        Closing = CLng(Int(Item))
+                        Position = TableCount
+                        Do While Position > 0
+                            If TableDays(Position) <= Closing Then Exit Do
+                            TableDays(Position + 1) = TableDays(Position)
+                            Position = Position - 1
+                        Loop
+                        TableDays(Position + 1) = Closing
+                        TableCount = TableCount + 1
+                    End If
+                End If
+            Next Item
+        End If
+
+'------------------------------------------------------------------------------
+' MERGE
+'------------------------------------------------------------------------------
+    'Take the earlier day of the two lists; keep a weekday not kept yet
+        ReDim Merged(1 To TargetCount + TableCount + 1)
+        TargetIndex = 1
+        TableIndex = 1
+        Do While TargetIndex <= TargetCount Or TableIndex <= TableCount
+            If TableIndex > TableCount Then
+                Closing = TargetDays(TargetIndex)
+                TargetIndex = TargetIndex + 1
+            ElseIf TargetIndex > TargetCount Then
+                Closing = TableDays(TableIndex)
+                TableIndex = TableIndex + 1
+            ElseIf TargetDays(TargetIndex) <= TableDays(TableIndex) Then
+                Closing = TargetDays(TargetIndex)
+                TargetIndex = TargetIndex + 1
+            Else
+                Closing = TableDays(TableIndex)
+                TableIndex = TableIndex + 1
+            End If
+            If ((Closing - 2) Mod 7) <= 4 Then
+                If MergedCount = 0 Then
+                    MergedCount = 1
+                    Merged(MergedCount) = Closing
+                ElseIf Merged(MergedCount) <> Closing Then
+                    MergedCount = MergedCount + 1
+                    Merged(MergedCount) = Closing
+                End If
+            End If
+        Loop
+
+'------------------------------------------------------------------------------
+' STORE THE LIST
+'------------------------------------------------------------------------------
+    'Keep the list and the table it was built for
+        mClosingDays = Merged
+        mClosingCount = MergedCount
+        mClosingKey = Key
+        mClosingBuilt = True
+
+End Sub
+
+Private Function HolidayKey( _
+    ByVal Holidays As Variant) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                       DESCRIBE A TABLE OF CLOSING DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns a text that names a table of closing days, its numbers in order,
+'   so that LoadClosingDays can tell the same table from another
+'
+' WHY THIS EXISTS
+'   The list of closing days is kept while the table stays the same; the
+'   table is an array, compared through this text
+'
+' INPUTS
+'   Holidays
+'     The table of closing days: a one-dimensional array, or Empty
+'
+' RETURNS
+'   The entries joined by commas, an entry that is not a number by its
+'   type; "-" for Empty or an empty array
+'
+' BEHAVIOR
+'   Writes each entry in the order of the array
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   IsNum
+'
+' NOTES
+'   The engine's table is sorted and holds each day once, so the same table
+'   gives the same text
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.HolidayKey"
+
+    Dim Parts()   As String     'Text of each entry
+    Dim Count     As Long       'Entries written
+    Dim Item      As Variant    'Entry of the table
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'No table
+        HolidayKey = "-"
+        If Not IsArray(Holidays) Then Exit Function
+        If UBound(Holidays) < LBound(Holidays) Then Exit Function
+    'Every entry, numbers as numbers and the rest by type
+        ReDim Parts(1 To UBound(Holidays) - LBound(Holidays) + 1)
+        For Each Item In Holidays
+            Count = Count + 1
+            If IsNum(Item) Then
+                Parts(Count) = CStr(CDbl(Item))
+            Else
+                Parts(Count) = "?" & TypeName(Item)
+            End If
+        Next Item
+        HolidayKey = Join(Parts, ",")
+
+End Function
+
+Private Function TargetEaster( _
+    ByVal Yr As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                              FIND EASTER SUNDAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns Easter Sunday of a year of the Gregorian calendar as a serial
+'   number, by the anonymous Gregorian algorithm SACCR_BusinessDays uses
+'
+' WHY THIS EXISTS
+'   Good Friday and Easter Monday are TARGET closing days from 2000; the
+'   list of closing days needs them for every year of its window
+'
+' INPUTS
+'   Yr
+'     The year, 1999 to 2100 in the window
+'
+' RETURNS
+'   Easter Sunday as a serial number
+'
+' BEHAVIOR
+'   The steps of the algorithm, each named; the same arithmetic as
+'   BDEasterSunday of SACCR_Formulas
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   TEST_Formulas compares the engine's business days with
+'   SACCR_BusinessDays on every day of the window, Easter included
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME   As String = "CORE_Engine.TargetEaster"
+
+    Dim Golden       As Long    'Year in the 19-year cycle
+    Dim Century      As Long    'Century
+    Dim YearInCent   As Long    'Year in the century
+    Dim LeapSkip     As Long    'Century leap years left out
+    Dim CentMod      As Long    'Century modulo 4
+    Dim MoonFix      As Long    'Correction of the moon's orbit
+    Dim MoonShift    As Long    'Century correction of the full moon
+    Dim Epact        As Long    'Days from 21 March to the full moon
+    Dim YearLeap     As Long    'Leap years of the century so far
+    Dim YearMod      As Long    'Year in the century modulo 4
+    Dim ToSunday     As Long    'Days from the full moon to Sunday
+    Dim Correction   As Long    'Correction for late full moons
+    Dim MonthDay     As Long    'Month and day in one number
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The steps of the algorithm, named
+        Golden = Yr Mod 19
+        Century = Yr \ 100
+        YearInCent = Yr Mod 100
+        LeapSkip = Century \ 4
+        CentMod = Century Mod 4
+        MoonFix = (Century + 8) \ 25
+        MoonShift = (Century - MoonFix + 1) \ 3
+        Epact = (19 * Golden + Century - LeapSkip - MoonShift + 15) Mod 30
+        YearLeap = YearInCent \ 4
+        YearMod = YearInCent Mod 4
+        ToSunday = (32 + 2 * CentMod + 2 * YearLeap - Epact - YearMod) Mod 7
+        Correction = (Golden + 11 * Epact + 22 * ToSunday) \ 451
+        MonthDay = Epact + ToSunday - 7 * Correction + 114
+        TargetEaster = CLng(DateSerial(Yr, MonthDay \ 31, (MonthDay Mod 31) + 1))
 
 End Function
 
@@ -4016,79 +4570,107 @@ Private Sub AddWarn( _
 
 End Sub
 
-
 Private Sub CheckEconomicTrades( _
-    ByVal InputBlock As Variant, _
+    ByRef InputBlock As Variant, _
     ByVal DataRowCount As Long, _
     ByVal TopRow As Long)
 '
-'==============================================================================
-'                             CheckEconomicTrades
+'------------------------------------------------------------------------------
+'                     GROUP THE LEGS INTO ECONOMIC TRADES
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Group the Trades rows into economic trades (#38) and find the groups
-'   that cannot be used. Each row is a leg with a unique Trade ID; legs
-'   sharing an Economic trade ID form one economic trade, and a row with a
-'   blank Economic trade ID is a whole trade on its own. An economic trade
-'   with legs is rejected, every leg with it, when:
-'   - not exactly one leg has MtM leg = Y, or a leg that is not the MtM leg
-'     has a MtM other than 0: the economic MtM must be counted once;
-'   - its legs are in different netting sets (and so possibly different
-'     regimes);
-'   - two of its legs are in the same asset class and not both options:
-'     only option structures may be split into options [CRE52 FAQ on
-'     decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs in
-'     different asset classes map one transaction to several risk
-'     categories [CRE52.28; CRR Art. 277(3)];
-'   - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N;
-'   - its legs differ in settlement type (blank read as N) or next reset
-'     date (#360).
+'   Groups the Trades rows into economic trades (#38) and finds the groups
+'   that cannot be used
+'
+' WHY THIS EXISTS
+'   Each row is a leg with a unique Trade ID; legs sharing an Economic
+'   trade ID form one economic trade, and a row with a blank Economic trade
+'   ID is a whole trade on its own. The rules below keep a decomposed trade
+'   from counting its MtM twice or from being split where the regulation
+'   does not allow it
 '
 ' INPUTS
-'   InputBlock: the Trades block read by ProcessTrades, (row, column).
-'   DataRowCount: rows in InputBlock.
-'   TopRow: sheet row of InputBlock row 1, for the messages.
+'   InputBlock
+'     The Trades block read by ProcessTrades, (row, column); read only
+'
+'   DataRowCount
+'     Rows in InputBlock
+'
+'   TopRow
+'     Sheet row of InputBlock row 1, for the messages
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   An economic trade with legs is rejected, every leg with it, when:
+'     - not exactly one leg has MtM leg = Y, or a leg that is not the MtM
+'       leg has a MtM other than 0: the economic MtM must be counted once
+'     - its legs are in different netting sets, and so possibly different
+'       regimes
+'     - two of its legs are in the same asset class and not both options:
+'       only option structures may be split into options [CRE52 FAQ on
+'       decomposition, CRE52.42(4), CRE52.43; CRR Art. 274(6)], while legs
+'       in different asset classes map one transaction to several risk
+'       categories [CRE52.28; CRR Art. 277(3)]
+'     - a MtM leg flag is not Y, N or blank, or a whole trade is flagged N
+'     - its legs differ in settlement type (blank read as N) or next reset
+'       date (#360)
+'
+' ERROR POLICY
+'   A rule broken is recorded with AddGroupError, not raised; an unexpected
+'   error raises to ProcessTrades
+'
+' DEPENDENCIES
+'   AddGroupError, KeyIndex, KeyAdd, SafeStr, UTxt, ToSerial, IsNum,
+'   DescribeValue
+'
+' NOTES
+'   InputBlock is passed by reference so that the block is not copied
+'   (#771); nothing here writes to it
 '
 ' STATE OWNERSHIP
 '   Fills mRowGroup, mGrpError and mGrpRejected (zeroed) and sets
 '   mEconRead; adds one economic trade per group to its netting set's
-'   EconTrades.
+'   EconTrades
 '
 ' UPDATED
-'   2026-10-20
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Groups                 As Collection    'Group number by key: E|economic ID or L|trade ID
-    Dim ClassEntries           As Collection    'Per group and asset class: index into ClassLegs
-    Dim GroupName()            As String        'Economic trade ID, or the Trade ID of a whole trade
-    Dim GroupNS()              As String        'Netting set of the first leg
-    Dim GroupLegs()            As Long          'Legs of the group
-    Dim GroupMtmLegs()         As Long          'Legs flagged Y
-    Dim GroupHasEconomicID()   As Boolean       'The group has an Economic trade ID
-    Dim GroupSettlement()      As String        'Settlement type of the first leg, blank read as N
-    Dim GroupReset()           As Double        'Next reset date of the first leg; -1 when blank
-    Dim ClassLegs()            As Long          'Legs in one asset class of one group
-    Dim ClassLinearLegs()      As Long          'Of those, legs that are not options
-    Dim ClassGroup()           As Long          'Group of each asset-class entry
-    Dim ClassName()            As String        'Asset class of each entry
-    Dim ClassCount             As Long          'Asset-class entries
-    Dim i                      As Long          'Data row
-    Dim g                      As Long          'Group number
-    Dim a                      As Long          'Asset-class entry
-    Dim TradeID                As String        'Trade ID of the row
-    Dim EconomicID             As String        'Economic trade ID of the row
-    Dim GroupKey               As String        'Key of the row's group
-    Dim MtmLegFlag             As String        'MtM leg flag of the row
-    Dim NSPosition             As Long          'Netting set of a new group; 0 if unknown
-    Dim Settlement             As String        'Settlement type of the row, blank read as N
+    Const PROC_NAME              As String = "CORE_Engine.CheckEconomicTrades"
+
+    Dim Groups                   As Collection    'Group number by key: E|economic ID or L|trade ID
+    Dim ClassEntries             As Collection    'Per group and asset class: index into ClassLegs
+    Dim GroupName()              As String        'Economic trade ID, or the Trade ID of a whole trade
+    Dim GroupNS()                As String        'Netting set of the first leg
+    Dim GroupLegs()              As Long          'Legs of the group
+    Dim GroupMtmLegs()           As Long          'Legs flagged Y
+    Dim GroupHasEconomicID()     As Boolean       'The group has an Economic trade ID
+    Dim GroupSettlement()        As String        'Settlement type of the first leg, blank read as N
+    Dim GroupReset()             As Double        'Next reset date of the first leg; -1 when blank
+    Dim ClassLegs()              As Long          'Legs in one asset class of one group
+    Dim ClassLinearLegs()        As Long          'Of those, legs that are not options
+    Dim ClassGroup()             As Long          'Group of each asset-class entry
+    Dim ClassName()              As String        'Asset class of each entry
+    Dim ClassCount               As Long          'Asset-class entries
+    Dim RowIndex                 As Long          'Data row
+    Dim GroupIndex               As Long          'Group number
+    Dim ClassIndex               As Long          'Asset-class entry
+    Dim TradeID                  As String        'Trade ID of the row
+    Dim EconomicID               As String        'Economic trade ID of the row
+    Dim GroupKey                 As String        'Key of the row's group
+    Dim MtmLegFlag               As String        'MtM leg flag of the row
+    Dim NSPosition               As Long          'Netting set of a new group; 0 if unknown
+    Dim Settlement               As String        'Settlement type of the row, blank read as N
 
 '------------------------------------------------------------------------------
-' GROUP THE LEGS
+' INITIALIZE
 '------------------------------------------------------------------------------
+    'One slot per row for the module's arrays and the group's working arrays
         ReDim mRowGroup(0 To DataRowCount)
         ReDim mGrpError(0 To DataRowCount)
         ReDim mGrpFindings(0 To DataRowCount)
@@ -4104,129 +4686,147 @@ Private Sub CheckEconomicTrades( _
         ReDim ClassLinearLegs(1 To DataRowCount + 1)
         ReDim ClassGroup(1 To DataRowCount + 1)
         ReDim ClassName(1 To DataRowCount + 1)
+    'No group and no asset-class entry yet
         Set Groups = New Collection
         Set ClassEntries = New Collection
         mEconRead = 0
         ClassCount = 0
-        For i = 1 To DataRowCount
-            TradeID = SafeStr(InputBlock(i, TR_ID))
+
+'------------------------------------------------------------------------------
+' GROUP THE LEGS
+'------------------------------------------------------------------------------
+    'Each row with a Trade ID joins the group of its Economic trade ID, or
+    'is a group of its own
+        For RowIndex = 1 To DataRowCount
+            TradeID = SafeStr(InputBlock(RowIndex, TR_ID))
             If Len(TradeID) > 0 Then
-                EconomicID = SafeStr(InputBlock(i, TR_ECON))
-                Settlement = UTxt(InputBlock(i, TR_SETTLE))
-                If Len(Settlement) = 0 Then Settlement = ST_NONE
+                EconomicID = SafeStr(InputBlock(RowIndex, TR_ECON))
+                Settlement = UTxt(InputBlock(RowIndex, TR_SETTLE))
+                If Len(Settlement) = 0 Then
+                    Settlement = ST_NONE
+                End If
                 If Len(EconomicID) = 0 Then
                     GroupKey = "L|" & UCase$(TradeID)
                 Else
                     GroupKey = "E|" & UCase$(EconomicID)
                 End If
-                g = KeyIndex(Groups, GroupKey)
-                If g = 0 Then
+                GroupIndex = KeyIndex(Groups, GroupKey)
+                If GroupIndex = 0 Then
                     mEconRead = mEconRead + 1
-                    g = mEconRead
-                    KeyAdd Groups, GroupKey, g
-                    GroupName(g) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
-                    GroupHasEconomicID(g) = (Len(EconomicID) > 0)
-                    GroupSettlement(g) = Settlement
-                    GroupReset(g) = ToSerial(InputBlock(i, TR_RESET))
-                    GroupNS(g) = UTxt(InputBlock(i, TR_NS))
-                    NSPosition = KeyIndex(mNSIndex, GroupNS(g))
+                    GroupIndex = mEconRead
+                    KeyAdd Groups, GroupKey, GroupIndex
+                    GroupName(GroupIndex) = IIf(Len(EconomicID) = 0, TradeID, EconomicID)
+                    GroupHasEconomicID(GroupIndex) = (Len(EconomicID) > 0)
+                    GroupSettlement(GroupIndex) = Settlement
+                    GroupReset(GroupIndex) = ToSerial(InputBlock(RowIndex, TR_RESET))
+                    GroupNS(GroupIndex) = UTxt(InputBlock(RowIndex, TR_NS))
+                    NSPosition = KeyIndex(mNSIndex, GroupNS(GroupIndex))
                     If NSPosition > 0 Then
                         mNS(NSPosition).EconTrades = mNS(NSPosition).EconTrades + 1
                     End If
-                ElseIf GroupHasEconomicID(g) Then
-                    If UTxt(InputBlock(i, TR_NS)) <> GroupNS(g) Then
-                        AddGroupError DIAG_ECON_NETTING_SET, "Netting set ID", g, "its legs are in different netting sets (" & GroupNS(g) & ", " & _
-                                      UTxt(InputBlock(i, TR_NS)) & ")"
+                ElseIf GroupHasEconomicID(GroupIndex) Then
+                    If UTxt(InputBlock(RowIndex, TR_NS)) <> GroupNS(GroupIndex) Then
+                        AddGroupError DIAG_ECON_NETTING_SET, "Netting set ID", GroupIndex, _
+                            "its legs are in different netting sets (" & GroupNS(GroupIndex) & ", " & _
+                            UTxt(InputBlock(RowIndex, TR_NS)) & ")"
                     End If
-
     'The legs decompose one contractual trade, so they share its settlement
     'arrangement; separately contracted trades have their own Economic
-    'trade ID, or none, and may differ (#360).
-                    If Settlement <> GroupSettlement(g) Then
-                        AddGroupError DIAG_ECON_SETTLEMENT, "Settlement type", g, "its legs have different settlement types (" & GroupSettlement(g) & _
-                                      ", " & Settlement & ")"
-                    ElseIf ToSerial(InputBlock(i, TR_RESET)) <> GroupReset(g) Then
-                        AddGroupError DIAG_ECON_RESET, "Next reset date", g, "its legs have different next reset dates"
+    'trade ID, or none, and may differ (#360)
+                    If Settlement <> GroupSettlement(GroupIndex) Then
+                        AddGroupError DIAG_ECON_SETTLEMENT, "Settlement type", GroupIndex, _
+                            "its legs have different settlement types (" & GroupSettlement(GroupIndex) & _
+                            ", " & Settlement & ")"
+                    ElseIf ToSerial(InputBlock(RowIndex, TR_RESET)) <> GroupReset(GroupIndex) Then
+                        AddGroupError DIAG_ECON_RESET, "Next reset date", GroupIndex, _
+                            "its legs have different next reset dates"
                     End If
                 End If
-                mRowGroup(i) = g
-                GroupLegs(g) = GroupLegs(g) + 1
-                If IsError(InputBlock(i, TR_ECON)) Then
-                    AddGroupError DIAG_ECON_ID, "Economic trade ID", g, "Economic trade ID must be text or blank (found an error value on row " & _
-                                  (TopRow + i - 1) & ")"
+                mRowGroup(RowIndex) = GroupIndex
+                GroupLegs(GroupIndex) = GroupLegs(GroupIndex) + 1
+                If IsError(InputBlock(RowIndex, TR_ECON)) Then
+                    AddGroupError DIAG_ECON_ID, "Economic trade ID", GroupIndex, _
+                        "Economic trade ID must be text or blank (found an error value on row " & _
+                        (TopRow + RowIndex - 1) & ")"
                 End If
-
-    'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade).
-    'An error value is not read as blank.
-                MtmLegFlag = UTxt(InputBlock(i, TR_MTMLEG))
-                If IsError(InputBlock(i, TR_MTMLEG)) Then
-                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found an error value on row " & _
-                                  (TopRow + i - 1) & ")"
+    'The MtM leg flag: Y, N or blank (N for a leg, Y for a whole trade); an
+    'error value is not read as blank
+                MtmLegFlag = UTxt(InputBlock(RowIndex, TR_MTMLEG))
+                If IsError(InputBlock(RowIndex, TR_MTMLEG)) Then
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", GroupIndex, _
+                        "MtM leg must be Y or N (found an error value on row " & (TopRow + RowIndex - 1) & ")"
                 ElseIf MtmLegFlag = "Y" Then
-                    GroupMtmLegs(g) = GroupMtmLegs(g) + 1
+                    GroupMtmLegs(GroupIndex) = GroupMtmLegs(GroupIndex) + 1
                 ElseIf MtmLegFlag = "N" Then
-                    If Not GroupHasEconomicID(g) Then
-                        AddGroupError DIAG_ECON_WHOLE_MTM, "MtM leg", g, "a trade without an Economic trade ID carries its own MtM, so " & _
-                                      "MtM leg must be Y or blank"
+                    If Not GroupHasEconomicID(GroupIndex) Then
+                        AddGroupError DIAG_ECON_WHOLE_MTM, "MtM leg", GroupIndex, _
+                            "a trade without an Economic trade ID carries its own MtM, so " & _
+                            "MtM leg must be Y or blank"
                     End If
                 ElseIf Len(MtmLegFlag) > 0 Then
-                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", g, "MtM leg must be Y or N (found " & DescribeValue(InputBlock(i, TR_MTMLEG)) & _
-                                  " on row " & (TopRow + i - 1) & ")"
+                    AddGroupError DIAG_ECON_MTM_FLAG, "MtM leg", GroupIndex, _
+                        "MtM leg must be Y or N (found " & DescribeValue(InputBlock(RowIndex, TR_MTMLEG)) & _
+                        " on row " & (TopRow + RowIndex - 1) & ")"
                 End If
-
-    'Asset classes of the group's legs, for the decomposition rule.
-                a = KeyIndex(ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)))
-                If a = 0 Then
+    'Asset classes of the group's legs, for the decomposition rule
+                ClassIndex = KeyIndex(ClassEntries, GroupIndex & "|" & UTxt(InputBlock(RowIndex, TR_AC)))
+                If ClassIndex = 0 Then
                     ClassCount = ClassCount + 1
-                    a = ClassCount
-                    KeyAdd ClassEntries, g & "|" & UTxt(InputBlock(i, TR_AC)), a
-                    ClassGroup(a) = g
-                    ClassName(a) = UTxt(InputBlock(i, TR_AC))
+                    ClassIndex = ClassCount
+                    KeyAdd ClassEntries, GroupIndex & "|" & UTxt(InputBlock(RowIndex, TR_AC)), ClassIndex
+                    ClassGroup(ClassIndex) = GroupIndex
+                    ClassName(ClassIndex) = UTxt(InputBlock(RowIndex, TR_AC))
                 End If
-                ClassLegs(a) = ClassLegs(a) + 1
-                If UTxt(InputBlock(i, TR_INSTR)) <> "OPTION" Then
-                    ClassLinearLegs(a) = ClassLinearLegs(a) + 1
+                ClassLegs(ClassIndex) = ClassLegs(ClassIndex) + 1
+                If UTxt(InputBlock(RowIndex, TR_INSTR)) <> "OPTION" Then
+                    ClassLinearLegs(ClassIndex) = ClassLinearLegs(ClassIndex) + 1
                 End If
             End If
-        Next i
+        Next RowIndex
 
 '------------------------------------------------------------------------------
 ' CHECK EACH ECONOMIC TRADE
 '------------------------------------------------------------------------------
-    'The MtM is counted once: exactly one MtM leg, and 0 on every other leg.
-        For g = 1 To mEconRead
-            If GroupHasEconomicID(g) And GroupMtmLegs(g) <> 1 Then
-                AddGroupError DIAG_ECON_MTM_COUNT, "MtM leg", g, "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(g)
+    'The MtM is counted once: exactly one MtM leg
+        For GroupIndex = 1 To mEconRead
+            If GroupHasEconomicID(GroupIndex) And GroupMtmLegs(GroupIndex) <> 1 Then
+                AddGroupError DIAG_ECON_MTM_COUNT, "MtM leg", GroupIndex, _
+                    "exactly one leg must be the MtM leg (MtM leg = Y), found " & GroupMtmLegs(GroupIndex)
             End If
-        Next g
-        For i = 1 To DataRowCount
-            g = mRowGroup(i)
-            If g > 0 Then
-                If GroupHasEconomicID(g) And UTxt(InputBlock(i, TR_MTMLEG)) <> "Y" And IsNum(InputBlock(i, TR_MTM)) Then
-                    If CDbl(InputBlock(i, TR_MTM)) <> 0# Then
-                        AddGroupError DIAG_ECON_MTM_VALUE, "MtM", g, "leg " & SafeStr(InputBlock(i, TR_ID)) & " is not the MtM leg, so its MtM " & _
-                                      "must be 0 (found " & DescribeValue(InputBlock(i, TR_MTM)) & ")"
+        Next GroupIndex
+    'And 0 on every other leg
+        For RowIndex = 1 To DataRowCount
+            GroupIndex = mRowGroup(RowIndex)
+            If GroupIndex > 0 Then
+                If GroupHasEconomicID(GroupIndex) And UTxt(InputBlock(RowIndex, TR_MTMLEG)) <> "Y" And _
+                    IsNum(InputBlock(RowIndex, TR_MTM)) Then
+                    If CDbl(InputBlock(RowIndex, TR_MTM)) <> 0# Then
+                        AddGroupError DIAG_ECON_MTM_VALUE, "MtM", GroupIndex, _
+                            "leg " & SafeStr(InputBlock(RowIndex, TR_ID)) & " is not the MtM leg, so its MtM " & _
+                            "must be 0 (found " & DescribeValue(InputBlock(RowIndex, TR_MTM)) & ")"
                     End If
                 End If
             End If
-        Next i
-
+        Next RowIndex
     'Legs in one asset class must all be options: a linear product is not
     'split into legs of the same class. A Trade ID repeated without an
-    'Economic trade ID is not a group: ProcessTrades rejects the repeat.
-        For a = 1 To ClassCount
-            If GroupHasEconomicID(ClassGroup(a)) And ClassLegs(a) > 1 And ClassLinearLegs(a) > 0 Then
-                AddGroupError DIAG_ECON_ASSET_CLASS, "", ClassGroup(a), "it has " & ClassLegs(a) & " legs in asset class " & ClassName(a) & _
-                              " that are not all options: only an option structure may be split into " & _
-                              "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
-                              "one leg (CRR Art. 277(3))"
+    'Economic trade ID is not a group: ProcessTrades rejects the repeat
+        For ClassIndex = 1 To ClassCount
+            If GroupHasEconomicID(ClassGroup(ClassIndex)) And ClassLegs(ClassIndex) > 1 And _
+                ClassLinearLegs(ClassIndex) > 0 Then
+                AddGroupError DIAG_ECON_ASSET_CLASS, "", ClassGroup(ClassIndex), _
+                    "it has " & ClassLegs(ClassIndex) & " legs in asset class " & ClassName(ClassIndex) & _
+                    " that are not all options: only an option structure may be split into " & _
+                    "options (CRE52.42-43; CRR Art. 274(6)), and one risk category takes " & _
+                    "one leg (CRR Art. 277(3))"
             End If
-        Next a
-        For g = 1 To mEconRead
-            If Len(mGrpError(g)) > 0 Then
-                mGrpError(g) = "economic trade " & GroupName(g) & ": " & mGrpError(g)
+        Next ClassIndex
+    'Name the economic trade in front of its errors
+        For GroupIndex = 1 To mEconRead
+            If Len(mGrpError(GroupIndex)) > 0 Then
+                mGrpError(GroupIndex) = "economic trade " & GroupName(GroupIndex) & ": " & mGrpError(GroupIndex)
             End If
-        Next g
+        Next GroupIndex
 
 End Sub
 
@@ -4274,66 +4874,96 @@ Private Sub LogGroupFindings(ByVal GroupNumber As Long)
         Next Finding
 End Sub
 
-
 Private Sub ProcessTrades( _
     ByVal WriteOutputs As Boolean)
 '
-'==============================================================================
-'                                ProcessTrades
+'------------------------------------------------------------------------------
+'                            CALCULATE EVERY TRADE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Validate and calculate every trade on the Trades sheet: classification,
-'   supervisory factor, amounts in the reporting currency, time to maturity,
-'   supervisory delta, adjusted notional, maturity factor and effective
-'   notional. Each valid trade is added to its bucket; every trade, valid or
-'   not, gets one TradeCalc row. The steps run in this order for each
-'   trade, on one tTrade record: ReadTradeClass, ReadTradeAmounts,
-'   ReadTradeDates, ReadTradeSettlement, TradeDelta, TradeHedgingSet,
-'   UseTrade and TradeCalcRow (#60, #360).
+'   Validates and calculates every trade on the Trades sheet, adds each
+'   valid trade to its bucket, and writes one TradeCalc row per trade,
+'   valid or not
+'
+' WHY THIS EXISTS
+'   The trade-level quantities feed the hedging sets, the add-ons and the
+'   checks: one pass over the Trades block computes them all, in a fixed
+'   order on one tTrade record (#60, #360)
 '
 ' INPUTS
-'   WriteOutputs: True writes the TradeCalc sheet.
+'   WriteOutputs
+'     True writes the TradeCalc sheet
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Reads the Trades block once, as Value2; with no trade, logs
+'     DIAG_TR_EMPTY and clears TradeCalc
+'   - Groups the legs into economic trades (CheckEconomicTrades)
+'   - For each row: classification, supervisory factor, amounts in the
+'     reporting currency, time to maturity, supervisory delta, adjusted
+'     notional, maturity factor and effective notional, in the order
+'     ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
+'     ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade and
+'     TradeCalcRow
+'   - Counts the economic trades none of whose legs was rejected
+'   - Writes TradeCalc, formats its columns, and formats the lambda of the
+'     commodity rows as a number (FormatCommodityLambdas, #708)
+'
+' ERROR POLICY
+'   An invalid trade is logged with all its reasons and left out of the
+'   calculation; an unexpected error raises to the caller
+'
+' DEPENDENCIES
+'   CheckEconomicTrades, ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
+'   ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade,
+'   TradeCalcRow, WriteBlock, FormatColumns, FormatCommodityLambdas
+'
+' NOTES
+'   Trade starts from FreshTrade for every row, so nothing of the previous
+'   trade reaches the next output row
 '
 ' STATE OWNERSHIP
 '   Adds to mBk through AddToBucket, adds MtM and trade counts to mNS, and
 '   updates mTradesRead, mTradesUsed, mGrpRejected and mEconUsed;
-'   CheckEconomicTrades fills the economic-trade arrays first. An invalid
-'   trade is logged with all its reasons and left out of the calculation.
+'   CheckEconomicTrades fills the economic-trade arrays first
 '
 ' REFERENCE
 '   CRE52.30 to CRE52.52 for the trade-level quantities; CRR Art. 277 to
-'   280f for OT and the regime rules.
+'   280f for OT and the regime rules
 '
 ' UPDATED
-'   2026-11-15
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim TradesSheet      As Worksheet     'Trades sheet
-    Dim TradeCalcSheet   As Worksheet     'TradeCalc sheet
-    Dim OutputTop        As Long          'First TradeCalc data row
-    Dim LastRow          As Long          'Last row with a trade ID
-    Dim TopRow           As Long          'First data row, below the headers
-    Dim DataRowCount     As Long          'Number of rows to read
-    Dim i                As Long          'Row within InputBlock
-    Dim RowNumber        As Long          'Sheet row of InputBlock row i
-    Dim InputBlock       As Variant       'Input block, (row, column)
-    Dim OutputBlock()    As Variant       'TradeCalc rows, (row, column)
-    Dim OutputCount      As Long          'TradeCalc rows filled
-    Dim SeenIDs          As Collection    'Trade IDs seen so far, mapped to their sheet row
-    Dim NSPosition       As Long          'Netting set of a row without a trade ID
-    Dim Trade            As tTrade        'The trade being processed
-    Dim FreshTrade       As tTrade        'Every field at its default, to reset Trade
-    Dim OutputRow        As Long          'Row of OutputBlock, when formatting
+    Const PROC_NAME        As String = "CORE_Engine.ProcessTrades"
+
+    Dim TradesSheet        As Worksheet     'Trades sheet
+    Dim TradeCalcSheet     As Worksheet     'TradeCalc sheet
+    Dim OutputTop          As Long          'First TradeCalc data row
+    Dim LastRow            As Long          'Last row with a trade ID
+    Dim TopRow             As Long          'First data row, below the headers
+    Dim DataRowCount       As Long          'Number of rows to read
+    Dim RowIndex           As Long          'Row within InputBlock
+    Dim RowNumber          As Long          'Sheet row of InputBlock row RowIndex
+    Dim InputBlock         As Variant       'Input block, (row, column)
+    Dim OutputBlock()      As Variant       'TradeCalc rows, (row, column)
+    Dim OutputCount        As Long          'TradeCalc rows filled
+    Dim SeenIDs            As Collection    'Trade IDs seen so far, mapped to their sheet row
+    Dim NSPosition         As Long          'Netting set of a row without a trade ID
+    Dim Trade              As tTrade        'The trade being processed
+    Dim FreshTrade         As tTrade        'Every field at its default, to reset Trade
+    Dim GroupIndex         As Long          'Economic trade
 
 '------------------------------------------------------------------------------
 ' READ THE INPUT BLOCK
 '------------------------------------------------------------------------------
     'With no trades there is nothing to calculate; the old TradeCalc rows
-    'are cleared so they cannot be mistaken for results.
+    'are cleared so they cannot be mistaken for results
         Set TradesSheet = GetSheet(SH_TRADES)
         TopRow = TableFirstRow(SH_TRADES)
         LastRow = LastDataRowAny(TradesSheet, TopRow, TR_NCOLS, TR_COMMENT)
@@ -4347,7 +4977,7 @@ Private Sub ProcessTrades( _
         DataRowCount = LastRow - TopRow + 1
     'Value2 gives the stored values: a Currency or Accounting format would
     'otherwise round a price or rate to four decimals, and dates come as
-    'serials, which ToSerial reads (#196).
+    'serials, which ToSerial reads (#196)
         InputBlock = TableRange(TradesSheet, TopRow, 1, LastRow, TR_NCOLS).Value2
         ReDim OutputBlock(1 To DataRowCount, 1 To TC_NCOLS)
         OutputCount = 0
@@ -4355,52 +4985,65 @@ Private Sub ProcessTrades( _
 '------------------------------------------------------------------------------
 ' PROCESS EACH TRADE
 '------------------------------------------------------------------------------
-    'An empty row is skipped. A row with data but no trade ID is rejected,
-    'and so is a repeated trade ID; either makes its netting set INCOMPLETE
-    '(#35). Trade starts from FreshTrade for every trade, so nothing leaks
-    'from the previous trade into the output row.
+    'Group the legs into economic trades before any leg is used
         CheckEconomicTrades InputBlock, DataRowCount, TopRow
         Set SeenIDs = New Collection
-        For i = 1 To DataRowCount
-            RowNumber = TopRow + i - 1
+    'An empty row is skipped. A row with data but no trade ID is rejected,
+    'and so is a repeated trade ID; either makes its netting set INCOMPLETE
+    '(#35)
+        For RowIndex = 1 To DataRowCount
+            RowNumber = TopRow + RowIndex - 1
             Trade = FreshTrade
-            Trade.tid = SafeStr(InputBlock(i, TR_ID))
+            Trade.tid = SafeStr(InputBlock(RowIndex, TR_ID))
             mDiagnosticTradeID = Trade.tid
             mDiagnosticTradeRow = RowNumber
             If Len(Trade.tid) = 0 Then
-                If RowHasData(InputBlock, i, TR_NCOLS, TR_COMMENT) Then
+                If RowHasData(InputBlock, RowIndex, TR_NCOLS, TR_COMMENT) Then
                     mTradesRead = mTradesRead + 1
-                    LogMsg DIAG_TR_ID_MISSING, "Trade ID", SEV_ERROR, SH_TRADES, "", "Row has trade data but no Trade ID - trade rejected.", RowNumber
-                    NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(i, TR_NS)))
-                    If NSPosition > 0 Then mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
+                    LogMsg DIAG_TR_ID_MISSING, "Trade ID", SEV_ERROR, SH_TRADES, "", _
+                        "Row has trade data but no Trade ID - trade rejected.", RowNumber
+                    NSPosition = KeyIndex(mNSIndex, UTxt(InputBlock(RowIndex, TR_NS)))
+                    If NSPosition > 0 Then
+                        mNS(NSPosition).Rejected = mNS(NSPosition).Rejected + 1
+                    End If
                 End If
                 GoTo NextTrade
             End If
             mTradesRead = mTradesRead + 1
             Trade.ok = True
             Trade.pairSign = 1#
-            ReadTradeClass Trade, InputBlock, i, RowNumber, SeenIDs
-            ReadTradeAmounts Trade, InputBlock, i
-            ReadTradeDates Trade, InputBlock, i
-            ReadTradeSettlement Trade, InputBlock, i
-            TradeDelta Trade, InputBlock, i
+            ReadTradeClass Trade, InputBlock, RowIndex, RowNumber, SeenIDs
+            ReadTradeAmounts Trade, InputBlock, RowIndex
+            ReadTradeDates Trade, InputBlock, RowIndex
+            ReadTradeSettlement Trade, InputBlock, RowIndex
+            TradeDelta Trade, InputBlock, RowIndex
             TradeHedgingSet Trade
             UseTrade Trade, RowNumber
-            If Not Trade.ok And Trade.nsIdx > 0 Then mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
-            If Not Trade.ok Then mGrpRejected(mRowGroup(i)) = mGrpRejected(mRowGroup(i)) + 1
+            If Not Trade.ok And Trade.nsIdx > 0 Then
+                mNS(Trade.nsIdx).Rejected = mNS(Trade.nsIdx).Rejected + 1
+            End If
+            If Not Trade.ok Then
+                mGrpRejected(mRowGroup(RowIndex)) = mGrpRejected(mRowGroup(RowIndex)) + 1
+            End If
             OutputCount = OutputCount + 1
             TradeCalcRow Trade, OutputBlock, OutputCount
 NextTrade:
-        Next i
-        For i = 1 To mEconRead
-            If mGrpRejected(i) = 0 Then
+        Next RowIndex
+
+'------------------------------------------------------------------------------
+' COUNT THE ECONOMIC TRADES USED
+'------------------------------------------------------------------------------
+    'An economic trade is used when none of its legs was rejected
+        For GroupIndex = 1 To mEconRead
+            If mGrpRejected(GroupIndex) = 0 Then
                 mEconUsed = mEconUsed + 1
             End If
-        Next i
+        Next GroupIndex
 
 '------------------------------------------------------------------------------
 ' WRITE TRADECALC
 '------------------------------------------------------------------------------
+    'Write the rows, format the columns, and the commodity lambdas apart
         If WriteOutputs Then
             Set TradeCalcSheet = GetSheet(SH_TRADECALC)
             OutputTop = OutputFirstRow(SH_TRADECALC)
@@ -4408,12 +5051,89 @@ NextTrade:
             WriteBlock TradeCalcSheet, OutputTop, OutputBlock, OutputCount, TC_NCOLS
             FormatColumns TradeCalcSheet, OutputTop, OutputCount, _
                 "@|@|@|@|@|@|0.00%|#,##0|#,##0|0.0000|0.0000|0.0000|0.0000|0.0000|#,##0|0.0000|0.0000|0.0000|#,##0|#,##0|0|#,##0|0.0000%|@|@"
-            'A commodity lambda shifts a price, not a rate: it is a number (#708).
-            For OutputRow = 1 To OutputCount
-                If OutputBlock(OutputRow, TC_AC) = "CO" Then
-                    TableCell(TradeCalcSheet, OutputTop + OutputRow - 1, TC_LAMBDA).NumberFormat = "0.0000"
-                End If
-            Next OutputRow
+            FormatCommodityLambdas TradeCalcSheet, OutputTop, OutputBlock, OutputCount
+        End If
+
+End Sub
+
+Private Sub FormatCommodityLambdas( _
+    ByVal TradeCalcSheet As Worksheet, _
+    ByVal OutputTop As Long, _
+    ByRef OutputBlock() As Variant, _
+    ByVal OutputCount As Long)
+'
+'------------------------------------------------------------------------------
+'                         FORMAT THE COMMODITY LAMBDAS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Formats the lambda of the commodity rows of TradeCalc as a number,
+'   one range per run of consecutive commodity rows
+'
+' WHY THIS EXISTS
+'   A commodity lambda shifts a price, not a rate, so it is a number where
+'   the column shows a percentage (#708); setting the format once per run
+'   rather than once per row saves a call of Excel per commodity trade
+'   (#771)
+'
+' INPUTS
+'   TradeCalcSheet
+'     The TradeCalc sheet
+'
+'   OutputTop
+'     The first TradeCalc data row
+'
+'   OutputBlock
+'     The TradeCalc rows written, (row, column)
+'
+'   OutputCount
+'     The rows of OutputBlock written
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Walks the rows once; a run of rows whose asset class is CO gets the
+'   format 0.0000 in the lambda column when it ends
+'
+' ERROR POLICY
+'   None here: an error raises to ProcessTrades
+'
+' DEPENDENCIES
+'   TableRange
+'
+' NOTES
+'   The rows outside the runs keep the column's percentage format
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "CORE_Engine.FormatCommodityLambdas"
+
+    Dim OutputRow       As Long    'Row of OutputBlock
+    Dim RunStart        As Long    'First row of the current commodity run; 0 outside one
+
+'------------------------------------------------------------------------------
+' FORMAT EACH RUN
+'------------------------------------------------------------------------------
+    'Open a run at a commodity row and format it at the first other row
+        RunStart = 0
+        For OutputRow = 1 To OutputCount
+            If OutputBlock(OutputRow, TC_AC) = "CO" Then
+                If RunStart = 0 Then RunStart = OutputRow
+            ElseIf RunStart > 0 Then
+                TableRange(TradeCalcSheet, OutputTop + RunStart - 1, TC_LAMBDA, _
+                    OutputTop + OutputRow - 2, TC_LAMBDA).NumberFormat = "0.0000"
+                RunStart = 0
+            End If
+        Next OutputRow
+    'Format a run that reaches the last row
+        If RunStart > 0 Then
+            TableRange(TradeCalcSheet, OutputTop + RunStart - 1, TC_LAMBDA, _
+                OutputTop + OutputCount - 1, TC_LAMBDA).NumberFormat = "0.0000"
         End If
 
 End Sub
@@ -7256,6 +7976,51 @@ Private Function RunClassText() As String
         ElseIf mRunClass = RUN_WHATIF Then
             RunClassText = " | WHAT-IF: " & mDeviations & " parameter(s) differ from " & REF_SET_ID
         End If
+
+End Function
+
+
+Public Function DashboardBlocks( _
+    ByVal ResultsRows As Variant, _
+    ByVal LegRows As Variant, _
+    ByVal CheckRows As Variant, _
+    ByVal InputRows As Variant, _
+    ByVal ReconRows As Variant, _
+    ByVal TradeReconRows As Variant, _
+    ByVal RunInfo As Variant) _
+    As Variant
+'
+'==============================================================================
+'                               DashboardBlocks
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The facade's entry to CORE_Dashboard (#675): the values of every
+'   Dashboard block, computed from the rows M_Main read, in the order of
+'   DashboardBlockNames. See CORE_Dashboard.DashboardBlocks.
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+        DashboardBlocks = CORE_Dashboard.DashboardBlocks(ResultsRows, LegRows, CheckRows, InputRows, _
+                                                         ReconRows, TradeReconRows, RunInfo)
+
+End Function
+
+
+Public Function DashboardBlockNames() As Variant
+'
+'==============================================================================
+'                             DashboardBlockNames
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The workbook names of the Dashboard's blocks (CORE_Dashboard.BlockNames).
+'
+' UPDATED
+'   2026-11-23
+'==============================================================================
+'
+        DashboardBlockNames = CORE_Dashboard.BlockNames()
 
 End Function
 

@@ -119,9 +119,14 @@ Attribute VB_Name = "TEST_Benchmark"
 
     'Checks. They compare the engine's counts with the portfolio written,
     'so they validate no figure and are reported as illustrative.
-        Private Const CHECKS_PER_CASE   As Long = 7     'Checks of every scenario
+        Private Const CHECKS_PER_CASE   As Long = 9     'Checks of every scenario, two of them in MeasureFingerprints
         Private Const STRAY_CHECKS      As Long = 2     'Further checks of the used-range scenario
         Private Const REFERENCE_CLASS   As String = "illustrative"    'Reference class of every check
+
+    'The business-day scenario (#771): the largest size again, on a year of
+    'business days and the TARGET calendar.
+        Private Const BUSINESS_DAY_YEAR       As Long = 250           'Days of the conventional year
+        Private Const BUSINESS_DAY_CALENDAR   As String = "TARGET"    'Calendar
 
     'CSV reader (RunCsvBenchmark). The limits are the contract's, in
     'docs/csv/contract.json.
@@ -151,87 +156,122 @@ Attribute VB_Name = "TEST_Benchmark"
 Public Sub RunBenchmark( _
     Optional ByVal SizesText As String = "1000,10000")
 '
-'==============================================================================
-'                                 RunBenchmark
+'------------------------------------------------------------------------------
+'                              RUN THE BENCHMARK
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run one scenario per size, then the used-range scenario, and print the
-'   TEST_CaseRunner report.
+'   Runs one scenario per size, then the business-day scenario and the
+'   used-range scenario, and prints the TEST_CaseRunner report
+'
+' WHY THIS EXISTS
+'   The entry point of the benchmark, run by hand: its timings depend on the
+'   machine, so Test_RunAll does not run it
 '
 ' INPUTS
-'   SizesText: the legs of each scenario, whole numbers from 1 to MAX_LEGS
-'   separated by commas, at most MAX_SCENARIOS of them; 1,000 and 10,000
-'   when omitted.
+'   SizesText
+'     The legs of each scenario, whole numbers from 1 to MAX_LEGS separated
+'     by commas, at most MAX_SCENARIOS of them; 1,000 and 10,000 when
+'     omitted
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - One scenario per size, on the workbook's own day count
+'   - The largest size again on a year of 250 business days and the TARGET
+'     calendar (#771), the convention whose dates the engine counts on its
+'     list of closing days
+'   - The used-range scenario, last
 '
 ' ERROR POLICY
 '   Sizes that cannot be read print a BENCH_REJECTED line, and nothing is
-'   changed. Any other error ends the suite as failed: the stray comment
-'   and the rows added below each sheet's extent are removed first, then
-'   EndSuite restores the workbook.
+'   changed. Any other error ends the suite as failed: the stray comment and
+'   the rows added below each sheet's extent are removed first, then
+'   EndSuite restores the workbook
+'
+' DEPENDENCIES
+'   ParseSizes, RecordExtents, RunScenario, ClearStray, ShrinkSheets,
+'   TEST_CaseRunner, TEST_Suite.Say
+'
+' NOTES
+'   Typical calls, from the Immediate window:
+'
+'       TEST_Benchmark.RunBenchmark
+'       TEST_Benchmark.RunBenchmark "1000,10000,50000"
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Sizes()         As Long      'Legs of each size scenario
-    Dim Reason          As String    'Why SizesText was rejected; cleanup failure
-    Dim ScenarioCount   As Long      'Size scenarios and the used-range one
-    Dim SizesListed     As String    'Sizes as run, for the log
-    Dim i               As Long      'Index into Sizes
-    Dim AbortReason     As String    'Unexpected error, for EndSuite
+    Const PROC_NAME       As String = "TEST_Benchmark.RunBenchmark"
+
+    Dim Sizes()           As Long      'Legs of each size scenario
+    Dim Reason            As String    'Why SizesText was rejected; cleanup failure
+    Dim ScenarioCount     As Long      'Size scenarios, the business-day one and the used-range one
+    Dim SizesListed       As String    'Sizes as run, for the log
+    Dim SizeIndex         As Long      'Index into Sizes
+    Dim LargestSize       As Long      'Legs of the largest size, for the business-day scenario
+    Dim AbortReason       As String    'Unexpected error, for EndSuite
 
 '------------------------------------------------------------------------------
-' VALIDATE
+' VALIDATE INPUTS
 '------------------------------------------------------------------------------
+    'Refuse sizes that cannot be read, changing nothing
         If Not ParseSizes(SizesText, Sizes, Reason) Then
             TEST_Suite.Say "BENCH_REJECTED=" & Reason
             Exit Sub
         End If
-        ScenarioCount = UBound(Sizes) + 1
-        For i = 1 To UBound(Sizes)
-            If i > 1 Then
-                SizesListed = SizesListed & ","
-            End If
-            SizesListed = SizesListed & Sizes(i)
-        Next i
+    'List the sizes and find the largest
+        ScenarioCount = UBound(Sizes) + 2
+        For SizeIndex = 1 To UBound(Sizes)
+            If SizeIndex > 1 Then SizesListed = SizesListed & ","
+            SizesListed = SizesListed & Sizes(SizeIndex)
+            If Sizes(SizeIndex) > LargestSize Then LargestSize = Sizes(SizeIndex)
+        Next SizeIndex
+    'Note each sheet's extent before anything is written
         mStrayRow = 0
         RecordExtents
 
 '------------------------------------------------------------------------------
-' RUN
+' RUN SCENARIOS
 '------------------------------------------------------------------------------
+    'Start the suite, or stop when another one runs; the handler ends the
+    'suite, so it is armed only once the suite has begun
         If Not TEST_CaseRunner.BeginSuite("TEST_Benchmark", ScenarioCount, _
-                                          ScenarioCount * CHECKS_PER_CASE + STRAY_CHECKS) Then Exit Sub
+            ScenarioCount * CHECKS_PER_CASE + STRAY_CHECKS) Then Exit Sub
         On Error GoTo Failed
         TEST_Suite.Say "BENCH sizes=" & SizesListed & "; used_range_legs=" & USED_RANGE_LEGS & _
-                       "; legs_per_netting_set=" & LEGS_PER_SET
-        For i = 1 To UBound(Sizes)
-            RunScenario "bench-" & Sizes(i), Sizes(i), False
-        Next i
-        RunScenario "bench-" & USED_RANGE_LEGS & "-usedrange", USED_RANGE_LEGS, True
+            "; legs_per_netting_set=" & LEGS_PER_SET
+    'Each size on the workbook's day count
+        For SizeIndex = 1 To UBound(Sizes)
+            RunScenario "bench-" & Sizes(SizeIndex), Sizes(SizeIndex), False, vbNullString
+        Next SizeIndex
+    'The largest size on business days, then the used range
+        RunScenario "bench-" & LargestSize & "-target", LargestSize, False, BUSINESS_DAY_CALENDAR
+        RunScenario "bench-" & USED_RANGE_LEGS & "-usedrange", USED_RANGE_LEGS, True, vbNullString
         TEST_CaseRunner.EndSuite ""
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
         Exit Sub
 
 '------------------------------------------------------------------------------
-' HANDLE ERROR
+' ERROR HANDLER
 '------------------------------------------------------------------------------
-    'The error is copied before the stray comment and the added rows are
-    'removed, which resets Err; EndSuite then restores the workbook and
-    'reports the failure.
 Failed:
-        AbortReason = "unexpected error " & Err.Number & ": " & Err.Description
+    'Copy the error before the cleanup resets Err
+        AbortReason = PROC_NAME & ": unexpected error " & Err.Number & ": " & Err.Description
+    'Remove the stray comment and the added rows, noting what could not be
         Reason = ClearStray()
-        If Len(Reason) > 0 Then
-            AbortReason = AbortReason & "; " & Reason
-        End If
+        If Len(Reason) > 0 Then AbortReason = AbortReason & "; " & Reason
         Reason = ShrinkSheets()
-        If Len(Reason) > 0 Then
-            AbortReason = AbortReason & "; " & Reason
-        End If
+        If Len(Reason) > 0 Then AbortReason = AbortReason & "; " & Reason
+    'Restore the workbook and report the failure
         TEST_CaseRunner.EndSuite AbortReason
 
 End Sub
@@ -248,83 +288,124 @@ End Sub
 Private Sub RunScenario( _
     ByVal CaseId As String, _
     ByVal LegCount As Long, _
-    ByVal InflateUsedRange As Boolean)
+    ByVal InflateUsedRange As Boolean, _
+    ByVal BusinessDayCalendar As String)
 '
-'==============================================================================
-'                                 RunScenario
+'------------------------------------------------------------------------------
+'                               RUN ONE SCENARIO
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write a portfolio, time the writing and the engine run, record the
-'   checks and print the BENCH line, then delete the rows written below
-'   each sheet's extent before the run. In the used-range scenario a stray
-'   comment is written STRAY_OFFSET rows below the end of the Trades used
-'   range before the run, and its row deleted after it.
+'   Writes a portfolio, times the writing and the engine run, records the
+'   checks, times the fingerprints and prints the BENCH line, then deletes
+'   the rows written below each sheet's extent before the run
+'
+' WHY THIS EXISTS
+'   Every scenario of RunBenchmark measures and checks the same things, on
+'   its own size, day count and used range
 '
 ' INPUTS
-'   CaseId: the case label.
-'   LegCount: trade legs, 1 to MAX_LEGS.
-'   InflateUsedRange: True for the used-range scenario.
+'   CaseId
+'     The case label
+'
+'   LegCount
+'     Trade legs, 1 to MAX_LEGS
+'
+'   InflateUsedRange
+'     True for the used-range scenario: a stray comment is written
+'     STRAY_OFFSET rows below the end of the Trades used range before the
+'     run, and its row deleted after it
+'
+'   BusinessDayCalendar
+'     Empty for the workbook's day count; a calendar (TARGET) for a year of
+'     BUSINESS_DAY_YEAR business days on it, set for this case only (#771)
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Writes the netting sets and the legs, and times it
+'   - Runs the engine and times it
+'   - Checks that every leg was used, every netting set is VALID, Checks
+'     has no ERROR, and Results and TradeCalc have one row per netting set
+'     and per leg
+'   - Times the fingerprints (MeasureFingerprints) and prints the BENCH
+'     line, with the day count and the calendar the engine read
+'   - Removes the stray comment and shrinks the sheets back to their extent
 '
 ' ERROR POLICY
-'   An unexpected error propagates to RunBenchmark, which removes the
-'   stray comment and the added rows.
+'   An unexpected error propagates to RunBenchmark, which removes the stray
+'   comment and the added rows
+'
+' DEPENDENCIES
+'   WriteNettingSets, WriteTrades, RunEngine, OutputRows, MeasureFingerprints,
+'   ClearStray, ShrinkSheets, TEST_CaseRunner, CORE_Engine
+'
+' NOTES
+'   TEST_CaseRunner.SetParameter restores the day count and the calendar at
+'   the start of the next case and at EndSuite
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim NettingSetCount     As Long       'Netting sets
-    Dim StartTime           As Double     'Timer at the start of the writing
-    Dim WriteSeconds        As Double     'Seconds to write the inputs
-    Dim RunSeconds          As Double     'Seconds of the engine run
-    Dim Completed           As Boolean    'CORE_Engine.Calculate returned True
-    Dim Detail              As String     'Why the run did not complete; cleanup failure
-    Dim UsedRangeEnd        As Long       'End of the Trades used range with the stray comment
-    Dim LegsRead            As Long       'Legs the engine read
-    Dim LegsUsed            As Long       'Legs the engine used
-    Dim ValidSets           As Long       'VALID CRR netting sets
-    Dim WithheldSets        As Long       'Netting sets whose EAD was withheld
-    Dim ErrorLines          As Long       'ERROR lines on Checks
-    Dim ResultsRowCount     As Long       'Rows on Results
-    Dim TradeCalcRowCount   As Long       'Rows on TradeCalc
-    Dim LastId              As String     'ID of the last Results row
-    Dim LastTradeId         As String     'ID of the last TradeCalc row
-    Dim BenchLine           As String     'BENCH line
+    Const PROC_NAME           As String = "TEST_Benchmark.RunScenario"
+
+    Dim NettingSetCount       As Long       'Netting sets
+    Dim StartTime             As Double     'Timer at the start of the writing
+    Dim WriteSeconds          As Double     'Seconds to write the inputs
+    Dim RunSeconds            As Double     'Seconds of the engine run
+    Dim Completed             As Boolean    'CORE_Engine.Calculate returned True
+    Dim Detail                As String     'Why the run did not complete; cleanup failure
+    Dim UsedRangeEnd          As Long       'End of the Trades used range with the stray comment
+    Dim LegsRead              As Long       'Legs the engine read
+    Dim LegsUsed              As Long       'Legs the engine used
+    Dim ValidSets             As Long       'VALID CRR netting sets
+    Dim WithheldSets          As Long       'Netting sets whose EAD was withheld
+    Dim ErrorLines            As Long       'ERROR lines on Checks
+    Dim ResultsRowCount       As Long       'Rows on Results
+    Dim TradeCalcRowCount     As Long       'Rows on TradeCalc
+    Dim LastId                As String     'ID of the last Results row
+    Dim LastTradeId           As String     'ID of the last TradeCalc row
+    Dim BenchLine             As String     'BENCH line
 
 '------------------------------------------------------------------------------
 ' WRITE THE INPUTS
 '------------------------------------------------------------------------------
-    'One netting set per LEGS_PER_SET legs, the last one possibly smaller.
+    'Start the case, on business days when the scenario asks for them
         NettingSetCount = (LegCount + LEGS_PER_SET - 1) \ LEGS_PER_SET
         TEST_CaseRunner.BeginCase CaseId, RG_CRR, VALUATION, CALC_CCY
+        If Len(BusinessDayCalendar) > 0 Then
+            TEST_CaseRunner.SetParameter PRM_DAYCOUNT, CStr(BUSINESS_DAY_YEAR)
+            TEST_CaseRunner.SetParameter PRM_CALENDAR, BusinessDayCalendar
+        End If
+    'One netting set per LEGS_PER_SET legs, the last one possibly smaller
         StartTime = Timer
         WriteNettingSets NettingSetCount
         WriteTrades LegCount
         WriteSeconds = SecondsSince(StartTime)
+    'Inflate the Trades used range with a stray comment
         If InflateUsedRange Then
             mUsedBefore = UsedLastRow(GetSheet(SH_TRADES))
             mStrayRow = mUsedBefore + STRAY_OFFSET
             TableCell(GetSheet(SH_TRADES), mStrayRow, TR_COMMENT).Value = STRAY_TEXT
             UsedRangeEnd = UsedLastRow(GetSheet(SH_TRADES))
             TEST_CaseRunner.ExpectTrue "used-range", UsedRangeEnd >= mStrayRow, "the Trades used range ends on row " & _
-                                       UsedRangeEnd & ", above the stray comment on row " & mStrayRow, REFERENCE_CLASS
+                UsedRangeEnd & ", above the stray comment on row " & mStrayRow, REFERENCE_CLASS
         End If
 
 '------------------------------------------------------------------------------
 ' RUN THE ENGINE
 '------------------------------------------------------------------------------
+    'One timed run that writes every output sheet
         Completed = RunEngine(RunSeconds, Detail)
 
 '------------------------------------------------------------------------------
 ' CHECK
 '------------------------------------------------------------------------------
-    'The run completed, every leg read and used, every netting set VALID,
-    'no ERROR on Checks, one Results row per netting set and the TOTAL CRR
-    'row, one TradeCalc row per leg.
+    'Read what the run counted and wrote
         LegsRead = CORE_Engine.TradesRead
         LegsUsed = CORE_Engine.TradesUsed
         ValidSets = CORE_Engine.RegimeValidCount(RG_CRR)
@@ -332,37 +413,43 @@ Private Sub RunScenario( _
         ErrorLines = CORE_Engine.ErrorCount
         ResultsRowCount = OutputRows(SH_RESULTS, RS_ID, LastId)
         TradeCalcRowCount = OutputRows(SH_TRADECALC, TC_ID, LastTradeId)
+    'The run completed, every leg read and used, every netting set VALID, no
+    'ERROR on Checks, one Results row per netting set and the TOTAL CRR row,
+    'one TradeCalc row per leg
         TEST_CaseRunner.ExpectTrue "completed", Completed, Detail, REFERENCE_CLASS
         TEST_CaseRunner.ExpectTrue "legs-used", (LegsRead = LegCount) And (LegsUsed = LegCount), _
-                                   "read " & LegsRead & " and used " & LegsUsed & " of " & LegCount & " legs", _
-                                   REFERENCE_CLASS
+            "read " & LegsRead & " and used " & LegsUsed & " of " & LegCount & " legs", REFERENCE_CLASS
         TEST_CaseRunner.ExpectTrue "netting-sets-valid", (ValidSets = NettingSetCount) And (WithheldSets = 0), _
-                                   ValidSets & " of " & NettingSetCount & " netting sets VALID, " & WithheldSets & " withheld", _
-                                   REFERENCE_CLASS
+            ValidSets & " of " & NettingSetCount & " netting sets VALID, " & WithheldSets & " withheld", _
+            REFERENCE_CLASS
         TEST_CaseRunner.ExpectTrue "no-errors", ErrorLines = 0, ErrorLines & " ERROR line(s) on Checks", _
-                                   REFERENCE_CLASS
-        TEST_CaseRunner.ExpectTrue "results-rows", (ResultsRowCount = NettingSetCount + 1) And (LastId = "TOTAL " & RG_CRR), _
-                                   ResultsRowCount & " Results rows ending with '" & LastId & "', expected " & _
-                                   (NettingSetCount + 1) & " ending with 'TOTAL " & RG_CRR & "'", REFERENCE_CLASS
+            REFERENCE_CLASS
+        TEST_CaseRunner.ExpectTrue "results-rows", (ResultsRowCount = NettingSetCount + 1) And _
+            (LastId = "TOTAL " & RG_CRR), ResultsRowCount & " Results rows ending with '" & LastId & _
+            "', expected " & (NettingSetCount + 1) & " ending with 'TOTAL " & RG_CRR & "'", REFERENCE_CLASS
         TEST_CaseRunner.ExpectTrue "tradecalc-rows", TradeCalcRowCount = LegCount, _
-                                   TradeCalcRowCount & " TradeCalc rows, expected " & LegCount, REFERENCE_CLASS
+            TradeCalcRowCount & " TradeCalc rows, expected " & LegCount, REFERENCE_CLASS
 
 '------------------------------------------------------------------------------
 ' REPORT
 '------------------------------------------------------------------------------
+    'The counts, the day count the engine read, the timings
         BenchLine = "BENCH case=" & CaseId & "; legs=" & LegCount & "; netting_sets=" & NettingSetCount & _
-                 "; used=" & LegsUsed & "; withheld=" & WithheldSets & "; errors=" & ErrorLines & _
-                 "; warnings=" & CORE_Engine.WarningCount
+            "; used=" & LegsUsed & "; withheld=" & WithheldSets & "; errors=" & ErrorLines & _
+            "; warnings=" & CORE_Engine.WarningCount
         BenchLine = BenchLine & "; tradecalc_rows=" & TradeCalcRowCount & "; results_rows=" & ResultsRowCount
-        If InflateUsedRange Then
-            BenchLine = BenchLine & "; used_last_row=" & UsedRangeEnd
-        End If
-        BenchLine = BenchLine & "; write_s=" & Format$(WriteSeconds, "0.00") & "; run_s=" & Format$(RunSeconds, "0.00")
+        BenchLine = BenchLine & "; year=" & CORE_Engine.YearConventionText() & "; calendar=" & _
+            CORE_Engine.CalendarText()
+        If InflateUsedRange Then BenchLine = BenchLine & "; used_last_row=" & UsedRangeEnd
+        BenchLine = BenchLine & "; write_s=" & Format$(WriteSeconds, "0.00") & "; run_s=" & _
+            Format$(RunSeconds, "0.00")
+        BenchLine = BenchLine & MeasureFingerprints()
         TEST_Suite.Say BenchLine
 
 '------------------------------------------------------------------------------
 ' REMOVE THE STRAY COMMENT
 '------------------------------------------------------------------------------
+    'Give the Trades used range back its extent
         If InflateUsedRange Then
             Detail = ClearStray()
             TEST_CaseRunner.ExpectTrue "used-range-restored", Len(Detail) = 0, Detail, REFERENCE_CLASS
@@ -371,12 +458,11 @@ Private Sub RunScenario( _
 '------------------------------------------------------------------------------
 ' SHRINK THE SHEETS
 '------------------------------------------------------------------------------
-    'Rows the scenario wrote below the sheets' extent before the run are
-    'deleted, so that the next scenario, and the workbook after EndSuite,
-    'start from that extent rather than from a used range left by a
-    'larger portfolio.
+    'Rows written below the sheets' extent before the run are deleted, so
+    'that the next scenario, and the workbook after EndSuite, start from
+    'that extent rather than from a used range left by a larger portfolio
         Detail = ShrinkSheets()
-        TEST_CaseRunner.ExpectTrue "extent-restored", Len(Detail) = 0, Detail, REFERENCE_CLASS
+        TEST_CaseRunner.ExpectTrue "extent-restored", Len(Detail) = 0, PROC_NAME & ": " & Detail, REFERENCE_CLASS
 
 End Sub
 
@@ -1129,6 +1215,78 @@ Private Function MonthsAfterValuation( _
         MonthsAfterValuation = DateAdd("m", Months, DateSerial(CInt(Left$(VALUATION, 4)), _
                                                                CInt(Mid$(VALUATION, 6, 2)), _
                                                                CInt(Right$(VALUATION, 2))))
+
+End Function
+
+
+Private Function MeasureFingerprints() As String
+'
+'==============================================================================
+'                             MeasureFingerprints
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Time what the input fingerprint costs on the portfolio written (#771):
+'   a complete Run SA-CCR, which recalculates before the engine and the
+'   status cells after it; the recalculation of the two status cells that
+'   read only the inputs, Results!C5 and Dashboard!C5, which an input edit
+'   also recalculates; one InputFingerprint; the text of the trades it
+'   reads; and CORE_Util.TextHash and the method before #771,
+'   TEST_MainState.ReferenceTextHash, on that text, which must agree.
+'
+' RETURNS
+'   The fields for the BENCH line: op_s, status_s, fingerprint_s,
+'   text_chars, text_s, hash_s and hash_ref_s, in seconds and characters.
+'
+' ERROR POLICY
+'   An error propagates to RunBenchmark, as in the rest of the scenario.
+'
+' UPDATED
+'   2026-11-25
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim StartTime       As Double    'Timer at the start of a measure
+    Dim Fields          As String    'The fields measured so far
+    Dim Result          As String    'Result line of the operation
+    Dim Text            As String    'Text of the trades
+    Dim Hash            As String    'TextHash of it
+    Dim ReferenceHash   As String    'ReferenceTextHash of it
+
+'------------------------------------------------------------------------------
+' OPERATION AND STATUS CELLS
+'------------------------------------------------------------------------------
+    'The run stores the fingerprint the status cells compare with, so they
+    'compute it rather than show that there are no results.
+        StartTime = Timer
+        Result = M_Main.RunSACCR_Silent()
+        Fields = "; op_s=" & Format$(SecondsSince(StartTime), "0.00")
+        TEST_CaseRunner.ExpectTrue "operation", Left$(Result, 9) = "RESULT=OK", Result, REFERENCE_CLASS
+        StartTime = Timer
+        GetSheet(SH_RESULTS).Range("C5").Calculate
+        GetSheet(SH_DASHBOARD).Range("C5").Calculate
+        Fields = Fields & "; status_s=" & Format$(SecondsSince(StartTime), "0.00")
+
+'------------------------------------------------------------------------------
+' FINGERPRINT, TEXT AND HASH
+'------------------------------------------------------------------------------
+        StartTime = Timer
+        CORE_Engine.InputFingerprint
+        Fields = Fields & "; fingerprint_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        Text = CORE_Engine.BlockText(GetSheet(SH_TRADES), TableFirstRow(SH_TRADES), TR_COMMENT - 1)
+        Fields = Fields & "; text_chars=" & Len(Text) & "; text_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        Hash = TextHash(Text)
+        Fields = Fields & "; hash_s=" & Format$(SecondsSince(StartTime), "0.00")
+        StartTime = Timer
+        ReferenceHash = TEST_MainState.ReferenceTextHash(Text)
+        Fields = Fields & "; hash_ref_s=" & Format$(SecondsSince(StartTime), "0.00")
+        TEST_CaseRunner.ExpectTrue "hash-unchanged", Hash = ReferenceHash, _
+                                   "TextHash gives " & Hash & ", the method before #771 " & ReferenceHash, REFERENCE_CLASS
+        MeasureFingerprints = Fields
 
 End Function
 

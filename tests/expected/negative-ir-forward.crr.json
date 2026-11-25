@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "saccr-expected",
-  "fixture": "illustrative-negative-ir-forward",
+  "fixture": "negative-ir-forward",
   "regime": "CRR",
   "outputs": [
     {
@@ -36,13 +36,13 @@
         "relative": 1e-09
       },
       "reference": {
-        "class": "illustrative",
-        "source": "CRR-RTS",
-        "locator": "Del. Reg. 2021/931 Art. 5",
-        "derivation": "Prototype TestCatalogue T21 (Negative forward: supervisory delta with shift; Del. Reg. 2021/931 Art. 5; derived - separate python implementation; workbook reference NIR-C, Supervisory delta). Value from a separate Python implementation that is not in the repository; illustrative unless an external implementation registered as a source reproduces it (#100).",
-        "derived_by": "danielep71",
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "Trading::IRDSwaption CalcSupervDelta, trade NIR-C, with the package's CRR lambda",
+        "derivation": "tools/rsaccr_crosscheck.py translates the fixture and tools/rsaccr_run.R runs the package on it; the package's figure agrees with this value at full precision (#100)",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
         "reviewed_by": null,
-        "date": "2026-10-06"
+        "date": "2026-11-23"
       },
       "catalogue": "T21"
     }

@@ -20,7 +20,9 @@ Attribute VB_Name = "TEST_Formulas"
 '   SACCR_Formulas; M_Main.ProtectWorkbook, which protects the workbook
 '   structure again when the last case could not; and TEST_Kit for the
 '   suite lifecycle and the log lines (#536). Expected values are hand calculations from the formulas
-'   in the functions' headers; they check the contract, not the regulation.
+'   in the functions' headers; they check the contract, not the regulation,
+'   except in formula-test.independent, whose values the R package SACCR
+'   computes (tools/rsaccr_formulas.R, #100).
 '
 ' WORKSHEET SAFETY
 '   The last case unprotects the workbook structure when it is protected,
@@ -43,7 +45,7 @@ Attribute VB_Name = "TEST_Formulas"
 '   Delegated Regulation (EU) 2021/931 Art. 5.
 '
 ' UPDATED
-'   2026-11-04
+'   2026-11-23
 '
 ' AUTHOR
 '   Daniele Penza
@@ -59,12 +61,12 @@ Attribute VB_Name = "TEST_Formulas"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 10                 'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 12                 'Cases in a complete run
     'Two checks of LongLong inputs run on 64-bit VBA only.
 #If Win64 Then
-        Private Const EXPECTED_CHECKS  As Long = 117                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 135                'Checks in a complete run
 #Else
-        Private Const EXPECTED_CHECKS  As Long = 115                'Checks in a complete run
+        Private Const EXPECTED_CHECKS  As Long = 133                'Checks in a complete run
 #End If
         Private Const TOL              As Double = 0.000000001     'Absolute tolerance of numeric checks
 
@@ -78,20 +80,52 @@ Attribute VB_Name = "TEST_Formulas"
 '
 
 Public Sub RunFormulaTests()
+
 '
-'==============================================================================
-'                               RunFormulaTests
+'------------------------------------------------------------------------------
+'                            RUN THE FORMULA TESTS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run every case and print one CASE line per case, each failed check,
-'   and a final RESULT line.
+'   Runs every case and prints one CASE line per case, each failed check,
+'   and a final RESULT line
+'
+' WHY THIS EXISTS
+'   The entry point of the suite for Test_RunAll and for a run by hand
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Starts the suite with its expected counts, runs the cases in order and
+'   ends the suite, which prints the RESULT line
+'
+' ERROR POLICY
+'   Each case contains its own errors as failures of the case
+'
+' DEPENDENCIES
+'   TEST_Kit.BeginSuite, TEST_Kit.EndSuite and the Case procedures below
+'
+' NOTES
+'   CaseEngineCalendar compares the engine's list of closing days with
+'   SACCR_BusinessDays (#771)
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' START
+'------------------------------------------------------------------------------
+    'Stop when another suite is running
         If Not TEST_Kit.BeginSuite("TEST_Formulas", EXPECTED_CASES, EXPECTED_CHECKS) Then Exit Sub
 
+'------------------------------------------------------------------------------
+' RUN CASES
+'------------------------------------------------------------------------------
+    'Every case, in order
         CaseSupervisoryDuration
         CaseMaturityFactor
         CaseLambdaThreshold
@@ -101,8 +135,14 @@ Public Sub RunFormulaTests()
         CaseAggregationShapes
         CaseAggregationElements
         CaseBusinessDays
+        CaseEngineCalendar
+        CaseIndependentValues
         CaseWorksheetCells
 
+'------------------------------------------------------------------------------
+' REPORT
+'------------------------------------------------------------------------------
+    'Print the RESULT line
         TEST_Kit.EndSuite
 
 End Sub
@@ -279,6 +319,227 @@ Private Sub CaseReplacementCost()
         CheckNear "margined, NICA negative", 12#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, -2#), TOL
         CheckNear "margined, TH + MTA - NICA", 8#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, 2#), TOL
         CheckError "overflow of V - C", xlErrNum, SACCR_ReplacementCost(1E+308, -1E+308)
+        Exit Sub
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+End Sub
+
+Private Sub CaseEngineCalendar()
+
+'
+'------------------------------------------------------------------------------
+'               COMPARE THE ENGINE'S CALENDAR WITH THE FUNCTION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Checks that the engine's list of closing days (#771) counts the business
+'   days of every day of its window, and of intervals across it, as
+'   SACCR_BusinessDays does
+'
+' WHY THIS EXISTS
+'   On a business-day convention the engine counts on its own list, built
+'   once from its own copy of the TARGET rule; a copy that drifted from the
+'   function would change S, E, M and T without an error
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Every day from 2 January 1999 to 31 December 2100, one day at a time,
+'     on TARGET and on TARGET with a table of closing days
+'   - 2,000 intervals of up to 40 years, from a fixed sequence, on both
+'   - Dates outside the window, and a reversed interval, are left uncounted
+'
+' ERROR POLICY
+'   An unexpected error is a failure of the case
+'
+' DEPENDENCIES
+'   CORE_Engine.WindowBusinessDays, SACCR_BusinessDays, TEST_Kit
+'
+' NOTES
+'   The table holds a Monday, a Saturday, a TARGET day twice, a fraction of
+'   a day, two days outside the window and is not sorted, as
+'   tools/test_closing_list.py, which compares the same list with the
+'   Python reference of the calendar
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "TEST_Formulas.CaseEngineCalendar"
+    Const WINDOW_FIRST  As Long = 36161      '1 January 1999
+    Const WINDOW_LAST   As Long = 73415      '31 December 2100
+
+    Dim Table           As Variant    'Table of closing days
+    Dim Holidays        As Variant    'Table of the calendar being compared
+    Dim Calendar        As Long       '1 for TARGET, 2 for TARGET with the table
+    Dim LastDay         As Long       'Last day of a one-day interval
+    Dim FirstDay        As Long       'Day before the first day of an interval
+    Dim Seed            As Long       'State of the fixed sequence
+    Dim Pair            As Long       'Interval of the sequence
+    Dim Wrong           As String     'First difference found
+    Dim Differences     As Long       'Differences found
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Contain an unexpected error as a failure
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "business-days.engine-calendar"
+        Table = Array(CDbl(DateSerial(2030, 6, 3)), CDbl(DateSerial(2030, 6, 1)), _
+            CDbl(DateSerial(2026, 12, 25)), CDbl(DateSerial(2026, 12, 25)), _
+            CDbl(DateSerial(2024, 8, 15)) + 0.5, CDbl(DateSerial(1998, 6, 1)), _
+            CDbl(DateSerial(2101, 3, 1)), CDbl(DateSerial(2099, 11, 2)), CDbl(DateSerial(2000, 1, 3)))
+
+'------------------------------------------------------------------------------
+' EVERY DAY OF THE WINDOW
+'------------------------------------------------------------------------------
+    'Each day alone, on TARGET and on TARGET with the table
+        For Calendar = 1 To 2
+            Holidays = Empty
+            If Calendar = 2 Then Holidays = Table
+            Differences = 0
+            Wrong = vbNullString
+            For LastDay = WINDOW_FIRST + 1 To WINDOW_LAST
+                If Not SameCount(LastDay - 1, LastDay, Holidays) Then
+                    Differences = Differences + 1
+                    If Len(Wrong) = 0 Then Wrong = Format$(CDate(LastDay), "yyyy-mm-dd")
+                End If
+            Next LastDay
+            TEST_Kit.Check Differences = 0, "every day, calendar " & Calendar & ": " & Differences & _
+                " day(s) differ, the first " & Wrong
+        Next Calendar
+
+'------------------------------------------------------------------------------
+' INTERVALS
+'------------------------------------------------------------------------------
+    'Intervals of up to 40 years from a fixed sequence, on both calendars
+        Differences = 0
+        Wrong = vbNullString
+        Seed = 771
+        For Pair = 1 To 2000
+            Seed = (Seed * 1103 + 12345) Mod 1000003
+            FirstDay = WINDOW_FIRST + (Seed Mod (WINDOW_LAST - WINDOW_FIRST + 1))
+            Seed = (Seed * 1103 + 12345) Mod 1000003
+            LastDay = FirstDay + (Seed Mod 14610)
+            If LastDay > WINDOW_LAST Then LastDay = WINDOW_LAST
+            For Calendar = 1 To 2
+                Holidays = Empty
+                If Calendar = 2 Then Holidays = Table
+                If Not SameCount(FirstDay, LastDay, Holidays) Then
+                    Differences = Differences + 1
+                    If Len(Wrong) = 0 Then Wrong = FirstDay & " to " & LastDay & ", calendar " & Calendar
+                End If
+            Next Calendar
+        Next Pair
+        TEST_Kit.Check Differences = 0, "intervals: " & Differences & " differ, the first " & Wrong
+
+'------------------------------------------------------------------------------
+' OUTSIDE THE WINDOW
+'------------------------------------------------------------------------------
+    'Before 1999, after 2100 and a reversed interval are not counted
+        TEST_Kit.Check IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_FIRST - 1, WINDOW_FIRST + 40, Empty)) And _
+            IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_LAST - 40, WINDOW_LAST + 1, Empty)) And _
+            IsEmpty(CORE_Engine.WindowBusinessDays(WINDOW_FIRST + 40, WINDOW_FIRST + 39, Empty)), _
+            "a date outside the window or a reversed interval was counted"
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+Unexpected:
+    'Report the error as a failure of the case
+        TEST_Kit.Fail "business-days.engine-calendar", PROC_NAME & ": unexpected error " & Err.Number & _
+            ": " & Err.Description
+
+End Sub
+
+Private Function SameCount( _
+    ByVal FirstDay As Long, _
+    ByVal LastDay As Long, _
+    ByVal Holidays As Variant) _
+    As Boolean
+'
+'------------------------------------------------------------------------------
+'                    COMPARE ONE INTERVAL OF BUSINESS DAYS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns True when the engine's list and SACCR_BusinessDays give the
+'   same business days in (FirstDay, LastDay] for a table of closing days
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Expected   As Variant    'SACCR_BusinessDays
+    Dim Actual     As Variant    'The engine's count
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Both counts, numbers and equal
+        If IsEmpty(Holidays) Then
+            Expected = SACCR_BusinessDays(CDbl(FirstDay), CDbl(LastDay))
+        Else
+            Expected = SACCR_BusinessDays(CDbl(FirstDay), CDbl(LastDay), Holidays)
+        End If
+        Actual = CORE_Engine.WindowBusinessDays(CDbl(FirstDay), CDbl(LastDay), Holidays)
+        If IsError(Expected) Or IsEmpty(Actual) Then Exit Function
+        SameCount = (CDbl(Expected) = CDbl(Actual))
+
+End Function
+
+Private Sub CaseIndependentValues()
+'
+'==============================================================================
+' PURPOSE
+'   The FormulaTest checks the R package SACCR can compute (#100): each
+'   worksheet function on the inputs of its FormulaTest row, against the
+'   value the package gives, printed by tools/rsaccr_formulas.R (R 4.3.3,
+'   SACCR 3.4, Trading 3.2; source IMPL-R-SACCR). Rows 24 and 25 check the
+'   CRR lambda through the delta it shifts, as the package does: a bought
+'   call with P = -0.2% and K = 0.1%, then with P = 2% and K = 3%, T = 2,
+'   volatility 50%. The rows the package cannot compute, or computes on
+'   another rule (9, 11, 15, 17, 18, 26, 27, 28), are listed in
+'   docs/methodology/README.md.
+'==============================================================================
+'
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "formula-test.independent"
+        CheckNear "row 7, SD, S=0, E=10", 7.86938680574733, SACCR_SupervisoryDuration(0#, 10#), 0.000000000001
+        CheckNear "row 8, SD, S=1, E=11", 7.48559228240455, SACCR_SupervisoryDuration(1#, 11#), 0.000000000001
+        CheckNear "row 10, MF unmargined, M=0.75", 0.866025403784439, SACCR_MaturityFactor(0.75), 0.000000000001
+        CheckNear "row 12, MF margined, MPOR 10 BD", 0.3, SACCR_MaturityFactor(0#, True, 10#), 0.000000000001
+        CheckNear "row 13, delta, bought put", -0.269395217710533, _
+                  SACCR_OptionDelta(0.06, 0.05, 1#, 0.5, False, True), 0.000000000001
+        CheckNear "row 14, delta, sold call", -0.379011345827803, _
+                  SACCR_OptionDelta(100#, 110#, 0.5, 0.32, True, False), 0.000000000001
+        CheckNear "row 16, CDO delta, protection bought", 5.74096754439682, _
+                  SACCR_CDODelta(0.03, 0.06, True), 0.000000000001
+        CheckNear "row 19, multiplier, V - C = -20", 0.965192681187194, SACCR_Multiplier(-20#, 282#), 0.000000000001
+        CheckNear "row 20, multiplier, V - C = 10", 1#, SACCR_Multiplier(10#, 282#), 0.000000000001
+        CheckNear "row 21, RC margined", 8#, SACCR_ReplacementCost(5#, 10#, True, 0#, 10#, 2#), 0.000000000001
+        CheckNear "row 22, normal CDF(1.96)", 0.97500210485178, SACCR_NormCDF(1.96), 0.000000000001
+        CheckNear "row 23, normal CDF(-4)", 3.16712418331199E-05, SACCR_NormCDF(-4#), 0.000000000000001
+        CheckNear "row 24, delta with the CRR lambda", 5.40312538068138E-02, _
+                  SACCR_OptionDelta(-0.002, 0.001, 2#, 0.5, True, True, SACCR_LambdaCRR(-0.002, 0.001, True)), _
+                  0.000000000001
+        CheckNear "row 25, delta with no shift", 0.412989758121121, _
+                  SACCR_OptionDelta(0.02, 0.03, 2#, 0.5, True, True, SACCR_LambdaCRR(0.02, 0.03, True)), _
+                  0.000000000001
         Exit Sub
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description

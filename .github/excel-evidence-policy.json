@@ -21,13 +21,13 @@
   "suites": [
     {
       "entry_point": "TEST_Formulas.RunFormulaTests",
-      "cases": 10,
-      "checks": {"32-bit": 115, "64-bit": 117}
+      "cases": 12,
+      "checks": {"32-bit": 133, "64-bit": 135}
     },
     {
       "entry_point": "TEST_MainState.RunMainStateTests",
-      "cases": 46,
-      "checks": {"32-bit": 711, "64-bit": 711}
+      "cases": 48,
+      "checks": {"32-bit": 719, "64-bit": 719}
     },
     {
       "entry_point": "TEST_Cases.RunCaseTests",
@@ -68,6 +68,11 @@
       "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",
       "cases": 19,
       "checks": {"32-bit": 47, "64-bit": 47}
+    },
+    {
+      "entry_point": "TEST_Dashboard.RunDashboardTests",
+      "cases": 6,
+      "checks": {"32-bit": 65, "64-bit": 65}
     }
   ],
   "negative_runs": [

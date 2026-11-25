@@ -59,6 +59,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_RESULTS     As String = "Results"        'One row per netting set, and a total
         Public Const SH_HEDGING     As String = "HedgingSets"    'One row per hedging set
         Public Const SH_BUCKETS     As String = "Buckets"        'One row per bucket
+        Public Const SH_DASHBOARD   As String = "Dashboard"      'The last run in one page (#675)
         Public Const SH_TRADECALC   As String = "TradeCalc"      'One row per trade
         Public Const SH_CHECKS      As String = "Checks"         'Errors, warnings, information
         Public Const SH_BANK_NS     As String = "BankNettingSets"    'Bank figures per netting set (#45)
@@ -466,13 +467,17 @@ Attribute VB_Name = "CORE_Config"
     'margined netting set shows its margined RC, add-ons, multiplier and
     'PFE, and the EAD after the cap.
         Public Const RS_ID          As Long = 1     'NettingSetID, or TOTAL CRR / TOTAL BCBS
+        Public Const RS_CPTY        As Long = 2     'Counterparty (#675)
         Public Const RS_REGIME      As Long = 3     'BCBS or CRR
+        Public Const RS_MARGINED    As Long = 4     'Margined: Y or N (#675)
+        Public Const RS_V           As Long = 7     'V, the sum of the trades' MtM (#675)
         Public Const RS_RC          As Long = 9     'Replacement cost
         Public Const RS_ADDON_IR    As Long = 10    'Interest-rate add-on; FX to OT follow
         Public Const RS_ADDON       As Long = 16    'Aggregate add-on
         Public Const RS_MULT        As Long = 17    'Multiplier
         Public Const RS_PFE         As Long = 18    'PFE
         Public Const RS_EAD         As Long = 22    'EAD reported
+        Public Const RS_CAP         As Long = 23    'Cap applied: Y, N or n/a (#675)
 
 '------------------------------------------------------------------------------
 ' TRADECALC COLUMNS READ BY THE RECONCILIATION
@@ -498,6 +503,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const TC_ENM         As Long = 20    'Effective notional, margined
         Public Const TC_ADDON       As Long = 22    'Stand-alone add-on
         Public Const TC_LAMBDA      As Long = 23    'Lambda shift: a rate for IR, a price for CO
+        Public Const TC_REGIME      As Long = 24    'Regime of the leg's netting set (#675)
         Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
 
 '------------------------------------------------------------------------------
