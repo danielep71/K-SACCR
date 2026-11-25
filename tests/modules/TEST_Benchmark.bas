@@ -119,7 +119,7 @@ Attribute VB_Name = "TEST_Benchmark"
 
     'Checks. They compare the engine's counts with the portfolio written,
     'so they validate no figure and are reported as illustrative.
-        Private Const CHECKS_PER_CASE   As Long = 7     'Checks of every scenario
+        Private Const CHECKS_PER_CASE   As Long = 9     'Checks of every scenario, two of them in MeasureFingerprints
         Private Const STRAY_CHECKS      As Long = 2     'Further checks of the used-range scenario
         Private Const REFERENCE_CLASS   As String = "illustrative"    'Reference class of every check
 
