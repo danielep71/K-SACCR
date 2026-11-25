@@ -19,7 +19,9 @@
 if (-not ("KSaccr.ExcelBusyRetry" -as [type])) {
     Add-Type -TypeDefinition @"
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace KSaccr
 {
@@ -96,6 +98,79 @@ namespace KSaccr
             return PENDINGMSG_WAITDEFPROCESS;
         }
     }
+
+    // The visible windows of a process, to tell what keeps Excel busy (#773):
+    // a dialog shows as class #32770, with its text in its child controls.
+    public static class ProcessWindows
+    {
+        private delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumProc callback, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder text, int maxCount);
+
+        public static uint OfWindow(long hWnd)
+        {
+            uint processId;
+            GetWindowThreadProcessId(new IntPtr(hWnd), out processId);
+            return processId;
+        }
+
+        private static string Text(IntPtr hWnd)
+        {
+            StringBuilder text = new StringBuilder(512);
+            GetWindowText(hWnd, text, text.Capacity);
+            return text.ToString().Replace("\r", " ").Replace("\n", " ").Trim();
+        }
+
+        private static string ClassOf(IntPtr hWnd)
+        {
+            StringBuilder name = new StringBuilder(256);
+            GetClassName(hWnd, name, name.Capacity);
+            return name.ToString();
+        }
+
+        public static string Describe(uint processId)
+        {
+            List<string> found = new List<string>();
+            EnumWindows(delegate (IntPtr hWnd, IntPtr lParam)
+            {
+                uint owner;
+                GetWindowThreadProcessId(hWnd, out owner);
+                if (owner != processId || !IsWindowVisible(hWnd))
+                {
+                    return true;
+                }
+                string line = ClassOf(hWnd) + " '" + Text(hWnd) + "'";
+                if (ClassOf(hWnd) == "#32770")
+                {
+                    List<string> parts = new List<string>();
+                    EnumChildWindows(hWnd, delegate (IntPtr child, IntPtr unused)
+                    {
+                        string part = Text(child);
+                        if (part.Length > 0)
+                        {
+                            parts.Add(part);
+                        }
+                        return true;
+                    }, IntPtr.Zero);
+                    line += " [" + string.Join(" | ", parts.ToArray()) + "]";
+                }
+                found.Add(line);
+                return true;
+            }, IntPtr.Zero);
+            return found.Count == 0 ? "none" : string.Join("; ", found.ToArray());
+        }
+    }
 }
 "@
 }
@@ -112,6 +187,33 @@ function Unregister-ExcelBusyRetry {
     # Remove the filter from this thread; nothing happens when none is registered.
     if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -eq [System.Threading.ApartmentState]::STA) {
         [void][KSaccr.ExcelBusyRetry]::Unregister()
+    }
+}
+
+function Get-ExcelProcessId {
+    # The process of an Excel instance, read through its main window while it
+    # still answers; 0 when it cannot be read.
+    param($Excel)
+    try {
+        return [KSaccr.ProcessWindows]::OfWindow([long]$Excel.Hwnd)
+    }
+    catch {
+        return 0
+    }
+}
+
+function Get-ExcelWindowsSummary {
+    # One line for the log: the visible windows of the process, a dialog with
+    # its text, so that what keeps Excel busy can be named (#773).
+    param([uint32]$ProcessId)
+    if ($ProcessId -eq 0) {
+        return "Excel windows: the process is not known"
+    }
+    try {
+        return ("Excel windows: " + [KSaccr.ProcessWindows]::Describe($ProcessId))
+    }
+    catch {
+        return ("Excel windows: not read (" + $_.Exception.Message + ")")
     }
 }
 

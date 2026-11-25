@@ -83,6 +83,9 @@ $ErrorActionPreference = "Stop"
 # (#773); see tools\Excel-BusyRetry.ps1.
 . (Join-Path $PSScriptRoot "Excel-BusyRetry.ps1")
 [void](Register-ExcelBusyRetry)
+# The process of the development workbook's Excel, for the log when Excel stops
+# answering (#773); 0 until Excel is started.
+$script:excelProcess = 0
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $scriptPath = $MyInvocation.MyCommand.Path
@@ -222,6 +225,7 @@ function Invoke-QuickRun {
         # never changed.
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $true
+        $script:excelProcess = Get-ExcelProcessId $excel
         $excel.AutomationSecurity = $msoAutomationSecurityLow
         $workbook = $excel.Workbooks.Open($workbookPath)
         $qualified = "'" + $workbook.Name + "'!"
@@ -328,6 +332,9 @@ function Invoke-QuickRun {
             }
             Write-Log $script:reviewLine
             Write-Log (Get-ExcelBusyRetrySummary)
+            if ([KSaccr.ExcelBusyRetry]::Abandoned -gt 0) {
+                Write-Log (Get-ExcelWindowsSummary $script:excelProcess)
+            }
         }
         else {
             $script:reviewLine = "Sheet review: RESULT=FAIL; this branch has no tools\Review-SACCR-Sheets.ps1"
@@ -345,6 +352,7 @@ function Invoke-QuickRun {
             }
             catch {
                 Write-Log ("The development workbook could not be closed: " + $_.Exception.Message)
+                Write-Log (Get-ExcelWindowsSummary $script:excelProcess)
             }
             [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook)
         }

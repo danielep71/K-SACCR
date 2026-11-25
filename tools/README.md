@@ -132,7 +132,9 @@ Every script that starts Excel (`Verify-SACCR-Branch.ps1`, `Check-SACCR-Protecti
 `Excel-BusyRetry.ps1` and registers its OLE message filter (#773). A call Excel rejects
 while busy (`RPC_E_CALL_REJECTED`, "retry later") is then retried every 250 ms for up to
 two minutes instead of stopping the script; a call refused outright still fails at once.
-The verify log reports how many calls were retried and abandoned.
+The verify log reports how many calls were retried and abandoned; when a call is abandoned,
+or the workbook cannot be closed, it also lists the visible windows of that Excel, a dialog
+with its text, so that what keeps Excel busy can be named.
 `test_excel_busy_retry.py` checks that every such script registers the filter before it
 creates Excel, and checks the filter's decision rule in PowerShell 7.
 

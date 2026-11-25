@@ -37,9 +37,14 @@ class ScriptsRegisterTheFilter(unittest.TestCase):
                 self.assertLess(text.index(DOT_SOURCE), text.index(REGISTER))
                 self.assertLess(text.index(REGISTER), text.index(CREATES_EXCEL))
 
-    def test_the_verify_log_reports_the_retries(self) -> None:
+    def test_the_verify_log_reports_the_retries_and_names_the_windows(self) -> None:
         text = (TOOLS / "Verify-SACCR-Branch.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("Write-Log (Get-ExcelBusyRetrySummary)", text)
+        self.assertIn("$script:excelProcess = Get-ExcelProcessId $excel", text)
+        self.assertLess(text.index("$script:excelProcess = 0"), text.index(CREATES_EXCEL))
+        # When a call is abandoned, and when the workbook cannot be closed, the log
+        # names the windows Excel shows, a dialog with its text.
+        self.assertEqual(text.count("Write-Log (Get-ExcelWindowsSummary $script:excelProcess)"), 2)
 
     def test_the_filter_retries_only_retry_later_within_its_limit(self) -> None:
         text = HELPER.read_text(encoding="utf-8")
@@ -65,6 +70,12 @@ class FilterInPowerShell(unittest.TestCase):
             "@($t::Decide(0, 2), $t::Decide(119999, 2), $t::Decide(120000, 2), "
             "$t::Decide(0, 1), $t::Decide(0, 0)) -join ','")
         self.assertEqual(output, "250,250,-1,-1,-1")
+
+    def test_the_windows_summary_needs_a_process_and_never_raises(self) -> None:
+        output = self.run_pwsh("Get-ExcelWindowsSummary 0; Get-ExcelWindowsSummary 4242")
+        lines = output.splitlines()
+        self.assertEqual(lines[0], "Excel windows: the process is not known")
+        self.assertTrue(lines[1].startswith("Excel windows: "), lines[1])
 
     def test_registering_off_an_sta_thread_does_nothing(self) -> None:
         output = self.run_pwsh(
