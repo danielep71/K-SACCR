@@ -2,8 +2,8 @@
 
 Every column header of NettingSets and Trades carries a note: its title is the header, and its text
 says what the field is, the values allowed, what a blank means and the CSV field name. The three input
-sheets have the header on row 5, below an empty row 4 of 30 points, and freeze rows 1 to 4, the same on
-Home, so that the view does not jump from one sheet to the next. The header rows are found from their workbook names.
+sheets have the header on row 5, below an empty row 4 of 30 points, and freeze rows 1 to 4, as Home does,
+so that the view does not jump from one sheet to the next. The header rows are found from their workbook names.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ CONTRACT = ROOT / "docs" / "csv" / "contract.json"
 INPUT_SHEETS = {"Params": "Params_Code", "NettingSets": "NettingSets_Header", "Trades": "Trades_Header"}
 HEADER_ROW = 5
 FROZEN_ROWS = 4  # rows 1 to 4, the empty row included; the header row scrolls with the data (owner, 2026-11-25)
-TOP_ROW_HEIGHT = 30.0  # rows 3, 4 and 5 of the three input sheets, row 4 of Home
+TOP_ROW_HEIGHT = 30.0  # rows 3, 4 and 5 of the three input sheets
 
 
 class HeaderNoteTests(unittest.TestCase):
@@ -90,13 +90,13 @@ class HeaderNoteTests(unittest.TestCase):
         panes = {name: self.sheet(name).find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane") for name in INPUT_SHEETS}
         self.assertEqual({name: pane.attrib.get("topLeftCell") for name, pane in panes.items() if pane is not None},
                          {"Params": "D5", "NettingSets": "D5", "Trades": "E5"})
-        # Home freezes the same four rows, its row 4 as high
+        # Home freezes the same four rows; its row 4 stays the narrow gap it was (owner, 2026-11-25)
         home = self.sheet("Home")
         pane = home.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
         assert pane is not None
         self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS))
         heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in home.iter(MAIN + "row")}
-        self.assertEqual(heights.get("4"), TOP_ROW_HEIGHT)
+        self.assertAlmostEqual(heights.get("4") or 0.0, 9.95, places=2)
 
     def test_the_staging_sheets_show_the_same_headers(self) -> None:
         for kind, anchor in (("NettingSets", "ImportNettingSets_Header"), ("Trades", "ImportTrades_Header")):
