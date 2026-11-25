@@ -115,6 +115,14 @@ Use only the categories needed by a release.
   them; `TEST_MainState` (`navigation.bar-toggle`) checks the triangle shown on every sheet after
   a hide, a save and a show.
 
+- **The same height of frozen rows from sheet to sheet** (#777). Moving from one sheet to another no
+  longer makes the view jump. Every sheet has the same title band (rows 1 to 3 at 24, 26.1 and 30
+  points). Home, the three input sheets, Dashboard and ReconSummary freeze rows 1 to 4, 110.1 points
+  high. The output tables (Results, HedgingSets, Buckets, TradeCalc, Checks) start their column
+  header at the same point, 110.1 points down, with the same height, 63.75 points: 173.85 points are
+  frozen on all five. The two staging sheets freeze the same 235.35 points, the two bank sheets the
+  same 205.5 and the two reconciliation sheets the same 269.85. `tools/test_frozen_rows.py` checks it.
+
 - A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
   the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
   and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing
