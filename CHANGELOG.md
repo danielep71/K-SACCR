@@ -97,6 +97,14 @@ Use only the categories needed by a release.
 
 ### Added
 
+- **The benchmark on the self-hosted runner** (#771). A run of the Excel quick check started by
+  hand may give benchmark sizes (`1000,10000`, for example): the quick check then also runs
+  `TEST_Benchmark.RunBenchmark` after the sheet review, through the new `TEST_Suite.Benchmark`,
+  into `benchmark.log`, which the artifact carries, and adds the BENCH lines to its summary. The
+  benchmark never changes the result of the quick check, and a pull request never runs it.
+  `Verify-SACCR-Branch.ps1 -Quick -BenchmarkSizes` refuses sizes that are not a list of at most
+  ten whole numbers.
+
 - A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
   the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
   and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing

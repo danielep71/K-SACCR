@@ -37,6 +37,11 @@ For the branch of a pull request, with one command on the Windows host:
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
+   With -Quick and -BenchmarkSizes, the quick run also runs the benchmark
+   (TEST_Benchmark.RunBenchmark, #771) in the same Excel session after the
+   sheet review, through TEST_Suite.Benchmark, into benchmark.log; its BENCH
+   lines are added to the summary. The benchmark never changes the result of
+   the quick check;
    With -Commit the script checks nothing out: it verifies the commit the
    checkout already is at, and stops when HEAD is another commit. The
    automatic quick check of a pull request (#713) uses it, so that its result
@@ -73,7 +78,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$RepoRoot,
     [Parameter(Mandatory = $false)]
-    [string]$Commit
+    [string]$Commit,
+    [Parameter(Mandatory = $false)]
+    [string]$BenchmarkSizes
 )
 
 Set-StrictMode -Version Latest
@@ -192,6 +199,7 @@ function Invoke-QuickRun {
     $script:verifyLog = Join-Path $Bundle "verify.log"
     $script:compileLine = "Compile: NOT RUN"
     $script:reviewLine = "Sheet review: NOT RUN"
+    $script:benchmarkLine = "Benchmark: NOT RUN"
     Write-Log "K-SACCR quick verification of ${Sha}: a pull-request check, not a release certification"
     Write-Log "Started at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')); folder $Bundle"
     $workbookPath = Join-Path $Bundle "K-SACCR_Verification.xlsm"
@@ -341,6 +349,21 @@ function Invoke-QuickRun {
             $script:reviewLine = "Sheet review: RESULT=FAIL; this branch has no tools\Review-SACCR-Sheets.ps1"
             Write-Log $script:reviewLine
         }
+
+        # The benchmark, when it was asked for (#771): its timings depend on the machine, so it runs
+        # only on request, after everything the result depends on, and never changes the result.
+        if (-not [string]::IsNullOrWhiteSpace($BenchmarkSizes)) {
+            Write-Log "Running the benchmark: TEST_Suite.Benchmark, sizes $BenchmarkSizes, into benchmark.log"
+            try {
+                $script:benchmarkLine = "Benchmark: " + [string]$excel.Run($qualified + "TEST_Suite.Benchmark", `
+                    $Bundle, $Sha, $BenchmarkSizes)
+            }
+            catch {
+                $script:benchmarkLine = "Benchmark: not run; the branch may predate TEST_Suite.Benchmark: " + `
+                    $_.Exception.Message
+            }
+            Write-Log $script:benchmarkLine
+        }
     }
     catch {
         Write-Log ("Stopped: " + $_.Exception.Message)
@@ -414,6 +437,16 @@ if ((Invoke-GitRaw @("check-ref-format", "--branch", $Branch)).Code -ne 0) {
 $dirty = Invoke-Git @("status", "--porcelain", "--untracked-files=no") "Cannot read the working tree"
 if (-not [string]::IsNullOrWhiteSpace($dirty)) {
     throw "The working tree has changes. Commit or stash them first; nothing was checked out."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($BenchmarkSizes)) {
+    # Sizes as TEST_Benchmark.RunBenchmark reads them: at most ten whole numbers, separated by commas.
+    if (-not $Quick) {
+        throw "-BenchmarkSizes needs -Quick."
+    }
+    if ($BenchmarkSizes -cnotmatch '^[0-9]{1,7}(,[0-9]{1,7}){0,9}$') {
+        throw "Not a list of benchmark sizes: $BenchmarkSizes"
+    }
 }
 
 if (-not [string]::IsNullOrWhiteSpace($Commit)) {
@@ -521,6 +554,12 @@ if ($Quick) {
     $review = Get-FileText (Join-Path $bundle "sheet-review.txt")
     $failing = @($review -split "\r?\n" | Where-Object { $_ -match 'FAIL' -or $_ -match '^  [a-z]+: [0-9]' -or $_ -match '^  (gridlines|tab):' })
     $lines += @("", "Sheet review (sheet-review.txt; pictures in the folder sheets):") + $failing
+    if (-not [string]::IsNullOrWhiteSpace($BenchmarkSizes)) {
+        # The BENCH lines, any failure, and the benchmark's own RESULT line.
+        $bench = Get-FileText (Join-Path $bundle "benchmark.log")
+        $timings = @($bench -split "\r?\n" | Where-Object { $_ -match '^(BENCH|RESULT=|FAILURE)' })
+        $lines += @("", "Benchmark (benchmark.log; not part of the result):", $script:benchmarkLine) + $timings
+    }
 }
 $summary = ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 if (Test-Path -LiteralPath $bundle) {

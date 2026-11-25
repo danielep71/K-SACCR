@@ -24,7 +24,9 @@ the reporting itself is a warning and does not change it. The report never
 replaces the owner's verification and is not release evidence.
 The environment supplies the event (EVENT_NAME, HEAD_REPO, REPOSITORY, PR_NUMBER,
 RUN_URL, ARTIFACT_NAME) and GITHUB_TOKEN; nothing from the event is put into a
-command line.
+command line. A run started by hand may also supply BENCHMARK_SIZES: the quick
+check then runs the benchmark too (-BenchmarkSizes of Verify-SACCR-Branch.ps1,
+#771), which checks the sizes; a pull request never does.
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Run-SACCR-QuickCheck.ps1 -Branch fix/123-slug
 #>
@@ -107,8 +109,15 @@ try {
     $verify = Join-Path $repoRoot "tools\Verify-SACCR-Branch.ps1"
     # Windows PowerShell 5.1 turns a child's stderr line into an error record under "Stop".
     $ErrorActionPreference = "Continue"
-    $output = @(& $Shell -NoProfile -ExecutionPolicy Bypass -File $verify -Branch $Branch -Quick `
-        -Commit $pinned -RepoRoot $repoRoot 2>&1 | ForEach-Object { [string]$_ })
+    $verifyArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $verify, "-Branch", $Branch, "-Quick",
+                         "-Commit", $pinned, "-RepoRoot", $repoRoot)
+    # The benchmark only on a run by hand (#771): its timings belong to the machine, not to the pull request.
+    $sizes = (Get-EnvText "BENCHMARK_SIZES").Trim()
+    if ($sizes -and (Get-EnvText "EVENT_NAME") -eq "workflow_dispatch") {
+        $verifyArguments += @("-BenchmarkSizes", $sizes)
+        Write-Host "The benchmark runs too, sizes $sizes"
+    }
+    $output = @(& $Shell @verifyArguments 2>&1 | ForEach-Object { [string]$_ })
     $code = $LASTEXITCODE
     $ErrorActionPreference = "Stop"
     $output | ForEach-Object { Write-Host $_ }
