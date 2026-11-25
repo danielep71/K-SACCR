@@ -2926,44 +2926,77 @@ Unexpected:
 
 End Sub
 
-
 Private Function BarSheets( _
     ByVal Shown As Boolean) _
     As Long
 '
-'==============================================================================
-'                                  BarSheets
+'------------------------------------------------------------------------------
+'              COUNT THE WORKSHEETS WHOSE BAR IS IN A GIVEN STATE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The worksheets whose navigation bar is in the given state (#620):
-'   column A hidden when it is not shown, and both shape groups present and
-'   visible exactly when it is.
+'   Counts the worksheets whose navigation bar is in the given state
+'
+' WHY THIS EXISTS
+'   CaseNavigationBar checks the state after a hide, a save and a show
+'   (#620), the triangles of B1 included (#777)
+'
+' INPUTS
+'   Shown
+'     True for the bar shown, False for the bar hidden
+'
+' RETURNS
+'   The worksheets where column A is hidden exactly when the bar is not
+'   shown, both shape groups and the triangle that hides the bar are
+'   present and visible exactly when it is, and the triangle that shows it
+'   is present and visible exactly when it is not
+'
+' BEHAVIOR
+'   Reads every shape of every worksheet; nothing is changed
+'
+' ERROR POLICY
+'   None: an error reaches the case, which reports it
+'
+' DEPENDENCIES
+'   CORE_Config (NAV_GROUP_TOP, NAV_GROUP_REST, NAV_TOGGLE_HIDE,
+'   NAV_TOGGLE_SHOW)
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-11-07
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Sheet       As Worksheet    'Each worksheet
-    Dim Item        As Shape        'Each shape of a sheet
-    Dim Groups      As Long         'Bar groups found in the state
-    Dim Wanted      As Long         'msoTrue or msoFalse
+    Const PROC_NAME       As String = "TEST_MainState.BarSheets"
+
+    Dim Sheet             As Worksheet    'Each worksheet
+    Dim Item              As Shape        'Each shape of a sheet
+    Dim Matching          As Long         'Bar shapes found in the state
+    Dim Wanted            As Long         'msoTrue or msoFalse for the bar
+    Dim Opposite          As Long         'The other one, for the triangle that shows the bar
 
 '------------------------------------------------------------------------------
 ' COUNT
 '------------------------------------------------------------------------------
+    'The visibility the bar's shapes should have
         Wanted = IIf(Shown, msoTrue, msoFalse)
+        Opposite = IIf(Shown, msoFalse, msoTrue)
+    'A sheet counts when its four shapes and column A are in the state
         For Each Sheet In ThisWorkbook.Worksheets
-            Groups = 0
+            Matching = 0
             For Each Item In Sheet.Shapes
-                If (Item.Name = NAV_GROUP_TOP Or Item.Name = NAV_GROUP_REST) And Item.Visible = Wanted Then
-                    Groups = Groups + 1
-                End If
+                Select Case Item.Name
+                    Case NAV_GROUP_TOP, NAV_GROUP_REST, NAV_TOGGLE_HIDE
+                        If Item.Visible = Wanted Then Matching = Matching + 1
+                    Case NAV_TOGGLE_SHOW
+                        If Item.Visible = Opposite Then Matching = Matching + 1
+                    Case Else
+                End Select
             Next Item
-            If Groups = 2 And Sheet.Columns(1).Hidden = Not Shown Then
+            If Matching = 4 And Sheet.Columns(1).Hidden = Not Shown Then
                 BarSheets = BarSheets + 1
             End If
         Next Sheet

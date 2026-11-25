@@ -11037,20 +11037,53 @@ Failed:
 
 End Sub
 
-
 Public Sub ToggleNavigationBar()
+
 '
-'==============================================================================
-'                             ToggleNavigationBar
+'------------------------------------------------------------------------------
+'                 HIDE THE BAR WHEN SHOWN, SHOW IT WHEN HIDDEN
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Hide the navigation bar when it is shown and show it when it is
-'   hidden (ShowNavigationBar), from the Macros dialog (#620).
+'   Hides the navigation bar when it is shown and shows it when it is
+'   hidden, on every sheet (ShowNavigationBar)
+'
+' WHY THIS EXISTS
+'   The macro of the two triangles in B1 of every sheet (#777), which can
+'   also be run from the Macros dialog (#620)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Reads the state from the workbook (NavigationBarShown) and asks
+'   ShowNavigationBar for the other one
+'
+' ERROR POLICY
+'   As ShowNavigationBar: an error is reported in a message, never raised
+'
+' DEPENDENCIES
+'   NavigationBarShown, ShowNavigationBar
+'
+' NOTES
+'   tools/navigation_bar.py links the triangles to this name, as
+'   [0]!ToggleNavigationBar; renaming it would break them
 '
 ' UPDATED
-'   2026-11-07
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.ToggleNavigationBar"
+
+'------------------------------------------------------------------------------
+' TOGGLE
+'------------------------------------------------------------------------------
+    'Ask for the state the bar is not in
         ShowNavigationBar Not NavigationBarShown()
 
 End Sub
@@ -11213,72 +11246,118 @@ Done:
 
 End Sub
 
-
 Private Function ApplyNavigationBar( _
     ByVal Shown As Boolean) _
     As Long
 '
-'==============================================================================
-'                             ApplyNavigationBar
+'------------------------------------------------------------------------------
+'                   SHOW OR HIDE THE BAR ON EVERY WORKSHEET
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Show or hide column A and the shape groups NAV_GROUP_TOP and
-'   NAV_GROUP_REST of every worksheet in one pass, with screen updating
-'   off, so the layout changes at once (#620). ProtectWorkbook runs first,
-'   so the macros change the protected sheets through their user-interface
-'   protection. The workbook's Saved flag and screen updating are kept.
+'   Shows or hides column A, the shape groups NAV_GROUP_TOP and
+'   NAV_GROUP_REST and the triangle of B1 that hides the bar, and does the
+'   opposite with the triangle that shows it, on every worksheet in one pass
+'
+' WHY THIS EXISTS
+'   The Ribbon's Navigation bar toggle (#620), the triangles of B1 (#777)
+'   and the save handlers change the bar the same way, with the layout
+'   changing at once on every sheet
+'
+' INPUTS
+'   Shown
+'     True to show the bar, False to hide it
 '
 ' RETURNS
-'   The number of worksheets changed.
+'   The number of worksheets changed
+'
+' BEHAVIOR
+'   - Turns screen updating off and runs ProtectWorkbook, so the macros
+'     change the protected sheets through their user-interface protection
+'   - On every worksheet: column A is hidden when the bar is not shown; the
+'     two groups and NAV_TOGGLE_HIDE are visible when it is, and
+'     NAV_TOGGLE_SHOW when it is not
+'   - Restores screen updating and the workbook's Saved flag
 '
 ' ERROR POLICY
 '   Re-raises the first error after screen updating and the Saved flag are
-'   restored.
+'   restored
+'
+' DEPENDENCIES
+'   ProtectWorkbook, CORE_Config (NAV_GROUP_TOP, NAV_GROUP_REST,
+'   NAV_TOGGLE_HIDE, NAV_TOGGLE_SHOW)
+'
+' NOTES
+'   A sheet without the triangles, as in a workbook built before #777, has
+'   only its column and groups changed
 '
 ' UPDATED
-'   2026-11-07
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Sheet               As Worksheet    'Each worksheet
-    Dim Item                As Shape        'Each shape of a sheet
-    Dim WasSaved            As Boolean      'The workbook's Saved flag before
-    Dim SavedScreen         As Boolean      'Screen updating before
-    Dim Changed             As Long         'Worksheets changed
-    Dim ErrorNumber         As Long         'The first error's number
-    Dim ErrorDescription    As String       'The first error's description
+    Const PROC_NAME           As String = "M_Main.ApplyNavigationBar"
+
+    Dim Sheet                 As Worksheet    'Each worksheet
+    Dim Item                  As Shape        'Each shape of a sheet
+    Dim WasSaved              As Boolean      'The workbook's Saved flag before
+    Dim SavedScreen           As Boolean      'Screen updating before
+    Dim Changed               As Long         'Worksheets changed
+    Dim ErrorNumber           As Long         'The first error's number
+    Dim ErrorDescription      As String       'The first error's description
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Keep the Saved flag and screen updating, and change the sheets at once
+        WasSaved = ThisWorkbook.Saved
+        SavedScreen = Application.ScreenUpdating
+        On Error GoTo ErrorHandler
+        Application.ScreenUpdating = False
+    'Protect the sheets for the user interface only, so the macros can change them
+        ProtectWorkbook
 
 '------------------------------------------------------------------------------
 ' SHOW OR HIDE
 '------------------------------------------------------------------------------
-        WasSaved = ThisWorkbook.Saved
-        SavedScreen = Application.ScreenUpdating
-        On Error GoTo Failed
-        Application.ScreenUpdating = False
-        ProtectWorkbook
+    'Column A, the two groups and the triangle that hides the bar follow the
+    'state; the triangle that shows it does the opposite
         For Each Sheet In ThisWorkbook.Worksheets
             Sheet.Columns(1).Hidden = Not Shown
             For Each Item In Sheet.Shapes
-                If Item.Name = NAV_GROUP_TOP Or Item.Name = NAV_GROUP_REST Then
-                    Item.Visible = IIf(Shown, msoTrue, msoFalse)
-                End If
+                Select Case Item.Name
+                    Case NAV_GROUP_TOP, NAV_GROUP_REST, NAV_TOGGLE_HIDE
+                        Item.Visible = IIf(Shown, msoTrue, msoFalse)
+                    Case NAV_TOGGLE_SHOW
+                        Item.Visible = IIf(Shown, msoFalse, msoTrue)
+                    Case Else
+                End Select
             Next Item
             Changed = Changed + 1
         Next Sheet
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Restore screen updating and the Saved flag, and return the count
         Application.ScreenUpdating = SavedScreen
         ThisWorkbook.Saved = WasSaved
         ApplyNavigationBar = Changed
         Exit Function
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Capture the error before the cleanup resets it
         ErrorNumber = Err.Number
         ErrorDescription = Err.Description
+    'Restore screen updating and the Saved flag
         Application.ScreenUpdating = SavedScreen
         ThisWorkbook.Saved = WasSaved
-        Err.Raise ErrorNumber, "M_Main.ApplyNavigationBar", ErrorDescription
+    'Raise the first error again
+        Err.Raise ErrorNumber, PROC_NAME, ErrorDescription
 
 End Function
 

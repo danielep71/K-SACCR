@@ -17,7 +17,12 @@ Go to menu (src/workbook/customUI14.xml), with the menu's tooltips:
   horizontally;
 * each button carries an internal hyperlink to its sheet, so the bar works
   with macros disabled; the current sheet is highlighted and not linked; the
-  shapes are not printed.
+  shapes are not printed;
+* a triangle at the far left of B1 hides or shows the bar (#777): ◀ while the
+  bar is shown, ▶ (saved hidden) while it is hidden, both running
+  M_Main.ToggleNavigationBar; the titles in B1 and B2 are indented twice so
+  that the triangle never covers them, and columns A and B are frozen so
+  that it stays in view.
 
 The package is edited as XML, so every other part of the template (the
 Ribbon, form controls, validation extensions, protection) is kept byte for
@@ -60,6 +65,8 @@ BTN_GAP = 2
 SECTION_GAP = 7
 STRIP_W = 3
 TOP_ROWS = 3                     # rows frozen on every sheet
+FROZEN_COLS = 2                  # columns frozen on every sheet: the bar and the triangle's gutter (#777)
+NAV_COL_PX = 157                 # column A in pixels, for the triangles' position on the sheet
 
 FONT = "Aptos"
 HEAD_COLOR = "FFC000"            # gold of the K-SACCR wordmark
@@ -72,6 +79,17 @@ DARK_STRIP = "8FAADC"            # used when a tab colour would vanish on the bu
 
 GROUP_TOP = "NavBarTop"
 GROUP_REST = "NavBar"
+
+# The triangles that hide and show the bar (#777), in B1, left of the title.
+TOGGLE_HIDE = "NavBarHide"       # ◀, shown while the bar is shown
+TOGGLE_SHOW = "NavBarShow"       # ▶, shown while the bar is hidden; saved hidden
+TOGGLE_MACRO = "[0]!ToggleNavigationBar"
+TOGGLE_X = 4                     # from the left of column B, px
+TOGGLE_W = 9
+TOGGLE_H = 12
+TOGGLE_COLOR = BTN_TEXT
+TITLE_CELLS = ("B1", "B2")       # the title lines, indented to leave the triangle its space
+TITLE_INDENT = 2
 
 NS_R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 REL_DRAWING = NS_R + "/drawing"
@@ -261,10 +279,64 @@ def group(name: str, block: Block, sheet: str, ids: Iterator[int], link_for: Cal
             '<xdr:clientData fPrintsWithSheet="0"/></xdr:oneCellAnchor>') % (x0, row, BAR_W * PX, height, xml)
 
 
+def toggle(shape_id: int, name: str, points_left: bool, hidden: bool, row_px: int) -> str:
+    """One triangle of B1 (#777), centred on row 1 of row_px pixels, running ToggleNavigationBar."""
+    x, y = TOGGLE_X, (row_px - TOGGLE_H) // 2
+    tip, base = (0, TOGGLE_W) if points_left else (TOGGLE_W, 0)
+    path = ('<a:path w="%d" h="%d"><a:moveTo><a:pt x="%d" y="0"/></a:moveTo><a:lnTo><a:pt x="%d" y="%d"/></a:lnTo>'
+            '<a:lnTo><a:pt x="%d" y="%d"/></a:lnTo><a:close/></a:path>') % (
+                TOGGLE_W, TOGGLE_H, base, tip, TOGGLE_H // 2, base, TOGGLE_H)
+    what = "Hide the navigation bar" if points_left else "Show the navigation bar"
+    sp = ('<xdr:sp macro="%s" textlink=""><xdr:nvSpPr><xdr:cNvPr id="%d" name="%s" descr="%s"%s/><xdr:cNvSpPr/>'
+          '</xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="%d" y="%d"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
+          '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/>'
+          '<a:pathLst>%s</a:pathLst></a:custGeom><a:solidFill><a:srgbClr val="%s"/></a:solidFill>'
+          '<a:ln><a:noFill/></a:ln></xdr:spPr></xdr:sp>') % (
+              TOGGLE_MACRO, shape_id, name, what, ' hidden="1"' if hidden else "",
+              (NAV_COL_PX + x) * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, path, TOGGLE_COLOR)
+    return ('<xdr:oneCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>'
+            '<xdr:rowOff>%d</xdr:rowOff></xdr:from><xdr:ext cx="%d" cy="%d"/>%s'
+            '<xdr:clientData fPrintsWithSheet="0"/></xdr:oneCellAnchor>') % (
+                x * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, sp)
+
+
+def indent_titles(package: Package, sheets: list[tuple[str, str]]) -> None:
+    """Indent the title cells B1 and B2 of every sheet TITLE_INDENT times (#777).
+
+    Their cell formats are changed in place, so they must be used by those cells only."""
+    styles = package.text("xl/styles.xml")
+    xfs = need(r'<cellXfs count="(\d+)">(.*?)</cellXfs>', styles, re.S)
+    titles: set[int] = set()
+    others: set[int] = set()
+    for name, part in sheets:
+        xml = package.text(part)
+        for cell, style in re.findall(r'<c r="([A-Z]+\d+)" s="(\d+)"', xml):
+            (titles if cell in TITLE_CELLS else others).add(int(style))
+        others.update(int(style) for style in re.findall(r'<(?:col|row)\b[^>]*\bs(?:tyle)?="(\d+)"', xml))
+        for cell in TITLE_CELLS:
+            if not re.search(r'<c r="%s" s="\d+"' % cell, xml):
+                raise ValueError(f"{name}: {cell} has no format of its own to indent")
+    shared = sorted(titles & others)
+    if shared:
+        raise ValueError(f"the title formats {shared} are also used by other cells; indenting them would move those")
+    pieces, last = [], 0
+    for index, match in enumerate(re.finditer(r"<xf\b[^>]*?(?:/>|>.*?</xf>)", xfs.group(2), re.S)):
+        element = match.group(0)
+        if index in titles:
+            alignment = need(r"<alignment\b[^>]*/>", element).group(0)
+            indented = re.sub(r'\s*indent="\d+"', "", alignment)[:-2] + ' indent="%d"/>' % TITLE_INDENT
+            element = element.replace(alignment, indented)
+        pieces += [xfs.group(2)[last:match.start()], element]
+        last = match.end()
+    block = "".join(pieces) + xfs.group(2)[last:]
+    package.put("xl/styles.xml", styles.replace(xfs.group(0), '<cellXfs count="%s">%s</cellXfs>' % (
+        xfs.group(1), block), 1))
+
+
 def strip_bar(drawing: str, drawing_rels: str) -> tuple[str, str]:
-    """Remove the bar's anchors and the hyperlinks only they used."""
-    drawing = ANCHOR.sub(lambda m: "" if re.search(r'name="(%s|%s)"' % (GROUP_TOP, GROUP_REST), m.group(0))
-                         else m.group(0), drawing)
+    """Remove the bar's anchors, its triangles and the hyperlinks only they used."""
+    names = "|".join((GROUP_TOP, GROUP_REST, TOGGLE_HIDE, TOGGLE_SHOW))
+    drawing = ANCHOR.sub(lambda m: "" if re.search(r'name="(%s)"' % names, m.group(0)) else m.group(0), drawing)
     used = set(re.findall(r'r:id="([^"]+)"', drawing))
     for element in RELATIONSHIP.findall(drawing_rels):
         rid = need(r'Id="([^"]+)"', element).group(1)
@@ -291,7 +363,7 @@ def cell_position(reference: str) -> tuple[int, int]:
 
 
 def freeze(xml: str) -> tuple[str, int]:
-    """Freeze column A and rows 1 to 3 at least; return the sheet and its frozen rows."""
+    """Freeze columns A and B and rows 1 to 3 at least; return the sheet and its frozen rows."""
     view = need(r"<sheetView\b[^>]*?(/>|>(.*?)</sheetView>)", xml, re.S)
     inner = view.group(2) or ""
     pane = re.search(r"<pane\b[^>]*/>", inner)
@@ -299,7 +371,7 @@ def freeze(xml: str) -> tuple[str, int]:
         value = attribute(pane.group(0), name) if pane else None
         return int(float(value)) if value else 0
 
-    xsplit, ysplit = max(split("xSplit"), 1), max(split("ySplit"), TOP_ROWS)
+    xsplit, ysplit = max(split("xSplit"), FROZEN_COLS), max(split("ySplit"), TOP_ROWS)
     selections = re.findall(r"<selection\b[^>]*/>", inner)
     active = None
     for selection in selections:
@@ -368,6 +440,7 @@ def build(package: Package, contract: str) -> list[str]:
         raise ValueError(f"{CONTRACT}: the Go to menu lists {listed}, the template's sheets are {names}")
     top, rest = blocks(menu)
     top_points = math.ceil(block_height(top) * 0.75 * 4) / 4
+    indent_titles(package, sheets)
 
     styles = package.text("xl/styles.xml")
     fills = re.findall(r"<fill>.*?</fill>|<fill/>", need(r"<fills[^>]*>(.*?)</fills>", styles, re.S).group(1))
@@ -460,8 +533,11 @@ def build(package: Package, contract: str) -> list[str]:
         start = max([int(i) for i in re.findall(r'<xdr:cNvPr id="(\d+)"', drawing)], default=1) + 1
         ids = iter(range(start, start + 10000))
         rest_y = int(round(row_offset_points(xml, rest_row - 1) * 12700))
+        row_px = int(round(row_offset_points(xml, 1) * 4 / 3))
         anchors = (group(GROUP_TOP, top, name, ids, link_for, colours, 0, 0)
-                   + group(GROUP_REST, rest, name, ids, link_for, colours, rest_row - 1, rest_y))
+                   + group(GROUP_REST, rest, name, ids, link_for, colours, rest_row - 1, rest_y)
+                   + toggle(next(ids), TOGGLE_HIDE, True, False, row_px)
+                   + toggle(next(ids), TOGGLE_SHOW, False, True, row_px))
         if 'xmlns:a="' not in drawing.split(">", 2)[1]:
             drawing = drawing.replace("<xdr:wsDr ", '<xdr:wsDr xmlns:a="http://schemas.openxmlformats.org/'
                                                     'drawingml/2006/main" ', 1)
@@ -491,9 +567,19 @@ def bar_problems(package: Package, contract: str) -> list[str]:
                                                          relationships(sheet_rels)[element.group(1)][1]))
         drawing = package.text(drawing_part)
         links = relationships(package.text(rels_path(drawing_part))) if package.has(rels_path(drawing_part)) else {}
-        for group_name in (GROUP_TOP, GROUP_REST):
+        for group_name in (GROUP_TOP, GROUP_REST, TOGGLE_HIDE, TOGGLE_SHOW):
             if drawing.count('name="%s"' % group_name) != 1:
                 found.append(f"{name}: {group_name} missing or repeated")
+        for toggle_name, hidden in ((TOGGLE_HIDE, False), (TOGGLE_SHOW, True)):
+            anchor = next((m.group(0) for m in ANCHOR.finditer(drawing) if 'name="%s"' % toggle_name in m.group(0)), "")
+            if anchor and ('macro="%s"' % TOGGLE_MACRO not in anchor
+                           or "<xdr:col>1</xdr:col>" not in anchor or "<xdr:row>0</xdr:row>" not in anchor
+                           or ('hidden="1"' in anchor) != hidden):
+                found.append(f"{name}: {toggle_name} is not in B1, running {TOGGLE_MACRO}, "
+                             f"{'hidden' if hidden else 'shown'}")
+        pane = re.search(r'<pane xSplit="(\d+)"', package.text(part))
+        if not pane or int(pane.group(1)) < FROZEN_COLS:
+            found.append(f"{name}: columns A and B are not frozen")
         targets = [need(r"^#'(.*)'!A1$", links[rid][1]).group(1).replace("''", "'")
                    for rid in re.findall(r'<a:hlinkClick [^>]*r:id="([^"]+)"', drawing)
                    if rid in links and links[rid][0] == REL_HYPERLINK and links[rid][1].startswith("#")]
@@ -504,13 +590,14 @@ def bar_problems(package: Package, contract: str) -> list[str]:
 
 
 def config_problems(root: Path) -> list[str]:
-    """CORE_Config names the two groups as this tool draws them, for the VBA that hides them."""
+    """CORE_Config names the two groups and the two triangles as this tool draws them, for the VBA."""
     config = root / CONFIG
     if not config.is_file():
         return [f"{CONFIG} is missing"]
     text = config.read_text(encoding="cp1252")
     found = []
-    for constant, expected in (("NAV_GROUP_TOP", GROUP_TOP), ("NAV_GROUP_REST", GROUP_REST)):
+    for constant, expected in (("NAV_GROUP_TOP", GROUP_TOP), ("NAV_GROUP_REST", GROUP_REST),
+                               ("NAV_TOGGLE_HIDE", TOGGLE_HIDE), ("NAV_TOGGLE_SHOW", TOGGLE_SHOW)):
         match = re.search(r'Public Const %s\s+As String = "([^"]*)"' % constant, text)
         if not match or match.group(1) != expected:
             found.append(f'{CONFIG}: {constant} must be "{expected}", the name tools/navigation_bar.py draws')

@@ -97,6 +97,16 @@ Use only the categories needed by a release.
 
 ### Added
 
+- **Hide and show the navigation bar from the sheet** (#777). A small triangle at the far left of B1
+  of every sheet does what the Ribbon's Navigation bar toggle does: ◀ while the bar is shown hides
+  it, ▶ while it is hidden shows it, on every sheet at once, one triangle at a time. The titles in
+  B1 and B2 are indented twice, about 10 px further right, so that the triangle never covers them,
+  and the eight sheets that froze only column A (Home, Import_NettingSets, Import_Trades,
+  Dashboard, BankNettingSets, BankTrades, Basel_vs_CRR, README) now freeze columns A and B, so
+  that the triangle stays in view when the sheet scrolls. `tools/navigation_bar.py` draws the
+  triangles with the bar and checks them; `TEST_MainState` (`navigation.bar-toggle`) checks the
+  triangle shown on every sheet after a hide, a save and a show.
+
 - A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
   the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
   and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing

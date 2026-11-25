@@ -166,7 +166,16 @@ tooltips come from this menu, with two placements:
   with the rows.
 
 The current sheet is highlighted and not linked, and the bar is not printed.
-`tools/navigation_bar.py` draws the bar into the template (`--write`), and
+
+A small triangle at the far left of B1, in the title band, hides and shows
+the bar on the sheet itself (#777), as the toggle below does: ◀
+(`NavBarHide`) while the bar is shown, ▶ (`NavBarShow`, saved hidden) while
+it is hidden, one at a time, both running `M_Main.ToggleNavigationBar`. The
+titles in B1 and B2 are indented twice so that the triangle never covers
+them, and columns A and B are frozen on every sheet so that it stays in view
+when the sheet scrolls. With macros disabled the triangle does nothing.
+
+`tools/navigation_bar.py` draws the bar and the triangles into the template (`--write`), and
 the `navigation-bar` gate of `tools/check.py` fails when the template's bar
 no longer matches this menu.
 
@@ -181,7 +190,8 @@ state.
 
 **Navigation bar** (#620) shows or hides the
 [navigation bar](#navigation-bar) on every sheet at once: column A and the
-bar's two shape groups, `NavBarTop` and `NavBar`. Every sheet changes, so the
+bar's two shape groups, `NavBarTop` and `NavBar`, and the triangle of B1 that
+matches the new state (#777). Every sheet changes, so the
 layout stays the same from sheet to sheet, and the sheets stay protected: the
 macros change them through their user-interface protection. Its state is read
 from the workbook (`M_Main.NavigationBarShown`: column A of the first sheet

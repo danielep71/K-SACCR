@@ -79,6 +79,66 @@ class NavigationBarTests(unittest.TestCase):
                           encoding="cp1252")
         self.assertTrue(any("NAV_GROUP_REST" in p for p in bar.problems(self.folder)))
 
+    def drawings(self, package: "bar.Package") -> dict[str, str]:
+        """The drawing of every sheet, by sheet name."""
+        found = {}
+        for name, part in bar.sheets_of(package):
+            sheet_rels = package.text(bar.rels_path(part))
+            rid = re.search(r'<drawing r:id="([^"]+)"/>', package.text(part)).group(1)  # type: ignore[union-attr]
+            target = bar.relationships(sheet_rels)[rid][1]
+            found[name] = package.text(bar.posixpath.normpath(bar.posixpath.join(bar.posixpath.dirname(part), target)))
+        return found
+
+    def test_every_sheet_has_one_triangle_shown_in_b1_left_of_the_title(self) -> None:
+        # #777: one triangle at a time, in B1, running the toggle; the other is saved hidden.
+        package = bar.Package(ROOT / bar.TEMPLATE)
+        drawings = self.drawings(package)
+        self.assertEqual(len(drawings), 21)
+        for name, drawing in drawings.items():
+            anchors = {n: a for a in bar.ANCHOR.findall(drawing)
+                       for n in (bar.TOGGLE_HIDE, bar.TOGGLE_SHOW) if 'name="%s"' % n in a}
+            with self.subTest(sheet=name):
+                self.assertEqual(sorted(anchors), sorted((bar.TOGGLE_HIDE, bar.TOGGLE_SHOW)))
+                for toggle, anchor in anchors.items():
+                    self.assertIn('macro="[0]!ToggleNavigationBar"', anchor)
+                    self.assertIn("<xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>"
+                                  % (bar.TOGGLE_X * bar.PX), anchor)
+                    self.assertIn('fPrintsWithSheet="0"', anchor)
+                    self.assertEqual('hidden="1"' in anchor, toggle == bar.TOGGLE_SHOW)
+                # The one that hides the bar points left: its tip is on the left edge.
+                self.assertIn('<a:lnTo><a:pt x="0" y="%d"/>' % (bar.TOGGLE_H // 2), anchors[bar.TOGGLE_HIDE])
+                self.assertIn('<a:lnTo><a:pt x="%d" y="%d"/>' % (bar.TOGGLE_W, bar.TOGGLE_H // 2),
+                              anchors[bar.TOGGLE_SHOW])
+
+    def test_the_triangle_fits_in_the_indent_of_the_title(self) -> None:
+        # An indent level is three spaces of the default font, about 9 px; two leave the triangle its room.
+        self.assertLessEqual(bar.TOGGLE_X + bar.TOGGLE_W, bar.TITLE_INDENT * 9 - 4)
+        package = bar.Package(ROOT / bar.TEMPLATE)
+        styles = package.text("xl/styles.xml")
+        xfs = re.findall(r"<xf\b[^>]*?(?:/>|>.*?</xf>)",
+                         re.search(r"<cellXfs[^>]*>(.*?)</cellXfs>", styles, re.S).group(1), re.S)  # type: ignore[union-attr]
+        for name, part in bar.sheets_of(package):
+            xml = package.text(part)
+            for cell in bar.TITLE_CELLS:
+                style = int(re.search(r'<c r="%s" s="(\d+)"' % cell, xml).group(1))  # type: ignore[union-attr]
+                with self.subTest(sheet=name, cell=cell):
+                    self.assertIn('indent="%d"' % bar.TITLE_INDENT, xfs[style])
+                    self.assertIn('horizontal="left"', xfs[style])
+
+    def test_columns_a_and_b_are_frozen_on_every_sheet(self) -> None:
+        package = bar.Package(ROOT / bar.TEMPLATE)
+        for name, part in bar.sheets_of(package):
+            pane = re.search(r'<pane xSplit="(\d+)"', package.text(part))
+            with self.subTest(sheet=name):
+                self.assertIsNotNone(pane)
+                self.assertGreaterEqual(int(pane.group(1)), 2)  # type: ignore[union-attr]
+
+    def test_config_triangle_name_must_match(self) -> None:
+        config = self.folder / bar.CONFIG
+        text = config.read_text(encoding="cp1252")
+        config.write_text(text.replace('"NavBarShow"', '"NavShow"'), encoding="cp1252")
+        self.assertTrue(any("NAV_TOGGLE_SHOW" in p for p in bar.problems(self.folder)))
+
     def test_missing_contract_fails(self) -> None:
         self.contract().unlink()
         self.assertEqual(bar.problems(self.folder), [f"{bar.CONTRACT} is missing"])
