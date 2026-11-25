@@ -19,6 +19,7 @@ on:
       - "tools/Check-SACCR-Protection.ps1"
       - "tools/Sync-SACCR-VBA.ps1"
       - "tools/Run-SACCR-QuickCheck.ps1"
+      - "tools/Excel-BusyRetry.ps1"
       - "tools/QuickCheck-Report.ps1"
       - ".github/workflows/excel-quick.yml"
   workflow_dispatch:
