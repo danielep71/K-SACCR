@@ -2,8 +2,8 @@
 
 Every column header of NettingSets and Trades carries a note: its title is the header, and its text
 says what the field is, the values allowed, what a blank means and the CSV field name. The three input
-sheets freeze the same four rows, with the header on row 4, so that the view does not jump from one
-sheet to the next. The header rows are found from their workbook names.
+sheets have the header on row 5, below an empty row 4 of 30 points, and freeze rows 1 to 4, the same on
+Home, so that the view does not jump from one sheet to the next. The header rows are found from their workbook names.
 """
 
 from __future__ import annotations
@@ -22,8 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "src" / "workbook" / "SACCR_Template.xlsx"
 CONTRACT = ROOT / "docs" / "csv" / "contract.json"
 INPUT_SHEETS = {"Params": "Params_Code", "NettingSets": "NettingSets_Header", "Trades": "Trades_Header"}
-FROZEN_ROWS = 4
-TOP_ROW_HEIGHT = 30.0  # rows 3 and 4 of the three input sheets
+HEADER_ROW = 5
+FROZEN_ROWS = 4  # rows 1 to 4, the empty row included; the header row scrolls with the data (owner, 2026-11-25)
+TOP_ROW_HEIGHT = 30.0  # rows 3, 4 and 5 of the three input sheets, row 4 of Home
 
 
 class HeaderNoteTests(unittest.TestCase):
@@ -72,19 +73,30 @@ class HeaderNoteTests(unittest.TestCase):
             shapes = self.package.read("xl/drawings/" + vml.group(1)).decode("utf-8")
             self.assertEqual(shapes.count('ObjectType="Note"'), len(self.notes(kind)), kind)
 
-    def test_the_three_input_sheets_freeze_four_rows_with_the_header_on_the_last(self) -> None:
+    def test_the_input_sheets_and_home_freeze_the_four_rows_above_the_header(self) -> None:
         for name, anchor in INPUT_SHEETS.items():
-            self.assertEqual(named_cell(self.package, anchor).row, FROZEN_ROWS, name)
+            self.assertEqual(named_cell(self.package, anchor).row, HEADER_ROW, name)
             sheet = self.sheet(name)
             pane = sheet.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
             assert pane is not None, name
             self.assertEqual((pane.attrib.get("ySplit"), pane.attrib.get("state")), (str(FROZEN_ROWS), "frozen"), name)
             heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
-            self.assertEqual([heights.get("3"), heights.get("4")], [TOP_ROW_HEIGHT] * 2, name)
+            self.assertEqual([heights.get("3"), heights.get("4"), heights.get("5")], [TOP_ROW_HEIGHT] * 3, name)
+            # row 4 is the empty row between the description and the header
+            empty = next(row for row in sheet.iter(MAIN + "row") if row.attrib["r"] == "4")
+            self.assertEqual([cell.findtext(MAIN + "v") for cell in empty.iter(MAIN + "c") if cell.find(MAIN + "v") is not None],
+                             [], name)
         # the key columns stay in view: Code on Params, the netting-set ID, the trade and netting-set IDs
         panes = {name: self.sheet(name).find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane") for name in INPUT_SHEETS}
         self.assertEqual({name: pane.attrib.get("topLeftCell") for name, pane in panes.items() if pane is not None},
                          {"Params": "D5", "NettingSets": "D5", "Trades": "E5"})
+        # Home freezes the same four rows, its row 4 as high
+        home = self.sheet("Home")
+        pane = home.find(f"{MAIN}sheetViews/{MAIN}sheetView/{MAIN}pane")
+        assert pane is not None
+        self.assertEqual(pane.attrib.get("ySplit"), str(FROZEN_ROWS))
+        heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in home.iter(MAIN + "row")}
+        self.assertEqual(heights.get("4"), TOP_ROW_HEIGHT)
 
     def test_the_staging_sheets_show_the_same_headers(self) -> None:
         for kind, anchor in (("NettingSets", "ImportNettingSets_Header"), ("Trades", "ImportTrades_Header")):
