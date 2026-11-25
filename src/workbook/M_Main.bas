@@ -11048,9 +11048,8 @@ Public Sub ToggleNavigationBar()
 '   hidden, on every sheet (ShowNavigationBar)
 '
 ' WHY THIS EXISTS
-'   The macro of the two triangles of row 1 of every sheet (#777): the
-'   one at the right of A1 and the one at the far left of B1. It can
-'   also be run from the Macros dialog (#620)
+'   The macro of the two triangles at the far left of B1 of every sheet
+'   (#777), which can also be run from the Macros dialog (#620)
 '
 ' INPUTS
 '   None
@@ -11256,11 +11255,11 @@ Private Function ApplyNavigationBar( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Shows or hides column A, the shape groups NAV_GROUP_TOP and
-'   NAV_GROUP_REST and the triangle of A1 that hides the bar, and does the
+'   NAV_GROUP_REST and the triangle of B1 that hides the bar, and does the
 '   opposite with the triangle that shows it, on every worksheet in one pass
 '
 ' WHY THIS EXISTS
-'   The Ribbon's Navigation bar toggle (#620), the triangles of row 1 (#777)
+'   The Ribbon's Navigation bar toggle (#620), the triangles of B1 (#777)
 '   and the save handlers change the bar the same way, with the layout
 '   changing at once on every sheet
 '

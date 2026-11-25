@@ -167,14 +167,14 @@ tooltips come from this menu, with two placements:
 
 The current sheet is highlighted and not linked, and the bar is not printed.
 
-A small triangle in row 1 hides and shows the bar on the sheet itself
-(#777), as the toggle below does, one triangle at a time, both running
-`M_Main.ToggleNavigationBar`: ◀ (`NavBarHide`) at the right of A1, on the
-bar's right edge, while the bar is shown; ▶ (`NavBarShow`, saved hidden) at
-the far left of B1, in the title band, while it is hidden. The titles in B1
-and B2 are indented twice so that ▶ never covers them, and columns A and B
-are frozen on every sheet so that it stays in view when the sheet scrolls.
-With macros disabled the triangles do nothing.
+A small triangle at the far left of B1, in the title band, hides and shows
+the bar on the sheet itself (#777), as the toggle below does, one at a time
+in the same place, both running `M_Main.ToggleNavigationBar`: ◀
+(`NavBarHide`) while the bar is shown, ▶ (`NavBarShow`, saved hidden) while
+it is hidden. Only column A is hidden: column B, a 2-wide margin, stays in
+view with the triangle, and columns A and B are frozen on every sheet. The
+titles sit in C1 and C2, without indent, right of the freeze line. With
+macros disabled the triangles do nothing.
 
 `tools/navigation_bar.py` draws the bar and the triangles into the template (`--write`), and
 the `navigation-bar` gate of `tools/check.py` fails when the template's bar

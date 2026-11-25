@@ -38,7 +38,7 @@ lists of `CORE_Config` that the macros apply.
   ([Ribbon contract › Navigation bar](RIBBON.md#navigation-bar)). Its cells
   are locked and its shapes are protected with the sheet; their links still
   open their sheets, also with macros disabled. The **Navigation bar** toggle
-  of the K-SACCR tab, and the triangle in row 1 of every sheet (#777), hide and
+  of the K-SACCR tab, and the triangle in B1 of every sheet (#777), hide and
   show column A and the bar through the macros' user-interface protection,
   for the session only: every save writes the bar shown (#620). The triangle
   is protected with the sheet and runs its macro on a protected sheet.

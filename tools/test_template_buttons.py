@@ -188,7 +188,7 @@ class ShapeButtonTests(unittest.TestCase):
                    re.findall(r"<si>(.*?)</si>", self.package.read("xl/sharedStrings.xml").decode("utf-8"), re.S)]
         for name in (sheet for sheet in EXPECTED if sheet != "Params"):
             sheet = self.package.read(self.parts[name]).decode("utf-8")
-            title = strings[int(re.search(r'<c r="B2"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet).group(1))]  # type: ignore[union-attr]
+            title = strings[int(re.search(r'<c r="C2"[^>]*t="s"[^>]*><v>(\d+)</v>', sheet).group(1))]  # type: ignore[union-attr]
             widths = column_widths(sheet)
             drawing = ElementTree.fromstring(self.package.read(drawing_of(self.package, self.parts[name])))
             groups = [anchor for anchor in drawing.iter(XDR + "oneCellAnchor")

@@ -97,7 +97,7 @@ Attribute VB_Name = "CORE_Config"
 ' COMMON LAYOUT
 '------------------------------------------------------------------------------
     'Every sheet has two narrow margin columns (A:B); rows 1:2 hold the
-    'title (K-SACCR in B1, the sheet title in B2). Every table starts in
+    'title (K-SACCR in C1, the sheet title in C2; #777). Every table starts in
     'column C. The tables are located through
     'workbook names, so their rows can move: each input and output table
     'through the name of its first header cell, in column C, with data from
@@ -183,11 +183,12 @@ Attribute VB_Name = "CORE_Config"
     'Navigation bar toggle shows and hides them (#620).
         Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Block in the frozen rows 1 to 3
         Public Const NAV_GROUP_REST  As String = "NavBar"       'Block below the frozen rows
-    'The two triangles of row 1 of every sheet that hide and show the bar
-    '(#777), drawn with it: one is shown at a time, the one that hides the
-    'bar while it is shown and the one that shows it while it is hidden.
-        Public Const NAV_TOGGLE_HIDE As String = "NavBarHide"   'Pointing left, at the right of A1
-        Public Const NAV_TOGGLE_SHOW As String = "NavBarShow"   'Pointing right, at the far left of B1
+    'The two triangles at the far left of B1 of every sheet that hide and
+    'show the bar (#777), drawn with it: one is shown at a time, the one
+    'that hides the bar while it is shown and the one that shows it while
+    'it is hidden.
+        Public Const NAV_TOGGLE_HIDE As String = "NavBarHide"   'Pointing left
+        Public Const NAV_TOGGLE_SHOW As String = "NavBarShow"   'Pointing right
 
 '------------------------------------------------------------------------------
 ' REGIMES

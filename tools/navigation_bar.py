@@ -5,8 +5,8 @@ Every sheet of src/workbook/SACCR_Template.xlsx carries a vertical bar of
 linked shapes in column A, listing every sheet in the sections of the Ribbon's
 Go to menu (src/workbook/customUI14.xml), with the menu's tooltips:
 
-* column A is widened and filled with the title band's colour; column B stays
-  the 4-wide gutter, so no table, header or input cell moves;
+* column A is widened to 18 and filled with the title band's colour; column B
+  is a 2-wide margin (#777), so no table, header or input cell moves;
 * the Inputs section forms a top block anchored in rows 1 to 3, which are
   frozen on every sheet, so it never scrolls; it fits the rows as they are
   (row 3 would be raised only if a sheet's rows 1 to 3 were too short);
@@ -18,11 +18,12 @@ Go to menu (src/workbook/customUI14.xml), with the menu's tooltips:
 * each button carries an internal hyperlink to its sheet, so the bar works
   with macros disabled; the current sheet is highlighted and not linked; the
   shapes are not printed;
-* a triangle hides or shows the bar (#777), both running
-  M_Main.ToggleNavigationBar: ◀ at the right of A1, on the bar's right edge,
-  while the bar is shown; ▶ at the far left of B1 (saved hidden) while it is
-  hidden; the titles in B1 and B2 are indented twice so that ▶ never covers
-  them, and columns A and B are frozen so that it stays in view.
+* a triangle at the far left of B1 hides or shows the bar, column A only
+  (#777), both running M_Main.ToggleNavigationBar: ◀ while the bar is shown,
+  ▶ (saved hidden) while it is hidden, in the same place; columns A and B are
+  frozen on every sheet so that it stays in view, and the titles sit in C1
+  and C2, without indent, so that the freeze line never crosses them (a
+  template with them in B1 and B2 has them moved).
 
 The package is edited as XML, so every other part of the template (the
 Ribbon, form controls, validation extensions, protection) is kept byte for
@@ -53,10 +54,10 @@ CONFIG = "src/core/CORE_Config.bas"           # names the groups for the VBA (#6
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 
 # ------------------------------------------------------------------ design ----
-NAV_COL_WIDTH = "21.75"          # characters of the default font, as Excel saves it; about 157 px
+NAV_COL_WIDTH = "18"             # characters of the default font, as Excel saves it; about 130 px (#777)
 PX = 9525                        # EMU per pixel at 96 dpi
-BAR_X = 8                        # left margin of the bar inside column A, px
-BAR_W = 141                      # bar width, px
+BAR_X = 6                        # left margin of the bar inside column A, px
+BAR_W = 118                      # bar width, px
 PAD_TOP = 6
 PAD_BOTTOM = 3
 HEAD_H = 17
@@ -66,7 +67,7 @@ SECTION_GAP = 7
 STRIP_W = 3
 TOP_ROWS = 3                     # rows frozen on every sheet
 FROZEN_COLS = 2                  # columns frozen on every sheet: the bar and the triangle's gutter (#777)
-NAV_COL_PX = 157                 # column A in pixels, for the triangles' position on the sheet
+NAV_COL_PX = 130                 # column A in pixels, for the triangles' position on the sheet
 
 FONT = "Aptos"
 HEAD_COLOR = "FFC000"            # gold of the K-SACCR wordmark
@@ -81,16 +82,16 @@ GROUP_TOP = "NavBarTop"
 GROUP_REST = "NavBar"
 
 # The triangles that hide and show the bar (#777).
-TOGGLE_HIDE = "NavBarHide"       # ◀ in A1, shown while the bar is shown
-TOGGLE_SHOW = "NavBarShow"       # ▶ in B1, left of the title, shown while the bar is hidden; saved hidden
+TOGGLE_HIDE = "NavBarHide"       # ◀ in B1, shown while the bar is shown
+TOGGLE_SHOW = "NavBarShow"       # ▶ in B1, in the same place, shown while the bar is hidden; saved hidden
 TOGGLE_MACRO = "[0]!ToggleNavigationBar"
 TOGGLE_W = 9
-TOGGLE_HIDE_X = BAR_X + BAR_W - TOGGLE_W    # from the left of column A, px: on the bar's right edge
-TOGGLE_SHOW_X = 4                # from the left of column B, px
+TOGGLE_X = 3                     # from the left of column B, px
 TOGGLE_H = 12
 TOGGLE_COLOR = BTN_TEXT
-TITLE_CELLS = ("B1", "B2")       # the title lines, indented to leave the triangle its space
-TITLE_INDENT = 2
+GUTTER_PX = 14                   # column B in pixels: the triangle must fit in it
+TITLE_ROWS = (1, 2)              # the title lines: K-SACCR and the sheet's title
+TITLE_COLUMN = "C"               # where they sit, right of the frozen margin, without indent (#777)
 
 NS_R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 REL_DRAWING = NS_R + "/drawing"
@@ -102,8 +103,11 @@ EMPTY_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 EMPTY_DRAWING = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
                  '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" '
                  'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"></xdr:wsDr>')
-GUTTER_COL = '<col min="2" max="2" width="4" customWidth="1"/>'
+GUTTER_COL = '<col min="2" max="2" width="2" customWidth="1"/>'
 ORIGINAL_COLS = '<col min="1" max="2" width="4" customWidth="1"/>'
+# Columns A and B as an earlier version of this tool drew them (#615, #777), redrawn at the current widths.
+DRAWN_COLS = re.compile(r'<col min="1" max="1" width="[\d.]+" style="(\d+)" customWidth="1"/>'
+                        r'<col min="2" max="2" width="[\d.]+" customWidth="1"/>')
 ANCHOR = re.compile(r"<xdr:oneCellAnchor>(?:(?!</xdr:oneCellAnchor>).)*?</xdr:oneCellAnchor>", re.S)
 RELATIONSHIP = re.compile(r"<Relationship\b[^>]*/>")
 Block = list[tuple[str, list[tuple[str, str]]]]
@@ -266,7 +270,7 @@ def group(name: str, block: Block, sheet: str, ids: Iterator[int], link_for: Cal
             link = None if current else link_for(target)
             children.append(shape(next(ids), "Nav_" + target, x0, y0 + y * PX, BAR_W * PX, BTN_H * PX,
                                   CUR_FILL if current else BTN_FILL, target, CUR_TEXT if current else BTN_TEXT,
-                                  current, 900, link, tip, inset=12))
+                                  current, 900, link, tip, inset=10))
             children.append(shape(next(ids), "Nav_" + target + "_Mark", x0, y0 + y * PX, STRIP_W * PX, BTN_H * PX,
                                   CUR_STRIP if current else strip_colour(colours.get(target, "1F3864"))))
             y += BTN_H + BTN_GAP
@@ -281,10 +285,9 @@ def group(name: str, block: Block, sheet: str, ids: Iterator[int], link_for: Cal
 
 
 def toggle(shape_id: int, name: str, points_left: bool, row_px: int) -> str:
-    """One triangle of row 1 (#777), centred on its row_px pixels, running ToggleNavigationBar: the one
-    that hides the bar in A1, shown; the one that shows it in B1, hidden."""
-    column, x, hidden = (0, TOGGLE_HIDE_X, False) if points_left else (1, TOGGLE_SHOW_X, True)
-    y = (row_px - TOGGLE_H) // 2
+    """One triangle at the far left of B1 (#777), centred on row 1 of row_px pixels, running
+    ToggleNavigationBar: the one that hides the bar shown, the one that shows it hidden."""
+    x, y, hidden = TOGGLE_X, (row_px - TOGGLE_H) // 2, not points_left
     tip, base = (0, TOGGLE_W) if points_left else (TOGGLE_W, 0)
     path = ('<a:path w="%d" h="%d"><a:moveTo><a:pt x="%d" y="0"/></a:moveTo><a:lnTo><a:pt x="%d" y="%d"/></a:lnTo>'
             '<a:lnTo><a:pt x="%d" y="%d"/></a:lnTo><a:close/></a:path>') % (
@@ -296,39 +299,50 @@ def toggle(shape_id: int, name: str, points_left: bool, row_px: int) -> str:
           '<a:pathLst>%s</a:pathLst></a:custGeom><a:solidFill><a:srgbClr val="%s"/></a:solidFill>'
           '<a:ln><a:noFill/></a:ln></xdr:spPr></xdr:sp>') % (
               TOGGLE_MACRO, shape_id, name, what, ' hidden="1"' if hidden else "",
-              (NAV_COL_PX * column + x) * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, path, TOGGLE_COLOR)
-    return ('<xdr:oneCellAnchor><xdr:from><xdr:col>%d</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>'
+              (NAV_COL_PX + x) * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, path, TOGGLE_COLOR)
+    return ('<xdr:oneCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>'
             '<xdr:rowOff>%d</xdr:rowOff></xdr:from><xdr:ext cx="%d" cy="%d"/>%s'
             '<xdr:clientData fPrintsWithSheet="0"/></xdr:oneCellAnchor>') % (
-                column, x * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, sp)
+                x * PX, y * PX, TOGGLE_W * PX, TOGGLE_H * PX, sp)
 
 
-def indent_titles(package: Package, sheets: list[tuple[str, str]]) -> None:
-    """Indent the title cells B1 and B2 of every sheet TITLE_INDENT times (#777).
+def cell_element(xml: str, reference: str) -> re.Match[str] | None:
+    return re.search(r'<c r="%s"(?: [^>]*?)?(?:/>|>.*?</c>)' % reference, xml, re.S)
 
-    Their cell formats are changed in place, so they must be used by those cells only."""
-    styles = package.text("xl/styles.xml")
-    xfs = need(r'<cellXfs count="(\d+)">(.*?)</cellXfs>', styles, re.S)
+
+def place_titles(package: Package, sheets: list[tuple[str, str]]) -> None:
+    """Put the title lines in C1 and C2, without indent (#777).
+
+    A template with them in B1 and B2, as before #777, has each one moved to column C with its
+    format, and the cell of column C left behind in column B with its own (the title band's fill).
+    The formats of the title cells lose their indent; they must be used by those cells only."""
     titles: set[int] = set()
     others: set[int] = set()
     for name, part in sheets:
         xml = package.text(part)
+        for row in TITLE_ROWS:
+            old, new = cell_element(xml, "B%d" % row), cell_element(xml, "%s%d" % (TITLE_COLUMN, row))
+            if old is None or new is None:
+                raise ValueError(f"{name}: row {row} has no cells B and {TITLE_COLUMN} to place the title in")
+            if "<v>" in old.group(0) and "<v>" not in new.group(0):
+                moved_title = old.group(0).replace('r="B%d"' % row, 'r="%s%d"' % (TITLE_COLUMN, row), 1)
+                moved_margin = new.group(0).replace('r="%s%d"' % (TITLE_COLUMN, row), 'r="B%d"' % row, 1)
+                xml = xml[:old.start()] + moved_margin + xml[old.end():new.start()] + moved_title + xml[new.end():]
+        package.put(part, xml)
         for cell, style in re.findall(r'<c r="([A-Z]+\d+)" s="(\d+)"', xml):
-            (titles if cell in TITLE_CELLS else others).add(int(style))
+            title = cell in ("%s%d" % (TITLE_COLUMN, row) for row in TITLE_ROWS)
+            (titles if title else others).add(int(style))
         others.update(int(style) for style in re.findall(r'<(?:col|row)\b[^>]*\bs(?:tyle)?="(\d+)"', xml))
-        for cell in TITLE_CELLS:
-            if not re.search(r'<c r="%s" s="\d+"' % cell, xml):
-                raise ValueError(f"{name}: {cell} has no format of its own to indent")
     shared = sorted(titles & others)
     if shared:
-        raise ValueError(f"the title formats {shared} are also used by other cells; indenting them would move those")
+        raise ValueError(f"the title formats {shared} are also used by other cells; changing them would move those")
+    styles = package.text("xl/styles.xml")
+    xfs = need(r'<cellXfs count="(\d+)">(.*?)</cellXfs>', styles, re.S)
     pieces, last = [], 0
     for index, match in enumerate(re.finditer(r"<xf\b[^>]*?(?:/>|>.*?</xf>)", xfs.group(2), re.S)):
         element = match.group(0)
         if index in titles:
-            alignment = need(r"<alignment\b[^>]*/>", element).group(0)
-            indented = re.sub(r'\s*indent="\d+"', "", alignment)[:-2] + ' indent="%d"/>' % TITLE_INDENT
-            element = element.replace(alignment, indented)
+            element = re.sub(r'\s*indent="\d+"', "", element)
         pieces += [xfs.group(2)[last:match.start()], element]
         last = match.end()
     block = "".join(pieces) + xfs.group(2)[last:]
@@ -443,7 +457,7 @@ def build(package: Package, contract: str) -> list[str]:
         raise ValueError(f"{CONTRACT}: the Go to menu lists {listed}, the template's sheets are {names}")
     top, rest = blocks(menu)
     top_points = math.ceil(block_height(top) * 0.75 * 4) / 4
-    indent_titles(package, sheets)
+    place_titles(package, sheets)
 
     styles = package.text("xl/styles.xml")
     fills = re.findall(r"<fill>.*?</fill>|<fill/>", need(r"<fills[^>]*>(.*?)</fills>", styles, re.S).group(1))
@@ -484,10 +498,13 @@ def build(package: Package, contract: str) -> list[str]:
         sheet_rels = package.text(sheet_rels_path) if package.has(sheet_rels_path) else EMPTY_RELS
 
         nav_col = '<col min="1" max="1" width="%s" style="%d" customWidth="1"/>' % (NAV_COL_WIDTH, nav_style)
+        drawn = DRAWN_COLS.search(xml)
         if ORIGINAL_COLS in xml:
             xml = xml.replace(ORIGINAL_COLS, nav_col + GUTTER_COL, 1)
-        elif (nav_col + GUTTER_COL) not in xml:
-            raise ValueError(f"{name}: columns A and B are not the 4-wide margins the bar expects")
+        elif drawn and int(drawn.group(1)) == nav_style:
+            xml = xml[:drawn.start()] + nav_col + GUTTER_COL + xml[drawn.end():]
+        else:
+            raise ValueError(f"{name}: columns A and B are not the margins the bar expects")
         for row in re.findall(r'<row r="(\d+)"[^>]*customFormat="1"[^>]*?(?<!/)>', xml):
             opening = need(r'<row r="%s"[^>]*>' % row, xml)
             if not xml[opening.end():].startswith('<c r="A%s"' % row):
@@ -573,13 +590,18 @@ def bar_problems(package: Package, contract: str) -> list[str]:
         for group_name in (GROUP_TOP, GROUP_REST, TOGGLE_HIDE, TOGGLE_SHOW):
             if drawing.count('name="%s"' % group_name) != 1:
                 found.append(f"{name}: {group_name} missing or repeated")
-        for toggle_name, cell, column, hidden in ((TOGGLE_HIDE, "A1", 0, False), (TOGGLE_SHOW, "B1", 1, True)):
+        for toggle_name, hidden in ((TOGGLE_HIDE, False), (TOGGLE_SHOW, True)):
             anchor = next((m.group(0) for m in ANCHOR.finditer(drawing) if 'name="%s"' % toggle_name in m.group(0)), "")
             if anchor and ('macro="%s"' % TOGGLE_MACRO not in anchor
-                           or "<xdr:col>%d</xdr:col>" % column not in anchor or "<xdr:row>0</xdr:row>" not in anchor
+                           or "<xdr:col>1</xdr:col>" not in anchor or "<xdr:row>0</xdr:row>" not in anchor
                            or ('hidden="1"' in anchor) != hidden):
-                found.append(f"{name}: {toggle_name} is not in {cell}, running {TOGGLE_MACRO}, "
+                found.append(f"{name}: {toggle_name} is not in B1, running {TOGGLE_MACRO}, "
                              f"{'hidden' if hidden else 'shown'}")
+        sheet_xml = package.text(part)
+        for row in TITLE_ROWS:
+            margin, title = cell_element(sheet_xml, "B%d" % row), cell_element(sheet_xml, "%s%d" % (TITLE_COLUMN, row))
+            if margin is None or title is None or "<v>" in margin.group(0) or "<v>" not in title.group(0):
+                found.append(f"{name}: the title of row {row} is not in {TITLE_COLUMN}{row}")
         pane = re.search(r'<pane xSplit="(\d+)"', package.text(part))
         if not pane or int(pane.group(1)) < FROZEN_COLS:
             found.append(f"{name}: columns A and B are not frozen")

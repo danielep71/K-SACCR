@@ -90,9 +90,9 @@ class NavigationBarTests(unittest.TestCase):
             found[name] = package.text(posixpath.normpath(posixpath.join(posixpath.dirname(part), target)))
         return found
 
-    def test_every_sheet_has_one_triangle_shown_at_the_edge_of_the_bar(self) -> None:
-        # #777: one triangle at a time, both running the toggle: the one that hides the bar on its right edge
-        # in A1, shown; the one that shows it at the far left of B1, saved hidden.
+    def test_every_sheet_has_one_triangle_shown_at_the_far_left_of_b1(self) -> None:
+        # #777: one triangle at a time, in the same place, both running the toggle: the one that hides the
+        # bar shown, the one that shows it saved hidden.
         package = bar.Package(ROOT / bar.TEMPLATE)
         drawings = self.drawings(package)
         self.assertEqual(len(drawings), 21)
@@ -103,9 +103,8 @@ class NavigationBarTests(unittest.TestCase):
                 self.assertEqual(sorted(anchors), sorted((bar.TOGGLE_HIDE, bar.TOGGLE_SHOW)))
                 for toggle, anchor in anchors.items():
                     self.assertIn('macro="[0]!ToggleNavigationBar"', anchor)
-                    column, x = (0, bar.TOGGLE_HIDE_X) if toggle == bar.TOGGLE_HIDE else (1, bar.TOGGLE_SHOW_X)
-                    self.assertIn("<xdr:col>%d</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>"
-                                  % (column, x * bar.PX), anchor)
+                    self.assertIn("<xdr:col>1</xdr:col><xdr:colOff>%d</xdr:colOff><xdr:row>0</xdr:row>"
+                                  % (bar.TOGGLE_X * bar.PX), anchor)
                     self.assertIn('fPrintsWithSheet="0"', anchor)
                     self.assertEqual('hidden="1"' in anchor, toggle == bar.TOGGLE_SHOW)
                 # The one that hides the bar points left: its tip is on the left edge.
@@ -113,22 +112,41 @@ class NavigationBarTests(unittest.TestCase):
                 self.assertIn('<a:lnTo><a:pt x="%d" y="%d"/>' % (bar.TOGGLE_W, bar.TOGGLE_H // 2),
                               anchors[bar.TOGGLE_SHOW])
 
-    def test_the_triangle_fits_in_the_indent_of_the_title(self) -> None:
-        # An indent level is three spaces of the default font, about 9 px; two leave the triangle its room.
-        self.assertLessEqual(bar.TOGGLE_SHOW_X + bar.TOGGLE_W, bar.TITLE_INDENT * 9 - 4)
-        # The one in A1 ends on the bar's right edge, inside the column.
-        self.assertEqual(bar.TOGGLE_HIDE_X + bar.TOGGLE_W, bar.BAR_X + bar.BAR_W)
+    def test_the_triangle_fits_in_column_b_and_the_titles_sit_in_column_c(self) -> None:
+        self.assertLessEqual(bar.TOGGLE_X + bar.TOGGLE_W, bar.GUTTER_PX - 2)
         package = bar.Package(ROOT / bar.TEMPLATE)
         styles = package.text("xl/styles.xml")
         xfs = re.findall(r"<xf\b[^>]*?(?:/>|>.*?</xf>)",
                          re.search(r"<cellXfs[^>]*>(.*?)</cellXfs>", styles, re.S).group(1), re.S)  # type: ignore[union-attr]
         for name, part in bar.sheets_of(package):
             xml = package.text(part)
-            for cell in bar.TITLE_CELLS:
-                style = int(re.search(r'<c r="%s" s="(\d+)"' % cell, xml).group(1))  # type: ignore[union-attr]
-                with self.subTest(sheet=name, cell=cell):
-                    self.assertIn('indent="%d"' % bar.TITLE_INDENT, xfs[style])
+            self.assertIn('<col min="1" max="1" width="18" ', xml)
+            self.assertIn('<col min="2" max="2" width="2" customWidth="1"/>', xml)
+            for row in bar.TITLE_ROWS:
+                margin = bar.cell_element(xml, "B%d" % row)
+                title = bar.cell_element(xml, "C%d" % row)
+                with self.subTest(sheet=name, row=row):
+                    assert margin is not None and title is not None
+                    self.assertNotIn("<v>", margin.group(0))
+                    self.assertIn("<v>", title.group(0))
+                    style = int(re.search(r' s="(\d+)"', title.group(0)).group(1))  # type: ignore[union-attr]
+                    self.assertNotIn("indent=", xfs[style])
                     self.assertIn('horizontal="left"', xfs[style])
+
+    def test_a_title_in_b1_is_moved_to_c1(self) -> None:
+        # A template from before #777: the title in B1, the band's empty cell in C1.
+        package = bar.Package(self.folder / bar.TEMPLATE)
+        _, part = bar.sheets_of(package)[0]
+        xml = package.text(part)
+        title, margin = bar.cell_element(xml, "C1"), bar.cell_element(xml, "B1")
+        assert title is not None and margin is not None
+        swapped = (xml[:margin.start()] + title.group(0).replace('r="C1"', 'r="B1"')
+                   + xml[margin.end():title.start()] + margin.group(0).replace('r="B1"', 'r="C1"') + xml[title.end():])
+        package.put(part, swapped)
+        package.write(self.folder / bar.TEMPLATE)
+        self.assertTrue(any("not in C1" in p for p in bar.problems(self.folder)))
+        bar.write(self.folder)
+        self.assertEqual((self.folder / bar.TEMPLATE).read_bytes(), (ROOT / bar.TEMPLATE).read_bytes())
 
     def test_columns_a_and_b_are_frozen_on_every_sheet(self) -> None:
         package = bar.Package(ROOT / bar.TEMPLATE)
