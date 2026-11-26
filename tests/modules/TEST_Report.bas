@@ -196,12 +196,14 @@ Private Sub CheckRefusals()
     Dim SavedOutput   As Variant   'Its value
 
         Result = M_Main.RunSACCR_Silent()
+        Application.Calculate
         Result = M_Main.ExportReport_Silent(ReportPath("txt"))
         TEST_CaseRunner.ExpectTrue "extension", Left$(Result, 14) = "RESULT=REFUSED" And _
             InStr(1, Result, ".pdf or .xlsx", vbBinaryCompare) > 0, Result, CLASS_TAG
         Set OutputCell = TableCell(GetSheet(SH_RESULTS), OutputFirstRow(SH_RESULTS), RS_EAD)
         SavedOutput = OutputCell.Value2
         OutputCell.Value2 = ToDbl(SavedOutput, 0#) + 1#
+        Application.Calculate
         Result = M_Main.ExportReport_Silent(ReportPath("xlsx"))
         OutputCell.Value2 = SavedOutput
         TEST_CaseRunner.ExpectTrue "edited-output", Left$(Result, 14) = "RESULT=REFUSED" And _
@@ -218,7 +220,9 @@ Private Sub CheckWorkbookReport()
 ' PURPOSE
 '   An XLSX report of the demonstration run, read back from its file: the
 '   sheets in order, values only, no link and no macro, the figures of the
-'   run; the K-SACCR workbook left as it was. 15 checks.
+'   run; the K-SACCR workbook left as it was. 15 checks. The suite runs in
+'   manual calculation, so each run is followed by a recalculation, as a user
+'   presses F9: the report refuses while one is pending.
 '
 ' UPDATED
 '   2026-11-26
@@ -238,6 +242,7 @@ Private Sub CheckWorkbookReport()
     Dim TotalEad        As Variant      'EAD of TOTAL CRR on Results
 
         Result = M_Main.RunSACCR_Silent()
+        Application.Calculate
         FilePath = ReportPath("xlsx")
         BookCount = Application.Workbooks.Count
         Result = M_Main.ExportReport_Silent(FilePath)
@@ -249,6 +254,13 @@ Private Sub CheckWorkbookReport()
             Application.ActiveWorkbook.Name, CLASS_TAG
         TEST_CaseRunner.ExpectTrue "no-workbook-left-open", Application.Workbooks.Count = BookCount, _
             Application.Workbooks.Count & " open, " & BookCount & " before", CLASS_TAG
+
+    'Without a file the eleven checks that read it fail, so that the count holds.
+        If Left$(Result, 9) <> "RESULT=OK" Then
+            FailChecks "sheets|values-only|no-link|xlsx|fingerprint|fingerprint-value|reporting-date|" & _
+                       "reporting-date-value|total-ead|checks-summary|limitations", Result
+            Exit Sub
+        End If
 
         Set Report = Application.Workbooks.Open(Filename:=FilePath, ReadOnly:=True, UpdateLinks:=0)
         For Each ReportSheet In Report.Worksheets
@@ -329,6 +341,7 @@ Private Sub CheckPdfReport()
     Dim Charts     As Long      'Charts of the Dashboard
 
         Result = M_Main.RunSACCR_Silent()
+        Application.Calculate
         FilePath = ReportPath("pdf")
         Charts = GetSheet(SH_DASHBOARD).ChartObjects.Count
         Result = M_Main.ExportReport_Silent(FilePath)
@@ -365,6 +378,7 @@ Private Sub CheckFailures()
     Dim ErrorNumber   As Long      'Error the export raised
 
         Result = M_Main.RunSACCR_Silent()
+        Application.Calculate
         FilePath = ReportPath("xlsx")
         For Each Fault In Array("report-save", "report-replace")
             WriteOldReport FilePath
@@ -424,6 +438,25 @@ Private Sub ExpectText( _
 
         Found = CORE_Export.ReportCellText(Kind, Value)
         TEST_CaseRunner.ExpectTrue Label, Found = Expected, Found & " instead of " & Expected, CLASS_TAG
+
+End Sub
+
+
+Private Sub FailChecks( _
+    ByVal Labels As String, _
+    ByVal Detail As String)
+'
+'==============================================================================
+' PURPOSE
+'   Record as failed each check of Labels (separated by "|") that could not
+'   run, so that the suite's count of checks holds.
+'==============================================================================
+'
+    Dim Label   As Variant    'Each check
+
+        For Each Label In Split(Labels, "|")
+            TEST_CaseRunner.ExpectTrue CStr(Label), False, "not run: " & Detail, CLASS_TAG
+        Next Label
 
 End Sub
 
