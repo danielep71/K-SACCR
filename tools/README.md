@@ -524,7 +524,7 @@ with cosign keyless signing, verifies each signature and attaches
 `<file>.sigstore.json`. Its one job holds `contents: write`, to attach the
 bundles, and `id-token: write`, for the short-lived signing certificate; it
 checks out no code and refuses a release that already carries signatures.
-[`RELEASING.md`](../RELEASING.md#8-publish-and-verify) gives its place in a
+[`RELEASING.md`](../RELEASING.md#9-publish-and-verify) gives its place in a
 release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 
