@@ -930,6 +930,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- State in the methodology where the business-day convention of the day count comes from (#721).
+  The owner read Articles 279a to 279c in the Italian consolidated text of the CRR in force on
+  2026-11-26 (26.06.2026): they ask for the dates of a trade and for OneBusinessYear to be
+  expressed using "the relevant business day convention" ("pertinente convenzione sui giorni
+  lavorativi") and name none, so the default day count stays as it is and OneBusinessYear stays
+  250 business days. The methodology no longer says the phrase was not re-read.
+
 - **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
   scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
   and review threads, the notifications and the repository's wording against the evidence: the
