@@ -19,16 +19,22 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "example-org/sample-project"
 BLOCKED_LABEL = check_issues.BLOCKED
 START = "### 🗓️ Start date (Europe/Rome)\n\n2027-01-04\n\n"
+TARGET = "### 📅 Target date\n\n2027-01-15\n\n"
+DUE = "2027-12-31T00:00:00Z"
 READY = "## Dependencies and blocking status\n\n**Ready to start**: none.\n"
 
 
 def issue(number: int, *labels: str, state: str = "open", body: str = READY,
           assignees: tuple[str, ...] = ("triage-person",), milestone: str | None = "v0.1.0",
-          start: bool = True) -> Issue:
-    """An issue that meets every rule; the start date every open issue needs is added unless the body has one."""
+          start: bool = True, target: bool = True, due: str | None = DUE) -> Issue:
+    """An issue that meets every rule: the start and target dates every open issue needs are added unless
+    the body has them, and the milestone has a due date to check the target against."""
     if start and "start date" not in body.lower():
         body = START + body
-    return Issue(number, state, labels or ("P3",), assignees, milestone, body)
+    if target and "target" not in body.lower():
+        body = TARGET + body
+    return Issue(number, state, labels or ("P3",), assignees, milestone, body,
+                 milestone_due=due if milestone else None)
 
 
 def blocked_by(*numbers: int, heading: str = "## Dependencies and blocking status") -> str:
@@ -64,7 +70,8 @@ class MetadataTests(unittest.TestCase):
         # The exemption needs both the workflow's author and its title.
         by_person = Issue(5, "open", ("P3",), ("triage-person",), None, "x",
                           "Traffic alert: 2026-10-31", "someone")
-        self.assertEqual(rules([by_person]), [(5, "milestone"), (5, "start-date"), (5, "dependencies")])
+        self.assertEqual(rules([by_person]), [(5, "milestone"), (5, "target-date"), (5, "start-date"),
+                                              (5, "dependencies")])
         unassigned = Issue(5, "open", (), (), None, "x", "Traffic alert: 2026-10-31",
                            check_issues.TRAFFIC_ALERT_AUTHOR)
         self.assertEqual(rules([unassigned]), [(5, "assignee"), (5, "priority")])
@@ -95,11 +102,14 @@ class PlanningTests(unittest.TestCase):
                                         milestone_state="open", milestone_due="2027-01-15T00:00:00Z")
                     self.assertEqual(rules([candidate]), expected)
 
-    def test_optional_invalid_conflicting_and_unrelated_dates(self) -> None:
-        for body in (READY, READY + "### Target date\n\n_No response_\n",
+    def test_required_invalid_conflicting_and_unrelated_dates(self) -> None:
+        # The target date is required (T05): an empty field, or a date outside the planning fields, is none.
+        self.assertEqual(rules([issue(1, body=READY)]), [])
+        for body in (READY + "### Target date\n\n_No response_\n",
                      READY + "## Notes\nTarget date: 2099-01-01\n",
                      READY + "## Planning dates\n```\nTarget date: 2099-01-01\n```\n"):
-            self.assertEqual(rules([issue(1, body=body)]), [])
+            self.assertEqual(rules([issue(1, body=body)]), [(1, "target-date")], body)
+        self.assertEqual(rules([issue(1, body=READY, target=False)]), [(1, "target-date")])
         def due(body: str) -> Issue:
             return replace(issue(1, body=body), milestone_due="2027-12-31T00:00:00Z")
 
@@ -117,8 +127,8 @@ class PlanningTests(unittest.TestCase):
         # The deadline is inclusive (docs/GOVERNANCE.md), so a target on the due date is fine; a milestone
         # with no due date cannot check any target, and says so.
         body = READY + "### Target date\n2027-01-15\n"
-        self.assertEqual(rules([issue(1, body=body)]), [(1, "milestone-date")])
-        self.assertEqual(rules([issue(1, body=READY)]), [])  # no target, nothing to check
+        self.assertEqual(rules([issue(1, body=body, due=None)]), [(1, "milestone-date")])
+        self.assertEqual(rules([issue(1, body=body)]), [])
         self.assertEqual(rules([issue(1, body=body, milestone=None)]), [(1, "milestone")])
 
     def test_the_start_date_is_required_valid_and_not_after_the_target(self) -> None:
@@ -221,7 +231,7 @@ class ConfigTests(unittest.TestCase):
     def test_repository_configuration_passes(self) -> None:
         self.assertEqual(check_issues.config_findings(ROOT), [])
 
-    def test_forms_require_target_field_and_keep_it_optional(self) -> None:
+    def test_forms_have_a_required_target_field(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / ".github/ISSUE_TEMPLATE", root / ".github/ISSUE_TEMPLATE")
@@ -230,12 +240,25 @@ class ConfigTests(unittest.TestCase):
                 text = path.read_text(encoding="utf-8")
                 field = text.split("id: target_date", 1)[1]
                 self.assertIn('label: "📅 Target date"', field)
-                self.assertIn("required: false", field)
+                self.assertIn("required: true", field.split("- type:", 1)[0])
                 path.write_text(text.replace("id: target_date", "id: omitted"), encoding="utf-8")
             with unittest.mock.patch.object(check_issues, "catalogue_labels", return_value={
                     "bug", "enhancement", "documentation", "P1", "P2", "P3", "blocked"}):
                 findings = check_issues.config_findings(root)
             self.assertEqual(sum("has no target_date field" in finding for finding in findings), 3)
+
+    def test_a_form_with_an_optional_target_field_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / ".github/ISSUE_TEMPLATE", root / ".github/ISSUE_TEMPLATE")
+            path = root / ".github/ISSUE_TEMPLATE" / "feature.yml"
+            head, field = path.read_text(encoding="utf-8").split("id: target_date", 1)
+            path.write_text(head + "id: target_date" + field.replace("required: true", "required: false", 1),
+                            encoding="utf-8")
+            with unittest.mock.patch.object(check_issues, "catalogue_labels", return_value={
+                    "bug", "enhancement", "documentation", "P1", "P2", "P3", "blocked"}):
+                findings = check_issues.config_findings(root)
+            self.assertIn("feature.yml must require the target_date field", findings)
 
     def test_an_invalid_manifest_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -270,7 +293,7 @@ class MainTests(unittest.TestCase):
         items = [
             {"number": 1, "state": "open", "labels": [{"name": "P3"}],
              "assignees": [{"login": "triage-person"}], "milestone": None,
-             "body": START + READY + "Delivered in #2, a pull request.\n"},
+             "body": START + TARGET + READY + "Delivered in #2, a pull request.\n"},
             {"number": 2, "state": "open", "labels": [], "assignees": [],
              "milestone": None, "body": READY, "pull_request": {}},
         ]

@@ -653,6 +653,13 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- **The target date is required on every issue** (T05 of the template alignment). The issue audit
+  (`tools/check_issues.py`) reports an open issue without a target date, as it already did for one
+  without a start date, and the three issue forms make the **Target date** field required. The date
+  must be a real `YYYY-MM-DD` date no later than the milestone's deadline, the deadline day itself
+  included. Traffic alerts, which the automation opens without a milestone or planning dates, are
+  the one exception. Every open issue already has a target date, so no finding appears today.
+
 - **Business days counted on a list of closing days** (#771). On a business-day convention
   (TARGET or TARGET+TABLE) the engine counted each date of a trade by a call of
   `SACCR_BusinessDays`, which recomputed a year of TARGET closing days and read the whole table

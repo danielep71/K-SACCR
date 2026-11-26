@@ -126,7 +126,7 @@ NO_RESPONSE = "_No response_"
 
 
 def target_values(body: str) -> list[str]:
-    """Read the optional form field and labelled legacy Planning dates entries."""
+    """Read the form field and labelled legacy Planning dates entries."""
     return date_values(body, TARGET_LABEL)
 
 
@@ -197,10 +197,18 @@ def start_date_findings(issue: Issue) -> list[Finding]:
 
 
 def planning_findings(issue: Issue) -> list[Finding]:
+    """The target date is required, as the start date is: one real ISO date, not after the milestone's
+    due date (the deadline is inclusive). A traffic alert, which the automation opens without a
+    milestone or planning dates, is the one exception."""
     findings = []
     if issue.milestone_state == "closed":
         findings.append(Finding(issue.number, "milestone-closed", "open issue belongs to a closed milestone"))
-    dates, invalid = iso_dates(target_values(issue.body), issue, "target-date", "target date")
+    values = target_values(issue.body)
+    if not values and not is_traffic_alert(issue):
+        findings.append(Finding(issue.number, "target-date",
+                                "needs a target date (Europe/Rome): the Target date form field, or a "
+                                "`- Target date:` line under Planning dates, as YYYY-MM-DD"))
+    dates, invalid = iso_dates(values, issue, "target-date", "target date")
     findings += invalid
     if len(dates) > 1:
         findings.append(Finding(issue.number, "target-date", "conflicting target dates in the issue body"))
@@ -398,6 +406,8 @@ def config_findings(root: Path) -> list[str]:
             problems.append(f"{name} must assign {assignee}")
         if not re.search(r"^\s*id:\s*target_date\s*$", text, re.M):
             problems.append(f"{name} has no target_date field")
+        elif not re.search(r"^\s*id:\s*target_date\b(?:(?!^\s*- type:).)*?required:\s*true", text, re.M | re.S):
+            problems.append(f"{name} must require the target_date field")
         if not re.search(r"^\s*id:\s*start_date\s*$", text, re.M):
             problems.append(f"{name} has no start_date field")
         elif not re.search(r"^\s*id:\s*start_date\b(?:(?!^\s*- type:).)*?required:\s*true", text, re.M | re.S):
