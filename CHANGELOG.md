@@ -937,7 +937,9 @@ Use only the categories needed by a release.
   convention" ("pertinente convenzione sui giorni lavorativi"), with no calendar or divisor named.
   The methodology now cites each point, calls 250 business days a model assumption in the unit the
   text requires, and calls the default ACTUAL/365 on an empty calendar the engine's historical
-  default rather than a convention the CRR approves. It no longer says the phrase was not re-read.
+  default rather than a convention the CRR approves. It no longer says the phrase was not re-read,
+  and gives the example of a bank's engine that counts S and E in business days over 250, with the
+  settings that reconcile with it.
 
 - **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
   scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
