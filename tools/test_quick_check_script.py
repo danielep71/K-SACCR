@@ -34,6 +34,19 @@ Protection checks (protection-checks.txt):
 RESULT=PASS; checks=14; failed=0
 """
 
+SMOKE_SUMMARY = """K-SACCR branch verification (smoke): a pull-request check, not a release certification
+Branch: feat/801-x
+Commit: 0123456789abcdef0123456789abcdef01234567
+Mode: smoke: a pull-request check of the build, the compile and the calculation suites
+Bundle: D:\\runner\\_work\\K-SACCR\\saccr-smoke-0123456
+Duration: 2 min 5 s
+Result: PASS (smoke run; compile and the calculation suites)
+Compile: PASS; Debug > Compile VBAProject completed with no error
+
+Suites (summary.log):
+RESULT=PASS; suites=5; passed=5; failed=0; seconds=21,4
+"""
+
 
 def run(body: str, **env: str) -> str:
     code = "$ErrorActionPreference = 'Stop'\n. $env:QUICK_FUNCTIONS\n" + body
@@ -95,6 +108,29 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
         self.assertIn("[Workflow run](https://example.test/run/1)", report)
         self.assertIn("`excel-quick-check-1-1`", report)
 
+    def test_a_smoke_report_says_so_and_folds_its_suites(self) -> None:
+        # #801: a pull request gets the smoke check, and its comment names it.
+        body = r"""
+$s = $env:SUMMARY
+New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Passed $true -RunUrl 'u' -ArtifactName 'a-1'
+"""
+        report = run(body, SUMMARY=SMOKE_SUMMARY)
+        self.assertIn("the text results are in the run's artifact `a-1`", report)
+        self.assertEqual(report.splitlines()[1], "### Excel smoke check of `0123456`: PASS")
+        self.assertIn("the build, the compile and the calculation suites", report)
+        self.assertIn("certification before a release", report)
+        self.assertIn("<details><summary>Suites</summary>", report)
+        self.assertGreater(report.index("RESULT=PASS; suites=5"), report.index("<details>"))
+        self.assertLess(report.index("Compile: PASS"), report.index("<details>"))
+
+    def test_a_pull_request_gets_the_smoke_check_and_the_full_one_runs_only_by_hand(self) -> None:
+        body = ("@((Get-QuickCheckMode -EventName 'pull_request' -Mode 'full'), "
+                "(Get-QuickCheckMode -EventName 'pull_request' -Mode ''), "
+                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode 'full'), "
+                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode 'smoke'), "
+                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode '')) -join ','")
+        self.assertEqual(run(body), "smoke,smoke,full,smoke,smoke")
+
     def test_a_failed_report_says_fail_and_a_long_one_is_cut(self) -> None:
         failed = run("New-QuickReport -Summary 'x' -Sha 'abcdef0' -Passed $false -RunUrl 'u' -ArtifactName ''")
         self.assertIn("### Excel quick check of `abcdef0`: FAIL", failed)
@@ -144,15 +180,15 @@ $comments = @(
         with tempfile.TemporaryDirectory() as folder:
             parent = Path(folder)
             for name in ("saccr-verify-abcdef0", "saccr-verify-abcdef1-20261101-120000", "saccr-verify-abcdef2",
-                         "saccr-verify-xyz", "saccr-evidence-abcdef0", "other"):
+                         "saccr-verify-xyz", "saccr-evidence-abcdef0", "saccr-smoke-abcdef4", "other"):
                 (parent / name).mkdir()
                 (parent / name / "x.txt").write_text("x", encoding="utf-8")
             (parent / "saccr-verify-abcdef3").write_text("a file", encoding="utf-8")
             body = (f"$old = (Get-Date).AddDays(-30)\n"
                     f"foreach ($n in 'saccr-verify-abcdef0','saccr-verify-abcdef1-20261101-120000','saccr-verify-xyz',"
-                    f"'saccr-evidence-abcdef0','other') {{ (Get-Item -LiteralPath (Join-Path '{parent}' $n)).LastWriteTime = $old }}\n"
+                    f"'saccr-evidence-abcdef0','saccr-smoke-abcdef4','other') {{ (Get-Item -LiteralPath (Join-Path '{parent}' $n)).LastWriteTime = $old }}\n"
                     f"(Remove-OldQuickBundles -Parent '{parent}' -KeepDays 14 | Sort-Object) -join ','")
-            self.assertEqual(run(body), "saccr-verify-abcdef0,saccr-verify-abcdef1-20261101-120000")
+            self.assertEqual(run(body), "saccr-smoke-abcdef4,saccr-verify-abcdef0,saccr-verify-abcdef1-20261101-120000")
             left = sorted(p.name for p in parent.iterdir())
             self.assertEqual(left, ["other", "saccr-evidence-abcdef0", "saccr-verify-abcdef2", "saccr-verify-abcdef3",
                                     "saccr-verify-xyz"])
@@ -192,8 +228,9 @@ $found -join "`n"
 
 
 FAKE_VERIFY = r"""
-param([string]$Branch, [switch]$Quick, [string]$RepoRoot, [string]$Commit, [string]$BenchmarkSizes)
+param([string]$Branch, [switch]$Quick, [switch]$Smoke, [string]$RepoRoot, [string]$Commit, [string]$BenchmarkSizes)
 Write-Output ('Benchmark sizes: [' + $BenchmarkSizes + ']')
+Write-Output ('Switches: quick=' + [bool]$Quick + ' smoke=' + [bool]$Smoke)
 $parent = Split-Path -Parent $RepoRoot
 $sha = $Commit
 $bundle = Join-Path $parent ('saccr-verify-' + $sha.Substring(0, 7))
@@ -302,16 +339,31 @@ class QuickCheckRunnerTests(unittest.TestCase):
             self.assertIn("not at the commit of the event", completed.stdout + completed.stderr)
             self.assertFalse((work / ("saccr-verify-" + sha[:7])).exists())
 
-    def test_benchmark_sizes_reach_the_quick_check_only_on_a_run_by_hand(self) -> None:
-        # #771: the benchmark's timings belong to the machine, so a pull request never runs it.
-        for event, repo, expected in (("workflow_dispatch", "", "[1000,10000]"),
-                                      ("pull_request", "danielep71/K-SACCR", "[]")):
-            with self.subTest(event=event), tempfile.TemporaryDirectory() as name:
+    def test_benchmark_sizes_reach_only_a_full_check_run_by_hand(self) -> None:
+        # #771: the benchmark's timings belong to the machine, so a pull request never runs it; nor does a smoke
+        # check (#801).
+        for event, repo, mode, expected in (("workflow_dispatch", "", "full", "[1000,10000]"),
+                                            ("workflow_dispatch", "", "smoke", "[]"),
+                                            ("pull_request", "danielep71/K-SACCR", "full", "[]")):
+            with self.subTest(event=event, mode=mode), tempfile.TemporaryDirectory() as name:
                 completed, _, _ = self.run_runner(Path(name), "feat/713-x", EVENT_NAME=event, HEAD_REPO=repo,
-                                                  FAKE_RESULT="PASS", FAKE_CODE="0", HEAD_SHA="",
+                                                  FAKE_RESULT="PASS", FAKE_CODE="0", HEAD_SHA="", CHECK_MODE=mode,
                                                   BENCHMARK_SIZES=" 1000,10000 ")
                 self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
                 self.assertIn("Benchmark sizes: " + expected, completed.stdout)
+
+    def test_a_pull_request_runs_the_smoke_check_and_a_run_by_hand_its_mode(self) -> None:
+        # #801: the full quick check only by hand.
+        for event, repo, mode, expected in (("pull_request", "danielep71/K-SACCR", "full", "quick=True smoke=False"),
+                                            ("workflow_dispatch", "", "full", "quick=True smoke=False"),
+                                            ("workflow_dispatch", "", "smoke", "quick=False smoke=True")):
+            if event == "pull_request":
+                expected = "quick=False smoke=True"
+            with self.subTest(event=event, mode=mode), tempfile.TemporaryDirectory() as name:
+                completed, _, _ = self.run_runner(Path(name), "feat/801-x", EVENT_NAME=event, HEAD_REPO=repo,
+                                                  FAKE_RESULT="PASS", FAKE_CODE="0", HEAD_SHA="", CHECK_MODE=mode)
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                self.assertIn("Switches: " + expected, completed.stdout)
 
     def test_the_commit_is_passed_to_the_quick_check(self) -> None:
         with tempfile.TemporaryDirectory() as name:
@@ -345,7 +397,9 @@ class VerifyCommitTests(unittest.TestCase):
             for arguments, message in ((["-Quick", "-BenchmarkSizes", "1000;calc"], "Not a list of benchmark sizes"),
                                        (["-Quick", "-BenchmarkSizes", "1,2,3,4,5,6,7,8,9,10,11"],
                                         "Not a list of benchmark sizes"),
-                                       (["-BenchmarkSizes", "1000"], "-BenchmarkSizes needs -Quick")):
+                                       (["-BenchmarkSizes", "1000"], "-BenchmarkSizes needs -Quick"),
+                                       (["-Smoke", "-BenchmarkSizes", "1000"],
+                                        "-BenchmarkSizes needs the full quick check")):
                 completed = run_script(repo / "tools" / "Verify-SACCR-Branch.ps1",
                                        ["-Branch", "feat/713-x", "-Commit", sha, *arguments], dict(os.environ))
                 self.assertNotEqual(completed.returncode, 0)
@@ -369,6 +423,38 @@ class VerifyCommitTests(unittest.TestCase):
             self.assertIn("Verifying the checked-out commit " + sha, output)
             self.assertNotIn("Fetching", output)
             self.assertIn("Commit: " + sha, output)
+
+    def test_a_smoke_check_has_its_own_folder_and_mode(self) -> None:
+        # #801: no Excel here, so the smoke check itself fails; its summary says what it was.
+        with tempfile.TemporaryDirectory() as name:
+            repo, sha = make_repo(Path(name), "Verify-SACCR-Branch.ps1")
+            completed = run_script(repo / "tools" / "Verify-SACCR-Branch.ps1",
+                                   ["-Branch", "feat/801-x", "-Smoke", "-Commit", sha], dict(os.environ))
+            output = completed.stdout + completed.stderr
+            self.assertIn("Mode: smoke: a pull-request check of the build, the compile and the calculation suites",
+                          output)
+            self.assertIn("(smoke run; compile and the calculation suites)", output)
+            self.assertIn("Suites (summary.log):", output)
+            self.assertNotIn("Protection checks (protection-checks.txt):", output)
+            self.assertTrue((repo.parent / ("saccr-smoke-" + sha[:7])).is_dir())
+
+
+class SmokeSuitesTests(unittest.TestCase):
+    """TEST_Suite.Smoke runs the harness and the calculation suites, each one that Test_RunAll runs (#801)."""
+
+    def test_the_smoke_suites_are_the_calculation_suites_of_test_runall(self) -> None:
+        text = (TOOLS.parent / "tests" / "modules" / "TEST_Suite.bas").read_text(encoding="cp1252")
+        def listed(function: str) -> list[str]:
+            body = text[text.index(f"Private Function {function}()"):]
+            body = body[:body.index("End Function")]
+            return re.findall(r'"(TEST_\w+\.\w+)"', body)
+        smoke, every = listed("SmokeEntries"), listed("SuiteEntries")
+        self.assertEqual(smoke, ["TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", "TEST_Cases.RunCaseTests",
+                                 "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests"])
+        self.assertTrue(set(smoke) <= set(every))
+        self.assertIn("Public Function Smoke(", text)
+        self.assertIn('excel.Run($qualified + $entry, $Bundle, $Sha)',
+                      (TOOLS / "Verify-SACCR-Branch.ps1").read_text(encoding="utf-8-sig"))
 
 
 if __name__ == "__main__":

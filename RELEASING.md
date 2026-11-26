@@ -209,8 +209,13 @@ python tools/check_excel_evidence.py --candidate-sha FULL_SHA --evidence ../sacc
 
 Only exit code 0 (`PASS`) certifies the candidate. If it fails, fix through a
 task PR into the release branch, integrate again and certify the new merge
-commit. The quick run of `tools/Verify-SACCR-Branch.ps1 -Quick` is a
-pull-request check and writes no record: it never certifies a candidate.
+commit. The quick run of `tools/Verify-SACCR-Branch.ps1 -Quick` and the smoke
+check of a pull request (`-Smoke`, #801) are pull-request checks and write no
+record: they never certify a candidate. Pull requests get only the smoke check,
+so run the full quick check by hand on the release branch before you certify
+(Actions, **Excel quick check**, **Run workflow**, mode `full`): it finds what the
+smoke check leaves out, the sheet review and the protection checks among it,
+before a certification run is spent on it.
 
 <a id="ribbon-walk-through"></a>
 

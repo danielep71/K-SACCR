@@ -98,8 +98,8 @@ fails after a merge, record the failure and fix or revert it through a new PR
 before closing the issue. Never rewrite shared history to conceal the failed
 candidate.
 
-The quick Excel check of a pull request also runs on the owner's self-hosted
-Windows runner and reports in the pull request
+The Excel check of a pull request, a smoke check (#801; the full quick check by
+hand), also runs on the owner's self-hosted Windows runner and reports in the pull request
 ([`excel-quick.yml`](../.github/workflows/excel-quick.yml); see
 [Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). It is a
 pull-request check, never release evidence, and not a required check. It counts

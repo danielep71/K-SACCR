@@ -30,6 +30,16 @@ function Test-QuickRunAllowed {
     return $HeadRepository -ieq $Repository
 }
 
+function Get-QuickCheckMode {
+    # The check a run makes (#801): "smoke" on a pull request, and on a run by
+    # hand unless its mode is "full"; the full quick check runs only by hand.
+    param([string]$EventName, [string]$Mode)
+    if ($EventName -eq "workflow_dispatch" -and $Mode -eq "full") {
+        return "full"
+    }
+    return "smoke"
+}
+
 function Get-QuickBundle {
     # The bundle folder named by the "Bundle:" line of a verification summary,
     # or $null.
@@ -73,8 +83,22 @@ function New-QuickReport {
     if ($Sha.Length -ge 7) {
         $short = $Sha.Substring(0, 7)
     }
+    $smoke = $Summary -match '(?m)^Mode: smoke'
+    $kind = "quick"
+    $what = "A pull-request check on the owner's Windows runner, not a release certification."
+    $folded = "Test_RunAll, protection checks and sheet review"
+    if ($smoke) {
+        $kind = "smoke"
+        $what = ("A smoke check of the pull request on the owner's Windows runner: the build, the compile and the " +
+                 "calculation suites. Every suite, the sheet review and the protection checks run in the full quick " +
+                 "check, by hand, and in certification before a release.")
+        $folded = "Suites"
+    }
     $lines = @($Summary -split "\r?\n")
     $split = [array]::IndexOf($lines, "Test_RunAll (summary.log):")
+    if ($split -lt 0) {
+        $split = [array]::IndexOf($lines, "Suites (summary.log):")
+    }
     $head = $lines
     $rest = @()
     if ($split -gt 0) {
@@ -85,17 +109,17 @@ function New-QuickReport {
     $fence = '```'
     $out = New-Object System.Collections.Generic.List[string]
     $out.Add((Get-QuickMarker $Sha))
-    $out.Add("### Excel quick check of ``$short``: $verdict")
+    $out.Add("### Excel $kind check of ``$short``: $verdict")
     $out.Add("")
-    $out.Add("A pull-request check on the owner's Windows runner, not a release certification. It does not replace " +
-             "the owner's verification before a VBA or template change is merged, unless the owner says so here.")
+    $out.Add($what + " It does not replace the owner's verification before a VBA or template change is merged, " +
+             "unless the owner says so here.")
     $out.Add("")
     $out.Add($fence + "text")
     $head | ForEach-Object { $out.Add($_) }
     $out.Add($fence)
     if ($rest.Count -gt 0) {
         $out.Add("")
-        $out.Add("<details><summary>Test_RunAll, protection checks and sheet review</summary>")
+        $out.Add("<details><summary>$folded</summary>")
         $out.Add("")
         $out.Add($fence + "text")
         $rest | ForEach-Object { $out.Add($_) }
@@ -105,7 +129,11 @@ function New-QuickReport {
     $out.Add("")
     $links = "[Workflow run]($RunUrl)"
     if (-not [string]::IsNullOrWhiteSpace($ArtifactName)) {
-        $links += "; the sheet pictures are in the run's artifact ``$ArtifactName``, kept for 14 days"
+        $contents = "the sheet pictures"
+        if ($smoke) {
+            $contents = "the text results"
+        }
+        $links += "; $contents are in the run's artifact ``$ArtifactName``, kept for 14 days"
     }
     $out.Add($links + ".")
     $text = ($out -join "`n") + "`n"
@@ -181,13 +209,13 @@ function Find-QuickReportComment {
 }
 
 function Remove-OldQuickBundles {
-    # Delete the saccr-verify-* folders of old runs next to the checkout, so
+    # Delete the saccr-verify-* and saccr-smoke-* folders of old runs next to the checkout, so
     # the runner's disk does not fill up. Only direct children whose name is
     # exactly that of a quick bundle, and only when older than the given days.
     param([string]$Parent, [int]$KeepDays, [datetime]$Now = (Get-Date))
     $removed = New-Object System.Collections.Generic.List[string]
     foreach ($folder in @(Get-ChildItem -LiteralPath $Parent -Directory -ErrorAction SilentlyContinue)) {
-        if ($folder.Name -notmatch '^saccr-verify-[0-9a-f]{7}(-[0-9]{8}-[0-9]{6})?$') {
+        if ($folder.Name -notmatch '^saccr-(verify|smoke)-[0-9a-f]{7}(-[0-9]{8}-[0-9]{6})?$') {
             continue
         }
         if ($folder.LastWriteTime -lt $Now.AddDays(-$KeepDays)) {
