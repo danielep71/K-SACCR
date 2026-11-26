@@ -17,6 +17,7 @@ class RibbonTemplateTests(unittest.TestCase):
         for path in (gate.TEMPLATE, gate.SOURCE):
             (self.folder / path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / path, self.folder / path)
+        shutil.copytree(ROOT / gate.ICONS, self.folder / gate.ICONS)
 
     def rewrite(self, change: dict[str, bytes | None]) -> None:
         template = self.folder / gate.TEMPLATE
@@ -64,6 +65,34 @@ class RibbonTemplateTests(unittest.TestCase):
         with zipfile.ZipFile(self.folder / gate.TEMPLATE) as package:
             rels = package.read(gate.RELATIONSHIPS).decode("utf-8")
         self.assertEqual(gate.ribbon_relationships(rels), [gate.RELATIONSHIP])
+
+    def test_the_template_carries_the_icons_the_source_names(self) -> None:
+        # #803: each image="NAME" of the source is customUI/images/NAME.png with an image relationship.
+        names = gate.image_names((ROOT / gate.SOURCE).read_bytes())
+        self.assertGreaterEqual(len(names), 12)
+        with zipfile.ZipFile(ROOT / gate.TEMPLATE) as package:
+            rels = package.read(gate.PART_RELATIONSHIPS).decode("utf-8")
+            for name in names:
+                with self.subTest(image=name):
+                    self.assertEqual(package.read(gate.IMAGE_FOLDER + name + ".png"),
+                                     (ROOT / gate.ICONS / f"{name}.png").read_bytes())
+                    self.assertIn(f'<Relationship Id="{name}" Type="{gate.IMAGE_TYPE}" '
+                                  f'Target="images/{name}.png"/>', rels)
+
+    def test_a_missing_or_changed_icon_fails(self) -> None:
+        self.assertEqual(gate.problems(self.folder), [])
+        self.rewrite({gate.IMAGE_FOLDER + "ksiRunLarge.png": b"other"})
+        self.assertTrue(any("ksiRunLarge.png differs" in p for p in gate.problems(self.folder)))
+        self.rewrite({gate.IMAGE_FOLDER + "ksiRunLarge.png": None})
+        self.assertTrue(any("no customUI/images/ksiRunLarge.png" in p for p in gate.problems(self.folder)))
+        (self.folder / gate.ICONS / "ksiHomeLarge.png").unlink()
+        self.assertTrue(any("ksiHomeLarge.png is missing" in p for p in gate.problems(self.folder)))
+
+    def test_a_left_over_customui_part_fails(self) -> None:
+        with zipfile.ZipFile(self.folder / gate.TEMPLATE, "a") as package:
+            package.writestr("customUI/images/old.png", b"x")
+        self.assertTrue(any("unexpected customUI part customUI/images/old.png" in p
+                            for p in gate.problems(self.folder)))
 
 
 if __name__ == "__main__":

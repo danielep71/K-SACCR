@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Give the K-SACCR Ribbon tab icons of its own, as the owner asked and approved (#803): a navy
+  rounded tile, the header fill `1F3864` of the workbook's tables, with a white glyph, for Run,
+  Validate inputs, Clear outputs, Import CSV, Validate staging, Commit import, Templates, Export
+  evidence, Export report, Restore parameters, Go to and the Navigation bar toggle, in place of the
+  built-in Office icons. `tools/ribbon_icons.py` draws them at twice their size on the Ribbon; the
+  template carries them as images of its Ribbon part (`tools/ribbon_template.py`), and the
+  `ribbon-icons` and `ribbon-template` gates check them.
 - Add **Export report** to the K-SACCR Ribbon tab (#259), the last of three parts: a button
   beside Export evidence in the Evidence group runs `ExportReport`, enabled in the same cases as
   Export evidence, while Results is current. `TEST_MainState` checks its enabled states (724

@@ -7,10 +7,18 @@ one package relationship of the Office 2010 extensibility type. Excel keeps
 that part through the build's SaveAs .xlsm and through ordinary saves (#213
 spike), so every workbook built from the template has the Ribbon.
 
-``--write`` rewrites the template with the part and the relationship, leaving
-every other entry as it is. Without it the script checks the template and
-fails when the part is missing, differs from the source, or has no
-relationship, or when the package holds another customUI part.
+Since #803 the Ribbon has icons of its own: the PNG files of
+src/workbook/ribbon-icons (tools/ribbon_icons.py draws them) are parts
+customUI/images/NAME.png, each with a relationship of the image type in
+customUI/_rels/customUI14.xml.rels whose Id is the NAME the source gives as
+image="NAME".
+
+``--write`` rewrites the template with the part, the images and the
+relationships, leaving every other entry as it is. Without it the script checks
+the template and fails when the part is missing, differs from the source, or
+has no relationship, when an image the source names is missing or differs from
+its file, when the images' relationships are not exactly those, or when the
+package holds another customUI part.
 """
 from __future__ import annotations
 
@@ -24,7 +32,12 @@ from pathlib import Path
 
 TEMPLATE = "src/workbook/SACCR_Template.xlsx"
 SOURCE = "src/workbook/customUI14.xml"
+ICONS = "src/workbook/ribbon-icons"
 PART = "customUI/customUI14.xml"
+IMAGE_FOLDER = "customUI/images/"
+PART_RELATIONSHIPS = "customUI/_rels/customUI14.xml.rels"
+IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+IMAGE_NAME = re.compile(r'\bimage="([A-Za-z][A-Za-z0-9]*)"')
 RELATIONSHIPS = "_rels/.rels"
 RELATIONSHIP_TYPE = "http://schemas.microsoft.com/office/2007/relationships/ui/extensibility"
 RELATIONSHIP_ID = "rIdKsRibbon"
@@ -38,19 +51,54 @@ def ribbon_relationships(rels: str) -> list[str]:
     return [element for element in RELATIONSHIP_ELEMENT.findall(rels) if "/ui/extensibility" in element]
 
 
+def image_names(source: bytes) -> list[str]:
+    """The images the Ribbon source names with image="...", in order, without repeats."""
+    return list(dict.fromkeys(IMAGE_NAME.findall(source.decode("utf-8"))))
+
+
+def image_relationships(names: list[str]) -> str:
+    """The relationships part of customUI14.xml: one image relationship per name."""
+    elements = "".join(f'<Relationship Id="{name}" Type="{IMAGE_TYPE}" Target="images/{name}.png"/>'
+                       for name in names)
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f"{elements}</Relationships>")
+
+
+def expected_parts(root: Path) -> dict[str, bytes]:
+    """Every customUI part the template must hold, with its bytes."""
+    source = (root / SOURCE).read_bytes()
+    names = image_names(source)
+    parts = {PART: source}
+    if names:
+        parts[PART_RELATIONSHIPS] = image_relationships(names).encode("utf-8")
+    for name in names:
+        icon = root / ICONS / f"{name}.png"
+        parts[IMAGE_FOLDER + name + ".png"] = icon.read_bytes() if icon.is_file() else b""
+    return parts
+
+
 def problems(root: Path) -> list[str]:
     template, source = root / TEMPLATE, root / SOURCE
     if not source.is_file():
         return [f"{SOURCE} is missing"]
+    expected = expected_parts(root)
+    found: list[str] = []
+    for name, data in expected.items():
+        if name.startswith(IMAGE_FOLDER) and not data:
+            found.append(f"{ICONS}/{name[len(IMAGE_FOLDER):]} is missing; run tools/ribbon_icons.py --write")
     with zipfile.ZipFile(template) as package:
         names = package.namelist()
-        found: list[str] = []
-        others = [n for n in names if n.lower().startswith("customui/") and n != PART]
+        others = [n for n in names if n.lower().startswith("customui/") and n not in expected]
         found += [f"{TEMPLATE}: unexpected customUI part {n}" for n in others]
         if PART not in names:
             return found + [f"{TEMPLATE}: no {PART} part; run tools/ribbon_template.py --write"]
-        if package.read(PART) != source.read_bytes():
-            found.append(f"{TEMPLATE}: {PART} differs from {SOURCE}; run tools/ribbon_template.py --write")
+        for name, data in expected.items():
+            if name not in names:
+                found.append(f"{TEMPLATE}: no {name} part; run tools/ribbon_template.py --write")
+            elif package.read(name) != data:
+                what = SOURCE if name == PART else "its source"
+                found.append(f"{TEMPLATE}: {name} differs from {what}; run tools/ribbon_template.py --write")
         rels = package.read(RELATIONSHIPS).decode("utf-8")
     if ribbon_relationships(rels) != [RELATIONSHIP]:
         found.append(f"{TEMPLATE}: {RELATIONSHIPS} must hold exactly the relationship {RELATIONSHIP}")
@@ -58,8 +106,11 @@ def problems(root: Path) -> list[str]:
 
 
 def write(root: Path) -> None:
-    template, source = root / TEMPLATE, root / SOURCE
-    data = source.read_bytes()
+    template = root / TEMPLATE
+    parts = expected_parts(root)
+    missing = [name for name, data in parts.items() if not data]
+    if missing:
+        raise SystemExit(f"missing icons for {missing}; run tools/ribbon_icons.py --write")
     with zipfile.ZipFile(template) as package:
         infos = package.infolist()
         entries = {info.filename: package.read(info.filename) for info in infos}
@@ -77,9 +128,10 @@ def write(root: Path) -> None:
                 if info.filename.lower().startswith("customui/"):
                     continue
                 output.writestr(info, entries[info.filename], compress_type=info.compress_type)
-            part = zipfile.ZipInfo(PART, date_time=FIXED_TIME)
-            part.compress_type = zipfile.ZIP_DEFLATED
-            output.writestr(part, data)
+            for name, data in parts.items():
+                part = zipfile.ZipInfo(name, date_time=FIXED_TIME)
+                part.compress_type = zipfile.ZIP_DEFLATED
+                output.writestr(part, data)
         os.replace(temporary, template)
     finally:
         if os.path.exists(temporary):
