@@ -218,6 +218,15 @@ computes every block of [`docs/workbook/dashboard.json`](../docs/workbook/dashbo
 from a run's records, as [`docs/workbook/DASHBOARD.md`](../docs/workbook/DASHBOARD.md)
 defines them; `--check` checks the specification. Its tests run in `tool-tests`.
 
+`report.py` is the reference of the formatted run report (#259), which the Export report
+command writes as a PDF or an XLSX: [`docs/workbook/report.json`](../docs/workbook/report.json) lists
+its sections and columns, and [`docs/workbook/REPORT.md`](../docs/workbook/REPORT.md) is its contract.
+The module holds the rules that are computations: the text of an amount, a ratio, a count and a date
+that a PDF shows, independent of the machine's regional settings, Checks by code and the rows of a
+reconciliation that the PDF keeps; `--check` checks the specification. `test_report.py` pins the rules
+with the examples of `report.json`, and `test_report_spec.py` checks the specification against the
+template and the evidence export. Their tests run in `tool-tests`.
+
 `ore_saccr_probe.py` records why Open Source Risk Engine 1.8.17 is not
 registered as a source (#100). It writes a small unmargined portfolio, runs
 ORE's SA-CCR analytic through the PyPI package `open-source-risk-engine` and

@@ -97,6 +97,17 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Specify the formatted run report of the Export report command (#259), the first of three parts.
+  `docs/workbook/REPORT.md` and `docs/workbook/report.json` define a report of the last run as a PDF or
+  an XLSX: the run, the Dashboard (with its ten charts in the PDF), the totals and status per regime,
+  Results per netting set, Checks by code and then by row, both reconciliations and the limitations.
+  The command will refuse in the same cases as Export evidence and leave the workbook unchanged. The
+  PDF shows the rows of a reconciliation that are not `MATCH` and says how many it leaves out; the
+  XLSX has every row. A PDF writes its numbers as text that does not depend on the regional settings
+  of the machine. `tools/report.py` holds these rules, `tools/test_report.py` pins them and
+  `tools/test_report_spec.py` checks the specification against the template. No VBA, no template and
+  no result changes; the writer and the Ribbon command follow.
+
 - **The benchmark on the self-hosted runner** (#771). A run of the Excel quick check started by
   hand may give benchmark sizes (`1000,10000`, for example): the quick check then also runs
   `TEST_Benchmark.RunBenchmark` after the sheet review, through the new `TEST_Suite.Benchmark`,
