@@ -1,6 +1,7 @@
 """The specification of the formatted run report against the template and the code (#259)."""
 from __future__ import annotations
 
+import json
 import re
 import unittest
 import zipfile
@@ -179,6 +180,28 @@ class ReportSpecTests(unittest.TestCase):
         labels = re.findall(r'Items\(\d+, 1\) = "([^"]+)"', body)
         labels[12:12] = re.findall(r'"(Reconciliation of netting sets)", "(Reconciliation of trade legs)"', body)[0]
         self.assertEqual(labels, [r["label"] for r in self.section("run")["rows"]])
+
+    def test_the_report_has_the_look_of_the_workbook_sheets(self) -> None:
+        # The owner's verification of 2026-11-26: the report takes the font, the
+        # header fill and the tab colors of the K-SACCR sheets.
+        style = json.loads((ROOT / "docs" / "workbook" / "sheet-style.json").read_text(encoding="utf-8"))
+        main = read_vba("src/workbook/M_Main.bas")
+
+        def bgr(constant: str) -> str:
+            found = re.search(rf"Private Const {constant}\s+As Long = &H([0-9A-F]{{6}})\b", main)
+            self.assertIsNotNone(found, constant)
+            text = found.group(1) if found else ""
+            return text[4:6] + text[2:4] + text[0:2]  # VBA's BGR as RRGGBB
+
+        self.assertIn(f'Private Const RPT_FONT                As String = "{style["font"]}"', main)
+        self.assertEqual(bgr("RPT_HEADER_FILL"), style["header_fill"])
+        self.assertEqual(bgr("RPT_TAB_REFERENCE"), style["tab_colors"]["Reference"])
+        self.assertEqual(bgr("RPT_TAB_OUTPUT"), style["tab_colors"]["Output"])
+        writer = main[main.index("Private Function WriteReportTable("):]
+        writer = writer[:writer.index("End Function")]
+        self.assertIn(".Font.Color = vbWhite", writer)
+        self.assertIn(".Interior.Color = RPT_HEADER_FILL", writer)
+        self.assertNotIn("RGB(217, 225, 242)", main)
 
     def test_the_vba_suite_checks_every_example_of_the_specification(self) -> None:
         suite = read_vba("tests/modules/TEST_Report.bas")

@@ -34,6 +34,11 @@ the same number of columns, and the run lines are lines of the evidence CSV.
   mode and the clipboard of the K-SACCR workbook are not touched, and the
   fingerprints of the inputs and of the outputs are the same after the export,
   so the results stay current.
+- **The look of the workbook.** The report has the font, the vertical alignment,
+  the header fill (white bold text on `1F3864`) and no gridlines, like the K-SACCR
+  sheets of [`sheet-style.json`](sheet-style.json); Run and Limitations have the tab
+  color of the reference sheets, the other sections that of the output sheets.
+  `tools/test_report_spec.py` holds the writer's colors to that file.
 - **Values only.** The XLSX holds values and formats, with no formula, no macro,
   no name that refers to another workbook and no link to the source workbook.
 - **Units.** Amounts of Results, the totals and the Checks are in the reporting
@@ -123,7 +128,13 @@ cut or continued on another page to the right. The header row of each table
 repeats on every page, and the footer reads "K-SACCR report - run *time* - inputs
 *fingerprint* - page *n* of *N*". The Dashboard tables come first and then the
 pictures of the ten charts, exported from the Dashboard sheet one by one, as the
-sheet shows them. The XLSX holds the same figures as values and has no chart.
+sheet shows them. Excel draws a chart only where it shows it: exported from a
+sheet it did not show, with screen updating off, a chart came out empty, its
+frame and title alone (the owner's verification of 2026-11-26). The export
+therefore shows the Dashboard, with screen updating on, and scrolls each chart
+into view before it is pictured; the Dashboard's scroll position, its selection
+and screen updating are then put back, and the report comes to the front again.
+The XLSX holds the same figures as values and has no chart.
 
 ## 🔄 Life cycle
 
