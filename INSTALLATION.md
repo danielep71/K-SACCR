@@ -292,7 +292,7 @@ The layout and file conventions are defined in
    | 9 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 10 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 11 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, from the Macros dialog until its Ribbon command); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 13 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 14 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 15 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -863,6 +863,21 @@ the currency per 1 unit of the reporting currency, as the market quotes them,
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
 range. `HOLIDAY_TABLE` holds the header of `Holiday_Table` and every closing day in
 its 100 rows, also below a blank row, as the engine reads them all.
+
+### ExportReport_Silent
+
+`ExportReport_Silent(filePath)` writes the formatted report of the run
+(#259, [`docs/workbook/REPORT.md`](docs/workbook/REPORT.md)) without a dialog:
+a PDF or an XLSX workbook, chosen by the extension of `filePath` (`.pdf` or
+`.xlsx`, any case). It refuses another extension and the cases of
+`ExportEvidence_Silent`, with the same reasons, and returns
+`RESULT=OK; format=PDF|XLSX; sheets=N; charts=N; page_setup=OK; file=...` or
+`RESULT=REFUSED; reason=...`. A printer driver that refuses a page setting
+does not stop a PDF: the line then says `page_setup=FAILED (...)`. A report
+that cannot be written raises to the caller, and an older file of the same
+name is left as it was. The workbook, its names and its results are not
+changed. The **Export report** button of the Ribbon runs `ExportReport`, which
+asks for the file and reports the outcome in a message.
 
 ### ReadCsv_Silent
 
