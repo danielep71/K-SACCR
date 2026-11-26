@@ -832,7 +832,10 @@ Use only the categories needed by a release.
   minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
   rejected, the verify log names the windows of that Excel and pictures its dialogs. Each script
   removes the filter once its Excel is closed (`Unregister-ExcelBusyRetry`), so it does not
-  outlive the Excel it was registered for.
+  outlive the Excel it was registered for. The pictures of Excel's dialogs are off unless
+  `Verify-SACCR-Branch.ps1` runs with `-DialogPictures`: Norton's behavioural protection blocked
+  the script as IDP.Generic while the code that captures a window's image was compiled on every
+  run, so it is compiled only on request.
 
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows
@@ -929,6 +932,17 @@ Use only the categories needed by a release.
   the `validate.context` case of `TEST_Import` stages such a trade.
 
 ### Documentation
+
+- State in the methodology where the business-day convention of the day count comes from (#721).
+  The owner checked Articles 279a to 279c of the CRR consolidated text in force on 2026-11-26
+  (26.06.2026) word for word: T (279a(1)(a)), S and E (279b(1)(a)), M (279c(1)(a)) and
+  OneBusinessYear (279b(1)(a), 279c(1)(a) and (b)) are expressed "using the relevant business day
+  convention" ("pertinente convenzione sui giorni lavorativi"), with no calendar or divisor named.
+  The methodology now cites each point, calls 250 business days a model assumption in the unit the
+  text requires, and calls the default ACTUAL/365 on an empty calendar the engine's historical
+  default rather than a convention the CRR approves. It no longer says the phrase was not re-read,
+  and gives the example of a bank's engine that counts S and E in business days over 250, with the
+  settings that reconcile with it.
 
 - **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
   scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
