@@ -642,7 +642,7 @@ of `docs/workbook/report.json`, Checks by code and the refusals of Export eviden
 It writes an XLSX of the demonstration run through `ExportReport_Silent` and reads it
 back from the file: the sheets in order, values only, no link and no macro, the input
 fingerprint, the reporting date as a date, the EAD of the CRR total, the rows of
-Checks counted by code and the eight limitations. It writes a PDF with the
+Checks counted by code, and no Limitations sheet. It writes a PDF with the
 Dashboard's charts; the pages themselves are checked by eye. A failure before the
 save, during the replacement of an older report and on a read-only file each leave
 the older report as it was. The results stay current throughout. The files are

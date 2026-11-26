@@ -104,6 +104,12 @@ Use only the categories needed by a release.
   Home and README sheets name it. After the owner's verification in Excel, the PDF's charts are
   pictured with the Dashboard shown, as Excel exported them empty from a sheet it did not show, and
   the report takes the font, header fill, tab colors and hidden gridlines of the K-SACCR sheets.
+- Finish the formatted run report after the owner's verification in Excel (#259): the PDF's charts
+  are pictured with the Dashboard zoomed to 300%, at three times the screen's resolution, and laid
+  out in rows that never cross a page (the Charts sheet is printed at a computed zoom, with a page
+  break before a row that would cross one; every report sheet gets the same margins). The report
+  no longer has a Limitations sheet, which the owner found of no use: the limitations stay in the
+  evidence CSV. `TEST_Report` checks that no such sheet is written (still 54 checks).
 - Write the formatted run report (#259), the second of three parts: `ExportReport` and
   `ExportReport_Silent` write a report of the last run as a PDF or an XLSX, chosen by the file's
   extension, in the order and formats of `docs/workbook/report.json`. The report is built in a new

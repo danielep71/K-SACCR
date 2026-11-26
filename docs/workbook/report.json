@@ -224,14 +224,6 @@
         {"header": "Note", "kind": "text"},
         {"header": "Economic trade ID", "kind": "text"}
       ]
-    },
-    {
-      "id": "limitations",
-      "sheet": "Limitations",
-      "title": "Limitations",
-      "layout": "list",
-      "source": "CORE_Export.LimitationLines, the seven statements of the evidence CSV, then one more: the report is a readable view of the run, and the CSV of Export evidence is its machine-readable record",
-      "statements": 8
     }
   ]
 }

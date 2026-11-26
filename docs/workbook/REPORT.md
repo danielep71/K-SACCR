@@ -4,8 +4,9 @@ The **Export report** command (#259) writes a formatted report of the last run,
 as a PDF or as an XLSX workbook, for a reviewer who reads results rather than
 parses them. It opens with the figures of the [Dashboard](DASHBOARD.md) and then
 gives the evidence behind them. The CSV that **Export evidence** writes stays
-the machine-readable record of the run; the report is a readable view of the
-same run and says so in its limitations.
+the machine-readable record of the run, with its limitations; the report is a
+readable view of the same run. It has no limitations sheet: the owner found it
+of no use in the PDF (2026-11-26).
 
 This document is the contract of the report. The machine-readable form is
 [`report.json`](report.json): the sections, their columns and kinds, the formats
@@ -36,8 +37,8 @@ the same number of columns, and the run lines are lines of the evidence CSV.
   so the results stay current.
 - **The look of the workbook.** The report has the font, the vertical alignment,
   the header fill (white bold text on `1F3864`) and no gridlines, like the K-SACCR
-  sheets of [`sheet-style.json`](sheet-style.json); Run and Limitations have the tab
-  color of the reference sheets, the other sections that of the output sheets.
+  sheets of [`sheet-style.json`](sheet-style.json); Run has the tab color of the
+  reference sheets, the other sections that of the output sheets.
   `tools/test_report_spec.py` holds the writer's colors to that file.
 - **Values only.** The XLSX holds values and formats, with no formula, no macro,
   no name that refers to another workbook and no link to the source workbook.
@@ -63,7 +64,6 @@ columns.
 | Checks | `Checks` | A table with a row per code, its highest severity and its number of rows; then every row of Checks, grouped by code | | |
 | Reconciliation | `Reconciliation` | The summary of the reconciliation of netting sets and its rows, when the sheet holds a comparison | every row | every row that is not `MATCH` |
 | Trade reconciliation | `TradeReconciliation` | The summary of the reconciliation of trade legs and its rows, when the sheet holds a comparison | every row | every row that is not `MATCH` |
-| Limitations | `Limitations` | The seven statements of the evidence CSV and one more: the report is a readable view of the run, and the CSV of Export evidence is its machine-readable record | | |
 
 A reconciliation that was not made, or whose sheets the workbook does not have,
 has no sheet in the report; the Run sheet says `NOT MADE` or `UNAVAILABLE` as the
@@ -132,8 +132,15 @@ sheet shows them. Excel draws a chart only where it shows it: exported from a
 sheet it did not show, with screen updating off, a chart came out empty, its
 frame and title alone (the owner's verification of 2026-11-26). The export
 therefore shows the Dashboard, with screen updating on, and scrolls each chart
-into view before it is pictured; the Dashboard's scroll position, its selection
-and screen updating are then put back, and the report comes to the front again.
+into view before it is pictured, with the window zoomed to 300% so that each
+picture has three times the screen's resolution; the Dashboard's zoom, scroll
+position, selection and screen updating are then put back, and the report comes
+to the front again. The pictures are laid out in rows, two wide charts or three
+narrow ones, and a row that would cross a page starts a new one: the Charts sheet
+is printed at the zoom at which its widest row fits the page, since Excel ignores
+manual page breaks on a sheet printed to fit a number of pages. Every sheet of
+the PDF has the same margins, 0.7 inch at the sides and 0.75 inch at the top and
+bottom.
 The XLSX holds the same figures as values and has no chart.
 
 ## 🔄 Life cycle

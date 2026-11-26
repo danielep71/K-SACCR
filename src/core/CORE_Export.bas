@@ -264,8 +264,8 @@ Public Function LimitationTexts() As Variant
 '   report: what the report does and does not show
 '
 ' WHY THIS EXISTS
-'   The evidence CSV (#45) and the formatted run report (#259) state the
-'   same limitations; one list keeps them the same
+'   The evidence CSV (#45) states what it does and does not show;
+'   LimitationLines writes the statements, numbered
 '
 ' INPUTS
 '   None
@@ -283,7 +283,8 @@ Public Function LimitationTexts() As Variant
 '   None
 '
 ' NOTES
-'   ReportLimitationTexts adds the statement of the formatted report
+'   The formatted run report (#259) has no limitations sheet: the owner
+'   found it of no use (2026-11-26)
 '
 ' UPDATED
 '   2026-11-26
@@ -1355,66 +1356,6 @@ Public Function ReportOmittedNote( _
             ReportOmittedNote = VBA.CStr(Omitted) & " rows with the result MATCH are left out; the workbook " & _
                                 "version of the report has every row."
         End If
-
-End Function
-
-
-Public Function ReportLimitationTexts() As Variant
-
-'
-'------------------------------------------------------------------------------
-'                      LIST THE LIMITATIONS OF A RUN REPORT
-'------------------------------------------------------------------------------
-' PURPOSE
-'   Returns the statements of the Limitations sheet of a formatted run
-'   report: those of the evidence CSV and one more
-'
-' WHY THIS EXISTS
-'   The report is a readable view of the run, and the CSV of Export
-'   evidence its machine-readable record (#259); docs/workbook/report.json
-'   counts eight statements
-'
-' INPUTS
-'   None
-'
-' RETURNS
-'   A zero-based array of the eight statements
-'
-' BEHAVIOR
-'   Copies LimitationTexts and adds the report's statement
-'
-' ERROR POLICY
-'   None
-'
-' DEPENDENCIES
-'   LimitationTexts
-'
-' NOTES
-'   None
-'
-' UPDATED
-'   2026-11-26
-'------------------------------------------------------------------------------
-
-'------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim Notes   As Variant    'The statements of the evidence CSV
-    Dim Texts   As Variant    'The statements of the report
-    Dim i       As Long       'Statement
-
-'------------------------------------------------------------------------------
-' RETURN VALUE
-'------------------------------------------------------------------------------
-    'The evidence CSV's statements, then the report's
-        Notes = LimitationTexts()
-        ReDim Texts(0 To UBound(Notes) - LBound(Notes) + 1)
-        For i = LBound(Notes) To UBound(Notes)
-            Texts(i - LBound(Notes)) = Notes(i)
-        Next i
-        Texts(UBound(Texts)) = "This report is a readable view of the run; the CSV written by Export evidence is " & _
-                               "its machine-readable record."
-        ReportLimitationTexts = Texts
 
 End Function
 

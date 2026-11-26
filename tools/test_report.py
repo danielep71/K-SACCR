@@ -159,7 +159,7 @@ class MeasureTests(unittest.TestCase):
         self.assertEqual(report.cell_text(report.measure_kind("EAD", ratios), 0.958585), "0.96")
 
     def test_the_trade_measures_that_are_not_amounts(self) -> None:
-        ratios = report.load_spec()["sections"][-2]["measure_ratios"]
+        ratios = next(s for s in report.load_spec()["sections"] if s["id"] == "trade_reconciliation")["measure_ratios"]
         for measure in ("M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined"):
             self.assertEqual(report.measure_kind(measure, ratios), "ratio", measure)
         for measure in ("Notional", "MtM", "Adjusted notional d", "Effective notional unmargined",
