@@ -91,7 +91,7 @@ body:
     id: target_date
     attributes:
       label: "📅 Target date"
-      description: "Optional planning date in YYYY-MM-DD format, no later than the milestone deadline."
+      description: "ISO calendar date YYYY-MM-DD (Europe/Rome) when the work is planned to be done, no later than the milestone deadline (the deadline day itself is allowed)."
       placeholder: "2027-01-15"
     validations:
-      required: false
+      required: true
