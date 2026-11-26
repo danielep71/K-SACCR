@@ -22,6 +22,7 @@ PWSH = shutil.which("pwsh")
 CREATES_EXCEL = "New-Object -ComObject Excel.Application"
 DOT_SOURCE = '. (Join-Path $PSScriptRoot "Excel-BusyRetry.ps1")'
 REGISTER = "[void](Register-ExcelBusyRetry)"
+UNREGISTER = "Unregister-ExcelBusyRetry"
 
 
 class ScriptsRegisterTheFilter(unittest.TestCase):
@@ -36,6 +37,18 @@ class ScriptsRegisterTheFilter(unittest.TestCase):
                 self.assertIn(REGISTER, text)
                 self.assertLess(text.index(DOT_SOURCE), text.index(REGISTER))
                 self.assertLess(text.index(REGISTER), text.index(CREATES_EXCEL))
+
+    def test_every_script_that_starts_excel_removes_the_filter_once_excel_is_closed(self) -> None:
+        scripts = [path for path in sorted(TOOLS.glob("*.ps1"))
+                   if CREATES_EXCEL in path.read_text(encoding="utf-8-sig")]
+        for path in scripts:
+            text = path.read_text(encoding="utf-8-sig")
+            with self.subTest(script=path.name):
+                self.assertEqual(text.count(UNREGISTER), 1)
+                # Check-SACCR-Protection closes its last Excel through Close-Workbook.
+                last_close = max(text.rfind(".Quit()"), text.rfind("    Close-Workbook\n"))
+                self.assertGreater(last_close, text.index(CREATES_EXCEL))
+                self.assertLess(last_close, text.index(UNREGISTER))
 
     def test_the_verify_log_reports_the_retries_and_names_the_windows(self) -> None:
         text = (TOOLS / "Verify-SACCR-Branch.ps1").read_text(encoding="utf-8-sig")

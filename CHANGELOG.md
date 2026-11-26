@@ -830,7 +830,9 @@ Use only the categories needed by a release.
   it creates its picture workbook, letting a refresh the suites left pending run there. Every script that starts Excel also
   registers an OLE message filter, `tools/Excel-BusyRetry.ps1`, which retries for up to two
   minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
-  rejected, the verify log names the windows of that Excel and pictures its dialogs.
+  rejected, the verify log names the windows of that Excel and pictures its dialogs. Each script
+  removes the filter once its Excel is closed (`Unregister-ExcelBusyRetry`), so it does not
+  outlive the Excel it was registered for.
 
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows

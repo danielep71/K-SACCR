@@ -679,6 +679,7 @@ catch {
 }
 finally {
     Close-Workbook
+    Unregister-ExcelBusyRetry
 }
 
 # ----------------------------------------------------------------------------
