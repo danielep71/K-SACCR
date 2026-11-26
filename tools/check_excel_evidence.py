@@ -45,7 +45,7 @@ RECORD_KEYS = ("schema_version repository candidate_sha execution availability_r
                "negative_runs summary")
 POLICY_KEYS = ("schema_version repository entry_point cases assertions expected_error_cases "
                "required_references suites negative_runs summary_entry_point")
-# The harness's negative controls (E03 of the K-TEMPLATE alignment): runs that must fail as
+# The harness's negative controls: runs that must fail as
 # designed, reported as such, and reach their caller as the suite failure error.
 NEGATIVE_POLICY_KEYS = "entry_point mode log completeness cases assertions failure error"
 NEGATIVE_RECORD_KEYS = "entry_point status log"

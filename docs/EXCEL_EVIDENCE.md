@@ -553,8 +553,8 @@ When Excel was not run, use the same identity and time fields with
 
 A passing harness shows that its cases pass; it does not show that a failure
 would be reported. The policy's `negative_runs` are runs of the harness that
-must fail, and the record binds each to its own log (as in K-TEMPLATE's
-`INJECTED_FAILURE` and `SKIPPED_CASE` modes):
+must fail, and the record binds each to its own log (the `INJECTED_FAILURE`
+and `SKIPPED_CASE` modes):
 
 | Entry point | Log | Its log must show |
 | --- | --- | --- |
