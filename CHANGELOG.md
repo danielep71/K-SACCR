@@ -928,6 +928,14 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
+  scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
+  and review threads, the notifications and the repository's wording against the evidence: the
+  code, the merged PRs, the CI and Excel results. It corrects what the evidence supports and
+  reports what it cannot settle, and ends with a report of coverage, changes and open findings. It
+  changes no code and publishes nothing. The maintainer checklist has a matching gate, and the later
+  steps move one number down.
+
 - Document the CSV import of the bank sheets (#718, third part). The import
   specification page has a section on how a bank file is loaded (as a whole, with a
   question before figures are replaced, text for the identifier, regime and comment,
