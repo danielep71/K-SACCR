@@ -50,6 +50,31 @@ class TextTests(unittest.TestCase):
         self.assertEqual(report.datetime_text(46352 + 86399.6 / 86400), "2026-11-27 00:00:00")
         self.assertEqual(report.datetime_text(46352.75), "2026-11-26 18:00:00")
 
+    def test_a_text_or_a_logical_value_in_a_column_of_numbers_stays_as_it_is(self) -> None:
+        self.assertEqual(report.cell_text("amount", "n/a"), "n/a")
+        self.assertEqual(report.cell_text("count", True), "TRUE")
+        self.assertEqual(report.cell_text("ratio", False), "FALSE")
+
+    def test_a_number_in_a_text_column_has_its_15_digit_form(self) -> None:
+        self.assertEqual(report.cell_text("text", 14), "14")
+        self.assertEqual(report.cell_text("text", 1.5), "1.5")
+        self.assertEqual(report.cell_text("text", 0.1 + 0.2), "0.3")
+
+    def test_a_value_follows_the_number_format_of_its_cell(self) -> None:
+        self.assertEqual(report.format_text(1234.5678, "#,##0.00"), "1,234.57")
+        self.assertEqual(report.format_text(1234.5678, "0.0"), "1234.6")
+        self.assertEqual(report.format_text(0.12345, "0.0%"), "12.3%")
+        self.assertEqual(report.format_text(0.0045, "0.0%"), "0.5%")
+        self.assertEqual(report.format_text(0.5, "0%"), "50%")
+        self.assertEqual(report.format_text(12, "#,##0"), "12")
+        self.assertEqual(report.format_text(1234567, "#,##0;[Red]-#,##0"), "1,234,567")
+        self.assertEqual(report.format_text(-1234567, "#,##0;[Red]-#,##0"), "-1,234,567")
+        self.assertEqual(report.format_text(46295, "yyyy-mm-dd"), "2026-09-30")
+        self.assertEqual(report.format_text(46352.75, "yyyy-mm-dd hh:mm:ss"), "2026-11-26 18:00:00")
+        self.assertEqual(report.format_text(0.25, "General"), "0.25")
+        self.assertEqual(report.format_text("EUR thousand", "@"), "EUR thousand")
+        self.assertEqual(report.format_text(None, "0.00"), "")
+
     def test_an_unknown_kind_is_refused(self) -> None:
         with self.assertRaises(report.ReportError):
             report.cell_text("percent", 1)

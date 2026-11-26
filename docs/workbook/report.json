@@ -73,6 +73,8 @@
         {"key": "fx_source", "label": "FX rate source", "kind": "text", "source": "CORE_Engine.FxSourceText"},
         {"key": "inputs", "label": "Input fingerprint", "kind": "text", "source": "CORE_Engine.LastRunInputs"},
         {"key": "outputs", "label": "Output fingerprint", "kind": "text", "source": "stored outputs fingerprint"},
+        {"key": "reconciliation", "label": "Reconciliation of netting sets", "kind": "text", "source": "CURRENT, NOT MADE or UNAVAILABLE, as the evidence CSV"},
+        {"key": "trade_reconciliation", "label": "Reconciliation of trade legs", "kind": "text", "source": "CURRENT, NOT MADE or UNAVAILABLE, as the evidence CSV"},
         {"key": "units", "label": "Units", "kind": "text", "source": "reporting currency; amounts unscaled unless a table says otherwise"}
       ]
     },

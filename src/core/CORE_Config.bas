@@ -637,6 +637,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or kind, file or column not in the contract
         Public Const ERR_STAGING_WRITE    As Long = vbObjectError + 2062    'Staging sheet missing or not written as read
         Public Const ERR_PARAMS_WRITE     As Long = vbObjectError + 2063    'Params not written as read (#357)
+        Public Const ERR_REPORT_VALUE     As Long = vbObjectError + 2064    'A value the run report cannot show (#259)
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

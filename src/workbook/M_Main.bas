@@ -226,6 +226,26 @@ Attribute VB_Name = "M_Main"
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
         Private Const RECON_TR      As Long = 2    'BankTrades against TradeCalc
 
+    'The formatted run report (#259): the kinds of the columns of each table
+    'and the measures of a reconciliation that are not amounts, as
+    'docs/workbook/report.json lists them (tools/test_report_spec.py).
+        Private Const RPT_TOTALS_HEADERS      As String = "Regime|V (sum MtM)|C (VM + NICA)|RC|AddOn IR|AddOn FX|" & _
+                                                          "AddOn CR|AddOn EQ|AddOn CO|AddOn OT|AddOn aggregate|PFE|EAD|Status"
+        Private Const RPT_TOTALS_KINDS        As String = "text|amount|amount|amount|amount|amount|amount|amount|" & _
+                                                          "amount|amount|amount|amount|amount|text"
+        Private Const RPT_RESULTS_KINDS       As String = "text|text|text|text|count|count|amount|amount|amount|" & _
+                                                          "amount|amount|amount|amount|amount|amount|amount|ratio|" & _
+                                                          "amount|ratio|amount|amount|amount|text|amount|amount|" & _
+                                                          "amount|ratio|text"
+        Private Const RPT_CHECKS_KINDS        As String = "text|text|count|text|text|text|text|text"
+        Private Const RPT_RECON_KINDS         As String = "text|count|text|text|text|text|measure|measure|measure|" & _
+                                                          "ratio|text|text"
+        Private Const RPT_TRADE_RECON_KINDS   As String = "text|count|text|text|text|text|measure|measure|measure|" & _
+                                                          "ratio|text|text|text"
+        Private Const RPT_RECON_RATIOS        As String = "Multiplier"
+        Private Const RPT_TRADE_RECON_RATIOS  As String = "M|Supervisory duration|Supervisory delta|MF unmargined|" & _
+                                                          "MF margined"
+
 '------------------------------------------------------------------------------
 ' TYPES
 '------------------------------------------------------------------------------
@@ -1976,6 +1996,2344 @@ Private Function InputsNameOf( _
         InputsNameOf = IIf(ReconKind = RECON_NS, RECON_INPUTS_NAME, TRADE_RECON_INPUTS_NAME)
 
 End Function
+
+
+'
+'------------------------------------------------------------------------------
+'
+'                              RUN REPORT EXPORT
+'
+'------------------------------------------------------------------------------
+'
+
+Public Sub ExportReport()
+
+'
+'------------------------------------------------------------------------------
+'                    WRITE A FORMATTED REPORT OF THE LAST RUN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes a formatted report of the last run (#259), as a PDF or an XLSX
+'   chosen by the user in the Save As dialog
+'
+' WHY THIS EXISTS
+'   A reviewer reads results rather than parses them: the report opens
+'   with the Dashboard and gives the evidence behind it. The CSV of Export
+'   evidence stays the machine-readable record (docs/workbook/REPORT.md)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Refuses, with the reason, in the cases of Export evidence
+'     (EvidenceProblem)
+'   - Asks for the file; the extension, .pdf or .xlsx, decides the format
+'   - Writes the report (WriteReport) and says where
+'
+' ERROR POLICY
+'   Reports a refusal or a failure in a message, or in the Immediate
+'   window in silent mode; never raises
+'
+' DEPENDENCIES
+'   EvidenceProblem, ReportFileFormat, WriteReport, DefaultReportName,
+'   Notify
+'
+' NOTES
+'   The Ribbon command follows with #259; the macro runs from the Macros
+'   dialog meanwhile
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.ExportReport"
+
+    Dim Problem         As String     'Why the report cannot be written; "" when it can
+    Dim ChosenFile      As Variant    'Chosen file, or False when cancelled
+    Dim FileFormat      As String     'PDF or XLSX; "" for another extension
+    Dim Written         As String     'What WriteReport wrote
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' CHECK THE RUN
+'------------------------------------------------------------------------------
+    'The report describes the run the evidence CSV would describe, or none
+        Problem = EvidenceProblem()
+        If VBA.Len(Problem) > 0 Then
+            Notify "Report not exported: " & Problem & ".", vbExclamation
+            Exit Sub
+        End If
+
+'------------------------------------------------------------------------------
+' ASK FOR THE FILE
+'------------------------------------------------------------------------------
+    'The extension of the chosen file decides the format
+        ChosenFile = Application.GetSaveAsFilename(InitialFileName:=DefaultReportName(), _
+                                                   FileFilter:="PDF files (*.pdf), *.pdf, " & _
+                                                               "Excel workbooks (*.xlsx), *.xlsx", _
+                                                   Title:="Export report")
+        If VarType(ChosenFile) = vbBoolean Then
+            Exit Sub
+        End If
+        FileFormat = ReportFileFormat(CStr(ChosenFile))
+        If VBA.Len(FileFormat) = 0 Then
+            Notify "Report not exported: the file name must end in .pdf or .xlsx.", vbExclamation
+            Exit Sub
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Write the report and say where
+        Written = WriteReport(CStr(ChosenFile), FileFormat = "PDF")
+        Notify "Report exported as " & FileFormat & " (" & Written & "):" & vbLf & vbLf & CStr(ChosenFile), _
+               vbInformation
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed; WriteReport has put everything back
+        Notify "Report not exported: " & Err.Description, vbCritical
+
+End Sub
+
+
+Public Function ExportReport_Silent( _
+    ByVal FilePath As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'              WRITE A FORMATTED REPORT OF THE LAST RUN, UNATTENDED
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the formatted report of the last run (#259) to FilePath
+'   without asking, for automation and tests
+'
+' WHY THIS EXISTS
+'   The macro entry point of the report, as ExportEvidence_Silent is that
+'   of the evidence CSV
+'
+' INPUTS
+'   FilePath
+'     The file to write, ending in .pdf or .xlsx (any case); an existing
+'     file is replaced, unless it is read-only
+'
+' RETURNS
+'   "RESULT=OK; format=PDF|XLSX; sheets=N; charts=N; page_setup=...;
+'   file=..." or "RESULT=REFUSED; reason=..."
+'
+' BEHAVIOR
+'   Refuses another extension and the cases of EvidenceProblem, then
+'   calls WriteReport
+'
+' ERROR POLICY
+'   A report that cannot be written raises to the caller, after
+'   WriteReport has put everything back
+'
+' DEPENDENCIES
+'   ReportFileFormat, EvidenceProblem, WriteReport
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.ExportReport_Silent"
+
+    Dim FileFormat      As String    'PDF or XLSX; "" for another extension
+    Dim Problem         As String    'Why the report cannot be written; "" when it can
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Only the two formats of the report
+        FileFormat = ReportFileFormat(FilePath)
+        If VBA.Len(FileFormat) = 0 Then
+            ExportReport_Silent = "RESULT=REFUSED; reason=the file name must end in .pdf or .xlsx"
+            Exit Function
+        End If
+    'The run the evidence CSV would describe, or none
+        Problem = EvidenceProblem()
+        If VBA.Len(Problem) > 0 Then
+            ExportReport_Silent = "RESULT=REFUSED; reason=" & Problem
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'WriteReport raises to the caller
+        ExportReport_Silent = "RESULT=OK; format=" & FileFormat & "; " & _
+                              WriteReport(FilePath, FileFormat = "PDF") & "; file=" & FilePath
+
+End Function
+
+
+Private Function ReportFileFormat( _
+    ByVal FilePath As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                     TELL THE FORMAT OF A REPORT FILE
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns "PDF" or "XLSX" from the extension of a file name, any case;
+'   "" for another extension
+'
+' WHY THIS EXISTS
+'   The extension the user types or chooses decides the format (#259)
+'
+' INPUTS
+'   FilePath
+'     A file name or path
+'
+' RETURNS
+'   "PDF", "XLSX" or ""
+'
+' BEHAVIOR
+'   Compares the last characters of the name
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The extension, compared without case
+        If VBA.LCase$(VBA.Right$(FilePath, 4)) = ".pdf" Then
+            ReportFileFormat = "PDF"
+        ElseIf VBA.LCase$(VBA.Right$(FilePath, 5)) = ".xlsx" Then
+            ReportFileFormat = "XLSX"
+        Else
+            ReportFileFormat = vbNullString
+        End If
+
+End Function
+
+
+Private Function DefaultReportName() As String
+
+'
+'------------------------------------------------------------------------------
+'                       OFFER A NAME FOR A RUN REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the file name offered for a report: K-SACCR_report_ with the
+'   date and time, as a PDF, in the workbook's folder when it has one
+'
+' WHY THIS EXISTS
+'   The Save As dialog of Export report starts from it (#259)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   The file name or path
+'
+' BEHAVIOR
+'   As DefaultEvidenceName, with the name and extension of a report
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   InWorkbookFolder
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The date and time keep reports of different runs apart
+        DefaultReportName = InWorkbookFolder("K-SACCR_report_" & VBA.Format$(VBA.Now, "yyyymmdd-hhnnss") & ".pdf")
+
+End Function
+
+
+Private Function WriteReport( _
+    ByVal FilePath As String, _
+    ByVal AsPdf As Boolean) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                BUILD THE RUN REPORT IN A NEW WORKBOOK AND SAVE IT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Builds the formatted report of the last run in a new, temporary
+'   workbook, one sheet per section of docs/workbook/report.json, and
+'   saves it as an XLSX or exports it as a PDF to FilePath
+'
+' WHY THIS EXISTS
+'   The report must leave the K-SACCR workbook as it is (#259): no sheet,
+'   name, cell or setting of it changes, so its results stay current
+'
+' INPUTS
+'   FilePath
+'     The file to write; an existing file is replaced, unless it is
+'     read-only
+'   AsPdf
+'     True for a PDF, with the charts and the reconciliation rows that
+'     are not MATCH; False for an XLSX with every row
+'
+' RETURNS
+'   "sheets=N; charts=N; page_setup=OK" or, when the page setup of a PDF
+'   could not be applied, "page_setup=FAILED (...)"
+'
+' BEHAVIOR
+'   - Refuses a read-only target before anything is built
+'   - Turns off screen updating, alerts and events
+'   - Writes Run, Dashboard, Charts (PDF only), Totals, Results, Checks,
+'     the two reconciliations when they were made, and Limitations
+'   - Saves or exports beside the target, closes the new workbook and
+'     replaces the target (ReplaceReportFile)
+'
+' ERROR POLICY
+'   Raises the first error after closing the new workbook unsaved,
+'   deleting its file and putting back the settings and the active sheet;
+'   an older target is left as it was
+'
+' DEPENDENCIES
+'   AddReportSheet, WriteReportRun, WriteReportDashboard,
+'   WriteReportCharts, WriteReportTotals, WriteReportResults,
+'   WriteReportChecks, WriteReportReconciliation, WriteReportLimitations,
+'   ApplyReportPageSetup, ReportSiblingPath, ReplaceReportFile
+'
+' NOTES
+'   gTestFault "report-save" raises before the file is saved, and
+'   "report-replace" while the older file is replaced
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME         As String = "M_Main.WriteReport"
+
+    Dim SavedScreen         As Boolean      'ScreenUpdating before the report
+    Dim SavedAlerts         As Boolean      'DisplayAlerts before the report
+    Dim SavedEvents         As Boolean      'EnableEvents before the report
+    Dim SavedBook           As Workbook     'Active workbook before the report
+    Dim SavedSheet          As Object       'Active sheet before the report
+    Dim StateCaptured       As Boolean      'True once the settings were read
+    Dim ReportBook          As Workbook     'The new workbook; Nothing once closed
+    Dim ReportSheet         As Worksheet    'A sheet of the report
+    Dim NewPath             As String       'The file before it replaces FilePath; "" once renamed
+    Dim SheetCount          As Long         'Sheets written
+    Dim ChartCount          As Long         'Charts pictured
+    Dim SetupProblems       As String       'Page settings that could not be applied
+    Dim Footer              As String       'Footer of every page of a PDF
+    Dim TitleRow            As Long         'Row a sheet repeats on its pages; 0 for none
+    Dim kind                As Long         'Reconciliation
+    Dim ErrorNumber         As Long         'First error; 0 on success
+    Dim ErrorSource         As String       'Its source
+    Dim ErrorText           As String       'Its description
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+    'A read-only target fails before anything is built
+        If FileExists(FilePath) Then
+            If (GetAttr(FilePath) And vbReadOnly) <> 0 Then
+                Err.Raise ERR_EXPORT_WRITE, PROC_NAME, "the file is read-only"
+            End If
+        End If
+    'Capture the settings the report changes
+        SavedScreen = Application.ScreenUpdating
+        SavedAlerts = Application.DisplayAlerts
+        SavedEvents = Application.EnableEvents
+        Set SavedBook = Application.ActiveWorkbook
+        If Not SavedBook Is Nothing Then
+            Set SavedSheet = SavedBook.ActiveSheet
+        End If
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.DisplayAlerts = False
+        Application.EnableEvents = False
+
+'------------------------------------------------------------------------------
+' BUILD THE REPORT
+'------------------------------------------------------------------------------
+    'A new workbook with one sheet, named after the run's own
+        Set ReportBook = Application.Workbooks.Add(xlWBATWorksheet)
+        ReportBook.BuiltinDocumentProperties("Author").Value = MSG_TITLE
+        ReportBook.BuiltinDocumentProperties("Title").Value = "K-SACCR run report"
+    'One sheet per section, in the order of report.json; the pages of a
+    'PDF are set up as each sheet is written
+        Footer = "K-SACCR report - run " & ReportRunTime() & " - inputs " & CORE_Engine.LastRunInputs() & _
+                 " - page &P of &N"
+        Set ReportSheet = AddReportSheet(ReportBook, "Run")
+        TitleRow = WriteReportRun(ReportSheet)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Set ReportSheet = AddReportSheet(ReportBook, "Dashboard")
+        TitleRow = WriteReportDashboard(ReportSheet, AsPdf)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        If AsPdf Then
+            Set ReportSheet = AddReportSheet(ReportBook, "Charts")
+            ChartCount = WriteReportCharts(ReportSheet)
+            SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, 0)
+        End If
+        Set ReportSheet = AddReportSheet(ReportBook, "Totals")
+        TitleRow = WriteReportTotals(ReportSheet, AsPdf)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Set ReportSheet = AddReportSheet(ReportBook, "Results")
+        TitleRow = WriteReportResults(ReportSheet, AsPdf)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Set ReportSheet = AddReportSheet(ReportBook, "Checks")
+        TitleRow = WriteReportChecks(ReportSheet, AsPdf)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        For kind = RECON_NS To RECON_TR
+            If ReconciliationSheetsPresent(kind) Then
+                If VBA.Len(StoredText(InputsNameOf(kind))) > 0 Then
+                    Set ReportSheet = AddReportSheet(ReportBook, _
+                                                     IIf(kind = RECON_NS, "Reconciliation", "TradeReconciliation"))
+                    TitleRow = WriteReportReconciliation(ReportSheet, kind, AsPdf)
+                    If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+                End If
+            End If
+        Next kind
+        Set ReportSheet = AddReportSheet(ReportBook, "Limitations")
+        TitleRow = WriteReportLimitations(ReportSheet, AsPdf)
+        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        SheetCount = ReportBook.Worksheets.Count
+
+'------------------------------------------------------------------------------
+' SAVE AND REPLACE
+'------------------------------------------------------------------------------
+    'Save beside the target, then replace it
+        If gTestFault = "report-save" Then
+            Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected failure before the report was saved."
+        End If
+        NewPath = ReportSiblingPath(FilePath)
+        If AsPdf Then
+            ReportBook.ExportAsFixedFormat Type:=xlTypePDF, Filename:=NewPath, Quality:=xlQualityStandard, _
+                                           IncludeDocProperties:=False, IgnorePrintAreas:=False, _
+                                           OpenAfterPublish:=False
+        Else
+            ReportBook.SaveAs Filename:=NewPath, FileFormat:=xlOpenXMLWorkbook
+        End If
+        ReportBook.Close SaveChanges:=False
+        Set ReportBook = Nothing
+        ReplaceReportFile NewPath, FilePath
+        NewPath = vbNullString
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'What was written
+        WriteReport = "sheets=" & SheetCount & "; charts=" & ChartCount & "; page_setup=" & _
+                      IIf(VBA.Len(SetupProblems) = 0, "OK", "FAILED (" & SetupProblems & ")")
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Reached on success and, through the handler, after an error; a
+    'cleanup error never replaces the first
+CleanUp:
+        On Error Resume Next
+        If Not ReportBook Is Nothing Then
+            ReportBook.Close SaveChanges:=False
+        End If
+        If VBA.Len(NewPath) > 0 Then
+            If FileExists(NewPath) Then Kill NewPath
+        End If
+        If StateCaptured Then
+            If Not SavedBook Is Nothing Then SavedBook.Activate
+            If Not SavedSheet Is Nothing Then SavedSheet.Activate
+            Application.EnableEvents = SavedEvents
+            Application.DisplayAlerts = SavedAlerts
+            Application.ScreenUpdating = SavedScreen
+        End If
+        On Error GoTo 0
+        If ErrorNumber <> 0 Then
+            Err.Raise ErrorNumber, ErrorSource, "Could not write the report " & FilePath & ": " & ErrorText
+        End If
+        Exit Function
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Keep the first error for the caller
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
+        Resume CleanUp
+
+End Function
+
+
+Private Function AddReportSheet( _
+    ByVal ReportBook As Workbook, _
+    ByVal SheetName As String) _
+    As Worksheet
+'
+'------------------------------------------------------------------------------
+'                       ADD A SHEET TO THE RUN REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns a sheet of the report named SheetName: the workbook's first
+'   sheet when it has none named yet, else a new sheet after the last
+'
+' WHY THIS EXISTS
+'   A new workbook has one sheet; each section of the report adds one
+'
+' INPUTS
+'   ReportBook
+'     The report's workbook
+'   SheetName
+'     The section's sheet name (report.json)
+'
+' RETURNS
+'   The sheet
+'
+' BEHAVIOR
+'   Uses the first sheet for Run, then adds sheets at the end
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim NewSheet   As Worksheet    'The sheet
+
+'------------------------------------------------------------------------------
+' ADD
+'------------------------------------------------------------------------------
+    'The first section takes the sheet the workbook was created with
+        If SheetName = "Run" Then
+            Set NewSheet = ReportBook.Worksheets(1)
+        Else
+            Set NewSheet = ReportBook.Worksheets.Add(After:=ReportBook.Worksheets(ReportBook.Worksheets.Count))
+        End If
+        NewSheet.Name = SheetName
+        Set AddReportSheet = NewSheet
+
+End Function
+
+
+Private Function WriteReportRun( _
+    ByVal ReportSheet As Worksheet) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                        WRITE THE IDENTITY OF THE RUN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the Run sheet of the report: what identifies the run, as the
+'   RUN lines of the evidence CSV give it
+'
+' WHY THIS EXISTS
+'   The first section of the report (report.json, section run)
+'
+' INPUTS
+'   ReportSheet
+'     The report's Run sheet
+'
+' RETURNS
+'   0: the sheet is short and repeats no row on its pages
+'
+' BEHAVIOR
+'   - One row per item: run summary, status, reporting date, currency,
+'     default regime, parameter set, day count, calendar, closing days,
+'     FX source, fingerprints, the state of each reconciliation and the
+'     units
+'   - The reporting date is a date with the format yyyy-mm-dd, which
+'     reads the same in every locale
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   ResultsStatus, StoredText, ReconciliationSheetsPresent, InputsNameOf,
+'   CORE_Engine, WriteReportTable
+'
+' NOTES
+'   A reporting date that is not a number is written as it is
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Items(1 To 15, 1 To 2)   As Variant    'Label and value of each row
+    Dim ReportingDate            As Variant    'Reporting date of Params (Value2)
+    Dim HeaderRow                As Long       'Row of the table's headers
+    Dim kind                     As Long       'Reconciliation
+    Dim State                    As String     'State of a reconciliation
+
+'------------------------------------------------------------------------------
+' READ THE RUN
+'------------------------------------------------------------------------------
+    'The items of the RUN lines of the evidence CSV, in their order
+        ReportingDate = NamedCell(PRM_ASOF).Value2
+        Items(1, 1) = "Run summary"
+        Items(1, 2) = GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2
+        Items(2, 1) = "Status of the results"
+        Items(2, 2) = ResultsStatus()
+        Items(3, 1) = "Reporting date"
+        Items(3, 2) = ReportingDate
+        Items(4, 1) = "Reporting currency"
+        Items(4, 2) = NamedCell(PRM_REPCCY).Value2
+        Items(5, 1) = "Default regime"
+        Items(5, 2) = NamedCell(PRM_REGIME).Value2
+        Items(6, 1) = "Regulatory parameter set"
+        Items(6, 2) = REF_SET_ID
+        Items(7, 1) = "Days of the year"
+        Items(7, 2) = CORE_Engine.YearConventionText()
+        Items(8, 1) = "Calendar"
+        Items(8, 2) = CORE_Engine.CalendarText()
+        Items(9, 1) = "Closing-day table"
+        Items(9, 2) = CORE_Engine.HolidayTableText()
+        Items(10, 1) = "FX rate source"
+        Items(10, 2) = CORE_Engine.FxSourceText()
+        Items(11, 1) = "Input fingerprint"
+        Items(11, 2) = CORE_Engine.LastRunInputs()
+        Items(12, 1) = "Output fingerprint"
+        Items(12, 2) = StoredText(RUN_OUTPUTS_NAME)
+    'A reconciliation is CURRENT when made, else NOT MADE or UNAVAILABLE
+        For kind = RECON_NS To RECON_TR
+            If Not ReconciliationSheetsPresent(kind) Then
+                State = "UNAVAILABLE"
+            ElseIf VBA.Len(StoredText(InputsNameOf(kind))) > 0 Then
+                State = "CURRENT"
+            Else
+                State = "NOT MADE"
+            End If
+            Items(12 + kind, 1) = IIf(kind = RECON_NS, "Reconciliation of netting sets", "Reconciliation of trade legs")
+            Items(12 + kind, 2) = State
+        Next kind
+        Items(15, 1) = "Units"
+        Items(15, 2) = "Amounts in " & CORE_Export.ReportCellText("text", Items(4, 2)) & _
+                       ", unscaled, unless a table says otherwise"
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'A table of text, then the reporting date as a date
+        HeaderRow = WriteReportTable(ReportSheet, 1, "K-SACCR run report", Array(), Array("Item", "Value"), _
+                                     VBA.Split("text|text", "|"), Items, True, 0, vbNullString)
+        If VarType(ReportingDate) = vbDouble Then
+            ReportSheet.Cells(HeaderRow + 3, 2).NumberFormat = "yyyy-mm-dd"
+            ReportSheet.Cells(HeaderRow + 3, 2).Value2 = CDbl(ReportingDate)
+            ReportSheet.Cells(HeaderRow + 3, 2).HorizontalAlignment = xlLeft
+        End If
+        FitReportColumns ReportSheet
+        WriteReportRun = 0
+
+End Function
+
+
+Private Function WriteReportTable( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal TopRow As Long, _
+    ByVal Title As String, _
+    ByVal Notes As Variant, _
+    ByVal Headers As Variant, _
+    ByVal Kinds As Variant, _
+    ByVal Data As Variant, _
+    ByVal AsPdf As Boolean, _
+    ByVal MeasureColumn As Long, _
+    ByVal RatioMeasures As String) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                        WRITE ONE TABLE OF THE REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes a title, its notes, a header row and the rows of a table on a
+'   sheet of the report, each column in the format of its kind, and
+'   returns the header row
+'
+' WHY THIS EXISTS
+'   Every section of the report but the Dashboard is one or two such
+'   tables (report.json); the kinds decide the formats (REPORT.md)
+'
+' INPUTS
+'   ReportSheet
+'     The sheet to write on
+'   TopRow
+'     Row of the title
+'   Title
+'     The title, in bold
+'   Notes
+'     A 1-D array of lines written under the title; blank ones are skipped
+'   Headers
+'     A 1-D array of the column headers
+'   Kinds
+'     A 1-D array of the kind of each column, as many as Headers: amount,
+'     ratio, count, date, datetime, text, or measure for a figure whose
+'     format follows the Measure of its row
+'   Data
+'     The rows, a 2-D array with bounds from 1 and as many columns as
+'     Headers; Empty for none
+'   AsPdf
+'     True to write text in the PDF's invariant format, False to write
+'     the values with Excel number formats
+'   MeasureColumn
+'     Column of Data holding the measure of a row, for kind measure; 0
+'     when no column has it
+'   RatioMeasures
+'     The measures that are not amounts, separated by "|"
+'
+' RETURNS
+'   The row of the headers; the rows follow it
+'
+' BEHAVIOR
+'   - XLSX: each column gets the number format of its kind before the
+'     values are written, text columns "@", so that a text is never read
+'     as a number or a formula; a text starting with =, +, - or @ in
+'     another column is written with an apostrophe
+'   - PDF: every value is written as text (CORE_Export.ReportCellText),
+'     numbers aligned to the right
+'
+' ERROR POLICY
+'   Raises an error of Excel, and ERR_REPORT_VALUE through ReportCellText
+'
+' DEPENDENCIES
+'   CORE_Export.ReportCellText, CORE_Export.ReportMeasureKind,
+'   ReportNumberFormat, ReportSafeValue
+'
+' NOTES
+'   The whole block is written in one assignment, so thousands of rows
+'   take no longer than a few
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim HeaderRow      As Long       'Row of the headers
+    Dim ColumnCount    As Long       'Columns of the table
+    Dim RowCount       As Long       'Rows of data
+    Dim Block          As Range      'The data cells
+    Dim Values         As Variant    'What is written in them
+    Dim ColumnKind     As String     'Kind of a column
+    Dim CellKind       As String     'Kind of a cell
+    Dim RowBase        As Long       'Lower bound of the rows of Data, less one
+    Dim ColumnBase     As Long       'Lower bound of the columns of Data, less one
+    Dim i              As Long       'Row of data
+    Dim c              As Long       'Column
+    Dim NoteIndex      As Long       'Note
+
+'------------------------------------------------------------------------------
+' WRITE THE TITLE AND THE HEADERS
+'------------------------------------------------------------------------------
+    'The title, its notes, then the headers as text
+        ReportSheet.Cells(TopRow, 1).Value2 = Title
+        ReportSheet.Cells(TopRow, 1).Font.Bold = True
+        HeaderRow = TopRow + 1
+        If IsArray(Notes) Then
+            For NoteIndex = LBound(Notes) To UBound(Notes)
+                If VBA.Len(CORE_Export.ReportCellText("text", Notes(NoteIndex))) > 0 Then
+                    ReportSheet.Cells(HeaderRow, 1).NumberFormat = "@"
+                    ReportSheet.Cells(HeaderRow, 1).Value2 = CORE_Export.ReportCellText("text", Notes(NoteIndex))
+                    ReportSheet.Cells(HeaderRow, 1).Font.Italic = True
+                    HeaderRow = HeaderRow + 1
+                End If
+            Next NoteIndex
+        End If
+        ColumnCount = UBound(Headers) - LBound(Headers) + 1
+        With ReportSheet.Range(ReportSheet.Cells(HeaderRow, 1), ReportSheet.Cells(HeaderRow, ColumnCount))
+            .NumberFormat = "@"
+            .Value2 = Headers
+            .Font.Bold = True
+            .Interior.Color = RGB(217, 225, 242)
+        End With
+        WriteReportTable = HeaderRow
+        If Not IsArray(Data) Then Exit Function
+
+'------------------------------------------------------------------------------
+' PREPARE THE VALUES
+'------------------------------------------------------------------------------
+    'One assignment for the block; the kind decides each column's format
+        RowCount = UBound(Data, 1) - LBound(Data, 1) + 1
+        RowBase = LBound(Data, 1) - 1
+        ColumnBase = LBound(Data, 2) - 1
+        Set Block = ReportSheet.Range(ReportSheet.Cells(HeaderRow + 1, 1), _
+                                      ReportSheet.Cells(HeaderRow + RowCount, ColumnCount))
+        ReDim Values(1 To RowCount, 1 To ColumnCount)
+        For c = 1 To ColumnCount
+            ColumnKind = CStr(Kinds(LBound(Kinds) + c - 1))
+            For i = 1 To RowCount
+                CellKind = ColumnKind
+                If ColumnKind = "measure" Then
+                    CellKind = CORE_Export.ReportMeasureKind(CORE_Export.ReportCellText("text", _
+                                   Data(RowBase + i, ColumnBase + MeasureColumn)), RatioMeasures)
+                End If
+                If AsPdf Then
+                    Values(i, c) = CORE_Export.ReportCellText(CellKind, Data(RowBase + i, ColumnBase + c))
+                ElseIf ColumnKind = "text" Then
+                    Values(i, c) = Data(RowBase + i, ColumnBase + c)
+                Else
+                    Values(i, c) = ReportSafeValue(Data(RowBase + i, ColumnBase + c))
+                End If
+            Next i
+        Next c
+
+'------------------------------------------------------------------------------
+' WRITE THE VALUES
+'------------------------------------------------------------------------------
+    'Formats first, so that Excel reads nothing into the values
+        For c = 1 To ColumnCount
+            ColumnKind = CStr(Kinds(LBound(Kinds) + c - 1))
+            If AsPdf Then
+                Block.Columns(c).NumberFormat = "@"
+                If ColumnKind <> "text" Then
+                    Block.Columns(c).HorizontalAlignment = xlRight
+                End If
+            ElseIf ColumnKind = "measure" Then
+                Block.Columns(c).NumberFormat = ReportNumberFormat("amount")
+            Else
+                Block.Columns(c).NumberFormat = ReportNumberFormat(ColumnKind)
+            End If
+        Next c
+        Block.Value2 = Values
+    'In the XLSX a figure of a measure that is not an amount is a ratio
+        If Not AsPdf And MeasureColumn > 0 Then
+            For c = 1 To ColumnCount
+                If CStr(Kinds(LBound(Kinds) + c - 1)) = "measure" Then
+                    For i = 1 To RowCount
+                        If CORE_Export.ReportMeasureKind(CORE_Export.ReportCellText("text", _
+                               Data(RowBase + i, ColumnBase + MeasureColumn)), RatioMeasures) = "ratio" Then
+                            Block.Cells(i, c).NumberFormat = ReportNumberFormat("ratio")
+                        End If
+                    Next i
+                End If
+            Next c
+        End If
+
+End Function
+
+
+Private Function ReportNumberFormat( _
+    ByVal Kind As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                    GIVE THE EXCEL FORMAT OF A KIND OF COLUMN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the number format of a column of the XLSX report, in Excel's
+'   invariant codes (report.json, formats)
+'
+' WHY THIS EXISTS
+'   The XLSX writes numbers as numbers and dates as dates (#259)
+'
+' INPUTS
+'   Kind
+'     amount, ratio, count, date, datetime or text
+'
+' RETURNS
+'   The format; "@" for text and for an unknown kind
+'
+' BEHAVIOR
+'   One format per kind
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   tools/test_report_spec.py checks these formats against report.json
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The formats of report.json
+        Select Case Kind
+            Case "amount"
+                ReportNumberFormat = "#,##0.00"
+            Case "ratio"
+                ReportNumberFormat = "0.000000"
+            Case "count"
+                ReportNumberFormat = "0"
+            Case "date"
+                ReportNumberFormat = "yyyy-mm-dd"
+            Case "datetime"
+                ReportNumberFormat = "yyyy-mm-dd hh:mm:ss"
+            Case Else
+                ReportNumberFormat = "@"
+        End Select
+
+End Function
+
+
+Private Function ReportSafeValue( _
+    ByVal Value As Variant) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'               KEEP A TEXT FROM BEING READ AS A FORMULA IN A REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns a value to write into a cell of a number column of the XLSX
+'   report: a text starting with =, +, - or @ gets an apostrophe in front,
+'   so that Excel keeps it as text
+'
+' WHY THIS EXISTS
+'   The XLSX holds values only, never a formula (#259)
+'
+' INPUTS
+'   Value
+'     A cell value (Value2)
+'
+' RETURNS
+'   The value, or the text with an apostrophe
+'
+' BEHAVIOR
+'   Leaves numbers, blanks, logical and error values as they are
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Only a text can become a formula
+        ReportSafeValue = Value
+        If VarType(Value) = vbString Then
+            If VBA.Len(Value) > 0 Then
+                If VBA.InStr(1, "=+-@", VBA.Left$(Value, 1), vbBinaryCompare) > 0 Then
+                    ReportSafeValue = "'" & Value
+                End If
+            End If
+        End If
+
+End Function
+
+
+Private Function WriteReportDashboard( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                     COPY THE DASHBOARD'S TABLES INTO THE REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes every block of the Dashboard's data table on the report's
+'   Dashboard sheet, as the sheet shows it: its title with the unit, its
+'   column headers, its row labels and its values
+'
+' WHY THIS EXISTS
+'   The report opens with the Dashboard (#259, #675); its blocks are the
+'   contract of docs/workbook/dashboard.json
+'
+' INPUTS
+'   ReportSheet
+'     The report's Dashboard sheet
+'   AsPdf
+'     True to write the values as text in the format of their cell, False
+'     to write them with that format
+'
+' RETURNS
+'   0: the blocks have headers of their own, so no row is repeated
+'
+' BEHAVIOR
+'   - For each block, in the order of CORE_Engine.DashboardBlockNames,
+'     copies the cells from its title row, two rows above the values, to
+'     its last row, and from its label column to its last column; a block
+'     without labels, a ranking, starts at its values
+'   - XLSX: the values with the number format of each cell; PDF: their
+'     text in that format (CORE_Export.ReportFormatText)
+'
+' ERROR POLICY
+'   Raises an error of Excel, and ERR_OUTPUT_LAYOUT when a block's name is
+'   missing
+'
+' DEPENDENCIES
+'   CORE_Engine.DashboardBlockNames, CORE_Export.ReportFormatText,
+'   ReportSafeValue, GetSheet
+'
+' NOTES
+'   No formula is copied: the title's unit is the value its formula shows
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME       As String = "M_Main.WriteReportDashboard"
+
+    Dim BlockNames        As Variant      'The blocks, in order
+    Dim SourceSheet       As Worksheet    'The Dashboard sheet
+    Dim ValueCells        As Range        'A block's values
+    Dim Source            As Range        'A block with its title, headers and labels
+    Dim Target            As Range        'Where the block goes in the report
+    Dim Values            As Variant      'The cells of the block
+    Dim FirstColumn       As Long         'First column copied
+    Dim TopRow            As Long         'Next free row of the report
+    Dim n                 As Long         'Block
+    Dim i                 As Long         'Row of a block
+    Dim c                 As Long         'Column of a block
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'A title, then each block with a blank row after it
+        ReportSheet.Cells(1, 1).Value2 = "Dashboard"
+        ReportSheet.Cells(1, 1).Font.Bold = True
+        ReportSheet.Cells(2, 1).Value2 = "Amounts on the scale named in each table's title"
+        ReportSheet.Cells(2, 1).Font.Italic = True
+        TopRow = 4
+        Set SourceSheet = GetSheet(SH_DASHBOARD)
+        BlockNames = CORE_Engine.DashboardBlockNames()
+        For n = LBound(BlockNames) To UBound(BlockNames)
+            If Not NameExists(CStr(BlockNames(n))) Then
+                Err.Raise ERR_OUTPUT_LAYOUT, PROC_NAME, "The Dashboard has no block " & CStr(BlockNames(n))
+            End If
+            Set ValueCells = ThisWorkbook.Names(CStr(BlockNames(n))).RefersToRange
+        'A ranking has no label column: it starts at its values
+            FirstColumn = ValueCells.Column - 1
+            Set Source = SourceSheet.Range(SourceSheet.Cells(ValueCells.Row - 2, FirstColumn), _
+                                           SourceSheet.Cells(ValueCells.Row + ValueCells.Rows.Count - 1, FirstColumn))
+            If Application.WorksheetFunction.CountA(Source) = 0 Then
+                FirstColumn = ValueCells.Column
+            End If
+            Set Source = SourceSheet.Range(SourceSheet.Cells(ValueCells.Row - 2, FirstColumn), _
+                                           SourceSheet.Cells(ValueCells.Row + ValueCells.Rows.Count - 1, _
+                                                             ValueCells.Column + ValueCells.Columns.Count - 1))
+            Values = Source.Value2
+            Set Target = ReportSheet.Cells(TopRow, 1).Resize(Source.Rows.Count, Source.Columns.Count)
+            For i = 1 To Source.Rows.Count
+                For c = 1 To Source.Columns.Count
+                    If AsPdf Then
+                        Target.Cells(i, c).NumberFormat = "@"
+                        Target.Cells(i, c).Value2 = CORE_Export.ReportFormatText(Values(i, c), _
+                                                        CStr(Source.Cells(i, c).NumberFormat))
+                        If VarType(Values(i, c)) = vbDouble Then
+                            Target.Cells(i, c).HorizontalAlignment = xlRight
+                        End If
+                    ElseIf VarType(Values(i, c)) = vbString Then
+                        Target.Cells(i, c).NumberFormat = "@"
+                        Target.Cells(i, c).Value2 = Values(i, c)
+                    Else
+                        Target.Cells(i, c).NumberFormat = Source.Cells(i, c).NumberFormat
+                        Target.Cells(i, c).Value2 = ReportSafeValue(Values(i, c))
+                    End If
+                Next c
+            Next i
+            Target.Rows(1).Font.Bold = True
+            Target.Rows(2).Font.Bold = True
+            Target.Rows(2).Interior.Color = RGB(217, 225, 242)
+            TopRow = TopRow + Source.Rows.Count + 1
+        Next n
+        FitReportColumns ReportSheet
+        WriteReportDashboard = 0
+
+End Function
+
+
+Private Function NameExists( _
+    ByVal NameText As String) _
+    As Boolean
+'
+'------------------------------------------------------------------------------
+'                     TELL WHETHER A WORKBOOK NAME EXISTS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns True when the K-SACCR workbook has a name NameText that
+'   refers to cells
+'
+' WHY THIS EXISTS
+'   A Dashboard block missing from an older workbook is reported by name
+'
+' INPUTS
+'   NameText
+'     The workbook name
+'
+' RETURNS
+'   True or False
+'
+' BEHAVIOR
+'   Reads the name's range; an error means it has none
+'
+' ERROR POLICY
+'   Never raises
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim NamedRange   As Range    'The name's cells
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+    'An error of the one statement means no such name
+        On Error Resume Next
+        Set NamedRange = ThisWorkbook.Names(NameText).RefersToRange
+        NameExists = (Err.Number = 0) And Not NamedRange Is Nothing
+        On Error GoTo 0
+
+End Function
+
+
+Private Function WriteReportCharts( _
+    ByVal ReportSheet As Worksheet) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                    PICTURE THE DASHBOARD'S CHARTS IN THE REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Places a picture of each chart of the Dashboard sheet on the report's
+'   Charts sheet, two by row, and returns how many
+'
+' WHY THIS EXISTS
+'   The PDF shows the Dashboard's charts as the sheet shows them (#259);
+'   a picture, unlike a chart, reads nothing from the K-SACCR workbook
+'
+' INPUTS
+'   ReportSheet
+'     The report's Charts sheet
+'
+' RETURNS
+'   The number of charts pictured
+'
+' BEHAVIOR
+'   - Exports each chart as a PNG file to the temporary folder, places
+'     it at the chart's size and deletes the file
+'   - Rows of two pictures, the height of the taller one apart
+'
+' ERROR POLICY
+'   Raises an error of Excel after deleting the picture file
+'
+' DEPENDENCIES
+'   GetSheet, FileExists, ReportTempFolder
+'
+' NOTES
+'   The pictures are embedded, not linked to the files
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.WriteReportCharts"
+    Const GAP           As Double = 12#    'Points between pictures
+
+    Dim ChartFrame      As ChartObject     'A chart of the Dashboard
+    Dim PictureFile     As String          'Its picture file; "" once deleted
+    Dim ChartCount      As Long            'Charts pictured
+    Dim LeftEdge        As Double          'Left of the next picture
+    Dim TopEdge         As Double          'Top of the next picture
+    Dim RowHeight       As Double          'Height of the current row of pictures
+    Dim ErrorNumber     As Long            'First error; 0 on success
+    Dim ErrorSource     As String          'Its source
+    Dim ErrorText       As String          'Its description
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+        ReportSheet.Cells(1, 1).Value2 = "Dashboard charts"
+        ReportSheet.Cells(1, 1).Font.Bold = True
+        LeftEdge = GAP
+        TopEdge = ReportSheet.Rows(3).Top
+
+'------------------------------------------------------------------------------
+' PICTURE EACH CHART
+'------------------------------------------------------------------------------
+    'Export, place, delete
+        For Each ChartFrame In GetSheet(SH_DASHBOARD).ChartObjects
+            ChartCount = ChartCount + 1
+            PictureFile = ReportTempFolder() & Application.PathSeparator & "K-SACCR_report_chart_" & ChartCount & ".png"
+            If FileExists(PictureFile) Then Kill PictureFile
+            ChartFrame.Chart.Export Filename:=PictureFile, FilterName:="PNG"
+            ReportSheet.Shapes.AddPicture PictureFile, msoFalse, msoTrue, LeftEdge, TopEdge, _
+                                          ChartFrame.Width, ChartFrame.Height
+            Kill PictureFile
+            PictureFile = vbNullString
+            If ChartFrame.Height > RowHeight Then RowHeight = ChartFrame.Height
+            If ChartCount Mod 2 = 1 Then
+                LeftEdge = LeftEdge + ChartFrame.Width + GAP
+            Else
+                LeftEdge = GAP
+                TopEdge = TopEdge + RowHeight + GAP
+                RowHeight = 0#
+            End If
+        Next ChartFrame
+        WriteReportCharts = ChartCount
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Function
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Delete the picture file, then raise the first error
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
+        On Error Resume Next
+        If VBA.Len(PictureFile) > 0 Then
+            If FileExists(PictureFile) Then Kill PictureFile
+        End If
+        On Error GoTo 0
+        Err.Raise ErrorNumber, ErrorSource, "Chart " & ChartCount & ": " & ErrorText
+
+End Function
+
+
+Private Function ReportTempFolder() As String
+
+'
+'------------------------------------------------------------------------------
+'                    FIND A FOLDER FOR THE REPORT'S PICTURES
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the temporary folder of the user, or the workbook's folder
+'   when there is none
+'
+' WHY THIS EXISTS
+'   A chart is pictured through a file that is deleted at once (#259)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   A folder path without a final separator
+'
+' BEHAVIOR
+'   Reads the TEMP variable
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'TEMP, or the workbook's folder
+        ReportTempFolder = VBA.Environ$("TEMP")
+        If VBA.Len(ReportTempFolder) = 0 Then
+            ReportTempFolder = ThisWorkbook.Path
+        End If
+
+End Function
+
+
+Private Function ReadReportTable( _
+    ByVal SheetName As String, _
+    ByVal ColumnCount As Long, _
+    ByRef Headers As Variant) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'                     READ AN OUTPUT TABLE FOR THE REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the rows of an output table, as the evidence CSV reads them,
+'   and its headers
+'
+' WHY THIS EXISTS
+'   The report copies Results, Checks and the reconciliations as the CSV
+'   does (#259): from the header row down to the last row with a value in
+'   the first column
+'
+' INPUTS
+'   SheetName
+'     The output sheet
+'   ColumnCount
+'     Its columns (RS_NCOLS, CK_NCOLS, RC_NCOLS, TRC_NCOLS)
+'   Headers
+'     Written: a 1-D array of the headers, from 1
+'
+' RETURNS
+'   A 2-D array of the rows, from 1; Empty when the table has none
+'
+' BEHAVIOR
+'   Reads the header row above OutputFirstRow and the rows below it
+'
+' ERROR POLICY
+'   Raises an error of Excel or of the sheet's layout
+'
+' DEPENDENCIES
+'   GetSheet, OutputFirstRow, LastDataRow, TableRange
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim TableSheet   As Worksheet    'The sheet
+    Dim HeaderRow    As Long         'Its header row
+    Dim LastRow      As Long         'Its last row
+    Dim HeaderRange  As Variant      'The header row's values
+    Dim Names()      As Variant      'The headers
+    Dim c            As Long         'Column
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+    'Headers, then the rows when there are any
+        Set TableSheet = GetSheet(SheetName)
+        HeaderRow = OutputFirstRow(SheetName) - 1
+        HeaderRange = TableRange(TableSheet, HeaderRow, 1, HeaderRow, ColumnCount).Value2
+        ReDim Names(1 To ColumnCount)
+        For c = 1 To ColumnCount
+            Names(c) = HeaderRange(1, c)
+        Next c
+        Headers = Names
+        LastRow = LastDataRow(TableSheet, HeaderRow + 1, 1)
+        If LastRow > HeaderRow Then
+            ReadReportTable = TableRange(TableSheet, HeaderRow + 1, 1, LastRow, ColumnCount).Value2
+        Else
+            ReadReportTable = Empty
+        End If
+
+End Function
+
+
+Private Function WriteReportTotals( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                     WRITE THE TOTALS AND STATUS PER REGIME
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the Totals sheet of the report: the TOTAL rows of Results, one
+'   per regime, with the columns of report.json (section totals)
+'
+' WHY THIS EXISTS
+'   The report gives the totals and status per regime before the netting
+'   sets (#259)
+'
+' INPUTS
+'   ReportSheet
+'     The report's Totals sheet
+'   AsPdf
+'     As WriteReportTable
+'
+' RETURNS
+'   The header row, repeated on every page of a PDF
+'
+' BEHAVIOR
+'   Reads Results, keeps its rows whose ID starts with "TOTAL " and the
+'   columns named in RPT_TOTALS_HEADERS, found by their headers
+'
+' ERROR POLICY
+'   Raises ERR_OUTPUT_LAYOUT when a header is missing from Results
+'
+' DEPENDENCIES
+'   ReadReportTable, WriteReportTable, FitReportColumns
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME       As String = "M_Main.WriteReportTotals"
+
+    Dim Headers           As Variant    'Headers of Results
+    Dim TableRows         As Variant    'Rows of Results
+    Dim Wanted            As Variant    'Headers of the totals
+    Dim SourceColumns()   As Long       'Column of Results of each header of the totals
+    Dim Totals            As Variant    'The TOTAL rows
+    Dim TotalCount        As Long       'TOTAL rows found
+    Dim r                 As Long       'Row of Results
+    Dim c                 As Long       'Column of the totals
+    Dim k                 As Long       'Column of Results
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+    'The columns of the totals, by their headers on Results
+        TableRows = ReadReportTable(SH_RESULTS, RS_NCOLS, Headers)
+        Wanted = VBA.Split(RPT_TOTALS_HEADERS, "|")
+        ReDim SourceColumns(LBound(Wanted) To UBound(Wanted))
+        For c = LBound(Wanted) To UBound(Wanted)
+            For k = 1 To RS_NCOLS
+                If CORE_Export.ReportCellText("text", Headers(k)) = Wanted(c) Then Exit For
+            Next k
+            If k > RS_NCOLS Then
+                Err.Raise ERR_OUTPUT_LAYOUT, PROC_NAME, "Results has no column " & Wanted(c)
+            End If
+            SourceColumns(c) = k
+        Next c
+    'The TOTAL rows, in their order
+        If IsArray(TableRows) Then
+            ReDim Totals(1 To UBound(TableRows, 1), 1 To UBound(Wanted) - LBound(Wanted) + 1)
+            For r = 1 To UBound(TableRows, 1)
+                If VBA.Left$(CORE_Export.ReportCellText("text", TableRows(r, 1)), 6) = "TOTAL " Then
+                    TotalCount = TotalCount + 1
+                    For c = LBound(Wanted) To UBound(Wanted)
+                        Totals(TotalCount, c - LBound(Wanted) + 1) = TableRows(r, SourceColumns(c))
+                    Next c
+                End If
+            Next r
+        End If
+        If TotalCount = 0 Then
+            Totals = Empty
+        Else
+            Totals = TopRows(Totals, TotalCount)
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'One table
+        WriteReportTotals = WriteReportTable(ReportSheet, 1, "Totals and status per regime", _
+                         Array("Amounts in " & ReportCurrencyText() & ", unscaled."), Wanted, _
+                         VBA.Split(RPT_TOTALS_KINDS, "|"), Totals, AsPdf, 0, vbNullString)
+        FitReportColumns ReportSheet
+
+End Function
+
+
+Private Function TopRows( _
+    ByVal Block As Variant, _
+    ByVal RowCount As Long) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'                      KEEP THE FIRST ROWS OF A 2-D ARRAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the first RowCount rows of a 2-D array with bounds from 1
+'
+' WHY THIS EXISTS
+'   ReDim Preserve can change only the last bound, and the report fills
+'   a block before it knows how many of its rows it needs
+'
+' INPUTS
+'   Block
+'     A 2-D array with bounds from 1
+'   RowCount
+'     Rows to keep, 1 or more and no more than Block has
+'
+' RETURNS
+'   A 2-D array of RowCount rows and the columns of Block
+'
+' BEHAVIOR
+'   Copies the cells
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Result   As Variant    'The rows kept
+    Dim i        As Long       'Row
+    Dim c        As Long       'Column
+
+'------------------------------------------------------------------------------
+' COPY
+'------------------------------------------------------------------------------
+    'The first rows, every column
+        ReDim Result(1 To RowCount, 1 To UBound(Block, 2))
+        For i = 1 To RowCount
+            For c = 1 To UBound(Block, 2)
+                Result(i, c) = Block(i, c)
+            Next c
+        Next i
+        TopRows = Result
+
+End Function
+
+
+Private Function ReportCurrencyText() As String
+
+'
+'------------------------------------------------------------------------------
+'                      NAME THE CURRENCY OF THE AMOUNTS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the reporting currency of Params as text, for the notes of
+'   the report's tables
+'
+' WHY THIS EXISTS
+'   Every amount of the report states its unit (#259)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   The currency code, such as EUR
+'
+' BEHAVIOR
+'   Reads ReportingCcy
+'
+' ERROR POLICY
+'   Raises an error of the workbook's layout
+'
+' DEPENDENCIES
+'   NamedCell, CORE_Export.ReportCellText
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The code as written on Params
+        ReportCurrencyText = CORE_Export.ReportCellText("text", NamedCell(PRM_REPCCY).Value2)
+
+End Function
+
+
+Private Function WriteReportResults( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                      WRITE THE RESULTS PER NETTING SET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the Results sheet of the report: every row of Results, its
+'   netting sets and its TOTAL rows, with its 28 columns
+'
+' WHY THIS EXISTS
+'   The report gives the result of each netting set (#259)
+'
+' INPUTS
+'   ReportSheet
+'     The report's Results sheet
+'   AsPdf
+'     As WriteReportTable
+'
+' RETURNS
+'   The header row, repeated on every page of a PDF
+'
+' BEHAVIOR
+'   Copies the table with the kinds of RPT_RESULTS_KINDS
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   ReadReportTable, WriteReportTable, FitReportColumns
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Headers     As Variant    'Headers of Results
+    Dim TableRows   As Variant    'Rows of Results
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'The table as it is
+        TableRows = ReadReportTable(SH_RESULTS, RS_NCOLS, Headers)
+        WriteReportResults = WriteReportTable(ReportSheet, 1, "Results per netting set", _
+                         Array("Amounts in " & ReportCurrencyText() & ", unscaled."), Headers, _
+                         VBA.Split(RPT_RESULTS_KINDS, "|"), TableRows, AsPdf, 0, vbNullString)
+        FitReportColumns ReportSheet
+
+End Function
+
+
+Private Function WriteReportChecks( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                           WRITE THE CHECKS BY CODE
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the Checks sheet of the report: a row per code with its
+'   highest severity and its rows, then every row of Checks grouped by
+'   code
+'
+' WHY THIS EXISTS
+'   The owner's decision of 2026-11-26 on Checks by code (#259)
+'
+' INPUTS
+'   ReportSheet
+'     The report's Checks sheet
+'   AsPdf
+'     As WriteReportTable
+'
+' RETURNS
+'   The header row of the rows of Checks, repeated on every page of a PDF
+'
+' BEHAVIOR
+'   Orders the rows with CORE_Export.ReportCodeOrder and writes the two
+'   tables
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   ReadReportTable, CORE_Export.ReportCodeOrder, WriteReportTable,
+'   FitReportColumns
+'
+' NOTES
+'   The severity is the first column of Checks and the code the seventh
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Headers     As Variant    'Headers of Checks
+    Dim TableRows   As Variant    'Rows of Checks
+    Dim Summary     As Variant    'A row per code
+    Dim Order       As Variant    'Rows in the order of the report
+    Dim Ordered     As Variant    'The rows in that order
+    Dim HeaderRow   As Long       'Header row of the summary
+    Dim i           As Long       'Row of the report
+    Dim c           As Long       'Column
+
+'------------------------------------------------------------------------------
+' ORDER THE ROWS
+'------------------------------------------------------------------------------
+    'Codes by severity, then code; each code's rows as on the sheet
+        TableRows = ReadReportTable(SH_CHECKS, CK_NCOLS, Headers)
+        Order = CORE_Export.ReportCodeOrder(TableRows, 1, CK_CODE_COL, Summary)
+        If IsArray(TableRows) Then
+            ReDim Ordered(1 To UBound(TableRows, 1), 1 To CK_NCOLS)
+            For i = 1 To UBound(TableRows, 1)
+                For c = 1 To CK_NCOLS
+                    Ordered(i, c) = TableRows(Order(i), c)
+                Next c
+            Next i
+        Else
+            Ordered = Empty
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'The summary, then the rows
+        HeaderRow = WriteReportTable(ReportSheet, 1, "Checks by code", Array(), Array("Code", "Severity", "Rows"), _
+                                     VBA.Split("text|text|count", "|"), Summary, AsPdf, 0, vbNullString)
+        WriteReportChecks = WriteReportTable(ReportSheet, HeaderRow + RowsOf(Summary) + 2, "Checks, grouped by code", _
+                                             Array(), Headers, VBA.Split(RPT_CHECKS_KINDS, "|"), Ordered, AsPdf, 0, _
+                                             vbNullString)
+        FitReportColumns ReportSheet
+
+End Function
+
+
+Private Function RowsOf( _
+    ByVal Block As Variant) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                         COUNT THE ROWS OF A 2-D ARRAY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the rows of a 2-D array; 0 when it is not an array
+'
+' WHY THIS EXISTS
+'   A table of the report with no row is Empty (#259)
+'
+' INPUTS
+'   Block
+'     A 2-D array, or Empty
+'
+' RETURNS
+'   The number of rows
+'
+' BEHAVIOR
+'   Reads the bounds of the first dimension
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Empty has no row
+        If IsArray(Block) Then
+            RowsOf = UBound(Block, 1) - LBound(Block, 1) + 1
+        Else
+            RowsOf = 0
+        End If
+
+End Function
+
+
+Private Function WriteReportReconciliation( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal ReconKind As Long, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                      WRITE A RECONCILIATION OF THE RUN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes a reconciliation sheet of the report: the summary of the
+'   reconciliation and its rows; in the PDF only the rows that are not
+'   MATCH, with a line saying how many are left out
+'
+' WHY THIS EXISTS
+'   The owner's decision of 2026-11-26 on the reconciliation rows (#259)
+'
+' INPUTS
+'   ReportSheet
+'     The report's sheet of the reconciliation
+'   ReconKind
+'     RECON_NS or RECON_TR
+'   AsPdf
+'     As WriteReportTable
+'
+' RETURNS
+'   The header row, repeated on every page of a PDF
+'
+' BEHAVIOR
+'   - Reads the summary line of the sheet and its table
+'   - PDF: keeps the rows whose Result is not MATCH
+'   - The figures take the format of their measure (report.json,
+'     measure_ratios)
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   ReadReportTable, ReconSheetOf, CORE_Export.ReportOmittedNote,
+'   WriteReportTable, FitReportColumns
+'
+' NOTES
+'   The measure is the sixth column and the result the eleventh in both
+'   tables
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const MEASURE_COLUMN   As Long = 6      'Measure, in both tables
+    Const RESULT_COLUMN    As Long = 11     'Result, in both tables
+
+    Dim SheetName          As String        'The reconciliation sheet
+    Dim ColumnCount        As Long          'Its columns
+    Dim Headers            As Variant       'Its headers
+    Dim TableRows          As Variant       'Its rows
+    Dim Kept               As Variant       'The rows written
+    Dim KeptCount          As Long          'Rows written
+    Dim Omitted            As Long          'MATCH rows left out of a PDF
+    Dim Summary            As String        'The summary line of the sheet
+    Dim Title              As String        'Title of the table
+    Dim Notes              As Variant       'Lines under the title
+    Dim Kinds              As Variant       'Kind of each column
+    Dim i                  As Long          'Row
+    Dim c                  As Long          'Column
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+    'The summary line and the table
+        SheetName = ReconSheetOf(ReconKind)
+        ColumnCount = IIf(ReconKind = RECON_NS, RC_NCOLS, TRC_NCOLS)
+        Summary = CORE_Export.ReportCellText("text", GetSheet(SheetName).Range(RECON_INFO_CELL).Value2)
+        TableRows = ReadReportTable(SheetName, ColumnCount, Headers)
+    'A PDF keeps the rows that are not MATCH
+        Kept = TableRows
+        If AsPdf And IsArray(TableRows) Then
+            ReDim Kept(1 To UBound(TableRows, 1), 1 To ColumnCount)
+            For i = 1 To UBound(TableRows, 1)
+                If VBA.UCase$(VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(i, RESULT_COLUMN)))) = "MATCH" Then
+                    Omitted = Omitted + 1
+                Else
+                    KeptCount = KeptCount + 1
+                    For c = 1 To ColumnCount
+                        Kept(KeptCount, c) = TableRows(i, c)
+                    Next c
+                End If
+            Next i
+            If KeptCount = 0 Then
+                Kept = Empty
+            Else
+                Kept = TopRows(Kept, KeptCount)
+            End If
+        End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'The summary, the units, what is left out, then the rows
+        Title = IIf(ReconKind = RECON_NS, "Reconciliation of netting sets", "Reconciliation of trade legs")
+        Notes = Array(Summary, "Amounts in units of " & ReportCurrencyText() & _
+                      "; the bank's figures multiplied by the scale of the settings; ratios are not scaled.", _
+                      CORE_Export.ReportOmittedNote(Omitted))
+        Kinds = VBA.Split(IIf(ReconKind = RECON_NS, RPT_RECON_KINDS, RPT_TRADE_RECON_KINDS), "|")
+        WriteReportReconciliation = WriteReportTable(ReportSheet, 1, Title, Notes, Headers, Kinds, Kept, AsPdf, _
+                                                     MEASURE_COLUMN, IIf(ReconKind = RECON_NS, RPT_RECON_RATIOS, _
+                                                                         RPT_TRADE_RECON_RATIOS))
+        FitReportColumns ReportSheet
+
+End Function
+
+
+Private Function WriteReportLimitations( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal AsPdf As Boolean) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                         WRITE THE LIMITATIONS OF THE REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the Limitations sheet: the statements of the evidence CSV and
+'   the report's own, numbered
+'
+' WHY THIS EXISTS
+'   The report says what it does not show, as the CSV does (#259)
+'
+' INPUTS
+'   ReportSheet
+'     The report's Limitations sheet
+'   AsPdf
+'     As WriteReportTable
+'
+' RETURNS
+'   0: the sheet is short and repeats no row on its pages
+'
+' BEHAVIOR
+'   One row per statement of CORE_Export.ReportLimitationTexts
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   CORE_Export.ReportLimitationTexts, WriteReportTable
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Notes       As Variant    'The statements
+    Dim TableRows   As Variant    'Number and statement of each row
+    Dim i           As Long       'Statement
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Numbered from 1
+        Notes = CORE_Export.ReportLimitationTexts()
+        ReDim TableRows(1 To UBound(Notes) - LBound(Notes) + 1, 1 To 2)
+        For i = 1 To UBound(TableRows, 1)
+            TableRows(i, 1) = i
+            TableRows(i, 2) = Notes(LBound(Notes) + i - 1)
+        Next i
+        WriteReportTable ReportSheet, 1, "Limitations", Array(), Array("No.", "Statement"), _
+                         VBA.Split("count|text", "|"), TableRows, AsPdf, 0, vbNullString
+        FitReportColumns ReportSheet
+        WriteReportLimitations = 0
+
+End Function
+
+
+Private Sub FitReportColumns( _
+    ByVal ReportSheet As Worksheet)
+'
+'------------------------------------------------------------------------------
+'                      FIT THE COLUMNS OF A REPORT SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Fits each used column of a report sheet to its contents, at most 60
+'   characters wide, wrapping the text of a wider column
+'
+' WHY THIS EXISTS
+'   A long message or title must not widen a page beyond reading (#259)
+'
+' INPUTS
+'   ReportSheet
+'     A sheet of the report
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   AutoFit, then a cap of 60 with wrapped text
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   The titles in column A are left to overflow: their row is not wrapped
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const MAX_WIDTH   As Double = 60#    'Characters
+
+    Dim UsedColumn    As Range           'A used column
+
+'------------------------------------------------------------------------------
+' FIT
+'------------------------------------------------------------------------------
+    'Fit, then cap and wrap
+        ReportSheet.UsedRange.Columns.AutoFit
+        For Each UsedColumn In ReportSheet.UsedRange.Columns
+            If UsedColumn.ColumnWidth > MAX_WIDTH Then
+                UsedColumn.ColumnWidth = MAX_WIDTH
+            End If
+        Next UsedColumn
+
+End Sub
+
+
+Private Function ApplyReportPageSetup( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal Footer As String, _
+    ByVal TitleRow As Long) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                     SET UP THE PAGES OF A PDF REPORT SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Sets a sheet of the PDF to A4 landscape, one page wide, with the
+'   header row of its table repeated and the report's footer; returns
+'   what could not be set
+'
+' WHY THIS EXISTS
+'   The PDF's pages (report.json, pdf); a machine whose printer driver
+'   refuses a setting still writes the report, and says so
+'
+' INPUTS
+'   ReportSheet
+'     A sheet of the report
+'   Footer
+'     The footer, with &P and &N for the page and the pages
+'   TitleRow
+'     The header row repeated on every page; 0 for none
+'
+' RETURNS
+'   "" when every setting was applied, else "sheet: error; "
+'
+' BEHAVIOR
+'   Communication with the printer is paused while the settings are
+'   written
+'
+' ERROR POLICY
+'   Never raises: a failure is returned
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   PrintCommunication exists from Excel 2010 on
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' SET UP THE PAGES
+'------------------------------------------------------------------------------
+    'A4 landscape, one page wide, the footer
+        Application.PrintCommunication = False
+        With ReportSheet.PageSetup
+            .Orientation = xlLandscape
+            .PaperSize = xlPaperA4
+            .Zoom = False
+            .FitToPagesWide = 1
+            .FitToPagesTall = False
+            If TitleRow > 0 Then
+                .PrintTitleRows = "$" & TitleRow & ":$" & TitleRow
+            End If
+            .CenterFooter = Footer
+        End With
+        Application.PrintCommunication = True
+        ApplyReportPageSetup = vbNullString
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Function
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Report the failure and let the printer settings through again
+        ApplyReportPageSetup = ReportSheet.Name & ": " & Err.Description & "; "
+        On Error Resume Next
+        Application.PrintCommunication = True
+        On Error GoTo 0
+
+End Function
+
+
+Private Function ReportRunTime() As String
+
+'
+'------------------------------------------------------------------------------
+'                     READ THE TIME OF THE RUN FOR THE FOOTER
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the date and time of the last run, as the run summary on
+'   Results writes it after "Last run "
+'
+' WHY THIS EXISTS
+'   The footer of every page of the PDF names the run (#259)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Such as 2026-11-26 12:48:55; "" when the summary has none
+'
+' BEHAVIOR
+'   Reads the 19 characters after "Last run " at the start of Results C4
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   GetSheet, CORE_Export.ReportCellText
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Summary   As String    'The run summary
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The time follows "Last run "
+        Summary = CORE_Export.ReportCellText("text", GetSheet(SH_RESULTS).Range(RUNINFO_CELL).Value2)
+        If VBA.Left$(Summary, 9) = "Last run " Then
+            ReportRunTime = VBA.Mid$(Summary, 10, 19)
+        Else
+            ReportRunTime = vbNullString
+        End If
+
+End Function
+
+
+Private Function ReportSiblingPath( _
+    ByVal FilePath As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                FIND A NAME BESIDE THE REPORT WITH ITS EXTENSION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns a file name in the folder of FilePath that does not exist yet
+'   and ends with the same extension, such as "saccr-new1-report.pdf"
+'
+' WHY THIS EXISTS
+'   The report is saved beside its target and then renamed, so that a
+'   failure leaves an older file as it was (#259). Excel saves an XLSX
+'   only under a name ending in .xlsx
+'
+' INPUTS
+'   FilePath
+'     The target
+'
+' RETURNS
+'   The new name, with its folder
+'
+' BEHAVIOR
+'   Puts "saccr-new" and a counter in front of the file name
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   FileExists
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SlashAt     As Long      'Position of the last separator; 0 when none
+    Dim Folder      As String    'The folder, with its separator
+    Dim FileName    As String    'The file name
+    Dim n           As Long      'Counter that makes the name unique
+    Dim Candidate   As String    'Name tried
+
+'------------------------------------------------------------------------------
+' FIND A FREE NAME
+'------------------------------------------------------------------------------
+    'Same folder, same extension
+        SlashAt = VBA.InStrRev(FilePath, Application.PathSeparator, -1, vbBinaryCompare)
+        Folder = VBA.Left$(FilePath, SlashAt)
+        FileName = VBA.Mid$(FilePath, SlashAt + 1)
+        Do
+            n = n + 1
+            Candidate = Folder & "saccr-new" & n & "-" & FileName
+        Loop While FileExists(Candidate)
+        ReportSiblingPath = Candidate
+
+End Function
+
+
+Private Sub ReplaceReportFile( _
+    ByVal NewPath As String, _
+    ByVal FilePath As String)
+'
+'------------------------------------------------------------------------------
+'                   REPLACE A REPORT FILE BY THE ONE JUST SAVED
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Renames the saved report NewPath to FilePath, replacing an older
+'   file, hidden ones included
+'
+' WHY THIS EXISTS
+'   A failed export leaves an older report as it was, as the evidence
+'   CSV does (#312)
+'
+' INPUTS
+'   NewPath
+'     The report just saved
+'   FilePath
+'     The target
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Moves an older target aside, renames the new file and deletes the
+'     older one
+'   - On a failure puts the older file back with its attributes
+'
+' ERROR POLICY
+'   Raises the first error after putting the older file back; the new
+'   file is deleted by the caller
+'
+' DEPENDENCIES
+'   FileExists, SiblingPath
+'
+' NOTES
+'   gTestFault "report-replace" raises while the older file is aside
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME           As String = "M_Main.ReplaceReportFile"
+
+    Dim OldPath               As String     'The older file while it is aside; "" otherwise
+    Dim OldAttributes         As Long       'Its attributes, put back on a failure
+    Dim AttributesCleared     As Boolean    'Its attributes were cleared
+    Dim ErrorNumber           As Long       'First error; 0 on success
+    Dim ErrorSource           As String     'Its source
+    Dim ErrorText             As String     'Its description
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' REPLACE
+'------------------------------------------------------------------------------
+    'Move the older file aside, then rename the new one
+        If FileExists(FilePath) Then
+            OldPath = SiblingPath(FilePath, "old")
+            OldAttributes = GetAttr(FilePath) And (vbReadOnly Or vbHidden Or vbSystem Or vbArchive)
+            SetAttr FilePath, vbNormal
+            AttributesCleared = True
+            Name FilePath As OldPath
+        End If
+        If gTestFault = "report-replace" Then
+            Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected failure while the older report was replaced."
+        End If
+        Name NewPath As FilePath
+    'The older file is no longer needed
+        If VBA.Len(OldPath) > 0 Then
+            Kill OldPath
+        End If
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Put the older file back, then raise the first error
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorText = Err.Description
+        On Error Resume Next
+        If VBA.Len(OldPath) > 0 Then
+            If Not FileExists(FilePath) Then Name OldPath As FilePath
+        End If
+        If AttributesCleared Then SetAttr FilePath, OldAttributes
+        On Error GoTo 0
+        Err.Raise ErrorNumber, ErrorSource, ErrorText
+
+End Sub
 
 
 '
