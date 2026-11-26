@@ -390,6 +390,7 @@ function Invoke-QuickRun {
         }
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
+        Unregister-ExcelBusyRetry
     }
 
     # The 14 protection checks on a production workbook, unattended.
